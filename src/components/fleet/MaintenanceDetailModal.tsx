@@ -39,6 +39,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
   if (!isOpen || !log) return null;
 
   const handlePrint = () => {
+    document.body.classList.add('printing-maintenance-os');
     let nativeTriggered = false;
     try {
       window.focus();
@@ -46,6 +47,10 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
       nativeTriggered = true;
     } catch (e) {
       console.warn('Impressão nativa direta bloqueada pelo navegador/iframe:', e);
+    } finally {
+      setTimeout(() => {
+        document.body.classList.remove('printing-maintenance-os');
+      }, 1000);
     }
 
     if (!nativeTriggered) {
@@ -122,7 +127,10 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
   const locBadge = getLocationBadge(log.location);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
+    <div 
+      id="printable-os-overlay" 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static"
+    >
       <div 
         id="printable-os-container"
         className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:max-h-none print:shadow-none print:border-none print:rounded-none print:w-full"
