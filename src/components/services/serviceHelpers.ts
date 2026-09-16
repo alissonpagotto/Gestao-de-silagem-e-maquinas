@@ -47,33 +47,44 @@ export const isCaminhao = (m: Machinery): boolean => {
   );
 };
 
-export const findLinkedOperator = (m: Machinery, employees: Employee[]): { id: string; name: string } => {
-  // 1. Verifica IDs de motoristas vinculados no cadastro da frota
-  if (m.assignedDriverIds && m.assignedDriverIds.length > 0) {
-    const emp = employees.find((e) => e.id === m.assignedDriverIds![0]);
-    if (emp) return { id: emp.id, name: emp.name };
+export const findLinkedOperator = (m: Machinery | undefined | null, employees: Employee[] = []): { id: string; name: string } => {
+  if (!m) return { id: '', name: '' };
+
+  // 1. Verifica IDs de motoristas vinculados no cadastro da frota (assignedDriverIds)
+  if (Array.isArray(m.assignedDriverIds) && m.assignedDriverIds.length > 0) {
+    for (const dId of m.assignedDriverIds) {
+      if (dId && typeof dId === 'string') {
+        const emp = employees.find((e) => e.id === dId);
+        if (emp) return { id: emp.id, name: emp.name };
+      }
+    }
   }
 
-  // 2. Verifica lista de nomes de motoristas vinculados
-  if (m.assignedDrivers && m.assignedDrivers.length > 0) {
-    const driverName = m.assignedDrivers[0].trim();
-    const emp = employees.find((e) => e.name.toLowerCase() === driverName.toLowerCase());
-    if (emp) return { id: emp.id, name: emp.name };
-    return { id: '', name: driverName };
+  // 2. Verifica lista de nomes de motoristas vinculados (assignedDrivers)
+  if (Array.isArray(m.assignedDrivers) && m.assignedDrivers.length > 0) {
+    for (const dName of m.assignedDrivers) {
+      if (dName && typeof dName === 'string' && dName.trim()) {
+        const cleanName = dName.trim();
+        const emp = employees.find((e) => e.name.toLowerCase() === cleanName.toLowerCase());
+        if (emp) return { id: emp.id, name: emp.name };
+        return { id: '', name: cleanName };
+      }
+    }
   }
 
-  // 3. Verifica campo de texto 'operatorOrDriver' (inclui Terceirizados / Prestadores)
-  if (m.operatorOrDriver && m.operatorOrDriver.trim()) {
+  // 3. Verifica campo de texto 'operatorOrDriver' (inclui Terceirizados / Prestadores / Motorista Fixo)
+  if (m.operatorOrDriver && typeof m.operatorOrDriver === 'string' && m.operatorOrDriver.trim()) {
     const raw = m.operatorOrDriver.trim();
-    // Procura por correspondência exata ou parcial com algum funcionário/terceirizado
+    const primaryName = raw.split(/[,;/]/)[0].trim();
     const emp = employees.find(
       (e) =>
         e.name.toLowerCase() === raw.toLowerCase() ||
+        e.name.toLowerCase() === primaryName.toLowerCase() ||
         raw.toLowerCase().includes(e.name.toLowerCase()) ||
         e.name.toLowerCase().includes(raw.toLowerCase())
     );
     if (emp) return { id: emp.id, name: emp.name };
-    return { id: '', name: raw };
+    return { id: '', name: primaryName || raw };
   }
 
   return { id: '', name: '' };

@@ -25,7 +25,15 @@ import {
   AgendaVehicleAssignment, 
   AgendaTeamMember 
 } from '../../types';
-import { isForrageira, isCaminhao, isTrator, formatMachineryOptionLabel, formatTruckOptionLabel } from './serviceHelpers';
+import { 
+  isForrageira, 
+  isCaminhao, 
+  isTrator, 
+  formatMachineryOptionLabel, 
+  formatTruckOptionLabel,
+  findLinkedOperator 
+} from './serviceHelpers';
+import { getStoredMachineries } from '../../lib/storage';
 
 interface AppointmentFormModalProps {
   isOpen: boolean;
@@ -81,9 +89,25 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   // Erro ou conflito forçado
   const [conflictWarningAck, setConflictWarningAck] = useState(false);
 
-  // Lista de máquinas disponíveis consolidando cadastro de frotas e sugestões padrão da frota
+  // Lista de máquinas disponíveis consolidando cadastro de frotas (prop + storage) e sugestões padrão da frota
   const availableMachineries = useMemo(() => {
     const list: Machinery[] = [...machineries];
+
+    // Sincroniza veículos salvos no storage de Gestão de Frotas
+    try {
+      const stored = getStoredMachineries();
+      (stored || []).forEach(sm => {
+        const existingIdx = list.findIndex(m => m.id === sm.id);
+        if (existingIdx >= 0) {
+          list[existingIdx] = { ...list[existingIdx], ...sm };
+        } else {
+          list.push(sm);
+        }
+      });
+    } catch (e) {
+      console.error('Erro ao ler frotas do storage', e);
+    }
+
     const defaultSuggestions: Machinery[] = [
       {
         id: 'veh_forr_05_2023',
@@ -136,6 +160,49 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     return list;
   }, [machineries]);
 
+  // Helper de busca automática (LOOKUP) na tabela "Gestão de Frotas > Veículos"
+  const lookupFleetVehicle = (vehicleId: string): Machinery | undefined => {
+    if (!vehicleId) return undefined;
+    const fromAvailable = availableMachineries.find(m => m.id === vehicleId);
+    if (fromAvailable) return fromAvailable;
+
+    const fromProp = machineries.find(m => m.id === vehicleId);
+    if (fromProp) return fromProp;
+
+    try {
+      const stored = getStoredMachineries();
+      const fromStored = (stored || []).find(m => m.id === vehicleId);
+      if (fromStored) return fromStored;
+    } catch (e) {
+      console.error(e);
+    }
+
+    return undefined;
+  };
+
+  // Manipulador ao selecionar a Máquina Principal com regra de LOOKUP de motorista/operador
+  const handlePrimaryMachineryChange = (newMachId: string) => {
+    setPrimaryMachineryId(newMachId);
+
+    // REGRA DE AUTOMAÇÃO (LOOKUP): busca o operador pré-vinculado no cadastro do veículo em Frotas
+    if (newMachId) {
+      const selectedMach = lookupFleetVehicle(newMachId);
+      if (selectedMach) {
+        const linkedOp = findLinkedOperator(selectedMach, employees);
+        if (linkedOp.id) {
+          setPrimaryOperatorId(linkedOp.id);
+        } else if (linkedOp.name) {
+          const matchedEmp = employees.find(e => 
+            e.name.trim().toLowerCase() === linkedOp.name.trim().toLowerCase()
+          );
+          if (matchedEmp) {
+            setPrimaryOperatorId(matchedEmp.id);
+          }
+        }
+      }
+    }
+  };
+
   // Inicialização ao abrir modal (Novo ou Edição)
   useEffect(() => {
     if (editAppointment) {
@@ -168,9 +235,21 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setStatus(editAppointment.status || 'agendado');
       setFieldNotes(editAppointment.fieldNotes || '');
 
-      // Procura operador principal na equipe
+      // Procura operador principal na equipe ou faz o LOOKUP automático na máquina
       const op = editAppointment.assignedTeam?.find(t => t.role.toLowerCase().includes('forrageira') || t.role.toLowerCase().includes('principal'));
-      if (op) setPrimaryOperatorId(op.employeeId);
+      if (op && op.employeeId) {
+        setPrimaryOperatorId(op.employeeId);
+      } else if (matchingMach) {
+        const linkedOp = findLinkedOperator(matchingMach, employees);
+        if (linkedOp.id) {
+          setPrimaryOperatorId(linkedOp.id);
+        } else if (linkedOp.name) {
+          const matchedEmp = employees.find(e => 
+            e.name.trim().toLowerCase() === linkedOp.name.trim().toLowerCase()
+          );
+          if (matchedEmp) setPrimaryOperatorId(matchedEmp.id);
+        }
+      }
     } else {
       setAppointmentNumber(nextAppointmentNumber);
       setClientId('');
@@ -187,14 +266,21 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setEstimatedQuantity(20);
       setProductivityRatePerHour(1.5);
 
-      // Pré-seleciona a primeira forrageira disponível se houver
+      // Pré-seleciona a primeira forrageira disponível se houver e busca o operador vinculado
       const firstForr = availableMachineries.find(isForrageira) || availableMachineries[0];
       if (firstForr) {
         setPrimaryMachineryId(firstForr.id);
-        const prefix = firstForr.fleetNumber || firstForr.name || 'Forrageira 01';
-        const plate = firstForr.licensePlateOrSerial || firstForr.serialNumber || 'OFICIAL';
-        const op = employees[0];
-        setPrimaryOperatorId(op ? op.id : '');
+        const linkedOp = findLinkedOperator(firstForr, employees);
+        if (linkedOp.id) {
+          setPrimaryOperatorId(linkedOp.id);
+        } else if (linkedOp.name) {
+          const matchedEmp = employees.find(e => 
+            e.name.trim().toLowerCase() === linkedOp.name.trim().toLowerCase()
+          );
+          setPrimaryOperatorId(matchedEmp ? matchedEmp.id : (employees[0]?.id || ''));
+        } else {
+          setPrimaryOperatorId(employees[0]?.id || '');
+        }
       } else {
         setPrimaryMachineryId('');
         setPrimaryOperatorId('');
@@ -319,18 +405,26 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   // Manipulação de Veículos de Apoio (Caminhões e Tratores)
   const handleAddVehicle = (category: 'caminhao' | 'trator' | 'prancha') => {
     // Acha um veículo adequado da frota não adicionado ainda
-    const available = machineries.filter(m => {
+    const available = availableMachineries.filter(m => {
       if (category === 'caminhao') return isCaminhao(m);
       if (category === 'trator') return isTrator(m);
       return true;
     }).filter(m => !allCurrentVehicleIds.includes(m.id));
 
-    const selected = available[0] || machineries[0];
+    const selected = available[0] || availableMachineries.find(m => {
+      if (category === 'caminhao') return isCaminhao(m);
+      if (category === 'trator') return isTrator(m);
+      return true;
+    }) || availableMachineries[0];
+
     if (!selected) return;
 
     const prefix = selected.fleetNumber || selected.name || (category === 'caminhao' ? 'Caminhão' : 'Trator');
     const plate = selected.licensePlateOrSerial || selected.serialNumber || 'PLACA';
-    const driver = employees[0]?.name || '';
+
+    // REGRA DE AUTOMAÇÃO (LOOKUP): Busca o motorista/condutor vinculado ao veículo em Frotas
+    const linkedOp = findLinkedOperator(selected, employees);
+    const driver = linkedOp.name || '';
 
     const newAssignment: AgendaVehicleAssignment = {
       machineryId: selected.id,
@@ -338,6 +432,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       plateOrSerial: plate,
       model: selected.model || selected.name || '',
       category: category,
+      driverOrOperatorId: linkedOp.id || '',
       driverOrOperatorName: driver,
     };
 
@@ -347,17 +442,28 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   const handleUpdateVehicle = (index: number, field: keyof AgendaVehicleAssignment, value: any) => {
     const updated = [...assignedVehicles];
     if (field === 'machineryId') {
-      const selected = machineries.find(m => m.id === value);
+      const selected = lookupFleetVehicle(value);
       if (selected) {
+        // REGRA DE AUTOMAÇÃO (LOOKUP): Sempre que o usuário selecionar um veículo no campo "FROTA / PREFIXO & PLACA",
+        // o campo "MOTORISTA / CONDUTOR" deve ser preenchido AUTOMATICAMENTE com o nome do motorista daquele veículo em frotas
+        const linkedOp = findLinkedOperator(selected, employees);
         updated[index] = {
           ...updated[index],
           machineryId: selected.id,
           prefix: selected.fleetNumber || selected.name,
           plateOrSerial: selected.licensePlateOrSerial || selected.serialNumber || 'OFICIAL',
           model: selected.model || selected.name,
+          driverOrOperatorId: linkedOp.id || '',
+          driverOrOperatorName: linkedOp.name || '',
+        };
+      } else {
+        updated[index] = {
+          ...updated[index],
+          machineryId: value,
         };
       }
     } else {
+      // Permite que o usuário altere manualmente o nome do condutor caso outro vá dirigir
       updated[index] = { ...updated[index], [field]: value };
     }
     setAssignedVehicles(updated);
@@ -817,7 +923,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   </label>
                   <select
                     value={primaryMachineryId}
-                    onChange={(e) => setPrimaryMachineryId(e.target.value)}
+                    onChange={(e) => handlePrimaryMachineryChange(e.target.value)}
                     className="w-full p-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-extrabold text-stone-900 dark:text-stone-100"
                     required
                   >
@@ -882,7 +988,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                         onChange={(e) => handleUpdateVehicle(idx, 'machineryId', e.target.value)}
                         className="w-full p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded text-xs font-bold"
                       >
-                        {machineries.map(m => (
+                        {availableMachineries.map(m => (
                           <option key={m.id} value={m.id}>
                             {m.fleetNumber ? `[${m.fleetNumber}] ` : ''}{m.licensePlateOrSerial || m.serialNumber} - {m.model || m.name}
                           </option>
