@@ -22,14 +22,15 @@ import {
   Layers,
   ArrowUpRight,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertCircle
 } from 'lucide-react';
 import { 
   ServiceAppointment, 
   Machinery, 
   Employee, 
   Client, 
-  CompanyProfile,
+  CompanyProfile, 
   FleetTeam 
 } from '../../types';
 import { 
@@ -39,7 +40,7 @@ import {
   saveStoredFleetTeams,
   formatDateBR 
 } from '../../lib/storage';
-import { deleteAgendamento } from '../../lib/supabaseService';
+import { deleteAgendamento, deleteFrente, upsertFrente } from '../../lib/supabaseService';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
 import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
@@ -53,46 +54,56 @@ interface ServiceAgendaModuleProps {
   onExecuteAppointment: (appointment: ServiceAppointment) => void;
 }
 
+// Cores das Frentes de Colheita (mantendo estritamente verde, amarelo e bege/laranja)
+const FRONT_COLOR_PALETTES = [
+  { headerBgColor: '#fef08a', columnBgColor: '#fefce8', borderColor: '#ca8a04' }, // Amarelo Claro
+  { headerBgColor: '#fed7aa', columnBgColor: '#fff7ed', borderColor: '#ea580c' }, // Laranja / Bege
+  { headerBgColor: '#bbf7d0', columnBgColor: '#f0fdf4', borderColor: '#16a34a' }, // Verde Pastel
+  { headerBgColor: '#fde047', columnBgColor: '#fef9c3', borderColor: '#eab308' }, // Amarelo Ouro
+  { headerBgColor: '#fef3c7', columnBgColor: '#fffbeb', borderColor: '#d97706' }, // Bege Âmbar
+  { headerBgColor: '#dcfce7', columnBgColor: '#f0fdf4', borderColor: '#22c55e' }, // Verde Claro
+];
+
 // Colunas padrão de Máquinas Principais correspondentes às frentes ativas
 const DEFAULT_MACHINE_COLUMNS = [
   {
     id: 'team_maq_02',
-    name: 'Maq 02',
+    name: '[ION JER MAQ 10]',
     headerBgColor: '#fef08a',
     columnBgColor: '#fefce8',
     borderColor: '#ca8a04',
     machineryId: 'veh_forr_05_2023',
-    machineryName: 'FORR 05 2023 (Claas 870)',
+    machineryName: '[ION JER MAQ 10]',
     frontNumber: 1,
   },
   {
     id: 'team_maq_03',
-    name: 'Maq 03',
+    name: '[JF MAQ1] JF MAQ1',
     headerBgColor: '#fed7aa',
     columnBgColor: '#fff7ed',
     borderColor: '#ea580c',
     machineryId: 'veh_colh_02_2022',
-    machineryName: 'COLH 02 2022 (Claas 860)',
+    machineryName: '[JF MAQ1] JF MAQ1',
     frontNumber: 2,
   },
   {
     id: 'team_maq_04',
-    name: 'Maq 04',
+    name: '[MF 1000 MAQ] MF 1000 MAQ1',
     headerBgColor: '#bbf7d0',
     columnBgColor: '#f0fdf4',
     borderColor: '#16a34a',
     machineryId: 'veh_trator_jd_6110',
-    machineryName: 'Trator JD 6110J + JF C120',
+    machineryName: '[MF 1000 MAQ] MF 1000 MAQ1',
     frontNumber: 3,
   },
   {
     id: 'team_maq_05',
-    name: 'Maq 05',
+    name: '[NEW HOLLAND MAQ 14] NEW HOLLAND MAQ14',
     headerBgColor: '#fde047',
     columnBgColor: '#fef9c3',
     borderColor: '#eab308',
     machineryId: 'veh_evd_2j61',
-    machineryName: 'Frota MB 2726 + Suporte',
+    machineryName: '[NEW HOLLAND MAQ 14] NEW HOLLAND MAQ14',
     frontNumber: 4,
   },
 ];
@@ -267,9 +278,23 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     machineryId?: string;
   } | null>(null);
 
-  // Confirmação de Exclusão (Regras 1, 2 e 3)
+  // Confirmação de Exclusão de Agendamentos (Regras 1, 2 e 3)
   const [appointmentToDelete, setAppointmentToDelete] = useState<ServiceAppointment | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Exclusão e Gerenciamento de Frentes (Colunas)
+  const [frontToDelete, setFrontToDelete] = useState<{
+    id: string;
+    name: string;
+    machineryId?: string;
+    machineryName?: string;
+    headerBgColor?: string;
+    columnBgColor?: string;
+    borderColor?: string;
+    frontNumber?: number;
+  } | null>(null);
+  const [isDeletingFront, setIsDeletingFront] = useState(false);
+  const [frontDeleteBlocked, setFrontDeleteBlocked] = useState<string | null>(null);
 
   // Sincronização e persistência
   useEffect(() => {
@@ -457,6 +482,22 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     }
   };
 
+  const saveColumns = (newCols: typeof columnsList) => {
+    setColumnsList(newCols);
+    const newTeams: FleetTeam[] = newCols.map((c, idx) => ({
+      id: c.id,
+      name: c.machineryName || c.name,
+      machineryId: c.machineryId,
+      machineryName: c.machineryName,
+      headerBgColor: c.headerBgColor,
+      columnBgColor: c.columnBgColor,
+      borderColor: c.borderColor,
+      order: idx + 1,
+      createdAt: new Date().toISOString(),
+    }));
+    saveStoredFleetTeams(newTeams);
+  };
+
   const handleDrop = (e: React.DragEvent, targetCol: typeof machineColumns[0]) => {
     e.preventDefault();
     const apptId = e.dataTransfer.getData('text/plain') || draggedApptId;
@@ -473,7 +514,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         return {
           ...a,
           primaryMachineryId: targetCol.machineryId || targetCol.id,
-          primaryMachineryPrefix: `${targetCol.name} - ${targetCol.machineryName || ''}`.trim(),
+          primaryMachineryPrefix: targetCol.machineryName || targetCol.name,
         };
       }
       return a;
@@ -495,6 +536,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       if (c.id === selectedColumnForVehicle.id) {
         return {
           ...c,
+          name: formattedMachName,
           machineryId: vehicle.id,
           machineryName: formattedMachName,
         };
@@ -502,39 +544,93 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       return c;
     });
 
-    setColumnsList(updatedCols);
+    saveColumns(updatedCols);
 
-    // Salva nas frotas
-    const currentStoredTeams = getStoredFleetTeams();
-    if (currentStoredTeams && currentStoredTeams.length > 0) {
-      const updatedTeams = currentStoredTeams.map(t => {
-        if (t.id === selectedColumnForVehicle.id) {
-          return {
-            ...t,
-            machineryId: vehicle.id,
-            machineryName: formattedMachName,
-          };
-        }
-        return t;
-      });
-      saveStoredFleetTeams(updatedTeams);
-    } else {
-      const newTeams: FleetTeam[] = updatedCols.map((c, idx) => ({
-        id: c.id,
-        name: c.name,
-        machineryId: c.machineryId,
-        machineryName: c.machineryName,
-        headerBgColor: c.headerBgColor,
-        columnBgColor: c.columnBgColor,
-        borderColor: c.borderColor,
-        order: idx + 1,
-        createdAt: new Date().toISOString(),
-      }));
-      saveStoredFleetTeams(newTeams);
+    // Sincroniza com o Supabase se configurado
+    const selectedUpdatedCol = updatedCols.find(c => c.id === selectedColumnForVehicle.id);
+    if (selectedUpdatedCol) {
+      upsertFrente({
+        id: selectedUpdatedCol.id,
+        name: formattedMachName,
+        machineryId: vehicle.id,
+        machineryName: formattedMachName,
+        headerBgColor: selectedUpdatedCol.headerBgColor,
+        columnBgColor: selectedUpdatedCol.columnBgColor,
+        borderColor: selectedUpdatedCol.borderColor,
+        frontNumber: selectedUpdatedCol.frontNumber,
+      }).catch(err => console.warn('Supabase upsertFrente notice:', err));
     }
 
     setIsVehicleSearchModalOpen(false);
     setSelectedColumnForVehicle(null);
+  };
+
+  // 1. Botão de Incluir Frente (Cria nova coluna vazia no final do quadro, Ex: Frente #5)
+  const handleAddFront = () => {
+    const nextFrontNumber = columnsList.length + 1;
+    const paletteIndex = (nextFrontNumber - 1) % FRONT_COLOR_PALETTES.length;
+    const palette = FRONT_COLOR_PALETTES[paletteIndex];
+    const newId = `frente_${Date.now()}`;
+
+    const newColumn = {
+      id: newId,
+      name: `Frente #${nextFrontNumber}`,
+      machineryId: '',
+      machineryName: '',
+      headerBgColor: palette.headerBgColor,
+      columnBgColor: palette.columnBgColor,
+      borderColor: palette.borderColor,
+      frontNumber: nextFrontNumber,
+    };
+
+    const updated = [...columnsList, newColumn];
+    saveColumns(updated);
+
+    upsertFrente({
+      id: newId,
+      name: newColumn.name,
+      machineryId: '',
+      machineryName: '',
+      headerBgColor: newColumn.headerBgColor,
+      columnBgColor: newColumn.columnBgColor,
+      borderColor: newColumn.borderColor,
+      frontNumber: newColumn.frontNumber,
+    }).catch(err => console.warn('Supabase upsertFrente notice:', err));
+  };
+
+  // 2. Botão de Excluir Frente (Ícone discreto de lixeira, só permite se não houver agendamentos vinculados)
+  const handleDeleteFrontClick = (col: (typeof columnsList)[0]) => {
+    const linked = appointmentsByColumn[col.id] || [];
+    if (linked.length > 0) {
+      setFrontDeleteBlocked(
+        `A Frente #${col.frontNumber || 1} (${col.machineryName || col.name}) possui ${linked.length} agendamento(s) vinculado(s). Para garantir a integridade dos dados, realoque ou exclua os agendamentos antes de remover esta frente.`
+      );
+      return;
+    }
+    setFrontToDelete(col);
+  };
+
+  const handleConfirmDeleteFront = async () => {
+    if (!frontToDelete) return;
+    const targetId = frontToDelete.id;
+    setIsDeletingFront(true);
+
+    try {
+      await deleteFrente(targetId);
+    } catch (err) {
+      console.warn('Supabase deleteFrente notice:', err);
+    }
+
+    const updated = columnsList
+      .filter(c => c.id !== targetId)
+      .map((c, idx) => ({
+        ...c,
+        frontNumber: idx + 1,
+      }));
+
+    saveColumns(updated);
+    setIsDeletingFront(false);
+    setFrontToDelete(null);
   };
 
   // Manipuladores de Ação
@@ -801,14 +897,28 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           {/* Moldura Externa idêntica ao quadro de Equipes */}
           <div className="min-w-[840px] border-3 border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-md bg-white dark:bg-stone-950">
             
-            {/* 1. TOPO DA MOLDURA: Cabeçalho com título e contadores */}
-            <div className="bg-[#ffedd5] dark:bg-amber-950 text-stone-950 dark:text-amber-100 py-2.5 px-4 border-b-3 border-black dark:border-stone-700 text-center relative flex items-center justify-center">
-              <h3 className="text-base sm:text-lg font-black tracking-wide font-['Outfit']">
-                Agenda Operacional por Máquinas & Frentes de Colheita
-              </h3>
-              <span className="absolute right-4 text-xs font-bold text-stone-600 dark:text-amber-300 hidden sm:inline">
-                Total: {filteredAppointments.length} Agendamentos em {machineColumns.length} Frentes
-              </span>
+            {/* 1. TOPO DA MOLDURA: Cabeçalho com título, contadores e botão + Nova Frente */}
+            <div className="bg-[#ffedd5] dark:bg-amber-950 text-stone-950 dark:text-amber-100 py-2.5 px-4 border-b-3 border-black dark:border-stone-700 relative flex flex-wrap items-center justify-between gap-2">
+              <div className="flex-1 text-center sm:text-left sm:pl-2">
+                <h3 className="text-base sm:text-lg font-black tracking-wide font-['Outfit']">
+                  Agenda Operacional por Máquinas & Frentes de Colheita
+                </h3>
+              </div>
+              <div className="flex items-center gap-3 ml-auto">
+                <span className="text-xs font-bold text-stone-600 dark:text-amber-300 hidden md:inline">
+                  Total: {filteredAppointments.length} Agendamentos em {machineColumns.length} Frentes
+                </span>
+                {/* Botão de Incluir Frente no topo direito do quadro */}
+                <button
+                  type="button"
+                  onClick={handleAddFront}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border border-emerald-700"
+                  title="Criar nova frente de colheita"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>+ Nova Frente</span>
+                </button>
+              </div>
             </div>
 
             {/* 2. GRID DE COLUNAS LADO A LADO POR MÁQUINA PRINCIPAL */}
@@ -838,7 +948,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                       backgroundColor: isDragOver ? undefined : col.columnBgColor || '#fefce8'
                     }}
                   >
-                    {/* Cabeçalho da Coluna: Frente #X, Nome da Máquina (Maq 02, Maq 03, etc.) */}
+                    {/* Cabeçalho da Coluna: Frente #X, Botão Excluir Frente, Título Principal com Nome/Prefixo da Máquina */}
                     <div
                       className="p-2.5 border-b-3 border-black dark:border-stone-700 flex flex-col justify-between items-center text-center select-none"
                       style={{
@@ -847,14 +957,28 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                       }}
                     >
                       <div className="w-full flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-black/60">
-                          Frente #{col.frontNumber || idx + 1}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-black/70">
+                            Frente #{col.frontNumber || idx + 1}
+                          </span>
+                          {/* Botão de Excluir Frente (Ícone discreto de lixeira) */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFrontClick(col);
+                            }}
+                            title={`Excluir Frente #${col.frontNumber || idx + 1}`}
+                            className="p-0.5 text-black/40 hover:text-red-700 hover:bg-red-500/15 rounded transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
 
                         <button
                           type="button"
-                          onClick={() => handleCreateNew(col.machineryId, col.name)}
-                          title={`Novo agendamento para ${col.name}`}
+                          onClick={() => handleCreateNew(col.machineryId, col.machineryName || col.name)}
+                          title={`Novo agendamento para ${col.machineryName || `Frente #${col.frontNumber || idx + 1}`}`}
                           className="flex items-center space-x-0.5 hover:text-black transition cursor-pointer text-[10px] font-black underline"
                         >
                           <Plus className="w-3 h-3 inline" />
@@ -862,31 +986,27 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                         </button>
                       </div>
 
-                      <div className="flex items-center justify-center gap-1.5 my-0.5">
-                        <h4 className="text-base sm:text-lg font-black text-black tracking-tight font-['Outfit']">
-                          {col.name}
-                        </h4>
+                      {/* Título Principal: Exibe diretamente o Nome e Placa/Prefixo da Máquina (substituindo o antigo texto fixo Maq XX) */}
+                      <div className="flex items-center justify-center gap-1.5 my-1 w-full px-1">
                         <button
                           type="button"
                           onClick={() => handleOpenVehicleSearch(col)}
-                          title={`Vincular/Trocar máquina para ${col.name} (Buscar em Frotas)`}
-                          className="p-1 rounded-md bg-black/5 hover:bg-black/15 active:scale-95 transition-all cursor-pointer flex items-center justify-center border border-black/15 shadow-2xs group"
+                          title="Clique para selecionar ou trocar a máquina desta frente em Frotas"
+                          className="text-xs sm:text-sm font-black text-black tracking-tight font-['Outfit'] truncate hover:underline cursor-pointer max-w-[85%]"
+                        >
+                          {col.machineryName || 'Selecionar Máquina'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenVehicleSearch(col)}
+                          title="Vincular ou trocar máquina (Buscar em Frotas)"
+                          className="p-1 rounded-md bg-black/5 hover:bg-black/15 active:scale-95 transition-all cursor-pointer flex items-center justify-center border border-black/15 shadow-2xs group shrink-0"
                         >
                           <ForageHarvesterIcon className="w-5 h-4.5 group-hover:scale-110 transition-transform" />
                         </button>
                       </div>
 
-                      {col.machineryName && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenVehicleSearch(col)}
-                          title="Clique para trocar máquina em Frotas"
-                          className="text-[11px] font-semibold text-black/75 hover:text-black hover:underline truncate max-w-full px-1 transition-colors cursor-pointer"
-                        >
-                          🚜 {col.machineryName}
-                        </button>
-                      )}
-
+                      {/* Indicador de serviços e área calculada */}
                       <div className="mt-1 flex items-center justify-between w-full text-[10px] font-bold text-black/70 border-t border-black/15 pt-1">
                         <span>{colAppointments.length} {colAppointments.length === 1 ? 'serviço' : 'serviços'}</span>
                         {totalHectaresCol > 0 ? (
@@ -900,7 +1020,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                     {/* Indicador visual de Drag Over */}
                     {isDragOver && (
                       <div className="p-3 m-2 border-2 border-dashed border-black rounded-lg text-center text-xs font-black text-black bg-amber-200/60 animate-pulse">
-                        Mover agendamento para {col.name}
+                        Mover agendamento para {col.machineryName || col.name}
                       </div>
                     )}
 
@@ -915,7 +1035,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                           </span>
                           <button
                             type="button"
-                            onClick={() => handleCreateNew(col.machineryId, col.name)}
+                            onClick={() => handleCreateNew(col.machineryId, col.machineryName || col.name)}
                             className="mt-3 px-3 py-1 bg-black/10 hover:bg-black/20 rounded text-[11px] font-bold text-black transition cursor-pointer"
                           >
                             + Agendar
@@ -1363,6 +1483,118 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Excluindo...' : 'Excluir Agendamento'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. MODAL DE ALERTA: EXCLUSÃO DE FRENTE BLOQUEADA (POSSUI AGENDAMENTOS VINCULADOS) */}
+      {frontDeleteBlocked && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setFrontDeleteBlocked(null)}
+        >
+          <div 
+            className="w-full max-w-md bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 rounded-xl shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-stone-900 dark:text-stone-100">
+                  Exclusão Não Permitida
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                  {frontDeleteBlocked}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-stone-100 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setFrontDeleteBlocked(null)}
+                className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 active:scale-95 rounded-lg transition-all shadow-xs cursor-pointer"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE FRENTE (COLUNA VAZIA) */}
+      {frontToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => !isDeletingFront && setFrontToDelete(null)}
+        >
+          <div 
+            className="w-full max-w-md bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 bg-red-100 dark:bg-red-950/80 text-red-600 dark:text-red-400 rounded-xl shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-stone-900 dark:text-stone-100">
+                  Excluir Frente Operacional
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                  Tem certeza que deseja excluir a{' '}
+                  <strong className="text-stone-900 dark:text-stone-100 font-extrabold">
+                    Frente #{frontToDelete.frontNumber}
+                  </strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-700/60 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                <span>Coluna / Frente:</span>
+                <span className="font-bold text-stone-800 dark:text-stone-200">
+                  Frente #{frontToDelete.frontNumber}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                <span>Máquina Vinculada:</span>
+                <span className="font-semibold text-stone-800 dark:text-stone-200 truncate max-w-[200px]">
+                  {frontToDelete.machineryName || 'Nenhuma (Sem Máquina)'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                <span>Agendamentos Vinculados:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  0 (Coluna Vazia)
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-stone-400 dark:text-stone-500">
+              Esta ação removerá a coluna inteira da agenda operacional e do banco de dados.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-stone-100 dark:border-stone-800">
+              <button
+                type="button"
+                disabled={isDeletingFront}
+                onClick={() => setFrontToDelete(null)}
+                className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingFront}
+                onClick={handleConfirmDeleteFront}
+                className="px-4 py-2 text-xs font-black text-white bg-red-600 hover:bg-red-700 active:scale-95 rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingFront ? 'Excluindo...' : 'Excluir Frente'}</span>
               </button>
             </div>
           </div>

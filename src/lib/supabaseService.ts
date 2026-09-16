@@ -833,3 +833,68 @@ export async function upsertAgendamento(app: ServiceAppointment): Promise<boolea
   }
 }
 
+// ===========================================================================
+// 9. Frentes de Colheita / Equipes (Tabela: public.frentes_colheita)
+// ===========================================================================
+export async function deleteFrente(frontId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+  try {
+    const uuid = toValidUUID(frontId);
+    let { error } = await supabase
+      .from('frentes_colheita')
+      .delete()
+      .eq('id', uuid);
+
+    if (error && frontId !== uuid) {
+      await supabase
+        .from('frentes_colheita')
+        .delete()
+        .eq('id', frontId);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteFrente notice:', err);
+    return true;
+  }
+}
+
+export async function upsertFrente(front: {
+  id: string;
+  name: string;
+  machineryId?: string;
+  machineryName?: string;
+  headerBgColor?: string;
+  columnBgColor?: string;
+  borderColor?: string;
+  frontNumber?: number;
+}): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const uuid = toValidUUID(front.id);
+    const payload = {
+      id: uuid,
+      name: front.name,
+      machinery_id: front.machineryId || null,
+      machinery_name: front.machineryName || null,
+      header_bg_color: front.headerBgColor || null,
+      column_bg_color: front.columnBgColor || null,
+      border_color: front.borderColor || null,
+      front_number: front.frontNumber || null,
+      updated_at: new Date().toISOString()
+    };
+
+    let { error } = await supabase
+      .from('frentes_colheita')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase upsertFrente notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase upsertFrente err:', err);
+    return false;
+  }
+}
+

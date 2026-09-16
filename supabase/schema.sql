@@ -182,6 +182,20 @@ CREATE TABLE IF NOT EXISTS public.agendamentos (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 9. TABELA: frentes_colheita (Frentes / Colunas da Agenda Operacional)
+CREATE TABLE IF NOT EXISTS public.frentes_colheita (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    machinery_id TEXT,
+    machinery_name TEXT,
+    header_bg_color TEXT,
+    column_bg_color TEXT,
+    border_color TEXT,
+    front_number INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ==============================================================================
 -- FUNÇÃO & TRIGGER: Atualização Automática de updated_at
 -- ==============================================================================
@@ -228,9 +242,19 @@ ALTER TABLE public.estoque ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_funcionarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gestao_frotas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agendamentos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.frentes_colheita ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
+    -- Agendamentos
+    DROP POLICY IF EXISTS "Permissao Total Agendamentos" ON public.agendamentos;
+    CREATE POLICY "Permissao Total Agendamentos" ON public.agendamentos FOR ALL USING (true) WITH CHECK (true);
+
+    -- Frentes de Colheita
+    DROP POLICY IF EXISTS "Permissao Total Frentes" ON public.frentes_colheita;
+    CREATE POLICY "Permissao Total Frentes" ON public.frentes_colheita FOR ALL USING (true) WITH CHECK (true);
+
     -- Fornecedores
     DROP POLICY IF EXISTS "Permissao Total Fornecedores" ON public.fornecedores;
     CREATE POLICY "Permissao Total Fornecedores" ON public.fornecedores FOR ALL USING (true) WITH CHECK (true);
