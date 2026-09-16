@@ -330,44 +330,42 @@
     overflow: visible !important;
   }
 
-  /* 1. Oculta todos os componentes externos do sistema (Navbar, Sidebar, Frotas, Cards e Tabelas) */
+  /* 1. Oculta toda a aplicação (#root) para sumir completamente com o sistema (Sidebar, Navbar, Tabelas, Filtros)
+        O modal é montado diretamente no body via createPortal, ficando imune a essa ocultação */
+  body.printing-maintenance-os > #root,
+  body:has(#printable-os-overlay) > #root,
+  body:has(#printable-os) > #root,
   body.printing-maintenance-os header,
   body.printing-maintenance-os aside,
   body.printing-maintenance-os nav,
-  body.printing-maintenance-os main,
   body.printing-maintenance-os #main-sidebar,
   body.printing-maintenance-os #top-bar-container,
-  body.printing-maintenance-os .crm-card,
-  body.printing-maintenance-os table:not(#printable-os table),
-  body.printing-maintenance-os #root > div:not(:has(#printable-os-overlay)),
   body:has(#printable-os) header,
   body:has(#printable-os) aside,
   body:has(#printable-os) nav,
-  body:has(#printable-os) main,
   body:has(#printable-os) #main-sidebar,
-  body:has(#printable-os) #top-bar-container,
-  body:has(#printable-os) .crm-card,
-  body:has(#printable-os) table:not(#printable-os table) {
+  body:has(#printable-os) #top-bar-container {
     display: none !important;
   }
 
-  /* 2. Oculta cabeçalho interno com botões de ação (Imprimir / Fechar) dentro do modal */
-  body.printing-maintenance-os #printable-os-overlay .print\:hidden,
-  body.printing-maintenance-os #printable-os-overlay .print\:hidden *,
-  body:has(#printable-os) #printable-os-overlay .print\:hidden,
-  body:has(#printable-os) #printable-os-overlay .print\:hidden * {
+  /* 2. Oculta estritamente a barra de ferramentas do modal (botões Baixar PDF, Imprimir e Fechar) */
+  #printable-os-overlay .print\:hidden,
+  #printable-os-overlay .print\:hidden * {
     display: none !important;
+    visibility: hidden !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
-  /* 3. Força o overlay a se posicionar no topo absoluto da folha de papel A4 em fluxo limpo */
+  /* 3. Força exibição visível e em bloco para a OS e seus contêineres pais diretos */
+  #printable-os-overlay,
   body.printing-maintenance-os #printable-os-overlay,
-  body:has(#printable-os) #printable-os-overlay,
-  #printable-os-overlay {
+  body:has(#printable-os) #printable-os-overlay {
     position: static !important;
     display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     backdrop-filter: none !important;
@@ -381,12 +379,14 @@
     z-index: auto !important;
   }
 
-  /* 4. Container A4 ocupa 100% da largura, sem sombras, sem bordas nem espaçamentos excessivos */
+  /* 4. Container da folha A4 ocupa 100% da largura, sem sombras, sem bordas nem espaçamentos excessivos */
+  #printable-os-container,
   body.printing-maintenance-os #printable-os-container,
-  body:has(#printable-os) #printable-os-container,
-  #printable-os-container {
+  body:has(#printable-os) #printable-os-container {
     position: static !important;
     display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     width: 100% !important;
     max-width: 100% !important;
     max-height: none !important;
@@ -401,20 +401,31 @@
     padding: 0 !important;
   }
 
-  /* 5. Conteúdo da OS (com logo COLAÇA SILAGEM) ocupando via única estritamente em 1 página A4 */
-  #printable-os {
+  /* 5. Bloco da OS (com logo COLAÇA SILAGEM) ocupando via única estritamente em 1 página A4 */
+  #printable-os,
+  body.printing-maintenance-os #printable-os,
+  body:has(#printable-os) #printable-os {
+    position: static !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
-    display: block !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
     page-break-before: avoid !important;
     break-before: avoid !important;
+  }
+
+  /* Garante que todos os elementos e textos internos da OS estejam plenamente visíveis */
+  #printable-os,
+  #printable-os * {
+    visibility: visible !important;
   }
 
   /* Evita quebras de página internas nos blocos e assinaturas */

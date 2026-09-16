@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   Printer, 
@@ -40,8 +41,14 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
   companyProfile,
 }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen || !log) return null;
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!isOpen || !log || !mounted) return null;
 
   const handleExportPdf = async () => {
     const el = document.getElementById('printable-os');
@@ -65,6 +72,13 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
 
   const handlePrint = () => {
     document.body.classList.add('printing-maintenance-os');
+
+    const cleanUpPrint = () => {
+      document.body.classList.remove('printing-maintenance-os');
+      window.removeEventListener('afterprint', cleanUpPrint);
+    };
+    window.addEventListener('afterprint', cleanUpPrint);
+
     let nativeTriggered = false;
     try {
       window.focus();
@@ -74,8 +88,8 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
       console.warn('Impressão nativa direta bloqueada pelo navegador/iframe:', e);
     } finally {
       setTimeout(() => {
-        document.body.classList.remove('printing-maintenance-os');
-      }, 1000);
+        cleanUpPrint();
+      }, 3000);
     }
 
     if (!nativeTriggered) {
@@ -103,6 +117,8 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
                     * { box-sizing: border-box; }
                     .print\\:hidden { display: none !important; }
                     #printable-os { 
+                      display: block !important;
+                      visibility: visible !important;
                       width: 100% !important; 
                       max-width: 100% !important; 
                       padding: 0 !important; 
@@ -116,7 +132,9 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
                   <link rel="stylesheet" href="/src/index.css" />
                 </head>
                 <body>
-                  ${printContent.innerHTML}
+                  <div id="printable-os">
+                    ${printContent.innerHTML}
+                  </div>
                   <script>
                     window.onload = function() {
                       setTimeout(function() {
@@ -169,14 +187,14 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
 
   const locBadge = getLocationBadge(log.location);
 
-  return (
+  return createPortal(
     <div 
       id="printable-os-overlay" 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:!block print:!visible print:static print:w-full print:h-auto print:p-0 print:m-0 print:bg-white print:overflow-visible"
     >
       <div 
         id="printable-os-container"
-        className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:max-h-none print:shadow-none print:border-none print:rounded-none print:w-full"
+        className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 print:!block print:!visible print:static print:w-full print:h-auto print:max-h-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:bg-white print:overflow-visible"
       >
         
         {/* Header - Não impresso */}
@@ -226,7 +244,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
         </div>
 
         {/* Conteúdo Imprimível / Visualizável */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-stone-900 dark:text-stone-100 print:p-0 print:space-y-3.5 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid print:page-break-after-avoid" id="printable-os">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-stone-900 dark:text-stone-100 print:!block print:!visible print:w-full print:p-0 print:space-y-3.5 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid print:page-break-after-avoid" id="printable-os">
           
           {/* Cabeçalho Corporativo Padronizado */}
           <PrintReportHeader
@@ -418,6 +436,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

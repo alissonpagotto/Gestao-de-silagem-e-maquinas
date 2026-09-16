@@ -310,8 +310,10 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   return (
     <div className="w-full space-y-5 sm:space-y-6 animate-in fade-in duration-200">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
+      {/* Conteúdo da Tela de Manutenção - Oculto na Impressão da OS */}
+      <div className="w-full space-y-5 sm:space-y-6 print:hidden">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
         <div>
           <div className="flex items-center space-x-2">
             <Wrench style={{ color: '#823028' }} className="w-5 h-5 text-[#823028]" />
@@ -764,6 +766,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
             </tbody>
           </table>
         </div>
+      </div>
       </div>
 
       {/* Modal de Impressão / Detalhamento da OS */}
