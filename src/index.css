@@ -1,0 +1,590 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html.dark {
+    color-scheme: dark;
+  }
+  html:not(.dark) {
+    color-scheme: light;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+#printable-employee-sheet {
+  display: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 5mm 8mm;
+}
+
+@media print {
+  .no-print,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* FORÇAR NEGRITO GLOBAL NA IMPRESSÃO: ALTA LEGIBILIDADE FÍSICA NO PAPEL */
+  *, *::before, *::after {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+
+  body.printing-service-order *,
+  body.printing-service-order *::before,
+  body.printing-service-order *::after,
+  #printable-document-content,
+  #printable-document-content *,
+  #printable-document-content *::before,
+  #printable-document-content *::after,
+  .a4-sheet,
+  .a4-sheet *,
+  .a4-sheet *::before,
+  .a4-sheet *::after {
+    font-weight: 700 !important;
+  }
+
+  body.printing-service-order span,
+  body.printing-service-order p,
+  body.printing-service-order div,
+  body.printing-service-order td,
+  body.printing-service-order th,
+  body.printing-service-order label,
+  body.printing-service-order h1,
+  body.printing-service-order h2,
+  body.printing-service-order h3,
+  body.printing-service-order h4,
+  body.printing-service-order h5,
+  body.printing-service-order h6,
+  body.printing-service-order b,
+  body.printing-service-order strong,
+  body.printing-service-order small,
+  body.printing-service-order input,
+  body.printing-service-order select,
+  body.printing-service-order textarea,
+  #printable-document-content span,
+  #printable-document-content p,
+  #printable-document-content div,
+  #printable-document-content td,
+  #printable-document-content th,
+  #printable-document-content label,
+  #printable-document-content h1,
+  #printable-document-content h2,
+  #printable-document-content h3,
+  #printable-document-content h4,
+  #printable-document-content h5,
+  #printable-document-content h6,
+  #printable-document-content b,
+  #printable-document-content strong,
+  #printable-document-content small,
+  .a4-sheet span,
+  .a4-sheet p,
+  .a4-sheet div,
+  .a4-sheet td,
+  .a4-sheet th,
+  .a4-sheet label,
+  .a4-sheet h1,
+  .a4-sheet h2,
+  .a4-sheet h3,
+  .a4-sheet h4,
+  .a4-sheet h5,
+  .a4-sheet h6,
+  .a4-sheet b,
+  .a4-sheet strong,
+  .a4-sheet small {
+    font-weight: 700 !important;
+  }
+
+  body.printing-service-order h1,
+  body.printing-service-order h2,
+  body.printing-service-order h3,
+  body.printing-service-order h4,
+  body.printing-service-order th,
+  body.printing-service-order b,
+  body.printing-service-order strong,
+  body.printing-service-order .font-bold,
+  body.printing-service-order .font-extrabold,
+  body.printing-service-order .font-black,
+  #printable-document-content h1,
+  #printable-document-content h2,
+  #printable-document-content h3,
+  #printable-document-content h4,
+  #printable-document-content th,
+  #printable-document-content b,
+  #printable-document-content strong,
+  #printable-document-content .font-bold,
+  #printable-document-content .font-extrabold,
+  #printable-document-content .font-black,
+  .a4-sheet h1,
+  .a4-sheet h2,
+  .a4-sheet h3,
+  .a4-sheet h4,
+  .a4-sheet th,
+  .a4-sheet b,
+  .a4-sheet strong,
+  .a4-sheet .font-bold,
+  .a4-sheet .font-extrabold,
+  .a4-sheet .font-black {
+    font-weight: 800 !important;
+  }
+
+  body.printing-service-order .text-slate-400,
+  body.printing-service-order .text-slate-500,
+  body.printing-service-order .text-slate-600,
+  body.printing-service-order .text-gray-400,
+  body.printing-service-order .text-gray-500,
+  body.printing-service-order .text-gray-600,
+  body.printing-service-order .text-gray-700,
+  #printable-document-content .text-slate-400,
+  #printable-document-content .text-slate-500,
+  #printable-document-content .text-slate-600,
+  #printable-document-content .text-gray-400,
+  #printable-document-content .text-gray-500,
+  #printable-document-content .text-gray-600,
+  #printable-document-content .text-gray-700,
+  .a4-sheet .text-slate-400,
+  .a4-sheet .text-slate-500,
+  .a4-sheet .text-slate-600,
+  .a4-sheet .text-gray-400,
+  .a4-sheet .text-gray-500,
+  .a4-sheet .text-gray-600,
+  .a4-sheet .text-gray-700 {
+    color: #000000 !important;
+  }
+
+  /* Impressão isolada da Ordem de Serviço (Novo Corte de Silagem e demais abas) */
+  body.printing-service-order {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+
+  /* Oculta layout e elementos externos quando imprimindo a ordem de serviço */
+  body.printing-service-order #root > *:not(#printable-modal-overlay),
+  body.printing-service-order header,
+  body.printing-service-order nav,
+  body.printing-service-order aside,
+  body.printing-service-order .app-main-layout {
+    display: none !important;
+  }
+
+  /* =============================================================
+     ISOLAMENTO E ESTILO ESTRITO DE IMPRESSÃO DO RECIBO / HOLERITE
+     ============================================================= */
+
+  /* Ocultar estritamente o modal azul de edição de folha e elementos de formulário */
+  #payroll-edit-modal-overlay,
+  .print-hidden,
+  .print\:hidden,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Quando o holerite estiver ativo ou sendo impresso:
+     Ocultar layout geral, menus laterais, barras superiores e listagem de funcionários */
+  body.printing-payslip #root > *:not(#printable-payslip-overlay),
+  body.printing-payslip header,
+  body.printing-payslip nav,
+  body.printing-payslip aside,
+  body.printing-payslip main,
+  body.printing-payslip #main-sidebar,
+  body.printing-payslip #top-bar-container,
+  body.printing-payslip #payroll-edit-modal-overlay,
+  body.printing-payslip .crm-card,
+  body.printing-payslip table,
+  body.has-payslip-open #root > *:not(#printable-payslip-overlay),
+  body.has-payslip-open header,
+  body.has-payslip-open nav,
+  body.has-payslip-open aside,
+  body.has-payslip-open main,
+  body.has-payslip-open #main-sidebar,
+  body.has-payslip-open #top-bar-container,
+  body.has-payslip-open #payroll-edit-modal-overlay,
+  body.has-payslip-open .crm-card,
+  body.has-payslip-open table,
+  body:has(#printable-payslip) #root > *:not(#printable-payslip-overlay),
+  body:has(#printable-payslip) header,
+  body:has(#printable-payslip) nav,
+  body:has(#printable-payslip) aside,
+  body:has(#printable-payslip) main,
+  body:has(#printable-payslip) #main-sidebar,
+  body:has(#printable-payslip) #top-bar-container,
+  body:has(#printable-payslip) #payroll-edit-modal-overlay,
+  body:has(#printable-payslip) .crm-card,
+  body:has(#printable-payslip) table {
+    display: none !important;
+  }
+
+  /* Body limpo e branco no papel */
+  body.printing-payslip,
+  body.has-payslip-open,
+  body:has(#printable-payslip) {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Remover completamente o fundo escurecido (backdrop), fixando o holerite no topo */
+  body.printing-payslip #printable-payslip-overlay,
+  body.has-payslip-open #printable-payslip-overlay,
+  body:has(#printable-payslip) #printable-payslip-overlay,
+  #printable-payslip-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    display: block !important;
+    background: transparent !important;
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+    inset: 0 !important;
+    z-index: 99999 !important;
+  }
+
+  /* Forçar recibo branco a ocupar o topo da página (top-0, left-0), largura total (w-full), sem sombras */
+  body.printing-payslip #printable-payslip-card,
+  body.has-payslip-open #printable-payslip-card,
+  body:has(#printable-payslip) #printable-payslip-card,
+  #printable-payslip-card {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Ocultar barra superior de ação interna com botões (Imprimir / PDF e Fechar X) */
+  #printable-payslip-overlay .print\:hidden,
+  #printable-payslip-card .print\:hidden,
+  #btn-print-payslip {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Recibo de pagamento branco limpo e profissional */
+  #recibo-holerite-branco,
+  #printable-payslip {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    padding: 6mm 8mm !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-service-order #printable-modal-overlay {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+    inset: auto !important;
+  }
+
+  body.printing-service-order #printable-service-order-modal {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  body.printing-service-order #printable-service-order-modal .modal-body-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    padding: 0 !important;
+    gap: 4px !important;
+  }
+
+  body.printing-service-order input,
+  body.printing-service-order select,
+  body.printing-service-order textarea {
+    border: 1px solid #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    font-size: 9.5px !important;
+    padding: 2px 4px !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* VIA CLIENTE: Oculta por completo o Bloco 2 (Custos e Proventos) e Bloco 3 (Resultado Final / Lucro Estimado) */
+  body.print-client-mode .print-hide-on-client,
+  .print-mode-client .print-hide-on-client,
+  [data-print-mode="client"] .print-hide-on-client {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Suporte à Ficha de Colaborador (quando não for Ordem de Serviço) */
+  body:not(.printing-service-order) #printable-employee-sheet {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 15mm;
+    font-family: Arial, sans-serif;
+    color: #000;
+  }
+
+  /* Cores exatas para impressão de tags e destaques */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Isolamento e espaçamento de rótulos e dados dinâmicos */
+  #printable-document-content .grid > div {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    min-width: 0 !important;
+  }
+  #printable-document-content .grid > div > span:first-child,
+  #printable-document-content span.uppercase.block {
+    display: block !important;
+    margin-bottom: 2px !important;
+    line-height: 1.2 !important;
+  }
+  #printable-document-content .truncate {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Preservação de cores vibrantes e degradês */
+  .bg-gradient-to-br.from-emerald-800.to-emerald-900 {
+    background-color: #064e3b !important;
+    background-image: linear-gradient(135deg, #065f46 0%, #064e3b 100%) !important;
+    color: #ffffff !important;
+  }
+  .bg-emerald-950\/40 {
+    background-color: #022c22 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    color: #ffffff !important;
+  }
+  .bg-emerald-700\/60 {
+    background-color: #047857 !important;
+    border: 1px solid #10b981 !important;
+    color: #ffffff !important;
+  }
+  .bg-orange-50\/40 {
+    background-color: #fff7ed !important;
+  }
+
+  /* Alinhamento de assinaturas lado a lado */
+  .a4-sheet .grid.grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px !important;
+    width: 100% !important;
+  }
+  .a4-sheet .grid.grid-cols-2 > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  /* Cupom 80mm divisores e negritos */
+  .border-dashed { border-style: dashed !important; }
+  .border-dotted { border-style: dotted !important; }
+  .border-b-2.border-dashed { border-bottom: 2px dashed #000000 !important; }
+  .border-b.border-dashed { border-bottom: 1px dashed #1f2937 !important; }
+  .border-t.border-dotted { border-top: 1px dotted #374151 !important; }
+  .border-b.border-dotted { border-bottom: 1px dotted #374151 !important; }
+
+  /* Preservação visual e de cores do logotipo e imagens */
+  .a4-sheet img,
+  #printable-document-content img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    object-fit: contain !important;
+  }
+}
+
+/* Ocultar setas nativas de rolagem/incremento (spin buttons) de TODOS os inputs numéricos */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Modificações de cores aplicadas aos elementos selecionados */
+html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(1),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(1) {
+  background-color: #2e65aa;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > aside#main-sidebar:nth-of-type(1) > div:nth-of-type(2),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(2) {
+  background-color: #2e65aa;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div#top-bar-container:nth-of-type(1) > div:nth-of-type(2),
+html:not(.dark) div#top-bar-container > div:nth-of-type(2) {
+  background-color: #2e65aa;
+}
+
+html:not(.dark) div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1),
+html:not(.dark) main#crm-main-content {
+  background-color: #2e65aa !important;
+}
+
+html.dark main#crm-main-content {
+  background-color: #0c0a09 !important;
+}
+
+/* ========================================================
+   PADRONIZAÇÃO GLOBAL DE CARDS - ALTO CONTRASTE (SILAGEM FÁCIL CRM)
+   Novo Fundo Padrão dos Cards: #87AFE3 no Modo Dia
+   Preservação integral do Modo Noite (Dark Mode)
+   ======================================================== */
+html:not(.dark) .crm-card {
+  background-color: #87AFE3 !important;
+  border: 1px solid #729dce !important; /* borda sutil e nítida */
+  border-radius: 0.75rem !important;    /* rounded-xl */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  color: #000000 !important;
+}
+
+html.dark .crm-card {
+  background-color: #1c1917 !important; /* dark:bg-stone-900 */
+  border-color: #292524 !important;    /* dark:border-stone-800 */
+  color: #ffffff !important;
+}
+
+html:not(.dark) .crm-card-title,
+html:not(.dark) .crm-card h1,
+html:not(.dark) .crm-card h2,
+html:not(.dark) .crm-card h3,
+html:not(.dark) .crm-card h4,
+html:not(.dark) .crm-card h5,
+html:not(.dark) .crm-card h6 {
+  color: #000000 !important;
+}
+
+html.dark .crm-card-title,
+html.dark .crm-card h1,
+html.dark .crm-card h2,
+html.dark .crm-card h3,
+html.dark .crm-card h4,
+html.dark .crm-card h5,
+html.dark .crm-card h6 {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .crm-card-label {
+  color: #000000 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+html.dark .crm-card-label {
+  color: #d6d3d1 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div#printable-modal-overlay:nth-of-type(1) > div#printable-service-order-modal:nth-of-type(1) > div:nth-of-type(3),
+div#printable-service-order-modal > div:nth-of-type(3) {
+  background-color: #2e65aa;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div#printable-modal-overlay:nth-of-type(1) > div#printable-service-order-modal:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(5),
+div#printable-service-order-modal > div:nth-of-type(3) > div:nth-of-type(5) {
+  background-color: #5c82e0;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div#printable-modal-overlay:nth-of-type(1) > div#printable-service-order-modal:nth-of-type(1) > div:nth-of-type(3) > div:nth-of-type(5) > div:nth-of-type(3) > div:nth-of-type(2),
+div#printable-service-order-modal > div:nth-of-type(3) > div:nth-of-type(5) > div:nth-of-type(3) > div:nth-of-type(2) {
+  background-color: #66a2e6;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div#printable-modal-overlay:nth-of-type(1) > div#printable-service-order-modal:nth-of-type(1) > div:nth-of-type(2),
+div#printable-service-order-modal > div:nth-of-type(2) {
+  background-color: #2f4db8;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div#printable-modal-overlay:nth-of-type(1) > div#printable-service-order-modal:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > p:nth-of-type(1),
+div#printable-service-order-modal > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > p:nth-of-type(1) {
+  color: #040404;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main#crm-main-content:nth-of-type(1) > div:nth-of-type(1) > div#printable-modal-overlay:nth-of-type(1) > div#printable-service-order-modal:nth-of-type(1) > div:nth-of-type(4),
+div#printable-service-order-modal > div:nth-of-type(4) {
+  background-color: #0042a7;
+}
+

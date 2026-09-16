@@ -1,0 +1,6 @@
+{
+  "name": "Silagem Fácil CRM",
+  "description": "CRM Agrícola e Gestão Financeira com Lançamento Completo de Despesas, Vendas e Operações de Silagem",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

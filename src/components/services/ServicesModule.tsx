@@ -1,0 +1,568 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Scissors,
+  Wheat,
+  Tractor,
+  Wrench,
+  FileText,
+  Search,
+  Plus,
+  ChevronDown,
+  X,
+  Trash2,
+  Pencil,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Truck
+} from 'lucide-react';
+import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
+import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { useConfirm } from '../../context/ConfirmContext';
+import { ServiceFormModal, ServiceTabType } from './ServiceFormModal';
+
+export type ServiceTab = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento';
+
+interface ServicesModuleProps {
+  services?: ServiceOrder[];
+  machineries?: Machinery[];
+  employees?: Employee[];
+  clients?: Client[];
+  companyProfile?: CompanyProfile;
+  onSaveServices?: (services: ServiceOrder[]) => void;
+  onSaveClients?: (clients: Client[]) => void;
+}
+
+export const ServicesModule: React.FC<ServicesModuleProps> = ({
+  services = [],
+  machineries = [],
+  employees = [],
+  clients = [],
+  companyProfile,
+  onSaveServices,
+  onSaveClients,
+}) => {
+  const { confirm } = useConfirm();
+
+  // Active Tab State (Padrão: 'corte')
+  const [activeTab, setActiveTab] = useState<ServiceTab>('corte');
+
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
+
+  // Modal State for "+ Novo" & Edição
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
+
+  // Tabs Definition na ordem exata requerida:
+  // Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento
+  const tabs = [
+    { id: 'corte' as ServiceTab, label: 'Corte', icon: Scissors },
+    { id: 'colheita' as ServiceTab, label: 'Colheita', icon: Wheat },
+    { id: 'trator' as ServiceTab, label: 'Serviço de Trator', icon: Tractor },
+    { id: 'maquina' as ServiceTab, label: 'Serviço de Máquina', icon: Wrench },
+    { id: 'frete' as ServiceTab, label: 'Serviço de Frete', icon: Truck },
+    { id: 'orcamento' as ServiceTab, label: 'Orçamento', icon: FileText },
+  ];
+
+  // Configurações Dinâmicas por Aba
+  const tabConfig = useMemo(() => {
+    switch (activeTab) {
+      case 'corte':
+        return {
+          dateColumn: 'DATA DO CORTE',
+          quantityColumn: 'ÁREA / UNIDADE',
+          newButtonLabel: '+ Novo Corte',
+          serviceTypeName: 'Ensilagem',
+        };
+      case 'colheita':
+        return {
+          dateColumn: 'DATA DA COLHEITA',
+          quantityColumn: 'HECTARES (ha)',
+          newButtonLabel: '+ Nova Colheita',
+          serviceTypeName: 'Colheita',
+        };
+      case 'trator':
+        return {
+          dateColumn: 'DATA DO SERVIÇO',
+          quantityColumn: 'HORAS / ÁREA',
+          newButtonLabel: '+ Novo Serviço de Trator',
+          serviceTypeName: 'Serviço de Trator',
+        };
+      case 'maquina':
+        return {
+          dateColumn: 'DATA DA OPERAÇÃO',
+          quantityColumn: 'HORAS / ÁREA',
+          newButtonLabel: '+ Novo Serviço de Máquina',
+          serviceTypeName: 'Serviço de Máquina',
+        };
+      case 'frete':
+        return {
+          dateColumn: 'DATA DO FRETE',
+          quantityColumn: 'KM / HORAS',
+          newButtonLabel: '+ Novo Serviço de Frete',
+          serviceTypeName: 'Serviço de Frete',
+        };
+      case 'orcamento':
+      default:
+        return {
+          dateColumn: 'DATA DO ORÇAMENTO',
+          quantityColumn: 'QUANTIDADE',
+          newButtonLabel: '+ Novo Orçamento',
+          serviceTypeName: 'Orçamento Agrícola',
+        };
+    }
+  }, [activeTab]);
+
+  // Filtragem dos registros da aba ativa
+  const filteredServices = useMemo(() => {
+    return services.filter((srv) => {
+      const typeStr = (srv.serviceType || '').toLowerCase();
+      const tabStr = (srv.serviceTab || '').toLowerCase();
+      const isFreight = tabStr === 'frete' || typeStr.includes('frete') || typeStr.includes('transporte') || srv.equipmentCategory === 'caminhoes' || !!srv.truckBillingMode;
+
+      let matchesTab = false;
+
+      if (activeTab === 'corte') {
+        matchesTab = (typeStr.includes('corte') || typeStr.includes('ensilagem') || !srv.serviceType) && !isFreight;
+      } else if (activeTab === 'colheita') {
+        matchesTab = typeStr.includes('colheita') && !isFreight;
+      } else if (activeTab === 'trator') {
+        matchesTab = (typeStr.includes('trator') || typeStr.includes('preparo') || typeStr.includes('plantio')) && !isFreight;
+      } else if (activeTab === 'maquina') {
+        // Máquinas pesadas excluindo frete
+        matchesTab = (typeStr.includes('máquina') || typeStr.includes('maquina')) && !isFreight && srv.equipmentCategory !== 'caminhoes';
+      } else if (activeTab === 'frete') {
+        matchesTab = isFreight;
+      } else if (activeTab === 'orcamento') {
+        matchesTab = typeStr.includes('orçamento') || typeStr.includes('orcamento');
+      }
+
+      if (!matchesTab) return false;
+
+      // Filtro de status
+      if (statusFilter !== 'todos') {
+        if (srv.status !== statusFilter) return false;
+      }
+
+      // Filtro por texto
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase();
+        const matchesClient = srv.clientName.toLowerCase().includes(query);
+        const matchesFarm = (srv.farmName || '').toLowerCase().includes(query);
+        const matchesNumber = (srv.orderNumber || srv.id).toLowerCase().includes(query);
+        const matchesRoute = ((srv.freightOrigin || '') + ' ' + (srv.freightDestination || '')).toLowerCase().includes(query);
+        if (!matchesClient && !matchesFarm && !matchesNumber && !matchesRoute) return false;
+      }
+
+      return true;
+    });
+  }, [services, activeTab, statusFilter, searchTerm]);
+
+  // Abertura do Modal para Novo Registro
+  const handleOpenNew = () => {
+    setEditRecord(null);
+    setIsModalOpen(true);
+  };
+
+  // Abertura do Modal para Edição
+  const handleOpenEdit = (record: ServiceOrder) => {
+    setEditRecord(record);
+    setIsModalOpen(true);
+  };
+
+  // Salvar Serviço (Novo ou Editado)
+  const handleSaveService = (savedService: ServiceOrder) => {
+    if (!onSaveServices) return;
+
+    const exists = services.some((s) => s.id === savedService.id);
+    if (exists) {
+      onSaveServices(services.map((s) => (s.id === savedService.id ? savedService : s)));
+    } else {
+      onSaveServices([savedService, ...services]);
+    }
+
+    // REGRA DE FLUXO: Mantém o modal aberto para conferência do DRE e emissão de comprovantes
+    // Apenas o botão "Sair" fecha o modal voluntariamente
+    setEditRecord(savedService);
+  };
+
+  // Excluir Serviço
+  const handleDeleteService = async (id: string, name: string) => {
+    const isConfirmed = await confirm({
+      title: 'Excluir Registro',
+      message: `Deseja realmente remover o registro de "${name}"?`,
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Cancelar',
+      variant: 'danger',
+    });
+
+    if (isConfirmed && onSaveServices) {
+      onSaveServices(services.filter((s) => s.id !== id));
+    }
+  };
+
+  return (
+    <div 
+      className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased p-3 sm:p-4 lg:p-6 space-y-3.5 rounded-2xl shadow-md"
+      style={{ backgroundColor: '#2e65aa' }}
+    >
+      
+      {/* ========================================================
+          2. CABEÇALHO (HEADER)
+          Título, subtítulo e botão de ação principal "+ Novo"
+          ======================================================== */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/20 pb-2">
+        <div>
+          <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            Serviços
+          </h1>
+          <p className="text-xs text-blue-100 font-medium mt-0.5">
+            Gestão de cortes, colheitas, serviços e orçamentos agrícolas.
+          </p>
+        </div>
+
+        {/* Botão de Ação Principal em Verde-esmeralda escuro mantendo o realce colorido */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpenNew}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>+ Novo</span>
+          </button>
+        </div>
+      </header>
+
+      {/* ========================================================
+          3. MENU DE ABAS (TABS) DE NAVEGAÇÃO
+          Corte | Colheita | Serviço de Trator | Serviço de Máquina | Orçamento | Venda
+          Mantém realces coloridos ativos para itens selecionados
+          ======================================================== */}
+      <nav 
+        aria-label="Abas de Serviços" 
+        className="flex items-center gap-1 sm:gap-1.5 border-b border-white/25 overflow-x-auto scrollbar-none pb-px"
+      >
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none rounded-t-lg ${
+                isActive
+                  ? 'border-emerald-400 bg-emerald-700/90 text-white shadow-xs'
+                  : 'border-transparent text-blue-100 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Icon 
+                className={`w-3.5 h-3.5 transition-colors ${
+                  isActive 
+                    ? 'text-emerald-300' 
+                    : 'text-blue-200 group-hover:text-white'
+                }`} 
+              />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* ========================================================
+          4. BARRA DE FILTROS (SEARCH & DROPDOWN)
+          Busca com fundo branco e texto preto puro
+          ======================================================== */}
+      <section 
+        aria-label="Filtros de Serviços"
+        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full"
+      >
+        {/* Campo de Busca Amplo com Fundo Branco Total e Texto Preto */}
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+            <Search className="w-3.5 h-3.5" />
+          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar cliente ou nº..."
+            className="w-full pl-9 pr-8 py-1.5 bg-white border border-gray-300 rounded-lg text-xs sm:text-sm text-black font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-500 hover:text-black cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown de Status com Fundo Branco Total e Texto Preto */}
+        <div className="relative sm:w-40">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-black focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs cursor-pointer"
+          >
+            <option value="todos" className="text-black font-semibold">Todos</option>
+            <option value="agendado" className="text-black font-semibold">Agendado</option>
+            <option value="em_andamento" className="text-black font-semibold">Em Andamento</option>
+            <option value="concluido" className="text-black font-semibold">Concluído</option>
+            <option value="cancelado" className="text-black font-semibold">Cancelado</option>
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-500">
+            <ChevronDown className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================
+          5. TABELA / CARDS DAS ORDENS DE SERVIÇO
+          Fundo #87AFE3 no Modo Dia e Fontes PRETO PURO (text-black)
+          ======================================================== */}
+      <section 
+        aria-label="Lista de Serviços"
+        className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl shadow-md overflow-hidden"
+      >
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            {/* Cabeçalho da Tabela - Fundo #87AFE3 com Texto Preto Puro */}
+            <thead>
+              <tr className="border-b-2 border-blue-200/80 dark:border-stone-800 bg-[#87AFE3] dark:bg-stone-900">
+                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider w-16">
+                  Nº
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider">
+                  CLIENTE
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider">
+                  {tabConfig.dateColumn}
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-center">
+                  {tabConfig.quantityColumn}
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-center">
+                  STATUS
+                </th>
+                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-right">
+                  TOTAL
+                </th>
+                <th scope="col" className="px-2.5 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-right w-20">
+                  <span className="sr-only">Ações</span>
+                </th>
+              </tr>
+            </thead>
+
+            {/* Corpo da Tabela - Linhas / Cards com Fundo #87AFE3 e Textos Preto Puro */}
+            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900">
+              {filteredServices.length === 0 ? (
+                /* Bloco de Estado Vazio Centralizado */
+                <tr className="bg-[#87AFE3] dark:bg-stone-900">
+                  <td colSpan={7} className="px-4 py-10 text-center bg-[#87AFE3] dark:bg-stone-900">
+                    <p className="text-sm font-bold text-black dark:text-white">
+                      Nenhum registro encontrado
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                /* Linhas Preenchidas com Fundo #87AFE3 e Textos em Preto Puro */
+                filteredServices.map((service, index) => {
+                  const itemNumber = (index + 1).toString().padStart(3, '0');
+                  const statusColors: Record<string, string> = {
+                    agendado: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
+                    em_andamento: 'bg-blue-100 text-blue-900 border-blue-300 font-bold',
+                    concluido: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
+                    cancelado: 'bg-rose-100 text-rose-900 border-rose-300 font-bold',
+                  };
+
+                  const statusLabels: Record<string, string> = {
+                    agendado: 'Agendado',
+                    em_andamento: 'Em Andamento',
+                    concluido: 'Concluído',
+                    cancelado: 'Cancelado',
+                  };
+
+                  const currentStatus = service.status || 'agendado';
+
+                  // Quantidade exibida de acordo com a unidade e aba
+                  let quantityDisplay = '--';
+                  if (activeTab === 'frete' || service.serviceTab === 'frete' || service.truckBillingMode) {
+                    const mode = service.truckBillingMode;
+                    if (mode === 'km' || mode === 'somente_km') {
+                      quantityDisplay = `${service.truckServiceTotalKm || service.areaQuantity || 0} km`;
+                    } else if (mode === 'horas') {
+                      quantityDisplay = `${service.truckServiceHours || service.areaQuantity || 0} h`;
+                    } else if (mode === 'cargas' || mode === 'cargas_km') {
+                      const addKm = service.truckServiceKmAdditional ? ` + ${service.truckServiceKmAdditional} km` : '';
+                      quantityDisplay = `${service.truckServiceLoads || 0} cargas${addKm}`;
+                    } else if (mode === 'viagem') {
+                      quantityDisplay = `${service.truckServiceTrips || 1} viagem${(service.truckServiceTrips || 1) > 1 ? 's' : ''}`;
+                    } else if (service.truckServiceTotalKm) {
+                      quantityDisplay = `${service.truckServiceTotalKm} km`;
+                    } else if (service.truckServiceHours) {
+                      quantityDisplay = `${service.truckServiceHours} h`;
+                    } else {
+                      quantityDisplay = '--';
+                    }
+                  } else if (service.areaUnit === 'alqueires' && (service.areaQuantity ?? service.areaHectares)) {
+                    quantityDisplay = `${service.areaQuantity ?? service.areaHectares} alq`;
+                  } else if (service.areaUnit === 'hora' && (service.areaQuantity ?? service.tractorHours)) {
+                    quantityDisplay = `${service.areaQuantity ?? service.tractorHours} h`;
+                  } else if (service.areaQuantity ?? service.areaHectares) {
+                    quantityDisplay = `${service.areaQuantity ?? service.areaHectares} ha`;
+                  } else if (service.tractorHours) {
+                    quantityDisplay = `${service.tractorHours} h`;
+                  }
+
+                  return (
+                    <tr 
+                      key={service.id} 
+                      className="bg-[#87AFE3] dark:bg-stone-900 hover:bg-blue-200/50 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-blue-200/60 dark:border-stone-800"
+                    >
+                      {/* Nº em Preto Puro */}
+                      <td className="px-3 py-1.5 text-xs font-mono text-black font-bold">
+                        #{itemNumber}
+                      </td>
+
+                      {/* Cliente e Descrições Secundárias em Preto Puro */}
+                      <td className="px-3 py-1.5">
+                        <div className="font-bold text-black text-sm leading-snug">
+                          {service.clientName}
+                        </div>
+                        {service.farmName && (
+                          <div className="text-[11px] text-black font-semibold">
+                            {service.farmName}
+                          </div>
+                        )}
+                        {(service.freightOrigin || service.freightDestination) && (
+                          <div className="text-[11px] text-black font-semibold flex items-center gap-1 mt-0.5">
+                            <span className="bg-emerald-100 text-emerald-900 font-bold px-1 py-0.2 rounded border border-emerald-300">
+                              Rota: {service.freightOrigin || 'Origem'} ➔ {service.freightDestination || 'Destino'}
+                            </span>
+                          </div>
+                        )}
+                        {(service.machineryAssigned || service.operatorAssigned || service.tractorName || service.forageHarvesterName || service.freightDriverName || service.freightMaterialType) && (
+                          <div className="text-[11px] text-black font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
+                            {service.freightMaterialType && (
+                              <span className="text-black font-bold bg-purple-100 px-1 py-0.2 rounded border border-purple-300">
+                                Carga: {service.freightMaterialType}
+                              </span>
+                            )}
+                            {service.forageHarvesterName && (
+                              <span className="text-black font-bold bg-amber-100 px-1 py-0.2 rounded border border-amber-300">
+                                Forr: {service.forageHarvesterName}
+                              </span>
+                            )}
+                            {service.tractorName && (
+                              <span className="text-black font-bold bg-blue-100 px-1 py-0.2 rounded border border-blue-300">
+                                Trator: {service.tractorName}
+                              </span>
+                            )}
+                            {!service.forageHarvesterName && !service.tractorName && service.machineryAssigned && (
+                              <span className="text-black font-bold bg-slate-100 px-1 py-0.2 rounded border border-slate-300">
+                                {activeTab === 'frete' || service.serviceTab === 'frete' ? `Caminhão: ${service.machineryAssigned}` : service.machineryAssigned}
+                              </span>
+                            )}
+                            {(service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName || service.freightDriverName) && (
+                              <span className="text-black font-semibold">
+                                • {activeTab === 'frete' || service.serviceTab === 'frete' ? 'Motorista' : 'Op'}: {service.freightDriverName || service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Data em Preto Puro */}
+                      <td className="px-3 py-1.5 text-xs text-black font-semibold whitespace-nowrap">
+                        {service.startDate ? formatDateBR(service.startDate) : '--'}
+                      </td>
+
+                      {/* Quantidade / Área em Preto Puro */}
+                      <td className="px-3 py-1.5 text-xs text-center text-black font-black whitespace-nowrap">
+                        {quantityDisplay}
+                      </td>
+
+                      {/* Status com Realce Colorido e Texto de Alto Contraste */}
+                      <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                        <span 
+                          className={`inline-flex items-center px-2 py-0.2 rounded-full text-[10px] font-bold border ${
+                            statusColors[currentStatus] || 'bg-gray-100 text-black border-gray-300'
+                          }`}
+                        >
+                          {statusLabels[currentStatus] || currentStatus}
+                        </span>
+                      </td>
+
+                      {/* Total em Preto Puro */}
+                      <td className="px-3 py-1.5 text-right font-black text-black text-xs sm:text-sm whitespace-nowrap">
+                        {formatCurrencyBRL(service.totalAmount || 0)}
+                      </td>
+
+                      {/* Ações */}
+                      <td className="px-2.5 py-1.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(service)}
+                            className="p-1 text-black hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                            title="Editar serviço"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteService(service.id, service.clientName)}
+                            className="p-1 text-black hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                            title="Excluir serviço"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ========================================================
+          MODAL DINÂMICO PARA "+ NOVO" & EDIÇÃO
+          Adapta-se à aba ativa: Corte, Colheita, Trator, Máquina...
+          ======================================================== */}
+      <ServiceFormModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditRecord(null);
+        }}
+        onSave={handleSaveService}
+        activeTab={activeTab as ServiceTabType}
+        clients={clients}
+        machineries={machineries}
+        employees={employees}
+        companyProfile={companyProfile}
+        nextNumber={`#${String(services.length + 1).padStart(3, '0')}`}
+        editRecord={editRecord}
+        onSaveClient={(newClient) => {
+          if (onSaveClients) {
+            onSaveClients([newClient, ...clients]);
+          }
+        }}
+      />
+
+    </div>
+  );
+};
+
+export default ServicesModule;
