@@ -36,10 +36,13 @@ import {
   getStoredAppointments, 
   saveStoredAppointments, 
   getStoredFleetTeams,
+  saveStoredFleetTeams,
   formatDateBR 
 } from '../../lib/storage';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
+import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
+import { VehicleSearchModal } from './VehicleSearchModal';
 
 interface ServiceAgendaModuleProps {
   machineries?: Machinery[];
@@ -256,6 +259,12 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   const [editAppointment, setEditAppointment] = useState<ServiceAppointment | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState<ServiceAppointment | null>(null);
+  const [isVehicleSearchModalOpen, setIsVehicleSearchModalOpen] = useState(false);
+  const [selectedColumnForVehicle, setSelectedColumnForVehicle] = useState<{
+    id: string;
+    name: string;
+    machineryId?: string;
+  } | null>(null);
 
   // Sincronização e persistência
   useEffect(() => {
@@ -312,7 +321,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   }, [appointments]);
 
   // Colunas de Máquinas Principais (sincronizadas com as equipes ativas ou padrão Maq 02, Maq 03, Maq 04, Maq 05)
-  const machineColumns = useMemo(() => {
+  const [columnsList, setColumnsList] = useState(() => {
     const storedTeams = getStoredFleetTeams();
     if (storedTeams && storedTeams.length > 0) {
       return storedTeams.map((team, idx) => ({
@@ -327,7 +336,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       }));
     }
     return DEFAULT_MACHINE_COLUMNS;
-  }, []);
+  });
+
+  const machineColumns = columnsList;
 
   // Agrupamento dos agendamentos filtrados por cada Máquina Principal com ordenação cronológica
   const appointmentsByColumn = useMemo(() => {
@@ -465,9 +476,65 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     setAppointments(updated);
   };
 
+  const handleOpenVehicleSearch = (col: { id: string; name: string; machineryId?: string }) => {
+    setSelectedColumnForVehicle(col);
+    setIsVehicleSearchModalOpen(true);
+  };
+
+  const handleSelectVehicleForColumn = (vehicle: { id: string; name: string; prefix?: string }) => {
+    if (!selectedColumnForVehicle) return;
+
+    const formattedMachName = `${vehicle.prefix ? `[${vehicle.prefix}] ` : ''}${vehicle.name}`;
+
+    const updatedCols = columnsList.map(c => {
+      if (c.id === selectedColumnForVehicle.id) {
+        return {
+          ...c,
+          machineryId: vehicle.id,
+          machineryName: formattedMachName,
+        };
+      }
+      return c;
+    });
+
+    setColumnsList(updatedCols);
+
+    // Salva nas frotas
+    const currentStoredTeams = getStoredFleetTeams();
+    if (currentStoredTeams && currentStoredTeams.length > 0) {
+      const updatedTeams = currentStoredTeams.map(t => {
+        if (t.id === selectedColumnForVehicle.id) {
+          return {
+            ...t,
+            machineryId: vehicle.id,
+            machineryName: formattedMachName,
+          };
+        }
+        return t;
+      });
+      saveStoredFleetTeams(updatedTeams);
+    } else {
+      const newTeams: FleetTeam[] = updatedCols.map((c, idx) => ({
+        id: c.id,
+        name: c.name,
+        machineryId: c.machineryId,
+        machineryName: c.machineryName,
+        headerBgColor: c.headerBgColor,
+        columnBgColor: c.columnBgColor,
+        borderColor: c.borderColor,
+        order: idx + 1,
+        createdAt: new Date().toISOString(),
+      }));
+      saveStoredFleetTeams(newTeams);
+    }
+
+    setIsVehicleSearchModalOpen(false);
+    setSelectedColumnForVehicle(null);
+  };
+
   // Manipuladores de Ação
   const handleCreateNew = (presetMachineryId?: string, presetMachineryPrefix?: string) => {
-    if (presetMachineryId) {
+    if (presetMachineryId || presetMachineryPrefix) {
       setEditAppointment({
         id: '',
         appointmentNumber: nextAppointmentNumber,
@@ -489,7 +556,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         totalTimeMinutes: 905,
         endDate: new Date().toISOString().split('T')[0],
         endTime: '22:05',
-        primaryMachineryId: presetMachineryId,
+        primaryMachineryId: presetMachineryId || '',
         primaryMachineryPrefix: presetMachineryPrefix || '',
         assignedVehicles: [],
         assignedTeam: [],
@@ -551,88 +618,86 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2.5">
       
-      {/* 1. CABEÇALHO DO MÓDULO & AÇÕES PRINCIPAIS */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-[#2e65aa]/10 text-[#2e65aa] dark:bg-blue-950 dark:text-blue-300">
-                <CalendarDays className="w-6 h-6" />
-              </span>
-              <div>
-                <h1 className="text-xl font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                  <span>Agenda de Serviços Agrícolas</span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold">
-                    Logística & Frotas
-                  </span>
-                </h1>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                  Cálculo de tempos (Deslocamento + Prancha + Execução), escala de frotas por placas/prefixos sem sobreposição de horários.
-                </p>
-              </div>
+      {/* 1. CABEÇALHO DO MÓDULO & AÇÕES PRINCIPAIS (LAYOUT COMPACTO) */}
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-2.5 sm:p-3 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-[#2e65aa]/10 text-[#2e65aa] dark:bg-blue-950 dark:text-blue-300 shrink-0">
+              <CalendarDays className="w-5 h-5" />
+            </span>
+            <div>
+              <h1 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <span>Agenda de Serviços Agrícolas</span>
+                <span className="text-[10px] px-2 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold">
+                  Logística & Frotas
+                </span>
+              </h1>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.2">
+                Cálculo de tempos (Deslocamento + Prancha + Execução), escala de frotas e logística de campo.
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleCreateNew}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2e65aa] hover:bg-[#25528c] active:bg-[#1d4273] text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+              onClick={() => handleCreateNew()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2e65aa] hover:bg-[#25528c] active:bg-[#1d4273] text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Novo Agendamento</span>
             </button>
           </div>
         </div>
 
-        {/* 2. CARDS DE MÉTRICAS KPI */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-stone-100 dark:border-stone-800">
-          <div className="bg-stone-50 dark:bg-stone-800/40 p-3 rounded-xl border border-stone-200/80 dark:border-stone-800">
-            <span className="text-[10px] font-bold uppercase text-stone-500 block">Total Agendado</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-stone-900 dark:text-stone-100">{metrics.total}</span>
-              <span className="text-xs font-semibold text-stone-400">operações</span>
+        {/* 2. CARDS DE MÉTRICAS KPI (COMPACTOS: ALTURA E FONTES OTIMIZADAS) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+          <div className="bg-stone-50 dark:bg-stone-800/40 px-2.5 py-1.5 rounded-lg border border-stone-200/80 dark:border-stone-800">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-stone-500 block">Total Agendado</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">{metrics.total}</span>
+              <span className="text-[10px] font-semibold text-stone-400">operações</span>
             </div>
           </div>
 
-          <div className="bg-amber-50/60 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200/80 dark:border-amber-900/40">
-            <span className="text-[10px] font-bold uppercase text-amber-700 dark:text-amber-400 block">Aguardando Saída</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-amber-900 dark:text-amber-300">{metrics.agendados}</span>
-              <span className="text-xs font-semibold text-amber-600">na base</span>
+          <div className="bg-amber-50/60 dark:bg-amber-950/20 px-2.5 py-1.5 rounded-lg border border-amber-200/80 dark:border-amber-900/40">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-amber-700 dark:text-amber-400 block">Aguardando Saída</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300">{metrics.agendados}</span>
+              <span className="text-[10px] font-semibold text-amber-600">na base</span>
             </div>
           </div>
 
-          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40">
-            <span className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 block">Em Campo / Execução</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-emerald-900 dark:text-emerald-300">{metrics.emExecucao}</span>
-              <span className="text-xs font-semibold text-emerald-600">em operação</span>
+          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 px-2.5 py-1.5 rounded-lg border border-emerald-200/80 dark:border-emerald-900/40">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 block">Em Campo / Execução</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-emerald-900 dark:text-emerald-300">{metrics.emExecucao}</span>
+              <span className="text-[10px] font-semibold text-emerald-600">em operação</span>
             </div>
           </div>
 
-          <div className="bg-blue-50/60 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200/80 dark:border-blue-900/40">
-            <span className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400 block">Área Programada</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-blue-900 dark:text-blue-300">{metrics.totalHectares.toFixed(1)}</span>
-              <span className="text-xs font-semibold text-blue-600">ha estimados</span>
+          <div className="bg-blue-50/60 dark:bg-blue-950/20 px-2.5 py-1.5 rounded-lg border border-blue-200/80 dark:border-blue-900/40">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400 block">Área Programada</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalHectares.toFixed(1)}</span>
+              <span className="text-[10px] font-semibold text-blue-600">ha estimados</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. BARRA DE FILTROS E SELEÇÃO DE VISÃO */}
-      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* 3. BARRA DE FILTROS E SELEÇÃO DE VISÃO COMPACTA */}
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-2 sm:p-2.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2">
         {/* Seletor de Abas de Visão */}
-        <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
+        <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-0.5 rounded-lg">
           <button
             type="button"
             onClick={() => setViewMode('cronograma')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-all cursor-pointer ${
               viewMode === 'cronograma'
-                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-xs'
+                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-2xs'
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
             }`}
           >
@@ -641,9 +706,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('frotas')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-all cursor-pointer ${
               viewMode === 'frotas'
-                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-xs'
+                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-2xs'
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
             }`}
           >
@@ -652,9 +717,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('tabela')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-all cursor-pointer ${
               viewMode === 'tabela'
-                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-xs'
+                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-2xs'
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
             }`}
           >
@@ -663,22 +728,22 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         </div>
 
         {/* Filtros: Busca e Status */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="relative min-w-[200px]">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-stone-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar cliente, fazenda, placa ou prefixo..."
-              className="w-full pl-8 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100"
+              placeholder="Buscar cliente, fazenda, placa..."
+              className="w-full pl-7 pr-2.5 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-200"
+            className="py-1 px-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-200"
           >
             <option value="todos">Todos os Status</option>
             <option value="agendado">Agendado</option>
@@ -692,7 +757,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             <button
               type="button"
               onClick={() => setDateFilter('')}
-              className="text-xs text-red-600 hover:underline font-bold"
+              className="text-[11px] text-red-600 hover:underline font-bold"
             >
               Limpar Data
             </button>
@@ -769,14 +834,29 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                         </button>
                       </div>
 
-                      <h4 className="text-base sm:text-lg font-black text-black tracking-tight my-0.5 font-['Outfit']">
-                        {col.name}
-                      </h4>
+                      <div className="flex items-center justify-center gap-1.5 my-0.5">
+                        <h4 className="text-base sm:text-lg font-black text-black tracking-tight font-['Outfit']">
+                          {col.name}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenVehicleSearch(col)}
+                          title={`Vincular/Trocar máquina para ${col.name} (Buscar em Frotas)`}
+                          className="p-1 rounded-md bg-black/5 hover:bg-black/15 active:scale-95 transition-all cursor-pointer flex items-center justify-center border border-black/15 shadow-2xs group"
+                        >
+                          <ForageHarvesterIcon className="w-5 h-4.5 group-hover:scale-110 transition-transform" />
+                        </button>
+                      </div>
 
                       {col.machineryName && (
-                        <span className="text-[11px] font-semibold text-black/75 truncate max-w-full px-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenVehicleSearch(col)}
+                          title="Clique para trocar máquina em Frotas"
+                          className="text-[11px] font-semibold text-black/75 hover:text-black hover:underline truncate max-w-full px-1 transition-colors cursor-pointer"
+                        >
                           🚜 {col.machineryName}
-                        </span>
+                        </button>
                       )}
 
                       <div className="mt-1 flex items-center justify-between w-full text-[10px] font-bold text-black/70 border-t border-black/15 pt-1">
@@ -1160,6 +1240,19 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         onClose={() => setIsPrintOpen(false)}
         appointment={selectedForPrint}
         companyProfile={companyProfile}
+      />
+
+      {/* MODAL DE BUSCA E VINCULAÇÃO DE VEÍCULO DA FROTA */}
+      <VehicleSearchModal
+        isOpen={isVehicleSearchModalOpen}
+        onClose={() => {
+          setIsVehicleSearchModalOpen(false);
+          setSelectedColumnForVehicle(null);
+        }}
+        columnName={selectedColumnForVehicle?.name || ''}
+        currentMachineryId={selectedColumnForVehicle?.machineryId}
+        machineries={machineries}
+        onSelectVehicle={handleSelectVehicleForColumn}
       />
 
     </div>

@@ -272,20 +272,20 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
   return (
     <div 
-      className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased p-3 sm:p-4 lg:p-6 space-y-3.5 rounded-2xl shadow-md"
+      className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased p-2 sm:p-3 lg:p-4 space-y-2.5 rounded-2xl shadow-md"
       style={{ backgroundColor: '#2e65aa' }}
     >
       
       {/* ========================================================
-          2. CABEÇALHO (HEADER)
+          2. CABEÇALHO (HEADER) COMPACTO
           Título, subtítulo e botão de ação principal "+ Novo"
           ======================================================== */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/20 pb-2">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-white/20 pb-1.5">
         <div>
-          <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+          <h1 className="text-base sm:text-lg font-black text-white tracking-tight">
             {activeTab === 'agenda' ? 'Agenda de Serviços' : 'Serviços'}
           </h1>
-          <p className="text-xs text-blue-100 font-medium mt-0.5">
+          <p className="text-[11px] sm:text-xs text-blue-100 font-medium mt-0.5">
             {activeTab === 'agenda'
               ? 'Planejamento logístico de campo, escala de frotas e controle de sobreposição de horários.'
               : 'Gestão de cortes, colheitas, serviços e orçamentos agrícolas.'}

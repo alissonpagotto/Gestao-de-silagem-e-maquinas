@@ -81,6 +81,61 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   // Erro ou conflito forçado
   const [conflictWarningAck, setConflictWarningAck] = useState(false);
 
+  // Lista de máquinas disponíveis consolidando cadastro de frotas e sugestões padrão da frota
+  const availableMachineries = useMemo(() => {
+    const list: Machinery[] = [...machineries];
+    const defaultSuggestions: Machinery[] = [
+      {
+        id: 'veh_forr_05_2023',
+        name: 'Claas Jaguar 870 (Maq 02)',
+        fleetNumber: 'Maq 02',
+        model: 'Claas Jaguar 870',
+        brand: 'Claas',
+        licensePlateOrSerial: 'CLAAS-870-05',
+        categoryType: 'Forrageira',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_colh_02_2022',
+        name: 'Claas Jaguar 860 (Maq 03)',
+        fleetNumber: 'Maq 03',
+        model: 'Claas Jaguar 860',
+        brand: 'Claas',
+        licensePlateOrSerial: 'CLAAS-860-02',
+        categoryType: 'Forrageira',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_trator_jd_6110',
+        name: 'Trator JD 6110J + JF C120 (Maq 04)',
+        fleetNumber: 'Maq 04',
+        model: 'JD 6110J + JF C120',
+        brand: 'John Deere',
+        licensePlateOrSerial: 'TRAT-6110-01',
+        categoryType: 'Trator',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_evd_2j61',
+        name: 'Mercedes-Benz 2726 + Suporte (Maq 05)',
+        fleetNumber: 'Maq 05',
+        model: 'MB 2726 6x4 Silagem',
+        brand: 'Mercedes-Benz',
+        licensePlateOrSerial: 'EVD-2J61',
+        categoryType: 'Caminhão',
+        status: 'disponivel',
+      },
+    ];
+
+    defaultSuggestions.forEach(sug => {
+      if (!list.some(m => m.id === sug.id || (m.fleetNumber && m.fleetNumber.toLowerCase() === sug.fleetNumber.toLowerCase()))) {
+        list.push(sug);
+      }
+    });
+
+    return list;
+  }, [machineries]);
+
   // Inicialização ao abrir modal (Novo ou Edição)
   useEffect(() => {
     if (editAppointment) {
@@ -98,7 +153,16 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setAreaUnit(editAppointment.areaUnit || 'hectares');
       setEstimatedQuantity(editAppointment.estimatedQuantity || 20);
       setProductivityRatePerHour(editAppointment.productivityRatePerHour || 1.5);
-      setPrimaryMachineryId(editAppointment.primaryMachineryId || '');
+      
+      // Auto-preenche a máquina principal vinda do contexto da coluna ou do agendamento
+      const targetMachId = editAppointment.primaryMachineryId || '';
+      const matchingMach = availableMachineries.find(m => 
+        m.id === targetMachId || 
+        (editAppointment.primaryMachineryPrefix && m.fleetNumber && m.fleetNumber.toLowerCase() === editAppointment.primaryMachineryPrefix.toLowerCase()) ||
+        (m.fleetNumber && targetMachId.toLowerCase().includes(m.fleetNumber.toLowerCase()))
+      );
+      setPrimaryMachineryId(matchingMach ? matchingMach.id : targetMachId);
+
       setAssignedVehicles(editAppointment.assignedVehicles || []);
       setAssignedTeam(editAppointment.assignedTeam || []);
       setStatus(editAppointment.status || 'agendado');
@@ -124,7 +188,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setProductivityRatePerHour(1.5);
 
       // Pré-seleciona a primeira forrageira disponível se houver
-      const firstForr = machineries.find(isForrageira) || machineries[0];
+      const firstForr = availableMachineries.find(isForrageira) || availableMachineries[0];
       if (firstForr) {
         setPrimaryMachineryId(firstForr.id);
         const prefix = firstForr.fleetNumber || firstForr.name || 'Forrageira 01';
@@ -142,7 +206,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setFieldNotes('');
     }
     setConflictWarningAck(false);
-  }, [editAppointment, isOpen, nextAppointmentNumber, machineries, employees]);
+  }, [editAppointment, isOpen, nextAppointmentNumber, availableMachineries, employees]);
 
   // Sincronização ao selecionar Cliente
   const handleClientChange = (cId: string) => {
@@ -320,7 +384,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       return;
     }
 
-    const primaryMach = machineries.find(m => m.id === primaryMachineryId);
+    const primaryMach = availableMachineries.find(m => m.id === primaryMachineryId);
     const primaryOp = employees.find(e => e.id === primaryOperatorId);
 
     // Compila equipe completa
@@ -400,7 +464,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-extrabold flex items-center gap-2">
-                <span>{editAppointment ? 'Editar Agendamento de Serviço' : 'Novo Agendamento na Agenda'}</span>
+                <span>{editAppointment?.id ? 'Editar Agendamento de Serviço' : 'Novo Agendamento na Agenda'}</span>
                 <span className="font-mono text-xs px-2 py-0.5 rounded bg-white/20 text-white font-bold">
                   {appointmentNumber || nextAppointmentNumber}
                 </span>
@@ -758,7 +822,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                     required
                   >
                     <option value="">-- Selecione a Máquina Principal --</option>
-                    {machineries.map(m => (
+                    {availableMachineries.map(m => (
                       <option key={m.id} value={m.id}>
                         {m.fleetNumber ? `[${m.fleetNumber}] ` : ''}{formatMachineryOptionLabel(m)}
                       </option>
