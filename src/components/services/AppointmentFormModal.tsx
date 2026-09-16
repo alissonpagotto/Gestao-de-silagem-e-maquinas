@@ -587,21 +587,88 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     return displacements;
   }, [vehicleScheduleConflicts, startDate, startTime, calculatedEndDate, calculatedEndTime, primaryMachineryId, existingAppointments, editAppointment]);
 
+  // Identificação de veículos de apoio já escalados
+  const supportVehicleIds = useMemo(() => {
+    return new Set(assignedVehicles.map(v => v.machineryId).filter(Boolean));
+  }, [assignedVehicles]);
+
+  // Validação em tempo real de duplicidade de veículos e placas neste agendamento
+  const duplicateVehicleIndices = useMemo(() => {
+    const dupIndices = new Set<number>();
+    const normalizePlate = (p?: string) => (p || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    
+    const primaryMach = availableMachineries.find(m => m.id === primaryMachineryId);
+    const primaryPlate = normalizePlate(primaryMach?.licensePlateOrSerial || primaryMach?.serialNumber);
+
+    assignedVehicles.forEach((veh, idx) => {
+      let isDup = false;
+
+      // 1. Checa contra a Máquina Principal
+      if (primaryMachineryId && veh.machineryId === primaryMachineryId) {
+        isDup = true;
+      }
+      const currentPlate = normalizePlate(veh.plateOrSerial);
+      if (primaryPlate && currentPlate && currentPlate === primaryPlate) {
+        isDup = true;
+      }
+
+      // 2. Checa contra outras linhas de apoio
+      assignedVehicles.forEach((otherVeh, otherIdx) => {
+        if (otherIdx !== idx) {
+          if (veh.machineryId && otherVeh.machineryId && veh.machineryId === otherVeh.machineryId) {
+            isDup = true;
+          }
+          const otherPlate = normalizePlate(otherVeh.plateOrSerial);
+          if (currentPlate && otherPlate && currentPlate === otherPlate) {
+            isDup = true;
+          }
+        }
+      });
+
+      if (isDup) {
+        dupIndices.add(idx);
+      }
+    });
+
+    return dupIndices;
+  }, [primaryMachineryId, assignedVehicles, availableMachineries]);
+
+  const isPrimaryMachineryDuplicate = useMemo(() => {
+    if (!primaryMachineryId) return false;
+    const normalizePlate = (p?: string) => (p || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const primaryMach = availableMachineries.find(m => m.id === primaryMachineryId);
+    const primaryPlate = normalizePlate(primaryMach?.licensePlateOrSerial || primaryMach?.serialNumber);
+
+    return assignedVehicles.some(v => {
+      if (v.machineryId && v.machineryId === primaryMachineryId) return true;
+      const vPlate = normalizePlate(v.plateOrSerial);
+      if (primaryPlate && vPlate && primaryPlate === vPlate) return true;
+      return false;
+    });
+  }, [primaryMachineryId, assignedVehicles, availableMachineries]);
+
   // Manipulação de Veículos de Apoio (Caminhões e Tratores)
   const handleAddVehicle = (category: 'caminhao' | 'trator' | 'prancha') => {
-    // Acha um veículo adequado da frota não adicionado ainda
+    // Veículos já selecionados neste agendamento (máquina principal + frotas de apoio)
+    const currentlySelectedIds = new Set<string>();
+    if (primaryMachineryId) currentlySelectedIds.add(primaryMachineryId);
+    assignedVehicles.forEach(v => {
+      if (v.machineryId) currentlySelectedIds.add(v.machineryId);
+    });
+
+    // Acha um veículo adequado da frota não adicionado ainda neste agendamento
     const available = availableMachineries.filter(m => {
       if (category === 'caminhao') return isCaminhao(m);
       if (category === 'trator') return isTrator(m);
       return true;
-    }).filter(m => !allCurrentVehicleIds.includes(m.id));
+    }).filter(m => !currentlySelectedIds.has(m.id));
 
-    const selected = available[0] || availableMachineries.find(m => {
-      if (category === 'caminhao') return isCaminhao(m);
-      if (category === 'trator') return isTrator(m);
-      return true;
-    }) || availableMachineries[0];
+    if (available.length === 0) {
+      alert(`Todos os veículos da categoria ${category === 'caminhao' ? 'Caminhão' : 'Trator'} cadastrados na frota já estão escalados para este agendamento!`);
+      return;
+    }
 
+    const selected = available[0];
     if (!selected) return;
 
     const prefix = selected.fleetNumber || selected.name || (category === 'caminhao' ? 'Caminhão' : 'Trator');
@@ -667,6 +734,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
     if (!primaryMachineryId) {
       alert('Por favor, selecione a Máquina Principal (Forrageira/Ensiladeira).');
+      return;
+    }
+
+    if (duplicateVehicleIndices.size > 0 || isPrimaryMachineryDuplicate) {
+      alert('Este veículo já está escalado para este agendamento!\nPor favor, altere ou remova os veículos repetidos antes de salvar.');
       return;
     }
 
@@ -1195,16 +1267,25 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   <select
                     value={primaryMachineryId}
                     onChange={(e) => handlePrimaryMachineryChange(e.target.value)}
-                    className="w-full p-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-extrabold text-stone-900 dark:text-stone-100"
+                    className={`w-full p-2 bg-stone-50 dark:bg-stone-800 border ${
+                      isPrimaryMachineryDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-stone-300 dark:border-stone-700'
+                    } rounded-lg text-xs font-extrabold text-stone-900 dark:text-stone-100`}
                     required
                   >
                     <option value="">-- Selecione a Máquina Principal --</option>
-                    {availableMachineries.map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.fleetNumber ? `[${m.fleetNumber}] ` : ''}{formatMachineryOptionLabel(m)}
-                      </option>
-                    ))}
+                    {availableMachineries
+                      .filter(m => !supportVehicleIds.has(m.id) || m.id === primaryMachineryId)
+                      .map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.fleetNumber ? `[${m.fleetNumber}] ` : ''}{formatMachineryOptionLabel(m)}
+                        </option>
+                      ))}
                   </select>
+                  {isPrimaryMachineryDuplicate && (
+                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-1 block leading-tight">
+                      Este veículo já está escalado para este agendamento!
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -1238,68 +1319,92 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   Nenhum veículo de apoio adicionado. Clique nos botões acima para escalar caminhões e tratores por prefixo/placa.
                 </div>
               ) : (
-                assignedVehicles.map((veh, idx) => (
-                  <div 
-                    key={idx} 
-                    className="p-2.5 bg-white dark:bg-stone-900 rounded-lg border border-stone-300 dark:border-stone-700 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center text-xs"
-                  >
-                    <div className="sm:col-span-2">
-                      <span className="font-bold text-[10px] uppercase text-stone-400 block">Tipo</span>
-                      <span className={`inline-block font-extrabold px-1.5 py-0.5 rounded text-[10px] uppercase ${
-                        veh.category === 'caminhao' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {veh.category === 'caminhao' ? 'Caminhão' : 'Trator'}
-                      </span>
-                    </div>
+                assignedVehicles.map((veh, idx) => {
+                  const isDuplicate = duplicateVehicleIndices.has(idx);
 
-                    <div className="sm:col-span-4">
-                      <span className="font-bold text-[10px] uppercase text-stone-400 block">Frota / Prefixo & Placa</span>
-                      <select
-                        value={veh.machineryId}
-                        onChange={(e) => handleUpdateVehicle(idx, 'machineryId', e.target.value)}
-                        className="w-full p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded text-xs font-bold"
-                      >
-                        {availableMachineries.map(m => (
-                          <option key={m.id} value={m.id}>
-                            {m.fleetNumber ? `[${m.fleetNumber}] ` : ''}{m.licensePlateOrSerial || m.serialNumber} - {m.model || m.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  // Veículos selecionados em OUTRAS linhas ou na Máquina Principal
+                  const otherSelectedVehicleIds = new Set<string>();
+                  if (primaryMachineryId) otherSelectedVehicleIds.add(primaryMachineryId);
+                  assignedVehicles.forEach((v, i) => {
+                    if (i !== idx && v.machineryId) otherSelectedVehicleIds.add(v.machineryId);
+                  });
 
-                    <div className="sm:col-span-3">
-                      <span className="font-bold text-[10px] uppercase text-stone-400 block">Placa / Prefixo Gravado</span>
-                      <input
-                        type="text"
-                        value={veh.plateOrSerial}
-                        onChange={(e) => handleUpdateVehicle(idx, 'plateOrSerial', e.target.value)}
-                        className="w-full p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded text-xs font-mono font-bold"
-                      />
-                    </div>
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`p-2.5 bg-white dark:bg-stone-900 rounded-lg border ${
+                        isDuplicate ? 'border-red-400 dark:border-red-700 bg-red-50/20' : 'border-stone-300 dark:border-stone-700'
+                      } grid grid-cols-1 sm:grid-cols-12 gap-2 items-center text-xs`}
+                    >
+                      <div className="sm:col-span-2">
+                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Tipo</span>
+                        <span className={`inline-block font-extrabold px-1.5 py-0.5 rounded text-[10px] uppercase ${
+                          veh.category === 'caminhao' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {veh.category === 'caminhao' ? 'Caminhão' : 'Trator'}
+                        </span>
+                      </div>
 
-                    <div className="sm:col-span-2">
-                      <span className="font-bold text-[10px] uppercase text-stone-400 block">Motorista / Condutor</span>
-                      <input
-                        type="text"
-                        value={veh.driverOrOperatorName || ''}
-                        onChange={(e) => handleUpdateVehicle(idx, 'driverOrOperatorName', e.target.value)}
-                        placeholder="Nome do motorista..."
-                        className="w-full p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded text-xs font-semibold"
-                      />
-                    </div>
+                      <div className="sm:col-span-4">
+                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Frota / Prefixo & Placa</span>
+                        <select
+                          value={veh.machineryId}
+                          onChange={(e) => handleUpdateVehicle(idx, 'machineryId', e.target.value)}
+                          className={`w-full p-1.5 bg-stone-50 dark:bg-stone-800 border ${
+                            isDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-stone-200 dark:border-stone-700'
+                          } rounded text-xs font-bold`}
+                        >
+                          {availableMachineries
+                            .filter(m => !otherSelectedVehicleIds.has(m.id) || m.id === veh.machineryId)
+                            .map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.fleetNumber ? `[${m.fleetNumber}] ` : ''}{m.licensePlateOrSerial || m.serialNumber} - {m.model || m.name}
+                              </option>
+                            ))}
+                        </select>
+                        {isDuplicate && (
+                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-1 block leading-tight">
+                            Este veículo já está escalado para este agendamento!
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="sm:col-span-1 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVehicle(idx)}
-                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                        title="Remover veículo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="sm:col-span-3">
+                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Placa / Prefixo Gravado</span>
+                        <input
+                          type="text"
+                          value={veh.plateOrSerial}
+                          onChange={(e) => handleUpdateVehicle(idx, 'plateOrSerial', e.target.value)}
+                          className={`w-full p-1.5 bg-stone-50 dark:bg-stone-800 border ${
+                            isDuplicate ? 'border-red-500 ring-1 ring-red-500' : 'border-stone-200 dark:border-stone-700'
+                          } rounded text-xs font-mono font-bold`}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <span className="font-bold text-[10px] uppercase text-stone-400 block">Motorista / Condutor</span>
+                        <input
+                          type="text"
+                          value={veh.driverOrOperatorName || ''}
+                          onChange={(e) => handleUpdateVehicle(idx, 'driverOrOperatorName', e.target.value)}
+                          placeholder="Nome do motorista..."
+                          className="w-full p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded text-xs font-semibold"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-1 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVehicle(idx)}
+                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                          title="Remover veículo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
