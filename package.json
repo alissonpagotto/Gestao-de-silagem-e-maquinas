@@ -8,7 +8,7 @@
     "build": "vite build && cp server.cjs dist/server.cjs",
     "start": "node server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist build server.js",
+    "clean": "rm -rf dist build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
