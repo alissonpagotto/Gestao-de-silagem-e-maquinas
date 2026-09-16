@@ -29,11 +29,13 @@ import {
   Machinery, 
   Employee, 
   Client, 
-  CompanyProfile 
+  CompanyProfile,
+  FleetTeam 
 } from '../../types';
 import { 
   getStoredAppointments, 
   saveStoredAppointments, 
+  getStoredFleetTeams,
   formatDateBR 
 } from '../../lib/storage';
 import { AppointmentFormModal } from './AppointmentFormModal';
@@ -46,6 +48,50 @@ interface ServiceAgendaModuleProps {
   companyProfile?: CompanyProfile;
   onExecuteAppointment: (appointment: ServiceAppointment) => void;
 }
+
+// Colunas padrão de Máquinas Principais correspondentes às frentes ativas
+const DEFAULT_MACHINE_COLUMNS = [
+  {
+    id: 'team_maq_02',
+    name: 'Maq 02',
+    headerBgColor: '#fef08a',
+    columnBgColor: '#fefce8',
+    borderColor: '#ca8a04',
+    machineryId: 'veh_forr_05_2023',
+    machineryName: 'FORR 05 2023 (Claas 870)',
+    frontNumber: 1,
+  },
+  {
+    id: 'team_maq_03',
+    name: 'Maq 03',
+    headerBgColor: '#fed7aa',
+    columnBgColor: '#fff7ed',
+    borderColor: '#ea580c',
+    machineryId: 'veh_colh_02_2022',
+    machineryName: 'COLH 02 2022 (Claas 860)',
+    frontNumber: 2,
+  },
+  {
+    id: 'team_maq_04',
+    name: 'Maq 04',
+    headerBgColor: '#bbf7d0',
+    columnBgColor: '#f0fdf4',
+    borderColor: '#16a34a',
+    machineryId: 'veh_trator_jd_6110',
+    machineryName: 'Trator JD 6110J + JF C120',
+    frontNumber: 3,
+  },
+  {
+    id: 'team_maq_05',
+    name: 'Maq 05',
+    headerBgColor: '#fde047',
+    columnBgColor: '#fef9c3',
+    borderColor: '#eab308',
+    machineryId: 'veh_evd_2j61',
+    machineryName: 'Frota MB 2726 + Suporte',
+    frontNumber: 4,
+  },
+];
 
 // Exemplos iniciais realistas caso o banco esteja vazio
 const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [
@@ -265,9 +311,194 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     return { total, agendados, emExecucao, concluidos, totalHectares };
   }, [appointments]);
 
+  // Colunas de Máquinas Principais (sincronizadas com as equipes ativas ou padrão Maq 02, Maq 03, Maq 04, Maq 05)
+  const machineColumns = useMemo(() => {
+    const storedTeams = getStoredFleetTeams();
+    if (storedTeams && storedTeams.length > 0) {
+      return storedTeams.map((team, idx) => ({
+        id: team.id,
+        name: team.name,
+        machineryId: team.machineryId,
+        machineryName: team.machineryName || team.name,
+        headerBgColor: team.headerBgColor || '#fef08a',
+        columnBgColor: team.columnBgColor || '#fefce8',
+        borderColor: team.borderColor || '#ca8a04',
+        frontNumber: team.order || idx + 1,
+      }));
+    }
+    return DEFAULT_MACHINE_COLUMNS;
+  }, []);
+
+  // Agrupamento dos agendamentos filtrados por cada Máquina Principal com ordenação cronológica
+  const appointmentsByColumn = useMemo(() => {
+    const map: Record<string, ServiceAppointment[]> = {};
+    machineColumns.forEach(col => {
+      map[col.id] = [];
+    });
+
+    filteredAppointments.forEach(app => {
+      let matchedColId: string | null = null;
+
+      for (const col of machineColumns) {
+        // 1. Pelo ID direto da máquina
+        if (app.primaryMachineryId && col.machineryId && app.primaryMachineryId === col.machineryId) {
+          matchedColId = col.id;
+          break;
+        }
+
+        const appPrefix = (app.primaryMachineryPrefix || '').toLowerCase();
+        const appModel = (app.primaryMachineryModel || '').toLowerCase();
+        const colName = col.name.toLowerCase();
+        const colMach = (col.machineryName || '').toLowerCase();
+
+        // 2. Checa se o número de máquina casa (ex: "Maq 02" casa com "Forrageira 02", "FOR-02", "02")
+        const numMatch = colName.match(/\d+/);
+        if (numMatch) {
+          const num = numMatch[0];
+          const paddedNum = num.padStart(2, '0');
+          if (
+            appPrefix.includes(`maq ${num}`) ||
+            appPrefix.includes(`maq ${paddedNum}`) ||
+            appPrefix.includes(`forr ${num}`) ||
+            appPrefix.includes(`forr ${paddedNum}`) ||
+            appPrefix.includes(`for-${paddedNum}`) ||
+            appPrefix.includes(`for-${num}`) ||
+            appPrefix.includes(` ${paddedNum}`) ||
+            appPrefix.includes(` ${num}`)
+          ) {
+            matchedColId = col.id;
+            break;
+          }
+        }
+
+        // 3. Checa modelo das máquinas (ex: 870, 860, 6110, 2726, 8500)
+        if (colMach.includes('870') && (appModel.includes('870') || appPrefix.includes('870'))) {
+          matchedColId = col.id;
+          break;
+        }
+        if (colMach.includes('860') && (appModel.includes('860') || appPrefix.includes('860'))) {
+          matchedColId = col.id;
+          break;
+        }
+        if (colMach.includes('6110') && (appModel.includes('6110') || appPrefix.includes('6110'))) {
+          matchedColId = col.id;
+          break;
+        }
+        if (colMach.includes('2726') && (appModel.includes('2726') || appPrefix.includes('2726'))) {
+          matchedColId = col.id;
+          break;
+        }
+
+        // 4. Checagem textual aproximada
+        if (colMach && appPrefix.includes(colMach)) {
+          matchedColId = col.id;
+          break;
+        }
+        if (colName && appPrefix.includes(colName)) {
+          matchedColId = col.id;
+          break;
+        }
+      }
+
+      // Se encontrou coluna, adiciona
+      if (matchedColId && map[matchedColId]) {
+        map[matchedColId].push(app);
+      } else if (machineColumns[0]) {
+        // Fallback seguro: se não deu match com nenhuma máquina específica, coloca na primeira coluna
+        map[machineColumns[0].id].push(app);
+      }
+    });
+
+    // Ordenação estrita CRONOLÓGICA dentro de cada coluna (primeiros horários no topo)
+    machineColumns.forEach(col => {
+      map[col.id].sort((a, b) => {
+        const timeA = new Date(`${a.startDate}T${a.startTime || '00:00'}`).getTime();
+        const timeB = new Date(`${b.startDate}T${b.startTime || '00:00'}`).getTime();
+        return timeA - timeB;
+      });
+    });
+
+    return map;
+  }, [machineColumns, filteredAppointments]);
+
+  // Drag and Drop entre colunas de máquinas
+  const [draggedApptId, setDraggedApptId] = useState<string | null>(null);
+  const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, apptId: string) => {
+    e.dataTransfer.setData('text/plain', apptId);
+    setDraggedApptId(apptId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    setDragOverColId(colId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, colId: string) => {
+    if (dragOverColId === colId) {
+      setDragOverColId(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetCol: typeof machineColumns[0]) => {
+    e.preventDefault();
+    const apptId = e.dataTransfer.getData('text/plain') || draggedApptId;
+    setDragOverColId(null);
+    setDraggedApptId(null);
+    if (!apptId) return;
+
+    const targetApp = appointments.find(a => a.id === apptId);
+    if (!targetApp) return;
+
+    // Atualiza a máquina principal do agendamento
+    const updated = appointments.map(a => {
+      if (a.id === apptId) {
+        return {
+          ...a,
+          primaryMachineryId: targetCol.machineryId || targetCol.id,
+          primaryMachineryPrefix: `${targetCol.name} - ${targetCol.machineryName || ''}`.trim(),
+        };
+      }
+      return a;
+    });
+    setAppointments(updated);
+  };
+
   // Manipuladores de Ação
-  const handleCreateNew = () => {
-    setEditAppointment(null);
+  const handleCreateNew = (presetMachineryId?: string, presetMachineryPrefix?: string) => {
+    if (presetMachineryId) {
+      setEditAppointment({
+        id: '',
+        appointmentNumber: nextAppointmentNumber,
+        clientId: '',
+        clientName: '',
+        farmName: '',
+        locationCityState: '',
+        contactPhone: '',
+        serviceType: 'Corte / Ensilagem',
+        serviceTab: 'corte',
+        startDate: new Date().toISOString().split('T')[0],
+        startTime: '07:00',
+        travelTimeMinutes: 60,
+        trailerLoadingTimeMinutes: 45,
+        areaUnit: 'hectares',
+        estimatedQuantity: 20,
+        productivityRatePerHour: 1.5,
+        executionTimeMinutes: 800,
+        totalTimeMinutes: 905,
+        endDate: new Date().toISOString().split('T')[0],
+        endTime: '22:05',
+        primaryMachineryId: presetMachineryId,
+        primaryMachineryPrefix: presetMachineryPrefix || '',
+        assignedVehicles: [],
+        assignedTeam: [],
+        status: 'agendado',
+        createdAt: new Date().toISOString()
+      } as ServiceAppointment);
+    } else {
+      setEditAppointment(null);
+    }
     setIsFormOpen(true);
   };
 
@@ -471,213 +702,255 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       {/* 4. CONTEÚDO PRINCIPAL DE ACORDO COM A VISÃO SELECIONADA */}
 
-      {/* VISÃO 1: CRONOGRAMA OPERACIONAL */}
+      {/* VISÃO 1: CRONOGRAMA OPERACIONAL EM COLUNAS LADO A LADO (ESTILO KANBAN / MÁQUINAS PRINCIPAIS) */}
       {viewMode === 'cronograma' && (
-        <div className="space-y-4">
-          {filteredAppointments.length === 0 ? (
-            <div className="p-12 text-center bg-white dark:bg-stone-900 rounded-2xl border border-dashed border-stone-300 dark:border-stone-800">
-              <Calendar className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-              <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300">
-                Nenhum agendamento encontrado
+        <div className="w-full overflow-x-auto pb-4">
+          {/* Moldura Externa idêntica ao quadro de Equipes */}
+          <div className="min-w-[840px] border-3 border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-md bg-white dark:bg-stone-950">
+            
+            {/* 1. TOPO DA MOLDURA: Cabeçalho com título e contadores */}
+            <div className="bg-[#ffedd5] dark:bg-amber-950 text-stone-950 dark:text-amber-100 py-2.5 px-4 border-b-3 border-black dark:border-stone-700 text-center relative flex items-center justify-center">
+              <h3 className="text-base sm:text-lg font-black tracking-wide font-['Outfit']">
+                Agenda Operacional por Máquinas & Frentes de Colheita
               </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                Ajuste os filtros ou crie um novo agendamento de serviço com cálculo de tempo e escala de frota.
-              </p>
-              <button
-                type="button"
-                onClick={handleCreateNew}
-                className="mt-4 px-4 py-2 bg-[#2e65aa] text-white rounded-xl text-xs font-bold hover:bg-[#25528c]"
-              >
-                + Criar Primeiro Agendamento
-              </button>
+              <span className="absolute right-4 text-xs font-bold text-stone-600 dark:text-amber-300 hidden sm:inline">
+                Total: {filteredAppointments.length} Agendamentos em {machineColumns.length} Frentes
+              </span>
             </div>
-          ) : (
-            filteredAppointments.map((app) => (
-              <div
-                key={app.id}
-                className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs hover:border-[#2e65aa]/60 transition-all p-5 space-y-4"
-              >
-                {/* Linha Superior: Cabeçalho do Card */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs font-black px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700">
-                      {app.appointmentNumber}
-                    </span>
-                    <div>
-                      <h3 className="text-base font-black text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                        <span>{app.clientName}</span>
-                        {app.farmName && (
-                          <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
-                            • {app.farmName}
-                          </span>
-                        )}
-                      </h3>
-                      <div className="flex items-center gap-3 text-xs text-stone-500 mt-0.5">
-                        {app.locationCityState && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-stone-400" />
-                            {app.locationCityState}
-                          </span>
-                        )}
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                          {app.serviceType}
+
+            {/* 2. GRID DE COLUNAS LADO A LADO POR MÁQUINA PRINCIPAL */}
+            <div 
+              className="grid divide-x-3 divide-black dark:divide-stone-700 items-stretch"
+              style={{
+                gridTemplateColumns: `repeat(${machineColumns.length}, minmax(240px, 1fr))`
+              }}
+            >
+              {machineColumns.map((col, idx) => {
+                const colAppointments = appointmentsByColumn[col.id] || [];
+                const isDragOver = dragOverColId === col.id;
+                const totalHectaresCol = colAppointments
+                  .filter(a => a.status !== 'cancelado')
+                  .reduce((sum, a) => sum + (a.areaUnit === 'hectares' ? a.estimatedQuantity : 0), 0);
+
+                return (
+                  <div
+                    key={col.id}
+                    onDragOver={(e) => handleDragOver(e, col.id)}
+                    onDragLeave={(e) => handleDragLeave(e, col.id)}
+                    onDrop={(e) => handleDrop(e, col)}
+                    className={`flex flex-col transition-colors duration-150 ${
+                      isDragOver ? 'ring-4 ring-inset ring-amber-500 bg-amber-100 dark:bg-amber-950' : ''
+                    }`}
+                    style={{
+                      backgroundColor: isDragOver ? undefined : col.columnBgColor || '#fefce8'
+                    }}
+                  >
+                    {/* Cabeçalho da Coluna: Frente #X, Nome da Máquina (Maq 02, Maq 03, etc.) */}
+                    <div
+                      className="p-2.5 border-b-3 border-black dark:border-stone-700 flex flex-col justify-between items-center text-center select-none"
+                      style={{
+                        backgroundColor: col.headerBgColor || '#fef08a',
+                        color: '#000000'
+                      }}
+                    >
+                      <div className="w-full flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-black/60">
+                          Frente #{col.frontNumber || idx + 1}
                         </span>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCreateNew(col.machineryId, col.name)}
+                          title={`Novo agendamento para ${col.name}`}
+                          className="flex items-center space-x-0.5 hover:text-black transition cursor-pointer text-[10px] font-black underline"
+                        >
+                          <Plus className="w-3 h-3 inline" />
+                          <span>+ Add</span>
+                        </button>
+                      </div>
+
+                      <h4 className="text-base sm:text-lg font-black text-black tracking-tight my-0.5 font-['Outfit']">
+                        {col.name}
+                      </h4>
+
+                      {col.machineryName && (
+                        <span className="text-[11px] font-semibold text-black/75 truncate max-w-full px-1">
+                          🚜 {col.machineryName}
+                        </span>
+                      )}
+
+                      <div className="mt-1 flex items-center justify-between w-full text-[10px] font-bold text-black/70 border-t border-black/15 pt-1">
+                        <span>{colAppointments.length} {colAppointments.length === 1 ? 'serviço' : 'serviços'}</span>
+                        {totalHectaresCol > 0 ? (
+                          <span>{totalHectaresCol.toFixed(1)} ha</span>
+                        ) : (
+                          <span>Disponível</span>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Status Badge e Botões Rápidos */}
-                  <div className="flex items-center gap-2 self-start sm:self-center">
-                    <span className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-lg border ${
-                      app.status === 'em_execucao'
-                        ? 'bg-emerald-100 text-emerald-900 border-emerald-300 animate-pulse'
-                        : app.status === 'em_deslocamento'
-                        ? 'bg-blue-100 text-blue-900 border-blue-300'
-                        : app.status === 'concluido'
-                        ? 'bg-stone-100 text-stone-800 border-stone-300'
-                        : app.status === 'cancelado'
-                        ? 'bg-red-100 text-red-800 border-red-300'
-                        : 'bg-amber-100 text-amber-900 border-amber-300'
-                    }`}>
-                      {app.status === 'em_execucao' ? '● Em Execução no Corte' : app.status.replace('_', ' ')}
-                    </span>
-
-                    {/* AÇÃO PRINCIPAL: Puxar para Corte / Iniciar Execução */}
-                    <button
-                      type="button"
-                      onClick={() => handleExecuteService(app)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-xs transition-colors cursor-pointer"
-                      title="Puxar cliente e dados agendados para preencher novo corte automaticamente"
-                    >
-                      <Scissors className="w-3.5 h-3.5" />
-                      <span>Iniciar Execução (Puxar Corte)</span>
-                    </button>
-
-                    {/* Botão de Impressão A4 da Ordem de Campo */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenPrint(app)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-100 text-stone-700 dark:text-stone-200 text-xs font-bold transition-colors cursor-pointer"
-                      title="Imprimir Ordem de Campo em via única A4"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-stone-500" />
-                      <span>Ordem de Campo (A4)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(app)}
-                      className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 text-stone-600 dark:text-stone-300 transition-colors"
-                      title="Editar agendamento"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(app.id)}
-                      className="p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-red-50 text-red-500 transition-colors"
-                      title="Excluir agendamento"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Linha Central: Desdobramento dos Tempos Logísticos e Produção */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 rounded-xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/70 dark:border-stone-800 text-xs">
-                  <div>
-                    <span className="block text-[10px] font-bold uppercase text-stone-500">Início / Saída Base</span>
-                    <span className="font-extrabold text-stone-900 dark:text-stone-100">
-                      {formatDateBR(app.startDate)} às {app.startTime}h
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="block text-[10px] font-bold uppercase text-stone-500">Deslocamento + Prancha</span>
-                    <span className="font-bold text-stone-800 dark:text-stone-200">
-                      {formatMinToHoursText(app.travelTimeMinutes)} + {formatMinToHoursText(app.trailerLoadingTimeMinutes)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="block text-[10px] font-bold uppercase text-stone-500">Área & Rendimento</span>
-                    <span className="font-bold text-stone-800 dark:text-stone-200">
-                      {app.estimatedQuantity} {app.areaUnit === 'hectares' ? 'ha' : app.areaUnit} ({app.productivityRatePerHour} {app.areaUnit === 'hectares' ? 'ha/h' : '/h'})
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="block text-[10px] font-bold uppercase text-stone-500">Tempo Execução</span>
-                    <span className="font-bold text-stone-800 dark:text-stone-200">
-                      {formatMinToHoursText(app.executionTimeMinutes)}
-                    </span>
-                  </div>
-
-                  <div className="bg-emerald-50/80 dark:bg-emerald-950/40 p-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <span className="block text-[9px] font-black uppercase text-emerald-800 dark:text-emerald-400">Tempo Total Operacional</span>
-                    <span className="font-black text-emerald-900 dark:text-emerald-300">
-                      {formatMinToHoursText(app.totalTimeMinutes)}
-                    </span>
-                    <span className="block text-[10px] text-stone-500 font-semibold">Término: {app.endTime}h</span>
-                  </div>
-                </div>
-
-                {/* Linha Inferior: Veículos Escalados (Prefixo e Placa) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase text-stone-500 flex items-center gap-1.5">
-                      <Truck className="w-3.5 h-3.5 text-[#2e65aa]" />
-                      <span>Frotas e Veículos Escalados (Rastreados por Placas / Prefixos):</span>
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {/* Forrageira Principal */}
-                    {app.primaryMachineryPrefix && (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-xs font-bold text-emerald-950 dark:text-emerald-200">
-                        <Scissors className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{app.primaryMachineryPrefix}</span>
-                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-stone-900 border border-emerald-200">
-                          {app.primaryMachineryPlate}
-                        </span>
+                    {/* Indicador visual de Drag Over */}
+                    {isDragOver && (
+                      <div className="p-3 m-2 border-2 border-dashed border-black rounded-lg text-center text-xs font-black text-black bg-amber-200/60 animate-pulse">
+                        Mover agendamento para {col.name}
                       </div>
                     )}
 
-                    {/* Veículos de Apoio (Caminhões e Tratores) */}
-                    {app.assignedVehicles?.map((v, idx) => (
-                      <div
-                        key={idx}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${
-                          v.category === 'caminhao'
-                            ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-950 dark:text-blue-200'
-                            : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-950 dark:text-amber-200'
-                        }`}
-                      >
-                        <Truck className="w-3.5 h-3.5 opacity-70" />
-                        <span className="font-bold">{v.prefix}</span>
-                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-stone-900 border border-stone-200">
-                          {v.plateOrSerial}
-                        </span>
-                        {v.driverOrOperatorName && (
-                          <span className="text-[10px] opacity-75">
-                            ({v.driverOrOperatorName})
+                    {/* LISTAGEM DOS CARDS EMPILHADOS VERTICALMENTE (ORDEM CRONOLÓGICA) */}
+                    <div className="p-2 space-y-2.5 flex-1 min-h-[420px]">
+                      {colAppointments.length === 0 ? (
+                        <div className="p-6 text-center text-xs font-semibold text-stone-500 italic flex flex-col items-center justify-center h-full min-h-[200px]">
+                          <Calendar className="w-8 h-8 text-black/20 mb-2" />
+                          <span>Nenhum serviço agendado</span>
+                          <span className="text-[11px] font-normal text-stone-400 mt-0.5">
+                            Máquina livre para alocação
                           </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCreateNew(col.machineryId, col.name)}
+                            className="mt-3 px-3 py-1 bg-black/10 hover:bg-black/20 rounded text-[11px] font-bold text-black transition cursor-pointer"
+                          >
+                            + Agendar
+                          </button>
+                        </div>
+                      ) : (
+                        colAppointments.map((app) => {
+                          const isBeingDragged = draggedApptId === app.id;
 
-                {/* Observações de Campo se houver */}
-                {app.fieldNotes && (
-                  <p className="text-xs italic text-stone-500 dark:text-stone-400 bg-stone-50/50 dark:bg-stone-800/30 p-2 rounded-lg border border-stone-100 dark:border-stone-800">
-                    <strong>Instruções de Campo:</strong> {app.fieldNotes}
-                  </p>
-                )}
-              </div>
-            ))
-          )}
+                          return (
+                            <div
+                              key={app.id}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, app.id)}
+                              className={`bg-white dark:bg-stone-900 border-2 border-black/80 dark:border-stone-700 rounded-lg p-3 shadow-xs hover:shadow-md transition-all space-y-2 cursor-grab active:cursor-grabbing ${
+                                isBeingDragged ? 'opacity-40 ring-2 ring-black' : ''
+                              }`}
+                            >
+                              {/* Topo do Card: Número do Agendamento + Badge de Status */}
+                              <div className="flex items-center justify-between gap-1.5 border-b border-stone-100 dark:border-stone-800 pb-1.5">
+                                <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700">
+                                  {app.appointmentNumber}
+                                </span>
+
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
+                                  app.status === 'em_execucao'
+                                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300 animate-pulse'
+                                    : app.status === 'em_deslocamento'
+                                    ? 'bg-blue-100 text-blue-900 border-blue-300'
+                                    : app.status === 'concluido'
+                                    ? 'bg-stone-100 text-stone-800 border-stone-300'
+                                    : app.status === 'cancelado'
+                                    ? 'bg-red-100 text-red-800 border-red-300'
+                                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                                }`}>
+                                  {app.status === 'em_execucao' ? '● Em Execução' : app.status.replace('_', ' ')}
+                                </span>
+                              </div>
+
+                              {/* 1. NOME DO CLIENTE & FAZENDA */}
+                              <div>
+                                <h5 className="font-black text-xs sm:text-sm text-stone-950 dark:text-stone-100 leading-snug">
+                                  {app.clientName}
+                                </h5>
+                                {app.farmName && (
+                                  <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400 block truncate">
+                                    🏡 {app.farmName}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* 2. DATA E HORA DO AGENDAMENTO (EM DESTAQUE CRONOLÓGICO) */}
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100 bg-stone-50 dark:bg-stone-800/60 p-1.5 rounded-md border border-stone-200 dark:border-stone-700">
+                                <Clock className="w-3.5 h-3.5 text-[#2e65aa] shrink-0" />
+                                <span className="truncate">
+                                  {formatDateBR(app.startDate)} às <span className="font-black text-[#2e65aa] dark:text-blue-400">{app.startTime}h</span>
+                                </span>
+                                {app.endTime && (
+                                  <span className="text-[10px] text-stone-500 font-normal shrink-0 ml-auto">
+                                    até {app.endTime}h
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* 3. CIDADE E ENDEREÇO / LOCALIZAÇÃO */}
+                              <div className="flex items-start gap-1 text-[11px] text-stone-600 dark:text-stone-300 leading-tight">
+                                <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                                <span className="font-medium line-clamp-2">
+                                  {app.locationCityState || 'Localização de campo'}
+                                  {app.farmName && !app.locationCityState ? ` - ${app.farmName}` : ''}
+                                </span>
+                              </div>
+
+                              {/* Área, Rendimento & Tempo Estimado */}
+                              <div className="flex items-center justify-between text-[10px] font-bold text-stone-600 dark:text-stone-400 bg-emerald-50/60 dark:bg-emerald-950/20 px-2 py-1 rounded border border-emerald-200/60 dark:border-emerald-900/30">
+                                <span>🌾 {app.estimatedQuantity} {app.areaUnit === 'hectares' ? 'ha' : app.areaUnit}</span>
+                                <span>⏱️ {formatMinToHoursText(app.totalTimeMinutes)}</span>
+                              </div>
+
+                              {/* Veículos de Apoio Escalados (Caminhões e Tratores) */}
+                              {app.assignedVehicles && app.assignedVehicles.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                  {app.assignedVehicles.map((v, vIdx) => (
+                                    <span
+                                      key={vIdx}
+                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 truncate max-w-full"
+                                      title={`${v.prefix} (${v.plateOrSerial}) - ${v.driverOrOperatorName || 'Sem motorista'}`}
+                                    >
+                                      🚛 {v.prefix.replace(/Caminhão \d+ - /i, '')} ({v.plateOrSerial})
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* AÇÕES DO CARD */}
+                              <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleExecuteService(app)}
+                                  className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-[10px] font-black shadow-xs transition-colors cursor-pointer"
+                                  title="Puxar cliente e dados agendados para preencher novo corte automaticamente"
+                                >
+                                  <Scissors className="w-3 h-3" />
+                                  <span>Puxar Corte</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPrint(app)}
+                                  className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+                                  title="Ordem de Campo (A4)"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleEdit(app)}
+                                  className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+                                  title="Editar Agendamento"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(app.id)}
+                                  className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+                                  title="Excluir Agendamento"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
