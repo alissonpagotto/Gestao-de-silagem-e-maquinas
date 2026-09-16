@@ -28,7 +28,8 @@ import {
   TireRotationLog,
   TireItem,
   MaintenancePurchaseRequest,
-  MaintenanceCategoryDefinition
+  MaintenanceCategoryDefinition,
+  ServiceAppointment
 } from '../types';
 import { 
   INITIAL_VEHICLE_TYPES, 
@@ -99,6 +100,7 @@ const STORAGE_KEYS = {
   MAINTENANCE_CATEGORIES: 'silagem_facil_clean_v1_maintenance_categories',
   VEHICLE_SYSTEM_CATEGORIES: 'silagem_facil_clean_v1_vehicle_system_categories',
   VEHICLE_OWNERSHIP_REGIMES: 'silagem_facil_clean_v1_vehicle_ownership_regimes',
+  APPOINTMENTS: 'silagem_facil_clean_v1_service_appointments',
 };
 
 export function getStoredExpenses(): Expense[] {
@@ -347,6 +349,29 @@ export function saveStoredServices(services: ServiceOrder[]): void {
     console.error('Failed to save services', e);
   }
 }
+
+export function getStoredAppointments(): ServiceAppointment[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveStoredAppointments(appointments: ServiceAppointment[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_appointments_updated', { detail: appointments }));
+      window.dispatchEvent(new Event('storage'));
+    }
+  } catch (e) {
+    console.error('Failed to save appointments', e);
+  }
+}
+
 
 export function getStoredFuelLogs(): FuelLog[] {
   try {

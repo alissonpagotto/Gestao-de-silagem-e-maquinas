@@ -1117,4 +1117,68 @@ export interface TireRotationLog {
   createdAt: string;
 }
 
+// ==============================================================================
+// TIPOS: AGENDA DE SERVIÇOS AGRÍCOLAS
+// ==============================================================================
+
+export interface AgendaVehicleAssignment {
+  machineryId: string;
+  prefix: string; // Ex: "FOR-02" ou "Forrageira 02"
+  plateOrSerial: string; // Ex: "Placa MTU-8920" ou "Série JD-8500"
+  model: string;
+  category: 'forrageira' | 'caminhao' | 'trator' | 'prancha' | 'outro';
+  driverOrOperatorId?: string;
+  driverOrOperatorName?: string;
+}
+
+export interface AgendaTeamMember {
+  employeeId: string;
+  employeeName: string;
+  role: string; // Ex: "Operador de Forrageira", "Motorista", "Operador de Trator", "Encarregado"
+  assignedVehiclePrefix?: string;
+}
+
+export interface ServiceAppointment {
+  id: string;
+  appointmentNumber: string; // Ex: "AG-2026-001"
+  clientId: string;
+  clientName: string;
+  farmName?: string;
+  locationCityState?: string;
+  contactPhone?: string;
+  serviceType: 'Corte / Ensilagem' | 'Colheita' | 'Serviço de Trator' | 'Serviço de Máquina' | 'Frete / Transporte';
+  serviceTab?: 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento';
+  startDate: string; // YYYY-MM-DD
+  startTime: string; // HH:mm (Horário de saída da base / início de deslocamento)
+
+  // 1. Cálculo de Tempos Operacionais
+  travelTimeMinutes: number; // Tempo de deslocamento rodoviário (minutos)
+  trailerLoadingTimeMinutes: number; // Tempo de prancha / embarque e amarração (minutos)
+  areaUnit: 'hectares' | 'alqueires' | 'horas';
+  estimatedQuantity: number; // Quantidade de área ou horas a executar
+  productivityRatePerHour: number; // Rendimento operacional estimado (ex: 1.5 ha/h, 0.6 alq/h, 1 h/h)
+  executionTimeMinutes: number; // Tempo de execução estimado em minutos
+  totalTimeMinutes: number; // Deslocamento + Prancha + Execução (minutos)
+  endDate: string; // YYYY-MM-DD (Calculado a partir de startDate, startTime e totalTimeMinutes)
+  endTime: string; // HH:mm (Calculado a partir de startTime e totalTimeMinutes)
+
+  // 2. Veículos e Frotas rastreados estritamente por Placas/Prefixos
+  primaryMachineryId?: string;
+  primaryMachineryPrefix?: string;
+  primaryMachineryPlate?: string;
+  primaryMachineryModel?: string;
+
+  assignedVehicles: AgendaVehicleAssignment[];
+  assignedTeam: AgendaTeamMember[];
+
+  // 3. Status e Vínculo com Corte / Serviço
+  status: 'agendado' | 'em_deslocamento' | 'em_execucao' | 'concluido' | 'cancelado';
+  generatedServiceOrderId?: string; // ID da ServiceOrder gerada automaticamente
+  fieldNotes?: string;
+
+  createdAt: string;
+  updatedAt?: string;
+}
+
+
 

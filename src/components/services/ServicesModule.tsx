@@ -12,17 +12,19 @@ import {
   Trash2,
   Pencil,
   Calendar,
+  CalendarDays,
   CheckCircle2,
   Clock,
   AlertCircle,
   Truck
 } from 'lucide-react';
-import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
+import { ServiceOrder, Machinery, Employee, Client, CompanyProfile, ServiceAppointment } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal, ServiceTabType } from './ServiceFormModal';
+import { ServiceAgendaModule } from './ServiceAgendaModule';
 
-export type ServiceTab = 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento';
+export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento';
 
 interface ServicesModuleProps {
   services?: ServiceOrder[];
@@ -57,8 +59,9 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
   // Tabs Definition na ordem exata requerida:
-  // Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento
+  // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento
   const tabs = [
+    { id: 'agenda' as ServiceTab, label: 'Agenda de Serviços', icon: CalendarDays },
     { id: 'corte' as ServiceTab, label: 'Corte', icon: Scissors },
     { id: 'colheita' as ServiceTab, label: 'Colheita', icon: Wheat },
     { id: 'trator' as ServiceTab, label: 'Serviço de Trator', icon: Tractor },
@@ -70,6 +73,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   // Configurações Dinâmicas por Aba
   const tabConfig = useMemo(() => {
     switch (activeTab) {
+      case 'agenda':
+        return {
+          dateColumn: 'DATA PREVISTA',
+          quantityColumn: 'ÁREA / HORAS',
+          newButtonLabel: '+ Novo Agendamento',
+          serviceTypeName: 'Agenda de Serviços',
+        };
       case 'corte':
         return {
           dateColumn: 'DATA DO CORTE',
@@ -204,6 +214,62 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     }
   };
 
+  // REGRA DE NEGÓCIO: Fluxo de Execução a partir da Agenda
+  // Puxar o cliente agendado e preencher o novo corte automaticamente
+  const handleExecuteAppointmentFromAgenda = (appointment: ServiceAppointment) => {
+    const matchingClient = clients.find(
+      (c) => c.id === appointment.clientId || c.name.toLowerCase() === appointment.clientName.toLowerCase()
+    );
+
+    // Converte veículos escalados para o formato de caminhões do serviço
+    const trucksList = (appointment.assignedVehicles || [])
+      .filter((v) => v.category === 'caminhao')
+      .map((v) => ({
+        id: `truck-item-${Math.random()}`,
+        machineryId: v.machineryId,
+        truckName: `${v.prefix} (${v.plateOrSerial})`,
+        truckPlate: v.plateOrSerial,
+        driverName: v.driverOrOperatorName || '',
+        loadsCount: 0,
+        ratePerLoad: 0,
+        totalAmount: 0,
+      }));
+
+    const tractor = (appointment.assignedVehicles || []).find((v) => v.category === 'trator');
+    const forageOp = appointment.assignedTeam?.find(
+      (t) => t.role.toLowerCase().includes('forrageira') || t.role.toLowerCase().includes('principal')
+    );
+
+    const draftOrder: Partial<ServiceOrder> = {
+      id: `draft-${Date.now()}`,
+      serviceType: 'corte',
+      serviceTab: 'corte',
+      clientId: appointment.clientId || (matchingClient ? matchingClient.id : ''),
+      clientName: appointment.clientName,
+      farmName: appointment.farmName || (matchingClient ? matchingClient.farmName : ''),
+      startDate: appointment.startDate,
+      areaQuantity: appointment.estimatedQuantity || undefined,
+      areaHectares: appointment.areaUnit === 'hectares' ? appointment.estimatedQuantity : undefined,
+      areaUnit: appointment.areaUnit === 'alqueires' ? 'alqueires' : 'hectares',
+      forageHarvesterId: appointment.primaryMachineryId,
+      forageHarvesterName: appointment.primaryMachineryPrefix,
+      forageOperatorId: forageOp?.employeeId,
+      forageOperatorName: forageOp?.employeeName,
+      tractorId: tractor?.machineryId,
+      tractorName: tractor?.prefix,
+      tractorOperatorName: tractor?.driverOrOperatorName,
+      trucks: trucksList as any,
+      notes: appointment.fieldNotes
+        ? `[Agendamento ${appointment.appointmentNumber}] ${appointment.fieldNotes}`
+        : `[Agendamento ${appointment.appointmentNumber}]`,
+      status: 'em_andamento',
+    };
+
+    setEditRecord(draftOrder as ServiceOrder);
+    setActiveTab('corte');
+    setIsModalOpen(true);
+  };
+
   return (
     <div 
       className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased p-3 sm:p-4 lg:p-6 space-y-3.5 rounded-2xl shadow-md"
@@ -217,24 +283,28 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/20 pb-2">
         <div>
           <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-            Serviços
+            {activeTab === 'agenda' ? 'Agenda de Serviços' : 'Serviços'}
           </h1>
           <p className="text-xs text-blue-100 font-medium mt-0.5">
-            Gestão de cortes, colheitas, serviços e orçamentos agrícolas.
+            {activeTab === 'agenda'
+              ? 'Planejamento logístico de campo, escala de frotas e controle de sobreposição de horários.'
+              : 'Gestão de cortes, colheitas, serviços e orçamentos agrícolas.'}
           </p>
         </div>
 
         {/* Botão de Ação Principal em Verde-esmeralda escuro mantendo o realce colorido */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleOpenNew}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>+ Novo</span>
-          </button>
-        </div>
+        {activeTab !== 'agenda' && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenNew}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>+ Novo</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ========================================================
@@ -274,10 +344,21 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         })}
       </nav>
 
-      {/* ========================================================
-          4. BARRA DE FILTROS (SEARCH & DROPDOWN)
-          Busca com fundo branco e texto preto puro
-          ======================================================== */}
+      {/* RENDERIZAÇÃO DA ABA ATIVA: AGENDA DE SERVIÇOS OU LISTAGEM DE SERVIÇOS */}
+      {activeTab === 'agenda' ? (
+        <ServiceAgendaModule
+          machineries={machineries}
+          employees={employees}
+          clients={clients}
+          companyProfile={companyProfile}
+          onExecuteAppointment={handleExecuteAppointmentFromAgenda}
+        />
+      ) : (
+        <>
+          {/* ========================================================
+              4. BARRA DE FILTROS (SEARCH & DROPDOWN)
+              Busca com fundo branco e texto preto puro
+              ======================================================== */}
       <section 
         aria-label="Filtros de Serviços"
         className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full"
@@ -535,6 +616,8 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           </table>
         </div>
       </section>
+        </>
+      )}
 
       {/* ========================================================
           MODAL DINÂMICO PARA "+ NOVO" & EDIÇÃO

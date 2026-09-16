@@ -150,6 +150,54 @@ CREATE TABLE IF NOT EXISTS public.gestao_frotas (
 );
 
 -- ==============================================================================
+-- 8. TABELA: agenda_servicos (Agenda Operacional, Logística e Escala de Frotas)
+-- ==============================================================================
+-- Regras de Negócio:
+-- 1. Cálculo de tempo total (Deslocamento + Prancha + Execução por ha/alq/horas).
+-- 2. Escala de equipe e veículos rastreados estritamente por Placas/Prefixos.
+-- 3. Detecção e prevenção de sobreposição de horários para o mesmo maquinário.
+-- 4. Vínculo para puxar automaticamente os dados para a Ordem de Corte (Execução).
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.agenda_servicos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    numero_agendamento TEXT NOT NULL UNIQUE, -- Ex: 'AG-2026-001'
+    cliente_id UUID REFERENCES public.clientes(id) ON DELETE SET NULL,
+    cliente_nome TEXT NOT NULL,
+    fazenda_nome TEXT,
+    localizacao_cidade_uf TEXT,
+    contato_telefone TEXT,
+    tipo_servico TEXT NOT NULL DEFAULT 'Corte / Ensilagem', -- 'Corte / Ensilagem', 'Colheita', 'Serviço de Trator', 'Serviço de Máquina', 'Frete / Transporte'
+    service_tab TEXT NOT NULL DEFAULT 'corte',
+    data_inicio DATE NOT NULL,
+    hora_inicio TIME NOT NULL, -- Horário de saída da base / início
+    tempo_deslocamento_min INTEGER NOT NULL DEFAULT 0, -- Tempo de deslocamento rodoviário em minutos
+    tempo_prancha_min INTEGER NOT NULL DEFAULT 0, -- Tempo de carga, amarração e descarga em prancha
+    unidade_medida TEXT NOT NULL DEFAULT 'hectares', -- 'hectares' | 'alqueires' | 'horas'
+    quantidade_estimada NUMERIC(12,2) NOT NULL DEFAULT 0, -- ha, alq ou horas
+    rendimento_estimado_por_hora NUMERIC(10,2) NOT NULL DEFAULT 1.50, -- Ex: 1.50 ha/h
+    tempo_execucao_min INTEGER NOT NULL DEFAULT 0, -- (quantidade / rendimento) * 60
+    tempo_total_min INTEGER NOT NULL DEFAULT 0, -- deslocamento + prancha + execucao
+    data_termino_previsto DATE NOT NULL,
+    hora_termino_previsto TIME NOT NULL,
+    veiculo_principal_id UUID REFERENCES public.gestao_frotas(id) ON DELETE SET NULL,
+    veiculo_principal_prefixo_placa TEXT NOT NULL, -- Ex: 'Forrageira 02 - FOR-02 (JD 8500)'
+    veiculos_escalados JSONB DEFAULT '[]'::jsonb, -- Array de objetos com machineryId, prefix, plateOrSerial, model, category, driverOrOperatorName
+    equipe_escalada JSONB DEFAULT '[]'::jsonb, -- Array de objetos com employeeId, employeeName, role, assignedVehiclePrefix
+    status TEXT NOT NULL DEFAULT 'agendado', -- 'agendado' | 'em_deslocamento' | 'em_execucao' | 'concluido' | 'cancelado'
+    ordem_servico_gerada_id TEXT, -- ID do Corte / ServiceOrder gerado
+    observacoes_campo TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Índices de alta performance para a Agenda e prevenção de conflitos de horário
+CREATE INDEX IF NOT EXISTS idx_agenda_data_inicio ON public.agenda_servicos(data_inicio);
+CREATE INDEX IF NOT EXISTS idx_agenda_veiculo_principal ON public.agenda_servicos(veiculo_principal_id);
+CREATE INDEX IF NOT EXISTS idx_agenda_status ON public.agenda_servicos(status);
+CREATE INDEX IF NOT EXISTS idx_agenda_cliente_id ON public.agenda_servicos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_agenda_conflito_horario ON public.agenda_servicos(veiculo_principal_id, data_inicio, data_termino_previsto, hora_inicio, hora_termino_previsto);
+
+-- ==============================================================================
 -- FUNÇÃO & TRIGGER: Atualização Automática de updated_at
 -- ==============================================================================
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -184,6 +232,12 @@ BEFORE UPDATE ON public.gestao_frotas
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS trg_agenda_servicos_updated_at ON public.agenda_servicos;
+CREATE TRIGGER trg_agenda_servicos_updated_at
+BEFORE UPDATE ON public.agenda_servicos
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+
 -- ==============================================================================
 -- POLÍTICAS DE SEGURANÇA (ROW LEVEL SECURITY - RLS)
 -- Permitem leitura e escrita das tabelas para clientes autenticados e anônimos (ERP)
@@ -195,6 +249,7 @@ ALTER TABLE public.estoque ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_funcionarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gestao_frotas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agenda_servicos ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -225,6 +280,10 @@ BEGIN
     -- Gestão Frotas
     DROP POLICY IF EXISTS "Permissao Total Frotas" ON public.gestao_frotas;
     CREATE POLICY "Permissao Total Frotas" ON public.gestao_frotas FOR ALL USING (true) WITH CHECK (true);
+
+    -- Agenda de Serviços
+    DROP POLICY IF EXISTS "Permissao Total Agenda" ON public.agenda_servicos;
+    CREATE POLICY "Permissao Total Agenda" ON public.agenda_servicos FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
 -- ==============================================================================
@@ -241,7 +300,8 @@ BEGIN
             public.estoque,
             public.clientes,
             public.rh_funcionarios,
-            public.gestao_frotas;
+            public.gestao_frotas,
+            public.agenda_servicos;
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
