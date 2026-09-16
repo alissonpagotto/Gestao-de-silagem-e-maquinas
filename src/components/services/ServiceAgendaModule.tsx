@@ -762,18 +762,27 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     setAppointmentToDelete(null);
   };
 
-  const handleSaveAppointment = async (saved: ServiceAppointment) => {
-    const exists = appointments.some(a => a.id === saved.id);
-    let updated: ServiceAppointment[];
+  const handleSaveAppointment = async (saved: ServiceAppointment, cascadedUpdates?: ServiceAppointment[]) => {
+    let updated = [...appointments];
+    const exists = updated.some(a => a.id === saved.id);
     if (exists) {
-      updated = appointments.map(a => a.id === saved.id ? saved : a);
+      updated = updated.map(a => a.id === saved.id ? saved : a);
     } else {
-      updated = [saved, ...appointments];
+      updated = [saved, ...updated];
     }
+
+    if (cascadedUpdates && cascadedUpdates.length > 0) {
+      const cascadeMap = new Map(cascadedUpdates.map(u => [u.id, u]));
+      updated = updated.map(a => cascadeMap.has(a.id) ? cascadeMap.get(a.id)! : a);
+    }
+
     setAppointments(updated);
     saveStoredAppointments(updated);
     try {
       await upsertAgendamento(saved);
+      if (cascadedUpdates && cascadedUpdates.length > 0) {
+        await Promise.all(cascadedUpdates.map(cu => upsertAgendamento(cu)));
+      }
     } catch (err) {
       console.warn('Erro ao sincronizar agendamento no Supabase:', err);
     }

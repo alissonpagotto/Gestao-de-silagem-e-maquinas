@@ -33,12 +33,49 @@ import {
   formatTruckOptionLabel,
   findLinkedOperator 
 } from './serviceHelpers';
-import { getStoredMachineries } from '../../lib/storage';
+import { getStoredMachineries, formatDateBR } from '../../lib/storage';
+
+// Funções utilitárias de timestamp e cálculo de término sem timezone drift
+const toTimestamp = (dateStr?: string, timeStr?: string): number => {
+  if (!dateStr || !timeStr) return NaN;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [h, min] = timeStr.split(':').map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d) || isNaN(h) || isNaN(min)) return NaN;
+  return new Date(y, m - 1, d, h, min, 0, 0).getTime();
+};
+
+const fromTimestamp = (ms: number): { dateStr: string; timeStr: string } => {
+  const dt = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dateStr = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  const timeStr = `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  return { dateStr, timeStr };
+};
+
+const getApptDurationMinutes = (app: ServiceAppointment): number => {
+  if (app.totalTimeMinutes && app.totalTimeMinutes > 0) return app.totalTimeMinutes;
+  const startMs = toTimestamp(app.startDate, app.startTime);
+  const endMs = toTimestamp(app.endDate || app.startDate, app.endTime || app.startTime);
+  if (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) {
+    return Math.round((endMs - startMs) / 60000);
+  }
+  return 60;
+};
+
+const getApptEndMs = (app: ServiceAppointment): number => {
+  if (app.endDate && app.endTime) {
+    const endMs = toTimestamp(app.endDate, app.endTime);
+    if (!isNaN(endMs)) return endMs;
+  }
+  const startMs = toTimestamp(app.startDate, app.startTime);
+  const dur = getApptDurationMinutes(app);
+  return isNaN(startMs) ? 0 : startMs + dur * 60000;
+};
 
 interface AppointmentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (appointment: ServiceAppointment) => void;
+  onSave: (appointment: ServiceAppointment, cascadedAppointments?: ServiceAppointment[]) => void;
   editAppointment?: ServiceAppointment | null;
   existingAppointments: ServiceAppointment[];
   machineries?: Machinery[];
@@ -86,8 +123,9 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   const [status, setStatus] = useState<'agendado' | 'em_deslocamento' | 'em_execucao' | 'concluido' | 'cancelado'>('agendado');
   const [fieldNotes, setFieldNotes] = useState('');
 
-  // Erro ou conflito forçado
+  // Erro ou conflito forçado / remanejamento em cascata
   const [conflictWarningAck, setConflictWarningAck] = useState(false);
+  const [applyAutoShift, setApplyAutoShift] = useState(false);
 
   // Lista de máquinas disponíveis consolidando cadastro de frotas (prop + storage) e sugestões padrão da frota
   const availableMachineries = useMemo(() => {
@@ -292,6 +330,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setFieldNotes('');
     }
     setConflictWarningAck(false);
+    setApplyAutoShift(false);
   }, [editAppointment, isOpen, nextAppointmentNumber, availableMachineries, employees]);
 
   // Sincronização ao selecionar Cliente
@@ -350,8 +389,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       return [];
     }
 
-    const currentStartMs = new Date(`${startDate}T${startTime}`).getTime();
-    const currentEndMs = new Date(`${calculatedEndDate}T${calculatedEndTime}`).getTime();
+    const currentStartMs = toTimestamp(startDate, startTime);
+    const currentEndMs = toTimestamp(calculatedEndDate, calculatedEndTime);
 
     if (isNaN(currentStartMs) || isNaN(currentEndMs)) return [];
 
@@ -366,8 +405,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       if (editAppointment && otherAppt.id === editAppointment.id) return;
       if (otherAppt.status === 'cancelado') return;
 
-      const otherStartMs = new Date(`${otherAppt.startDate}T${otherAppt.startTime}`).getTime();
-      const otherEndMs = new Date(`${otherAppt.endDate}T${otherAppt.endTime}`).getTime();
+      const otherStartMs = toTimestamp(otherAppt.startDate, otherAppt.startTime);
+      const otherEndMs = getApptEndMs(otherAppt);
 
       if (isNaN(otherStartMs) || isNaN(otherEndMs)) return;
 
@@ -401,6 +440,152 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
     return conflicts;
   }, [startDate, startTime, calculatedEndDate, calculatedEndTime, allCurrentVehicleIds, existingAppointments, editAppointment, machineries]);
+
+  // 1. Sugestão Inteligente do Próximo Horário Disponível
+  const nextAvailableSlot = useMemo(() => {
+    if (vehicleScheduleConflicts.length === 0) return null;
+    if (!startDate || !startTime || !calculatedEndDate || !calculatedEndTime) return null;
+
+    const currentDurationMin = totalMinutes > 0 ? totalMinutes : 60;
+    const affectedVehicleIds = new Set(vehicleScheduleConflicts.map(c => c.vehicleId));
+    if (primaryMachineryId) affectedVehicleIds.add(primaryMachineryId);
+
+    // Identifica o maior término entre os agendamentos que geraram o conflito direto
+    let maxConflictEndMs = 0;
+    vehicleScheduleConflicts.forEach(conf => {
+      const endMs = getApptEndMs(conf.conflictingAppointment);
+      if (endMs > maxConflictEndMs) {
+        maxConflictEndMs = endMs;
+      }
+    });
+
+    if (maxConflictEndMs === 0) return null;
+
+    // Busca próximo slot onde todos os veículos da escala fiquem livres
+    let candidateStartMs = maxConflictEndMs;
+    let iterations = 0;
+    let isSlotFree = false;
+
+    while (!isSlotFree && iterations < 50) {
+      iterations++;
+      const candidateEndMs = candidateStartMs + currentDurationMin * 60000;
+
+      const collision = existingAppointments.find(app => {
+        if (editAppointment && app.id === editAppointment.id) return false;
+        if (app.status === 'cancelado') return false;
+
+        const appVehicles = [app.primaryMachineryId, ...(app.assignedVehicles || []).map(v => v.machineryId)].filter(Boolean);
+        const shares = appVehicles.some(vId => affectedVehicleIds.has(vId!));
+        if (!shares) return false;
+
+        const aStartMs = toTimestamp(app.startDate, app.startTime);
+        const aEndMs = getApptEndMs(app);
+        if (isNaN(aStartMs) || isNaN(aEndMs)) return false;
+
+        return candidateStartMs < aEndMs && candidateEndMs > aStartMs;
+      });
+
+      if (collision) {
+        const collEndMs = getApptEndMs(collision);
+        candidateStartMs = Math.max(candidateStartMs + 15 * 60000, collEndMs);
+      } else {
+        isSlotFree = true;
+      }
+    }
+
+    const { dateStr, timeStr } = fromTimestamp(candidateStartMs);
+    return {
+      date: dateStr,
+      time: timeStr,
+      timestampMs: candidateStartMs
+    };
+  }, [vehicleScheduleConflicts, startDate, startTime, calculatedEndDate, calculatedEndTime, totalMinutes, primaryMachineryId, existingAppointments, editAppointment]);
+
+  const handleApplyNextAvailableSlot = () => {
+    if (!nextAvailableSlot) return;
+    setStartDate(nextAvailableSlot.date);
+    setStartTime(nextAvailableSlot.time);
+    setConflictWarningAck(false);
+    setApplyAutoShift(false);
+  };
+
+  // 2. Lógica de Encaixe com Remanejamento Automático em Cascata para Frente
+  const cascadedDisplacements = useMemo(() => {
+    if (vehicleScheduleConflicts.length === 0) return [];
+    if (!startDate || !startTime || !calculatedEndDate || !calculatedEndTime) return [];
+
+    const currentStartMs = toTimestamp(startDate, startTime);
+    const currentEndMs = toTimestamp(calculatedEndDate, calculatedEndTime);
+    if (isNaN(currentStartMs) || isNaN(currentEndMs)) return [];
+
+    const affectedVehicleIds = new Set(vehicleScheduleConflicts.map(c => c.vehicleId));
+    if (primaryMachineryId) affectedVehicleIds.add(primaryMachineryId);
+
+    // Agendamentos candidatos a deslocamento (mesma máquina/veículos, não cancelados, não concluídos)
+    const candidateAppts = existingAppointments.filter(app => {
+      if (editAppointment && app.id === editAppointment.id) return false;
+      if (app.status === 'cancelado' || app.status === 'concluido') return false;
+
+      const appVehicles = [app.primaryMachineryId, ...(app.assignedVehicles || []).map(v => v.machineryId)].filter(Boolean);
+      const shares = appVehicles.some(vId => affectedVehicleIds.has(vId!));
+      if (!shares) return false;
+
+      const aStartMs = toTimestamp(app.startDate, app.startTime);
+      const aEndMs = getApptEndMs(app);
+      if (isNaN(aStartMs) || isNaN(aEndMs)) return false;
+
+      const hasOverlap = currentStartMs < aEndMs && currentEndMs > aStartMs;
+      const startsAfter = aStartMs >= currentStartMs;
+      return hasOverlap || startsAfter;
+    });
+
+    if (candidateAppts.length === 0) return [];
+
+    // Ordena cronologicamente por horário de início original
+    candidateAppts.sort((a, b) => {
+      const aStart = toTimestamp(a.startDate, a.startTime);
+      const bStart = toTimestamp(b.startDate, b.startTime);
+      return aStart - bStart;
+    });
+
+    let currentPointerMs = currentEndMs;
+    const displacements: {
+      original: ServiceAppointment;
+      newStartDate: string;
+      newStartTime: string;
+      newEndDate: string;
+      newEndTime: string;
+      minutesShifted: number;
+    }[] = [];
+
+    for (const app of candidateAppts) {
+      const origStartMs = toTimestamp(app.startDate, app.startTime);
+      const origEndMs = getApptEndMs(app);
+      const durMin = getApptDurationMinutes(app);
+
+      // Se o ponteiro ultrapassa o início original do agendamento, empurra para frente!
+      if (currentPointerMs > origStartMs) {
+        const { dateStr: newStartDate, timeStr: newStartTime } = fromTimestamp(currentPointerMs);
+        const newEndMs = currentPointerMs + durMin * 60000;
+        const { dateStr: newEndDate, timeStr: newEndTime } = fromTimestamp(newEndMs);
+
+        displacements.push({
+          original: app,
+          newStartDate,
+          newStartTime,
+          newEndDate,
+          newEndTime,
+          minutesShifted: Math.round((currentPointerMs - origStartMs) / 60000),
+        });
+
+        currentPointerMs = newEndMs;
+      } else {
+        currentPointerMs = Math.max(currentPointerMs, origEndMs);
+      }
+    }
+
+    return displacements;
+  }, [vehicleScheduleConflicts, startDate, startTime, calculatedEndDate, calculatedEndTime, primaryMachineryId, existingAppointments, editAppointment]);
 
   // Manipulação de Veículos de Apoio (Caminhões e Tratores)
   const handleAddVehicle = (category: 'caminhao' | 'trator' | 'prancha') => {
@@ -485,8 +670,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       return;
     }
 
-    if (vehicleScheduleConflicts.length > 0 && !conflictWarningAck) {
-      alert('Atenção: Há sobreposição de horários para veículos nesta escala! Verifique o alerta em vermelho ou marque a ciência de ajuste.');
+    if (vehicleScheduleConflicts.length > 0 && !conflictWarningAck && !applyAutoShift) {
+      alert('Atenção: Há sobreposição de horários para veículos nesta escala! Escolha a sugestão de próximo horário livre ou confirme o remanejamento.');
       return;
     }
 
@@ -552,7 +737,19 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    onSave(appointmentToSave);
+    let cascadedUpdates: ServiceAppointment[] | undefined = undefined;
+    if (applyAutoShift && cascadedDisplacements.length > 0) {
+      cascadedUpdates = cascadedDisplacements.map(disp => ({
+        ...disp.original,
+        startDate: disp.newStartDate,
+        startTime: disp.newStartTime,
+        endDate: disp.newEndDate,
+        endTime: disp.newEndTime,
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+
+    onSave(appointmentToSave, cascadedUpdates);
     onClose();
   };
 
@@ -595,7 +792,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           
           {/* ALERTA CRÍTICO: Conflito de Horário para o Mesmo Veículo */}
           {vehicleScheduleConflicts.length > 0 && (
-            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border-2 border-red-500/80 text-red-900 dark:text-red-200 shadow-sm animate-pulse space-y-2">
+            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border-2 border-red-500/80 text-red-900 dark:text-red-200 shadow-sm space-y-3">
               <div className="flex items-center gap-2.5">
                 <ShieldAlert className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0" />
                 <h4 className="text-sm font-black uppercase tracking-tight text-red-800 dark:text-red-300">
@@ -610,11 +807,85 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   <li key={i}>
                     <span className="underline">{conf.vehicleName}</span> já está escalado para{' '}
                     <strong className="text-red-700 dark:text-red-300">{conf.conflictingAppointment.clientName}</strong> ({conf.conflictingAppointment.appointmentNumber}){' '}
-                    em {conf.conflictingAppointment.startDate} das {conf.conflictingAppointment.startTime}h às {conf.conflictingAppointment.endTime}h.
+                    em {formatDateBR(conf.conflictingAppointment.startDate)} das {conf.conflictingAppointment.startTime}h às {conf.conflictingAppointment.endTime || '—'}h.
                   </li>
                 ))}
               </ul>
-              <div className="pt-2 flex items-center gap-2">
+
+              {/* 1. Sugestão Inteligente de Próximo Horário Disponível */}
+              {nextAvailableSlot && (
+                <div className="pt-2 border-t border-red-200 dark:border-red-900/60 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleApplyNextAvailableSlot}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-red-950 text-red-900 dark:text-red-100 border-2 border-red-400 dark:border-red-700 hover:bg-red-100/70 dark:hover:bg-red-900/80 rounded-lg text-xs font-black shadow-xs transition-colors cursor-pointer"
+                    title="Ajustar automaticamente data e horário de início"
+                  >
+                    <span>💡 Agendar para o próximo horário disponível:</span>
+                    <span className="underline font-mono bg-red-100 dark:bg-red-900/60 px-1.5 py-0.5 rounded">
+                      {formatDateBR(nextAvailableSlot.date)} às {nextAvailableSlot.time}h
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* 2. Lógica de Encaixe com Remanejamento Automático para Frente */}
+              {cascadedDisplacements.length > 0 && (
+                <div className="p-3 rounded-lg bg-white/90 dark:bg-red-950/70 border border-red-300 dark:border-red-800 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input 
+                      type="checkbox"
+                      id="apply-auto-shift"
+                      checked={applyAutoShift}
+                      onChange={(e) => {
+                        setApplyAutoShift(e.target.checked);
+                        if (e.target.checked) setConflictWarningAck(true);
+                      }}
+                      className="mt-0.5 rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer shrink-0"
+                    />
+                    <div className="space-y-1 text-xs">
+                      <label htmlFor="apply-auto-shift" className="font-black text-red-950 dark:text-red-100 cursor-pointer block leading-tight">
+                        ⚠️ Esta ação irá deslocar os agendamentos seguintes desta máquina para frente. Deseja aplicar o remanejamento automático?
+                      </label>
+                      <p className="text-[11px] font-medium text-red-800 dark:text-red-300 leading-normal">
+                        O sistema abrirá espaço para este serviço e empurrará o horário de início dos serviços seguintes na agenda daquela máquina para frente, recalculando o cronograma em cascata de forma atômica no banco de dados.
+                      </p>
+                    </div>
+                  </div>
+
+                  {applyAutoShift && (
+                    <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800/60 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-red-900 dark:text-red-200 uppercase tracking-wide">
+                        <span>Serviços que serão empurrados ({cascadedDisplacements.length}):</span>
+                        <span>Novo Horário Previsto</span>
+                      </div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto pr-0.5">
+                        {cascadedDisplacements.map((disp, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center justify-between gap-2 p-1.5 rounded bg-white dark:bg-stone-900 border border-red-200 dark:border-red-900 text-[11px]"
+                          >
+                            <div className="truncate font-semibold text-stone-800 dark:text-stone-200">
+                              <strong className="text-red-700 dark:text-red-400 font-mono">{disp.original.appointmentNumber}</strong>{' '}
+                              <span>({disp.original.clientName || 'Cliente'})</span>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-1.5 font-mono text-[11px]">
+                              <span className="line-through text-stone-400 text-[10px]">{disp.original.startTime}h</span>
+                              <span className="text-stone-400">➔</span>
+                              <span className="font-bold text-red-700 dark:text-red-300">
+                                {formatDateBR(disp.newStartDate)} às {disp.newStartTime}h
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Confirmação Manual de Remanejamento */}
+              <div className="pt-1 flex items-center gap-2">
                 <input 
                   type="checkbox"
                   id="ack-conflict"
