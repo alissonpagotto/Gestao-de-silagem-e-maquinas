@@ -833,6 +833,54 @@ export async function upsertAgendamento(app: ServiceAppointment): Promise<boolea
   }
 }
 
+export async function updateAgendamentoFrente(
+  appointmentId: string,
+  primaryMachineryId: string,
+  primaryMachineryPrefix: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return true;
+  try {
+    const uuid = toValidUUID(appointmentId);
+    let { error } = await supabase
+      .from('agendamentos')
+      .update({
+        primary_machinery_id: primaryMachineryId,
+        primary_machinery_prefix: primaryMachineryPrefix,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', uuid);
+
+    if (error && appointmentId !== uuid) {
+      const retry = await supabase
+        .from('agendamentos')
+        .update({
+          primary_machinery_id: primaryMachineryId,
+          primary_machinery_prefix: primaryMachineryPrefix,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+      if (!retry.error) return true;
+    }
+
+    if (error) {
+      console.warn('Supabase updateAgendamentoFrente notice (tabela agendamentos):', error.message);
+      // Fallback para service_appointments
+      await supabase
+        .from('service_appointments')
+        .update({
+          primary_machinery_id: primaryMachineryId,
+          primary_machinery_prefix: primaryMachineryPrefix,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', uuid);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase updateAgendamentoFrente err:', err);
+    return false;
+  }
+}
+
 // ===========================================================================
 // 9. Frentes de Colheita / Equipes (Tabela: public.frentes_colheita)
 // ===========================================================================

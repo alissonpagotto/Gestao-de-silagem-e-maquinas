@@ -40,7 +40,7 @@ import {
   saveStoredFleetTeams,
   formatDateBR 
 } from '../../lib/storage';
-import { deleteAgendamento, deleteFrente, upsertFrente } from '../../lib/supabaseService';
+import { deleteAgendamento, deleteFrente, upsertFrente, updateAgendamentoFrente, upsertAgendamento } from '../../lib/supabaseService';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
 import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
@@ -381,38 +381,57 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       let matchedColId: string | null = null;
 
       for (const col of machineColumns) {
-        // 1. Pelo ID direto da máquina
-        if (app.primaryMachineryId && col.machineryId && app.primaryMachineryId === col.machineryId) {
+        // 1. Vínculo direto por ID da frente salva
+        if (app.frontId && app.frontId === col.id) {
           matchedColId = col.id;
           break;
         }
 
-        const appPrefix = (app.primaryMachineryPrefix || '').toLowerCase();
-        const appModel = (app.primaryMachineryModel || '').toLowerCase();
-        const colName = col.name.toLowerCase();
-        const colMach = (col.machineryName || '').toLowerCase();
-
-        // 2. Checa se o número de máquina casa (ex: "Maq 02" casa com "Forrageira 02", "FOR-02", "02")
-        const numMatch = colName.match(/\d+/);
-        if (numMatch) {
-          const num = numMatch[0];
-          const paddedNum = num.padStart(2, '0');
-          if (
-            appPrefix.includes(`maq ${num}`) ||
-            appPrefix.includes(`maq ${paddedNum}`) ||
-            appPrefix.includes(`forr ${num}`) ||
-            appPrefix.includes(`forr ${paddedNum}`) ||
-            appPrefix.includes(`for-${paddedNum}`) ||
-            appPrefix.includes(`for-${num}`) ||
-            appPrefix.includes(` ${paddedNum}`) ||
-            appPrefix.includes(` ${num}`)
-          ) {
-            matchedColId = col.id;
-            break;
-          }
+        // 2. Vínculo direto por ID da coluna ou ID da máquina vinculada
+        if (
+          (app.primaryMachineryId && col.id && app.primaryMachineryId === col.id) ||
+          (app.primaryMachineryId && col.machineryId && app.primaryMachineryId === col.machineryId)
+        ) {
+          matchedColId = col.id;
+          break;
         }
 
-        // 3. Checa modelo das máquinas (ex: 870, 860, 6110, 2726, 8500)
+        // 3. Vínculo por número de frente explícito
+        if (app.frontNumber && col.frontNumber && app.frontNumber === col.frontNumber) {
+          matchedColId = col.id;
+          break;
+        }
+
+        // 4. Vínculo exato por nome/prefixo da máquina ou nome da coluna
+        const appPrefix = (app.primaryMachineryPrefix || '').trim().toLowerCase();
+        const colMach = (col.machineryName || '').trim().toLowerCase();
+        const colName = (col.name || '').trim().toLowerCase();
+
+        if (appPrefix && colMach && appPrefix === colMach) {
+          matchedColId = col.id;
+          break;
+        }
+        if (appPrefix && colName && appPrefix === colName) {
+          matchedColId = col.id;
+          break;
+        }
+        if (appPrefix && appPrefix === `frente #${col.frontNumber || ''}`.toLowerCase()) {
+          matchedColId = col.id;
+          break;
+        }
+
+        // 5. Checagem textual aproximada
+        if (colMach && (appPrefix.includes(colMach) || colMach.includes(appPrefix))) {
+          matchedColId = col.id;
+          break;
+        }
+        if (colName && (appPrefix.includes(colName) || colName.includes(appPrefix))) {
+          matchedColId = col.id;
+          break;
+        }
+
+        // 6. Checa modelo das máquinas (ex: 870, 860, 6110, 2726, 8500)
+        const appModel = (app.primaryMachineryModel || '').toLowerCase();
         if (colMach.includes('870') && (appModel.includes('870') || appPrefix.includes('870'))) {
           matchedColId = col.id;
           break;
@@ -426,16 +445,6 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           break;
         }
         if (colMach.includes('2726') && (appModel.includes('2726') || appPrefix.includes('2726'))) {
-          matchedColId = col.id;
-          break;
-        }
-
-        // 4. Checagem textual aproximada
-        if (colMach && appPrefix.includes(colMach)) {
-          matchedColId = col.id;
-          break;
-        }
-        if (colName && appPrefix.includes(colName)) {
           matchedColId = col.id;
           break;
         }
@@ -462,21 +471,46 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     return map;
   }, [machineColumns, filteredAppointments]);
 
-  // Drag and Drop entre colunas de máquinas
+  // Drag and Drop nativo entre colunas de frentes / máquinas
   const [draggedApptId, setDraggedApptId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
 
+  // 1. Ativação do Evento de Arraste (Drag): Captura o ID do agendamento
   const handleDragStart = (e: React.DragEvent, apptId: string) => {
     e.dataTransfer.setData('text/plain', apptId);
+    e.dataTransfer.effectAllowed = 'move';
     setDraggedApptId(apptId);
   };
 
+  const handleDragEnd = () => {
+    setDraggedApptId(null);
+    setDragOverColId(null);
+  };
+
+  // 2. Área de Soltura (Drop): Configuração dos eventos de dragover / enter / leave
   const handleDragOver = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
-    setDragOverColId(colId);
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColId !== colId) {
+      setDragOverColId(colId);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragOverColId !== colId) {
+      setDragOverColId(colId);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) {
+      return;
+    }
     if (dragOverColId === colId) {
       setDragOverColId(null);
     }
@@ -498,8 +532,10 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     saveStoredFleetTeams(newTeams);
   };
 
-  const handleDrop = (e: React.DragEvent, targetCol: typeof machineColumns[0]) => {
+  // 3. Atualização no Supabase e na Tela ao soltar o cartão sobre a nova coluna
+  const handleDrop = async (e: React.DragEvent, targetCol: typeof machineColumns[0]) => {
     e.preventDefault();
+    e.stopPropagation();
     const apptId = e.dataTransfer.getData('text/plain') || draggedApptId;
     setDragOverColId(null);
     setDraggedApptId(null);
@@ -508,18 +544,39 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     const targetApp = appointments.find(a => a.id === apptId);
     if (!targetApp) return;
 
-    // Atualiza a máquina principal do agendamento
-    const updated = appointments.map(a => {
-      if (a.id === apptId) {
-        return {
-          ...a,
-          primaryMachineryId: targetCol.machineryId || targetCol.id,
-          primaryMachineryPrefix: targetCol.machineryName || targetCol.name,
-        };
-      }
-      return a;
-    });
-    setAppointments(updated);
+    // Se o agendamento já pertence a esta coluna, encerra
+    const currentColumnAppointments = appointmentsByColumn[targetCol.id] || [];
+    if (currentColumnAppointments.some(a => a.id === apptId)) {
+      return;
+    }
+
+    const targetMachinery = machineries.find(m => m.id === targetCol.machineryId);
+    const newMachId = targetCol.machineryId || targetCol.id;
+    const newMachPrefix = targetCol.machineryName || targetCol.name;
+
+    const updatedApp: ServiceAppointment = {
+      ...targetApp,
+      frontId: targetCol.id,
+      frontNumber: targetCol.frontNumber,
+      primaryMachineryId: newMachId,
+      primaryMachineryPrefix: newMachPrefix,
+      primaryMachineryPlate: targetMachinery?.plateOrSerial || targetApp.primaryMachineryPlate || '',
+      primaryMachineryModel: targetMachinery?.model || targetApp.primaryMachineryModel || '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Atualização imediata dos States locais (muda o card visualmente e recalcula o contador de serviços das frentes envolvidas)
+    const updatedAppointments = appointments.map(a => (a.id === apptId ? updatedApp : a));
+    setAppointments(updatedAppointments);
+    saveStoredAppointments(updatedAppointments);
+
+    // Executa chamada de atualização (UPDATE) no Supabase
+    try {
+      await updateAgendamentoFrente(targetApp.id, newMachId, newMachPrefix);
+      await upsertAgendamento(updatedApp);
+    } catch (err) {
+      console.warn('Erro ao atualizar agendamento no Supabase via Drag and Drop:', err);
+    }
   };
 
   const handleOpenVehicleSearch = (col: { id: string; name: string; machineryId?: string }) => {
@@ -705,7 +762,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     setAppointmentToDelete(null);
   };
 
-  const handleSaveAppointment = (saved: ServiceAppointment) => {
+  const handleSaveAppointment = async (saved: ServiceAppointment) => {
     const exists = appointments.some(a => a.id === saved.id);
     let updated: ServiceAppointment[];
     if (exists) {
@@ -714,6 +771,12 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       updated = [saved, ...appointments];
     }
     setAppointments(updated);
+    saveStoredAppointments(updated);
+    try {
+      await upsertAgendamento(saved);
+    } catch (err) {
+      console.warn('Erro ao sincronizar agendamento no Supabase:', err);
+    }
   };
 
   const handleOpenPrint = (appointment: ServiceAppointment) => {
@@ -939,6 +1002,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                   <div
                     key={col.id}
                     onDragOver={(e) => handleDragOver(e, col.id)}
+                    onDragEnter={(e) => handleDragEnter(e, col.id)}
                     onDragLeave={(e) => handleDragLeave(e, col.id)}
                     onDrop={(e) => handleDrop(e, col)}
                     className={`flex flex-col transition-colors duration-150 ${
@@ -1025,9 +1089,19 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                     )}
 
                     {/* LISTAGEM DOS CARDS EMPILHADOS VERTICALMENTE (ORDEM CRONOLÓGICA) */}
-                    <div className="p-2 space-y-2.5 flex-1 min-h-[420px]">
+                    <div 
+                      onDragOver={(e) => handleDragOver(e, col.id)}
+                      onDragEnter={(e) => handleDragEnter(e, col.id)}
+                      onDrop={(e) => handleDrop(e, col)}
+                      className="p-2 space-y-2.5 flex-1 min-h-[420px]"
+                    >
                       {colAppointments.length === 0 ? (
-                        <div className="p-6 text-center text-xs font-semibold text-stone-500 italic flex flex-col items-center justify-center h-full min-h-[200px]">
+                        <div 
+                          onDragOver={(e) => handleDragOver(e, col.id)}
+                          onDragEnter={(e) => handleDragEnter(e, col.id)}
+                          onDrop={(e) => handleDrop(e, col)}
+                          className="p-6 text-center text-xs font-semibold text-stone-500 italic flex flex-col items-center justify-center h-full min-h-[200px]"
+                        >
                           <Calendar className="w-8 h-8 text-black/20 mb-2" />
                           <span>Nenhum serviço agendado</span>
                           <span className="text-[11px] font-normal text-stone-400 mt-0.5">
@@ -1048,10 +1122,11 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                           return (
                             <div
                               key={app.id}
-                              draggable
+                              draggable={true}
                               onDragStart={(e) => handleDragStart(e, app.id)}
-                              className={`bg-white dark:bg-stone-900 border-2 border-black/80 dark:border-stone-700 rounded-lg p-3 shadow-xs hover:shadow-md transition-all space-y-2 cursor-grab active:cursor-grabbing ${
-                                isBeingDragged ? 'opacity-40 ring-2 ring-black' : ''
+                              onDragEnd={handleDragEnd}
+                              className={`bg-white dark:bg-stone-900 border-2 border-black/80 dark:border-stone-700 rounded-lg p-3 shadow-xs hover:shadow-md transition-all space-y-2 cursor-grab active:cursor-grabbing select-none ${
+                                isBeingDragged ? 'opacity-40 ring-2 ring-black scale-[0.98]' : ''
                               }`}
                             >
                               {/* Topo do Card: Número do Agendamento + Badge de Status */}
@@ -1131,9 +1206,13 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                               )}
 
                               {/* AÇÕES DO CARD */}
-                              <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-1">
+                              <div 
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-1"
+                              >
                                 <button
                                   type="button"
+                                  draggable={false}
                                   onClick={() => handleExecuteService(app)}
                                   className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-[10px] font-black shadow-xs transition-colors cursor-pointer"
                                   title="Puxar cliente e dados agendados para preencher novo corte automaticamente"
@@ -1144,6 +1223,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
                                 <button
                                   type="button"
+                                  draggable={false}
                                   onClick={() => handleOpenPrint(app)}
                                   className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Ordem de Campo (A4)"
@@ -1153,6 +1233,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
                                 <button
                                   type="button"
+                                  draggable={false}
                                   onClick={() => handleEdit(app)}
                                   className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Editar Agendamento"
@@ -1162,6 +1243,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
                                 <button
                                   type="button"
+                                  draggable={false}
                                   onClick={() => handleDeleteClick(app)}
                                   className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Excluir Agendamento"

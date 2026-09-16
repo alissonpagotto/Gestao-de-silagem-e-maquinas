@@ -1167,6 +1167,8 @@ export interface ServiceAppointment {
   primaryMachineryPrefix?: string;
   primaryMachineryPlate?: string;
   primaryMachineryModel?: string;
+  frontId?: string;
+  frontNumber?: number;
 
   assignedVehicles: AgendaVehicleAssignment[];
   assignedTeam: AgendaTeamMember[];
