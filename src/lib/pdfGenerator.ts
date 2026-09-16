@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas-pro';
 export interface GeneratePdfOptions {
   filename?: string;
   title?: string;
+  singlePage?: boolean;
 }
 
 /**
@@ -41,6 +42,34 @@ export async function generatePdfFromElement(
   const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
 
   const imgProps = pdf.getImageProperties(imgData);
+
+  // MODO VIA ÚNICA EM PÁGINA ÚNICA A4 (Sem repetição nem página 2)
+  if (options?.singlePage) {
+    const margin = 8;
+    const maxContentWidth = pdfWidth - margin * 2;
+    const maxContentHeight = pdfHeight - margin * 2;
+
+    let finalWidth = maxContentWidth;
+    let finalHeight = (imgProps.height * finalWidth) / imgProps.width;
+
+    if (finalHeight > maxContentHeight) {
+      const scaleFactor = maxContentHeight / finalHeight;
+      finalHeight = maxContentHeight;
+      finalWidth = finalWidth * scaleFactor;
+    }
+
+    const posX = (pdfWidth - finalWidth) / 2;
+    const posY = margin;
+
+    pdf.addImage(imgData, 'JPEG', posX, posY, finalWidth, finalHeight);
+
+    const blob = pdf.output('blob');
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    const dataUrl = pdf.output('datauristring');
+
+    return { blob, file, dataUrl, filename };
+  }
+
   const imgWidth = pdfWidth - 20; // 10mm margins on each side
   const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 

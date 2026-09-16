@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   Printer, 
+  Download,
   Wrench, 
   MapPin, 
   UserCheck, 
@@ -14,12 +15,14 @@ import {
   CheckCircle2,
   AlertTriangle,
   Building2,
-  Truck
+  Truck,
+  Loader2
 } from 'lucide-react';
 import { MaintenanceLog, Machinery, CompanyProfile } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { PrintReportHeader } from '../common/PrintReportHeader';
 import { PrintReportFooter } from '../common/PrintReportFooter';
+import { generatePdfFromElement, downloadPdfBlob } from '../../lib/pdfGenerator';
 
 interface MaintenanceDetailModalProps {
   isOpen: boolean;
@@ -36,7 +39,29 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
   machinery,
   companyProfile,
 }) => {
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   if (!isOpen || !log) return null;
+
+  const handleExportPdf = async () => {
+    const el = document.getElementById('printable-os');
+    if (!el) return;
+    setIsGeneratingPdf(true);
+    try {
+      const filename = `Ordem_Servico_${log.osNumber || log.id}.pdf`;
+      const { blob } = await generatePdfFromElement(el, { 
+        filename, 
+        title: `Ordem de Serviço ${log.osNumber || log.id}`,
+        singlePage: true 
+      });
+      downloadPdfBlob(blob, filename);
+    } catch (e) {
+      console.error('Erro ao gerar PDF da OS:', e);
+      handlePrint();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const handlePrint = () => {
     document.body.classList.add('printing-maintenance-os');
@@ -65,10 +90,28 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
                 <head>
                   <title>Ordem de Serviço - ${log.osNumber || log.id}</title>
                   <style>
-                    @page { size: A4 portrait; margin: 10mm; }
-                    body { font-family: system-ui, -apple-system, sans-serif; color: #1c1917; background: #fff; margin: 0; padding: 16px; }
+                    @page { size: A4 portrait; margin: 8mm; }
+                    html, body { 
+                      font-family: system-ui, -apple-system, sans-serif; 
+                      color: #1c1917; 
+                      background: #fff; 
+                      margin: 0; 
+                      padding: 0; 
+                      -webkit-print-color-adjust: exact;
+                      print-color-adjust: exact;
+                    }
                     * { box-sizing: border-box; }
                     .print\\:hidden { display: none !important; }
+                    #printable-os { 
+                      width: 100% !important; 
+                      max-width: 100% !important; 
+                      padding: 0 !important; 
+                      margin: 0 !important; 
+                      page-break-inside: avoid !important; 
+                      break-inside: avoid !important; 
+                      page-break-after: avoid !important; 
+                      break-after: avoid !important; 
+                    }
                   </style>
                   <link rel="stylesheet" href="/src/index.css" />
                 </head>
@@ -154,6 +197,19 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
 
           <div className="flex items-center space-x-2">
             <button
+              onClick={handleExportPdf}
+              disabled={isGeneratingPdf}
+              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
+              title="Exportar PDF em 1 Via Única A4"
+            >
+              {isGeneratingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{isGeneratingPdf ? 'Gerando...' : 'Baixar PDF'}</span>
+            </button>
+            <button
               onClick={handlePrint}
               className="inline-flex items-center space-x-1.5 px-3 py-2 bg-[#0963cb] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
             >
@@ -170,7 +226,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
         </div>
 
         {/* Conteúdo Imprimível / Visualizável */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-stone-900 dark:text-stone-100 print:p-2 print:overflow-visible" id="printable-os">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-stone-900 dark:text-stone-100 print:p-0 print:space-y-3.5 print:overflow-visible print:break-inside-avoid print:page-break-inside-avoid print:page-break-after-avoid" id="printable-os">
           
           {/* Cabeçalho Corporativo Padronizado */}
           <PrintReportHeader
