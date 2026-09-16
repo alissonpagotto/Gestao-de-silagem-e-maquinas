@@ -272,7 +272,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
   return (
     <div 
-      className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased p-3 sm:p-4 lg:p-6 space-y-3.5 rounded-2xl shadow-md"
+      className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased px-3 py-2 sm:px-4 sm:py-2.5 lg:px-5 lg:py-3 space-y-2 rounded-2xl shadow-md"
       style={{ backgroundColor: '#2e65aa' }}
     >
       
@@ -280,12 +280,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           2. CABEÇALHO (HEADER)
           Título, subtítulo e botão de ação principal "+ Novo"
           ======================================================== */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/20 pb-2">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-white/20 pb-1.5">
         <div>
-          <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+          <h1 className="text-base sm:text-lg font-extrabold text-white tracking-tight leading-tight">
             {activeTab === 'agenda' ? 'Agenda de Serviços' : 'Serviços'}
           </h1>
-          <p className="text-xs text-blue-100 font-medium mt-0.5">
+          <p className="text-[11px] text-blue-100 font-medium mt-0 leading-tight">
             {activeTab === 'agenda'
               ? 'Planejamento logístico de campo, escala de frotas e controle de sobreposição de horários.'
               : 'Gestão de cortes, colheitas, serviços e orçamentos agrícolas.'}
@@ -298,7 +298,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
             <button
               type="button"
               onClick={handleOpenNew}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>+ Novo</span>
@@ -325,7 +325,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none rounded-t-lg ${
+              className={`group inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border-b-2 whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none rounded-t-lg ${
                 isActive
                   ? 'border-emerald-400 bg-emerald-700/90 text-white shadow-xs'
                   : 'border-transparent text-blue-100 hover:text-white hover:bg-white/10'

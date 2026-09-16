@@ -36,10 +36,14 @@ import {
   getStoredAppointments, 
   saveStoredAppointments, 
   getStoredFleetTeams,
+  saveStoredFleetTeams,
+  getStoredMachineries,
   formatDateBR 
 } from '../../lib/storage';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
+import { HarvesterSilhouetteIcon } from './HarvesterSilhouetteIcon';
+import { SelectColumnMachineryModal } from './SelectColumnMachineryModal';
 
 interface ServiceAgendaModuleProps {
   machineries?: Machinery[];
@@ -311,8 +315,14 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     return { total, agendados, emExecucao, concluidos, totalHectares };
   }, [appointments]);
 
-  // Colunas de Máquinas Principais (sincronizadas com as equipes ativas ou padrão Maq 02, Maq 03, Maq 04, Maq 05)
-  const machineColumns = useMemo(() => {
+  // Lista de veículos disponíveis para vinculação (passados por prop ou obtidos do armazenamento de frotas)
+  const availableMachineries = useMemo(() => {
+    if (machineries && machineries.length > 0) return machineries;
+    return getStoredMachineries();
+  }, [machineries]);
+
+  // Colunas de Máquinas Principais (sincronizadas com as frentes/equipes ativas ou padrão Maq 02, Maq 03, Maq 04, Maq 05)
+  const [machineColumns, setMachineColumns] = useState(() => {
     const storedTeams = getStoredFleetTeams();
     if (storedTeams && storedTeams.length > 0) {
       return storedTeams.map((team, idx) => ({
@@ -327,7 +337,58 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       }));
     }
     return DEFAULT_MACHINE_COLUMNS;
-  }, []);
+  });
+
+  // Estado do Modal de Seleção de Máquina da Coluna (Gestão de Frotas > Veículos)
+  const [selectedColumnForMachinery, setSelectedColumnForMachinery] = useState<typeof machineColumns[0] | null>(null);
+  const [isMachineryModalOpen, setIsMachineryModalOpen] = useState(false);
+
+  const handleOpenSelectMachinery = (col: typeof machineColumns[0]) => {
+    setSelectedColumnForMachinery(col);
+    setIsMachineryModalOpen(true);
+  };
+
+  const handleSelectColumnMachinery = (columnId: string, machine: Machinery, customColumnName?: string) => {
+    const machineryDescription = machine.fleetNumber 
+      ? `${machine.fleetNumber} (${machine.model || machine.name})`
+      : `${machine.name} (${machine.model || machine.brand})`;
+
+    setMachineColumns(prev => {
+      const updated = prev.map(col => {
+        if (col.id === columnId) {
+          return {
+            ...col,
+            name: customColumnName?.trim() || col.name,
+            machineryId: machine.id,
+            machineryName: machineryDescription,
+          };
+        }
+        return col;
+      });
+
+      // Persistir em FleetTeams para sincronizar com Gestão de Frotas
+      const currentStored = getStoredFleetTeams();
+      const teamsToSave = updated.map((c, idx) => {
+        const existing = currentStored.find(t => t.id === c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          machineryId: c.machineryId,
+          machineryName: c.machineryName,
+          headerBgColor: c.headerBgColor,
+          columnBgColor: c.columnBgColor,
+          borderColor: c.borderColor,
+          order: c.frontNumber || idx + 1,
+          notes: existing?.notes,
+          leaderId: existing?.leaderId,
+          createdAt: existing?.createdAt || new Date().toISOString(),
+        };
+      });
+      saveStoredFleetTeams(teamsToSave);
+
+      return updated;
+    });
+  };
 
   // Agrupamento dos agendamentos filtrados por cada Máquina Principal com ordenação cronológica
   const appointmentsByColumn = useMemo(() => {
@@ -551,24 +612,24 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2 sm:space-y-2.5">
       
       {/* 1. CABEÇALHO DO MÓDULO & AÇÕES PRINCIPAIS */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-[#2e65aa]/10 text-[#2e65aa] dark:bg-blue-950 dark:text-blue-300">
-                <CalendarDays className="w-6 h-6" />
+              <span className="p-1.5 rounded-lg bg-[#2e65aa]/10 text-[#2e65aa] dark:bg-blue-950 dark:text-blue-300">
+                <CalendarDays className="w-5 h-5" />
               </span>
               <div>
-                <h1 className="text-xl font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-2 leading-tight">
                   <span>Agenda de Serviços Agrícolas</span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold">
                     Logística & Frotas
                   </span>
                 </h1>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5 leading-tight">
                   Cálculo de tempos (Deslocamento + Prancha + Execução), escala de frotas por placas/prefixos sem sobreposição de horários.
                 </p>
               </div>
@@ -579,58 +640,58 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             <button
               type="button"
               onClick={handleCreateNew}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2e65aa] hover:bg-[#25528c] active:bg-[#1d4273] text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2e65aa] hover:bg-[#25528c] active:bg-[#1d4273] text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Novo Agendamento</span>
             </button>
           </div>
         </div>
 
         {/* 2. CARDS DE MÉTRICAS KPI */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-stone-100 dark:border-stone-800">
-          <div className="bg-stone-50 dark:bg-stone-800/40 p-3 rounded-xl border border-stone-200/80 dark:border-stone-800">
-            <span className="text-[10px] font-bold uppercase text-stone-500 block">Total Agendado</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-stone-900 dark:text-stone-100">{metrics.total}</span>
-              <span className="text-xs font-semibold text-stone-400">operações</span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+          <div className="bg-stone-50 dark:bg-stone-800/40 px-2.5 py-1.5 rounded-lg border border-stone-200/80 dark:border-stone-800">
+            <span className="text-[9px] font-bold uppercase text-stone-500 block leading-none">Total Agendado</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 leading-none">{metrics.total}</span>
+              <span className="text-[10px] font-semibold text-stone-400">operações</span>
             </div>
           </div>
 
-          <div className="bg-amber-50/60 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200/80 dark:border-amber-900/40">
-            <span className="text-[10px] font-bold uppercase text-amber-700 dark:text-amber-400 block">Aguardando Saída</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-amber-900 dark:text-amber-300">{metrics.agendados}</span>
-              <span className="text-xs font-semibold text-amber-600">na base</span>
+          <div className="bg-amber-50/60 dark:bg-amber-950/20 px-2.5 py-1.5 rounded-lg border border-amber-200/80 dark:border-amber-900/40">
+            <span className="text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400 block leading-none">Aguardando Saída</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300 leading-none">{metrics.agendados}</span>
+              <span className="text-[10px] font-semibold text-amber-600">na base</span>
             </div>
           </div>
 
-          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40">
-            <span className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 block">Em Campo / Execução</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-emerald-900 dark:text-emerald-300">{metrics.emExecucao}</span>
-              <span className="text-xs font-semibold text-emerald-600">em operação</span>
+          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 px-2.5 py-1.5 rounded-lg border border-emerald-200/80 dark:border-emerald-900/40">
+            <span className="text-[9px] font-bold uppercase text-emerald-700 dark:text-emerald-400 block leading-none">Em Campo / Execução</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-emerald-900 dark:text-emerald-300 leading-none">{metrics.emExecucao}</span>
+              <span className="text-[10px] font-semibold text-emerald-600">em operação</span>
             </div>
           </div>
 
-          <div className="bg-blue-50/60 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200/80 dark:border-blue-900/40">
-            <span className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400 block">Área Programada</span>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-blue-900 dark:text-blue-300">{metrics.totalHectares.toFixed(1)}</span>
-              <span className="text-xs font-semibold text-blue-600">ha estimados</span>
+          <div className="bg-blue-50/60 dark:bg-blue-950/20 px-2.5 py-1.5 rounded-lg border border-blue-200/80 dark:border-blue-900/40">
+            <span className="text-[9px] font-bold uppercase text-blue-700 dark:text-blue-400 block leading-none">Área Programada</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300 leading-none">{metrics.totalHectares.toFixed(1)}</span>
+              <span className="text-[10px] font-semibold text-blue-600">ha estimados</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 3. BARRA DE FILTROS E SELEÇÃO DE VISÃO */}
-      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 px-3 py-1.5 sm:px-4 sm:py-2 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2">
         {/* Seletor de Abas de Visão */}
-        <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
+        <div className="flex items-center gap-0.5 bg-stone-100 dark:bg-stone-800 p-0.5 rounded-lg">
           <button
             type="button"
             onClick={() => setViewMode('cronograma')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-xs font-extrabold transition-all cursor-pointer ${
               viewMode === 'cronograma'
                 ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-xs'
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
@@ -641,7 +702,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('frotas')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-xs font-extrabold transition-all cursor-pointer ${
               viewMode === 'frotas'
                 ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-xs'
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
@@ -652,7 +713,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('tabela')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md text-xs font-extrabold transition-all cursor-pointer ${
               viewMode === 'tabela'
                 ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-xs'
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
@@ -664,21 +725,21 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
         {/* Filtros: Busca e Status */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
+          <div className="relative min-w-[200px]">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-stone-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar cliente, fazenda, placa ou prefixo..."
-              className="w-full pl-8 pr-3 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100"
+              placeholder="Buscar cliente, fazenda, placa..."
+              className="w-full pl-7 pr-3 py-1 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-medium text-stone-900 dark:text-stone-100"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-200"
+            className="py-1 px-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-700 dark:text-stone-200"
           >
             <option value="todos">Todos os Status</option>
             <option value="agendado">Agendado</option>
@@ -704,16 +765,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
       {/* VISÃO 1: CRONOGRAMA OPERACIONAL EM COLUNAS LADO A LADO (ESTILO KANBAN / MÁQUINAS PRINCIPAIS) */}
       {viewMode === 'cronograma' && (
-        <div className="w-full overflow-x-auto pb-4">
+        <div className="w-full overflow-x-auto pb-2">
           {/* Moldura Externa idêntica ao quadro de Equipes */}
           <div className="min-w-[840px] border-3 border-black dark:border-stone-700 rounded-lg overflow-hidden shadow-md bg-white dark:bg-stone-950">
             
             {/* 1. TOPO DA MOLDURA: Cabeçalho com título e contadores */}
-            <div className="bg-[#ffedd5] dark:bg-amber-950 text-stone-950 dark:text-amber-100 py-2.5 px-4 border-b-3 border-black dark:border-stone-700 text-center relative flex items-center justify-center">
-              <h3 className="text-base sm:text-lg font-black tracking-wide font-['Outfit']">
+            <div className="bg-[#ffedd5] dark:bg-amber-950 text-stone-950 dark:text-amber-100 py-1.5 px-3 border-b-3 border-black dark:border-stone-700 text-center relative flex items-center justify-center">
+              <h3 className="text-sm sm:text-base font-black tracking-wide font-['Outfit']">
                 Agenda Operacional por Máquinas & Frentes de Colheita
               </h3>
-              <span className="absolute right-4 text-xs font-bold text-stone-600 dark:text-amber-300 hidden sm:inline">
+              <span className="absolute right-3 text-[11px] font-bold text-stone-600 dark:text-amber-300 hidden sm:inline">
                 Total: {filteredAppointments.length} Agendamentos em {machineColumns.length} Frentes
               </span>
             </div>
@@ -747,14 +808,14 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                   >
                     {/* Cabeçalho da Coluna: Frente #X, Nome da Máquina (Maq 02, Maq 03, etc.) */}
                     <div
-                      className="p-2.5 border-b-3 border-black dark:border-stone-700 flex flex-col justify-between items-center text-center select-none"
+                      className="px-2 py-1.5 border-b-3 border-black dark:border-stone-700 flex flex-col justify-between items-center text-center select-none"
                       style={{
                         backgroundColor: col.headerBgColor || '#fef08a',
                         color: '#000000'
                       }}
                     >
-                      <div className="w-full flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-black/60">
+                      <div className="w-full flex items-center justify-between leading-none">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-black/70">
                           Frente #{col.frontNumber || idx + 1}
                         </span>
 
@@ -762,24 +823,39 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                           type="button"
                           onClick={() => handleCreateNew(col.machineryId, col.name)}
                           title={`Novo agendamento para ${col.name}`}
-                          className="flex items-center space-x-0.5 hover:text-black transition cursor-pointer text-[10px] font-black underline"
+                          className="flex items-center space-x-0.5 hover:text-black transition cursor-pointer text-[9px] font-black underline leading-none"
                         >
-                          <Plus className="w-3 h-3 inline" />
+                          <Plus className="w-2.5 h-2.5 inline" />
                           <span>+ Add</span>
                         </button>
                       </div>
 
-                      <h4 className="text-base sm:text-lg font-black text-black tracking-tight my-0.5 font-['Outfit']">
-                        {col.name}
-                      </h4>
+                      <div className="flex items-center justify-center gap-1.5 my-0.5">
+                        <h4 className="text-sm sm:text-base font-black text-black tracking-tight font-['Outfit'] leading-tight">
+                          {col.name}
+                        </h4>
+
+                        {/* Botão com ícone personalizado da colhedora para gerenciar veículo da coluna */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenSelectMachinery(col);
+                          }}
+                          title={`Gerenciar veículo da ${col.name} (Gestão de Frotas > Veículos)`}
+                          className="p-1 rounded-md bg-black/10 hover:bg-black/20 active:bg-black/30 text-black transition-colors cursor-pointer inline-flex items-center justify-center group"
+                        >
+                          <HarvesterSilhouetteIcon className="w-4 h-3.5 text-black group-hover:scale-110 transition-transform" />
+                        </button>
+                      </div>
 
                       {col.machineryName && (
-                        <span className="text-[11px] font-semibold text-black/75 truncate max-w-full px-1">
+                        <span className="text-[10px] font-semibold text-black/80 truncate max-w-full px-1 leading-tight">
                           🚜 {col.machineryName}
                         </span>
                       )}
 
-                      <div className="mt-1 flex items-center justify-between w-full text-[10px] font-bold text-black/70 border-t border-black/15 pt-1">
+                      <div className="mt-1 flex items-center justify-between w-full text-[9px] font-bold text-black/80 border-t border-black/15 pt-0.5 leading-none">
                         <span>{colAppointments.length} {colAppointments.length === 1 ? 'serviço' : 'serviços'}</span>
                         {totalHectaresCol > 0 ? (
                           <span>{totalHectaresCol.toFixed(1)} ha</span>
@@ -791,24 +867,24 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
                     {/* Indicador visual de Drag Over */}
                     {isDragOver && (
-                      <div className="p-3 m-2 border-2 border-dashed border-black rounded-lg text-center text-xs font-black text-black bg-amber-200/60 animate-pulse">
+                      <div className="p-2 m-1.5 border-2 border-dashed border-black rounded-lg text-center text-xs font-black text-black bg-amber-200/60 animate-pulse">
                         Mover agendamento para {col.name}
                       </div>
                     )}
 
                     {/* LISTAGEM DOS CARDS EMPILHADOS VERTICALMENTE (ORDEM CRONOLÓGICA) */}
-                    <div className="p-2 space-y-2.5 flex-1 min-h-[420px]">
+                    <div className="p-1.5 space-y-1.5 flex-1 min-h-[360px]">
                       {colAppointments.length === 0 ? (
-                        <div className="p-6 text-center text-xs font-semibold text-stone-500 italic flex flex-col items-center justify-center h-full min-h-[200px]">
-                          <Calendar className="w-8 h-8 text-black/20 mb-2" />
+                        <div className="p-4 text-center text-xs font-semibold text-stone-500 italic flex flex-col items-center justify-center h-full min-h-[160px]">
+                          <Calendar className="w-6 h-6 text-black/20 mb-1" />
                           <span>Nenhum serviço agendado</span>
-                          <span className="text-[11px] font-normal text-stone-400 mt-0.5">
+                          <span className="text-[10px] font-normal text-stone-400 mt-0.5">
                             Máquina livre para alocação
                           </span>
                           <button
                             type="button"
                             onClick={() => handleCreateNew(col.machineryId, col.name)}
-                            className="mt-3 px-3 py-1 bg-black/10 hover:bg-black/20 rounded text-[11px] font-bold text-black transition cursor-pointer"
+                            className="mt-2 px-2.5 py-1 bg-black/10 hover:bg-black/20 rounded text-[10px] font-bold text-black transition cursor-pointer"
                           >
                             + Agendar
                           </button>
@@ -822,17 +898,17 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                               key={app.id}
                               draggable
                               onDragStart={(e) => handleDragStart(e, app.id)}
-                              className={`bg-white dark:bg-stone-900 border-2 border-black/80 dark:border-stone-700 rounded-lg p-3 shadow-xs hover:shadow-md transition-all space-y-2 cursor-grab active:cursor-grabbing ${
+                              className={`bg-white dark:bg-stone-900 border-2 border-black/80 dark:border-stone-700 rounded-lg p-2 shadow-xs hover:shadow-md transition-all space-y-1.5 cursor-grab active:cursor-grabbing ${
                                 isBeingDragged ? 'opacity-40 ring-2 ring-black' : ''
                               }`}
                             >
                               {/* Topo do Card: Número do Agendamento + Badge de Status */}
-                              <div className="flex items-center justify-between gap-1.5 border-b border-stone-100 dark:border-stone-800 pb-1.5">
-                                <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700">
+                              <div className="flex items-center justify-between gap-1 border-b border-stone-100 dark:border-stone-800 pb-1 leading-none">
+                                <span className="font-mono text-[9px] font-black px-1 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 leading-none">
                                   {app.appointmentNumber}
                                 </span>
 
-                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
+                                <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded border leading-none ${
                                   app.status === 'em_execucao'
                                     ? 'bg-emerald-100 text-emerald-900 border-emerald-300 animate-pulse'
                                     : app.status === 'em_deslocamento'
@@ -848,52 +924,52 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                               </div>
 
                               {/* 1. NOME DO CLIENTE & FAZENDA */}
-                              <div>
-                                <h5 className="font-black text-xs sm:text-sm text-stone-950 dark:text-stone-100 leading-snug">
+                              <div className="leading-tight">
+                                <h5 className="font-black text-xs text-stone-950 dark:text-stone-100 leading-tight truncate">
                                   {app.clientName}
                                 </h5>
                                 {app.farmName && (
-                                  <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-400 block truncate">
+                                  <span className="text-[10px] font-semibold text-stone-600 dark:text-stone-400 block truncate">
                                     🏡 {app.farmName}
                                   </span>
                                 )}
                               </div>
 
                               {/* 2. DATA E HORA DO AGENDAMENTO (EM DESTAQUE CRONOLÓGICO) */}
-                              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100 bg-stone-50 dark:bg-stone-800/60 p-1.5 rounded-md border border-stone-200 dark:border-stone-700">
-                                <Clock className="w-3.5 h-3.5 text-[#2e65aa] shrink-0" />
+                              <div className="flex items-center gap-1 text-[11px] font-bold text-stone-900 dark:text-stone-100 bg-stone-50 dark:bg-stone-800/60 px-1.5 py-1 rounded-md border border-stone-200 dark:border-stone-700 leading-none">
+                                <Clock className="w-3 h-3 text-[#2e65aa] shrink-0" />
                                 <span className="truncate">
                                   {formatDateBR(app.startDate)} às <span className="font-black text-[#2e65aa] dark:text-blue-400">{app.startTime}h</span>
                                 </span>
                                 {app.endTime && (
-                                  <span className="text-[10px] text-stone-500 font-normal shrink-0 ml-auto">
+                                  <span className="text-[9.5px] text-stone-500 font-normal shrink-0 ml-auto">
                                     até {app.endTime}h
                                   </span>
                                 )}
                               </div>
 
                               {/* 3. CIDADE E ENDEREÇO / LOCALIZAÇÃO */}
-                              <div className="flex items-start gap-1 text-[11px] text-stone-600 dark:text-stone-300 leading-tight">
-                                <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                                <span className="font-medium line-clamp-2">
+                              <div className="flex items-start gap-1 text-[10px] text-stone-600 dark:text-stone-300 leading-tight">
+                                <MapPin className="w-3 h-3 text-rose-600 shrink-0 mt-0.5" />
+                                <span className="font-medium line-clamp-1 truncate">
                                   {app.locationCityState || 'Localização de campo'}
                                   {app.farmName && !app.locationCityState ? ` - ${app.farmName}` : ''}
                                 </span>
                               </div>
 
                               {/* Área, Rendimento & Tempo Estimado */}
-                              <div className="flex items-center justify-between text-[10px] font-bold text-stone-600 dark:text-stone-400 bg-emerald-50/60 dark:bg-emerald-950/20 px-2 py-1 rounded border border-emerald-200/60 dark:border-emerald-900/30">
+                              <div className="flex items-center justify-between text-[9px] font-bold text-stone-600 dark:text-stone-400 bg-emerald-50/60 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-900/30 leading-none">
                                 <span>🌾 {app.estimatedQuantity} {app.areaUnit === 'hectares' ? 'ha' : app.areaUnit}</span>
                                 <span>⏱️ {formatMinToHoursText(app.totalTimeMinutes)}</span>
                               </div>
 
                               {/* Veículos de Apoio Escalados (Caminhões e Tratores) */}
                               {app.assignedVehicles && app.assignedVehicles.length > 0 && (
-                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                <div className="flex flex-wrap gap-0.5 pt-0">
                                   {app.assignedVehicles.map((v, vIdx) => (
                                     <span
                                       key={vIdx}
-                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 truncate max-w-full"
+                                      className="text-[8.5px] font-bold px-1 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 truncate max-w-full leading-none"
                                       title={`${v.prefix} (${v.plateOrSerial}) - ${v.driverOrOperatorName || 'Sem motorista'}`}
                                     >
                                       🚛 {v.prefix.replace(/Caminhão \d+ - /i, '')} ({v.plateOrSerial})
@@ -903,42 +979,42 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                               )}
 
                               {/* AÇÕES DO CARD */}
-                              <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-1">
+                              <div className="pt-1.5 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-1 leading-none">
                                 <button
                                   type="button"
                                   onClick={() => handleExecuteService(app)}
-                                  className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-[10px] font-black shadow-xs transition-colors cursor-pointer"
+                                  className="flex-1 inline-flex items-center justify-center gap-1 py-1 px-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-[9.5px] font-black shadow-xs transition-colors cursor-pointer leading-none"
                                   title="Puxar cliente e dados agendados para preencher novo corte automaticamente"
                                 >
-                                  <Scissors className="w-3 h-3" />
+                                  <Scissors className="w-2.5 h-2.5" />
                                   <span>Puxar Corte</span>
                                 </button>
 
                                 <button
                                   type="button"
                                   onClick={() => handleOpenPrint(app)}
-                                  className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+                                  className="p-1 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Ordem de Campo (A4)"
                                 >
-                                  <Printer className="w-3.5 h-3.5" />
+                                  <Printer className="w-3 h-3" />
                                 </button>
 
                                 <button
                                   type="button"
                                   onClick={() => handleEdit(app)}
-                                  className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+                                  className="p-1 text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Editar Agendamento"
                                 >
-                                  <Edit className="w-3.5 h-3.5" />
+                                  <Edit className="w-3 h-3" />
                                 </button>
 
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(app.id)}
-                                  className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+                                  className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Excluir Agendamento"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
                             </div>
@@ -1160,6 +1236,18 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         onClose={() => setIsPrintOpen(false)}
         appointment={selectedForPrint}
         companyProfile={companyProfile}
+      />
+
+      {/* MODAL DE SELEÇÃO / TROCA DA MÁQUINA PRINCIPAL DA FRENTE (GESTÃO DE FROTAS > VEÍCULOS) */}
+      <SelectColumnMachineryModal
+        isOpen={isMachineryModalOpen}
+        onClose={() => {
+          setIsMachineryModalOpen(false);
+          setSelectedColumnForMachinery(null);
+        }}
+        column={selectedColumnForMachinery}
+        machineries={availableMachineries}
+        onSelectMachinery={handleSelectColumnMachinery}
       />
 
     </div>
