@@ -8,7 +8,8 @@ import {
   Employee,
   SilageOrder,
   ServiceOrder,
-  CompanyProfile
+  CompanyProfile,
+  ServiceAppointment
 } from '../types';
 
 /**
@@ -721,3 +722,114 @@ export async function fetchAllDataFromSupabase() {
     return null;
   }
 }
+
+// ===========================================================================
+// 8. Agendamentos da Agenda Operacional (Tabela: public.agendamentos)
+// Colunas: id, appointment_number, client_id, client_name, farm_name,
+//          location_city_state, contact_phone, service_type, service_tab,
+//          start_date, start_time, estimated_quantity, area_unit,
+//          productivity_rate, execution_time_minutes, travel_time_minutes,
+//          total_time_minutes, end_date, end_time, primary_machinery_id,
+//          primary_machinery_prefix, primary_machinery_plate,
+//          primary_machinery_model, assigned_vehicles, assigned_team,
+//          status, field_notes, created_at, updated_at
+// ===========================================================================
+
+export async function deleteAgendamento(appointmentId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) {
+    return true;
+  }
+  try {
+    const uuid = toValidUUID(appointmentId);
+
+    // Tenta deletar pelo UUID na tabela agendamentos
+    let { error } = await supabase
+      .from('agendamentos')
+      .delete()
+      .eq('id', uuid);
+
+    // Caso o ID seja texto e a coluna id seja texto ou para cobrir IDs customizados
+    if (error && appointmentId !== uuid) {
+      const retry = await supabase
+        .from('agendamentos')
+        .delete()
+        .eq('id', appointmentId);
+      if (!retry.error) {
+        return true;
+      }
+    }
+
+    if (error) {
+      console.warn('Supabase deleteAgendamento notice (tabela agendamentos):', error.message);
+      // Fallback para service_appointments caso configurado com esse nome
+      const fallback = await supabase
+        .from('service_appointments')
+        .delete()
+        .eq('id', uuid);
+      if (fallback.error && appointmentId !== uuid) {
+        await supabase
+          .from('service_appointments')
+          .delete()
+          .eq('id', appointmentId);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteAgendamento err:', err);
+    return true;
+  }
+}
+
+export async function upsertAgendamento(app: ServiceAppointment): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const uuid = toValidUUID(app.id);
+    const clientUuid = app.clientId ? toValidUUID(app.clientId) : null;
+
+    const payload = {
+      id: uuid,
+      appointment_number: app.appointmentNumber || null,
+      client_id: clientUuid,
+      client_name: app.clientName,
+      farm_name: app.farmName || null,
+      location_city_state: app.locationCityState || null,
+      contact_phone: app.contactPhone || null,
+      service_type: app.serviceType || 'Corte / Ensilagem',
+      service_tab: app.serviceTab || 'corte',
+      start_date: app.startDate,
+      start_time: app.startTime || null,
+      estimated_quantity: Number(app.estimatedQuantity) || 0,
+      area_unit: app.areaUnit || 'hectares',
+      productivity_rate: Number(app.productivityRatePerHour) || null,
+      execution_time_minutes: app.executionTimeMinutes || null,
+      travel_time_minutes: app.travelTimeMinutes || null,
+      total_time_minutes: app.totalTimeMinutes || null,
+      end_date: app.endDate || null,
+      end_time: app.endTime || null,
+      primary_machinery_id: app.primaryMachineryId || null,
+      primary_machinery_prefix: app.primaryMachineryPrefix || null,
+      primary_machinery_plate: app.primaryMachineryPlate || null,
+      primary_machinery_model: app.primaryMachineryModel || null,
+      assigned_vehicles: app.assignedVehicles || [],
+      assigned_team: app.assignedTeam || [],
+      status: app.status || 'agendado',
+      field_notes: app.fieldNotes || null,
+      updated_at: new Date().toISOString()
+    };
+
+    let { error } = await supabase
+      .from('agendamentos')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase upsertAgendamento notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase upsertAgendamento err:', err);
+    return false;
+  }
+}
+

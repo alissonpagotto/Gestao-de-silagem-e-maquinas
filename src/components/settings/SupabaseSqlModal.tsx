@@ -151,6 +151,39 @@ CREATE TABLE IF NOT EXISTS public.gestao_frotas (
 -- Migração automática para tabelas existentes
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS fleet_number TEXT;
 
+-- 8. TABELA: agendamentos (Agenda Operacional por Máquinas)
+CREATE TABLE IF NOT EXISTS public.agendamentos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    appointment_number TEXT,
+    client_id UUID,
+    client_name TEXT NOT NULL,
+    farm_name TEXT,
+    location_city_state TEXT,
+    contact_phone TEXT,
+    service_type TEXT,
+    service_tab TEXT,
+    start_date DATE,
+    start_time TIME,
+    estimated_quantity NUMERIC(12,2) DEFAULT 0,
+    area_unit TEXT DEFAULT 'hectares',
+    productivity_rate NUMERIC(8,2),
+    execution_time_minutes INTEGER,
+    travel_time_minutes INTEGER,
+    total_time_minutes INTEGER,
+    end_date DATE,
+    end_time TIME,
+    primary_machinery_id TEXT,
+    primary_machinery_prefix TEXT,
+    primary_machinery_plate TEXT,
+    primary_machinery_model TEXT,
+    assigned_vehicles JSONB DEFAULT '[]'::jsonb,
+    assigned_team JSONB DEFAULT '[]'::jsonb,
+    status TEXT DEFAULT 'agendado',
+    field_notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ==============================================================================
 -- 6. TRIGGERS: updated_at automático
 -- ==============================================================================
@@ -178,9 +211,12 @@ ALTER TABLE public.estoque ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_funcionarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gestao_frotas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agendamentos ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
+    DROP POLICY IF EXISTS "Permissao Total Agendamentos" ON public.agendamentos;
+    CREATE POLICY "Permissao Total Agendamentos" ON public.agendamentos FOR ALL USING (true) WITH CHECK (true);
     DROP POLICY IF EXISTS "Permissao Total Fornecedores" ON public.fornecedores;
     CREATE POLICY "Permissao Total Fornecedores" ON public.fornecedores FOR ALL USING (true) WITH CHECK (true);
 

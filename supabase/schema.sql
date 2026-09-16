@@ -149,6 +149,39 @@ CREATE TABLE IF NOT EXISTS public.gestao_frotas (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 8. TABELA: agendamentos (Agenda Operacional por Máquinas)
+CREATE TABLE IF NOT EXISTS public.agendamentos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    appointment_number TEXT,
+    client_id UUID,
+    client_name TEXT NOT NULL,
+    farm_name TEXT,
+    location_city_state TEXT,
+    contact_phone TEXT,
+    service_type TEXT,
+    service_tab TEXT,
+    start_date DATE,
+    start_time TIME,
+    estimated_quantity NUMERIC(12,2) DEFAULT 0,
+    area_unit TEXT DEFAULT 'hectares',
+    productivity_rate NUMERIC(8,2),
+    execution_time_minutes INTEGER,
+    travel_time_minutes INTEGER,
+    total_time_minutes INTEGER,
+    end_date DATE,
+    end_time TIME,
+    primary_machinery_id TEXT,
+    primary_machinery_prefix TEXT,
+    primary_machinery_plate TEXT,
+    primary_machinery_model TEXT,
+    assigned_vehicles JSONB DEFAULT '[]'::jsonb,
+    assigned_team JSONB DEFAULT '[]'::jsonb,
+    status TEXT DEFAULT 'agendado',
+    field_notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ==============================================================================
 -- FUNÇÃO & TRIGGER: Atualização Automática de updated_at
 -- ==============================================================================

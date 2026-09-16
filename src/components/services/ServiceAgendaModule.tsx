@@ -39,6 +39,7 @@ import {
   saveStoredFleetTeams,
   formatDateBR 
 } from '../../lib/storage';
+import { deleteAgendamento } from '../../lib/supabaseService';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
 import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
@@ -265,6 +266,10 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     name: string;
     machineryId?: string;
   } | null>(null);
+
+  // Confirmação de Exclusão (Regras 1, 2 e 3)
+  const [appointmentToDelete, setAppointmentToDelete] = useState<ServiceAppointment | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Sincronização e persistência
   useEffect(() => {
@@ -574,11 +579,34 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja remover este agendamento da agenda?')) {
-      const updated = appointments.filter(a => a.id !== id);
-      setAppointments(updated);
+  // 1. Confirmação de Exclusão: Abre o alerta de confirmação na tela
+  const handleDeleteClick = (appointment: ServiceAppointment) => {
+    setAppointmentToDelete(appointment);
+  };
+
+  // 2. Integração com o Supabase & 3. Atualização Instantânea do Quadro (State Update)
+  const handleConfirmDelete = async () => {
+    if (!appointmentToDelete) return;
+    const targetId = appointmentToDelete.id;
+    setIsDeleting(true);
+
+    try {
+      // 2. Chamada de exclusão (DELETE) na tabela de agendamentos do banco de dados utilizando o ID do card
+      await deleteAgendamento(targetId);
+    } catch (err) {
+      console.warn('Erro ao excluir no Supabase:', err);
     }
+
+    // 3. Remove instantaneamente o card da tela e atualiza o contador de serviços da coluna correspondente
+    // (ex: de "3 serviços" para "2 serviços" na Maq 02), sem precisar recarregar a página inteira
+    setAppointments(prev => {
+      const updated = prev.filter(a => a.id !== targetId);
+      saveStoredAppointments(updated);
+      return updated;
+    });
+
+    setIsDeleting(false);
+    setAppointmentToDelete(null);
   };
 
   const handleSaveAppointment = (saved: ServiceAppointment) => {
@@ -1014,7 +1042,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
                                 <button
                                   type="button"
-                                  onClick={() => handleDelete(app.id)}
+                                  onClick={() => handleDeleteClick(app)}
                                   className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
                                   title="Excluir Agendamento"
                                 >
@@ -1207,8 +1235,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(a.id)}
-                        className="p-1 text-red-500 hover:text-red-700"
+                        onClick={() => handleDeleteClick(a)}
+                        className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                        title="Excluir Agendamento"
                       >
                         <Trash2 className="w-3.5 h-3.5 inline" />
                       </button>
@@ -1254,6 +1283,91 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         machineries={machineries}
         onSelectVehicle={handleSelectVehicleForColumn}
       />
+
+      {/* 1. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO NA TELA */}
+      {appointmentToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => !isDeleting && setAppointmentToDelete(null)}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 rounded-2xl max-w-md w-full p-5 border border-stone-200 dark:border-stone-800 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-stone-900 dark:text-stone-100">
+                  Confirmar Exclusão
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                  Tem certeza que deseja excluir o agendamento do cliente{' '}
+                  <strong className="text-stone-900 dark:text-stone-100 font-extrabold">
+                    {appointmentToDelete.clientName}
+                  </strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-700/60 space-y-1 text-xs">
+              <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                <span>Agendamento:</span>
+                <span className="font-mono font-bold text-stone-800 dark:text-stone-200">
+                  {appointmentToDelete.appointmentNumber}
+                </span>
+              </div>
+              {appointmentToDelete.farmName && (
+                <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                  <span>Fazenda:</span>
+                  <span className="font-medium text-stone-800 dark:text-stone-200 truncate max-w-[200px]">
+                    {appointmentToDelete.farmName}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                <span>Data:</span>
+                <span className="font-medium text-stone-800 dark:text-stone-200">
+                  {formatDateBR ? formatDateBR(appointmentToDelete.startDate) : appointmentToDelete.startDate}
+                </span>
+              </div>
+              {appointmentToDelete.primaryMachineryPrefix && (
+                <div className="flex items-center justify-between text-stone-500 dark:text-stone-400">
+                  <span>Máquina Alocada:</span>
+                  <span className="font-medium text-stone-800 dark:text-stone-200 truncate max-w-[200px]">
+                    {appointmentToDelete.primaryMachineryPrefix}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-stone-400 dark:text-stone-500">
+              Esta ação removerá o agendamento da agenda operacional e do banco de dados.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setAppointmentToDelete(null)}
+                className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-xs font-black text-white bg-red-600 hover:bg-red-700 active:scale-95 rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Excluindo...' : 'Excluir Agendamento'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
