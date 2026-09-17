@@ -7,7 +7,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export const SupabaseStatusControl: React.FC = () => {
+interface SupabaseStatusControlProps {
+  dropdownPosition?: 'up' | 'down';
+}
+
+export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
+  dropdownPosition = 'down'
+}) => {
   const { 
     currentUser, 
     isConnectedToSupabase, 
@@ -56,7 +62,11 @@ export const SupabaseStatusControl: React.FC = () => {
             className="fixed inset-0 z-40" 
             onClick={() => setIsOpenMenu(false)} 
           />
-          <div className="absolute left-[-60px] sm:left-[-70px] top-full mt-1.5 z-50 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-xl p-3 text-xs space-y-2.5">
+          <div className={`absolute z-50 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-xl p-3 text-xs space-y-2.5 ${
+            dropdownPosition === 'up'
+              ? 'bottom-full mb-2 right-0'
+              : 'left-[-60px] sm:left-[-70px] top-full mt-1.5'
+          }`}>
           <div className="border-b border-stone-100 dark:border-stone-800 pb-2 flex items-center justify-between">
             <div>
               <p className="font-bold text-stone-800 dark:text-stone-200">

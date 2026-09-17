@@ -148,16 +148,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Navigation Section Header: Título MENU PRINCIPAL com os 3 botões rápidos alinhados horizontalmente à direita */}
+          {/* Navigation Section Header: Título MENU PRINCIPAL com os botões rápidos alinhados horizontalmente à direita */}
           <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-blue-200/70 dark:text-stone-400 uppercase tracking-wider">
             <span className="shrink-0">MENU PRINCIPAL</span>
 
             {/* Grupo de botões de atalho rápidos realocados do cabeçalho */}
             <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
-              {/* 1. Supabase */}
-              <SupabaseStatusControl />
-
-              {/* 2. Notificações / Sininho */}
+              {/* Notificações / Sininho */}
               <button
                 type="button"
                 onClick={() => handleSelect('funcionarios')}
@@ -168,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
               </button>
 
-              {/* 3. Configurações / Tema / Atualizar */}
+              {/* Configurações / Tema / Atualizar */}
               {setIsDarkMode && (
                 <button
                   id="btn-theme-toggle"
@@ -239,20 +236,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         </div>
 
-        {/* Bottom Section: Logout */}
-        <div className="p-3 border-t border-blue-800/60 bg-blue-800/30 dark:bg-stone-900">
+        {/* Bottom Section: Logout & Supabase */}
+        <div className="p-3 border-t border-blue-800/60 bg-blue-800/30 dark:bg-stone-900 flex items-center justify-between gap-2">
           <button
             id="btn-sidebar-logout"
             onClick={() => {
               setActiveTab('dashboard');
             }}
-            className="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-rose-200 hover:bg-rose-900/40 hover:text-white dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
+            className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-rose-200 hover:bg-rose-900/40 hover:text-white dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
           >
             <LogOut 
-              className="w-4 h-4 text-rose-400" 
+              className="w-4 h-4 text-rose-400 shrink-0" 
             />
             <span>Sair</span>
           </button>
+
+          {/* Botão Supabase posicionado no rodapé ao lado direito do botão Sair */}
+          <div className="shrink-0">
+            <SupabaseStatusControl dropdownPosition="up" />
+          </div>
         </div>
 
       </aside>
