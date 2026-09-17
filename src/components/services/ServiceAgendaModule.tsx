@@ -1515,15 +1515,30 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                               </div>
 
                               {/* 2. DATA E HORA DO AGENDAMENTO (EM DESTAQUE CRONOLÓGICO) */}
-                              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100 bg-stone-50 dark:bg-stone-800/60 p-1.5 rounded-md border border-stone-200 dark:border-stone-700">
-                                <Clock className="w-3.5 h-3.5 text-[#2e65aa] shrink-0" />
-                                <span className="truncate">
-                                  {formatDateBR(app.startDate)} às <span className="font-black text-[#2e65aa] dark:text-blue-400">{app.startTime}h</span>
-                                </span>
-                                {app.endTime && (
-                                  <span className="text-[10px] text-stone-500 font-normal shrink-0 ml-auto">
-                                    até {app.endTime}h
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100 bg-stone-50 dark:bg-stone-800/60 p-1.5 rounded-md border border-stone-200 dark:border-stone-700">
+                                  <Clock className="w-3.5 h-3.5 text-[#2e65aa] shrink-0" />
+                                  <span className="truncate">
+                                    {formatDateBR(app.startDate)} às <span className="font-black text-[#2e65aa] dark:text-blue-400">{app.startTime}h</span>
                                   </span>
+                                  {app.endTime && (
+                                    <span className="text-[10px] text-stone-500 font-normal shrink-0 ml-auto">
+                                      até {app.endTime}h
+                                    </span>
+                                  )}
+                                </div>
+                                {app.realStartTime && (
+                                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+                                    <span className="uppercase text-[9px] px-1 py-0.2 rounded bg-emerald-600 text-white font-black">
+                                      REAL:
+                                    </span>
+                                    <span>{app.realStartTime}h às {app.realEndTime || '—'}h</span>
+                                    {app.realLoadsCount !== undefined && app.realLoadsCount > 0 && (
+                                      <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-400">
+                                        {app.realLoadsCount} cgs
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
 
@@ -1565,9 +1580,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                                 <button
                                   type="button"
                                   draggable={false}
-                                  onClick={() => handleExecuteService(app)}
-                                  className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-[10px] font-black shadow-xs transition-colors cursor-pointer"
-                                  title="Puxar cliente e dados agendados para preencher novo corte automaticamente"
+                                  onClick={() => handleOpenDispatch(app)}
+                                  className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-[10px] font-black shadow-xs transition-colors cursor-pointer active:scale-95"
+                                  title="Disparar Escala para a Equipe de Campo via WhatsApp"
                                 >
                                   <Scissors className="w-3 h-3" />
                                   <span>Puxar Corte</span>
@@ -1836,7 +1851,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           appointments={filteredAppointments}
           onSelectAppointment={handleEdit}
           onCreateAppointmentForDate={handleCreateAppointmentForDate}
-          onExecuteService={handleExecuteService}
+          onExecuteService={handleOpenDispatch}
           onPrintAppointment={handleOpenPrint}
           resolvePrimaryVehicleDisplay={resolvePrimaryVehicleDisplay}
         />
