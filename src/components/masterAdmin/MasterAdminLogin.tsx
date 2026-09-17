@@ -10,8 +10,7 @@ import {
   ChevronRight, 
   AlertTriangle, 
   CheckCircle2, 
-  Sparkles,
-  Info
+  Sparkles 
 } from 'lucide-react';
 import { getStoredAdminSettings, saveStoredMasterSession } from '../../lib/masterAdminStorage';
 import { MasterSession } from '../../types/masterAdmin';
@@ -29,14 +28,11 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
   onOpenLandingPage,
   prefillEmail = '',
 }) => {
-  const settings = getStoredAdminSettings();
-
   const [email, setEmail] = useState(prefillEmail || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuperAdminsHint, setShowSuperAdminsHint] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,31 +43,34 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
     const cleanPassword = password.trim();
 
     if (!cleanEmail) {
-      setError('Por favor, informe o e-mail do administrador.');
+      setError('Por favor, informe o e-mail de acesso.');
       setIsSubmitting(false);
       return;
     }
 
     if (!cleanPassword) {
-      setError('Por favor, digite a senha de acesso mestre.');
+      setError('Por favor, digite a senha de acesso.');
       setIsSubmitting(false);
       return;
     }
 
-    // 1. Validação Estrita contra a lista de Super Admins autorizados
+    // Leitura das configurações em segundo plano sem expor dados na interface
+    const settings = getStoredAdminSettings();
+
+    // 1. Validação em segundo plano dos Super Admins autorizados
     const authorizedEmails = (settings.superAdminEmails || []).map((adm) => adm.trim().toLowerCase());
     const isAuthorized = authorizedEmails.includes(cleanEmail);
 
     if (!isAuthorized) {
-      setError('Acesso negado: O e-mail informado não consta na lista de Super Administradores autorizados da plataforma.');
+      setError('Acesso negado: Credenciais inválidas ou permissão insuficiente.');
       setIsSubmitting(false);
       return;
     }
 
-    // 2. Validação da Senha Mestre Forte
-    const expectedPassword = settings.masterPassword || 'AgroControl@Master2026';
-    if (cleanPassword !== expectedPassword) {
-      setError('Senha de acesso incorreta. Verifique suas credenciais de administrador mestre.');
+    // 2. Validação da Senha Mestre em segundo plano
+    const expectedPassword = settings.masterPassword;
+    if (!expectedPassword || cleanPassword !== expectedPassword) {
+      setError('Acesso negado: Senha incorreta.');
       setIsSubmitting(false);
       return;
     }
@@ -112,7 +111,7 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
                 Painel Administrativo Mestre
               </h1>
               <p className="text-xs text-stone-400 mt-1 max-w-xs mx-auto">
-                Autentique-se com um e-mail de Super Administrador autorizado e a chave de acesso.
+                Informe suas credenciais de administrador para acessar o painel de controle.
               </p>
             </div>
           </div>
@@ -125,25 +124,14 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
             </div>
           )}
 
-          {/* Formulário de Login Mestre */}
+          {/* Formulário de Login Mestre Estrito */}
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* Campo 1: E-mail do Administrador */}
+            {/* Campo 1: E-mail */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-stone-300">
-                  E-MAIL DO ADMINISTRADOR
-                </label>
-                {settings.superAdminEmails.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setEmail(settings.superAdminEmails[0])}
-                    className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
-                  >
-                    Preencher super admin
-                  </button>
-                )}
-              </div>
+              <label className="block text-xs font-bold text-stone-300 mb-1 uppercase tracking-wider">
+                E-mail
+              </label>
               <div className="relative">
                 <input
                   type="email"
@@ -153,21 +141,20 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
                     setEmail(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="ex: admin@agrocontrol.com.br"
+                  placeholder="seu.email@exemplo.com"
                   className="w-full pl-10 pr-4 py-3 bg-stone-950/80 border border-stone-800 focus:border-emerald-500 rounded-xl text-xs font-medium text-white placeholder-stone-600 focus:ring-2 focus:ring-emerald-500/20 outline-none transition"
                   autoFocus
+                  autoComplete="email"
                 />
                 <Mail className="w-4 h-4 text-stone-500 absolute left-3.5 top-3.5 pointer-events-none" />
               </div>
             </div>
 
-            {/* Campo 2: Senha de Acesso */}
+            {/* Campo 2: Senha */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-stone-300">
-                  SENHA DE ACESSO MESTRE
-                </label>
-              </div>
+              <label className="block text-xs font-bold text-stone-300 mb-1 uppercase tracking-wider">
+                Senha
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -179,6 +166,7 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
                   }}
                   placeholder="••••••••••••"
                   className="w-full pl-10 pr-11 py-3 bg-stone-950/80 border border-stone-800 focus:border-emerald-500 rounded-xl text-xs font-mono text-white placeholder-stone-600 focus:ring-2 focus:ring-emerald-500/20 outline-none transition"
+                  autoComplete="current-password"
                 />
                 <Lock className="w-4 h-4 text-stone-500 absolute left-3.5 top-3.5 pointer-events-none" />
                 <button
@@ -196,54 +184,14 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-emerald-950/80 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-emerald-950/80 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 mt-2"
             >
               <Key className="w-4 h-4" />
-              <span>{isSubmitting ? 'Autenticando...' : 'Acessar Painel Mestre'}</span>
+              <span>{isSubmitting ? 'Autenticando...' : 'ACESSAR PAINEL MESTRE'}</span>
             </button>
           </form>
 
-          {/* Dica de Super Admins Autorizados (Gaveta Colapsável) */}
-          <div className="pt-2 border-t border-stone-800/80">
-            <button
-              type="button"
-              onClick={() => setShowSuperAdminsHint(!showSuperAdminsHint)}
-              className="w-full flex items-center justify-between text-[11px] font-semibold text-stone-400 hover:text-stone-300 py-1 transition cursor-pointer"
-            >
-              <span className="flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-stone-500" />
-                <span>Super Admins Autorizados ({settings.superAdminEmails.length})</span>
-              </span>
-              <span className="text-[10px] text-emerald-400">
-                {showSuperAdminsHint ? 'Ocultar' : 'Ver lista'}
-              </span>
-            </button>
-
-            {showSuperAdminsHint && (
-              <div className="mt-2 p-3 bg-stone-950/70 border border-stone-800 rounded-xl space-y-2 text-[11px] text-stone-300">
-                <p className="text-[10px] text-stone-400 font-medium">
-                  Apenas os e-mails abaixo têm permissão para acessar esta área:
-                </p>
-                <div className="space-y-1">
-                  {settings.superAdminEmails.map((admEmail) => (
-                    <div 
-                      key={admEmail}
-                      onClick={() => setEmail(admEmail)}
-                      className="flex items-center justify-between p-1.5 rounded-lg bg-stone-900 hover:bg-emerald-950/50 hover:border-emerald-800/60 border border-stone-800 transition cursor-pointer"
-                    >
-                      <span className="font-mono text-emerald-300">{admEmail}</span>
-                      <span className="text-[9px] text-stone-500 uppercase">Clique p/ usar</span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[10px] text-stone-500 pt-1">
-                  Senha padrão do sistema: <code className="text-emerald-400 bg-stone-900 px-1 py-0.5 rounded">AgroControl@Master2026</code>
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Rodapé com Navegação Limpa */}
+          {/* Rodapé com Navegação */}
           <div className="pt-2 border-t border-stone-800/80 flex items-center justify-between text-xs text-stone-400">
             <button
               type="button"
@@ -264,10 +212,10 @@ export const MasterAdminLogin: React.FC<MasterAdminLoginProps> = ({
           </div>
         </div>
 
-        {/* Nota de Segurança e Privacidade */}
+        {/* Nota de Segurança */}
         <div className="text-center text-[11px] text-stone-500 flex items-center justify-center gap-1.5">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/70" />
-          <span>Sessão protegida por token local temporário criptografado</span>
+          <span>Sessão protegida por criptografia de ponta a ponta</span>
         </div>
       </div>
     </div>
