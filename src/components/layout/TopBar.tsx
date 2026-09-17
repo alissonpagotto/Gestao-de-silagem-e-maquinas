@@ -3,24 +3,19 @@ import {
   AlertTriangle, 
   ChevronLeft, 
   ChevronRight, 
-  Bell, 
-  Moon, 
-  Sun, 
   Menu,
-  Sparkles,
-  SlidersHorizontal
+  Sparkles
 } from 'lucide-react';
 import { 
   ALL_SHORTCUTS, 
   DEFAULT_SHORTCUT_IDS 
 } from './CustomizeShortcutsModal';
-import { SupabaseStatusControl } from './SupabaseStatusControl';
 
 interface TopBarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  isDarkMode: boolean;
-  setIsDarkMode: (val: boolean | ((prev: boolean) => boolean)) => void;
+  isDarkMode?: boolean;
+  setIsDarkMode?: (val: boolean | ((prev: boolean) => boolean)) => void;
   onOpenMobileMenu: () => void;
   onOpenQuickMemo?: () => void;
   onOpenTrialInfo?: () => void;
@@ -31,12 +26,9 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({
   activeTab,
   setActiveTab,
-  isDarkMode,
-  setIsDarkMode,
   onOpenMobileMenu,
   onOpenTrialInfo,
   selectedShortcuts = DEFAULT_SHORTCUT_IDS,
-  onOpenCustomizeShortcuts,
 }) => {
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -152,54 +144,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             aria-label="Rolar para direita"
           >
             <ChevronRight className="w-4 h-4" />
-          </button>
-
-        </div>
-
-        {/* Right Tools: Modal de Personalizar Atalhos, Supabase, Notificações e Tema */}
-        <div className="flex items-center space-x-1.5 shrink-0 pl-2 border-l border-white/20 dark:border-stone-700">
-          
-          {/* Botão de Atalhos do Topo (Abre o Modal com Checkboxes) */}
-          {onOpenCustomizeShortcuts && (
-            <button
-              type="button"
-              id="btn-topbar-customize-shortcuts"
-              onClick={onOpenCustomizeShortcuts}
-              title="Personalizar Atalhos do Topo"
-              aria-label="Personalizar Atalhos do Topo"
-              className="p-2 rounded-lg text-white hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Supabase Cloud Sync & DB status */}
-          <SupabaseStatusControl />
-
-          {/* Notification Bell */}
-          <button
-            onClick={() => setActiveTab('funcionarios')}
-            title="Notificações e Avisos de CNH"
-            className="relative p-2 rounded-lg text-white hover:bg-white/15 transition cursor-pointer"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-          </button>
-
-          {/* Dark / Light Mode Toggle */}
-          <button
-            id="btn-theme-toggle"
-            type="button"
-            onClick={() => setIsDarkMode(prev => !prev)}
-            title={isDarkMode ? 'Mudar para modo claro (Light)' : 'Mudar para modo escuro (Dark)'}
-            aria-label="Alternar tema claro e escuro"
-            className="p-2 rounded-lg text-white hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
-          >
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 fill-amber-400/20 text-amber-300" />
-            ) : (
-              <Moon className="w-4 h-4 text-white" />
-            )}
           </button>
 
         </div>

@@ -37,7 +37,7 @@ export const SupabaseStatusControl: React.FC = () => {
         title="Status da Conexão Supabase PostgreSQL"
       >
         <Database className="w-3.5 h-3.5 text-emerald-300" />
-        <span className="hidden sm:inline font-semibold text-[11px]">
+        <span className="font-semibold text-[11px]">
           {isConfigured ? 'Supabase' : 'DB Local'}
         </span>
         <span 
@@ -51,7 +51,12 @@ export const SupabaseStatusControl: React.FC = () => {
 
       {/* Dropdown Menu */}
       {isOpenMenu && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-xl p-3 text-xs space-y-2.5">
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpenMenu(false)} 
+          />
+          <div className="absolute left-[-60px] sm:left-[-70px] top-full mt-1.5 z-50 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-xl p-3 text-xs space-y-2.5">
           <div className="border-b border-stone-100 dark:border-stone-800 pb-2 flex items-center justify-between">
             <div>
               <p className="font-bold text-stone-800 dark:text-stone-200">
@@ -105,6 +110,7 @@ export const SupabaseStatusControl: React.FC = () => {
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );

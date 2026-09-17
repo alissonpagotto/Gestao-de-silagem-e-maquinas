@@ -686,6 +686,8 @@ export default function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         companyProfile={companyProfile}
         menuOrder={menuOrder}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
       />
 
       {/* Backdrop for mobile sidebar */}

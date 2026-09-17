@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   LogOut,
   ChevronRight,
-  Sprout
+  Sprout,
+  Bell,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { CompanyProfile } from '../../types';
 import { 
@@ -10,6 +13,7 @@ import {
   DEFAULT_MENU_ORDER, 
   MenuItemDef 
 } from './ReorderMenuModal';
+import { SupabaseStatusControl } from './SupabaseStatusControl';
 
 export interface SidebarProps {
   activeTab: string;
@@ -18,6 +22,8 @@ export interface SidebarProps {
   onCloseMobile?: () => void;
   companyProfile?: CompanyProfile;
   menuOrder?: string[];
+  isDarkMode?: boolean;
+  setIsDarkMode?: (val: boolean | ((prev: boolean) => boolean)) => void;
   onOpenCustomizeShortcuts?: () => void;
 }
 
@@ -28,6 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   companyProfile,
   menuOrder: propMenuOrder,
+  isDarkMode,
+  setIsDarkMode,
 }) => {
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
     if (propMenuOrder && propMenuOrder.length > 0) {
@@ -140,9 +148,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Navigation Section Header */}
-          <div className="px-4 pt-3 pb-1 text-[11px] font-bold text-blue-200/70 dark:text-stone-400 uppercase tracking-wider">
-            <span>MENU PRINCIPAL</span>
+          {/* Navigation Section Header: Título MENU PRINCIPAL com os 3 botões rápidos alinhados horizontalmente à direita */}
+          <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-blue-200/70 dark:text-stone-400 uppercase tracking-wider">
+            <span className="shrink-0">MENU PRINCIPAL</span>
+
+            {/* Grupo de botões de atalho rápidos realocados do cabeçalho */}
+            <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
+              {/* 1. Supabase */}
+              <SupabaseStatusControl />
+
+              {/* 2. Notificações / Sininho */}
+              <button
+                type="button"
+                onClick={() => handleSelect('funcionarios')}
+                title="Notificações e Avisos de CNH"
+                className="relative p-1.5 rounded-lg text-white hover:bg-white/15 transition cursor-pointer"
+              >
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              </button>
+
+              {/* 3. Configurações / Tema / Atualizar */}
+              {setIsDarkMode && (
+                <button
+                  id="btn-theme-toggle"
+                  type="button"
+                  onClick={() => setIsDarkMode(prev => !prev)}
+                  title={isDarkMode ? 'Mudar para modo claro (Light)' : 'Mudar para modo escuro (Dark)'}
+                  aria-label="Alternar tema claro e escuro"
+                  className="p-1.5 rounded-lg text-white hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
+                >
+                  {isDarkMode ? (
+                    <Sun className="w-4 h-4 fill-amber-400/20 text-amber-300" />
+                  ) : (
+                    <Moon className="w-4 h-4 text-white" />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Navigation List */}
