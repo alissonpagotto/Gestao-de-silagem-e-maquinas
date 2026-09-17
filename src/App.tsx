@@ -715,7 +715,7 @@ export default function App() {
       return 'landing';
     }
 
-    // 5. Painel Interno do Cliente (ERP Gestão de Silagem)
+    // 5. Painel Interno do Cliente (ERP Gestão de Silagem) - Protegido por Auth Guard
     const hasActiveSession = typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active';
     const isDashboardPath =
       path.includes('/dashboard') ||
@@ -725,7 +725,26 @@ export default function App() {
       search.includes('app=true') ||
       hash.includes('dashboard');
 
-    if (isDashboardPath || hasActiveSession || !!currentUser) {
+    const isAuthenticated = hasActiveSession || Boolean(currentUser);
+
+    // Bloqueio por URL Direta (Auth Guard):
+    // Se tentar acessar o dashboard operacional sem autenticação (login e senha),
+    // bloqueia o acesso e força o redirecionamento imediato para a tela de login (/auth?mode=login)
+    if (isDashboardPath) {
+      if (isAuthenticated) {
+        return 'dashboard';
+      } else {
+        try {
+          window.history.replaceState({}, '', '/auth?mode=login');
+        } catch (e) {
+          console.error(e);
+        }
+        return 'auth';
+      }
+    }
+
+    // Se já estiver autenticado com sessão ativa e não especificou outra rota pública, libera o dashboard
+    if (isAuthenticated && (path === '/app' || path === '/dashboard')) {
       return 'dashboard';
     }
 
@@ -764,9 +783,9 @@ export default function App() {
     };
   }, []);
 
-  // Se o usuário autenticar via Supabase, ativar a sessão e direcionar para o dashboard
+  // Se o usuário autenticar via login ou cadastro, ativar a sessão e direcionar para o dashboard
   useEffect(() => {
-    if (currentUser && (currentRoute === 'landing' || currentRoute === 'auth')) {
+    if (currentUser && currentRoute === 'auth') {
       try {
         localStorage.setItem('silagem_client_session', 'active');
         window.history.pushState({}, '', '/dashboard');
@@ -775,17 +794,22 @@ export default function App() {
       }
       setCurrentRoute('dashboard');
     }
-  }, [currentUser]);
+  }, [currentUser, currentRoute]);
 
-  // Transições de Navegação entre Ambientes
+  // Transições de Navegação entre Ambientes com Verificação Estrita (Auth Guard)
   const handleEnterApp = () => {
-    try {
-      localStorage.setItem('silagem_client_session', 'active');
-      window.history.pushState({}, '', '/dashboard');
-    } catch (e) {
-      console.error(e);
+    const hasActiveSession = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') || Boolean(currentUser);
+    if (hasActiveSession) {
+      try {
+        window.history.pushState({}, '', '/dashboard');
+      } catch (e) {
+        console.error(e);
+      }
+      setCurrentRoute('dashboard');
+    } else {
+      // Se NÃO estiver logado, redireciona imediatamente para a tela de login na rota /auth?mode=login
+      handleOpenAuth(undefined, 'login');
     }
-    setCurrentRoute('dashboard');
   };
 
   const handleOpenAuth = (planId?: string, authMode: 'signup' | 'login' = 'signup') => {
@@ -910,6 +934,19 @@ export default function App() {
   }
 
   // 6. Painel de Gestão de Silagem (ERP Interno do Cliente, visível em /dashboard com login ativo)
+  const isUserAuthenticated = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') || Boolean(currentUser);
+  if (!isUserAuthenticated) {
+    return (
+      <AuthPage
+        onEnterApp={handleEnterApp}
+        onOpenLandingPage={handleOpenLandingPage}
+        onCompanyCreated={(newProfile) => {
+          setCompanyProfile(newProfile);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-blue-50/50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900">
       

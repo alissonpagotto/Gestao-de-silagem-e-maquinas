@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // 2. Check active Supabase Session
+    // 2. Check active Supabase Session or stored active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (isMounted) {
         if (session?.user) {
@@ -54,11 +54,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Usuário Supabase',
             photoURL: u.user_metadata?.avatar_url || ''
           });
+        } else if (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') {
+          const storedEmail = localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || 'usuario@silagem.com';
+          const storedId = localStorage.getItem('silagem_active_subscriber_id') || 'usr_local';
+          setCurrentUser({
+            uid: storedId,
+            id: storedId,
+            email: storedEmail,
+            displayName: storedEmail.split('@')[0] || 'Produtor',
+            photoURL: ''
+          });
         }
         setLoading(false);
       }
     }).catch(() => {
-      if (isMounted) setLoading(false);
+      if (isMounted) {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') {
+          const storedEmail = localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || 'usuario@silagem.com';
+          const storedId = localStorage.getItem('silagem_active_subscriber_id') || 'usr_local';
+          setCurrentUser({
+            uid: storedId,
+            id: storedId,
+            email: storedEmail,
+            displayName: storedEmail.split('@')[0] || 'Produtor',
+            photoURL: ''
+          });
+        }
+        setLoading(false);
+      }
     });
 
     // 3. Listen to auth changes
@@ -88,17 +111,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email?: string, password?: string) => {
     try {
       if (email && password) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (isSupabaseConfigured) {
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+        } else {
+          // Fallback local/offline
+          const localUid = `usr_${Date.now()}`;
+          setCurrentUser({
+            uid: localUid,
+            id: localUid,
+            email,
+            displayName: email.split('@')[0] || 'Usuário Local',
+            photoURL: ''
+          });
+        }
       } else {
         // Sign in with Google OAuth on Supabase
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin
-          }
-        });
-        if (error) throw error;
+        if (isSupabaseConfigured) {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: window.location.origin
+            }
+          });
+          if (error) throw error;
+        }
       }
     } catch (err) {
       console.error('Supabase auth sign in failed:', err);

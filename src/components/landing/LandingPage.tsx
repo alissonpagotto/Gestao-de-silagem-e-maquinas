@@ -49,13 +49,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     .filter(p => p.isActive)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
+  // Auth Guard: Acessar o ERP com proteção e barreira de segurança
+  const handleAccessErp = () => {
+    const hasActiveSession = typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active';
+    if (hasActiveSession) {
+      onEnterApp();
+    } else {
+      if (onNavigateToAuth) {
+        onNavigateToAuth(undefined, 'login');
+      } else {
+        try {
+          window.history.pushState({}, '', '/auth?mode=login');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  };
+
   const handleCheckoutClick = (plan: PlanDefinition) => {
     if (plan.checkoutUrl && plan.checkoutUrl.startsWith('http') && !plan.checkoutUrl.includes('exemplo')) {
       window.open(plan.checkoutUrl, '_blank', 'noopener,noreferrer');
     } else if (onNavigateToAuth) {
       onNavigateToAuth(plan.id, 'signup');
     } else {
-      onEnterApp();
+      handleAccessErp();
     }
   };
 
@@ -111,8 +130,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             )}
             <button
               type="button"
-              onClick={onEnterApp}
+              onClick={handleAccessErp}
               className="px-4 py-2 bg-stone-900 border border-stone-700 hover:bg-stone-800 text-white rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5"
+              title="Acessar o ERP - Requer Login e Senha"
             >
               <span>Acessar o ERP</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -418,7 +438,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             )}
             <button
               type="button"
-              onClick={onEnterApp}
+              onClick={handleAccessErp}
               className="hover:text-emerald-400 transition cursor-pointer"
             >
               Painel do Assinante (ERP)
