@@ -271,27 +271,7 @@ export function saveStoredFleetTeams(teams: FleetTeam[]): void {
 }
 
 export function resetAllSystemData(): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.FLEET_TEAMS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.FUEL_LOGS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.PAYROLLS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.LEAVES, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.SALARY_ADVANCES, JSON.stringify([]));
-  } catch (e) {
-    console.error('Failed to reset system data', e);
-  }
+  console.warn('[Segurança] Ação de zerar dados do sistema desativada para proteção contra perda de dados.');
 }
 
 export function getStoredSuppliers(): Supplier[] {

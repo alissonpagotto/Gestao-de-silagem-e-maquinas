@@ -66,7 +66,6 @@ import {
   saveStoredLeaves,
   getStoredSalaryAdvances,
   saveStoredSalaryAdvances,
-  resetAllSystemData,
   formatCurrencyBRL
 } from './lib/storage';
 import { useConfirm } from './context/ConfirmContext';
@@ -448,27 +447,6 @@ export default function App() {
     setFuelLogs(getStoredFuelLogs());
     setMaintenanceLogs(getStoredMaintenanceLogs());
     setCompanyProfile(getStoredCompanyProfile());
-  };
-
-  const handleResetAllData = () => {
-    resetAllSystemData();
-    setExpenses([]);
-    setClients([]);
-    setOrders([]);
-    setMachineries([]);
-    setEmployees([]);
-    setFleetTeams([]);
-    setSuppliers([]);
-    setInventory([]);
-    setServices([]);
-    setFuelLogs([]);
-    setMaintenanceLogs([]);
-    setBankAccounts([]);
-    setSettlements([]);
-    setPayrolls([]);
-    setVacations([]);
-    setLeaves([]);
-    setAdvances([]);
   };
 
   // Expense Handlers
@@ -1266,7 +1244,6 @@ export default function App() {
               costCenters={costCenters}
               onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
               onOpenIntegrationModal={() => setIsIntegrationModalOpen(true)}
-              onResetAllData={handleResetAllData}
               onSyncSupabase={handleSyncSupabase}
               onOpenCustomizeShortcuts={() => setIsCustomizeShortcutsOpen(true)}
               onOpenReorderMenu={() => setIsReorderMenuOpen(true)}

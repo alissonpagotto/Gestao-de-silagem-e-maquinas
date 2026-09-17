@@ -17,7 +17,6 @@ import {
   SlidersHorizontal,
   ArrowUpDown,
   Database,
-  Trash2,
   Cloud,
   RefreshCw,
   LogIn,
@@ -29,7 +28,6 @@ import {
 import { CompanyProfile, ExpenseCategory, CostCenter } from '../../types';
 import { DEFAULT_FORAGE_HARVESTER_LOGO } from '../../lib/initialData';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
-import { ConfirmModal } from '../common/ConfirmModal';
 import { SupabaseSqlModal } from './SupabaseSqlModal';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -49,7 +47,6 @@ interface CompanySettingsViewProps {
   costCenters?: CostCenter[];
   onOpenCategoryManager?: () => void;
   onOpenIntegrationModal?: () => void;
-  onResetAllData?: () => void;
   onSyncSupabase?: () => Promise<void>;
   onOpenCustomizeShortcuts?: () => void;
   onOpenReorderMenu?: () => void;
@@ -62,7 +59,6 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   costCenters,
   onOpenCategoryManager,
   onOpenIntegrationModal,
-  onResetAllData,
   onSyncSupabase,
   onOpenCustomizeShortcuts,
   onOpenReorderMenu,
@@ -105,8 +101,6 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-  const [resetSuccessToast, setResetSuccessToast] = useState(false);
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -961,61 +955,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           </div>
         </div>
 
-        {/* Card 6: Gerenciamento do Banco de Dados / Limpeza */}
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-rose-100 dark:border-stone-800 p-3.5 shadow-xs">
-          <div className="flex items-center space-x-2 text-rose-700 dark:text-rose-400 mb-2">
-            <Database className="w-4 h-4" />
-            <h2 className="text-xs font-bold">Banco de Dados & Limpeza Geral</h2>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-rose-50/50 dark:bg-rose-950/20 p-3 rounded-xl border border-rose-200/60 dark:border-rose-900/40">
-            <div>
-              <p className="text-xs font-bold text-stone-900 dark:text-stone-100">
-                Limpar / Zerar Todas as Informações do Sistema
-              </p>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                Remove todas as despesas, clientes, pedidos, maquinários, funcionários, manutenções e registros para você iniciar seus lançamentos manuais do zero.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsResetConfirmOpen(true)}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Zerar Dados do Sistema</span>
-            </button>
-          </div>
-
-          {resetSuccessToast && (
-            <div className="mt-2.5 p-2.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center space-x-2">
-              <Check className="w-4 h-4 text-emerald-600" />
-              <span>Todas as informações do sistema foram zeradas com sucesso! Você pode iniciar os novos lançamentos agora.</span>
-            </div>
-          )}
-        </div>
-
       </form>
-
-      {/* Reset Confirmation Modal */}
-      <ConfirmModal
-        isOpen={isResetConfirmOpen}
-        title="Zerar Todas as Informações?"
-        message="Tem certeza que deseja apagar todos os registros do sistema? Esta ação irá zerar despesas, frotas, clientes, ordens e funcionários para você cadastrar tudo do zero."
-        confirmLabel="Sim, Zerar Tudo"
-        cancelLabel="Cancelar"
-        variant="danger"
-        onCancel={() => setIsResetConfirmOpen(false)}
-        onConfirm={() => {
-          if (onResetAllData) {
-            onResetAllData();
-          }
-          setIsResetConfirmOpen(false);
-          setResetSuccessToast(true);
-          setTimeout(() => setResetSuccessToast(false), 5000);
-        }}
-      />
 
       {/* Password Modal */}
       {isPasswordModalOpen && (
