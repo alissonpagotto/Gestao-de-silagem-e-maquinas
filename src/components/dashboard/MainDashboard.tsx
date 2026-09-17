@@ -156,20 +156,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
     const hasActivity = months.some(m => m.receitas > 0 || m.custos > 0);
     if (!hasActivity) {
-      return [
-        { name: 'Abr/26', receitas: 125000, custos: 74200, diesel: 28400 },
-        { name: 'Mai/26', receitas: 148000, custos: 86500, diesel: 32100 },
-        { name: 'Jun/26', receitas: 190000, custos: 104000, diesel: 41800 },
-        { name: 'Jul/26', receitas: 165000, custos: 92300, diesel: 35600 },
-        { name: 'Ago/26', receitas: 210000, custos: 118000, diesel: 46500 },
-        { name: 'Set/26', receitas: 184500, custos: 98700, diesel: 39400 },
-      ];
+      return [];
     }
     
     return months;
   }, [orders, services, expenses]);
 
-  // 2. Consumo de Diesel por Ensiladeira e Maquinário
+  // 2. Consumo de Diesel por Ensiladeira e Maquinário (apenas registros reais)
   const dieselByMachinery = useMemo(() => {
     const machineMap: { [key: string]: { liters: number; cost: number; type: string } } = {};
 
@@ -179,12 +172,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       const isTrator = (m.type?.toLowerCase().includes('trator') || m.categoryType === 'trator');
       const typeLabel = isEnsiladeira ? 'Ensiladeira' : isTrator ? 'Trator' : 'Frota/Caminhão';
       
-      const defaultLiters = isEnsiladeira ? 3150 : isTrator ? 1420 : 980;
-      machineMap[name] = {
-        liters: m.fuelCapacityLiters ? m.fuelCapacityLiters * 4.2 : defaultLiters,
-        cost: m.totalFuelExpenses || ((m.fuelCapacityLiters || 320) * 4.2 * 6.20),
-        type: typeLabel
-      };
+      if (m.totalFuelExpenses && m.totalFuelExpenses > 0) {
+        machineMap[name] = {
+          liters: m.fuelCapacityLiters || 0,
+          cost: m.totalFuelExpenses,
+          type: typeLabel
+        };
+      }
     });
 
     if (fuelLogs && fuelLogs.length > 0) {
@@ -203,22 +197,22 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       litros: Math.round(data.liters),
       custo: Math.round(data.cost),
       tipo: data.type
-    })).sort((a, b) => b.litros - a.litros).slice(0, 5);
+    }))
+    .filter(i => i.litros > 0 || i.custo > 0)
+    .sort((a, b) => b.litros - a.litros).slice(0, 5);
 
     if (items.length === 0) {
-      return [
-        { name: 'Ensiladeira Claas 8400', litros: 3420, custo: 21204, tipo: 'Ensiladeira' },
-        { name: 'Ensiladeira JD 8500', litros: 2850, custo: 17670, tipo: 'Ensiladeira' },
-        { name: 'Trator JD 7200', litros: 1640, custo: 10168, tipo: 'Trator' },
-        { name: 'Trator Case Puma 215', litros: 1320, custo: 8184, tipo: 'Trator' },
-        { name: 'Caminhão Basculante 01', litros: 1150, custo: 7130, tipo: 'Frota' },
-      ];
+      return [];
     }
     return items;
   }, [machineries, fuelLogs]);
 
-  // 3. Tabela de Custos & Rentabilidade por Safra
+  // 3. Tabela de Custos & Rentabilidade por Safra (retorna apenas safras reais ou lista vazia)
   const seasonsSummary = useMemo(() => {
+    if (!seasons || seasons.length === 0) {
+      return [];
+    }
+
     const totalServRev = services.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
     const totalOrdersRev = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
     const totalRev = totalServRev + totalOrdersRev;
@@ -233,45 +227,23 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       .filter(e => !e.categoryName?.toLowerCase().includes('combust') && !e.categoryName?.toLowerCase().includes('diesel'))
       .reduce((sum, e) => sum + e.amount, 0);
 
-    return [
-      {
-        id: 's1',
-        nome: 'Safra Verão 2025/2026',
-        cultura: 'Milho Planta Inteira',
-        area: totalAreaHectares > 0 ? `${totalAreaHectares.toFixed(1)} ha` : '420.0 ha',
-        producao: totalTons > 0 ? `${totalTons.toLocaleString('pt-BR')} ton` : '21.000 ton',
-        custoDiesel: dieselExpenses > 0 ? dieselExpenses : 98400,
-        outrosCustos: otherExpenses > 0 ? otherExpenses : 124500,
-        faturamento: totalRev > 0 ? totalRev : 385000,
-        status: 'Em Andamento',
-        statusColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-      },
-      {
-        id: 's2',
-        nome: 'Safrinha 2025',
-        cultura: 'Milho Grão Úmido / Sorgo',
-        area: '280.0 ha',
-        producao: '12.600 ton',
-        custoDiesel: 64200,
-        outrosCustos: 82000,
-        faturamento: 245000,
-        status: 'Finalizada',
-        statusColor: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
-      },
-      {
-        id: 's3',
-        nome: 'Safra Inverno 2025',
-        cultura: 'Aveia / Azevém Pré-secado',
-        area: '160.0 ha',
-        producao: '6.400 ton',
-        custoDiesel: 38900,
-        outrosCustos: 46100,
-        faturamento: 142000,
-        status: 'Finalizada',
-        statusColor: 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
-      }
-    ];
-  }, [services, orders, expenses]);
+    return seasons.map(s => {
+      return {
+        id: s.id,
+        nome: s.name,
+        cultura: s.cropType || 'Silagem de Milho',
+        area: s.totalAreaHectares ? `${s.totalAreaHectares.toFixed(1)} ha` : (totalAreaHectares > 0 ? `${totalAreaHectares.toFixed(1)} ha` : '0.0 ha'),
+        producao: s.totalProductionTons ? `${s.totalProductionTons.toLocaleString('pt-BR')} ton` : (totalTons > 0 ? `${totalTons.toLocaleString('pt-BR')} ton` : '0 ton'),
+        custoDiesel: dieselExpenses,
+        outrosCustos: otherExpenses,
+        faturamento: totalRev,
+        status: s.status === 'em_andamento' ? 'Em Andamento' : s.status === 'planejada' ? 'Planejada' : 'Finalizada',
+        statusColor: s.status === 'em_andamento' 
+          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+          : 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
+      };
+    });
+  }, [seasons, services, orders, expenses]);
 
   // Indicadores de topo do bloco analítico
   const totalSafraFaturamento = seasonsSummary.reduce((sum, s) => sum + s.faturamento, 0);
@@ -550,48 +522,56 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                     </span>
                   </div>
 
-                  <div className="h-36 sm:h-40 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthlyData} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                        <XAxis 
-                          dataKey="name" 
-                          tick={{ fontSize: 10, fill: '#64748b' }} 
-                          axisLine={false} 
-                          tickLine={false} 
-                        />
-                        <YAxis 
-                          tick={{ fontSize: 9, fill: '#64748b' }} 
-                          axisLine={false} 
-                          tickLine={false}
-                          tickFormatter={(val) => `R$${(val / 1000).toFixed(0)}k`}
-                        />
-                        <Tooltip 
-                          formatter={(val: number | undefined) => [formatCurrencyBRL(val || 0), '']}
-                          contentStyle={{ 
-                            borderRadius: '8px', 
-                            border: '1px solid #cbd5e1', 
-                            backgroundColor: '#ffffff',
-                            color: '#000000',
-                            fontSize: '10px',
-                            boxShadow: '0 2px 4px rgb(0 0 0 / 0.1)'
-                          }} 
-                        />
-                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '4px' }} />
-                        <Bar 
-                          dataKey="receitas" 
-                          name="Faturamento" 
-                          fill="#10b981" 
-                          radius={[3, 3, 0, 0]} 
-                        />
-                        <Bar 
-                          dataKey="custos" 
-                          name="Custos Totais" 
-                          fill="#0284c7" 
-                          radius={[3, 3, 0, 0]} 
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="h-36 sm:h-40 w-full flex items-center justify-center">
+                    {monthlyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthlyData} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="name" 
+                            tick={{ fontSize: 10, fill: '#64748b' }} 
+                            axisLine={false} 
+                            tickLine={false} 
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 9, fill: '#64748b' }} 
+                            axisLine={false} 
+                            tickLine={false}
+                            tickFormatter={(val) => `R$${(val / 1000).toFixed(0)}k`}
+                          />
+                          <Tooltip 
+                            formatter={(val: number | undefined) => [formatCurrencyBRL(val || 0), '']}
+                            contentStyle={{ 
+                              borderRadius: '8px', 
+                              border: '1px solid #cbd5e1', 
+                              backgroundColor: '#ffffff',
+                              color: '#000000',
+                              fontSize: '10px',
+                              boxShadow: '0 2px 4px rgb(0 0 0 / 0.1)'
+                            }} 
+                          />
+                          <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '4px' }} />
+                          <Bar 
+                            dataKey="receitas" 
+                            name="Faturamento" 
+                            fill="#10b981" 
+                            radius={[3, 3, 0, 0]} 
+                          />
+                          <Bar 
+                            dataKey="custos" 
+                            name="Custos Totais" 
+                            fill="#0284c7" 
+                            radius={[3, 3, 0, 0]} 
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-center p-3 text-slate-400 dark:text-stone-500">
+                        <TrendingUp className="w-6 h-6 mb-1 opacity-30 stroke-1" />
+                        <p className="text-xs font-semibold text-stone-600 dark:text-stone-400">Nenhum fluxo financeiro no período</p>
+                        <p className="text-[10px] text-stone-400 dark:text-stone-500">Faturamento e custos aparecerão conforme os lançamentos.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -611,47 +591,55 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                     </span>
                   </div>
 
-                  <div className="h-36 sm:h-40 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={dieselByMachinery} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                        <XAxis 
-                          type="number" 
-                          tick={{ fontSize: 9, fill: '#64748b' }} 
-                          axisLine={false} 
-                          tickLine={false}
-                          tickFormatter={(val) => `${val} L`}
-                        />
-                        <YAxis 
-                          type="category" 
-                          dataKey="name" 
-                          tick={{ fontSize: 9, fill: '#334155' }} 
-                          axisLine={false} 
-                          tickLine={false}
-                          width={95}
-                        />
-                        <Tooltip 
-                          formatter={(val: number | undefined, name: string | undefined, item: any) => [
-                            `${val?.toLocaleString('pt-BR')} L (${formatCurrencyBRL(item?.payload?.custo || 0)})`, 
-                            'Consumo'
-                          ]}
-                          contentStyle={{ 
-                            borderRadius: '8px', 
-                            border: '1px solid #cbd5e1', 
-                            backgroundColor: '#ffffff',
-                            color: '#000000',
-                            fontSize: '10px',
-                            boxShadow: '0 2px 4px rgb(0 0 0 / 0.1)'
-                          }} 
-                        />
-                        <Bar 
-                          dataKey="litros" 
-                          name="Diesel (L)" 
-                          fill="#f59e0b" 
-                          radius={[0, 3, 3, 0]} 
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="h-36 sm:h-40 w-full flex items-center justify-center">
+                    {dieselByMachinery.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dieselByMachinery} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                          <XAxis 
+                            type="number" 
+                            tick={{ fontSize: 9, fill: '#64748b' }} 
+                            axisLine={false} 
+                            tickLine={false}
+                            tickFormatter={(val) => `${val} L`}
+                          />
+                          <YAxis 
+                            type="category" 
+                            dataKey="name" 
+                            tick={{ fontSize: 9, fill: '#334155' }} 
+                            axisLine={false} 
+                            tickLine={false}
+                            width={95}
+                          />
+                          <Tooltip 
+                            formatter={(val: number | undefined, name: string | undefined, item: any) => [
+                              `${val?.toLocaleString('pt-BR')} L (${formatCurrencyBRL(item?.payload?.custo || 0)})`, 
+                              'Consumo'
+                            ]}
+                            contentStyle={{ 
+                              borderRadius: '8px', 
+                              border: '1px solid #cbd5e1', 
+                              backgroundColor: '#ffffff',
+                              color: '#000000',
+                              fontSize: '10px',
+                              boxShadow: '0 2px 4px rgb(0 0 0 / 0.1)'
+                            }} 
+                          />
+                          <Bar 
+                            dataKey="litros" 
+                            name="Diesel (L)" 
+                            fill="#f59e0b" 
+                            radius={[0, 3, 3, 0]} 
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-center p-3 text-slate-400 dark:text-stone-500">
+                        <Fuel className="w-6 h-6 mb-1 opacity-30 stroke-1" />
+                        <p className="text-xs font-semibold text-stone-600 dark:text-stone-400">Nenhum consumo de diesel registrado</p>
+                        <p className="text-[10px] text-stone-400 dark:text-stone-500">Abastecimentos e custos de combustível aparecerão aqui.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -686,46 +674,54 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200/80 dark:divide-stone-800">
-                      {seasonsSummary.map((season) => {
-                        const totalCusto = season.custoDiesel + season.outrosCustos;
-                        const margem = season.faturamento - totalCusto;
-                        const percMargem = season.faturamento > 0 ? (margem / season.faturamento) * 100 : 0;
-                        return (
-                          <tr key={season.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition">
-                            <td className="py-1 px-2 font-bold text-black dark:text-white whitespace-nowrap">
-                              {season.nome}
-                            </td>
-                            <td className="py-1 px-2 text-black/80 dark:text-stone-300 whitespace-nowrap">
-                              {season.cultura}
-                            </td>
-                            <td className="py-1 px-2 text-black/80 dark:text-stone-300 whitespace-nowrap">
-                              {season.area} • <span className="font-semibold">{season.producao}</span>
-                            </td>
-                            <td className="py-1 px-2 font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
-                              {formatCurrencyBRL(season.custoDiesel)}
-                            </td>
-                            <td className="py-1 px-2 text-black/80 dark:text-stone-400 whitespace-nowrap">
-                              {formatCurrencyBRL(season.outrosCustos)}
-                            </td>
-                            <td className="py-1 px-2 font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                              {formatCurrencyBRL(season.faturamento)}
-                            </td>
-                            <td className="py-1 px-2 whitespace-nowrap">
-                              <span className="font-black text-black dark:text-white">
-                                {formatCurrencyBRL(margem)}
-                              </span>{' '}
-                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1 py-0.2 rounded ml-1">
-                                +{percMargem.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="py-1 px-2 text-center whitespace-nowrap">
-                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${season.statusColor}`}>
-                                {season.status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {seasonsSummary.length > 0 ? (
+                        seasonsSummary.map((season) => {
+                          const totalCusto = season.custoDiesel + season.outrosCustos;
+                          const margem = season.faturamento - totalCusto;
+                          const percMargem = season.faturamento > 0 ? (margem / season.faturamento) * 100 : 0;
+                          return (
+                            <tr key={season.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition">
+                              <td className="py-1 px-2 font-bold text-black dark:text-white whitespace-nowrap">
+                                {season.nome}
+                              </td>
+                              <td className="py-1 px-2 text-black/80 dark:text-stone-300 whitespace-nowrap">
+                                {season.cultura}
+                              </td>
+                              <td className="py-1 px-2 text-black/80 dark:text-stone-300 whitespace-nowrap">
+                                {season.area} • <span className="font-semibold">{season.producao}</span>
+                              </td>
+                              <td className="py-1 px-2 font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                                {formatCurrencyBRL(season.custoDiesel)}
+                              </td>
+                              <td className="py-1 px-2 text-black/80 dark:text-stone-400 whitespace-nowrap">
+                                {formatCurrencyBRL(season.outrosCustos)}
+                              </td>
+                              <td className="py-1 px-2 font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                                {formatCurrencyBRL(season.faturamento)}
+                              </td>
+                              <td className="py-1 px-2 whitespace-nowrap">
+                                <span className="font-black text-black dark:text-white">
+                                  {formatCurrencyBRL(margem)}
+                                </span>{' '}
+                                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1 py-0.2 rounded ml-1">
+                                  +{percMargem.toFixed(1)}%
+                                </span>
+                              </td>
+                              <td className="py-1 px-2 text-center whitespace-nowrap">
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${season.statusColor}`}>
+                                  {season.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={8} className="py-4 px-2 text-center text-xs text-slate-500 dark:text-stone-400">
+                            Nenhuma safra cadastrada ou ativa no sistema.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
