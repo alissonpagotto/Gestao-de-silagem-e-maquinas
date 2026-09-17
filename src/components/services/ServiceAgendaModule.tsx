@@ -345,21 +345,40 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     const agendados = appointments.filter(a => a.status === 'agendado').length;
     const emExecucao = appointments.filter(a => a.status === 'em_execucao' || a.status === 'em_deslocamento').length;
     const concluidos = appointments.filter(a => a.status === 'concluido').length;
-    const totalHectares = appointments
-      .filter(a => a.status !== 'cancelado')
-      .reduce((acc, a) => {
-        const qty = Number(a.estimatedQuantity) || 0;
-        const unit = String(a.areaUnit || '').toLowerCase().trim();
-        if (unit === 'alqueires' || unit === 'alq' || unit === 'alqueire') {
-          return acc + (qty * 2.42);
-        }
-        if (unit === 'hectares' || unit === 'ha' || unit === 'hectare') {
-          return acc + qty;
-        }
-        return acc;
-      }, 0);
+    
+    const nonCancelled = appointments.filter(a => a.status !== 'cancelado');
 
-    return { total, agendados, emExecucao, concluidos, totalHectares };
+    // Bloco 1: Total unificado em Hectares (convertendo alqueires por 2.42)
+    const totalHectares = nonCancelled.reduce((acc, a) => {
+      const qty = Number(a.estimatedQuantity) || 0;
+      const unit = String(a.areaUnit || '').toLowerCase().trim();
+      if (unit === 'alqueires' || unit === 'alq' || unit === 'alqueire') {
+        return acc + (qty * 2.42);
+      }
+      if (unit === 'hectares' || unit === 'ha' || unit === 'hectare') {
+        return acc + qty;
+      }
+      return acc;
+    }, 0);
+
+    // Bloco 2: Total estritamente de agendamentos lançados em Alqueires (alq)
+    const totalAlqueires = nonCancelled.reduce((acc, a) => {
+      const qty = Number(a.estimatedQuantity) || 0;
+      const unit = String(a.areaUnit || '').toLowerCase().trim();
+      if (unit === 'alqueires' || unit === 'alq' || unit === 'alqueire') {
+        return acc + qty;
+      }
+      return acc;
+    }, 0);
+
+    // Bloco 3: Total acumulado de horas previstas de execução/serviço
+    const totalMinutes = nonCancelled.reduce((acc, a) => {
+      const mins = Number(a.totalTimeMinutes) || Number(a.executionTimeMinutes) || 0;
+      return acc + mins;
+    }, 0);
+    const totalHours = totalMinutes / 60;
+
+    return { total, agendados, emExecucao, concluidos, totalHectares, totalAlqueires, totalHours };
   }, [appointments]);
 
   // Agendamentos ativos para a visualização da Escala de Frotas
@@ -1092,9 +1111,30 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
           <div className="bg-blue-50/60 dark:bg-blue-950/20 px-2.5 py-1.5 rounded-lg border border-blue-200/80 dark:border-blue-900/40">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400 block">Área Programada</span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalHectares.toFixed(1)}</span>
-              <span className="text-[10px] font-semibold text-blue-600">ha estimados</span>
+            <div className="flex items-baseline flex-wrap gap-x-2.5 sm:gap-x-3 gap-y-1 mt-0.5">
+              {/* Bloco 1: Hectares */}
+              <div className="flex items-baseline gap-1">
+                <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalHectares.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-blue-600">ha estimados</span>
+              </div>
+
+              {/* Divisor */}
+              <span className="text-blue-300 dark:text-blue-800 font-bold select-none text-xs">/</span>
+
+              {/* Bloco 2: Alqueires */}
+              <div className="flex items-baseline gap-1">
+                <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalAlqueires.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-blue-600">alq estimados</span>
+              </div>
+
+              {/* Divisor */}
+              <span className="text-blue-300 dark:text-blue-800 font-bold select-none text-xs">/</span>
+
+              {/* Bloco 3: Horas */}
+              <div className="flex items-baseline gap-1">
+                <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalHours.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-blue-600">hrs estimadas</span>
+              </div>
             </div>
           </div>
         </div>
