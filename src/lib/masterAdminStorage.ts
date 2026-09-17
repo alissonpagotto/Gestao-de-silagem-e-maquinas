@@ -30,6 +30,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
 
   featuresSectionTitle: 'Recursos Projetados para o Campo',
   featuresSectionSubtitle: 'Controle total da sua operação agrícola na ponta dos dedos, online e no celular dos operadores.',
+  featuresHighlightImage: '',
 
   feature1Title: 'Agenda & Escala de Frotas em Tempo Real',
   feature1Desc: 'Distribua ensiladeiras, caminhões e tratores por fazenda com cálculo de rendimento por hora e prevenção de conflitos de horário.',

@@ -53,6 +53,7 @@ import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
 import { PlanModal } from './PlanModal';
 import { MasterAdminLogin } from './MasterAdminLogin';
+import { ImageUploadField } from './ImageUploadField';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
 interface MasterAdminDashboardProps {
@@ -973,28 +974,45 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
-                    IMAGEM DE FUNDO DO HERO (URL OU CAMINHO)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="/image.png ou /hero-silagem.jpg"
+                  <ImageUploadField
+                    id="hero-background-upload"
+                    label="IMAGEM DE FUNDO DO HERO"
+                    description="Upload de imagem do seu computador (.jpg, .png, .webp). Aplica corte inferior automático para ocultar textos artificiais e gradiente escuro profissional de alto contraste."
                     value={siteForm.heroBackgroundImage || ''}
-                    onChange={(e) => setSiteForm({ ...siteForm, heroBackgroundImage: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-emerald-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    onChange={(val) => setSiteForm({ ...siteForm, heroBackgroundImage: val })}
+                    defaultFallback="/image.png"
+                    aspectRatioLabel="Recomendado: 16:9 widescreen"
                   />
-                  <p className="text-[10px] text-stone-400 mt-1">
-                    Padrão: /image.png ou /hero-silagem.jpg. Aplica corte inferior automático para ocultar textos artificiais e gradiente escuro profissional de alto contraste.
-                  </p>
                 </div>
               </div>
+            </div>
+
+            {/* BLOCO IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR) */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2">
+                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                  2. Imagem de Destaque dos Recursos (Seção Inferior)
+                </h3>
+                <p className="text-[11px] text-stone-400">
+                  Imagem ilustrativa das funcionalidades do sistema, exibida logo abaixo do bloco de cabeçalho de recursos na Landing Page.
+                </p>
+              </div>
+
+              <ImageUploadField
+                id="features-highlight-upload"
+                label="IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR)"
+                description="Carregue uma imagem ou captura de tela do sistema para exibir como destaque visual das funcionalidades na Landing Page."
+                value={siteForm.featuresHighlightImage || ''}
+                onChange={(val) => setSiteForm({ ...siteForm, featuresHighlightImage: val })}
+                aspectRatioLabel="Recomendado: 16:9 widescreen ou mockup de sistema"
+              />
             </div>
 
             {/* BLOCO CABEÇALHO DE RECURSOS */}
             <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
               <div className="border-b border-stone-800 pb-2">
                 <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
-                  2. Bloco Cabeçalho de Recursos
+                  3. Bloco Cabeçalho de Recursos
                 </h3>
                 <p className="text-[11px] text-stone-400">
                   Cabeçalho da seção de diferenciais da página de vendas.
@@ -1034,7 +1052,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
               <div className="border-b border-stone-800 pb-2">
                 <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
-                  3. Bloco Recursos (Benefícios - 4 Cartões da Landing Page)
+                  4. Bloco Recursos (Benefícios - 4 Cartões da Landing Page)
                 </h3>
                 <p className="text-[11px] text-stone-400">
                   Estes campos alimentam diretamente os 4 cartões de benefícios da página pública de vendas.

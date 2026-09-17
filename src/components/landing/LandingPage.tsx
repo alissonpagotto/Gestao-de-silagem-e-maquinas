@@ -218,6 +218,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
+          {/* Imagem de Destaque dos Recursos (Seção Inferior) */}
+          {siteConfig.featuresHighlightImage && siteConfig.featuresHighlightImage.trim() !== '' && (
+            <div className="max-w-5xl mx-auto rounded-2xl sm:rounded-3xl overflow-hidden border border-stone-800 shadow-2xl bg-stone-900/60 p-2 sm:p-3 relative group">
+              <div className="rounded-xl sm:rounded-2xl overflow-hidden relative">
+                <img
+                  src={siteConfig.featuresHighlightImage}
+                  alt="Destaque de Recursos e Funcionalidades AgroControl"
+                  className="w-full max-h-[520px] object-cover object-top transition duration-500 group-hover:scale-[1.01]"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 via-transparent to-transparent pointer-events-none" />
+              </div>
+            </div>
+          )}
+
           {/* Os 4 Cartões de Benefícios */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             

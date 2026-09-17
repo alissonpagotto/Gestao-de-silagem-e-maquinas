@@ -34,6 +34,7 @@ export interface SiteConfig {
   // Bloco Cabeçalho de Recursos
   featuresSectionTitle: string; // TÍTULO DA SEÇÃO
   featuresSectionSubtitle: string; // SUBTÍTULO DA SEÇÃO
+  featuresHighlightImage?: string; // IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR)
 
   // Bloco Recursos (Benefícios - 4 itens)
   feature1Title: string;
