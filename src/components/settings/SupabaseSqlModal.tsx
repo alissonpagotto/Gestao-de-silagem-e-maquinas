@@ -255,6 +255,87 @@ BEGIN
     DROP POLICY IF EXISTS "Permissao Total Frotas" ON public.gestao_frotas;
     CREATE POLICY "Permissao Total Frotas" ON public.gestao_frotas FOR ALL USING (true) WITH CHECK (true);
 END $$;
+
+-- ==============================================================================
+-- 8. TABELAS: Master Admin, Assinantes & Landing Page
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.subscribers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    responsible_email TEXT NOT NULL,
+    password_hash TEXT,
+    trial_until DATE,
+    cpf_cnpj TEXT,
+    state_registration TEXT,
+    phone TEXT,
+    cep TEXT,
+    street TEXT,
+    number TEXT,
+    neighborhood TEXT,
+    city TEXT,
+    state TEXT,
+    plan_id TEXT,
+    plan_name TEXT,
+    monthly_value NUMERIC(15,2) DEFAULT 0,
+    status TEXT DEFAULT 'trial',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    price NUMERIC(15,2) NOT NULL,
+    billing_cycle TEXT DEFAULT 'mensal',
+    badge TEXT,
+    is_featured BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    display_order INTEGER DEFAULT 1,
+    limits JSONB DEFAULT '{}'::jsonb,
+    features_text TEXT,
+    checkout_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.site_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    hero_title TEXT,
+    hero_subtitle TEXT,
+    hero_primary_btn_text TEXT,
+    hero_secondary_btn_text TEXT,
+    hero_background_image TEXT,
+    features_section_title TEXT,
+    features_section_subtitle TEXT,
+    features_highlight_image TEXT,
+    feature1_title TEXT,
+    feature1_desc TEXT,
+    feature2_title TEXT,
+    feature2_desc TEXT,
+    feature3_title TEXT,
+    feature3_desc TEXT,
+    feature4_title TEXT,
+    feature4_desc TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.subscribers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "Permissao Total Subscribers" ON public.subscribers;
+    CREATE POLICY "Permissao Total Subscribers" ON public.subscribers FOR ALL USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Permissao Total Plans" ON public.plans;
+    CREATE POLICY "Permissao Total Plans" ON public.plans FOR ALL USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Permissao Total Site Settings" ON public.site_settings;
+    CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL USING (true) WITH CHECK (true);
+END $$;
 `;
 
 export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onClose }) => {

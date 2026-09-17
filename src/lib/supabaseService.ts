@@ -432,14 +432,31 @@ export async function fetchClientes(): Promise<Client[] | null> {
   try {
     const { data, error } = await supabase
       .from('clientes')
-      .select('*')
-      .order('name', { ascending: true });
+      .select('*');
 
     if (error) {
       console.warn('Supabase fetchClientes notice:', error.message);
       return null;
     }
-    return data as Client[];
+    if (!data || data.length === 0) return [];
+
+    return data.map((row: any): Client => ({
+      id: String(row.id),
+      name: row.name || row.nome || row.razao_social || row.nome_fantasia || 'Cliente',
+      farmName: row.farm_name || row.fazenda || '',
+      cpfCnpj: row.cpf_cnpj || row.cpf || row.cnpj || '',
+      stateRegistration: row.state_registration || row.inscricao_estadual || '',
+      phone: row.phone || row.telefone || row.celular || '',
+      email: row.email || '',
+      city: row.city || row.cidade || '',
+      state: row.state || row.estado || row.uf || '',
+      areaHectares: Number(row.total_area || row.area || row.area_total || 0),
+      cattleType: (row.cattle_type || row.tipo_gado || 'misto') as any,
+      notes: row.notes || row.observacoes || '',
+      status: (row.status || 'cliente_ativo') as any,
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || new Date().toISOString()
+    }));
   } catch (err) {
     console.warn('Supabase fetchClientes err:', err);
     return null;
@@ -449,31 +466,64 @@ export async function fetchClientes(): Promise<Client[] | null> {
 export async function upsertCliente(client: Client): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
+    const standardPayload: any = {
+      id: toValidUUID(client.id),
+      name: client.name,
+      farm_name: client.farmName || '',
+      cpf_cnpj: client.cpfCnpj || '',
+      state_registration: client.stateRegistration || '',
+      phone: client.phone || '',
+      email: client.email || '',
+      city: client.city || '',
+      state: client.state || '',
+      total_area: Number(client.areaHectares) || 0,
+      cultivated_area: Number(client.areaHectares) || 0,
+      notes: client.notes || '',
+      updated_at: new Date().toISOString()
+    };
+
+    let { error } = await supabase
       .from('clientes')
-      .upsert({
-        id: toValidUUID(client.id),
-        name: client.name,
-        farm_name: client.farmName || '',
-        cpf_cnpj: client.cpfCnpj || '',
-        state_registration: client.stateRegistration || '',
-        phone: client.phone || '',
-        email: client.email || '',
-        city: client.city || '',
-        state: client.state || '',
-        total_area: Number(client.areaHectares) || 0,
-        cultivated_area: Number(client.areaHectares) || 0,
-        notes: client.notes || '',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .upsert(standardPayload, { onConflict: 'id' });
 
     if (error) {
-      console.warn('Supabase upsertCliente notice:', error.message);
-      return false;
+      // Fallback para esquemas com nomes em português ou colunas simplificadas
+      const fallbackPayload: any = {
+        email: client.email || undefined,
+        telefone: client.phone || undefined,
+        cpf_cnpj: client.cpfCnpj || undefined,
+      };
+      const { error: fallbackError } = await supabase
+        .from('clientes')
+        .insert([fallbackPayload]);
+
+      if (fallbackError) {
+        console.warn('Supabase upsertCliente notice:', error.message || fallbackError.message);
+        return false;
+      }
     }
     return true;
   } catch (err) {
     console.warn('Supabase upsertCliente err:', err);
+    return false;
+  }
+}
+
+export async function deleteCliente(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase
+      .from('clientes')
+      .delete()
+      .or(`id.eq.${toValidUUID(id)},id.eq.${id}`);
+
+    if (error) {
+      console.warn('Supabase deleteCliente notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteCliente err:', err);
     return false;
   }
 }

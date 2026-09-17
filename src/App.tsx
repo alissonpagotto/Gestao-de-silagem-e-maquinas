@@ -111,7 +111,14 @@ import { MasterAdminDashboard } from './components/masterAdmin/MasterAdminDashbo
 import { LandingPage } from './components/landing/LandingPage';
 import { AuthPage } from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
-import { syncAllDataToSupabase, fetchAllDataFromSupabase } from './lib/supabaseService';
+import { 
+  syncAllDataToSupabase, 
+  fetchAllDataFromSupabase,
+  upsertCliente,
+  deleteCliente,
+  fetchClientes,
+  subscribeToCloudTable
+} from './lib/supabaseService';
 
 export default function App() {
   // State Initialization from LocalStorage
@@ -302,7 +309,20 @@ export default function App() {
         console.warn('Notice fetching cloud data from Supabase:', e);
       }
     })();
-    return () => { isMounted = false; };
+
+    // Assinatura em tempo real para sincronização instantânea de clientes entre múltiplos dispositivos
+    const unsubClientes = subscribeToCloudTable('clientes', () => {
+      fetchClientes().then(fresh => {
+        if (fresh && fresh.length > 0 && isMounted) {
+          setClients(fresh);
+        }
+      });
+    });
+
+    return () => { 
+      isMounted = false; 
+      unsubClientes();
+    };
   }, [currentUser?.uid]);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
@@ -575,6 +595,9 @@ export default function App() {
       }
       return [client, ...prev];
     });
+    upsertCliente(client).catch(err => {
+      console.warn('Notice syncing client to Supabase:', err);
+    });
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -587,13 +610,21 @@ export default function App() {
     });
     if (isConfirmed) {
       setClients((prev) => prev.filter((c) => c.id !== id));
+      deleteCliente(id).catch(err => {
+        console.warn('Notice deleting client from Supabase:', err);
+      });
     }
   };
 
   const handleUpdateClientStatus = (clientId: string, status: Client['status']) => {
-    setClients((prev) =>
-      prev.map((c) => (c.id === clientId ? { ...c, status } : c))
-    );
+    setClients((prev) => {
+      const updated = prev.map((c) => (c.id === clientId ? { ...c, status } : c));
+      const target = updated.find(c => c.id === clientId);
+      if (target) {
+        upsertCliente(target).catch(err => console.warn('Notice syncing status to Supabase:', err));
+      }
+      return updated;
+    });
   };
 
   // Order Handlers

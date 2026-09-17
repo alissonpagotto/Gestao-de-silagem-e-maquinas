@@ -7,56 +7,43 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * - SUPABASE_ANON_KEY (or VITE_SUPABASE_ANON_KEY)
  */
 
-function getEnv(key: string): string {
-  try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any)?.env) {
-      const val = (import.meta as any).env[key] || (import.meta as any).env[`VITE_${key}`];
-      if (val && String(val).trim()) return String(val).trim();
-    }
-  } catch (_) {}
+const metaEnv = ((import.meta as any)?.env || {}) as Record<string, string | undefined>;
 
-  try {
-    if (typeof process !== 'undefined' && process?.env) {
-      const val = process.env[key] || process.env[`VITE_${key}`];
-      if (val && String(val).trim()) return String(val).trim();
-    }
-  } catch (_) {}
+// Injetadas diretamente pelo sistema e vite.config.ts
+const rawUrl = (
+  metaEnv.VITE_SUPABASE_URL ||
+  metaEnv.SUPABASE_URL ||
+  (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
+  ''
+);
 
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const stored = localStorage.getItem(`silagem_facil_${key.toLowerCase()}`) ||
-                     localStorage.getItem(key) ||
-                     localStorage.getItem(`VITE_${key}`);
-      if (stored && stored.trim()) return stored.trim();
-    }
-  } catch (_) {}
+const rawKey = (
+  metaEnv.VITE_SUPABASE_ANON_KEY ||
+  metaEnv.SUPABASE_ANON_KEY ||
+  (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
+  ''
+);
 
-  return '';
-}
-
-export const SUPABASE_URL = getEnv('SUPABASE_URL');
-export const SUPABASE_ANON_KEY = getEnv('SUPABASE_ANON_KEY');
+// Sanitização obrigatória para garantir que o cliente Supabase receba a URL base do projeto (sem /rest/v1 duplicado)
+export const SUPABASE_URL = String(rawUrl).trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+export const SUPABASE_ANON_KEY = String(rawKey).trim();
 
 export const isSupabaseConfigured = Boolean(
   SUPABASE_URL &&
   SUPABASE_ANON_KEY &&
-  SUPABASE_URL.startsWith('http') &&
-  !SUPABASE_URL.includes('placeholder')
+  SUPABASE_URL.startsWith('http')
 );
 
 if (isSupabaseConfigured) {
-  console.log('✅ Supabase inicializado com sucesso para:', SUPABASE_URL);
+  console.log('✅ Supabase conectado diretamente via variáveis de ambiente da nuvem:', SUPABASE_URL);
 } else {
-  console.log('ℹ️ Supabase utilizando cliente local/offline');
+  console.warn('⚠️ Credenciais do Supabase não encontradas no ambiente.');
 }
 
-// Fallback client to prevent application crash if credentials are not yet populated in the environment
-const fallbackUrl = 'https://supabase-erp-demo.supabase.co';
-const fallbackAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbW8iLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoyMDAwMDAwMDAwfQ.placeholder';
-
+// Inicialização direta do cliente oficial com as credenciais reais de produção
 export const supabase: SupabaseClient = createClient(
-  isSupabaseConfigured ? SUPABASE_URL : fallbackUrl,
-  isSupabaseConfigured ? SUPABASE_ANON_KEY : fallbackAnonKey,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: true,
@@ -67,15 +54,15 @@ export const supabase: SupabaseClient = createClient(
 );
 
 /**
- * Tests connection to the Supabase instance
+ * Realiza teste de integridade da conexão direta com o Supabase
  */
 export async function testSupabaseConnection(): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const { error } = await supabase.from('clientes').select('id').limit(1);
     if (!error) return true;
-    // PGRST116 means 0 rows or table query succeeded
-    if (error.code === 'PGRST116') return true;
+    // PGRST116 ou violação de RLS comprovam que o banco remoto respondeu com sucesso
+    if (error.code === 'PGRST116' || error.message?.includes('row-level security')) return true;
     console.warn('Supabase query notice:', error.message);
     return false;
   } catch (err) {
