@@ -1178,6 +1178,16 @@ export interface ServiceAppointment {
   generatedServiceOrderId?: string; // ID da ServiceOrder gerada automaticamente
   fieldNotes?: string;
 
+  // 4. Retorno Real de Campo (Horários e Produção Real)
+  realStartDate?: string; // Data real de início
+  realStartTime?: string; // HH:mm real de início
+  realEndDate?: string;   // Data real de término
+  realEndTime?: string;   // HH:mm real de término
+  realLoadsCount?: number; // Cargas reais contabilizadas
+  realHourMeterStart?: number; // Horímetro inicial
+  realHourMeterEnd?: number;   // Horímetro final
+  realNotes?: string;          // Observações de campo retornadas
+
   createdAt: string;
   updatedAt?: string;
 }

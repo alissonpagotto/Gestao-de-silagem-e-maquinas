@@ -44,6 +44,7 @@ import {
 import { deleteAgendamento, deleteFrente, upsertFrente, updateAgendamentoFrente, upsertAgendamento } from '../../lib/supabaseService';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
+import { DispatchFieldModal } from './DispatchFieldModal';
 import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
 import { VehicleSearchModal } from './VehicleSearchModal';
 import { ServiceCalendarView } from './ServiceCalendarView';
@@ -273,6 +274,8 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   const [editAppointment, setEditAppointment] = useState<ServiceAppointment | null>(null);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState<ServiceAppointment | null>(null);
+  const [isDispatchOpen, setIsDispatchOpen] = useState(false);
+  const [selectedForDispatch, setSelectedForDispatch] = useState<ServiceAppointment | null>(null);
   const [isVehicleSearchModalOpen, setIsVehicleSearchModalOpen] = useState(false);
   const [selectedColumnForVehicle, setSelectedColumnForVehicle] = useState<{
     id: string;
@@ -1056,6 +1059,52 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     setIsPrintOpen(true);
   };
 
+  // Disparo de Escala para a Equipe de Campo (WhatsApp & Retorno de Dados Reais)
+  const handleOpenDispatch = (appointment: ServiceAppointment) => {
+    setSelectedForDispatch(appointment);
+    setIsDispatchOpen(true);
+  };
+
+  // Salvar Retorno Real de Campo
+  const handleSaveRealData = async (appointmentId: string, realData: {
+    realStartDate?: string;
+    realStartTime?: string;
+    realEndDate?: string;
+    realEndTime?: string;
+    realLoadsCount?: number;
+    realHourMeterStart?: number;
+    realHourMeterEnd?: number;
+    realNotes?: string;
+  }) => {
+    const updated = appointments.map(a => {
+      if (a.id === appointmentId) {
+        return {
+          ...a,
+          ...realData,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return a;
+    });
+
+    setAppointments(updated);
+
+    // Se o agendamento atualizado estiver selecionado para disparo, sincroniza estado
+    if (selectedForDispatch && selectedForDispatch.id === appointmentId) {
+      setSelectedForDispatch(prev => prev ? { ...prev, ...realData } : null);
+    }
+
+    // Persistência no Supabase
+    try {
+      const target = updated.find(a => a.id === appointmentId);
+      if (target) {
+        await upsertAgendamento(target);
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar dados reais de campo no banco:', err);
+    }
+  };
+
   // Execução do Serviço: Puxar cliente e dados para o Corte
   const handleExecuteService = (appointment: ServiceAppointment) => {
     // 1. Atualiza status do agendamento para 'em_execucao'
@@ -1662,6 +1711,26 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                             <span className="text-[10px] uppercase font-bold text-stone-400 dark:text-stone-500 mr-1">Fim:</span>
                             {formatDateBR(a.endDate || a.startDate)}{a.endTime ? ` às ${a.endTime}h` : ''}
                           </div>
+                          {/* Linha discreta de Horário Real trazido manualmente de campo */}
+                          <div className="mt-1 pt-1 border-t border-stone-100 dark:border-stone-800 text-[11px] font-medium">
+                            {a.realStartTime ? (
+                              <span className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black">
+                                  REAL:
+                                </span>
+                                <span>{a.realStartTime}h às {a.realEndTime || '—'}h</span>
+                                {a.realLoadsCount !== undefined && a.realLoadsCount > 0 && (
+                                  <span className="text-stone-500 dark:text-stone-400 font-normal">
+                                    • {a.realLoadsCount} cgs
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-stone-400 dark:text-stone-500 text-[10px] italic">
+                                REAL: Aguardando retorno...
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Coluna 4: Volume/Área */}
@@ -1726,9 +1795,9 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
-                              onClick={() => handleExecuteService(a)}
-                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-1"
-                              title="Puxar para corte"
+                              onClick={() => handleOpenDispatch(a)}
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-1 active:scale-95"
+                              title="Disparar Escala para a Equipe de Campo via WhatsApp"
                             >
                               <Play className="w-3 h-3" />
                               <span>Puxar</span>
@@ -2002,6 +2071,25 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE DISPARO DE ESCALA PARA CAMPO VIA WHATSAPP E RETORNO */}
+      {isDispatchOpen && selectedForDispatch && (
+        <DispatchFieldModal
+          isOpen={isDispatchOpen}
+          onClose={() => {
+            setIsDispatchOpen(false);
+            setSelectedForDispatch(null);
+          }}
+          appointment={selectedForDispatch}
+          employees={employees}
+          machineries={machineries}
+          companyProfile={companyProfile}
+          onSaveRealData={handleSaveRealData}
+          onProceedToBilling={(app) => {
+            handleExecuteService(app);
+          }}
+        />
       )}
 
     </div>
