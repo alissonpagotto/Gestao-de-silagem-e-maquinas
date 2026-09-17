@@ -107,6 +107,7 @@ import { CustomizeShortcutsModal, DEFAULT_SHORTCUT_IDS } from './components/layo
 import { ReorderMenuModal, ALL_MENU_ITEMS, DEFAULT_MENU_ORDER } from './components/layout/ReorderMenuModal';
 import { PublicClientForm } from './components/crm/PublicClientForm';
 import { PublicSupplierForm } from './components/suppliers/PublicSupplierForm';
+import { FieldFormsView } from './components/services/FieldFormsView';
 import { useAuth } from './context/AuthContext';
 import { syncAllDataToSupabase, fetchAllDataFromSupabase } from './lib/supabaseService';
 
@@ -660,6 +661,38 @@ export default function App() {
            window.location.search.includes('form=fornecedor') ||
            window.location.hash.includes('ficha=fornecedor');
   });
+
+  // Check if opened as external operator field form (e.g. ?tab=formularios&agendamento=AG-2026-002 ou &agendamento=AG-2026-002)
+  const [isOperatorExternalRoute, setIsOperatorExternalRoute] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const search = window.location.search || '';
+    const hash = window.location.hash || '';
+    return search.includes('agendamento=') || hash.includes('agendamento=');
+  });
+
+  if (isOperatorExternalRoute) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col items-center justify-start p-2 sm:p-4 md:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+        <div className="w-full max-w-4xl space-y-3">
+          <FieldFormsView
+            companyProfile={companyProfile}
+            machineries={machineries}
+            employees={employees}
+            clients={clients}
+            isExternalOperatorMode={true}
+            onExitOperatorMode={() => {
+              setIsOperatorExternalRoute(false);
+              try {
+                window.history.replaceState({}, '', window.location.pathname);
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (isPublicFormRoute) {
     return (

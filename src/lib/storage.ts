@@ -56,6 +56,8 @@ import {
   INITIAL_BANK_ACCOUNTS,
   INITIAL_SETTLEMENTS
 } from './initialData';
+import { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber } from './defaultAppointments';
+export { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber };
 
 const STORAGE_KEYS = {
   EXPENSES: 'silagem_facil_clean_v1_expenses',
@@ -353,10 +355,12 @@ export function saveStoredServices(services: ServiceOrder[]): void {
 export function getStoredAppointments(): ServiceAppointment[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    if (!raw) return DEFAULT_INITIAL_APPOINTMENTS;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    return DEFAULT_INITIAL_APPOINTMENTS;
   } catch (e) {
-    return [];
+    return DEFAULT_INITIAL_APPOINTMENTS;
   }
 }
 

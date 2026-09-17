@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileSpreadsheet, 
   Printer, 
@@ -12,15 +12,21 @@ import {
   Save,
   Phone,
   AlertTriangle,
-  X
+  X,
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
-import { CompanyProfile, Machinery, Employee, Client } from '../../types';
+import { CompanyProfile, Machinery, Employee, Client, ServiceAppointment } from '../../types';
+import { findAppointmentByIdOrNumber, DEFAULT_INITIAL_APPOINTMENTS } from '../../lib/defaultAppointments';
 
 interface FieldFormsViewProps {
   companyProfile?: CompanyProfile;
   machineries?: Machinery[];
   employees?: Employee[];
   clients?: Client[];
+  isExternalOperatorMode?: boolean;
+  onExitOperatorMode?: () => void;
+  initialAppointmentId?: string;
 }
 
 export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
@@ -28,8 +34,58 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   machineries = [],
   employees = [],
   clients = [],
+  isExternalOperatorMode = false,
+  onExitOperatorMode,
+  initialAppointmentId,
 }) => {
-  const [activeFormTab, setActiveFormTab] = useState<'corte' | 'compactacao' | 'cargas'>('corte');
+  // Leitor de Parâmetro da URL
+  const getAgendamentoFromUrl = (): string => {
+    if (typeof window === 'undefined') return '';
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      let ag = searchParams.get('agendamento') || searchParams.get('agenda') || '';
+      if (ag) return ag.trim();
+
+      if (window.location.hash.includes('agendamento=')) {
+        const hashPart = window.location.hash.includes('?') 
+          ? window.location.hash.split('?')[1] 
+          : window.location.hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(hashPart);
+        ag = hashParams.get('agendamento') || '';
+        if (ag) return ag.trim();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return '';
+  };
+
+  const getSubFormFromUrl = (): 'corte' | 'compactacao' | 'cargas' | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const sub = searchParams.get('subform') || searchParams.get('form') || searchParams.get('subtab') || '';
+      if (sub === 'compactacao' || sub === 'trator') return 'compactacao';
+      if (sub === 'cargas' || sub === 'caminhao' || sub === 'caminhoes') return 'cargas';
+      if (sub === 'corte' || sub === 'forrageira') return 'corte';
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
+  };
+
+  const [activeFormTab, setActiveFormTab] = useState<'corte' | 'compactacao' | 'cargas'>(() => {
+    return getSubFormFromUrl() || 'corte';
+  });
+
+  // Agendamento vinculado
+  const [loadedAppointment, setLoadedAppointment] = useState<ServiceAppointment | null>(() => {
+    const targetId = initialAppointmentId || getAgendamentoFromUrl();
+    if (targetId) {
+      return findAppointmentByIdOrNumber(targetId) || null;
+    }
+    return null;
+  });
 
   // Cabeçalho da Empresa Reativo
   const companyLogo = companyProfile?.logoUrl;
@@ -134,6 +190,174 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     abastObs: '',
   });
 
+  // Função central de aplicação do Agendamento aos Formulários
+  const applyAppointmentData = (appt: ServiceAppointment) => {
+    // 1. Data formatada DD/MM/AAAA
+    const formatDateToBR = (dateStr?: string): string => {
+      if (!dateStr) return new Date().toLocaleDateString('pt-BR');
+      if (dateStr.includes('/')) return dateStr;
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dateStr;
+    };
+    const dataFormatada = formatDateToBR(appt.startDate);
+
+    // 2. Cliente e Dados Cadastrais
+    const matchingClient = clients.find(c => 
+      (appt.clientId && c.id === appt.clientId) || 
+      (c.name && c.name.toLowerCase().trim() === appt.clientName?.toLowerCase().trim())
+    );
+    const clientName = appt.clientName || matchingClient?.name || '';
+
+    // 3. Endereço / Fazenda / Linha
+    const endereco = appt.farmName || matchingClient?.address || matchingClient?.farmName || appt.locationCityState || '';
+
+    // 4. Cidade e Estado (UF)
+    let cidade = matchingClient?.city || '';
+    let uf = matchingClient?.state || 'PR';
+    if (appt.locationCityState) {
+      const parts = appt.locationCityState.split(/[-/]/);
+      if (parts.length >= 2) {
+        cidade = parts[0].trim();
+        uf = parts[1].trim().toUpperCase();
+      } else if (!cidade) {
+        cidade = appt.locationCityState.trim();
+      }
+    }
+
+    // 5. Telefone / Contato
+    const fone = appt.contactPhone || matchingClient?.phone || '';
+    const cnpjCpf = matchingClient?.cpfCnpj || '';
+    const inscrEst = matchingClient?.stateRegistration || '';
+
+    // 6. Máquina Principal (Forrageira ou Colheitadeira) e Operador
+    const nomeMaquina = appt.primaryMachineryPrefix || appt.primaryMachineryModel || appt.primaryMachineryPlate || 'Forrageira 01';
+    const forageOp = appt.assignedTeam?.find(t => 
+      t.role?.toLowerCase().includes('forrageira') || 
+      t.role?.toLowerCase().includes('principal') || 
+      t.role?.toLowerCase().includes('colheitadeira') ||
+      t.role?.toLowerCase().includes('maquina')
+    );
+    const operadorMaquina = forageOp?.employeeName || (appt.assignedTeam && appt.assignedTeam.length > 0 ? appt.assignedTeam[0].employeeName : '');
+
+    // 7. Trator de Compactação e seu Operador
+    const tractorVehicle = (appt.assignedVehicles || []).find(v => 
+      v.category === 'trator' || 
+      v.prefix?.toLowerCase().includes('trator') || 
+      v.prefix?.toLowerCase().includes('tr-') ||
+      v.model?.toLowerCase().includes('trator')
+    );
+    const tratorNum = tractorVehicle?.prefix || tractorVehicle?.plateOrSerial || tractorVehicle?.model || '';
+    const tractorOpTeam = appt.assignedTeam?.find(t => 
+      t.role?.toLowerCase().includes('trator') || 
+      t.role?.toLowerCase().includes('compactad') ||
+      (tractorVehicle && t.assignedVehiclePrefix && tractorVehicle.prefix.includes(t.assignedVehiclePrefix))
+    );
+    const operadorTrator = tractorVehicle?.driverOrOperatorName || tractorOpTeam?.employeeName || '';
+
+    // 8. Lista de Caminhões / Frotas de apoio escalados
+    const truckVehicles = (appt.assignedVehicles || []).filter(v => 
+      v.category === 'caminhao' || 
+      (!v.category && !v.prefix?.toLowerCase().includes('trator'))
+    );
+
+    const preenchimentoCaminhoes = [1, 2, 3, 4, 5].map((id, index) => {
+      const truck = truckVehicles[index];
+      if (truck) {
+        let driver = truck.driverOrOperatorName || '';
+        if (!driver) {
+          const teamMember = appt.assignedTeam?.find(t => 
+            t.assignedVehiclePrefix && truck.prefix?.includes(t.assignedVehiclePrefix)
+          );
+          driver = teamMember?.employeeName || '';
+        }
+        return {
+          id,
+          placa: truck.plateOrSerial || truck.prefix || '',
+          motorista: driver,
+          cargas: '',
+          km: '',
+        };
+      }
+      return { id, placa: '', motorista: '', cargas: '', km: '' };
+    });
+
+    const hectaresStr = appt.estimatedQuantity ? `${appt.estimatedQuantity} ${appt.areaUnit === 'alqueires' ? 'alq' : 'ha'}` : '';
+
+    // Preenche Form 1: Pedido de Corte
+    setF1Data(prev => ({
+      ...prev,
+      data: dataFormatada,
+      cliente: clientName,
+      endereco: endereco,
+      cidade: cidade,
+      uf: uf,
+      cnpjCpf: cnpjCpf || prev.cnpjCpf,
+      inscrEst: inscrEst || prev.inscrEst,
+      fone: fone || prev.fone,
+      numMaquina: nomeMaquina,
+      operador: operadorMaquina,
+      hectares: hectaresStr || prev.hectares,
+      caminhoes: preenchimentoCaminhoes,
+      tratorNum: tratorNum,
+      tratorOperador: operadorTrator,
+      obs: appt.fieldNotes || prev.obs,
+    }));
+
+    // Preenche Form 2: Controle de Compactação
+    setF2Data(prev => ({
+      ...prev,
+      dataInicial: dataFormatada,
+      cliente: clientName,
+      numTrator: tratorNum || prev.numTrator,
+      operadorTrator: operadorTrator || prev.operadorTrator,
+      numMaquina: nomeMaquina || prev.numMaquina,
+      operadorMaquina: operadorMaquina || prev.operadorMaquina,
+    }));
+
+    // Preenche Form 3: Controle de Cargas
+    const primeiroCaminhao = truckVehicles[0];
+    let primeiroMotorista = primeiroCaminhao?.driverOrOperatorName || '';
+    if (!primeiroMotorista && primeiroCaminhao) {
+      const teamMember = appt.assignedTeam?.find(t => 
+        t.assignedVehiclePrefix && primeiroCaminhao.prefix?.includes(t.assignedVehiclePrefix)
+      );
+      primeiroMotorista = teamMember?.employeeName || '';
+    }
+
+    setF3Data(prev => ({
+      ...prev,
+      data: dataFormatada,
+      cliente: clientName,
+      endereco: endereco,
+      maquina: nomeMaquina,
+      placa: primeiroCaminhao?.plateOrSerial || primeiroCaminhao?.prefix || prev.placa,
+      motorista: primeiroMotorista || prev.motorista,
+    }));
+  };
+
+  // Efeito de inicialização e monitoramento do agendamento
+  useEffect(() => {
+    const targetId = initialAppointmentId || getAgendamentoFromUrl();
+    if (targetId) {
+      const appt = findAppointmentByIdOrNumber(targetId);
+      if (appt) {
+        setLoadedAppointment(appt);
+        applyAppointmentData(appt);
+      }
+    }
+  }, [initialAppointmentId, clients]);
+
+  // Lista de caminhões da escala para seleção rápida no Form 3
+  const scheduledTrucks = useMemo(() => {
+    if (!loadedAppointment?.assignedVehicles) return [];
+    return loadedAppointment.assignedVehicles.filter(v => 
+      v.category === 'caminhao' || (!v.category && !v.prefix?.toLowerCase().includes('trator'))
+    );
+  }, [loadedAppointment]);
+
   // Estado para confirmação de desmarcação de carga
   const [loadToUncheck, setLoadToUncheck] = useState<{ num: number; time: string } | null>(null);
 
@@ -184,8 +408,32 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       
+      {/* Banner discreto indicando agendamento carregado no modo operador */}
+      {loadedAppointment && (
+        <div className="no-print bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 bg-[#188038] text-white font-bold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <Check className="w-3 h-3" />
+              Escala Identificada
+            </span>
+            <span className="font-bold text-stone-800 dark:text-stone-100">{loadedAppointment.appointmentNumber}</span>
+            <span className="text-stone-500 dark:text-stone-400">({loadedAppointment.clientName})</span>
+          </div>
+          {isExternalOperatorMode && onExitOperatorMode && (
+            <button
+              type="button"
+              onClick={onExitOperatorMode}
+              className="text-[11px] text-emerald-800 dark:text-emerald-300 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+            >
+              <span>Painel Interno</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Barra de Seleção entre os 3 Formulários de Campo */}
       <div className="no-print bg-[#204e87] dark:bg-stone-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm border border-blue-400/30">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -956,6 +1204,42 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
                 placeholder="Local de corte / entrega"
               />
             </div>
+
+            {/* Seletor Rápido de Caminhões Escalados */}
+            {scheduledTrucks.length > 0 && (
+              <div className="no-print flex items-center gap-1.5 flex-wrap bg-stone-50 p-1.5 rounded border border-stone-200 text-[11px]">
+                <span className="font-bold text-stone-600 flex items-center gap-1">
+                  <Truck className="w-3 h-3 text-[#188038]" />
+                  Veículos da Escala:
+                </span>
+                {scheduledTrucks.map((truck, idx) => {
+                  const plateOrPref = truck.plateOrSerial || truck.prefix || '';
+                  const driverName = truck.driverOrOperatorName || '';
+                  const isSelected = f3Data.placa && (plateOrPref.includes(f3Data.placa) || f3Data.placa.includes(plateOrPref));
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setF3Data(prev => ({
+                          ...prev,
+                          placa: plateOrPref,
+                          motorista: driverName || prev.motorista,
+                        }));
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer flex items-center gap-1 ${
+                        isSelected 
+                          ? 'bg-[#188038] text-white border-[#188038] shadow-xs' 
+                          : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300'
+                      }`}
+                    >
+                      <span>{plateOrPref}</span>
+                      {driverName && <span className="opacity-80">({driverName.split(' ')[0]})</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Placa e Motorista */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 border-b border-stone-300 pb-1">
