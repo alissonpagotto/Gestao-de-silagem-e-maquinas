@@ -1135,4 +1135,58 @@ export function saveStoredMaintenanceCategories(categories: MaintenanceCategoryD
   }
 }
 
+// -------------------------------------------------------------
+// SUBMISSÕES DE FORMULÁRIOS DE CAMPO (MODO OPERADOR EXTERNO)
+// -------------------------------------------------------------
+export interface FieldFormSubmission {
+  id: string;
+  appointmentId?: string;
+  appointmentNumber?: string;
+  formType: 'corte' | 'compactacao' | 'cargas';
+  submittedAt: string;
+  clientName: string;
+  operatorOrDriver: string;
+  machineryOrVehicle: string;
+  formData: any;
+  summaryText: string;
+}
+
+export const getStoredFieldSubmissions = (): FieldFormSubmission[] => {
+  return getStoredList('silagem_field_submissions', []);
+};
+
+export const saveStoredFieldSubmissions = (submissions: FieldFormSubmission[]): void => {
+  saveStoredList('silagem_field_submissions', submissions);
+};
+
+export const addStoredFieldSubmission = (submission: FieldFormSubmission): void => {
+  const current = getStoredFieldSubmissions();
+  saveStoredFieldSubmissions([submission, ...current]);
+};
+
+export const updateAppointmentFieldReturn = (
+  appointmentNumberOrId: string, 
+  formType: 'corte' | 'compactacao' | 'cargas', 
+  summary: string
+): void => {
+  try {
+    const list = getStoredAppointments();
+    const updated = list.map(appt => {
+      if (appt.appointmentNumber === appointmentNumberOrId || appt.id === appointmentNumberOrId) {
+        const timeNow = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const prefix = `\n[Retorno ${formType.toUpperCase()} às ${timeNow}]: ${summary}`;
+        return {
+          ...appt,
+          fieldNotes: appt.fieldNotes ? `${appt.fieldNotes}${prefix}` : prefix.trim(),
+        };
+      }
+      return appt;
+    });
+    saveStoredAppointments(updated);
+  } catch (e) {
+    console.error('Failed to update appointment field return', e);
+  }
+};
+
+
 

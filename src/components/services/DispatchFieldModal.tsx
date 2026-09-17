@@ -132,9 +132,18 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
     const roleText = staffMember.role || 'Operador / Motorista';
     const vehicleText = staffMember.assignedVehiclePrefix ? `\n🚛 *Seu Veículo:* ${staffMember.assignedVehiclePrefix}` : '';
     
-    // URL base do formulário de campo preservando estritamente a rota e o agendamento
+    // URL base do formulário de campo preservando estritamente a rota, o cargo e o agendamento
     const baseUrl = getBaseAppUrl();
-    const queryParam = `?tab=formularios&agendamento=${encodeURIComponent(appointment.appointmentNumber)}`;
+    let cargoParam = 'forrageira';
+    const rLower = (staffMember.role || '').toLowerCase();
+    if (rLower.includes('trator') || rLower.includes('compacta')) {
+      cargoParam = 'trator';
+    } else if (rLower.includes('caminh') || rLower.includes('motorista') || rLower.includes('transporte')) {
+      cargoParam = 'caminhao';
+    } else {
+      cargoParam = 'forrageira';
+    }
+    const queryParam = `?tab=formularios&cargo=${cargoParam}&agendamento=${encodeURIComponent(appointment.appointmentNumber)}`;
     const formUrl = baseUrl ? `${baseUrl}${queryParam}` : queryParam;
 
     return `Olá *${staffMember.employeeName}* (${roleText})! 👋\n` +

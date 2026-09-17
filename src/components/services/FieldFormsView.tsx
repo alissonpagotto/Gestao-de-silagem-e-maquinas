@@ -14,10 +14,14 @@ import {
   AlertTriangle,
   X,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Send,
+  CheckCircle,
+  MessageSquare
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Employee, Client, ServiceAppointment } from '../../types';
 import { findAppointmentByIdOrNumber, DEFAULT_INITIAL_APPOINTMENTS } from '../../lib/defaultAppointments';
+import { addStoredFieldSubmission, updateAppointmentFieldReturn } from '../../lib/storage';
 
 interface FieldFormsViewProps {
   companyProfile?: CompanyProfile;
@@ -38,7 +42,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   onExitOperatorMode,
   initialAppointmentId,
 }) => {
-  // Leitor de Parâmetro da URL
+  // Leitor de Parâmetro da URL para Agendamento
   const getAgendamentoFromUrl = (): string => {
     if (typeof window === 'undefined') return '';
     try {
@@ -60,23 +64,46 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     return '';
   };
 
-  const getSubFormFromUrl = (): 'corte' | 'compactacao' | 'cargas' | null => {
+  // Leitor estrito do Cargo da URL (cargo=forrageira, cargo=trator, cargo=caminhao)
+  const getCargoFromUrl = (): 'corte' | 'compactacao' | 'cargas' | null => {
     if (typeof window === 'undefined') return null;
     try {
       const searchParams = new URLSearchParams(window.location.search);
-      const sub = searchParams.get('subform') || searchParams.get('form') || searchParams.get('subtab') || '';
-      if (sub === 'compactacao' || sub === 'trator') return 'compactacao';
-      if (sub === 'cargas' || sub === 'caminhao' || sub === 'caminhoes') return 'cargas';
-      if (sub === 'corte' || sub === 'forrageira') return 'corte';
+      let cargo = (searchParams.get('cargo') || searchParams.get('funcao') || searchParams.get('subform') || searchParams.get('form') || searchParams.get('subtab') || '').toLowerCase().trim();
+      if (!cargo && window.location.hash.includes('cargo=')) {
+        const hashPart = window.location.hash.includes('?') 
+          ? window.location.hash.split('?')[1] 
+          : window.location.hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(hashPart);
+        cargo = (hashParams.get('cargo') || '').toLowerCase().trim();
+      }
+      if (cargo === 'forrageira' || cargo === 'corte' || cargo === 'colheitadeira' || cargo === 'operador') return 'corte';
+      if (cargo === 'trator' || cargo === 'compactacao' || cargo === 'compactador') return 'compactacao';
+      if (cargo === 'caminhao' || cargo === 'caminhoes' || cargo === 'cargas' || cargo === 'motorista') return 'cargas';
     } catch (e) {
       console.error(e);
     }
     return null;
   };
 
-  const [activeFormTab, setActiveFormTab] = useState<'corte' | 'compactacao' | 'cargas'>(() => {
-    return getSubFormFromUrl() || 'corte';
+  const detectedCargo = getCargoFromUrl();
+  const isOperatorModeActive = Boolean(isExternalOperatorMode || getAgendamentoFromUrl());
+
+  // Estado interno para modo administrativo de escritório
+  const [internalActiveTab, setInternalActiveTab] = useState<'corte' | 'compactacao' | 'cargas'>(() => {
+    return detectedCargo || 'corte';
   });
+
+  // No modo operador externo, a aba fica ESTRITAMENTE travada no cargo correspondente
+  const activeFormTab: 'corte' | 'compactacao' | 'cargas' = isOperatorModeActive
+    ? (detectedCargo || 'corte')
+    : internalActiveTab;
+
+  const setActiveFormTab = (tab: 'corte' | 'compactacao' | 'cargas') => {
+    if (!isOperatorModeActive) {
+      setInternalActiveTab(tab);
+    }
+  };
 
   // Agendamento vinculado
   const [loadedAppointment, setLoadedAppointment] = useState<ServiceAppointment | null>(() => {
@@ -407,88 +434,267 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     window.print();
   };
 
+  // Estados de confirmação e sucesso do envio de volta
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [sentWhatsAppUrl, setSentWhatsAppUrl] = useState<string>('');
+
+  // -------------------------------------------------------------
+  // FUNÇÃO: ENVIAR DE VOLTA (Retorno do Operador para a Empresa)
+  // -------------------------------------------------------------
+  const handleEnviarDeVolta = () => {
+    // Telefone da empresa configurado no perfil ou padrão
+    const rawCompanyPhone = companyProfile?.phone || companyPhone || '46. 99904-8279';
+    const cleanCompanyPhone = rawCompanyPhone.replace(/\D/g, '');
+    let targetPhone = cleanCompanyPhone;
+    if (cleanCompanyPhone.length >= 10 && !cleanCompanyPhone.startsWith('55')) {
+      targetPhone = `55${cleanCompanyPhone}`;
+    }
+
+    let summaryText = '';
+    let missingWarning = '';
+    const operatorName = f1Data.operador || f2Data.operadorTrator || f3Data.motorista || 'Operador de Campo';
+    const clientName = f1Data.cliente || f2Data.cliente || f3Data.cliente || loadedAppointment?.clientName || 'Cliente';
+    const appointmentNum = loadedAppointment?.appointmentNumber || 'N/A';
+
+    // 1. Validação e Formatação por Cargo / Formulário
+    if (activeFormTab === 'corte') {
+      const hasHectares = Boolean(f1Data.hectares && f1Data.hectares.trim());
+      const hasHr = Boolean((f1Data.hrM && f1Data.hrM.trim()) || (f1Data.hrT && f1Data.hrT.trim()));
+      const hasCargas = f1Data.caminhoes.some(c => Boolean(c.cargas && c.cargas.trim() && c.cargas !== '0'));
+      const hasTratorHr = Boolean(f1Data.tratorTotalHoras && f1Data.tratorTotalHoras.trim());
+
+      if (!hasHectares && !hasHr && !hasCargas && !hasTratorHr) {
+        missingWarning = 'Atenção: Os campos de Hectares, Horímetro ou Cargas dos caminhões ainda não foram preenchidos.';
+      }
+
+      const caminhoesComCarga = f1Data.caminhoes.filter(c => c.placa || c.motorista || (c.cargas && c.cargas !== '0'));
+      const caminhoesText = caminhoesComCarga.length > 0
+        ? caminhoesComCarga.map((c, i) => `   ${i + 1}. Placa: *${c.placa || '--'}* | Mot: *${c.motorista || '--'}* | Cargas: *${c.cargas || '0'}*${c.km ? ` | KM: ${c.km}` : ''}`).join('\n')
+        : '   (Nenhum caminhão com cargas registradas)';
+
+      summaryText = 
+`🌾 *RETORNO DE CAMPO - PEDIDO DE CORTE* 🚜
+📋 *Escala:* ${appointmentNum}
+👤 *Cliente:* ${clientName}
+📍 *Endereço / Fazenda:* ${f1Data.endereco || 'Conforme agendamento'} - ${f1Data.cidade || ''}/${f1Data.uf || ''}
+📅 *Data:* ${f1Data.data}
+
+🚜 *Máquina:* *${f1Data.numMaquina || 'Forrageira'}*
+👷 *Operador:* *${f1Data.operador || 'Operador de Campo'}*
+📏 *Área Cortada:* *${f1Data.hectares || 'Não informada'}*
+⏱️ *Horímetro:* Hr T: *${f1Data.hrT || '--'}* | Hr M: *${f1Data.hrM || '--'}*
+
+🚛 *Cargas Transportadas:*
+${caminhoesText}
+
+🚜 *Compactação (Trator):*
+   Trator: ${f1Data.tratorNum || '--'} | Op: ${f1Data.tratorOperador || '--'}
+   Horas Trabalhadas: *${f1Data.tratorTotalHoras || '--'}*
+${f1Data.obs ? `\n📝 *Observações:* ${f1Data.obs}` : ''}
+
+✅ _Enviado pelo operador via Silagem Fácil._`;
+    } 
+    else if (activeFormTab === 'compactacao') {
+      const hasHr = Boolean(f2Data.hrInicial?.trim() || f2Data.hrFinal?.trim() || f2Data.totalHr?.trim());
+      const hasAbast = Boolean(f2Data.abastLitros?.trim());
+
+      if (!hasHr && !hasAbast) {
+        missingWarning = 'Atenção: Os horímetros (Inicial / Final / Total de Horas) ainda não foram informados.';
+      }
+
+      summaryText = 
+`🚜 *RETORNO DE CAMPO - COMPACTAÇÃO (TRATOR)* 🌾
+📋 *Escala:* ${appointmentNum}
+👤 *Cliente:* ${clientName}
+📅 *Data:* ${f2Data.dataInicial}${f2Data.dataFinal ? ` a ${f2Data.dataFinal}` : ''}
+
+🚜 *Trator:* *${f2Data.numTrator || 'Trator de Compactação'}*
+👷 *Operador:* *${f2Data.operadorTrator || 'Operador do Trator'}*
+🚜 *Forrageira de Corte:* ${f2Data.numMaquina || '--'} (Op: ${f2Data.operadorMaquina || '--'})
+
+⏱️ *Horímetro Inicial:* *${f2Data.hrInicial || '--'}*
+⏱️ *Horímetro Final:* *${f2Data.hrFinal || '--'}*
+⏳ *Total de Horas Trabalhadas:* *${f2Data.totalHr || '--'}*
+
+${f2Data.abastLitros ? `⛽ *Abastecimento:*
+   Posto: ${f2Data.abastPosto || '--'} | Litros: *${f2Data.abastLitros} L* | Hr: ${f2Data.abastHr || '--'}\n` : ''}
+${f2Data.abastObs ? `📝 *Observações:* ${f2Data.abastObs}\n` : ''}
+✅ _Enviado pelo operador do trator via Silagem Fácil._`;
+    } 
+    else {
+      const totalCargas = Object.keys(f3Data.loadsRecord).length;
+      if (totalCargas === 0 && !f3Data.qtdeCargasLonge?.trim()) {
+        missingWarning = 'Atenção: Nenhuma carga foi marcada no painel de 01 a 64 até o momento.';
+      }
+
+      const loadEntries = Object.entries(f3Data.loadsRecord).sort((a, b) => Number(a[0]) - Number(b[0]));
+      const listLoads = loadEntries.length > 0
+        ? loadEntries.map(([n, t]) => `${n}ª às ${t}h`).join(' • ')
+        : 'Nenhuma carga marcada';
+
+      summaryText = 
+`🚛 *RETORNO DE CAMPO - CONTROLE DE CARGAS* 🌾
+📋 *Escala:* ${appointmentNum}
+👤 *Cliente:* ${clientName}
+📍 *Endereço:* ${f3Data.endereco || 'Conforme agendamento'}
+📅 *Data:* ${f3Data.data}
+
+🚛 *Placa do Veículo:* *${f3Data.placa || 'N/A'}*
+👷 *Motorista:* *${f3Data.motorista || 'Motorista'}*
+🚜 *Máquina Colhedora:* ${f3Data.maquina || 'N/A'}
+
+📦 *TOTAL DE CARGAS REALIZADAS:* *${totalCargas} cargas*
+🕒 *Horários Registrados:*
+${listLoads}
+
+${f3Data.km ? `🛣️ *KM Rodado:* ${f3Data.km} km\n` : ''}
+${f3Data.qtdeCargasLonge ? `🛣️ *Cargas Distantes:* ${f3Data.qtdeCargasLonge}\n` : ''}
+${f3Data.abastLitros ? `⛽ *Abastecimento:* ${f3Data.abastLitros} L (${f3Data.abastPosto || 'Posto'}) | KM: ${f3Data.abastKm || '--'}\n` : ''}
+${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
+✅ _Enviado pelo motorista via Silagem Fácil._`;
+    }
+
+    // Se houver campos não preenchidos, solicita confirmação
+    if (missingWarning) {
+      const confirmed = window.confirm(`${missingWarning}\n\nDeseja enviar de volta para o escritório mesmo assim?`);
+      if (!confirmed) return;
+    }
+
+    // 2. Salvar no Banco de Dados / LocalStorage
+    try {
+      const submissionId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const newSubmission = {
+        id: submissionId,
+        appointmentId: loadedAppointment?.id,
+        appointmentNumber: appointmentNum,
+        formType: activeFormTab,
+        submittedAt: new Date().toISOString(),
+        clientName: clientName,
+        operatorOrDriver: operatorName,
+        machineryOrVehicle: f1Data.numMaquina || f2Data.numTrator || f3Data.placa || '',
+        formData: activeFormTab === 'corte' ? f1Data : activeFormTab === 'compactacao' ? f2Data : f3Data,
+        summaryText: summaryText,
+      };
+
+      addStoredFieldSubmission(newSubmission);
+
+      if (loadedAppointment?.appointmentNumber) {
+        updateAppointmentFieldReturn(
+          loadedAppointment.appointmentNumber,
+          activeFormTab,
+          `Enviado por ${operatorName} em ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+        );
+      }
+    } catch (e) {
+      console.error('Erro ao salvar formulário de campo:', e);
+    }
+
+    // 3. Abrir WhatsApp formatado com o texto
+    const encodedMsg = encodeURIComponent(summaryText);
+    const waUrl = targetPhone 
+      ? `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodedMsg}`
+      : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+
+    setSentWhatsAppUrl(waUrl);
+    setShowSuccessModal(true);
+
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="space-y-3">
       
-      {/* Banner discreto indicando agendamento carregado no modo operador */}
-      {loadedAppointment && (
-        <div className="no-print bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 bg-[#188038] text-white font-bold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
-              <Check className="w-3 h-3" />
-              Escala Identificada
-            </span>
-            <span className="font-bold text-stone-800 dark:text-stone-100">{loadedAppointment.appointmentNumber}</span>
-            <span className="text-stone-500 dark:text-stone-400">({loadedAppointment.clientName})</span>
+      {/* 
+        NO MODO OPERADOR EXTERNO:
+        - O cabeçalho verde "ESCALA IDENTIFICADA" foi completamente removido.
+        - A barra cinza/azul de seleção de abas foi completamente ocultada.
+        - Exibe no topo apenas a barra de ação com o botão verde destacado "Enviar de volta".
+      */}
+      {isOperatorModeActive ? (
+        <div className="no-print w-full flex items-center justify-between gap-2 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl p-2.5 sm:p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#188038] animate-pulse"></span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-black text-xs sm:text-sm uppercase tracking-tight text-stone-900 dark:text-stone-100">
+                {activeFormTab === 'corte' && '1. Pedido de Corte (Forrageira)'}
+                {activeFormTab === 'compactacao' && '2. Controle de Compactação (Trator)'}
+                {activeFormTab === 'cargas' && '3. Controle de Cargas (Motorista)'}
+              </span>
+              {loadedAppointment && (
+                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold hidden sm:inline">
+                  • {loadedAppointment.appointmentNumber} ({loadedAppointment.clientName})
+                </span>
+              )}
+            </div>
           </div>
-          {isExternalOperatorMode && onExitOperatorMode && (
+
+          <button
+            type="button"
+            onClick={handleEnviarDeVolta}
+            className="px-4 sm:px-5 py-2 sm:py-2.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer transform hover:-translate-y-0.5 active:scale-95"
+            title="Salvar respostas e abrir WhatsApp da empresa"
+          >
+            <Send className="w-4 h-4" />
+            <span>Enviar de volta</span>
+          </button>
+        </div>
+      ) : (
+        /* Modo Administrativo Interno da Empresa (quando acessado pelo menu normal) */
+        <div className="no-print bg-[#204e87] dark:bg-stone-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm border border-blue-400/30">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
-              onClick={onExitOperatorMode}
-              className="text-[11px] text-emerald-800 dark:text-emerald-300 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+              onClick={() => setActiveFormTab('corte')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeFormTab === 'corte'
+                  ? 'bg-[#188038] text-white shadow-xs'
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
             >
-              <span>Painel Interno</span>
-              <ExternalLink className="w-3 h-3" />
+              <Scissors className="w-3.5 h-3.5" />
+              <span>1. Pedido de Corte (Forrageira)</span>
             </button>
-          )}
+
+            <button
+              type="button"
+              onClick={() => setActiveFormTab('compactacao')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeFormTab === 'compactacao'
+                  ? 'bg-[#188038] text-white shadow-xs'
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              <Tractor className="w-3.5 h-3.5" />
+              <span>2. Controle de Compactação (Trator)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveFormTab('cargas')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeFormTab === 'cargas'
+                  ? 'bg-[#188038] text-white shadow-xs'
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>3. Controle de Cargas (01 a 64)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3 py-1.5 bg-white text-stone-900 hover:bg-stone-100 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Imprimir Formulário / Salvar PDF"
+            >
+              <Printer className="w-3.5 h-3.5 text-stone-700" />
+              <span>Imprimir Bloco</span>
+            </button>
+          </div>
         </div>
       )}
-
-      {/* Barra de Seleção entre os 3 Formulários de Campo */}
-      <div className="no-print bg-[#204e87] dark:bg-stone-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm border border-blue-400/30">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveFormTab('corte')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeFormTab === 'corte'
-                ? 'bg-[#188038] text-white shadow-xs'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-          >
-            <Scissors className="w-3.5 h-3.5" />
-            <span>1. Pedido de Corte (Forrageira)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFormTab('compactacao')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeFormTab === 'compactacao'
-                ? 'bg-[#188038] text-white shadow-xs'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-          >
-            <Tractor className="w-3.5 h-3.5" />
-            <span>2. Controle de Compactação (Trator)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFormTab('cargas')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeFormTab === 'cargas'
-                ? 'bg-[#188038] text-white shadow-xs'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-          >
-            <Truck className="w-3.5 h-3.5" />
-            <span>3. Controle de Cargas (01 a 64)</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="px-3 py-1.5 bg-white text-stone-900 hover:bg-stone-100 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-            title="Imprimir Formulário / Salvar PDF"
-          >
-            <Printer className="w-3.5 h-3.5 text-stone-700" />
-            <span>Imprimir Bloco</span>
-          </button>
-        </div>
-      </div>
 
       {/* ÁREA DE EXIBIÇÃO DO FORMULÁRIO SELECIONADO */}
       <div className="w-full flex justify-center py-2">
@@ -1444,6 +1650,72 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
         )}
 
       </div>
+
+      {/* Botão de Enviar de volta no final da folha para facilidade de uso em dispositivos móveis */}
+      {isOperatorModeActive && (
+        <div className="no-print w-full max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 pb-8 px-4">
+          <button
+            type="button"
+            onClick={handleEnviarDeVolta}
+            className="w-full sm:w-auto px-8 py-3.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2.5 shadow-lg hover:shadow-xl cursor-pointer transform active:scale-95"
+          >
+            <Send className="w-5 h-5" />
+            <span>Enviar de volta para a Empresa</span>
+          </button>
+        </div>
+      )}
+
+      {/* MODAL DE SUCESSO APÓS ENVIAR DE VOLTA */}
+      {showSuccessModal && (
+        <div 
+          id="modal-success-enviar-de-volta" 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 space-y-4 text-center">
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 rounded-full flex items-center justify-center mx-auto text-[#188038]">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-stone-900 dark:text-stone-100 uppercase tracking-tight">
+                Dados Registrados com Sucesso!
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-stone-300 mt-1.5">
+                Os dados da sua jornada foram salvos no sistema e direcionados para o WhatsApp da empresa.
+              </p>
+            </div>
+
+            <div className="bg-stone-50 dark:bg-stone-800/60 p-3 rounded-xl text-left text-[11px] text-stone-700 dark:text-stone-300 space-y-1 font-mono border border-stone-200/60 dark:border-stone-700/60">
+              <div><strong className="text-stone-900 dark:text-white">Escala:</strong> {loadedAppointment?.appointmentNumber || 'N/A'}</div>
+              <div><strong className="text-stone-900 dark:text-white">Cliente:</strong> {f1Data.cliente || f2Data.cliente || f3Data.cliente}</div>
+              <div><strong className="text-stone-900 dark:text-white">Destino:</strong> {companyTradeName} ({companyPhone})</div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (sentWhatsAppUrl) {
+                    window.open(sentWhatsAppUrl, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                className="px-4 py-2.5 bg-[#188038] hover:bg-[#146c2e] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Reabrir WhatsApp</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setShowSuccessModal(false)}
+                className="px-4 py-2.5 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE CONFIRMAÇÃO PARA DESMARCAR CARGA */}
       {loadToUncheck && (

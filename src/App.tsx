@@ -662,12 +662,13 @@ export default function App() {
            window.location.hash.includes('ficha=fornecedor');
   });
 
-  // Check if opened as external operator field form (e.g. ?tab=formularios&agendamento=AG-2026-002 ou &agendamento=AG-2026-002)
+  // Check if opened as external operator field form (e.g. ?tab=formularios&cargo=forrageira&agendamento=AG-2026-002)
   const [isOperatorExternalRoute, setIsOperatorExternalRoute] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     const search = window.location.search || '';
     const hash = window.location.hash || '';
-    return search.includes('agendamento=') || hash.includes('agendamento=');
+    return search.includes('agendamento=') || hash.includes('agendamento=') || 
+           (search.includes('cargo=') && search.includes('formularios'));
   });
 
   if (isOperatorExternalRoute) {
