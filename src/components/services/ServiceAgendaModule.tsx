@@ -1574,6 +1574,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-stone-100/90 dark:bg-stone-800/90 text-stone-700 dark:text-stone-300 font-extrabold border-b border-stone-200 dark:border-stone-700 uppercase text-[10px] sm:text-[11px] tracking-wider">
+                  <th className="py-3 px-3.5 whitespace-nowrap">Nº Agendamento</th>
                   <th className="py-3 px-3.5 whitespace-nowrap">Veículo Principal</th>
                   <th className="py-3 px-3.5">Cliente & Local</th>
                   <th className="py-3 px-3.5 whitespace-nowrap">Período</th>
@@ -1586,7 +1587,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {activeAppointmentsForFleet.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-stone-500 dark:text-stone-400 text-xs">
+                    <td colSpan={8} className="py-10 text-center text-stone-500 dark:text-stone-400 text-xs">
                       Nenhum agendamento ativo encontrado com os filtros selecionados.
                     </td>
                   </tr>
@@ -1626,7 +1627,14 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                         key={a.id}
                         className="hover:bg-stone-50/90 dark:hover:bg-stone-800/50 transition-colors"
                       >
-                        {/* Coluna 1: Veículo Principal */}
+                        {/* 1ª Coluna: Nº Agendamento */}
+                        <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs font-mono">
+                            {a.appointmentNumber}
+                          </span>
+                        </td>
+
+                        {/* 2ª Coluna: Veículo Principal */}
                         <td className="py-3 px-3.5 align-middle whitespace-nowrap">
                           <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs px-2.5 py-1 rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 inline-block font-mono">
                             {mainVehicle}
