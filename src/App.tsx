@@ -209,7 +209,7 @@ export default function App() {
   };
 
   const { confirm } = useConfirm();
-  const { currentUser, setIsSyncing, setLastSyncedAt } = useAuth();
+  const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt } = useAuth();
 
   const handleSyncSupabase = async () => {
     setIsSyncing(true);
@@ -648,138 +648,169 @@ export default function App() {
     );
   };
 
-  // Check if opened as public client form (e.g. ?ficha=cliente)
-  const [isPublicFormRoute, setIsPublicFormRoute] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.location.search.includes('ficha=cliente') || 
-           window.location.search.includes('form=cliente') ||
-           window.location.hash.includes('ficha=cliente');
-  });
-
-  // Check if opened as public supplier form (e.g. ?ficha=fornecedor)
-  const [isPublicSupplierRoute, setIsPublicSupplierRoute] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.location.search.includes('ficha=fornecedor') || 
-           window.location.search.includes('form=fornecedor') ||
-           window.location.hash.includes('ficha=fornecedor');
-  });
-
-  // Check if opened as external operator field form (e.g. ?tab=formularios&cargo=forrageira&agendamento=AG-2026-002)
-  const [isOperatorExternalRoute, setIsOperatorExternalRoute] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const search = window.location.search || '';
-    const hash = window.location.hash || '';
-    return search.includes('agendamento=') || hash.includes('agendamento=') || 
-           (search.includes('cargo=') && search.includes('formularios'));
-  });
-
-  // Check if opened as Master Admin panel (e.g. /master-admin?key=agro123 or ?tab=master-admin)
-  const [isMasterAdminRoute, setIsMasterAdminRoute] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
+  // Determinação de Rota com Isolamento Estrito de Ambientes
+  // 1. Admin Mestre: estritamente /master-admin (ou ?key=agro123)
+  // 2. Formulários Públicos Externos: ?ficha=cliente, ?ficha=fornecedor, ?agendamento=...
+  // 3. Painel Interno de Gestão de Silagem (ERP): rota /dashboard ou usuário com sessão ativa
+  // 4. Landing Page Pública: Rota raiz "/" como padrão se o usuário não estiver logado
+  const getResolvedRoute = (): 'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'dashboard' => {
+    if (typeof window === 'undefined') return 'landing';
     const path = window.location.pathname || '';
     const search = window.location.search || '';
     const hash = window.location.hash || '';
-    return path.includes('master-admin') || 
-           search.includes('master-admin') || 
-           search.includes('key=agro123') ||
-           search.includes('admin=master') ||
-           hash.includes('master-admin');
-  });
 
-  // Check if opened as public Landing Page (e.g. /landing or ?view=landing)
-  const [isLandingPageRoute, setIsLandingPageRoute] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const path = window.location.pathname || '';
-    const search = window.location.search || '';
-    const hash = window.location.hash || '';
-    return path.includes('/landing') || 
-           search.includes('view=landing') || 
-           search.includes('tab=landing') || 
-           search.includes('site=publico') ||
-           hash.includes('landing');
-  });
+    // 1. Admin Mestre (Acesso estritamente isolado e sem Sidebar do cliente)
+    if (
+      path.includes('master-admin') ||
+      search.includes('master-admin') ||
+      search.includes('key=agro123') ||
+      search.includes('admin=master') ||
+      hash.includes('master-admin')
+    ) {
+      return 'master-admin';
+    }
 
-  // Listen to popstate / url changes
+    // 2. Formulários Públicos Externos
+    if (search.includes('ficha=cliente') || search.includes('form=cliente') || hash.includes('ficha=cliente')) {
+      return 'ficha-cliente';
+    }
+    if (search.includes('ficha=fornecedor') || search.includes('form=fornecedor') || hash.includes('ficha=fornecedor')) {
+      return 'ficha-fornecedor';
+    }
+    if (
+      search.includes('agendamento=') ||
+      hash.includes('agendamento=') ||
+      (search.includes('cargo=') && search.includes('formularios'))
+    ) {
+      return 'operador-campo';
+    }
+
+    // 3. Forçar Landing Page se requisitado explicitamente via URL
+    if (
+      path === '/landing' ||
+      search.includes('view=landing') ||
+      search.includes('tab=landing') ||
+      search.includes('site=publico') ||
+      hash.includes('landing')
+    ) {
+      return 'landing';
+    }
+
+    // 4. Painel Interno do Cliente (ERP Gestão de Silagem)
+    const hasActiveSession = typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active';
+    const isDashboardPath =
+      path.includes('/dashboard') ||
+      path.includes('/app') ||
+      search.includes('view=dashboard') ||
+      search.includes('tab=dashboard') ||
+      search.includes('app=true') ||
+      hash.includes('dashboard');
+
+    if (isDashboardPath || hasActiveSession || !!currentUser) {
+      return 'dashboard';
+    }
+
+    // 5. Rota padrão da raiz "/": Landing Page Pública
+    return 'landing';
+  };
+
+  const [currentRoute, setCurrentRoute] = useState<'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'dashboard'>(getResolvedRoute);
+
+  // Sincronizar com mudanças de URL (popstate e hashchange)
   useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname || '';
-      const search = window.location.search || '';
-      const hash = window.location.hash || '';
-
-      setIsMasterAdminRoute(
-        path.includes('master-admin') || 
-        search.includes('master-admin') || 
-        search.includes('key=agro123') ||
-        search.includes('admin=master') ||
-        hash.includes('master-admin')
-      );
-
-      setIsLandingPageRoute(
-        path.includes('/landing') || 
-        search.includes('view=landing') || 
-        search.includes('tab=landing') || 
-        search.includes('site=publico') ||
-        hash.includes('landing')
-      );
+    const handleUrlChange = () => {
+      setCurrentRoute(getResolvedRoute());
     };
 
-    window.addEventListener('popstate', handlePopState);
-    window.addEventListener('hashchange', handlePopState);
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('hashchange', handlePopState);
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
     };
-  }, []);
+  }, [currentUser]);
 
-  if (isMasterAdminRoute) {
+  // Se o usuário autenticar via Supabase, ativar a sessão e direcionar para o dashboard
+  useEffect(() => {
+    if (currentUser && currentRoute === 'landing') {
+      try {
+        localStorage.setItem('silagem_client_session', 'active');
+        window.history.pushState({}, '', '/dashboard');
+      } catch (e) {
+        console.error(e);
+      }
+      setCurrentRoute('dashboard');
+    }
+  }, [currentUser]);
+
+  // Transições de Navegação entre Ambientes
+  const handleEnterApp = () => {
+    try {
+      localStorage.setItem('silagem_client_session', 'active');
+      window.history.pushState({}, '', '/dashboard');
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('dashboard');
+  };
+
+  const handleOpenMasterAdmin = () => {
+    try {
+      window.history.pushState({}, '', '/master-admin?key=agro123');
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('master-admin');
+  };
+
+  const handleOpenLandingPage = () => {
+    try {
+      window.history.pushState({}, '', '/');
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('landing');
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (currentUser) {
+        await signOutUser();
+      }
+      localStorage.removeItem('silagem_client_session');
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      window.history.pushState({}, '', '/');
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('landing');
+  };
+
+  // 1. Rota Isolada: Admin Mestre (Apenas em /master-admin?key=agro123, sem Sidebar do cliente)
+  if (currentRoute === 'master-admin') {
     return (
       <MasterAdminDashboard
-        onBackToApp={() => {
-          setIsMasterAdminRoute(false);
-          try {
-            window.history.pushState({}, '', window.location.pathname.replace('/master-admin', '') || '/');
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-        onOpenLandingPage={() => {
-          setIsMasterAdminRoute(false);
-          setIsLandingPageRoute(true);
-          try {
-            window.history.pushState({}, '', '?view=landing');
-          } catch (e) {
-            console.error(e);
-          }
-        }}
+        onBackToApp={handleEnterApp}
+        onOpenLandingPage={handleOpenLandingPage}
       />
     );
   }
 
-  if (isLandingPageRoute) {
+  // 2. Rota Isolada: Landing Page Pública (Na rota raiz "/" ou deslogado)
+  if (currentRoute === 'landing') {
     return (
       <LandingPage
-        onEnterApp={() => {
-          setIsLandingPageRoute(false);
-          try {
-            window.history.pushState({}, '', window.location.pathname.replace('/landing', '') || '/');
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-        onOpenMasterAdmin={() => {
-          setIsLandingPageRoute(false);
-          setIsMasterAdminRoute(true);
-          try {
-            window.history.pushState({}, '', '/master-admin?key=agro123');
-          } catch (e) {
-            console.error(e);
-          }
-        }}
+        onEnterApp={handleEnterApp}
+        onOpenMasterAdmin={handleOpenMasterAdmin}
       />
     );
   }
 
-  if (isOperatorExternalRoute) {
+  // 3. Rota Isolada: Formulário Externo de Operador de Campo
+  if (currentRoute === 'operador-campo') {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col items-center justify-start p-2 sm:p-4 md:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
         <div className="w-full max-w-4xl space-y-3">
@@ -790,12 +821,7 @@ export default function App() {
             clients={clients}
             isExternalOperatorMode={true}
             onExitOperatorMode={() => {
-              setIsOperatorExternalRoute(false);
-              try {
-                window.history.replaceState({}, '', window.location.pathname);
-              } catch (e) {
-                console.error(e);
-              }
+              handleEnterApp();
             }}
           />
         </div>
@@ -803,40 +829,29 @@ export default function App() {
     );
   }
 
-  if (isPublicFormRoute) {
+  // 4. Rota Isolada: Ficha Pública de Produtor (CRM)
+  if (currentRoute === 'ficha-cliente') {
     return (
       <PublicClientForm
-        onBackToApp={() => {
-          setIsPublicFormRoute(false);
-          try {
-            window.history.replaceState({}, '', window.location.pathname);
-          } catch (e) {
-            console.error(e);
-          }
-        }}
+        onBackToApp={handleEnterApp}
       />
     );
   }
 
-  if (isPublicSupplierRoute) {
+  // 5. Rota Isolada: Ficha Pública de Fornecedor
+  if (currentRoute === 'ficha-fornecedor') {
     return (
       <PublicSupplierForm
-        onBackToApp={() => {
-          setIsPublicSupplierRoute(false);
-          try {
-            window.history.replaceState({}, '', window.location.pathname);
-          } catch (e) {
-            console.error(e);
-          }
-        }}
+        onBackToApp={handleEnterApp}
       />
     );
   }
 
+  // 6. Painel de Gestão de Silagem (ERP Interno do Cliente, visível em /dashboard com login ativo)
   return (
     <div className="min-h-screen bg-blue-50/50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900">
       
-      {/* Left Fixed Sidebar */}
+      {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -846,6 +861,7 @@ export default function App() {
         menuOrder={menuOrder}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
+        onLogout={handleLogout}
       />
 
       {/* Backdrop for mobile sidebar */}
