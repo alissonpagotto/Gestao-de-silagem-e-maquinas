@@ -37,7 +37,8 @@ import {
   getStoredSiteConfig,
   getStoredLandingSettings,
   DEFAULT_SITE_CONFIG,
-  LANDING_PAGE_SETTINGS_KEY
+  LANDING_PAGE_SETTINGS_KEY,
+  AGROCONTROL_PLANS_DATA_KEY
 } from '../../lib/masterAdminStorage';
 import { PlanDefinition, SubscriberStatus, SiteConfig } from '../../types/masterAdmin';
 import { CompanyProfile } from '../../types';
@@ -62,7 +63,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onCompanyCreated,
 }) => {
   const { signIn, signUp } = useAuth();
-  const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
+  const [plans, setPlans] = useState<PlanDefinition[]>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || localStorage.getItem('silagem_master_plans_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao ler planos no AuthPage:', e);
+    }
+    return getStoredPlans();
+  });
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
 
   // Parâmetros da URL: ?mode=signup &plan=plano-pro &paid=true
@@ -104,18 +118,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     const handleDataChange = (e?: any) => {
       if (e?.detail) {
-        setSiteConfig((prev) => ({ ...prev, ...e.detail }));
+        if (Array.isArray(e.detail)) {
+          setPlans(e.detail);
+        } else {
+          setSiteConfig((prev) => ({ ...prev, ...e.detail }));
+          setPlans(getStoredPlans());
+        }
       } else {
         setSiteConfig(getStoredLandingSettings());
+        setPlans(getStoredPlans());
       }
-      setPlans(getStoredPlans());
     };
 
     const handleStorageChange = (e: StorageEvent) => {
       if (
+        e.key === AGROCONTROL_PLANS_DATA_KEY ||
+        e.key === 'agrocontrol_plans_data' ||
+        e.key === 'silagem_master_plans_v1' ||
         e.key === LANDING_PAGE_SETTINGS_KEY || 
-        e.key === 'silagem_master_site_config_v1' || 
-        e.key === 'silagem_master_plans_v1'
+        e.key === 'silagem_master_site_config_v1'
       ) {
         handleDataChange();
       }
@@ -124,11 +145,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     window.addEventListener('popstate', handleUrlChange);
     window.addEventListener('master_admin_data_changed', handleDataChange);
     window.addEventListener('landing_page_settings_updated', handleDataChange);
+    window.addEventListener('agrocontrol_plans_updated', handleDataChange);
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('master_admin_data_changed', handleDataChange);
       window.removeEventListener('landing_page_settings_updated', handleDataChange);
+      window.removeEventListener('agrocontrol_plans_updated', handleDataChange);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);

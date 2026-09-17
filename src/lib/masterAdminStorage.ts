@@ -11,12 +11,14 @@ import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
 
 // Chaves de armazenamento localStorage
 export const LANDING_PAGE_SETTINGS_KEY = 'landingPageSettings';
+export const AGROCONTROL_PLANS_DATA_KEY = 'agrocontrol_plans_data';
 
 const STORAGE_KEYS = {
   SUBSCRIBERS: 'silagem_master_subscribers_v2',
   SITE_CONFIG: 'silagem_master_site_config_v1',
   LANDING_PAGE_SETTINGS: 'landingPageSettings',
-  PLANS: 'silagem_master_plans_v1',
+  PLANS: 'agrocontrol_plans_data',
+  LEGACY_PLANS: 'silagem_master_plans_v1',
   SETTINGS: 'silagem_master_settings_v1',
   MASTER_SESSION: 'silagem_master_session_v1',
 };
@@ -238,13 +240,20 @@ export const saveStoredLandingSettings = saveStoredSiteConfig;
 
 export function getStoredPlans(): PlanDefinition[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PLANS);
+    if (typeof localStorage === 'undefined') return DEFAULT_PLANS;
+    // Tenta ler prioritariamente da chave global padronizada 'agrocontrol_plans_data' com fallback para legada
+    const raw = localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || localStorage.getItem(STORAGE_KEYS.LEGACY_PLANS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(DEFAULT_PLANS));
+      const defStr = JSON.stringify(DEFAULT_PLANS);
+      localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, defStr);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, defStr);
       return DEFAULT_PLANS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_PLANS;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+    return DEFAULT_PLANS;
   } catch (e) {
     console.error('Failed to load plans:', e);
     return DEFAULT_PLANS;
@@ -253,8 +262,16 @@ export function getStoredPlans(): PlanDefinition[] {
 
 export function saveStoredPlans(plans: PlanDefinition[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(plans));
-    notifyDataChanged();
+    if (typeof localStorage !== 'undefined') {
+      const serialized = JSON.stringify(plans);
+      // Salva obrigatoriamente na chave padronizada e unificada
+      localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
+    }
+    notifyDataChanged(plans);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: plans }));
+    }
   } catch (e) {
     console.error('Failed to save plans:', e);
   }

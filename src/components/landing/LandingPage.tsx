@@ -22,7 +22,8 @@ import {
   getStoredLandingSettings, 
   getStoredPlans, 
   DEFAULT_SITE_CONFIG,
-  LANDING_PAGE_SETTINGS_KEY 
+  LANDING_PAGE_SETTINGS_KEY,
+  AGROCONTROL_PLANS_DATA_KEY
 } from '../../lib/masterAdminStorage';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
@@ -37,36 +38,104 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenMasterAdmin,
   onNavigateToAuth,
 }) => {
-  // Leitura dinâmica inicial buscando prioritariamente de landingPageSettings com fallback integral
+  // Leitura dinâmica inicial buscando prioritariamente de landingPageSettings e agrocontrol_plans_data
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
-  const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
+  const [plans, setPlans] = useState<PlanDefinition[]>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || localStorage.getItem('silagem_master_plans_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao ler agrocontrol_plans_data na inicialização:', e);
+    }
+    return getStoredPlans();
+  });
 
-  // Sincronização em tempo real imediata via Custom Events e evento 'storage' nativo
+  // Leitura Obrigatória na Landing Page Pública dentro de useEffect e sincronização em tempo real
   useEffect(() => {
-    const handleSync = (e?: any) => {
-      if (e?.detail) {
-        setSiteConfig((prev) => ({ ...prev, ...e.detail }));
-      } else {
-        setSiteConfig(getStoredLandingSettings());
+    // 1. Busca obrigatória dos dados salvos em localStorage.getItem('agrocontrol_plans_data')
+    const loadPlansFromStorage = () => {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem('agrocontrol_plans_data') || localStorage.getItem('silagem_master_plans_v1');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setPlans(parsed);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados de agrocontrol_plans_data na Landing Page:', err);
       }
       setPlans(getStoredPlans());
     };
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (
-        e.key === LANDING_PAGE_SETTINGS_KEY || 
-        e.key === 'silagem_master_site_config_v1' || 
-        e.key === 'silagem_master_plans_v1'
-      ) {
-        handleSync();
+    // Executa obrigatoriamente na montagem
+    loadPlansFromStorage();
+
+    // 2. CustomEvents da mesma janela (Master Admin alterado na mesma aba/janela)
+    const handleSync = (e?: any) => {
+      if (e?.detail) {
+        if (Array.isArray(e.detail)) {
+          setPlans(e.detail);
+        } else {
+          setSiteConfig((prev) => ({ ...prev, ...e.detail }));
+          loadPlansFromStorage();
+        }
+      } else {
+        setSiteConfig(getStoredLandingSettings());
+        loadPlansFromStorage();
       }
     };
 
+    const handlePlansUpdated = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setPlans(e.detail);
+      } else {
+        loadPlansFromStorage();
+      }
+    };
+
+    // 3. Event listener para o evento nativo 'storage' da window (outras abas/janelas)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === 'agrocontrol_plans_data' || 
+        e.key === 'silagem_master_plans_v1' ||
+        e.key === AGROCONTROL_PLANS_DATA_KEY
+      ) {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setPlans(parsed);
+              return;
+            }
+          } catch (err) {
+            console.error('Erro ao processar storage event de planos:', err);
+          }
+        }
+        loadPlansFromStorage();
+      } else if (
+        e.key === LANDING_PAGE_SETTINGS_KEY || 
+        e.key === 'silagem_master_site_config_v1'
+      ) {
+        setSiteConfig(getStoredLandingSettings());
+      }
+    };
+
+    window.addEventListener('agrocontrol_plans_updated', handlePlansUpdated);
     window.addEventListener('master_admin_data_changed', handleSync);
     window.addEventListener('landing_page_settings_updated', handleSync);
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
+      window.removeEventListener('agrocontrol_plans_updated', handlePlansUpdated);
       window.removeEventListener('master_admin_data_changed', handleSync);
       window.removeEventListener('landing_page_settings_updated', handleSync);
       window.removeEventListener('storage', handleStorageChange);
