@@ -409,6 +409,50 @@ export function getStoredCompanyProfile(): CompanyProfile {
   }
 }
 
+/**
+ * Retorna o identificador único da empresa (company_id) para sincronização multi-dispositivo.
+ * Permite que múltiplos aparelhos e funcionários da mesma fazenda compartilhem os mesmos dados na nuvem.
+ */
+export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): string {
+  try {
+    const profile = overrideProfile || getStoredCompanyProfile();
+
+    // 1. Se houver companyId explícito
+    if (profile?.companyId && profile.companyId.trim()) {
+      return profile.companyId.trim();
+    }
+
+    // 2. Prioridade Nacional: CNPJ ou CPF da empresa (único para toda a fazenda)
+    if (profile?.cnpjCpf) {
+      const clean = profile.cnpjCpf.replace(/\D/g, '');
+      if (clean.length >= 8) {
+        return `company_${clean}`;
+      }
+    }
+
+    // 3. E-mail de login da empresa ou e-mail comercial da fazenda
+    const email = (profile?.loginEmail || profile?.email || '').trim().toLowerCase();
+    if (email && email.includes('@')) {
+      return `company_${email.replace(/[^a-z0-9]/g, '_')}`;
+    }
+
+    // 4. Sessão ativa salva do Assinante ou Usuário logado
+    if (typeof localStorage !== 'undefined') {
+      const activeSubId = localStorage.getItem('silagem_active_subscriber_id');
+      if (activeSubId && activeSubId.trim()) {
+        return `company_${activeSubId.trim().replace(/[^a-z0-9_-]/gi, '_')}`;
+      }
+      const activeUserEmail = localStorage.getItem('silagem_active_user_email');
+      if (activeUserEmail && activeUserEmail.includes('@')) {
+        return `company_${activeUserEmail.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      }
+    }
+  } catch (e) {
+    // Fallback silencioso
+  }
+  return 'company_default_fazenda';
+}
+
 export function saveStoredCompanyProfile(profile: CompanyProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILE, JSON.stringify(profile));

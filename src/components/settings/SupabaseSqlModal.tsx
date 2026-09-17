@@ -321,20 +321,69 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 9. TABELA: site_settings (Configurações da Landing Page & Hero)
+CREATE TABLE IF NOT EXISTS public.site_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    hero_title TEXT,
+    hero_subtitle TEXT,
+    hero_primary_btn_text TEXT,
+    hero_secondary_btn_text TEXT,
+    hero_background_image TEXT,
+    features_section_title TEXT,
+    features_section_subtitle TEXT,
+    features_highlight_image TEXT,
+    feature1_title TEXT,
+    feature1_desc TEXT,
+    feature2_title TEXT,
+    feature2_desc TEXT,
+    feature3_title TEXT,
+    feature3_desc TEXT,
+    feature4_title TEXT,
+    feature4_desc TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ==============================================================================
+-- 10. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa
+-- ==============================================================================
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.fornecedores ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.notas_fiscais ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;
+
+-- ==============================================================================
+-- 11. POLÍTICAS RLS E ACESSO PÚBLICO (ANON) PARA LANDING PAGE E PLANOS
+-- ==============================================================================
 ALTER TABLE public.subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
+-- Permissões de schema no PostgreSQL para usuários anônimos e autenticados
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
 DO $$ 
 BEGIN
-    DROP POLICY IF EXISTS "Permissao Total Subscribers" ON public.subscribers;
-    CREATE POLICY "Permissao Total Subscribers" ON public.subscribers FOR ALL USING (true) WITH CHECK (true);
-
+    -- Planos: Leitura pública universal para qualquer visitante na internet (anon/authenticated)
     DROP POLICY IF EXISTS "Permissao Total Plans" ON public.plans;
-    CREATE POLICY "Permissao Total Plans" ON public.plans FOR ALL USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS "Leitura Publica Plans" ON public.plans;
+    CREATE POLICY "Permissao Total Plans" ON public.plans FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
+    -- Configurações do Site: Leitura pública universal para qualquer visitante na internet (anon/authenticated)
     DROP POLICY IF EXISTS "Permissao Total Site Settings" ON public.site_settings;
-    CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS "Leitura Publica Site Settings" ON public.site_settings;
+    CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+    -- Assinantes
+    DROP POLICY IF EXISTS "Permissao Total Subscribers" ON public.subscribers;
+    CREATE POLICY "Permissao Total Subscribers" ON public.subscribers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 END $$;
 `;
 

@@ -1,4 +1,5 @@
 export interface CompanyProfile {
+  companyId?: string; // ID da Empresa para sincronização multi-dispositivo
   corporateName: string; // Razão Social (ex: silagemteste02)
   tradeName: string; // Nome Fantasia (ex: Silagem Teste 02)
   cnpjCpf: string; // CNPJ / CPF (ex: 578.722.222-2)
@@ -51,6 +52,7 @@ export interface CostCenter {
 
 export interface Expense {
   id: string;
+  companyId?: string; // ID da Empresa
   description: string;
   amount: number;
   categoryId: string;
@@ -96,6 +98,7 @@ export interface Expense {
 
 export interface Client {
   id: string;
+  companyId?: string; // ID da Empresa
   name: string;
   farmName: string;
   cpfCnpj?: string;
@@ -166,6 +169,7 @@ export interface SilageOrder {
 
 export interface Machinery {
   id: string;
+  companyId?: string; // ID da Empresa
   name: string;
   model: string;
   brand: string;
@@ -308,6 +312,7 @@ export type EmployeeRegistrationType =
 
 export interface Employee {
   id: string;
+  companyId?: string; // ID da Empresa
   name: string;
   registrationType?: EmployeeRegistrationType;
   role: EmployeeRole | string; // 'Operador de Ensiladeira', 'Tratorista', 'Motorista de Caminhão', 'Mecânico', etc.
@@ -408,6 +413,7 @@ export interface Supplier {
 
 export interface InventoryItem {
   id: string;
+  companyId?: string; // ID da Empresa
   name: string;
   category: 'combustivel' | 'lona_embalagem' | 'inoculante' | 'sementes' | 'adubo' | 'pecas' | 'outro';
   quantity: number;
@@ -1140,6 +1146,7 @@ export interface AgendaTeamMember {
 
 export interface ServiceAppointment {
   id: string;
+  companyId?: string; // ID da Empresa
   appointmentNumber: string; // Ex: "AG-2026-001"
   clientId: string;
   clientName: string;

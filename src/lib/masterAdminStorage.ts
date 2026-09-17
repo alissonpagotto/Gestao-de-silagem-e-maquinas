@@ -343,8 +343,63 @@ export function saveStoredPlans(plans: PlanDefinition[]): void {
 }
 
 /**
+ * Busca pública exclusiva para visitantes e landing page (planos e configurações de site),
+ * garantindo acesso sem restrições ou bloqueios em qualquer dispositivo.
+ */
+export async function fetchPublicLandingData(): Promise<{
+  siteConfig: SiteConfig;
+  plans: PlanDefinition[];
+}> {
+  try {
+    const [siteResult, plansResult] = await Promise.allSettled([
+      fetchCloudSiteConfig(),
+      fetchCloudPlans(),
+    ]);
+
+    let resolvedSite = getStoredSiteConfig();
+    if (siteResult.status === 'fulfilled' && siteResult.value) {
+      resolvedSite = siteResult.value;
+      if (typeof localStorage !== 'undefined') {
+        const serialized = JSON.stringify(resolvedSite);
+        localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
+      }
+    }
+
+    let resolvedPlans = getStoredPlans();
+    if (plansResult.status === 'fulfilled' && plansResult.value && plansResult.value.length > 0) {
+      resolvedPlans = plansResult.value;
+      if (typeof localStorage !== 'undefined') {
+        const serialized = JSON.stringify(resolvedPlans);
+        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: resolvedPlans }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: resolvedSite }));
+    }
+
+    return {
+      siteConfig: resolvedSite,
+      plans: resolvedPlans,
+    };
+  } catch (err) {
+    console.warn('Notice fetching public landing data:', err);
+    return {
+      siteConfig: getStoredSiteConfig(),
+      plans: getStoredPlans(),
+    };
+  }
+}
+
+/**
  * Sincroniza em segundo plano os dados mestres (SiteConfig, Planos e Assinantes)
  * com o banco de dados centralizado Supabase.
+ * Usa Promise.allSettled para que a restrição de RLS em assinantes nunca impeça
+ * o carregamento de configurações do site ou planos públicos.
  */
 export async function syncMasterAdminFromCloud(): Promise<{
   siteConfig: SiteConfig;
@@ -352,11 +407,15 @@ export async function syncMasterAdminFromCloud(): Promise<{
   subscribers: Subscriber[];
 }> {
   try {
-    const [cloudSite, cloudPlans, cloudSubs] = await Promise.all([
+    const [siteResult, plansResult, subsResult] = await Promise.allSettled([
       fetchCloudSiteConfig(),
       fetchCloudPlans(),
       fetchCloudSubscribers(),
     ]);
+
+    const cloudSite = siteResult.status === 'fulfilled' ? siteResult.value : null;
+    const cloudPlans = plansResult.status === 'fulfilled' ? plansResult.value : null;
+    const cloudSubs = subsResult.status === 'fulfilled' ? subsResult.value : null;
 
     let resolvedSite = getStoredSiteConfig();
     if (cloudSite) {
@@ -367,9 +426,6 @@ export async function syncMasterAdminFromCloud(): Promise<{
         localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
         localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
       }
-    } else {
-      // Cria registro inicial na nuvem
-      upsertCloudSiteConfig(resolvedSite).catch(() => {});
     }
 
     let resolvedPlans = getStoredPlans();
@@ -380,9 +436,6 @@ export async function syncMasterAdminFromCloud(): Promise<{
         localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
         localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
       }
-    } else {
-      // Cria registros iniciais na nuvem com os preços padrão R$ 195 / R$ 295 / R$ 495
-      Promise.all(resolvedPlans.map(p => upsertCloudPlan(p))).catch(() => {});
     }
 
     let resolvedSubs = getStoredSubscribers();

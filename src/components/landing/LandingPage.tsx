@@ -26,7 +26,8 @@ import {
   AGROCONTROL_SITE_SETTINGS_KEY,
   AGROCONTROL_PLANS_DATA_KEY,
   LANDING_PAGE_SETTINGS_KEY,
-  syncMasterAdminFromCloud
+  syncMasterAdminFromCloud,
+  fetchPublicLandingData
 } from '../../lib/masterAdminStorage';
 import { 
   fetchCloudPlans, 
@@ -129,8 +130,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
     let isMounted = true;
 
-    // Sincronização direta com o banco de dados em nuvem (Supabase)
-    syncMasterAdminFromCloud().then((cloudData) => {
+    // Sincronização direta pública com o banco de dados em nuvem (Supabase)
+    fetchPublicLandingData().then((cloudData) => {
       if (!isMounted) return;
       if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
       if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);

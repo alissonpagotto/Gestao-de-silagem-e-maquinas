@@ -17,6 +17,7 @@ import {
   PlanDefinition,
   Subscriber
 } from '../types/masterAdmin';
+import { getActiveCompanyId } from './storage';
 
 /**
  * Converte qualquer ID de string para um UUID v4 determinístico válido,
@@ -113,20 +114,28 @@ export async function fetchFornecedores(): Promise<Supplier[] | null> {
 export async function upsertFornecedor(supplier: Supplier): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
+    const payload: Record<string, any> = {
+      id: toValidUUID(supplier.id),
+      company_id: getActiveCompanyId(),
+      cnpj_cpf: supplier.cnpjOrCpf?.trim() || `00.000.000/0000-${toValidUUID(supplier.id).slice(0, 2)}`,
+      razao_social: supplier.name || supplier.tradeName || 'Fornecedor sem Razão Social',
+      nome_fantasia: supplier.tradeName || supplier.name || '',
+      inscricao_estadual: supplier.stateRegistration || '',
+      inscricao_municipal: supplier.municipalRegistration || '',
+      telefone_whatsapp: supplier.phone || '',
+      updated_at: new Date().toISOString()
+    };
+
+    let { error } = await supabase
       .from('fornecedores')
-      .upsert({
-        id: toValidUUID(supplier.id),
-        cnpj_cpf: supplier.cnpjOrCpf?.trim() || `00.000.000/0000-${toValidUUID(supplier.id).slice(0, 2)}`,
-        razao_social: supplier.name || supplier.tradeName || 'Fornecedor sem Razão Social',
-        nome_fantasia: supplier.tradeName || supplier.name || '',
-        inscricao_estadual: supplier.stateRegistration || '',
-        inscricao_municipal: supplier.municipalRegistration || '',
-        telefone_whatsapp: supplier.phone || '',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('fornecedores').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       console.warn('Supabase upsertFornecedor notice:', error.message);
       return false;
     }
@@ -190,8 +199,9 @@ export async function upsertNotaFiscal(nfe: {
 }): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const payload = {
+    const payload: Record<string, any> = {
       id: toValidUUID(nfe.id),
+      company_id: getActiveCompanyId(),
       numero_nota: String(nfe.number).trim() || '0',
       serie: nfe.series || '1',
       chave_acesso: nfe.accessKey?.trim() || null,
@@ -203,11 +213,16 @@ export async function upsertNotaFiscal(nfe: {
       itens_produtos: nfe.items || []
     };
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('notas_fiscais')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('notas_fiscais').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       console.warn('Supabase upsertNotaFiscal notice:', error.message);
       return false;
     }
@@ -292,20 +307,28 @@ export async function upsertContaAPagar(parcela: {
 }): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
+    const payload: Record<string, any> = {
+      id: toValidUUID(parcela.id),
+      company_id: getActiveCompanyId(),
+      nota_fiscal_id: parcela.nota_fiscal_id ? toValidUUID(parcela.nota_fiscal_id) : null,
+      numero_parcela: parcela.numero_parcela || '01/01',
+      valor_parcela: Number(parcela.valor_parcela) || 0,
+      data_vencimento: parcela.data_vencimento || new Date().toISOString().split('T')[0],
+      forma_pagamento: parcela.forma_pagamento || 'Boleto',
+      centro_custo: parcela.centro_custo || 'Geral',
+      status_pago: Boolean(parcela.status_pago)
+    };
+
+    let { error } = await supabase
       .from('contas_a_pagar')
-      .upsert({
-        id: toValidUUID(parcela.id),
-        nota_fiscal_id: parcela.nota_fiscal_id ? toValidUUID(parcela.nota_fiscal_id) : null,
-        numero_parcela: parcela.numero_parcela || '01/01',
-        valor_parcela: Number(parcela.valor_parcela) || 0,
-        data_vencimento: parcela.data_vencimento || new Date().toISOString().split('T')[0],
-        forma_pagamento: parcela.forma_pagamento || 'Boleto',
-        centro_custo: parcela.centro_custo || 'Geral',
-        status_pago: Boolean(parcela.status_pago)
-      }, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       console.warn('Supabase upsertContaAPagar notice:', error.message);
       return false;
     }
@@ -400,20 +423,28 @@ export async function fetchEstoque(): Promise<InventoryItem[] | null> {
 export async function upsertEstoqueItem(item: InventoryItem): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
+    const payload: Record<string, any> = {
+      id: toValidUUID(item.id),
+      company_id: item.companyId || getActiveCompanyId(),
+      codigo_produto: item.code || `PRD-${toValidUUID(item.id).slice(0, 8)}`,
+      descricao: item.name || 'Produto sem descrição',
+      quantidade_atual: Number(item.quantity) || 0.000,
+      preco_venda_final: Number(item.salePrice) || 0,
+      preco_venda_atacado: Number(item.wholesalePrice) || 0,
+      preco_venda_promo: Number(item.promoPrice) || null,
+      fim_promocao: null,
+    };
+
+    let { error } = await supabase
       .from('estoque')
-      .upsert({
-        id: toValidUUID(item.id),
-        codigo_produto: item.code || `PRD-${toValidUUID(item.id).slice(0, 8)}`,
-        descricao: item.name || 'Produto sem descrição',
-        quantidade_atual: Number(item.quantity) || 0.000,
-        preco_venda_final: Number(item.salePrice) || 0,
-        preco_venda_atacado: Number(item.wholesalePrice) || 0,
-        preco_venda_promo: Number(item.promoPrice) || null,
-        fim_promocao: null,
-      }, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('estoque').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       console.warn('Supabase upsertEstoqueItem notice:', error.message);
       return false;
     }
@@ -427,21 +458,30 @@ export async function upsertEstoqueItem(item: InventoryItem): Promise<boolean> {
 // ===========================================================================
 // 5. Clientes (Tabela: public.clientes)
 // ===========================================================================
-export async function fetchClientes(): Promise<Client[] | null> {
+export async function fetchClientes(companyId?: string): Promise<Client[] | null> {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('clientes')
-      .select('*');
+      .select('*')
+      .or(`company_id.eq.${activeCompanyId},company_id.eq.company_default_fazenda,company_id.is.null`);
 
     if (error) {
-      console.warn('Supabase fetchClientes notice:', error.message);
-      return null;
+      const fallback = await supabase.from('clientes').select('*');
+      if (!fallback.error) {
+        data = fallback.data;
+        error = null;
+      } else {
+        console.warn('Supabase fetchClientes notice:', error.message);
+        return null;
+      }
     }
     if (!data || data.length === 0) return [];
 
     return data.map((row: any): Client => ({
       id: String(row.id),
+      companyId: row.company_id || undefined,
       name: row.name || row.nome || row.razao_social || row.nome_fantasia || 'Cliente',
       farmName: row.farm_name || row.fazenda || '',
       cpfCnpj: row.cpf_cnpj || row.cpf || row.cnpj || '',
@@ -468,6 +508,7 @@ export async function upsertCliente(client: Client): Promise<boolean> {
   try {
     const standardPayload: any = {
       id: toValidUUID(client.id),
+      company_id: client.companyId || getActiveCompanyId(),
       name: client.name,
       farm_name: client.farmName || '',
       cpf_cnpj: client.cpfCnpj || '',
@@ -487,6 +528,11 @@ export async function upsertCliente(client: Client): Promise<boolean> {
       .upsert(standardPayload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete standardPayload.company_id;
+        const retry = await supabase.from('clientes').upsert(standardPayload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       // Fallback para esquemas com nomes em português ou colunas simplificadas
       const fallbackPayload: any = {
         email: client.email || undefined,
@@ -553,26 +599,34 @@ export async function fetchRhFuncionarios(): Promise<Employee[] | null> {
 export async function upsertRhFuncionario(employee: Employee): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
+    const payload: Record<string, any> = {
+      id: toValidUUID(employee.id),
+      company_id: employee.companyId || getActiveCompanyId(),
+      name: employee.name,
+      role: employee.role,
+      cpf: employee.cpf || '',
+      phone: employee.phone || '',
+      email: '',
+      status: employee.status || 'ativo',
+      registration_type: employee.registrationType || 'Funcionário',
+      salary: Number(employee.salary || employee.baseSalary) || 0,
+      admission_date: employee.admissionDate || null,
+      driver_license: employee.cnhNumber || '',
+      license_category: employee.cnhCategory || '',
+      license_expiry: employee.cnhExpiration || null,
+      updated_at: new Date().toISOString()
+    };
+
+    let { error } = await supabase
       .from('rh_funcionarios')
-      .upsert({
-        id: toValidUUID(employee.id),
-        name: employee.name,
-        role: employee.role,
-        cpf: employee.cpf || '',
-        phone: employee.phone || '',
-        email: '',
-        status: employee.status || 'ativo',
-        registration_type: employee.registrationType || 'Funcionário',
-        salary: Number(employee.salary || employee.baseSalary) || 0,
-        admission_date: employee.admissionDate || null,
-        driver_license: employee.cnhNumber || '',
-        license_category: employee.cnhCategory || '',
-        license_expiry: employee.cnhExpiration || null,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('rh_funcionarios').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       console.warn('Supabase upsertRhFuncionario notice:', error.message);
       return false;
     }
@@ -618,6 +672,7 @@ export async function upsertGestaoFrota(vehicle: Machinery): Promise<boolean> {
   try {
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
+      company_id: vehicle.companyId || getActiveCompanyId(),
       name: vehicle.name,
       type: vehicle.categoryType || 'maquina',
       model: vehicle.model,
@@ -636,8 +691,8 @@ export async function upsertGestaoFrota(vehicle: Machinery): Promise<boolean> {
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      // Se a tabela remota ainda não tiver a coluna fleet_number, tenta salvar sem ela
-      if (error.message && (error.message.includes('fleet_number') || error.message.includes('column') || error.message.includes('schema cache'))) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('fleet_number') || error.message.includes('column'))) {
+        delete payload.company_id;
         delete payload.fleet_number;
         const retry = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
@@ -743,35 +798,54 @@ export async function syncAllDataToSupabase(payload: {
   return stats;
 }
 
-export async function fetchAllDataFromSupabase() {
+export async function fetchAllDataFromSupabase(companyId?: string) {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
   try {
+    const queryTable = async (tableName: string) => {
+      try {
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .or(`company_id.eq.${activeCompanyId},company_id.eq.company_default_fazenda,company_id.is.null`)
+          .limit(500);
+
+        if (!error && data) return data;
+
+        // Fallback caso a coluna company_id ainda não exista na tabela do Supabase
+        const fallback = await supabase.from(tableName).select('*').limit(500);
+        return fallback.data || [];
+      } catch {
+        return [];
+      }
+    };
+
     const [
-      clientesRes,
-      fornecedoresRes,
-      estoqueRes,
-      notasFiscaisRes,
-      contasPagarRes,
-      rhRes,
-      frotasRes
+      clientes,
+      fornecedores,
+      estoque,
+      notas_fiscais,
+      contas_a_pagar,
+      rh_funcionarios,
+      gestao_frotas
     ] = await Promise.all([
-      supabase.from('clientes').select('*').limit(500),
-      supabase.from('fornecedores').select('*').limit(500),
-      supabase.from('estoque').select('*').limit(500),
-      supabase.from('notas_fiscais').select('*').limit(500),
-      supabase.from('contas_a_pagar').select('*').limit(500),
-      supabase.from('rh_funcionarios').select('*').limit(500),
-      supabase.from('gestao_frotas').select('*').limit(500)
+      queryTable('clientes'),
+      queryTable('fornecedores'),
+      queryTable('estoque'),
+      queryTable('notas_fiscais'),
+      queryTable('contas_a_pagar'),
+      queryTable('rh_funcionarios'),
+      queryTable('gestao_frotas')
     ]);
 
     return {
-      clientes: clientesRes.data || [],
-      fornecedores: fornecedoresRes.data || [],
-      estoque: estoqueRes.data || [],
-      notas_fiscais: notasFiscaisRes.data || [],
-      contas_a_pagar: contasPagarRes.data || [],
-      rh_funcionarios: rhRes.data || [],
-      gestao_frotas: frotasRes.data || []
+      clientes,
+      fornecedores,
+      estoque,
+      notas_fiscais,
+      contas_a_pagar,
+      rh_funcionarios,
+      gestao_frotas
     };
   } catch (err) {
     console.warn('Supabase fetchAllDataFromSupabase notice:', err);
@@ -843,8 +917,9 @@ export async function upsertAgendamento(app: ServiceAppointment): Promise<boolea
     const uuid = toValidUUID(app.id);
     const clientUuid = app.clientId ? toValidUUID(app.clientId) : null;
 
-    const payload = {
+    const payload: Record<string, any> = {
       id: uuid,
+      company_id: app.companyId || getActiveCompanyId(),
       appointment_number: app.appointmentNumber || null,
       client_id: clientUuid,
       client_name: app.clientName,
@@ -879,6 +954,11 @@ export async function upsertAgendamento(app: ServiceAppointment): Promise<boolea
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('agendamentos').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       console.warn('Supabase upsertAgendamento notice:', error.message);
       return false;
     }
@@ -1009,15 +1089,27 @@ export async function upsertFrente(front: {
 export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
   if (!isSupabaseConfigured) return null;
   try {
-    const { data, error } = await supabase
+    // 1. Busca direta pública na tabela site_settings
+    let { data, error } = await supabase
       .from('site_settings')
       .select('*')
-      .eq('id', 'global')
+      .limit(1)
       .maybeSingle();
 
     if (error) {
-      console.warn('Supabase fetchCloudSiteConfig notice:', error.message);
-      return null;
+      // Fallback para configuracoes_site
+      const fallback = await supabase
+        .from('configuracoes_site')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      if (!fallback.error && fallback.data) {
+        data = fallback.data;
+        error = null;
+      } else {
+        console.warn('Supabase fetchCloudSiteConfig notice:', error.message);
+        return null;
+      }
     }
 
     if (!data) return null;
@@ -1071,11 +1163,15 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.feature4Title !== undefined) payload.feature4_title = config.feature4Title;
     if (config.feature4Desc !== undefined) payload.feature4_desc = config.feature4Desc;
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('site_settings')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      const fallback = await supabase
+        .from('configuracoes_site')
+        .upsert(payload, { onConflict: 'id' });
+      if (!fallback.error) return true;
       console.warn('Supabase upsertCloudSiteConfig notice:', error.message);
       return false;
     }
@@ -1093,14 +1189,24 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
 export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
-    const { data, error } = await supabase
+    // Busca pública e irrestrita sem filtro de usuário
+    let { data, error } = await supabase
       .from('plans')
       .select('*')
       .order('display_order', { ascending: true });
 
     if (error) {
-      console.warn('Supabase fetchCloudPlans notice:', error.message);
-      return null;
+      const fallback = await supabase
+        .from('planos')
+        .select('*')
+        .order('display_order', { ascending: true });
+      if (!fallback.error && fallback.data && fallback.data.length > 0) {
+        data = fallback.data;
+        error = null;
+      } else {
+        console.warn('Supabase fetchCloudPlans notice:', error.message);
+        return null;
+      }
     }
 
     if (!data || data.length === 0) return null;
@@ -1149,11 +1255,15 @@ export async function upsertCloudPlan(plan: PlanDefinition): Promise<boolean> {
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('plans')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      const fallback = await supabase
+        .from('planos')
+        .upsert(payload, { onConflict: 'id' });
+      if (!fallback.error) return true;
       console.warn('Supabase upsertCloudPlan notice:', error.message);
       return false;
     }

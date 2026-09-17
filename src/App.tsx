@@ -66,7 +66,8 @@ import {
   saveStoredLeaves,
   getStoredSalaryAdvances,
   saveStoredSalaryAdvances,
-  formatCurrencyBRL
+  formatCurrencyBRL,
+  getActiveCompanyId
 } from './lib/storage';
 import { useConfirm } from './context/ConfirmContext';
 
@@ -241,9 +242,11 @@ export default function App() {
   // When app boots or auth state is established, if Supabase cloud data exists, fetch it and populate
   useEffect(() => {
     let isMounted = true;
+    const activeCompanyId = getActiveCompanyId(companyProfile);
+
     (async () => {
       try {
-        const cloudData = await fetchAllDataFromSupabase();
+        const cloudData = await fetchAllDataFromSupabase(activeCompanyId);
         if (cloudData && isMounted) {
           if (cloudData.clientes && cloudData.clientes.length > 0) {
             setClients(prev => {
@@ -310,9 +313,9 @@ export default function App() {
       }
     })();
 
-    // Assinatura em tempo real para sincronização instantânea de clientes entre múltiplos dispositivos
+    // Assinaturas em tempo real para sincronização instantânea entre múltiplos dispositivos
     const unsubClientes = subscribeToCloudTable('clientes', () => {
-      fetchClientes().then(fresh => {
+      fetchClientes(activeCompanyId).then(fresh => {
         if (fresh && fresh.length > 0 && isMounted) {
           setClients(fresh);
         }
@@ -323,7 +326,7 @@ export default function App() {
       isMounted = false; 
       unsubClientes();
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, companyProfile?.cnpjCpf, companyProfile?.email]);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
 

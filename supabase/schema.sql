@@ -285,6 +285,107 @@ BEGIN
 END $$;
 
 -- ==============================================================================
+-- 8. TABELAS: Master Admin, Assinantes & Landing Page
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.subscribers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    responsible_email TEXT NOT NULL,
+    password_hash TEXT,
+    trial_until DATE,
+    cpf_cnpj TEXT,
+    state_registration TEXT,
+    phone TEXT,
+    cep TEXT,
+    street TEXT,
+    number TEXT,
+    neighborhood TEXT,
+    city TEXT,
+    state TEXT,
+    plan_id TEXT,
+    plan_name TEXT,
+    monthly_value NUMERIC(15,2) DEFAULT 0,
+    status TEXT DEFAULT 'trial',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    price NUMERIC(15,2) NOT NULL,
+    billing_cycle TEXT DEFAULT 'mensal',
+    badge TEXT,
+    is_featured BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    display_order INTEGER DEFAULT 1,
+    limits JSONB DEFAULT '{}'::jsonb,
+    features_text TEXT,
+    checkout_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.site_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    hero_title TEXT,
+    hero_subtitle TEXT,
+    hero_primary_btn_text TEXT,
+    hero_secondary_btn_text TEXT,
+    hero_background_image TEXT,
+    features_section_title TEXT,
+    features_section_subtitle TEXT,
+    features_highlight_image TEXT,
+    feature1_title TEXT,
+    feature1_desc TEXT,
+    feature2_title TEXT,
+    feature2_desc TEXT,
+    feature3_title TEXT,
+    feature3_desc TEXT,
+    feature4_title TEXT,
+    feature4_desc TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ==============================================================================
+-- 9. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa
+-- ==============================================================================
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.fornecedores ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.notas_fiscais ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
+
+-- ==============================================================================
+-- 10. POLÍTICAS RLS E ACESSO PÚBLICO (ANON) PARA LANDING PAGE E PLANOS
+-- ==============================================================================
+ALTER TABLE public.subscribers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "Permissao Total Plans" ON public.plans;
+    DROP POLICY IF EXISTS "Leitura Publica Plans" ON public.plans;
+    CREATE POLICY "Permissao Total Plans" ON public.plans FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Permissao Total Site Settings" ON public.site_settings;
+    DROP POLICY IF EXISTS "Leitura Publica Site Settings" ON public.site_settings;
+    CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Permissao Total Subscribers" ON public.subscribers;
+    CREATE POLICY "Permissao Total Subscribers" ON public.subscribers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+END $$;
+
+-- ==============================================================================
 -- PUBLICAÇÃO REALTIME (SUPABASE REALTIME)
 -- Permite que alterações no banco sejam sincronizadas em tempo real nas 11 telas
 -- ==============================================================================
@@ -298,9 +399,11 @@ BEGIN
             public.estoque,
             public.clientes,
             public.rh_funcionarios,
-            public.gestao_frotas;
+            public.gestao_frotas,
+            public.plans,
+            public.site_settings;
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
-        NULL; -- Ignora se já estiverem adicionadas ou em ambiente restrito
+        NULL;
 END $$;
