@@ -9,14 +9,16 @@ import {
 import { CompanyProfile } from '../types';
 import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
 
-// Chaves de armazenamento localStorage
-export const LANDING_PAGE_SETTINGS_KEY = 'landingPageSettings';
+// Chaves de armazenamento localStorage principais e padronizadas
+export const AGROCONTROL_SITE_SETTINGS_KEY = 'agrocontrol_site_settings';
 export const AGROCONTROL_PLANS_DATA_KEY = 'agrocontrol_plans_data';
+export const LANDING_PAGE_SETTINGS_KEY = 'landingPageSettings';
 
 const STORAGE_KEYS = {
   SUBSCRIBERS: 'silagem_master_subscribers_v2',
-  SITE_CONFIG: 'silagem_master_site_config_v1',
-  LANDING_PAGE_SETTINGS: 'landingPageSettings',
+  SITE_SETTINGS: 'agrocontrol_site_settings',
+  LEGACY_SITE_CONFIG: 'silagem_master_site_config_v1',
+  LEGACY_LANDING_PAGE_SETTINGS: 'landingPageSettings',
   PLANS: 'agrocontrol_plans_data',
   LEGACY_PLANS: 'silagem_master_plans_v1',
   SETTINGS: 'silagem_master_settings_v1',
@@ -187,12 +189,17 @@ export function saveStoredSubscribers(subscribers: Subscriber[]): void {
 export function getStoredSiteConfig(): SiteConfig {
   try {
     if (typeof localStorage === 'undefined') return DEFAULT_SITE_CONFIG;
-    // Tenta ler prioritariamente da chave centralizada 'landingPageSettings' ou da chave de compatibilidade
-    const raw = localStorage.getItem(LANDING_PAGE_SETTINGS_KEY) || localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
+    // Tenta ler prioritariamente da chave centralizada e padronizada 'agrocontrol_site_settings'
+    const raw = 
+      localStorage.getItem(AGROCONTROL_SITE_SETTINGS_KEY) || 
+      localStorage.getItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS) || 
+      localStorage.getItem(STORAGE_KEYS.LEGACY_SITE_CONFIG);
+
     if (!raw) {
       const defStr = JSON.stringify(DEFAULT_SITE_CONFIG);
-      localStorage.setItem(LANDING_PAGE_SETTINGS_KEY, defStr);
-      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, defStr);
+      localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, defStr);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, defStr);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, defStr);
       return DEFAULT_SITE_CONFIG;
     }
     const parsed = JSON.parse(raw);
@@ -224,11 +231,16 @@ export function saveStoredSiteConfig(config: SiteConfig): void {
   try {
     if (typeof localStorage !== 'undefined') {
       const serialized = JSON.stringify(config);
-      // Salva estritamente na chave centralizada 'landingPageSettings' e na chave legada para redundância
-      localStorage.setItem(LANDING_PAGE_SETTINGS_KEY, serialized);
-      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, serialized);
+      // Salva obrigatoriamente na chave principal 'agrocontrol_site_settings' e nas chaves legadas para compatibilidade total
+      localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
     }
     notifyDataChanged(config);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: config }));
+      window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail: config }));
+    }
   } catch (e) {
     console.error('Failed to save site config:', e);
   }

@@ -48,7 +48,8 @@ import {
   computeMasterMetrics,
   getStoredMasterSession,
   clearStoredMasterSession,
-  AGROCONTROL_PLANS_DATA_KEY
+  AGROCONTROL_PLANS_DATA_KEY,
+  AGROCONTROL_SITE_SETTINGS_KEY
 } from '../../lib/masterAdminStorage';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
@@ -121,6 +122,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       if (
         e.key === AGROCONTROL_PLANS_DATA_KEY ||
         e.key === 'silagem_master_plans_v1' ||
+        e.key === AGROCONTROL_SITE_SETTINGS_KEY ||
         e.key === 'landingPageSettings' ||
         e.key === 'silagem_master_site_config_v1'
       ) {
@@ -129,11 +131,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     };
 
     window.addEventListener('master_admin_data_changed', handleSync);
+    window.addEventListener('agrocontrol_site_settings_updated', handleSync);
     window.addEventListener('landing_page_settings_updated', handleSync);
     window.addEventListener('agrocontrol_plans_updated', handleSync);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('master_admin_data_changed', handleSync);
+      window.removeEventListener('agrocontrol_site_settings_updated', handleSync);
       window.removeEventListener('landing_page_settings_updated', handleSync);
       window.removeEventListener('agrocontrol_plans_updated', handleSync);
       window.removeEventListener('storage', handleStorage);
@@ -301,15 +305,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       // 1. Atualização do estado local imediato
       setSiteConfig(siteForm);
 
-      // 2. Persistência na chave centralizada 'landingPageSettings' e no storage geral
+      // 2. Persistência na chave padronizada 'agrocontrol_site_settings' e legadas
       if (typeof localStorage !== 'undefined') {
         const serialized = JSON.stringify(siteForm);
+        localStorage.setItem('agrocontrol_site_settings', serialized);
         localStorage.setItem('landingPageSettings', serialized);
       }
       saveStoredSiteConfig(siteForm);
 
       // 3. Notificação global de sincronização para a Landing Page
       if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: siteForm }));
         window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail: siteForm }));
         window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: siteForm }));
       }

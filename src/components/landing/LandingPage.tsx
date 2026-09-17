@@ -22,8 +22,10 @@ import {
   getStoredLandingSettings, 
   getStoredPlans, 
   DEFAULT_SITE_CONFIG,
-  LANDING_PAGE_SETTINGS_KEY,
-  AGROCONTROL_PLANS_DATA_KEY
+  DEFAULT_PLANS,
+  AGROCONTROL_SITE_SETTINGS_KEY,
+  AGROCONTROL_PLANS_DATA_KEY,
+  LANDING_PAGE_SETTINGS_KEY
 } from '../../lib/masterAdminStorage';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
@@ -38,12 +40,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenMasterAdmin,
   onNavigateToAuth,
 }) => {
-  // Leitura dinâmica inicial buscando prioritariamente de landingPageSettings e agrocontrol_plans_data
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
+  // Leitura dinâmica inicial buscando prioritariamente de agrocontrol_site_settings e agrocontrol_plans_data
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = 
+          localStorage.getItem('agrocontrol_site_settings') || 
+          localStorage.getItem(AGROCONTROL_SITE_SETTINGS_KEY) || 
+          localStorage.getItem(LANDING_PAGE_SETTINGS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return { ...DEFAULT_SITE_CONFIG, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao ler agrocontrol_site_settings na inicialização:', e);
+    }
+    return getStoredSiteConfig();
+  });
+
   const [plans, setPlans] = useState<PlanDefinition[]>(() => {
     try {
       if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || localStorage.getItem('silagem_master_plans_v1');
+        const raw = 
+          localStorage.getItem('agrocontrol_plans_data') || 
+          localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || 
+          localStorage.getItem('silagem_master_plans_v1');
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -57,40 +79,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   // Leitura Obrigatória na Landing Page Pública dentro de useEffect e sincronização em tempo real
   useEffect(() => {
-    // 1. Busca obrigatória dos dados salvos em localStorage.getItem('agrocontrol_plans_data')
-    const loadPlansFromStorage = () => {
+    // 1. Busca obrigatória dos dados salvos nas chaves agrocontrol_site_settings e agrocontrol_plans_data
+    const loadAllFromStorage = () => {
       try {
         if (typeof localStorage !== 'undefined') {
-          const raw = localStorage.getItem('agrocontrol_plans_data') || localStorage.getItem('silagem_master_plans_v1');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setPlans(parsed);
-              return;
+          // A) Configurações do site (Hero, títulos, textos, recursos, imagem de fundo)
+          const rawSite = 
+            localStorage.getItem('agrocontrol_site_settings') || 
+            localStorage.getItem(AGROCONTROL_SITE_SETTINGS_KEY) || 
+            localStorage.getItem(LANDING_PAGE_SETTINGS_KEY);
+          if (rawSite) {
+            const parsedSite = JSON.parse(rawSite);
+            setSiteConfig({ ...DEFAULT_SITE_CONFIG, ...parsedSite });
+          } else {
+            setSiteConfig(getStoredSiteConfig());
+          }
+
+          // B) Lista de planos, preços e recursos
+          const rawPlans = 
+            localStorage.getItem('agrocontrol_plans_data') || 
+            localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || 
+            localStorage.getItem('silagem_master_plans_v1');
+          if (rawPlans) {
+            const parsedPlans = JSON.parse(rawPlans);
+            if (Array.isArray(parsedPlans) && parsedPlans.length > 0) {
+              setPlans(parsedPlans);
+            } else {
+              setPlans(getStoredPlans());
             }
+          } else {
+            setPlans(getStoredPlans());
           }
         }
       } catch (err) {
-        console.error('Erro ao carregar dados de agrocontrol_plans_data na Landing Page:', err);
+        console.error('Erro ao recarregar dados do localStorage na Landing Page:', err);
+        setSiteConfig(getStoredSiteConfig());
+        setPlans(getStoredPlans());
       }
-      setPlans(getStoredPlans());
     };
 
     // Executa obrigatoriamente na montagem
-    loadPlansFromStorage();
+    loadAllFromStorage();
 
     // 2. CustomEvents da mesma janela (Master Admin alterado na mesma aba/janela)
-    const handleSync = (e?: any) => {
+    const handleSiteUpdated = (e: any) => {
       if (e?.detail) {
-        if (Array.isArray(e.detail)) {
-          setPlans(e.detail);
-        } else {
-          setSiteConfig((prev) => ({ ...prev, ...e.detail }));
-          loadPlansFromStorage();
-        }
+        setSiteConfig((prev) => ({ ...prev, ...e.detail }));
       } else {
-        setSiteConfig(getStoredLandingSettings());
-        loadPlansFromStorage();
+        loadAllFromStorage();
       }
     };
 
@@ -98,16 +134,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       if (e?.detail && Array.isArray(e.detail)) {
         setPlans(e.detail);
       } else {
-        loadPlansFromStorage();
+        loadAllFromStorage();
       }
     };
 
-    // 3. Event listener para o evento nativo 'storage' da window (outras abas/janelas)
+    const handleSync = (e?: any) => {
+      if (e?.detail) {
+        if (Array.isArray(e.detail)) {
+          setPlans(e.detail);
+        } else if (typeof e.detail === 'object') {
+          setSiteConfig((prev) => ({ ...prev, ...e.detail }));
+        }
+      } else {
+        loadAllFromStorage();
+      }
+    };
+
+    // 3. Event listener para o evento nativo 'storage' da window (para sincronia instantânea entre abas)
     const handleStorageChange = (e: StorageEvent) => {
       if (
+        e.key === 'agrocontrol_site_settings' || 
+        e.key === AGROCONTROL_SITE_SETTINGS_KEY ||
+        e.key === LANDING_PAGE_SETTINGS_KEY || 
+        e.key === 'silagem_master_site_config_v1'
+      ) {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            setSiteConfig((prev) => ({ ...prev, ...parsed }));
+          } catch (err) {
+            loadAllFromStorage();
+          }
+        } else {
+          loadAllFromStorage();
+        }
+      } else if (
         e.key === 'agrocontrol_plans_data' || 
-        e.key === 'silagem_master_plans_v1' ||
-        e.key === AGROCONTROL_PLANS_DATA_KEY
+        e.key === AGROCONTROL_PLANS_DATA_KEY ||
+        e.key === 'silagem_master_plans_v1'
       ) {
         if (e.newValue) {
           try {
@@ -120,24 +184,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             console.error('Erro ao processar storage event de planos:', err);
           }
         }
-        loadPlansFromStorage();
-      } else if (
-        e.key === LANDING_PAGE_SETTINGS_KEY || 
-        e.key === 'silagem_master_site_config_v1'
-      ) {
-        setSiteConfig(getStoredLandingSettings());
+        loadAllFromStorage();
       }
     };
 
+    window.addEventListener('agrocontrol_site_settings_updated', handleSiteUpdated);
+    window.addEventListener('landing_page_settings_updated', handleSiteUpdated);
     window.addEventListener('agrocontrol_plans_updated', handlePlansUpdated);
     window.addEventListener('master_admin_data_changed', handleSync);
-    window.addEventListener('landing_page_settings_updated', handleSync);
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
+      window.removeEventListener('agrocontrol_site_settings_updated', handleSiteUpdated);
+      window.removeEventListener('landing_page_settings_updated', handleSiteUpdated);
       window.removeEventListener('agrocontrol_plans_updated', handlePlansUpdated);
       window.removeEventListener('master_admin_data_changed', handleSync);
-      window.removeEventListener('landing_page_settings_updated', handleSync);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);

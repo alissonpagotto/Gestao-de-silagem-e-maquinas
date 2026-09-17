@@ -38,7 +38,8 @@ import {
   getStoredLandingSettings,
   DEFAULT_SITE_CONFIG,
   LANDING_PAGE_SETTINGS_KEY,
-  AGROCONTROL_PLANS_DATA_KEY
+  AGROCONTROL_PLANS_DATA_KEY,
+  AGROCONTROL_SITE_SETTINGS_KEY
 } from '../../lib/masterAdminStorage';
 import { PlanDefinition, SubscriberStatus, SiteConfig } from '../../types/masterAdmin';
 import { CompanyProfile } from '../../types';
@@ -135,6 +136,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         e.key === AGROCONTROL_PLANS_DATA_KEY ||
         e.key === 'agrocontrol_plans_data' ||
         e.key === 'silagem_master_plans_v1' ||
+        e.key === AGROCONTROL_SITE_SETTINGS_KEY ||
+        e.key === 'agrocontrol_site_settings' ||
         e.key === LANDING_PAGE_SETTINGS_KEY || 
         e.key === 'silagem_master_site_config_v1'
       ) {
@@ -144,12 +147,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     window.addEventListener('popstate', handleUrlChange);
     window.addEventListener('master_admin_data_changed', handleDataChange);
+    window.addEventListener('agrocontrol_site_settings_updated', handleDataChange);
     window.addEventListener('landing_page_settings_updated', handleDataChange);
     window.addEventListener('agrocontrol_plans_updated', handleDataChange);
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('master_admin_data_changed', handleDataChange);
+      window.removeEventListener('agrocontrol_site_settings_updated', handleDataChange);
       window.removeEventListener('landing_page_settings_updated', handleDataChange);
       window.removeEventListener('agrocontrol_plans_updated', handleDataChange);
       window.removeEventListener('storage', handleStorageChange);
