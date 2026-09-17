@@ -126,12 +126,12 @@ const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [
     travelTimeMinutes: 45,
     trailerLoadingTimeMinutes: 30,
     areaUnit: 'hectares',
-    estimatedQuantity: 28,
+    estimatedQuantity: 15,
     productivityRatePerHour: 1.6,
-    executionTimeMinutes: 1050, // 17h30min
-    totalTimeMinutes: 1125, // 18h45min
-    endDate: '2026-09-19',
-    endTime: '01:45',
+    executionTimeMinutes: 562, 
+    totalTimeMinutes: 664, 
+    endDate: '2026-09-18',
+    endTime: '16:10',
     primaryMachineryId: 'mach-01',
     primaryMachineryPrefix: 'MAQ-01 - John Deere 8500i',
     primaryMachineryPlate: 'MAQ-01',
@@ -206,13 +206,13 @@ const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [
     startTime: '08:00',
     travelTimeMinutes: 60,
     trailerLoadingTimeMinutes: 40,
-    areaUnit: 'hectares',
-    estimatedQuantity: 18,
+    areaUnit: 'alqueires',
+    estimatedQuantity: 10,
     productivityRatePerHour: 1.5,
-    executionTimeMinutes: 720, // 12h
-    totalTimeMinutes: 820, // 13h40min
+    executionTimeMinutes: 462, 
+    totalTimeMinutes: 562, // 9h22min
     endDate: '2026-09-20',
-    endTime: '21:40',
+    endTime: '17:22',
     primaryMachineryId: 'mach-02',
     primaryMachineryPrefix: 'MAQ-02 - CLAAS JAGUAR 860',
     primaryMachineryPlate: 'MAQ-02',
@@ -347,7 +347,17 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     const concluidos = appointments.filter(a => a.status === 'concluido').length;
     const totalHectares = appointments
       .filter(a => a.status !== 'cancelado')
-      .reduce((acc, a) => acc + (a.areaUnit === 'hectares' ? a.estimatedQuantity : 0), 0);
+      .reduce((acc, a) => {
+        const qty = Number(a.estimatedQuantity) || 0;
+        const unit = String(a.areaUnit || '').toLowerCase().trim();
+        if (unit === 'alqueires' || unit === 'alq' || unit === 'alqueire') {
+          return acc + (qty * 2.42);
+        }
+        if (unit === 'hectares' || unit === 'ha' || unit === 'hectare') {
+          return acc + qty;
+        }
+        return acc;
+      }, 0);
 
     return { total, agendados, emExecucao, concluidos, totalHectares };
   }, [appointments]);
@@ -1211,7 +1221,17 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                 const isDragOver = dragOverColId === col.id;
                 const totalHectaresCol = colAppointments
                   .filter(a => a.status !== 'cancelado')
-                  .reduce((sum, a) => sum + (a.areaUnit === 'hectares' ? a.estimatedQuantity : 0), 0);
+                  .reduce((sum, a) => {
+                    const qty = Number(a.estimatedQuantity) || 0;
+                    const unit = String(a.areaUnit || '').toLowerCase().trim();
+                    if (unit === 'alqueires' || unit === 'alq' || unit === 'alqueire') {
+                      return sum + (qty * 2.42);
+                    }
+                    if (unit === 'hectares' || unit === 'ha' || unit === 'hectare') {
+                      return sum + qty;
+                    }
+                    return sum;
+                  }, 0);
 
                 return (
                   <div
