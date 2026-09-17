@@ -10,7 +10,9 @@ import {
   Tractor, 
   Scissors,
   Save,
-  Phone
+  Phone,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { CompanyProfile, Machinery, Employee, Client } from '../../types';
 
@@ -118,7 +120,8 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     placa: '',
     motorista: '',
     maquina: '',
-    selectedLoads: new Set<number>(),
+    // Mapa: { [numeroCarga]: '14:32' }
+    loadsRecord: {} as Record<number, string>,
     qtdeCargasLonge: '',
     km: '',
     // Seção Acoplada de Abastecimento
@@ -131,15 +134,49 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
     abastObs: '',
   });
 
-  // Toggle do grid de 01 a 64
-  const toggleLoadCell = (num: number) => {
-    const next = new Set(f3Data.selectedLoads);
-    if (next.has(num)) {
-      next.delete(num);
+  // Estado para confirmação de desmarcação de carga
+  const [loadToUncheck, setLoadToUncheck] = useState<{ num: number; time: string } | null>(null);
+
+  // Clique no botão de carga (Marcar direto ou abrir modal de confirmação para desmarcar)
+  const handleLoadClick = (num: number) => {
+    const existingTime = f3Data.loadsRecord[num];
+
+    if (existingTime) {
+      // Já está marcada: abre o popup/modal de confirmação
+      setLoadToUncheck({ num, time: existingTime });
     } else {
-      next.add(num);
+      // Disponível: registra a hora atual no padrão HH:mm
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${hours}:${minutes}`;
+
+      setF3Data(prev => ({
+        ...prev,
+        loadsRecord: {
+          ...prev.loadsRecord,
+          [num]: currentTime,
+        },
+      }));
     }
-    setF3Data(prev => ({ ...prev, selectedLoads: next }));
+  };
+
+  // Confirmar a desmarcação da carga no modal
+  const confirmUncheckLoad = () => {
+    if (!loadToUncheck) return;
+    const targetNum = loadToUncheck.num;
+
+    setF3Data(prev => {
+      const updated = { ...prev.loadsRecord };
+      delete updated[targetNum];
+      return { ...prev, loadsRecord: updated };
+    });
+
+    setLoadToUncheck(null);
+  };
+
+  const cancelUncheckLoad = () => {
+    setLoadToUncheck(null);
   };
 
   const handlePrint = () => {
@@ -956,40 +993,50 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
               />
             </div>
 
-            {/* PAINEL DE BOTÕES DE 01 A 64: Cargas Selecionáveis em Tempo Real */}
+            {/* PAINEL DE BOTÕES DE 01 A 64: Cargas Selecionáveis em Tempo Real com Registro de Horário */}
             <div className="pt-1">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-stone-800">
-                  Cargas: <span className="text-[#188038] font-black">({f3Data.selectedLoads.size} marcadas)</span>
+                  Cargas: <span className="text-[#188038] font-black">({Object.keys(f3Data.loadsRecord).length} marcadas)</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setF3Data(prev => ({ ...prev, selectedLoads: new Set() }))}
-                  className="text-[10px] text-stone-500 hover:text-rose-600 underline font-semibold cursor-pointer"
-                >
-                  Limpar todas
-                </button>
+                {Object.keys(f3Data.loadsRecord).length > 0 && (
+                  <span className="text-[11px] text-stone-500 font-medium">
+                    Toque no número para marcar com horário automático. Toque novamente para desmarcar.
+                  </span>
+                )}
               </div>
 
-              {/* Grid 8 colunas de botões numéricos com visual do bloco impresso */}
-              <div className="grid grid-cols-8 sm:grid-cols-13 gap-1 p-2 bg-stone-100 rounded-lg border border-stone-300">
+              {/* Grid de botões numéricos com visual idêntico ao bloco impresso */}
+              <div className="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-8 lg:grid-cols-8 xl:grid-cols-8 gap-1.5 p-2 bg-stone-100 rounded-lg border border-stone-300">
                 {Array.from({ length: 64 }, (_, i) => i + 1).map(num => {
                   const numStr = num < 10 ? `0${num}` : `${num}`;
-                  const isChecked = f3Data.selectedLoads.has(num);
+                  const recordTime = f3Data.loadsRecord[num];
+                  const isChecked = !!recordTime;
 
                   return (
                     <button
                       key={num}
                       type="button"
-                      onClick={() => toggleLoadCell(num)}
-                      className={`h-7 rounded border font-mono font-bold text-xs flex items-center justify-center transition cursor-pointer select-none ${
+                      onClick={() => handleLoadClick(num)}
+                      className={`min-h-[38px] py-1 px-1 rounded-md border font-mono transition cursor-pointer select-none flex flex-col items-center justify-center leading-none ${
                         isChecked
-                          ? 'bg-[#188038] text-white border-[#188038] shadow-xs scale-105'
+                          ? 'bg-[#188038] text-white border-[#188038] shadow-xs'
                           : 'bg-white text-stone-800 border-stone-400 hover:bg-stone-200'
                       }`}
-                      title={`Carga ${numStr} - ${isChecked ? 'Marcada' : 'Pendente'}`}
+                      title={
+                        isChecked
+                          ? `Carga ${numStr} registrada às ${recordTime}h (Clique para desmarcar)`
+                          : `Clique para registrar Carga ${numStr}`
+                      }
                     >
-                      {numStr}
+                      <span className="font-black text-xs tracking-tight">{numStr}</span>
+                      {isChecked ? (
+                        <span className="text-[10px] font-semibold text-emerald-100 mt-0.5 tracking-tighter">
+                          {recordTime}h
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-transparent mt-0.5 select-none">--:--</span>
+                      )}
                     </button>
                   );
                 })}
@@ -1113,6 +1160,74 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
         )}
 
       </div>
+
+      {/* MODAL DE CONFIRMAÇÃO PARA DESMARCAR CARGA */}
+      {loadToUncheck && (
+        <div 
+          id="modal-confirm-uncheck-load" 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 border border-stone-200 text-stone-900 space-y-4">
+            
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900">
+                    Confirmar Desmarcação de Carga
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Controle de Cargas (Silagem)
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                type="button"
+                onClick={cancelUncheckLoad}
+                className="text-stone-400 hover:text-stone-600 p-1 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-700 space-y-1.5">
+              <p className="font-semibold text-stone-900">
+                Deseja realmente desmarcar e remover o registro da{' '}
+                <span className="text-[#188038] font-black">
+                  Carga Nº {loadToUncheck.num < 10 ? `0${loadToUncheck.num}` : loadToUncheck.num}
+                </span>{' '}
+                gravada às{' '}
+                <span className="font-bold text-stone-900">{loadToUncheck.time}h</span>?
+              </p>
+              <p className="text-[11px] text-stone-500">
+                O botão voltará ao estado limpo (branco) e o horário será apagado.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={cancelUncheckLoad}
+                className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              
+              <button
+                type="button"
+                onClick={confirmUncheckLoad}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition cursor-pointer"
+              >
+                Sim, desmarcar carga
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
