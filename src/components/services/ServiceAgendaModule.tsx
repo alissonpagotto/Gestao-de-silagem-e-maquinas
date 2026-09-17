@@ -46,6 +46,7 @@ import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
 import { ForageHarvesterIcon } from '../fleet/ForageHarvesterIcon';
 import { VehicleSearchModal } from './VehicleSearchModal';
+import { ServiceCalendarView } from './ServiceCalendarView';
 
 interface ServiceAgendaModuleProps {
   machineries?: Machinery[];
@@ -262,7 +263,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   });
 
   // Filtros e Visualização
-  const [viewMode, setViewMode] = useState<'cronograma' | 'frotas' | 'tabela'>('cronograma');
+  const [viewMode, setViewMode] = useState<'cronograma' | 'frotas' | 'calendario'>('cronograma');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
   const [dateFilter, setDateFilter] = useState<string>('');
@@ -967,6 +968,33 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     setIsFormOpen(true);
   };
 
+  const handleCreateAppointmentForDate = (dateStr: string) => {
+    setEditAppointment({
+      id: '',
+      appointmentNumber: nextAppointmentNumber,
+      clientId: '',
+      clientName: '',
+      startDate: dateStr,
+      startTime: '08:00',
+      travelTimeMinutes: 45,
+      trailerLoadingTimeMinutes: 30,
+      areaUnit: 'hectares',
+      estimatedQuantity: 15,
+      productivityRatePerHour: 1.5,
+      executionTimeMinutes: 600,
+      totalTimeMinutes: 675,
+      endDate: dateStr,
+      endTime: '19:15',
+      primaryMachineryId: '',
+      primaryMachineryPrefix: '',
+      assignedVehicles: [],
+      assignedTeam: [],
+      status: 'agendado',
+      createdAt: new Date().toISOString()
+    } as ServiceAppointment);
+    setIsFormOpen(true);
+  };
+
   // 1. Confirmação de Exclusão: Abre o alerta de confirmação na tela
   const handleDeleteClick = (appointment: ServiceAppointment) => {
     setAppointmentToDelete(appointment);
@@ -1168,14 +1196,14 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setViewMode('tabela')}
+            onClick={() => setViewMode('calendario')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
-              viewMode === 'tabela'
+              viewMode === 'calendario'
                 ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
                 : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
             }`}
           >
-            3. Lista Completa
+            3. Calendário
           </button>
         </div>
 
@@ -1725,92 +1753,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         </div>
       )}
 
-      {/* VISÃO 3: TABELA COMPLETA */}
-      {viewMode === 'tabela' && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold border-b border-stone-200 dark:border-stone-700">
-                  <th className="p-3">Nº Agendamento</th>
-                  <th className="p-3">Cliente / Fazenda</th>
-                  <th className="p-3">Data & Saída</th>
-                  <th className="p-3">Tempo Total</th>
-                  <th className="p-3">Máquina Principal</th>
-                  <th className="p-3">Frotas de Apoio</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                {filteredAppointments.map(a => (
-                  <tr key={a.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40">
-                    <td className="p-3 font-mono font-bold text-stone-900 dark:text-stone-100">
-                      {a.appointmentNumber}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-extrabold text-stone-900 dark:text-stone-100">{a.clientName}</div>
-                      <div className="text-[11px] text-stone-500">{a.farmName || a.locationCityState}</div>
-                    </td>
-                    <td className="p-3 font-semibold text-stone-800 dark:text-stone-200">
-                      {formatDateBR(a.startDate)} às {a.startTime}h
-                    </td>
-                    <td className="p-3 font-bold text-emerald-800 dark:text-emerald-400">
-                      {formatMinToHoursText(a.totalTimeMinutes)}
-                    </td>
-                    <td className="p-3 font-medium">
-                      <span className="font-bold">{a.primaryMachineryPrefix}</span>
-                      <span className="text-[10px] text-stone-400 block font-mono">{a.primaryMachineryPlate}</span>
-                    </td>
-                    <td className="p-3">
-                      <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-300">
-                        {a.assignedVehicles?.length || 0} veículos
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 border">
-                        {a.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right space-x-1">
-                      <button
-                        type="button"
-                        onClick={() => handleExecuteService(a)}
-                        className="px-2 py-1 bg-emerald-700 text-white rounded font-bold text-[10px] hover:bg-emerald-800"
-                        title="Puxar para corte"
-                      >
-                        Puxar Corte
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPrint(a)}
-                        className="p-1 text-stone-500 hover:text-stone-700"
-                        title="Imprimir Ordem de Campo"
-                      >
-                        <Printer className="w-3.5 h-3.5 inline" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(a)}
-                        className="p-1 text-stone-500 hover:text-stone-700"
-                      >
-                        <Edit className="w-3.5 h-3.5 inline" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteClick(a)}
-                        className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
-                        title="Excluir Agendamento"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 inline" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {/* VISÃO 3: CALENDÁRIO OPERACIONAL */}
+      {viewMode === 'calendario' && (
+        <ServiceCalendarView
+          appointments={filteredAppointments}
+          onSelectAppointment={handleEdit}
+          onCreateAppointmentForDate={handleCreateAppointmentForDate}
+          onExecuteService={handleExecuteService}
+          onPrintAppointment={handleOpenPrint}
+          resolvePrimaryVehicleDisplay={resolvePrimaryVehicleDisplay}
+        />
       )}
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO DE AGENDAMENTO COM CALCULO DE TEMPO E ANTI-SOBREPOSIÇÃO */}
