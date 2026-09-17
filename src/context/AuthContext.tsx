@@ -15,6 +15,7 @@ interface AuthContextType {
   isConnectedToSupabase: boolean;
   isConfigured: boolean;
   signIn: (email?: string, password?: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   isSyncing: boolean;
   setIsSyncing: (val: boolean) => void;
@@ -105,6 +106,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signUp = async (email: string, password: string, displayName?: string) => {
+    try {
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: displayName || email.split('@')[0],
+              name: displayName || email.split('@')[0],
+            }
+          }
+        });
+        if (error) {
+          console.warn('Supabase auth signUp notice:', error.message);
+        }
+        if (data?.user) {
+          const u = data.user;
+          setCurrentUser({
+            uid: u.id,
+            id: u.id,
+            email: u.email,
+            displayName: displayName || u.email?.split('@')[0] || 'Usuário Supabase',
+            photoURL: ''
+          });
+        }
+      } else {
+        // Fallback local session
+        const localUid = `usr_${Date.now()}`;
+        setCurrentUser({
+          uid: localUid,
+          id: localUid,
+          email,
+          displayName: displayName || email.split('@')[0] || 'Usuário Local',
+          photoURL: ''
+        });
+      }
+    } catch (err) {
+      console.warn('Sign up error fallback:', err);
+    }
+  };
+
   const signOutUser = async () => {
     try {
       await supabase.auth.signOut();
@@ -123,6 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isConnectedToSupabase,
         isConfigured: isSupabaseConfigured,
         signIn,
+        signUp,
         signOutUser,
         isSyncing,
         setIsSyncing,

@@ -5,6 +5,8 @@ import {
   AdminSettings, 
   SubscriberStatus 
 } from '../types/masterAdmin';
+import { CompanyProfile } from '../types';
+import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
 
 // Chaves de armazenamento localStorage
 const STORAGE_KEYS = {
@@ -393,3 +395,130 @@ export function computeMasterMetrics(subscribers: Subscriber[]): MasterAdminMetr
     estimatedMrr
   };
 }
+
+// ==========================================
+// 7. REGISTRO AUTOMATIZADO DE NOVOS ASSINANTES
+// ==========================================
+
+export interface CreateSubscriberPayload {
+  name: string;
+  tradeName?: string;
+  responsibleEmail: string;
+  password?: string;
+  phone: string;
+  cpfCnpj: string;
+  stateRegistration?: string;
+  cep: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  representativeName?: string;
+  representativeCpf?: string;
+  planId?: string;
+  status?: SubscriberStatus;
+  trialDays?: number;
+}
+
+/**
+ * Cadastra um novo assinante gerando registro nas tabelas do Admin Mestre
+ * e auto-preenchendo o perfil da empresa (CompanyProfile) para o ERP Gestão de Silagem.
+ */
+export function registerNewSubscriber(payload: CreateSubscriberPayload): { subscriber: Subscriber; companyProfile: CompanyProfile } {
+  const subscribers = getStoredSubscribers();
+  const plans = getStoredPlans();
+
+  // 1. Identificar o plano selecionado pelo ID ou fallback para plano ativo/destaque
+  const selectedPlan = (payload.planId ? plans.find(p => p.id === payload.planId) : null) || 
+                       plans.find(p => p.isFeatured && p.isActive) || 
+                       plans.find(p => p.isActive) || 
+                       plans[0] || {
+                         id: 'plano-pro',
+                         name: 'Frota Pro',
+                         price: 389.00
+                       };
+
+  // 2. Definir expiração do Trial (Padrão 15 dias conforme solicitado)
+  const trialDays = payload.trialDays !== undefined ? payload.trialDays : 15;
+  const trialDate = new Date();
+  trialDate.setDate(trialDate.getDate() + trialDays);
+  const trialUntil = trialDate.toISOString().split('T')[0];
+
+  // 3. Status inicial (TRIAL como padrão, ou ATIVA se vier com pagamento aprovado)
+  const status: SubscriberStatus = payload.status || 'trial';
+
+  // 4. Gerar ID único para o novo assinante
+  const id = `sub-${Date.now().toString(36)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const newSubscriber: Subscriber = {
+    id,
+    name: payload.name.trim(),
+    responsibleEmail: payload.responsibleEmail.trim().toLowerCase(),
+    password: payload.password || '••••••••',
+    trialUntil,
+    cpfCnpj: payload.cpfCnpj.trim(),
+    stateRegistration: payload.stateRegistration?.trim() || '',
+    phone: payload.phone.trim(),
+    cep: payload.cep.trim(),
+    street: payload.street.trim(),
+    number: payload.number.trim() || 'S/N',
+    neighborhood: payload.neighborhood.trim(),
+    city: payload.city.trim(),
+    state: payload.state.trim().toUpperCase(),
+    planId: selectedPlan.id,
+    planName: selectedPlan.name,
+    monthlyValue: Number(selectedPlan.price) || 0,
+    status,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // 5. Inserir no topo da lista e salvar no Admin Mestre
+  const updatedSubscribers = [
+    newSubscriber,
+    ...subscribers.filter(s => s.id !== id && s.responsibleEmail.toLowerCase() !== newSubscriber.responsibleEmail.toLowerCase())
+  ];
+  saveStoredSubscribers(updatedSubscribers);
+
+  // 6. Conectar ao Perfil da Empresa (Configurações da Empresa / Perfil do Produtor)
+  const currentCompany = getStoredCompanyProfile();
+  const updatedCompany: CompanyProfile = {
+    ...currentCompany,
+    corporateName: payload.name.trim(),
+    tradeName: (payload.tradeName || payload.name).trim(),
+    cnpjCpf: payload.cpfCnpj.trim(),
+    stateRegistration: payload.stateRegistration?.trim() || '',
+    phone: payload.phone.trim(),
+    email: payload.responsibleEmail.trim().toLowerCase(),
+    loginEmail: payload.responsibleEmail.trim().toLowerCase(),
+    representativeName: (payload.representativeName || payload.name).trim(),
+    representativeCpf: payload.representativeCpf?.trim() || '',
+    zipCode: payload.cep.trim(),
+    address: payload.street.trim(),
+    number: payload.number.trim() || 'S/N',
+    neighborhood: payload.neighborhood.trim(),
+    city: payload.city.trim(),
+    state: payload.state.trim().toUpperCase(),
+    activitySector: currentCompany.activitySector || 'GESTÃO AGRÍCOLA',
+  };
+
+  saveStoredCompanyProfile(updatedCompany);
+
+  // 7. Persistir sessão ativa para o novo cliente no navegador
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('silagem_client_session', 'active');
+      localStorage.setItem('silagem_active_subscriber_id', newSubscriber.id);
+      localStorage.setItem('silagem_active_subscriber_email', newSubscriber.responsibleEmail);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_company_profile_updated', { detail: updatedCompany }));
+    }
+  } catch (e) {
+    console.error('Failed to set active subscriber session:', e);
+  }
+
+  return { subscriber: newSubscriber, companyProfile: updatedCompany };
+}
+

@@ -110,6 +110,7 @@ import { PublicSupplierForm } from './components/suppliers/PublicSupplierForm';
 import { FieldFormsView } from './components/services/FieldFormsView';
 import { MasterAdminDashboard } from './components/masterAdmin/MasterAdminDashboard';
 import { LandingPage } from './components/landing/LandingPage';
+import { AuthPage } from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
 import { syncAllDataToSupabase, fetchAllDataFromSupabase } from './lib/supabaseService';
 
@@ -653,7 +654,7 @@ export default function App() {
   // 2. Formulários Públicos Externos: ?ficha=cliente, ?ficha=fornecedor, ?agendamento=...
   // 3. Painel Interno de Gestão de Silagem (ERP): rota /dashboard ou usuário com sessão ativa
   // 4. Landing Page Pública: Rota raiz "/" como padrão se o usuário não estiver logado
-  const getResolvedRoute = (): 'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'dashboard' => {
+  const getResolvedRoute = (): 'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'auth' | 'dashboard' => {
     if (typeof window === 'undefined') return 'landing';
     const path = window.location.pathname || '';
     const search = window.location.search || '';
@@ -685,7 +686,24 @@ export default function App() {
       return 'operador-campo';
     }
 
-    // 3. Forçar Landing Page se requisitado explicitamente via URL
+    // 3. Rota de Autenticação / Cadastro / Sign-up / Login
+    if (
+      path.includes('/auth') ||
+      path.includes('/cadastro') ||
+      path.includes('/login') ||
+      path.includes('/signup') ||
+      search.includes('view=auth') ||
+      search.includes('tab=auth') ||
+      search.includes('mode=signup') ||
+      search.includes('mode=login') ||
+      hash.includes('auth') ||
+      hash.includes('cadastro') ||
+      hash.includes('signup')
+    ) {
+      return 'auth';
+    }
+
+    // 4. Forçar Landing Page se requisitado explicitamente via URL
     if (
       path === '/landing' ||
       search.includes('view=landing') ||
@@ -696,7 +714,7 @@ export default function App() {
       return 'landing';
     }
 
-    // 4. Painel Interno do Cliente (ERP Gestão de Silagem)
+    // 5. Painel Interno do Cliente (ERP Gestão de Silagem)
     const hasActiveSession = typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active';
     const isDashboardPath =
       path.includes('/dashboard') ||
@@ -710,11 +728,11 @@ export default function App() {
       return 'dashboard';
     }
 
-    // 5. Rota padrão da raiz "/": Landing Page Pública
+    // 6. Rota padrão da raiz "/": Landing Page Pública
     return 'landing';
   };
 
-  const [currentRoute, setCurrentRoute] = useState<'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'dashboard'>(getResolvedRoute);
+  const [currentRoute, setCurrentRoute] = useState<'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'auth' | 'dashboard'>(getResolvedRoute);
 
   // Sincronizar com mudanças de URL (popstate e hashchange)
   useEffect(() => {
@@ -730,9 +748,24 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Sincronizar perfil da empresa instantaneamente quando um novo assinante se cadastrar ou for editado
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      if (e?.detail) {
+        setCompanyProfile(e.detail);
+      } else {
+        setCompanyProfile(getStoredCompanyProfile());
+      }
+    };
+    window.addEventListener('silagem_company_profile_updated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('silagem_company_profile_updated', handleProfileUpdate);
+    };
+  }, []);
+
   // Se o usuário autenticar via Supabase, ativar a sessão e direcionar para o dashboard
   useEffect(() => {
-    if (currentUser && currentRoute === 'landing') {
+    if (currentUser && (currentRoute === 'landing' || currentRoute === 'auth')) {
       try {
         localStorage.setItem('silagem_client_session', 'active');
         window.history.pushState({}, '', '/dashboard');
@@ -752,6 +785,20 @@ export default function App() {
       console.error(e);
     }
     setCurrentRoute('dashboard');
+  };
+
+  const handleOpenAuth = (planId?: string, authMode: 'signup' | 'login' = 'signup') => {
+    try {
+      const params = new URLSearchParams();
+      params.set('mode', authMode);
+      if (planId) {
+        params.set('plan', planId);
+      }
+      window.history.pushState({}, '', `/auth?${params.toString()}`);
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('auth');
   };
 
   const handleOpenMasterAdmin = () => {
@@ -799,12 +846,26 @@ export default function App() {
     );
   }
 
-  // 2. Rota Isolada: Landing Page Pública (Na rota raiz "/" ou deslogado)
+  // 2. Rota Isolada: Autenticação & Cadastro com 15 Dias Grátis (/auth?mode=signup)
+  if (currentRoute === 'auth') {
+    return (
+      <AuthPage
+        onEnterApp={handleEnterApp}
+        onOpenLandingPage={handleOpenLandingPage}
+        onCompanyCreated={(newProfile) => {
+          setCompanyProfile(newProfile);
+        }}
+      />
+    );
+  }
+
+  // 3. Rota Isolada: Landing Page Pública (Na rota raiz "/" ou deslogado)
   if (currentRoute === 'landing') {
     return (
       <LandingPage
         onEnterApp={handleEnterApp}
         onOpenMasterAdmin={handleOpenMasterAdmin}
+        onNavigateToAuth={handleOpenAuth}
       />
     );
   }

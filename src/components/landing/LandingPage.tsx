@@ -23,11 +23,13 @@ import { formatCurrencyBRL } from '../../lib/formatters';
 interface LandingPageProps {
   onEnterApp: () => void;
   onOpenMasterAdmin: () => void;
+  onNavigateToAuth?: (planId?: string, mode?: 'signup' | 'login') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onEnterApp,
   onOpenMasterAdmin,
+  onNavigateToAuth,
 }) => {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredSiteConfig());
   const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
@@ -48,10 +50,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
   const handleCheckoutClick = (plan: PlanDefinition) => {
-    if (plan.checkoutUrl && plan.checkoutUrl.startsWith('http')) {
+    if (plan.checkoutUrl && plan.checkoutUrl.startsWith('http') && !plan.checkoutUrl.includes('exemplo')) {
       window.open(plan.checkoutUrl, '_blank', 'noopener,noreferrer');
+    } else if (onNavigateToAuth) {
+      onNavigateToAuth(plan.id, 'signup');
     } else {
-      // Se não tiver URL de checkout externa configurada, direciona para o ERP
       onEnterApp();
     }
   };
@@ -96,10 +99,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5">
+            {onNavigateToAuth && (
+              <button
+                type="button"
+                onClick={() => onNavigateToAuth(undefined, 'signup')}
+                className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Criar Conta (15d Grátis)</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onEnterApp}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5"
+              className="px-4 py-2 bg-stone-900 border border-stone-700 hover:bg-stone-800 text-white rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5"
             >
               <span>Acessar o ERP</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -131,21 +144,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* BOTÕES DO HERO */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-            <a
-              href="#planos"
+            <button
+              type="button"
+              onClick={() => onNavigateToAuth ? onNavigateToAuth('plano-pro', 'signup') : onEnterApp()}
               className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 font-black text-sm rounded-xl transition shadow-xl shadow-emerald-950/50 flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>{siteConfig.heroPrimaryBtnText}</span>
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </button>
 
-            <button
-              type="button"
-              onClick={onEnterApp}
-              className="w-full sm:w-auto px-7 py-3.5 bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-800 font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+            <a
+              href="#planos"
+              className="w-full sm:w-auto px-7 py-3.5 bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-800 font-bold text-sm rounded-xl transition flex items-center justify-center gap-2"
             >
               <span>{siteConfig.heroSecondaryBtnText}</span>
-            </button>
+            </a>
           </div>
 
           {/* Badges de Confiança */}
@@ -351,6 +364,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="flex items-center gap-6">
+            {onNavigateToAuth && (
+              <button
+                type="button"
+                onClick={() => onNavigateToAuth(undefined, 'signup')}
+                className="text-emerald-400 font-bold hover:underline transition cursor-pointer"
+              >
+                Criar Conta (15 Dias Grátis)
+              </button>
+            )}
             <button
               type="button"
               onClick={onEnterApp}

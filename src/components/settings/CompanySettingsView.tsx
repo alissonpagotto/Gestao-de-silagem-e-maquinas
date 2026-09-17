@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Building2, 
   UploadCloud, 
@@ -84,6 +84,25 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     pixKeyType: companyProfile.pixKeyType || 'cnpj',
     pixKey: companyProfile.pixKey || '',
   });
+
+  // Mantém os campos do formulário sempre reativos e preenchidos quando o perfil for atualizado/cadastrado
+  useEffect(() => {
+    setFormData({
+      ...companyProfile,
+      cnpjCpf: formatCpfCnpj(companyProfile.cnpjCpf || ''),
+      stateRegistration: formatIE(companyProfile.stateRegistration || ''),
+      phone: formatPhone(companyProfile.phone || ''),
+      zipCode: formatCep(companyProfile.zipCode || ''),
+      representativeName: companyProfile.representativeName || '',
+      representativeCpf: companyProfile.representativeCpf ? formatCpfCnpj(companyProfile.representativeCpf) : '',
+      bankName: companyProfile.bankName || '',
+      bankAgency: companyProfile.bankAgency || '',
+      bankAccount: companyProfile.bankAccount || '',
+      pixKeyType: companyProfile.pixKeyType || 'cnpj',
+      pixKey: companyProfile.pixKey || '',
+    });
+  }, [companyProfile]);
+
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
