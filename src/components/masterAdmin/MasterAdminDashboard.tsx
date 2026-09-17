@@ -976,6 +976,22 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    IMAGEM DE FUNDO DO HERO (URL OU CAMINHO)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="/image.png ou /hero-silagem.jpg"
+                    value={siteForm.heroBackgroundImage || ''}
+                    onChange={(e) => setSiteForm({ ...siteForm, heroBackgroundImage: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-emerald-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    Padrão: /image.png ou /hero-silagem.jpg. Aplica corte inferior automático para ocultar textos artificiais e gradiente escuro profissional de alto contraste.
+                  </p>
+                </div>
               </div>
             </div>
 

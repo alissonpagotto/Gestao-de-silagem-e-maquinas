@@ -29,6 +29,7 @@ export interface SiteConfig {
   heroSubtitle: string; // SUBTÍTULO
   heroPrimaryBtnText: string; // TEXTO BOTÃO PRINCIPAL
   heroSecondaryBtnText: string; // TEXTO BOTÃO SECUNDÁRIO
+  heroBackgroundImage?: string; // IMAGEM DE FUNDO DO HERO (URL OU /image.png)
 
   // Bloco Cabeçalho de Recursos
   featuresSectionTitle: string; // TÍTULO DA SEÇÃO

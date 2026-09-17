@@ -24,6 +24,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   heroSubtitle: 'O ERP definitivo para controle de frotas agrícolas, ordens de serviço, pesagens, operadores e lucratividade safra a safra.',
   heroPrimaryBtnText: 'Começar Teste Grátis de 7 Dias',
   heroSecondaryBtnText: 'Ver Demonstração ao Vivo',
+  heroBackgroundImage: '/image.png',
 
   featuresSectionTitle: 'Recursos Projetados para o Campo',
   featuresSectionSubtitle: 'Controle total da sua operação agrícola na ponta dos dedos, online e no celular dos operadores.',

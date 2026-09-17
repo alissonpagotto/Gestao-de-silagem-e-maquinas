@@ -121,33 +121,61 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </nav>
 
-      {/* BLOCO HERO (DINÂMICO) */}
-      <section className="relative pt-16 pb-20 md:pt-24 md:pb-32 px-4 sm:px-6 overflow-hidden">
-        {/* Glow de fundo */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* BLOCO HERO (COM IMAGEM DE GESTÃO DE SILAGEM TECNOLÓGICA E OVERLAY) */}
+      <section className="relative min-h-[580px] md:min-h-[700px] lg:min-h-[760px] pt-16 pb-24 md:pt-24 md:pb-36 px-4 sm:px-6 overflow-hidden flex items-center justify-center">
+        {/* Imagem de Fundo: Gestão Tecnológica no Campo (com corte inferior para mascarar texto IA artificial) */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <img
+            src={siteConfig.heroBackgroundImage || '/image.png'}
+            alt="AgroControl - Gestão Tecnológica de Silagem e Frotas"
+            className="w-full h-[128%] sm:h-[134%] md:h-[140%] object-cover object-top -translate-y-[5%] sm:-translate-y-[7%] md:-translate-y-[9%] filter brightness-[0.85] contrast-[1.05]"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              if (e.currentTarget.src !== '/hero-silagem.jpg') {
+                e.currentTarget.src = '/hero-silagem.jpg';
+              }
+            }}
+          />
+
+          {/* 1. Camada de degradê escuro (do topo para o fundo) para máxima legibilidade dos textos e botões */}
+          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/85 via-stone-950/60 to-stone-950" />
+
+          {/* 2. Suave atenuação para manter visíveis o produtor, o tablet e as telas de telemetria sem ofuscar */}
+          <div className="absolute inset-0 bg-stone-950/30 backdrop-blur-[0.5px]" />
+
+          {/* 3. Gradiente inferior espesso: oculta e corta 100% de qualquer texto IA artificial ou rodapés da imagem */}
+          <div className="absolute inset-x-0 bottom-0 h-44 sm:h-52 md:h-64 bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent" />
+
+          {/* 4. Transição sutil com a barra de navegação no topo */}
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-stone-950/90 via-stone-950/40 to-transparent" />
+
+          {/* 5. Efeito glow temático esmeralda no centro */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-emerald-500/10 rounded-full blur-[90px] pointer-events-none" />
+        </div>
         
-        <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-xs font-bold">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+        {/* Conteúdo Real em Destaque com Alto Contraste */}
+        <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10 pt-4 sm:pt-6">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-900/90 border border-emerald-500/40 text-emerald-300 text-xs font-bold shadow-lg shadow-black/40 backdrop-blur-md">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span>A plataforma nº 1 em prestação de serviços de silagem e colheita</span>
           </div>
 
           {/* TÍTULO PRINCIPAL (H1) */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-[1.15]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-[1.14] drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]">
             {siteConfig.heroTitle}
           </h1>
 
           {/* SUBTÍTULO */}
-          <p className="text-sm sm:text-lg text-stone-300 max-w-2xl mx-auto leading-relaxed font-normal">
+          <p className="text-sm sm:text-lg md:text-xl text-stone-200 max-w-2xl mx-auto leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
             {siteConfig.heroSubtitle}
           </p>
 
           {/* BOTÕES DO HERO */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <button
               type="button"
               onClick={() => onNavigateToAuth ? onNavigateToAuth('plano-pro', 'signup') : onEnterApp()}
-              className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 font-black text-sm rounded-xl transition shadow-xl shadow-emerald-950/50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-black text-sm rounded-xl transition shadow-xl shadow-emerald-950/60 flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
             >
               <span>{siteConfig.heroPrimaryBtnText}</span>
               <ArrowRight className="w-4 h-4" />
@@ -155,22 +183,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <a
               href="#planos"
-              className="w-full sm:w-auto px-7 py-3.5 bg-stone-900 hover:bg-stone-800 text-stone-200 border border-stone-800 font-bold text-sm rounded-xl transition flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 bg-stone-900/90 hover:bg-stone-800 text-stone-100 border border-stone-700/80 font-bold text-sm rounded-xl transition backdrop-blur-md shadow-lg shadow-black/30 flex items-center justify-center gap-2"
             >
               <span>{siteConfig.heroSecondaryBtnText}</span>
             </a>
           </div>
 
           {/* Badges de Confiança */}
-          <div className="pt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-stone-400">
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-400" /> Sem fidelidade contratual
+          <div className="pt-6 sm:pt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs font-semibold text-stone-300">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900/70 border border-stone-800/80 backdrop-blur-sm shadow-sm">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" /> Sem fidelidade contratual
             </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-400" /> Ativação imediata
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900/70 border border-stone-800/80 backdrop-blur-sm shadow-sm">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" /> Ativação imediata
             </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-400" /> Suporte humanizado no WhatsApp
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900/70 border border-stone-800/80 backdrop-blur-sm shadow-sm">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" /> Suporte humanizado no WhatsApp
             </span>
           </div>
         </div>
