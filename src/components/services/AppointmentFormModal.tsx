@@ -36,6 +36,12 @@ import {
 import { getStoredMachineries, formatDateBR } from '../../lib/storage';
 
 // Funções utilitárias de timestamp e cálculo de término sem timezone drift
+const getCurrentTimeString = (): string => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+
 const toTimestamp = (dateStr?: string, timeStr?: string): number => {
   if (!dateStr || !timeStr) return NaN;
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -104,14 +110,14 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   const [contactPhone, setContactPhone] = useState('');
   const [serviceType, setServiceType] = useState<'Corte / Ensilagem' | 'Colheita' | 'Serviço de Trator' | 'Serviço de Máquina' | 'Frete / Transporte'>('Corte / Ensilagem');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState('07:00');
+  const [startTime, setStartTime] = useState(getCurrentTimeString);
 
-  // 2. Parâmetros de Tempo e Rendimento
-  const [travelTimeMinutes, setTravelTimeMinutes] = useState(60); // Deslocamento
-  const [trailerLoadingTimeMinutes, setTrailerLoadingTimeMinutes] = useState(45); // Prancha
+  // 2. Parâmetros de Tempo e Rendimento (Iniciam limpos / vazios para digitação direta)
+  const [travelTimeMinutes, setTravelTimeMinutes] = useState<number | ''>(''); // Deslocamento
+  const [trailerLoadingTimeMinutes, setTrailerLoadingTimeMinutes] = useState<number | ''>(''); // Prancha
   const [areaUnit, setAreaUnit] = useState<'hectares' | 'alqueires' | 'horas'>('hectares');
-  const [estimatedQuantity, setEstimatedQuantity] = useState(20); // Quantidade
-  const [productivityRatePerHour, setProductivityRatePerHour] = useState(1.5); // Rendimento ha/h
+  const [estimatedQuantity, setEstimatedQuantity] = useState<number | ''>(''); // Quantidade
+  const [productivityRatePerHour, setProductivityRatePerHour] = useState<number | ''>(''); // Rendimento ha/h
 
   // 3. Frotas e Equipe Escalada
   const [primaryMachineryId, setPrimaryMachineryId] = useState('');
@@ -252,12 +258,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setContactPhone(editAppointment.contactPhone || '');
       setServiceType(editAppointment.serviceType || 'Corte / Ensilagem');
       setStartDate(editAppointment.startDate || new Date().toISOString().split('T')[0]);
-      setStartTime(editAppointment.startTime || '07:00');
-      setTravelTimeMinutes(editAppointment.travelTimeMinutes ?? 60);
-      setTrailerLoadingTimeMinutes(editAppointment.trailerLoadingTimeMinutes ?? 45);
+      setStartTime(editAppointment.startTime || getCurrentTimeString());
+      setTravelTimeMinutes(editAppointment.travelTimeMinutes !== undefined && editAppointment.travelTimeMinutes !== null ? editAppointment.travelTimeMinutes : '');
+      setTrailerLoadingTimeMinutes(editAppointment.trailerLoadingTimeMinutes !== undefined && editAppointment.trailerLoadingTimeMinutes !== null ? editAppointment.trailerLoadingTimeMinutes : '');
       setAreaUnit(editAppointment.areaUnit || 'hectares');
-      setEstimatedQuantity(editAppointment.estimatedQuantity || 20);
-      setProductivityRatePerHour(editAppointment.productivityRatePerHour || 1.5);
+      setEstimatedQuantity(editAppointment.estimatedQuantity !== undefined && editAppointment.estimatedQuantity !== null ? editAppointment.estimatedQuantity : '');
+      setProductivityRatePerHour(editAppointment.productivityRatePerHour !== undefined && editAppointment.productivityRatePerHour !== null ? editAppointment.productivityRatePerHour : '');
       
       // Auto-preenche a máquina principal vinda do contexto da coluna ou do agendamento
       const targetMachId = editAppointment.primaryMachineryId || '';
@@ -297,12 +303,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setContactPhone('');
       setServiceType('Corte / Ensilagem');
       setStartDate(new Date().toISOString().split('T')[0]);
-      setStartTime('07:00');
-      setTravelTimeMinutes(60);
-      setTrailerLoadingTimeMinutes(45);
+      setStartTime(getCurrentTimeString());
+      setTravelTimeMinutes('');
+      setTrailerLoadingTimeMinutes('');
       setAreaUnit('hectares');
-      setEstimatedQuantity(20);
-      setProductivityRatePerHour(1.5);
+      setEstimatedQuantity('');
+      setProductivityRatePerHour('');
 
       // Pré-seleciona a primeira forrageira disponível se houver e busca o operador vinculado
       const firstForr = availableMachineries.find(isForrageira) || availableMachineries[0];
@@ -346,15 +352,49 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   };
 
   // Cálculo de Tempo de Execução, Tempo Total e Término Previsto
-  const { executionMinutes, totalMinutes, calculatedEndDate, calculatedEndTime } = useMemo(() => {
-    const rate = productivityRatePerHour > 0 ? productivityRatePerHour : 1;
-    const qty = estimatedQuantity > 0 ? estimatedQuantity : 0;
+  const { executionMinutes, totalMinutes, calculatedEndDate, calculatedEndTime, hasValidCalculation } = useMemo(() => {
+    const qty = typeof estimatedQuantity === 'number' ? estimatedQuantity : (parseFloat(String(estimatedQuantity)) || 0);
+    const rate = typeof productivityRatePerHour === 'number' ? productivityRatePerHour : (parseFloat(String(productivityRatePerHour)) || 0);
+    const travel = typeof travelTimeMinutes === 'number' ? travelTimeMinutes : (parseInt(String(travelTimeMinutes)) || 0);
+    const trailer = typeof trailerLoadingTimeMinutes === 'number' ? trailerLoadingTimeMinutes : (parseInt(String(trailerLoadingTimeMinutes)) || 0);
+
+    // Processar ou exibir apenas se Quantidade Prevista e Rendimento Operacional forem maiores que zero
+    if (qty <= 0 || rate <= 0) {
+      return {
+        executionMinutes: 0,
+        totalMinutes: 0,
+        calculatedEndDate: '',
+        calculatedEndTime: '',
+        hasValidCalculation: false
+      };
+    }
+
     const execMin = Math.round((qty / rate) * 60);
-    const totMin = Math.max(0, (travelTimeMinutes || 0) + (trailerLoadingTimeMinutes || 0) + execMin);
+    const totMin = Math.max(0, travel + trailer + execMin);
+
+    if (!startDate || !startTime) {
+      return {
+        executionMinutes: execMin,
+        totalMinutes: totMin,
+        calculatedEndDate: '',
+        calculatedEndTime: '',
+        hasValidCalculation: true
+      };
+    }
 
     // Converte startDate + startTime para objeto Date e soma minutos
     const [year, month, day] = (startDate || '2026-09-18').split('-').map(Number);
     const [hours, minutes] = (startTime || '07:00').split(':').map(Number);
+
+    if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+      return {
+        executionMinutes: execMin,
+        totalMinutes: totMin,
+        calculatedEndDate: startDate,
+        calculatedEndTime: startTime,
+        hasValidCalculation: true
+      };
+    }
 
     const startDateTime = new Date(year, month - 1, day, hours, minutes);
     const endDateTime = new Date(startDateTime.getTime() + totMin * 60000);
@@ -369,7 +409,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       executionMinutes: execMin,
       totalMinutes: totMin,
       calculatedEndDate: `${endY}-${endM}-${endD}`,
-      calculatedEndTime: `${endH}:${endMin}`
+      calculatedEndTime: `${endH}:${endMin}`,
+      hasValidCalculation: true
     };
   }, [startDate, startTime, travelTimeMinutes, trailerLoadingTimeMinutes, estimatedQuantity, productivityRatePerHour]);
 
@@ -785,15 +826,15 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       serviceTab: 'corte',
       startDate,
       startTime,
-      travelTimeMinutes,
-      trailerLoadingTimeMinutes,
+      travelTimeMinutes: typeof travelTimeMinutes === 'number' ? travelTimeMinutes : (parseInt(String(travelTimeMinutes)) || 0),
+      trailerLoadingTimeMinutes: typeof trailerLoadingTimeMinutes === 'number' ? trailerLoadingTimeMinutes : (parseInt(String(trailerLoadingTimeMinutes)) || 0),
       areaUnit,
-      estimatedQuantity,
-      productivityRatePerHour,
+      estimatedQuantity: typeof estimatedQuantity === 'number' ? estimatedQuantity : (parseFloat(String(estimatedQuantity)) || 0),
+      productivityRatePerHour: typeof productivityRatePerHour === 'number' ? productivityRatePerHour : (parseFloat(String(productivityRatePerHour)) || 0),
       executionTimeMinutes: executionMinutes,
       totalTimeMinutes: totalMinutes,
-      endDate: calculatedEndDate,
-      endTime: calculatedEndTime,
+      endDate: calculatedEndDate || startDate,
+      endTime: calculatedEndTime || startTime,
 
       primaryMachineryId,
       primaryMachineryPrefix: primaryMach?.fleetNumber || primaryMach?.name || 'Forrageira',
@@ -1120,8 +1161,9 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   type="number"
                   min="0"
                   step="5"
+                  placeholder="0"
                   value={travelTimeMinutes}
-                  onChange={(e) => setTravelTimeMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                  onChange={(e) => setTravelTimeMinutes(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
                   className="w-full p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
                 />
               </div>
@@ -1134,8 +1176,9 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   type="number"
                   min="0"
                   step="5"
+                  placeholder="0"
                   value={trailerLoadingTimeMinutes}
-                  onChange={(e) => setTrailerLoadingTimeMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                  onChange={(e) => setTrailerLoadingTimeMinutes(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
                   className="w-full p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100"
                 />
               </div>
@@ -1163,10 +1206,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="0.1"
+                  min="0"
                   step="0.5"
+                  placeholder="0.0"
                   value={estimatedQuantity}
-                  onChange={(e) => setEstimatedQuantity(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) => setEstimatedQuantity(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-full p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
                 />
               </div>
@@ -1177,47 +1221,60 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="0.1"
+                  min="0"
                   step="0.1"
+                  placeholder="0.0"
                   value={productivityRatePerHour}
-                  onChange={(e) => setProductivityRatePerHour(Math.max(0.1, parseFloat(e.target.value) || 1))}
+                  onChange={(e) => setProductivityRatePerHour(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-full p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100"
                 />
               </div>
             </div>
 
             {/* Painel do Resultado do Tempo Calculado */}
-            <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-emerald-300 dark:border-emerald-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center shadow-xs">
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-stone-500">Tempo de Execução</span>
-                <span className="text-sm font-black text-stone-900 dark:text-stone-100">
-                  {Math.floor(executionMinutes / 60)}h {executionMinutes % 60}min
-                </span>
-                <span className="text-[10px] text-stone-400 block font-medium">({executionMinutes} min totais)</span>
-              </div>
+            {hasValidCalculation ? (
+              <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-emerald-300 dark:border-emerald-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center shadow-xs">
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-stone-500">Tempo de Execução</span>
+                  <span className="text-sm font-black text-stone-900 dark:text-stone-100">
+                    {Math.floor(executionMinutes / 60)}h {executionMinutes % 60}min
+                  </span>
+                  <span className="text-[10px] text-stone-400 block font-medium">({executionMinutes} min totais)</span>
+                </div>
 
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-stone-500">Tempo Total Operacional</span>
-                <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">
-                  {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}min
-                </span>
-                <span className="text-[10px] text-stone-400 block font-medium">Desloc + Prancha + Corte</span>
-              </div>
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-stone-500">Tempo Total Operacional</span>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">
+                    {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}min
+                  </span>
+                  <span className="text-[10px] text-stone-400 block font-medium">Desloc + Prancha + Corte</span>
+                </div>
 
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-stone-500">Data Término Previsto</span>
-                <span className="text-sm font-black text-stone-900 dark:text-stone-100">
-                  {calculatedEndDate.split('-').reverse().join('/')}
-                </span>
-              </div>
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-stone-500">Data Término Previsto</span>
+                  <span className="text-sm font-black text-stone-900 dark:text-stone-100">
+                    {calculatedEndDate ? calculatedEndDate.split('-').reverse().join('/') : '—'}
+                  </span>
+                </div>
 
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-stone-500">Horário Término Previsto</span>
-                <span className="text-sm font-black text-[#2e65aa] dark:text-blue-400">
-                  {calculatedEndTime}h
-                </span>
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-stone-500">Horário Término Previsto</span>
+                  <span className="text-sm font-black text-[#2e65aa] dark:text-blue-400">
+                    {calculatedEndTime ? `${calculatedEndTime}h` : '—'}
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-3.5 bg-stone-50/80 dark:bg-stone-900/60 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 flex flex-col items-center justify-center text-center">
+                <div className="flex items-center gap-1.5 text-stone-600 dark:text-stone-400 font-bold text-xs">
+                  <Clock className="w-4 h-4 text-stone-400" />
+                  <span>Aguardando preenchimento de Quantidade Prevista e Rendimento Operacional</span>
+                </div>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                  Informe a quantidade e o rendimento para calcular automaticamente o tempo de execução e término previsto.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 3. SEÇÃO: ESCALA DE FROTAS & VEÍCULOS RASTREADOS POR PLACA / PREFIXO */}

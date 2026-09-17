@@ -1,0 +1,1350 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Users, 
+  CheckCircle2, 
+  Clock, 
+  AlertTriangle, 
+  DollarSign, 
+  Search, 
+  Plus, 
+  Layers, 
+  Globe, 
+  Settings, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  ExternalLink, 
+  ShieldCheck, 
+  Sparkles, 
+  Webhook, 
+  Mail, 
+  Key, 
+  ArrowLeft,
+  Save,
+  Check,
+  Building2,
+  RefreshCw,
+  Lock,
+  ChevronRight
+} from 'lucide-react';
+import { 
+  Subscriber, 
+  SiteConfig, 
+  PlanDefinition, 
+  AdminSettings, 
+  SubscriberStatus 
+} from '../../types/masterAdmin';
+import { 
+  getStoredSubscribers, 
+  saveStoredSubscribers,
+  getStoredSiteConfig, 
+  saveStoredSiteConfig,
+  getStoredPlans, 
+  saveStoredPlans,
+  getStoredAdminSettings, 
+  saveStoredAdminSettings,
+  computeMasterMetrics 
+} from '../../lib/masterAdminStorage';
+import { EditSubscriberModal } from './EditSubscriberModal';
+import { SubscriberDetailModal } from './SubscriberDetailModal';
+import { PlanModal } from './PlanModal';
+import { formatCurrencyBRL } from '../../lib/formatters';
+
+interface MasterAdminDashboardProps {
+  onBackToApp: () => void;
+  onOpenLandingPage: () => void;
+}
+
+export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
+  onBackToApp,
+  onOpenLandingPage,
+}) => {
+  // Estado de Autenticação / Chave do Master Admin
+  const [accessKey, setAccessKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('key') || '';
+    }
+    return '';
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const k = params.get('key');
+      return k === 'agro123' || localStorage.getItem('silagem_master_authenticated') === 'true';
+    }
+    return false;
+  });
+  const [keyInput, setKeyInput] = useState('');
+  const [keyError, setKeyError] = useState('');
+
+  // Estados Principais de Dados
+  const [subscribers, setSubscribers] = useState<Subscriber[]>(() => getStoredSubscribers());
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredSiteConfig());
+  const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
+  const [settings, setSettings] = useState<AdminSettings>(() => getStoredAdminSettings());
+
+  // Aba ativa do Painel Mestre
+  const [adminTab, setAdminTab] = useState<'assinantes' | 'planos' | 'site' | 'configuracoes'>('assinantes');
+
+  // Filtros da Tabela de Assinantes
+  const [statusFilter, setStatusFilter] = useState<'todas' | SubscriberStatus>('todas');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modais de Assinantes e Planos
+  const [isEditSubscriberOpen, setIsEditSubscriberOpen] = useState(false);
+  const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
+  const [isDetailSubscriberOpen, setIsDetailSubscriberOpen] = useState(false);
+  const [viewingSubscriber, setViewingSubscriber] = useState<Subscriber | null>(null);
+
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<PlanDefinition | null>(null);
+
+  // Estados dos formulários de Site Config e Configurações Gerais
+  const [siteForm, setSiteForm] = useState<SiteConfig>(siteConfig);
+  const [siteSaveSuccess, setSiteSaveSuccess] = useState(false);
+
+  const [settingsForm, setSettingsForm] = useState<AdminSettings>(settings);
+  const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
+  const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
+
+  // Sincronização e Reatividade
+  useEffect(() => {
+    const handleSync = () => {
+      setSubscribers(getStoredSubscribers());
+      setSiteConfig(getStoredSiteConfig());
+      setPlans(getStoredPlans());
+      setSettings(getStoredAdminSettings());
+    };
+    window.addEventListener('master_admin_data_changed', handleSync);
+    return () => window.removeEventListener('master_admin_data_changed', handleSync);
+  }, []);
+
+  // Recalcular métricas em tempo real
+  const metrics = useMemo(() => {
+    return computeMasterMetrics(subscribers);
+  }, [subscribers]);
+
+  // Filtrar assinantes instantaneamente por status e busca
+  const filteredSubscribers = useMemo(() => {
+    return subscribers.filter(sub => {
+      if (statusFilter !== 'todas' && sub.status !== statusFilter) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = sub.name.toLowerCase().includes(q);
+        const matchesEmail = sub.responsibleEmail.toLowerCase().includes(q);
+        const matchesDoc = (sub.cpfCnpj || '').toLowerCase().includes(q);
+        const matchesCity = (sub.city || '').toLowerCase().includes(q);
+        const matchesPlan = (sub.planName || '').toLowerCase().includes(q);
+        return matchesName || matchesEmail || matchesDoc || matchesCity || matchesPlan;
+      }
+      return true;
+    });
+  }, [subscribers, statusFilter, searchQuery]);
+
+  // Handler de login mestre se a chave não estiver na URL
+  const handleKeySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (keyInput.trim() === 'agro123') {
+      setIsAuthenticated(true);
+      localStorage.setItem('silagem_master_authenticated', 'true');
+      setKeyError('');
+    } else {
+      setKeyError('Chave mestre inválida. Utilize a chave agro123');
+    }
+  };
+
+  // Salvar Assinante
+  const handleSaveSubscriber = (saved: Subscriber) => {
+    const exists = subscribers.some(s => s.id === saved.id);
+    let updatedList: Subscriber[];
+    if (exists) {
+      updatedList = subscribers.map(s => s.id === saved.id ? saved : s);
+    } else {
+      updatedList = [saved, ...subscribers];
+    }
+    setSubscribers(updatedList);
+    saveStoredSubscribers(updatedList);
+  };
+
+  // Excluir Assinante
+  const handleDeleteSubscriber = (id: string, name: string) => {
+    if (window.confirm(`Tem certeza que deseja remover o assinante "${name}"? Esta ação é irreversível.`)) {
+      const updated = subscribers.filter(s => s.id !== id);
+      setSubscribers(updated);
+      saveStoredSubscribers(updated);
+    }
+  };
+
+  // Alternar Status Rápido do Assinante
+  const handleQuickStatusChange = (id: string, newStatus: SubscriberStatus) => {
+    const updated = subscribers.map(s => {
+      if (s.id === id) {
+        return { ...s, status: newStatus, updatedAt: new Date().toISOString() };
+      }
+      return s;
+    });
+    setSubscribers(updated);
+    saveStoredSubscribers(updated);
+  };
+
+  // Salvar Plano
+  const handleSavePlan = (savedPlan: PlanDefinition) => {
+    const exists = plans.some(p => p.id === savedPlan.id);
+    let updated: PlanDefinition[];
+    if (exists) {
+      updated = plans.map(p => p.id === savedPlan.id ? savedPlan : p);
+    } else {
+      updated = [...plans, savedPlan];
+    }
+    // Ordenar por ordem de exibição
+    updated.sort((a, b) => a.displayOrder - b.displayOrder);
+    setPlans(updated);
+    saveStoredPlans(updated);
+  };
+
+  // Excluir Plano
+  const handleDeletePlan = (id: string, name: string) => {
+    if (window.confirm(`Deseja realmente excluir o plano "${name}"?`)) {
+      const updated = plans.filter(p => p.id !== id);
+      setPlans(updated);
+      saveStoredPlans(updated);
+    }
+  };
+
+  // Salvar Configurações do Site
+  const handleSaveSiteConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSiteConfig(siteForm);
+    saveStoredSiteConfig(siteForm);
+    setSiteSaveSuccess(true);
+    setTimeout(() => setSiteSaveSuccess(false), 3000);
+  };
+
+  // Salvar Configurações Gerais e Webhooks
+  const handleSaveAdminSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettings(settingsForm);
+    saveStoredAdminSettings(settingsForm);
+    setSettingsSaveSuccess(true);
+    setTimeout(() => setSettingsSaveSuccess(false), 3000);
+  };
+
+  // Adicionar Super Admin Email
+  const handleAddSuperAdminEmail = () => {
+    const email = newSuperAdminEmail.trim().toLowerCase();
+    if (!email) return;
+    if (settingsForm.superAdminEmails.includes(email)) return;
+    const updated = {
+      ...settingsForm,
+      superAdminEmails: [...settingsForm.superAdminEmails, email]
+    };
+    setSettingsForm(updated);
+    setSettings(updated);
+    saveStoredAdminSettings(updated);
+    setNewSuperAdminEmail('');
+  };
+
+  // Remover Super Admin Email
+  const handleRemoveSuperAdminEmail = (email: string) => {
+    const updated = {
+      ...settingsForm,
+      superAdminEmails: settingsForm.superAdminEmails.filter(e => e !== email)
+    };
+    setSettingsForm(updated);
+    setSettings(updated);
+    saveStoredAdminSettings(updated);
+  };
+
+  // TELA DE BLOQUEIO / LOGIN MESTRE SE NÃO AUTENTICADO
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-4 font-['Plus_Jakarta_Sans',sans-serif] text-stone-100">
+        <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-8 shadow-2xl space-y-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mb-1">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h1 className="text-xl font-black tracking-tight text-white">
+              Admin Mestre • AgroControl
+            </h1>
+            <p className="text-xs text-stone-400">
+              Digite a chave mestre de acesso geral da plataforma para continuar.
+            </p>
+          </div>
+
+          <form onSubmit={handleKeySubmit} className="space-y-4">
+            {keyError && (
+              <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{keyError}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-stone-300 mb-1">
+                CHAVE MESTRE
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={keyInput}
+                  onChange={(e) => setKeyInput(e.target.value)}
+                  placeholder="Informe a chave (ex: agro123)"
+                  className="w-full p-3 bg-stone-950 border border-stone-700 rounded-xl text-sm font-mono text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  autoFocus
+                />
+                <Key className="w-4 h-4 text-stone-500 absolute right-3.5 top-3.5 pointer-events-none" />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-950 cursor-pointer"
+            >
+              Autenticar Painel Mestre
+            </button>
+          </form>
+
+          <div className="pt-2 border-t border-stone-800/80 flex items-center justify-between text-xs text-stone-400">
+            <button
+              type="button"
+              onClick={onBackToApp}
+              className="hover:text-stone-200 transition cursor-pointer flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Voltar ao ERP</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenLandingPage}
+              className="hover:text-stone-200 transition cursor-pointer flex items-center gap-1 text-emerald-400"
+            >
+              <span>Ver Landing Page</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+      
+      {/* TopBar Superior do Admin Mestre */}
+      <header className="bg-stone-900/90 backdrop-blur-md border-b border-stone-800 sticky top-0 z-40 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-sm shadow-md">
+            AM
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
+                Admin Mestre
+              </h1>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                Super Admin
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-400">
+              Controle Global de Assinantes, Planos, Site e Webhooks
+            </p>
+          </div>
+        </div>
+
+        {/* Ações de Navegação do TopBar */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={onOpenLandingPage}
+            className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700"
+            title="Abrir a Landing Page pública de vendas"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Ver Landing Page</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onBackToApp}
+            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+            title="Acessar o ERP Interno"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Abrir ERP Silagem Fácil</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Conteúdo Principal */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+        
+        {/* CARDS DE CONTADORES SUPERIORES & MRR ESTIMADO EM TEMPO REAL */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          
+          {/* 1. Total de Assinantes */}
+          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-stone-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Total Assinantes</span>
+              <Users className="w-4 h-4 text-stone-400" />
+            </div>
+            <p className="text-2xl font-black text-white tracking-tight">
+              {metrics.totalSubscribers}
+            </p>
+            <span className="text-[10px] text-stone-500 font-medium">
+              Registros no banco
+            </span>
+          </div>
+
+          {/* 2. Assinaturas Ativas */}
+          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-emerald-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Ativas</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <p className="text-2xl font-black text-emerald-400 tracking-tight">
+              {metrics.activeSubscribers}
+            </p>
+            <span className="text-[10px] text-emerald-500/80 font-medium">
+              Contratos adimplentes
+            </span>
+          </div>
+
+          {/* 3. Em Trial */}
+          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-amber-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Em Trial</span>
+              <Clock className="w-4 h-4 text-amber-400" />
+            </div>
+            <p className="text-2xl font-black text-amber-400 tracking-tight">
+              {metrics.trialSubscribers}
+            </p>
+            <span className="text-[10px] text-amber-500/80 font-medium">
+              Testando a plataforma
+            </span>
+          </div>
+
+          {/* 4. Suspensas / Inadimplentes */}
+          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-rose-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Suspensas</span>
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+            </div>
+            <p className="text-2xl font-black text-rose-400 tracking-tight">
+              {metrics.suspendedSubscribers}
+            </p>
+            <span className="text-[10px] text-rose-500/80 font-medium">
+              Inadimplência ou pausa
+            </span>
+          </div>
+
+          {/* 5. MRR Estimado (Soma dinâmica de clientes com status "ATIVA") */}
+          <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-emerald-950/60 to-stone-900 border border-emerald-800/50 p-4 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-emerald-300">
+              <span className="text-[11px] font-black uppercase tracking-wider">MRR Estimado</span>
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+            </div>
+            <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+              {formatCurrencyBRL(metrics.estimatedMrr)}
+            </p>
+            <span className="text-[10px] text-emerald-400/80 font-bold block">
+              Receita Recorrente Mensal
+            </span>
+          </div>
+        </div>
+
+        {/* NAVEGAÇÃO DE ABAS PRINCIPAIS DO ADMIN MESTRE */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-stone-800 pb-3">
+          <button
+            type="button"
+            onClick={() => setAdminTab('assinantes')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+              adminTab === 'assinantes'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Assinaturas & Assinantes</span>
+            <span className="ml-1 px-2 py-0.5 text-[10px] rounded-full bg-black/20 text-white font-bold">
+              {subscribers.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('planos')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+              adminTab === 'planos'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Módulo de Planos</span>
+            <span className="ml-1 px-2 py-0.5 text-[10px] rounded-full bg-black/20 text-white font-bold">
+              {plans.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('site')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+              adminTab === 'site'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>Configurações do Site (Landing Page)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminTab('configuracoes')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+              adminTab === 'configuracoes'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>Webhooks & Super Admins</span>
+          </button>
+        </div>
+
+        {/* ======================================================== */}
+        {/* ABA 1: ASSINATURAS & ASSINANTES                          */}
+        {/* ======================================================== */}
+        {adminTab === 'assinantes' && (
+          <div className="space-y-4">
+            
+            {/* Barra de Filtros e Busca */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-stone-900 p-3.5 rounded-2xl border border-stone-800">
+              
+              {/* Abas de filtro instantâneo por status */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('todas')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    statusFilter === 'todas'
+                      ? 'bg-stone-700 text-white'
+                      : 'text-stone-400 hover:text-white hover:bg-stone-800'
+                  }`}
+                >
+                  Todas ({subscribers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ativa')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    statusFilter === 'ativa'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-emerald-400 hover:bg-emerald-950/40'
+                  }`}
+                >
+                  Ativa ({subscribers.filter(s => s.status === 'ativa').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('trial')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    statusFilter === 'trial'
+                      ? 'bg-amber-600 text-white'
+                      : 'text-amber-400 hover:bg-amber-950/40'
+                  }`}
+                >
+                  Trial ({subscribers.filter(s => s.status === 'trial').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('inadimplente')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    statusFilter === 'inadimplente'
+                      ? 'bg-rose-600 text-white'
+                      : 'text-rose-400 hover:bg-rose-950/40'
+                  }`}
+                >
+                  Inadimplente ({subscribers.filter(s => s.status === 'inadimplente').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('cancelada')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    statusFilter === 'cancelada'
+                      ? 'bg-stone-600 text-white'
+                      : 'text-stone-400 hover:bg-stone-800'
+                  }`}
+                >
+                  Cancelada ({subscribers.filter(s => s.status === 'cancelada').length})
+                </button>
+              </div>
+
+              {/* Busca e Botão Novo Assinante */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 text-stone-500 absolute left-3 top-2.5 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar assinante, e-mail, CNPJ..."
+                    className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white placeholder-stone-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubscriber(null);
+                    setIsEditSubscriberOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Novo Assinante</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tabela de Assinantes */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-stone-800 bg-stone-950/50 text-[11px] font-black text-stone-400 uppercase tracking-wider">
+                      <th className="py-3.5 px-4">Assinante / Empresa</th>
+                      <th className="py-3.5 px-4">Responsável & Contato</th>
+                      <th className="py-3.5 px-4">Documento / Cidade</th>
+                      <th className="py-3.5 px-4">Plano & Valor</th>
+                      <th className="py-3.5 px-4">Trial Até</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-800/60 text-xs">
+                    {filteredSubscribers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-stone-500">
+                          Nenhum assinante encontrado para os critérios selecionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSubscribers.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-stone-800/40 transition">
+                          
+                          {/* Nome do Assinante */}
+                          <td className="py-3 px-4 font-bold text-white">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <div>
+                                <span>{sub.name}</span>
+                                <span className="block text-[10px] text-stone-500 font-mono">
+                                  ID: {sub.id}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Email & Telefone */}
+                          <td className="py-3 px-4 text-stone-300">
+                            <div>
+                              <span className="font-medium text-stone-200 block">{sub.responsibleEmail}</span>
+                              <span className="text-[11px] text-stone-400 font-mono">{sub.phone || '-'}</span>
+                            </div>
+                          </td>
+
+                          {/* Documento & Cidade */}
+                          <td className="py-3 px-4 text-stone-300">
+                            <span className="font-mono text-stone-300 block">{sub.cpfCnpj || '-'}</span>
+                            <span className="text-[11px] text-stone-400">
+                              {sub.city ? `${sub.city} - ${sub.state}` : '-'}
+                            </span>
+                          </td>
+
+                          {/* Plano & Valor */}
+                          <td className="py-3 px-4">
+                            <span className="font-black text-teal-400 block">{sub.planName}</span>
+                            <span className="text-[11px] font-black text-emerald-400">
+                              {formatCurrencyBRL(sub.monthlyValue)}/mês
+                            </span>
+                          </td>
+
+                          {/* Trial Até */}
+                          <td className="py-3 px-4 font-mono text-stone-300">
+                            {sub.trialUntil ? new Date(sub.trialUntil + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-4">
+                            <select
+                              value={sub.status}
+                              onChange={(e) => handleQuickStatusChange(sub.id, e.target.value as SubscriberStatus)}
+                              className={`text-[11px] font-black px-2.5 py-1 rounded-lg border outline-none cursor-pointer ${
+                                sub.status === 'ativa'
+                                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                                  : sub.status === 'trial'
+                                  ? 'bg-amber-950/60 text-amber-300 border-amber-800'
+                                  : sub.status === 'inadimplente'
+                                  ? 'bg-rose-950/60 text-rose-300 border-rose-800'
+                                  : sub.status === 'suspensa'
+                                  ? 'bg-purple-950/60 text-purple-300 border-purple-800'
+                                  : 'bg-stone-800 text-stone-400 border-stone-700'
+                              }`}
+                            >
+                              <option value="ativa">Ativa</option>
+                              <option value="trial">Trial</option>
+                              <option value="inadimplente">Inadimplente</option>
+                              <option value="suspensa">Suspensa</option>
+                              <option value="cancelada">Cancelada</option>
+                            </select>
+                          </td>
+
+                          {/* Ações */}
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setViewingSubscriber(sub);
+                                  setIsDetailSubscriberOpen(true);
+                                }}
+                                className="p-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white rounded-lg transition cursor-pointer"
+                                title="Visualizar Ficha Detalhada"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSubscriber(sub);
+                                  setIsEditSubscriberOpen(true);
+                                }}
+                                className="p-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 rounded-lg transition cursor-pointer border border-emerald-800/60"
+                                title="Editar Informações do Assinante"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSubscriber(sub.id, sub.name)}
+                                className="p-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-lg transition cursor-pointer border border-rose-800/40"
+                                title="Remover Assinante"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* ABA 2: MÓDULO DE PLANOS                                  */}
+        {/* ======================================================== */}
+        {adminTab === 'planos' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-stone-900 p-4 rounded-2xl border border-stone-800">
+              <div>
+                <h2 className="text-sm font-black text-white">
+                  Planos Comerciais da Plataforma
+                </h2>
+                <p className="text-xs text-stone-400">
+                  Planos com status ativo aparecem na Landing Page pública com link direto de checkout.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPlan(null);
+                  setIsPlanModalOpen(true);
+                }}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Novo Plano</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {plans.map((p) => (
+                <div 
+                  key={p.id}
+                  className={`bg-stone-900 rounded-2xl border p-5 flex flex-col justify-between space-y-4 relative ${
+                    p.isFeatured 
+                      ? 'border-emerald-500/80 shadow-lg shadow-emerald-950/50 ring-1 ring-emerald-500/40' 
+                      : 'border-stone-800'
+                  }`}
+                >
+                  {p.isFeatured && (
+                    <span className="absolute -top-3 right-4 px-3 py-0.5 bg-emerald-500 text-stone-950 text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm">
+                      Destaque
+                    </span>
+                  )}
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-black text-white">{p.name}</h3>
+                        <span className="text-[11px] text-stone-400">Ordem de Exibição: #{p.displayOrder}</span>
+                      </div>
+                      <span className={`px-2.5 py-0.5 text-[10px] font-black rounded-full border ${
+                        p.isActive 
+                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800' 
+                          : 'bg-stone-800 text-stone-500 border-stone-700'
+                      }`}>
+                        {p.isActive ? 'ATIVO NO SITE' : 'INATIVO'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-stone-400 min-h-[36px]">
+                      {p.description}
+                    </p>
+
+                    <div className="pt-2 border-t border-stone-800">
+                      <span className="text-2xl font-black text-emerald-400 tracking-tight">
+                        {formatCurrencyBRL(p.price)}
+                      </span>
+                      <span className="text-xs text-stone-400">/mês</span>
+                    </div>
+
+                    {/* Limites */}
+                    <div className="p-3 bg-stone-950/70 rounded-xl border border-stone-800/80 text-[11px] space-y-1 text-stone-300">
+                      <div className="flex justify-between">
+                        <span className="text-stone-500">Máquinas/Veículos:</span>
+                        <span className="font-bold">{p.limits.maxMachineries === 'unlimited' ? 'Ilimitado' : p.limits.maxMachineries}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-stone-500">Usuários no painel:</span>
+                        <span className="font-bold">{p.limits.maxUsers === 'unlimited' ? 'Ilimitado' : p.limits.maxUsers}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-stone-500">Clientes CRM:</span>
+                        <span className="font-bold">{p.limits.maxClients === 'unlimited' ? 'Ilimitado' : p.limits.maxClients}</span>
+                      </div>
+                    </div>
+
+                    {/* Features Preview */}
+                    <div className="space-y-1.5 text-xs text-stone-300">
+                      <span className="text-[10px] font-black text-stone-500 uppercase tracking-wider block">
+                        Features (renderizadas no site):
+                      </span>
+                      <ul className="space-y-1">
+                        {p.featuresText.split('\n').filter(Boolean).slice(0, 4).map((feat, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-[11px]">
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="truncate">{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Botões de Ação */}
+                  <div className="pt-3 border-t border-stone-800 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPlan(p);
+                        setIsPlanModalOpen(true);
+                      }}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>Refatorar Plano</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePlan(p.id, p.name)}
+                      className="p-2 bg-stone-800 hover:bg-rose-900/50 text-stone-400 hover:text-rose-300 rounded-xl transition cursor-pointer border border-stone-700"
+                      title="Excluir Plano"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* ABA 3: CONFIGURAÇÕES DO SITE (LANDING PAGE)              */}
+        {/* ======================================================== */}
+        {adminTab === 'site' && (
+          <form onSubmit={handleSaveSiteConfig} className="space-y-6">
+            
+            <div className="flex items-center justify-between bg-stone-900 p-4 rounded-2xl border border-stone-800">
+              <div>
+                <h2 className="text-sm font-black text-white">
+                  Controle Dinâmico da Landing Page Pública
+                </h2>
+                <p className="text-xs text-stone-400">
+                  Edite os títulos, chamadas e cartões de recursos. Ao salvar, a Landing Page atualiza instantaneamente.
+                </p>
+              </div>
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-sm"
+              >
+                <Save className="w-4 h-4" />
+                <span>Salvar Alterações</span>
+              </button>
+            </div>
+
+            {siteSaveSuccess && (
+              <div className="p-3.5 bg-emerald-950/60 border border-emerald-800/80 rounded-2xl text-xs font-bold text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Configurações do site salvas com sucesso! As alterações já estão ativas na Landing Page.</span>
+              </div>
+            )}
+
+            {/* BLOCO HERO */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2">
+                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                  1. Bloco Hero (Topo da Página)
+                </h3>
+                <p className="text-[11px] text-stone-400">
+                  Configuração do título principal, subtítulo e textos dos botões de conversão.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    TÍTULO PRINCIPAL (H1) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={siteForm.heroTitle}
+                    onChange={(e) => setSiteForm({ ...siteForm, heroTitle: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-black text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    SUBTÍTULO *
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={siteForm.heroSubtitle}
+                    onChange={(e) => setSiteForm({ ...siteForm, heroSubtitle: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-medium text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    TEXTO BOTÃO PRINCIPAL *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={siteForm.heroPrimaryBtnText}
+                    onChange={(e) => setSiteForm({ ...siteForm, heroPrimaryBtnText: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    TEXTO BOTÃO SECUNDÁRIO *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={siteForm.heroSecondaryBtnText}
+                    onChange={(e) => setSiteForm({ ...siteForm, heroSecondaryBtnText: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* BLOCO CABEÇALHO DE RECURSOS */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2">
+                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                  2. Bloco Cabeçalho de Recursos
+                </h3>
+                <p className="text-[11px] text-stone-400">
+                  Cabeçalho da seção de diferenciais da página de vendas.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    TÍTULO DA SEÇÃO *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={siteForm.featuresSectionTitle}
+                    onChange={(e) => setSiteForm({ ...siteForm, featuresSectionTitle: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-black text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    SUBTÍTULO DA SEÇÃO *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={siteForm.featuresSectionSubtitle}
+                    onChange={(e) => setSiteForm({ ...siteForm, featuresSectionSubtitle: e.target.value })}
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-medium text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* BLOCO RECURSOS (BENEFÍCIOS) - 4 CARTÕES CONECTADOS */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2">
+                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                  3. Bloco Recursos (Benefícios - 4 Cartões da Landing Page)
+                </h3>
+                <p className="text-[11px] text-stone-400">
+                  Estes campos alimentam diretamente os 4 cartões de benefícios da página pública de vendas.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Recurso #1 */}
+                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
+                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                    RECURSO #1
+                  </span>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <input
+                      type="text"
+                      required
+                      value={siteForm.feature1Title}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature1Title: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={siteForm.feature1Desc}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature1Desc: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Recurso #2 */}
+                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
+                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                    RECURSO #2
+                  </span>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <input
+                      type="text"
+                      required
+                      value={siteForm.feature2Title}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature2Title: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={siteForm.feature2Desc}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature2Desc: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Recurso #3 */}
+                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
+                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                    RECURSO #3
+                  </span>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <input
+                      type="text"
+                      required
+                      value={siteForm.feature3Title}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature3Title: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={siteForm.feature3Desc}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature3Desc: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Recurso #4 */}
+                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
+                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                    RECURSO #4
+                  </span>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <input
+                      type="text"
+                      required
+                      value={siteForm.feature4Title}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature4Title: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={siteForm.feature4Desc}
+                      onChange={(e) => setSiteForm({ ...siteForm, feature4Desc: e.target.value })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Botão Salvar Flutuante ou no final */}
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-950"
+              >
+                <Save className="w-4 h-4" />
+                <span>Salvar Todas as Alterações do Site</span>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ======================================================== */}
+        {/* ABA 4: CONFIGURAÇÕES (WEBHOOKS E SUPER ADMINS)            */}
+        {/* ======================================================== */}
+        {adminTab === 'configuracoes' && (
+          <div className="space-y-6">
+            
+            <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
+              <h2 className="text-sm font-black text-white">
+                Webhooks de Pagamento & Permissões de Super Admin
+              </h2>
+              <p className="text-xs text-stone-400">
+                Integre plataformas de checkout automáticas e gerencie os e-mails com permissão de acesso ao Admin Mestre.
+              </p>
+            </div>
+
+            {settingsSaveSuccess && (
+              <div className="p-3.5 bg-emerald-950/60 border border-emerald-800/80 rounded-2xl text-xs font-bold text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Configurações atualizadas com sucesso!</span>
+              </div>
+            )}
+
+            {/* Form Webhooks */}
+            <form onSubmit={handleSaveAdminSettings} className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <Webhook className="w-4 h-4" />
+                    <span>URLs de Webhook de Pagamento</span>
+                  </h3>
+                  <p className="text-[11px] text-stone-400">
+                    Insira as rotas de retorno das plataformas para aprovação e cancelamento automático de assinantes.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Webhooks</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    WEBHOOK KIWIFY
+                  </label>
+                  <input
+                    type="url"
+                    value={settingsForm.webhookKiwify}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, webhookKiwify: e.target.value })}
+                    placeholder="https://api.seusistema.com.br/webhooks/kiwify"
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    WEBHOOK CAKTO
+                  </label>
+                  <input
+                    type="url"
+                    value={settingsForm.webhookCakto}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, webhookCakto: e.target.value })}
+                    placeholder="https://api.seusistema.com.br/webhooks/cakto"
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    WEBHOOK PERFECTPAY
+                  </label>
+                  <input
+                    type="url"
+                    value={settingsForm.webhookPerfectPay}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, webhookPerfectPay: e.target.value })}
+                    placeholder="https://api.seusistema.com.br/webhooks/perfectpay"
+                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+            </form>
+
+            {/* SUPER ADMINS */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2">
+                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>E-mails Autorizados a Acessar o Admin Mestre</span>
+                </h3>
+                <p className="text-[11px] text-stone-400">
+                  Usuários com estes e-mails possuem privilégios de super admin para administrar a plataforma.
+                </p>
+              </div>
+
+              {/* Input e Botão "+ Adicionar" */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Mail className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="email"
+                    value={newSuperAdminEmail}
+                    onChange={(e) => setNewSuperAdminEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSuperAdminEmail();
+                      }
+                    }}
+                    placeholder="Digite o e-mail do super admin (ex: admin@empresa.com)"
+                    className="w-full pl-9 pr-3 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddSuperAdminEmail}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Adicionar</span>
+                </button>
+              </div>
+
+              {/* Lista de Super Admins Cadastrados */}
+              <div className="space-y-2 pt-2">
+                {settingsForm.superAdminEmails.map((email) => (
+                  <div
+                    key={email}
+                    className="flex items-center justify-between p-3 bg-stone-950/70 rounded-xl border border-stone-800 text-xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-emerald-950 text-emerald-400 flex items-center justify-center font-bold text-[10px] border border-emerald-800">
+                        ✓
+                      </div>
+                      <span className="font-bold text-white font-mono">{email}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSuperAdminEmail(email)}
+                      className="text-stone-500 hover:text-rose-400 p-1 rounded-md transition cursor-pointer"
+                      title="Remover autorização"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* MODAIS DO MASTER ADMIN */}
+      <EditSubscriberModal
+        isOpen={isEditSubscriberOpen}
+        onClose={() => {
+          setIsEditSubscriberOpen(false);
+          setEditingSubscriber(null);
+        }}
+        subscriber={editingSubscriber}
+        plans={plans}
+        onSave={handleSaveSubscriber}
+      />
+
+      <SubscriberDetailModal
+        isOpen={isDetailSubscriberOpen}
+        onClose={() => {
+          setIsDetailSubscriberOpen(false);
+          setViewingSubscriber(null);
+        }}
+        subscriber={viewingSubscriber}
+        onEdit={(sub) => {
+          setEditingSubscriber(sub);
+          setIsEditSubscriberOpen(true);
+        }}
+      />
+
+      <PlanModal
+        isOpen={isPlanModalOpen}
+        onClose={() => {
+          setIsPlanModalOpen(false);
+          setEditingPlan(null);
+        }}
+        plan={editingPlan}
+        onSave={handleSavePlan}
+      />
+    </div>
+  );
+};

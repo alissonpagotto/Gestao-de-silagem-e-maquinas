@@ -507,18 +507,18 @@ export const DEFAULT_MACHINERY_TYPES = [
 ];
 
 // Helper helper function
-function getStoredList(key: string, defaultList: string[]): string[] {
+function getStoredList<T = string>(key: string, defaultList: T[]): T[] {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return defaultList;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultList;
+    return Array.isArray(parsed) ? parsed : defaultList;
   } catch {
     return defaultList;
   }
 }
 
-function saveStoredList(key: string, list: string[]): void {
+function saveStoredList<T = any>(key: string, list: T[]): void {
   try {
     localStorage.setItem(key, JSON.stringify(list));
   } catch (e) {
@@ -1152,7 +1152,7 @@ export interface FieldFormSubmission {
 }
 
 export const getStoredFieldSubmissions = (): FieldFormSubmission[] => {
-  return getStoredList('silagem_field_submissions', []);
+  return getStoredList<FieldFormSubmission>('silagem_field_submissions', []);
 };
 
 export const saveStoredFieldSubmissions = (submissions: FieldFormSubmission[]): void => {

@@ -108,6 +108,8 @@ import { ReorderMenuModal, ALL_MENU_ITEMS, DEFAULT_MENU_ORDER } from './componen
 import { PublicClientForm } from './components/crm/PublicClientForm';
 import { PublicSupplierForm } from './components/suppliers/PublicSupplierForm';
 import { FieldFormsView } from './components/services/FieldFormsView';
+import { MasterAdminDashboard } from './components/masterAdmin/MasterAdminDashboard';
+import { LandingPage } from './components/landing/LandingPage';
 import { useAuth } from './context/AuthContext';
 import { syncAllDataToSupabase, fetchAllDataFromSupabase } from './lib/supabaseService';
 
@@ -670,6 +672,112 @@ export default function App() {
     return search.includes('agendamento=') || hash.includes('agendamento=') || 
            (search.includes('cargo=') && search.includes('formularios'));
   });
+
+  // Check if opened as Master Admin panel (e.g. /master-admin?key=agro123 or ?tab=master-admin)
+  const [isMasterAdminRoute, setIsMasterAdminRoute] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname || '';
+    const search = window.location.search || '';
+    const hash = window.location.hash || '';
+    return path.includes('master-admin') || 
+           search.includes('master-admin') || 
+           search.includes('key=agro123') ||
+           search.includes('admin=master') ||
+           hash.includes('master-admin');
+  });
+
+  // Check if opened as public Landing Page (e.g. /landing or ?view=landing)
+  const [isLandingPageRoute, setIsLandingPageRoute] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname || '';
+    const search = window.location.search || '';
+    const hash = window.location.hash || '';
+    return path.includes('/landing') || 
+           search.includes('view=landing') || 
+           search.includes('tab=landing') || 
+           search.includes('site=publico') ||
+           hash.includes('landing');
+  });
+
+  // Listen to popstate / url changes
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname || '';
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+
+      setIsMasterAdminRoute(
+        path.includes('master-admin') || 
+        search.includes('master-admin') || 
+        search.includes('key=agro123') ||
+        search.includes('admin=master') ||
+        hash.includes('master-admin')
+      );
+
+      setIsLandingPageRoute(
+        path.includes('/landing') || 
+        search.includes('view=landing') || 
+        search.includes('tab=landing') || 
+        search.includes('site=publico') ||
+        hash.includes('landing')
+      );
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
+
+  if (isMasterAdminRoute) {
+    return (
+      <MasterAdminDashboard
+        onBackToApp={() => {
+          setIsMasterAdminRoute(false);
+          try {
+            window.history.pushState({}, '', window.location.pathname.replace('/master-admin', '') || '/');
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        onOpenLandingPage={() => {
+          setIsMasterAdminRoute(false);
+          setIsLandingPageRoute(true);
+          try {
+            window.history.pushState({}, '', '?view=landing');
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
+    );
+  }
+
+  if (isLandingPageRoute) {
+    return (
+      <LandingPage
+        onEnterApp={() => {
+          setIsLandingPageRoute(false);
+          try {
+            window.history.pushState({}, '', window.location.pathname.replace('/landing', '') || '/');
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        onOpenMasterAdmin={() => {
+          setIsLandingPageRoute(false);
+          setIsMasterAdminRoute(true);
+          try {
+            window.history.pushState({}, '', '/master-admin?key=agro123');
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
+    );
+  }
 
   if (isOperatorExternalRoute) {
     return (
