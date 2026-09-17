@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Layers, Sliders, CheckSquare, Sparkles, AlertCircle } from 'lucide-react';
 import { PlanDefinition } from '../../types/masterAdmin';
+import { AGROCONTROL_PLANS_DATA_KEY, getStoredPlans } from '../../lib/masterAdminStorage';
 
 interface PlanModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ export const PlanModal: React.FC<PlanModalProps> = ({
   // Aba Geral
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState<number>(189);
+  const [price, setPrice] = useState<number>(195);
   const [billingCycle, setBillingCycle] = useState<'mensal' | 'anual'>('mensal');
   const [badge, setBadge] = useState('');
   const [isFeatured, setIsFeatured] = useState(false); // Chave "Destaque"
@@ -107,6 +108,26 @@ export const PlanModal: React.FC<PlanModalProps> = ({
       featuresText: featuresText.trim(),
       checkoutUrl: checkoutUrl.trim(),
     };
+
+    // Garantia direta no localStorage e disparo de StorageEvent imediato
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const currentPlans = getStoredPlans();
+        const exists = currentPlans.some(p => p.id === updatedPlan.id);
+        const newPlansList = exists 
+          ? currentPlans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
+          : [...currentPlans, updatedPlan];
+        newPlansList.sort((a, b) => a.displayOrder - b.displayOrder);
+        const serialized = JSON.stringify(newPlansList);
+        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+        localStorage.setItem('agrocontrol_plans_data', serialized);
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (e) {
+      console.error('Erro ao gravar plano diretamente no localStorage em PlanModal:', e);
+    }
 
     onSave(updatedPlan);
     onClose();

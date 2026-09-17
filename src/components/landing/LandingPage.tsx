@@ -150,17 +150,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       }
     };
 
-    // 3. Event listener para o evento nativo 'storage' da window (para sincronia instantânea entre abas)
-    const handleStorageChange = (e: StorageEvent) => {
+    // 3. Event listener para o evento nativo 'storage' da window (para sincronia instantânea entre abas ou chamadas dispatchEvent(new Event('storage')))
+    const handleStorageChange = (e: StorageEvent | Event) => {
+      const storageEvt = e as StorageEvent;
+      // Se for disparo manual sem key definida, ou se for uma das chaves monitoradas
+      if (!storageEvt.key) {
+        loadAllFromStorage();
+        return;
+      }
+
       if (
-        e.key === 'agrocontrol_site_settings' || 
-        e.key === AGROCONTROL_SITE_SETTINGS_KEY ||
-        e.key === LANDING_PAGE_SETTINGS_KEY || 
-        e.key === 'silagem_master_site_config_v1'
+        storageEvt.key === 'agrocontrol_site_settings' || 
+        storageEvt.key === AGROCONTROL_SITE_SETTINGS_KEY ||
+        storageEvt.key === LANDING_PAGE_SETTINGS_KEY || 
+        storageEvt.key === 'silagem_master_site_config_v1'
       ) {
-        if (e.newValue) {
+        if (storageEvt.newValue) {
           try {
-            const parsed = JSON.parse(e.newValue);
+            const parsed = JSON.parse(storageEvt.newValue);
             setSiteConfig((prev) => ({ ...prev, ...parsed }));
           } catch (err) {
             loadAllFromStorage();
@@ -169,13 +176,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           loadAllFromStorage();
         }
       } else if (
-        e.key === 'agrocontrol_plans_data' || 
-        e.key === AGROCONTROL_PLANS_DATA_KEY ||
-        e.key === 'silagem_master_plans_v1'
+        storageEvt.key === 'agrocontrol_plans_data' || 
+        storageEvt.key === AGROCONTROL_PLANS_DATA_KEY ||
+        storageEvt.key === 'silagem_master_plans_v1'
       ) {
-        if (e.newValue) {
+        if (storageEvt.newValue) {
           try {
-            const parsed = JSON.parse(e.newValue);
+            const parsed = JSON.parse(storageEvt.newValue);
             if (Array.isArray(parsed) && parsed.length > 0) {
               setPlans(parsed);
               return;

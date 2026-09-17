@@ -269,10 +269,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
     saveStoredPlans(updated);
 
-    // 2. Notificação em tempo real via CustomEvents para a Landing Page na mesma janela
+    // 2. Notificação em tempo real via CustomEvents e StorageEvent para a Landing Page
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: updated }));
       window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: updated }));
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        // Fallback
+      }
     }
   };
 
@@ -292,6 +297,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: updated }));
         window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: updated }));
+        try {
+          window.dispatchEvent(new Event('storage'));
+        } catch (e) {
+          // Fallback
+        }
       }
     }
   };
@@ -318,6 +328,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: siteForm }));
         window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail: siteForm }));
         window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: siteForm }));
+        try {
+          window.dispatchEvent(new Event('storage'));
+        } catch (e) {
+          // Fallback
+        }
       }
 
       // 4. Exibição do Alerta Visual / Toast

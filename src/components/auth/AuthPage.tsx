@@ -583,7 +583,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                   <div className="text-right">
                     <span className="text-xl sm:text-2xl font-black text-emerald-400">
-                      {formatCurrencyBRL(activePlan?.price || 389.00)}
+                      {formatCurrencyBRL(activePlan?.price || 295.00)}
                     </span>
                     <span className="text-xs text-stone-400 font-bold block">
                       /mês após o período de teste

@@ -53,14 +53,14 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
 };
 
 // ==========================================
-// 2. DADOS INICIAIS DE PLANOS
+// 2. DADOS INICIAIS DE PLANOS (PADRÃO ATUALIZADO: R$ 195,00 / R$ 295,00 / R$ 495,00)
 // ==========================================
 export const DEFAULT_PLANS: PlanDefinition[] = [
   {
     id: 'plano-essencial',
     name: 'Produtor Essencial',
     description: 'Ideal para prestadores de serviço individuais ou pequenas equipes com até 2 frotas.',
-    price: 189.00,
+    price: 195.00,
     billingCycle: 'mensal',
     badge: undefined,
     isFeatured: false,
@@ -79,7 +79,7 @@ export const DEFAULT_PLANS: PlanDefinition[] = [
     id: 'plano-pro',
     name: 'Frota Pro',
     description: 'A solução mais completa para empresas de silagem com equipes múltiplas e alta demanda.',
-    price: 389.00,
+    price: 295.00,
     billingCycle: 'mensal',
     badge: 'Mais Escolhido',
     isFeatured: true,
@@ -98,7 +98,7 @@ export const DEFAULT_PLANS: PlanDefinition[] = [
     id: 'plano-enterprise',
     name: 'Agro Enterprise',
     description: 'Para grandes frotas, cooperativas e operações agrícolas de alta escala.',
-    price: 749.00,
+    price: 495.00,
     billingCycle: 'mensal',
     badge: 'Máxima Performance',
     isFeatured: false,
@@ -240,6 +240,12 @@ export function saveStoredSiteConfig(config: SiteConfig): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: config }));
       window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail: config }));
+      // Disparo forçado de evento 'storage' para listeners que escutam window.addEventListener('storage', ...)
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        // Fallback silencioso
+      }
     }
   } catch (e) {
     console.error('Failed to save site config:', e);
@@ -263,6 +269,25 @@ export function getStoredPlans(): PlanDefinition[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      // Se houver planos antigos legados armazenados no browser do usuário com preços antigos (ex: 189, 389, 749, 159, 279),
+      // e não foram customizados manualmente com outros valores, atualizar para os novos padrões (195, 295, 495)
+      const hasOldOutdatedPrices = parsed.some(p => 
+        (p.id === 'plano-essencial' && (p.price === 189 || p.price === 159.9 || p.price === 159)) ||
+        (p.id === 'plano-pro' && (p.price === 389 || p.price === 279)) ||
+        (p.id === 'plano-enterprise' && (p.price === 749 || p.price === 699))
+      );
+      if (hasOldOutdatedPrices) {
+        const updated = parsed.map(p => {
+          if (p.id === 'plano-essencial' && (p.price === 189 || p.price === 159.9 || p.price === 159)) return { ...p, price: 195.00 };
+          if (p.id === 'plano-pro' && (p.price === 389 || p.price === 279)) return { ...p, price: 295.00 };
+          if (p.id === 'plano-enterprise' && (p.price === 749 || p.price === 699)) return { ...p, price: 495.00 };
+          return p;
+        });
+        const defStr = JSON.stringify(updated);
+        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, defStr);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, defStr);
+        return updated;
+      }
       return parsed;
     }
     return DEFAULT_PLANS;
@@ -283,6 +308,12 @@ export function saveStoredPlans(plans: PlanDefinition[]): void {
     notifyDataChanged(plans);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: plans }));
+      // Disparo forçado de evento 'storage' para listeners que escutam window.addEventListener('storage', ...)
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        // Fallback silencioso
+      }
     }
   } catch (e) {
     console.error('Failed to save plans:', e);

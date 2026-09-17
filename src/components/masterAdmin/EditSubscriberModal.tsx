@@ -35,7 +35,7 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [planId, setPlanId] = useState('');
-  const [monthlyValue, setMonthlyValue] = useState<number>(189);
+  const [monthlyValue, setMonthlyValue] = useState<number>(195);
   const [status, setStatus] = useState<Subscriber['status']>('ativa');
 
   const [isLoadingCep, setIsLoadingCep] = useState(false);
@@ -59,7 +59,7 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       setCity(subscriber.city || '');
       setState(subscriber.state || '');
       setPlanId(subscriber.planId || plans[0]?.id || 'plano-pro');
-      setMonthlyValue(subscriber.monthlyValue || 389);
+      setMonthlyValue(subscriber.monthlyValue || 295);
       setStatus(subscriber.status || 'ativa');
     } else {
       // Novo Assinante
@@ -79,7 +79,7 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       setCity('');
       setState('SP');
       setPlanId(plans[0]?.id || 'plano-pro');
-      setMonthlyValue(plans[0]?.price || 389);
+      setMonthlyValue(plans[0]?.price || 295);
       setStatus('trial');
     }
     setCepError('');

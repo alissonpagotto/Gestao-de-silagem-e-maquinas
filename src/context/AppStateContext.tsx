@@ -126,6 +126,11 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: sorted }));
         window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: sorted }));
+        try {
+          window.dispatchEvent(new Event('storage'));
+        } catch (e) {
+          // Fallback
+        }
       }
     } catch (e) {
       console.error('Erro ao salvar agrocontrol_plans_data no context:', e);
