@@ -38,6 +38,7 @@ import {
   saveStoredAppointments, 
   getStoredFleetTeams,
   saveStoredFleetTeams,
+  getStoredMachineries,
   formatDateBR 
 } from '../../lib/storage';
 import { deleteAgendamento, deleteFrente, upsertFrente, updateAgendamentoFrente, upsertAgendamento } from '../../lib/supabaseService';
@@ -132,8 +133,8 @@ const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [
     endDate: '2026-09-19',
     endTime: '01:45',
     primaryMachineryId: 'mach-01',
-    primaryMachineryPrefix: 'Forrageira 01 - FOR-01',
-    primaryMachineryPlate: 'SÉRIE JD-8500',
+    primaryMachineryPrefix: 'MAQ-01 - John Deere 8500i',
+    primaryMachineryPlate: 'MAQ-01',
     primaryMachineryModel: 'John Deere 8500i',
     assignedVehicles: [
       {
@@ -213,9 +214,9 @@ const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [
     endDate: '2026-09-20',
     endTime: '21:40',
     primaryMachineryId: 'mach-02',
-    primaryMachineryPrefix: 'Forrageira 02 - FOR-02',
-    primaryMachineryPlate: 'CLAAS-870',
-    primaryMachineryModel: 'Claas Jaguar 870',
+    primaryMachineryPrefix: 'MAQ-02 - CLAAS JAGUAR 860',
+    primaryMachineryPlate: 'MAQ-02',
+    primaryMachineryModel: 'CLAAS JAGUAR 860',
     assignedVehicles: [
       {
         machineryId: 'truck-03',
@@ -321,6 +322,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         (app.locationCityState && app.locationCityState.toLowerCase().includes(term)) ||
         (app.primaryMachineryPrefix && app.primaryMachineryPrefix.toLowerCase().includes(term)) ||
         (app.primaryMachineryPlate && app.primaryMachineryPlate.toLowerCase().includes(term)) ||
+        (app.primaryMachineryModel && app.primaryMachineryModel.toLowerCase().includes(term)) ||
         app.assignedVehicles?.some(v => 
           v.prefix.toLowerCase().includes(term) || 
           v.plateOrSerial.toLowerCase().includes(term) ||
@@ -350,6 +352,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     return { total, agendados, emExecucao, concluidos, totalHectares };
   }, [appointments]);
 
+  // Agendamentos ativos para a visualização da Escala de Frotas
+  const activeAppointmentsForFleet = useMemo(() => {
+    return filteredAppointments.filter(a => {
+      if (statusFilter === 'todos') {
+        return a.status !== 'cancelado';
+      }
+      return true;
+    });
+  }, [filteredAppointments, statusFilter]);
+
   // Colunas de Máquinas Principais (sincronizadas com as equipes ativas ou padrão Maq 02, Maq 03, Maq 04, Maq 05)
   const [columnsList, setColumnsList] = useState(() => {
     const storedTeams = getStoredFleetTeams();
@@ -369,6 +381,200 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   });
 
   const machineColumns = columnsList;
+
+  // Lista consolidada de veículos/máquinas para lookup preciso de placas e modelos
+  const allMachineries = useMemo(() => {
+    const list = [...(machineries || [])];
+    try {
+      const stored = getStoredMachineries();
+      (stored || []).forEach(sm => {
+        if (!list.some(m => m.id === sm.id)) {
+          list.push(sm);
+        }
+      });
+    } catch (e) {
+      // ignore
+    }
+
+    const defaultSuggestions: Machinery[] = [
+      {
+        id: 'mach-01',
+        name: 'John Deere 8500i',
+        fleetNumber: 'MAQ-01',
+        model: 'John Deere 8500i',
+        brand: 'John Deere',
+        licensePlateOrSerial: 'MAQ-01',
+        categoryType: 'Forrageira',
+        status: 'disponivel',
+      },
+      {
+        id: 'mach-02',
+        name: 'CLAAS JAGUAR 860',
+        fleetNumber: 'MAQ-02',
+        model: 'CLAAS JAGUAR 860',
+        brand: 'Claas',
+        licensePlateOrSerial: 'MAQ-02',
+        categoryType: 'Forrageira',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_forr_05_2023',
+        name: 'Claas Jaguar 870 (Maq 02)',
+        fleetNumber: 'Maq 02',
+        model: 'Claas Jaguar 870',
+        brand: 'Claas',
+        licensePlateOrSerial: 'CLAAS-870-05',
+        categoryType: 'Forrageira',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_colh_02_2022',
+        name: 'Claas Jaguar 860 (Maq 03)',
+        fleetNumber: 'Maq 03',
+        model: 'Claas Jaguar 860',
+        brand: 'Claas',
+        licensePlateOrSerial: 'CLAAS-860-02',
+        categoryType: 'Forrageira',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_trator_jd_6110',
+        name: 'Trator JD 6110J + JF C120 (Maq 04)',
+        fleetNumber: 'Maq 04',
+        model: 'JD 6110J + JF C120',
+        brand: 'John Deere',
+        licensePlateOrSerial: 'TRAT-6110-01',
+        categoryType: 'Trator',
+        status: 'disponivel',
+      },
+      {
+        id: 'veh_evd_2j61',
+        name: 'Mercedes-Benz 2726 + Suporte (Maq 05)',
+        fleetNumber: 'Maq 05',
+        model: 'MB 2726 6x4 Silagem',
+        brand: 'Mercedes-Benz',
+        licensePlateOrSerial: 'EVD-2J61',
+        categoryType: 'Caminhão',
+        status: 'disponivel',
+      },
+    ];
+
+    defaultSuggestions.forEach(sug => {
+      if (!list.some(m => m.id === sug.id)) {
+        list.push(sug);
+      }
+    });
+
+    return list;
+  }, [machineries]);
+
+  // Função para resolver com precisão a Placa e Modelo do Veículo Principal
+  // Exemplo de exibição esperado: [Placa] - [Modelo do Veículo] (Ex: "MAQ-02 - CLAAS JAGUAR 860")
+  const resolvePrimaryVehicleDisplay = (a: ServiceAppointment): string => {
+    // 1. Busca direta da máquina pelo primaryMachineryId
+    let matchedMach: Machinery | undefined;
+    if (a.primaryMachineryId) {
+      matchedMach = allMachineries.find(m => m.id === a.primaryMachineryId);
+    }
+
+    // 2. Busca através da frente vinculada (frontId ou correspondência de coluna)
+    if (!matchedMach && (a.frontId || a.primaryMachineryId)) {
+      const col = columnsList.find(c => c.id === a.frontId || c.id === a.primaryMachineryId);
+      if (col?.machineryId) {
+        matchedMach = allMachineries.find(m => m.id === col.machineryId);
+      }
+    }
+
+    // 3. Busca por frontNumber ou pelo dígito contido no prefixo (ex: "01" -> frente 1, "02" -> frente 2)
+    const cleanPrefix = (a.primaryMachineryPrefix || '').trim();
+    const digitsOnly = cleanPrefix.replace(/\D/g, '');
+    const parsedFrontNum = a.frontNumber || (digitsOnly ? parseInt(digitsOnly, 10) : undefined);
+
+    if (!matchedMach && parsedFrontNum) {
+      const colByNum = columnsList.find(c => c.frontNumber === parsedFrontNum);
+      if (colByNum?.machineryId) {
+        matchedMach = allMachineries.find(m => m.id === colByNum.machineryId);
+      }
+    }
+
+    // 4. Busca por prefixo / número de frota / placa na lista de máquinas
+    if (!matchedMach && cleanPrefix) {
+      matchedMach = allMachineries.find(m => {
+        const fn = (m.fleetNumber || '').trim().toLowerCase();
+        const pref = cleanPrefix.toLowerCase();
+        if (!fn && !pref) return false;
+        if (fn === pref || fn === `maq ${pref}` || fn === `maq-${pref}`) return true;
+        if (digitsOnly && fn.replace(/\D/g, '') === digitsOnly && digitsOnly.length > 0) return true;
+        if (m.licensePlateOrSerial && m.licensePlateOrSerial.trim().toLowerCase() === pref) return true;
+        return false;
+      });
+    }
+
+    // 5. Fallback por índice da coluna caso frontNumber seja 1, 2, ...
+    if (!matchedMach && parsedFrontNum && columnsList[parsedFrontNum - 1]?.machineryId) {
+      matchedMach = allMachineries.find(m => m.id === columnsList[parsedFrontNum - 1].machineryId);
+    }
+
+    // --- Extração da Placa / Identificação ---
+    let plate = '';
+    if (a.primaryMachineryPlate && a.primaryMachineryPlate !== 'OFICIAL' && a.primaryMachineryPlate !== cleanPrefix) {
+      plate = a.primaryMachineryPlate.trim();
+    } else if (matchedMach?.licensePlateOrSerial && matchedMach.licensePlateOrSerial !== 'OFICIAL') {
+      plate = matchedMach.licensePlateOrSerial.trim();
+    } else if ((matchedMach as any)?.plate_or_serial) {
+      plate = String((matchedMach as any).plate_or_serial).trim();
+    } else if (matchedMach?.fleetNumber) {
+      plate = matchedMach.fleetNumber.trim();
+    } else if (cleanPrefix && !/^\d+$/.test(cleanPrefix) && cleanPrefix.length > 2) {
+      // Se o prefixo for um texto descritivo (ex: "MAQ-02")
+      plate = cleanPrefix;
+    } else if (digitsOnly) {
+      // Se for apenas número como "01" ou "02", formata como placa padrão "MAQ-01" ou "MAQ-02"
+      plate = `MAQ-${digitsOnly.padStart(2, '0')}`;
+    } else if (cleanPrefix) {
+      plate = cleanPrefix;
+    }
+
+    // --- Extração do Modelo da Máquina ---
+    let model = '';
+    if (a.primaryMachineryModel && a.primaryMachineryModel !== a.primaryMachineryPrefix) {
+      model = a.primaryMachineryModel.trim();
+    } else if (matchedMach?.model) {
+      model = matchedMach.model.trim();
+    } else if (matchedMach?.name) {
+      model = matchedMach.name.trim();
+    } else if (parsedFrontNum) {
+      const col = columnsList.find(c => c.frontNumber === parsedFrontNum) || columnsList[parsedFrontNum - 1];
+      if (col?.machineryName) {
+        model = col.machineryName.trim();
+      }
+    }
+
+    // Limpeza de prefixos entre colchetes no modelo (ex: "[ION JER MAQ 10]" ou "[JF MAQ1]")
+    if (model.startsWith('[') && model.includes(']')) {
+      const cleaned = model.replace(/^\[.*?\]\s*/, '').trim();
+      if (cleaned) model = cleaned;
+    }
+
+    // Formatação em caixa alta para visual padrão
+    plate = plate.toUpperCase();
+    model = model.toUpperCase();
+
+    // Montagem final do texto: [Placa] - [Modelo do Veículo]
+    if (plate && model) {
+      if (model === plate) {
+        return plate;
+      }
+      if (model.startsWith(`${plate} - `) || model.startsWith(`${plate} — `)) {
+        return model;
+      }
+      return `${plate} - ${model}`;
+    }
+
+    if (plate) return plate;
+    if (model) return model;
+    return 'NÃO DEFINIDO';
+  };
 
   // Agrupamento dos agendamentos filtrados por cada Máquina Principal com ordenação cronológica
   const appointmentsByColumn = useMemo(() => {
@@ -550,7 +756,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       return;
     }
 
-    const targetMachinery = machineries.find(m => m.id === targetCol.machineryId);
+    const targetMachinery = allMachineries.find(m => m.id === targetCol.machineryId);
     const newMachId = targetCol.machineryId || targetCol.id;
     const newMachPrefix = targetCol.machineryName || targetCol.name;
 
@@ -560,8 +766,8 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       frontNumber: targetCol.frontNumber,
       primaryMachineryId: newMachId,
       primaryMachineryPrefix: newMachPrefix,
-      primaryMachineryPlate: targetMachinery?.plateOrSerial || targetApp.primaryMachineryPlate || '',
-      primaryMachineryModel: targetMachinery?.model || targetApp.primaryMachineryModel || '',
+      primaryMachineryPlate: targetMachinery?.licensePlateOrSerial || (targetMachinery as any)?.plate_or_serial || targetMachinery?.plateOrSerial || targetApp.primaryMachineryPlate || '',
+      primaryMachineryModel: targetMachinery?.model || targetMachinery?.name || targetApp.primaryMachineryModel || '',
       updatedAt: new Date().toISOString(),
     };
 
@@ -887,39 +1093,39 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       {/* 3. BARRA DE FILTROS E SELEÇÃO DE VISÃO COMPACTA */}
       <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-2 sm:p-2.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2">
         {/* Seletor de Abas de Visão */}
-        <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-0.5 rounded-lg">
+        <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800/90 p-1 rounded-xl border border-stone-200/80 dark:border-stone-700/80">
           <button
             type="button"
             onClick={() => setViewMode('cronograma')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               viewMode === 'cronograma'
-                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-2xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
             }`}
           >
-            Cronograma Operacional
+            1. Cronograma Operacional
           </button>
           <button
             type="button"
             onClick={() => setViewMode('frotas')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               viewMode === 'frotas'
-                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-2xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
             }`}
           >
-            Escala por Placas/Frotas
+            2. Escala por Placas/Frotas
           </button>
           <button
             type="button"
             onClick={() => setViewMode('tabela')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               viewMode === 'tabela'
-                ? 'bg-white dark:bg-stone-900 text-[#2e65aa] shadow-2xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
             }`}
           >
-            Lista Completa
+            3. Lista Completa
           </button>
         </div>
 
@@ -1273,102 +1479,188 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         </div>
       )}
 
-      {/* VISÃO 2: ESCALA POR FROTAS E VEÍCULOS (TIMELINE DE USO) */}
+      {/* VISÃO 2: ESCALA POR PLACAS/FROTAS - TABELA ESTRUTURADA EM LINHAS HORIZONTAIS */}
       {viewMode === 'frotas' && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-4">
-          <div className="border-b border-stone-100 dark:border-stone-800 pb-3">
-            <h3 className="text-sm font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Truck className="w-4 h-4 text-[#2e65aa]" />
-              <span>Escala e Ocupação Individual de Frotas (Prevenção de Sobreposição)</span>
-            </h3>
-            <p className="text-xs text-stone-500">
-              Cada máquina e caminhão rastreado estritamente por Placa ou Prefixo de frota com os períodos alocados.
-            </p>
-          </div>
+        <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-stone-100/90 dark:bg-stone-800/90 text-stone-700 dark:text-stone-300 font-extrabold border-b border-stone-200 dark:border-stone-700 uppercase text-[10px] sm:text-[11px] tracking-wider">
+                  <th className="py-3 px-3.5 whitespace-nowrap">Veículo Principal</th>
+                  <th className="py-3 px-3.5">Cliente & Local</th>
+                  <th className="py-3 px-3.5 whitespace-nowrap">Período</th>
+                  <th className="py-3 px-3.5 whitespace-nowrap">Volume / Área</th>
+                  <th className="py-3 px-3.5">Trator</th>
+                  <th className="py-3 px-3.5">Demais Veículos</th>
+                  <th className="py-3 px-3.5 text-right whitespace-nowrap">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                {activeAppointmentsForFleet.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-stone-500 dark:text-stone-400 text-xs">
+                      Nenhum agendamento ativo encontrado com os filtros selecionados.
+                    </td>
+                  </tr>
+                ) : (
+                  activeAppointmentsForFleet.map(a => {
+                    // Coluna 1 (Veículo Principal): Exibir diretamente [Placa] - [Modelo do Veículo] (Ex: "MAQ-02 - CLAAS JAGUAR 860")
+                    const mainVehicle = resolvePrimaryVehicleDisplay(a);
 
-          <div className="space-y-3">
-            {machineries.map(mach => {
-              const prefix = mach.fleetNumber || mach.name;
-              const plate = mach.licensePlateOrSerial || mach.serialNumber || 'OFICIAL';
+                    // Coluna 2 (Cliente & Local): Exibir o Nome do Cliente e a Cidade na mesma célula
+                    const clientCity = a.locationCityState || 
+                      clients?.find(c => c.id === a.clientId)?.city || 
+                      a.farmName || 
+                      '—';
 
-              // Agendamentos deste veículo
-              const vehicleAppts = appointments.filter(a => {
-                if (a.status === 'cancelado') return false;
-                if (a.primaryMachineryId === mach.id) return true;
-                return a.assignedVehicles?.some(v => v.machineryId === mach.id);
-              });
+                    // Coluna 4 (Volume/Área): Exibir a quantidade de área (ha/alq) ou total de horas previstas
+                    const unitLabel = a.areaUnit === 'hectares' ? 'ha' : a.areaUnit === 'alqueires' ? 'alq' : 'horas';
+                    const volumeText = a.estimatedQuantity ? `${a.estimatedQuantity} ${unitLabel}` : '—';
 
-              return (
-                <div 
-                  key={mach.id}
-                  className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30 space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-white dark:bg-stone-900 border border-stone-200 text-stone-900 dark:text-stone-100">
-                        {prefix}
-                      </span>
-                      <span className="font-mono text-xs font-bold text-stone-600 dark:text-stone-400">
-                        Placa/Série: {plate}
-                      </span>
-                      <span className="text-xs font-medium text-stone-500">
-                        • {mach.model || mach.name}
-                      </span>
-                    </div>
+                    // Coluna 5 (Trator): Trator escalado na frota de apoio deste agendamento (prefixo/placa). Se não houver, em branco
+                    const tractors = (a.assignedVehicles || []).filter(v => {
+                      if (v.category === 'trator') return true;
+                      const prefixL = (v.prefix || '').toLowerCase();
+                      const modelL = (v.model || '').toLowerCase();
+                      return prefixL.includes('trator') || modelL.includes('trator');
+                    });
 
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
-                      vehicleAppts.length > 0 
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' 
-                        : 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300'
-                    }`}>
-                      {vehicleAppts.length} {vehicleAppts.length === 1 ? 'Serviço Agendado' : 'Serviços Agendados'}
-                    </span>
-                  </div>
+                    // Coluna 6 (Demais Veículos): Listar todos os outros veículos de apoio restantes (Caminhões de silagem, etc.)
+                    const otherVehicles = (a.assignedVehicles || []).filter(v => {
+                      const isTractor = v.category === 'trator' || 
+                        (v.prefix || '').toLowerCase().includes('trator') || 
+                        (v.model || '').toLowerCase().includes('trator');
+                      return !isTractor;
+                    });
 
-                  {/* Lista de Compromissos do Veículo */}
-                  {vehicleAppts.length === 0 ? (
-                    <p className="text-xs text-stone-400 italic">Disponível para agendamento (nenhum conflito registrado).</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {vehicleAppts.map(a => (
-                        <div 
-                          key={a.id}
-                          className="p-2 bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 text-xs flex items-center justify-between"
-                        >
-                          <div>
-                            <span className="font-bold text-stone-900 dark:text-stone-100 block truncate">
-                              {a.clientName} ({a.farmName || 'Fazenda'})
-                            </span>
-                            <span className="text-[11px] text-stone-500">
-                              {formatDateBR(a.startDate)} • {a.startTime}h às {a.endTime}h ({formatMinToHoursText(a.totalTimeMinutes)})
-                            </span>
+                    return (
+                      <tr 
+                        key={a.id}
+                        className="hover:bg-stone-50/90 dark:hover:bg-stone-800/50 transition-colors"
+                      >
+                        {/* Coluna 1: Veículo Principal */}
+                        <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                          <span className="font-extrabold text-stone-900 dark:text-stone-100 text-xs px-2.5 py-1 rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 inline-block font-mono">
+                            {mainVehicle}
+                          </span>
+                        </td>
+
+                        {/* Coluna 2: Cliente & Local */}
+                        <td className="py-3 px-3.5 align-middle">
+                          <div className="font-bold text-stone-900 dark:text-stone-100 text-xs leading-tight">
+                            {a.clientName}
                           </div>
+                          <div className="text-[11px] font-medium text-stone-500 dark:text-stone-400 mt-0.5 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-stone-400 shrink-0" />
+                            <span>{clientCity}</span>
+                          </div>
+                        </td>
 
-                          <div className="flex items-center gap-1.5 ml-2">
+                        {/* Coluna 3: Período */}
+                        <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                          <div className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                            <span className="text-[10px] uppercase font-bold text-stone-400 dark:text-stone-500 mr-1">Início:</span>
+                            {formatDateBR(a.startDate)}{a.startTime ? ` às ${a.startTime}h` : ''}
+                          </div>
+                          <div className="text-xs font-semibold text-stone-600 dark:text-stone-400 mt-0.5">
+                            <span className="text-[10px] uppercase font-bold text-stone-400 dark:text-stone-500 mr-1">Fim:</span>
+                            {formatDateBR(a.endDate || a.startDate)}{a.endTime ? ` às ${a.endTime}h` : ''}
+                          </div>
+                        </td>
+
+                        {/* Coluna 4: Volume/Área */}
+                        <td className="py-3 px-3.5 align-middle whitespace-nowrap">
+                          <div className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                            {volumeText}
+                          </div>
+                          {a.totalTimeMinutes > 0 && (
+                            <div className="text-[11px] font-medium text-stone-500 dark:text-stone-400 mt-0.5">
+                              Previsto: {formatMinToHoursText(a.totalTimeMinutes)}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Coluna 5: Trator */}
+                        <td className="py-3 px-3.5 align-middle">
+                          {tractors.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {tractors.map((t, idx) => {
+                                const displayPrefix = t.prefix || t.model || 'Trator';
+                                const displayPlate = t.plateOrSerial && t.plateOrSerial !== t.prefix ? t.plateOrSerial : '';
+                                return (
+                                  <span 
+                                    key={idx}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 font-mono"
+                                  >
+                                    <span>{displayPrefix}</span>
+                                    {displayPlate && (
+                                      <span className="text-[10px] text-amber-700 dark:text-amber-300 font-normal">
+                                        ({displayPlate})
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : null /* Deixa em branco caso não haja trator */}
+                        </td>
+
+                        {/* Coluna 6: Demais Veículos */}
+                        <td className="py-3 px-3.5 align-middle">
+                          {otherVehicles.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {otherVehicles.map((v, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 whitespace-nowrap"
+                                  title={v.model || v.plateOrSerial}
+                                >
+                                  <Truck className="w-3 h-3 text-stone-400 shrink-0" />
+                                  <span>{v.prefix || v.model || v.plateOrSerial}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-stone-400 text-xs italic">—</span>
+                          )}
+                        </td>
+
+                        {/* Ações */}
+                        <td className="py-3 px-3.5 align-middle text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => handleExecuteService(a)}
-                              className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-[10px] font-black cursor-pointer"
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-1"
                               title="Puxar para corte"
                             >
-                              Puxar
+                              <Play className="w-3 h-3" />
+                              <span>Puxar</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => handleOpenPrint(a)}
-                              className="p-1 text-stone-500 hover:text-stone-700 rounded"
-                              title="Ordem de Campo"
+                              className="p-1 text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded transition-colors"
+                              title="Imprimir Ordem de Campo"
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(a)}
+                              className="p-1 text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded transition-colors"
+                              title="Editar Agendamento"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
