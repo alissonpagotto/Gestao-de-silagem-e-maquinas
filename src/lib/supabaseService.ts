@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+export { isSupabaseConfigured };
 import {
   Client,
   Supplier,
@@ -11,6 +12,11 @@ import {
   CompanyProfile,
   ServiceAppointment
 } from '../types';
+import {
+  SiteConfig,
+  PlanDefinition,
+  Subscriber
+} from '../types/masterAdmin';
 
 /**
  * Converte qualquer ID de string para um UUID v4 determinístico válido,
@@ -944,5 +950,339 @@ export async function upsertFrente(front: {
     console.warn('Supabase upsertFrente err:', err);
     return false;
   }
+}
+
+// ==============================================================================
+// GESTÃO CLOUD: site_settings (Landing Page & Hero)
+// ==============================================================================
+
+export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('*')
+      .eq('id', 'global')
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Supabase fetchCloudSiteConfig notice:', error.message);
+      return null;
+    }
+
+    if (!data) return null;
+
+    return {
+      heroTitle: data.hero_title || '',
+      heroSubtitle: data.hero_subtitle || '',
+      heroPrimaryBtnText: data.hero_primary_btn_text || '',
+      heroSecondaryBtnText: data.hero_secondary_btn_text || '',
+      heroBackgroundImage: data.hero_background_image || '',
+      featuresSectionTitle: data.features_section_title || '',
+      featuresSectionSubtitle: data.features_section_subtitle || '',
+      featuresHighlightImage: data.features_highlight_image || '',
+      feature1Title: data.feature1_title || '',
+      feature1Desc: data.feature1_desc || '',
+      feature2Title: data.feature2_title || '',
+      feature2Desc: data.feature2_desc || '',
+      feature3Title: data.feature3_title || '',
+      feature3Desc: data.feature3_desc || '',
+      feature4Title: data.feature4_title || '',
+      feature4Desc: data.feature4_desc || '',
+    };
+  } catch (err) {
+    console.warn('Supabase fetchCloudSiteConfig error:', err);
+    return null;
+  }
+}
+
+export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const payload: any = {
+      id: 'global',
+      updated_at: new Date().toISOString()
+    };
+
+    if (config.heroTitle !== undefined) payload.hero_title = config.heroTitle;
+    if (config.heroSubtitle !== undefined) payload.hero_subtitle = config.heroSubtitle;
+    if (config.heroPrimaryBtnText !== undefined) payload.hero_primary_btn_text = config.heroPrimaryBtnText;
+    if (config.heroSecondaryBtnText !== undefined) payload.hero_secondary_btn_text = config.heroSecondaryBtnText;
+    if (config.heroBackgroundImage !== undefined) payload.hero_background_image = config.heroBackgroundImage;
+    if (config.featuresSectionTitle !== undefined) payload.features_section_title = config.featuresSectionTitle;
+    if (config.featuresSectionSubtitle !== undefined) payload.features_section_subtitle = config.featuresSectionSubtitle;
+    if (config.featuresHighlightImage !== undefined) payload.features_highlight_image = config.featuresHighlightImage;
+    if (config.feature1Title !== undefined) payload.feature1_title = config.feature1Title;
+    if (config.feature1Desc !== undefined) payload.feature1_desc = config.feature1Desc;
+    if (config.feature2Title !== undefined) payload.feature2_title = config.feature2Title;
+    if (config.feature2Desc !== undefined) payload.feature2_desc = config.feature2Desc;
+    if (config.feature3Title !== undefined) payload.feature3_title = config.feature3Title;
+    if (config.feature3Desc !== undefined) payload.feature3_desc = config.feature3Desc;
+    if (config.feature4Title !== undefined) payload.feature4_title = config.feature4Title;
+    if (config.feature4Desc !== undefined) payload.feature4_desc = config.feature4Desc;
+
+    const { error } = await supabase
+      .from('site_settings')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase upsertCloudSiteConfig notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase upsertCloudSiteConfig error:', err);
+    return false;
+  }
+}
+
+// ==============================================================================
+// GESTÃO CLOUD: plans (Planos, Preços e Limites)
+// ==============================================================================
+
+export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data, error } = await supabase
+      .from('plans')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.warn('Supabase fetchCloudPlans notice:', error.message);
+      return null;
+    }
+
+    if (!data || data.length === 0) return null;
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      price: Number(row.price) || 0,
+      billingCycle: row.billing_cycle || 'mensal',
+      badge: row.badge || undefined,
+      isFeatured: Boolean(row.is_featured),
+      isActive: Boolean(row.is_active),
+      displayOrder: Number(row.display_order) || 1,
+      limits: typeof row.limits === 'object' && row.limits ? row.limits : {
+        maxUsers: 5,
+        maxMachineries: 10,
+        maxClients: 100,
+        storageLimitGb: 5,
+      },
+      featuresText: row.features_text || '',
+      checkoutUrl: row.checkout_url || '',
+    }));
+  } catch (err) {
+    console.warn('Supabase fetchCloudPlans error:', err);
+    return null;
+  }
+}
+
+export async function upsertCloudPlan(plan: PlanDefinition): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const payload = {
+      id: plan.id,
+      name: plan.name,
+      description: plan.description || '',
+      price: Number(plan.price) || 0,
+      billing_cycle: plan.billingCycle || 'mensal',
+      badge: plan.badge || null,
+      is_featured: Boolean(plan.isFeatured),
+      is_active: plan.isActive !== undefined ? Boolean(plan.isActive) : true,
+      display_order: Number(plan.displayOrder) || 1,
+      limits: plan.limits || {},
+      features_text: plan.featuresText || '',
+      checkout_url: plan.checkoutUrl || '',
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('plans')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase upsertCloudPlan notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase upsertCloudPlan error:', err);
+    return false;
+  }
+}
+
+export async function deleteCloudPlan(planId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase
+      .from('plans')
+      .delete()
+      .eq('id', planId);
+
+    if (error) {
+      console.warn('Supabase deleteCloudPlan notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteCloudPlan error:', err);
+    return false;
+  }
+}
+
+// ==============================================================================
+// GESTÃO CLOUD: subscribers (Assinantes, Empresas e Dados de Faturamento)
+// ==============================================================================
+
+export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data, error } = await supabase
+      .from('subscribers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase fetchCloudSubscribers notice:', error.message);
+      return null;
+    }
+
+    if (!data) return null;
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      responsibleEmail: row.responsible_email,
+      password: row.password_hash || undefined,
+      trialUntil: row.trial_until || '',
+      cpfCnpj: row.cpf_cnpj || '',
+      stateRegistration: row.state_registration || undefined,
+      phone: row.phone || '',
+      cep: row.cep || '',
+      street: row.street || '',
+      number: row.number || '',
+      neighborhood: row.neighborhood || '',
+      city: row.city || '',
+      state: row.state || '',
+      planId: row.plan_id || '',
+      planName: row.plan_name || '',
+      monthlyValue: Number(row.monthly_value) || 0,
+      status: (row.status as any) || 'trial',
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || new Date().toISOString(),
+    }));
+  } catch (err) {
+    console.warn('Supabase fetchCloudSubscribers error:', err);
+    return null;
+  }
+}
+
+export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const payload = {
+      id: sub.id,
+      name: sub.name,
+      responsible_email: sub.responsibleEmail.trim().toLowerCase(),
+      password_hash: sub.password || null,
+      trial_until: sub.trialUntil || null,
+      cpf_cnpj: sub.cpfCnpj || '',
+      state_registration: sub.stateRegistration || null,
+      phone: sub.phone || '',
+      cep: sub.cep || '',
+      street: sub.street || '',
+      number: sub.number || '',
+      neighborhood: sub.neighborhood || '',
+      city: sub.city || '',
+      state: sub.state || '',
+      plan_id: sub.planId || null,
+      plan_name: sub.planName || null,
+      monthly_value: Number(sub.monthlyValue) || 0,
+      status: sub.status || 'trial',
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('subscribers')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Supabase upsertCloudSubscriber notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase upsertCloudSubscriber error:', err);
+    return false;
+  }
+}
+
+export async function deleteCloudSubscriber(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase
+      .from('subscribers')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.warn('Supabase deleteCloudSubscriber notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteCloudSubscriber error:', err);
+    return false;
+  }
+}
+
+// ==============================================================================
+// SINCRONIZAÇÃO EM TEMPO REAL (REALTIME CHANNELS)
+// ==============================================================================
+
+export function subscribeToCloudTable(
+  tableName: string,
+  onChange: (payload: any) => void
+): () => void {
+  if (!isSupabaseConfigured) {
+    return () => {};
+  }
+
+  try {
+    const channel = supabase
+      .channel(`public:${tableName}_changes_${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: tableName },
+        (payload) => {
+          onChange(payload);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (e) {
+    console.warn(`Notice subscribing to realtime for ${tableName}:`, e);
+    return () => {};
+  }
+}
+
+// ==============================================================================
+// MULTI-TENANT HELPER: Identificação de Company ID do Assinante
+// ==============================================================================
+
+export function getActiveTenantCompanyId(): string {
+  if (typeof localStorage !== 'undefined') {
+    const subId = localStorage.getItem('silagem_active_subscriber_id');
+    if (subId) return subId;
+    const email = localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email');
+    if (email) return email;
+  }
+  return 'default';
 }
 

@@ -26,7 +26,8 @@ import {
   RefreshCw,
   Lock,
   ChevronRight,
-  LogOut
+  LogOut,
+  Database
 } from 'lucide-react';
 import { 
   Subscriber, 
@@ -49,8 +50,17 @@ import {
   getStoredMasterSession,
   clearStoredMasterSession,
   AGROCONTROL_PLANS_DATA_KEY,
-  AGROCONTROL_SITE_SETTINGS_KEY
+  AGROCONTROL_SITE_SETTINGS_KEY,
+  syncMasterAdminFromCloud
 } from '../../lib/masterAdminStorage';
+import {
+  deleteCloudPlan,
+  deleteCloudSubscriber,
+  subscribeToCloudTable,
+  fetchCloudSubscribers,
+  fetchCloudPlans,
+  fetchCloudSiteConfig
+} from '../../lib/supabaseService';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
 import { PlanModal } from './PlanModal';
@@ -83,6 +93,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredSiteConfig());
   const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
   const [settings, setSettings] = useState<AdminSettings>(() => getStoredAdminSettings());
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingCloud(true);
+    try {
+      const cloudData = await syncMasterAdminFromCloud();
+      if (cloudData.subscribers) setSubscribers(cloudData.subscribers);
+      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+      if (cloudData.plans) setPlans(cloudData.plans);
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   // Aba ativa do Painel Mestre
   const [adminTab, setAdminTab] = useState<'assinantes' | 'planos' | 'site' | 'configuracoes'>('assinantes');
@@ -110,6 +133,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // Sincronização e Reatividade
   useEffect(() => {
+    let isMounted = true;
+
     const handleSync = () => {
       setSubscribers(getStoredSubscribers());
       const freshConfig = getStoredSiteConfig();
@@ -117,6 +142,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       setPlans(getStoredPlans());
       setSettings(getStoredAdminSettings());
     };
+
+    // Sincronização inicial com o Supabase Cloud
+    syncMasterAdminFromCloud().then(cloudData => {
+      if (!isMounted) return;
+      if (cloudData.subscribers) setSubscribers(cloudData.subscribers);
+      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+      if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
+    });
+
+    // Assinaturas Realtime para que alterações feitas por outros administradores ou novos cadastros apareçam na hora
+    const unsubSubs = subscribeToCloudTable('subscribers', () => {
+      fetchCloudSubscribers().then(freshSubs => {
+        if (freshSubs && isMounted) setSubscribers(freshSubs);
+      });
+    });
+
+    const unsubPlans = subscribeToCloudTable('plans', () => {
+      fetchCloudPlans().then(freshPlans => {
+        if (freshPlans && freshPlans.length > 0 && isMounted) setPlans(freshPlans);
+      });
+    });
+
+    const unsubSite = subscribeToCloudTable('site_settings', () => {
+      fetchCloudSiteConfig().then(freshSite => {
+        if (freshSite && isMounted) setSiteConfig(freshSite);
+      });
+    });
 
     const handleStorage = (e: StorageEvent) => {
       if (
@@ -136,6 +188,10 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     window.addEventListener('agrocontrol_plans_updated', handleSync);
     window.addEventListener('storage', handleStorage);
     return () => {
+      isMounted = false;
+      unsubSubs();
+      unsubPlans();
+      unsubSite();
       window.removeEventListener('master_admin_data_changed', handleSync);
       window.removeEventListener('agrocontrol_site_settings_updated', handleSync);
       window.removeEventListener('landing_page_settings_updated', handleSync);
@@ -235,6 +291,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       const updated = subscribers.filter(s => s.id !== id);
       setSubscribers(updated);
       saveStoredSubscribers(updated);
+      deleteCloudSubscriber(id).catch(err => console.warn('Notice deleting subscriber from cloud:', err));
     }
   };
 
@@ -292,6 +349,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         localStorage.setItem('agrocontrol_plans_data', JSON.stringify(updated));
       }
       saveStoredPlans(updated);
+      deleteCloudPlan(id).catch(err => console.warn('Notice deleting plan from cloud:', err));
 
       // Notificação imediata para a Landing Page
       if (typeof window !== 'undefined') {
@@ -424,6 +482,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </span>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={handleManualCloudSync}
+            disabled={isSyncingCloud}
+            className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700 disabled:opacity-60"
+            title="Sincronizar dados em tempo real com o banco de dados Supabase na nuvem"
+          >
+            <Database className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isSyncingCloud ? 'Sincronizando...' : 'Nuvem Supabase'}</span>
+          </button>
 
           <button
             type="button"

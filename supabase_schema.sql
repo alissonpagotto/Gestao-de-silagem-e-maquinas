@@ -198,6 +198,106 @@ CREATE INDEX IF NOT EXISTS idx_agenda_cliente_id ON public.agenda_servicos(clien
 CREATE INDEX IF NOT EXISTS idx_agenda_conflito_horario ON public.agenda_servicos(veiculo_principal_id, data_inicio, data_termino_previsto, hora_inicio, hora_termino_previsto);
 
 -- ==============================================================================
+-- 9. TABELA: site_settings (Configurações do Site / Landing Page)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.site_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    hero_title TEXT NOT NULL,
+    hero_subtitle TEXT,
+    hero_primary_btn_text TEXT,
+    hero_secondary_btn_text TEXT,
+    hero_background_image TEXT,
+    features_section_title TEXT,
+    features_section_subtitle TEXT,
+    features_highlight_image TEXT,
+    feature1_title TEXT,
+    feature1_desc TEXT,
+    feature2_title TEXT,
+    feature2_desc TEXT,
+    feature3_title TEXT,
+    feature3_desc TEXT,
+    feature4_title TEXT,
+    feature4_desc TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ==============================================================================
+-- 10. TABELA: plans (Gestão Dinâmica de Planos e Preços)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    price NUMERIC(10,2) NOT NULL DEFAULT 195.00,
+    billing_cycle TEXT NOT NULL DEFAULT 'mensal',
+    badge TEXT,
+    is_featured BOOLEAN NOT NULL DEFAULT false,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    display_order INTEGER NOT NULL DEFAULT 1,
+    limits JSONB DEFAULT '{"maxUsers": 5, "maxMachineries": 10, "maxClients": 100, "storageLimitGb": 5}'::jsonb,
+    features_text TEXT,
+    checkout_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_plans_active_order ON public.plans(is_active, display_order);
+
+-- ==============================================================================
+-- 11. TABELA: subscribers (Assinantes, Empresas e Dados de Faturamento)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.subscribers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    trade_name TEXT,
+    responsible_email TEXT NOT NULL UNIQUE,
+    password_hash TEXT,
+    trial_until DATE,
+    cpf_cnpj TEXT NOT NULL,
+    state_registration TEXT,
+    phone TEXT,
+    cep TEXT,
+    street TEXT,
+    number TEXT,
+    neighborhood TEXT,
+    city TEXT,
+    state TEXT,
+    representative_name TEXT,
+    representative_cpf TEXT,
+    plan_id TEXT REFERENCES public.plans(id) ON DELETE SET NULL,
+    plan_name TEXT,
+    monthly_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    status TEXT NOT NULL DEFAULT 'trial',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscribers_email ON public.subscribers(responsible_email);
+CREATE INDEX IF NOT EXISTS idx_subscribers_cpf_cnpj ON public.subscribers(cpf_cnpj);
+CREATE INDEX IF NOT EXISTS idx_subscribers_status ON public.subscribers(status);
+
+-- ==============================================================================
+-- MULTI-TENANT: Adiciona company_id às tabelas operacionais do ERP
+-- ==============================================================================
+ALTER TABLE public.fornecedores ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.notas_fiscais ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.agenda_servicos ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+
+CREATE INDEX IF NOT EXISTS idx_fornecedores_company ON public.fornecedores(company_id);
+CREATE INDEX IF NOT EXISTS idx_notas_fiscais_company ON public.notas_fiscais(company_id);
+CREATE INDEX IF NOT EXISTS idx_contas_a_pagar_company ON public.contas_a_pagar(company_id);
+CREATE INDEX IF NOT EXISTS idx_estoque_company ON public.estoque(company_id);
+CREATE INDEX IF NOT EXISTS idx_clientes_company ON public.clientes(company_id);
+CREATE INDEX IF NOT EXISTS idx_rh_funcionarios_company ON public.rh_funcionarios(company_id);
+CREATE INDEX IF NOT EXISTS idx_gestao_frotas_company ON public.gestao_frotas(company_id);
+CREATE INDEX IF NOT EXISTS idx_agenda_servicos_company ON public.agenda_servicos(company_id);
+
+-- ==============================================================================
 -- FUNÇÃO & TRIGGER: Atualização Automática de updated_at
 -- ==============================================================================
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -284,6 +384,18 @@ BEGIN
     -- Agenda de Serviços
     DROP POLICY IF EXISTS "Permissao Total Agenda" ON public.agenda_servicos;
     CREATE POLICY "Permissao Total Agenda" ON public.agenda_servicos FOR ALL USING (true) WITH CHECK (true);
+
+    -- Configurações do Site (Landing Page e Hero)
+    DROP POLICY IF EXISTS "Permissao Total Site Settings" ON public.site_settings;
+    CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL USING (true) WITH CHECK (true);
+
+    -- Planos e Preços Dinâmicos
+    DROP POLICY IF EXISTS "Permissao Total Planos" ON public.plans;
+    CREATE POLICY "Permissao Total Planos" ON public.plans FOR ALL USING (true) WITH CHECK (true);
+
+    -- Assinantes e Empresas
+    DROP POLICY IF EXISTS "Permissao Total Assinantes" ON public.subscribers;
+    CREATE POLICY "Permissao Total Assinantes" ON public.subscribers FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
 -- ==============================================================================
@@ -301,7 +413,10 @@ BEGIN
             public.clientes,
             public.rh_funcionarios,
             public.gestao_frotas,
-            public.agenda_servicos;
+            public.agenda_servicos,
+            public.site_settings,
+            public.plans,
+            public.subscribers;
     END IF;
 EXCEPTION
     WHEN OTHERS THEN

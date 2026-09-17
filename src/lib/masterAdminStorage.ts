@@ -8,6 +8,16 @@ import {
 } from '../types/masterAdmin';
 import { CompanyProfile } from '../types';
 import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
+import {
+  fetchCloudSiteConfig,
+  upsertCloudSiteConfig,
+  fetchCloudPlans,
+  upsertCloudPlan,
+  deleteCloudPlan,
+  fetchCloudSubscribers,
+  upsertCloudSubscriber,
+  deleteCloudSubscriber
+} from './supabaseService';
 
 // Chaves de armazenamento localStorage principais e padronizadas
 export const AGROCONTROL_SITE_SETTINGS_KEY = 'agrocontrol_site_settings';
@@ -181,6 +191,10 @@ export function saveStoredSubscribers(subscribers: Subscriber[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(subscribers));
     notifyDataChanged();
+    // Persistência em Nuvem (Supabase)
+    Promise.all(subscribers.map(sub => upsertCloudSubscriber(sub))).catch(err => {
+      console.warn('Notice saving subscribers to cloud:', err);
+    });
   } catch (e) {
     console.error('Failed to save subscribers:', e);
   }
@@ -247,6 +261,10 @@ export function saveStoredSiteConfig(config: SiteConfig): void {
         // Fallback silencioso
       }
     }
+    // Persistência em Nuvem (Supabase)
+    upsertCloudSiteConfig(config).catch(err => {
+      console.warn('Notice saving site config to cloud:', err);
+    });
   } catch (e) {
     console.error('Failed to save site config:', e);
   }
@@ -315,8 +333,84 @@ export function saveStoredPlans(plans: PlanDefinition[]): void {
         // Fallback silencioso
       }
     }
+    // Persistência em Nuvem (Supabase)
+    Promise.all(plans.map(p => upsertCloudPlan(p))).catch(err => {
+      console.warn('Notice saving plans to cloud:', err);
+    });
   } catch (e) {
     console.error('Failed to save plans:', e);
+  }
+}
+
+/**
+ * Sincroniza em segundo plano os dados mestres (SiteConfig, Planos e Assinantes)
+ * com o banco de dados centralizado Supabase.
+ */
+export async function syncMasterAdminFromCloud(): Promise<{
+  siteConfig: SiteConfig;
+  plans: PlanDefinition[];
+  subscribers: Subscriber[];
+}> {
+  try {
+    const [cloudSite, cloudPlans, cloudSubs] = await Promise.all([
+      fetchCloudSiteConfig(),
+      fetchCloudPlans(),
+      fetchCloudSubscribers(),
+    ]);
+
+    let resolvedSite = getStoredSiteConfig();
+    if (cloudSite) {
+      resolvedSite = cloudSite;
+      if (typeof localStorage !== 'undefined') {
+        const serialized = JSON.stringify(cloudSite);
+        localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
+      }
+    } else {
+      // Cria registro inicial na nuvem
+      upsertCloudSiteConfig(resolvedSite).catch(() => {});
+    }
+
+    let resolvedPlans = getStoredPlans();
+    if (cloudPlans && cloudPlans.length > 0) {
+      resolvedPlans = cloudPlans;
+      if (typeof localStorage !== 'undefined') {
+        const serialized = JSON.stringify(cloudPlans);
+        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+        localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
+      }
+    } else {
+      // Cria registros iniciais na nuvem com os preços padrão R$ 195 / R$ 295 / R$ 495
+      Promise.all(resolvedPlans.map(p => upsertCloudPlan(p))).catch(() => {});
+    }
+
+    let resolvedSubs = getStoredSubscribers();
+    if (cloudSubs && cloudSubs.length > 0) {
+      resolvedSubs = cloudSubs;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cloudSubs));
+      }
+    }
+
+    notifyDataChanged();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: resolvedPlans }));
+      window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: resolvedSite }));
+    }
+
+    return {
+      siteConfig: resolvedSite,
+      plans: resolvedPlans,
+      subscribers: resolvedSubs,
+    };
+  } catch (err) {
+    console.warn('Notice syncing master admin from cloud:', err);
+    return {
+      siteConfig: getStoredSiteConfig(),
+      plans: getStoredPlans(),
+      subscribers: getStoredSubscribers(),
+    };
   }
 }
 

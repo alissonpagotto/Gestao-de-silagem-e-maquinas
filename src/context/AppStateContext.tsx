@@ -8,8 +8,15 @@ import {
   getStoredPlans, 
   saveStoredPlans,
   AGROCONTROL_SITE_SETTINGS_KEY,
-  AGROCONTROL_PLANS_DATA_KEY
+  AGROCONTROL_PLANS_DATA_KEY,
+  syncMasterAdminFromCloud
 } from '../lib/masterAdminStorage';
+import { 
+  fetchCloudSiteConfig, 
+  fetchCloudPlans, 
+  subscribeToCloudTable, 
+  isSupabaseConfigured 
+} from '../lib/supabaseService';
 
 export { AGROCONTROL_SITE_SETTINGS_KEY, AGROCONTROL_PLANS_DATA_KEY };
 
@@ -19,6 +26,7 @@ interface AppStateContextType {
   updateSiteConfig: (newConfig: Partial<SiteConfig> | SiteConfig) => void;
   updatePlans: (newPlans: PlanDefinition[]) => void;
   reloadFromStorage: () => void;
+  isCloudConnected: boolean;
 }
 
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
@@ -55,7 +63,7 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     return getStoredPlans();
   });
 
-  // Função centralizada para recarregar do localStorage
+  // Função centralizada para recarregar do localStorage e nuvem
   const reloadFromStorage = useCallback(() => {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -137,12 +145,38 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, []);
 
-  // Sincronização em tempo real obrigatória
+  // Sincronização em tempo real com Banco em Nuvem (Supabase) e Janelas
   useEffect(() => {
-    // 1. Carga inicial garantida na montagem
+    // 1. Carga inicial garantida local
     reloadFromStorage();
 
-    // 2. Listener do evento nativo 'storage' da window para sincronia entre abas
+    // 2. Consulta assíncrona ao banco de dados Supabase na nuvem
+    let isMounted = true;
+    syncMasterAdminFromCloud().then(cloudData => {
+      if (!isMounted) return;
+      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+      if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
+    });
+
+    // 3. Assinatura Realtime em tempo real do Supabase
+    // Toda alteração de preço salva no Painel Master reflete em qualquer dispositivo
+    const unsubRealtimePlans = subscribeToCloudTable('plans', () => {
+      fetchCloudPlans().then(freshPlans => {
+        if (freshPlans && freshPlans.length > 0 && isMounted) {
+          setPlans(freshPlans);
+        }
+      });
+    });
+
+    const unsubRealtimeSite = subscribeToCloudTable('site_settings', () => {
+      fetchCloudSiteConfig().then(freshSite => {
+        if (freshSite && isMounted) {
+          setSiteConfig(freshSite);
+        }
+      });
+    });
+
+    // 4. Listener do evento nativo 'storage' da window para sincronia entre abas
     const handleStorageEvent = (e: StorageEvent) => {
       if (
         e.key === AGROCONTROL_SITE_SETTINGS_KEY || 
@@ -180,7 +214,7 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     };
 
-    // 3. Listeners de CustomEvents para sincronia na mesma janela
+    // 5. Listeners de CustomEvents para sincronia na mesma janela
     const handleSiteSettingsEvent = (e: any) => {
       if (e?.detail) {
         setSiteConfig((prev) => ({ ...prev, ...e.detail }));
@@ -216,6 +250,9 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     window.addEventListener('master_admin_data_changed', handleMasterAdminChanged);
 
     return () => {
+      isMounted = false;
+      unsubRealtimePlans();
+      unsubRealtimeSite();
       window.removeEventListener('storage', handleStorageEvent);
       window.removeEventListener('agrocontrol_site_settings_updated', handleSiteSettingsEvent);
       window.removeEventListener('landing_page_settings_updated', handleSiteSettingsEvent);
@@ -232,6 +269,7 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
         updateSiteConfig,
         updatePlans,
         reloadFromStorage,
+        isCloudConnected: isSupabaseConfigured,
       }}
     >
       {children}
@@ -246,3 +284,4 @@ export const useAppState = (): AppStateContextType => {
   }
   return context;
 };
+

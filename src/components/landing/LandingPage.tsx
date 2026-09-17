@@ -25,8 +25,14 @@ import {
   DEFAULT_PLANS,
   AGROCONTROL_SITE_SETTINGS_KEY,
   AGROCONTROL_PLANS_DATA_KEY,
-  LANDING_PAGE_SETTINGS_KEY
+  LANDING_PAGE_SETTINGS_KEY,
+  syncMasterAdminFromCloud
 } from '../../lib/masterAdminStorage';
+import { 
+  fetchCloudPlans, 
+  fetchCloudSiteConfig, 
+  subscribeToCloudTable 
+} from '../../lib/supabaseService';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
 interface LandingPageProps {
@@ -121,6 +127,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     // Executa obrigatoriamente na montagem
     loadAllFromStorage();
 
+    let isMounted = true;
+
+    // Sincronização direta com o banco de dados em nuvem (Supabase)
+    syncMasterAdminFromCloud().then((cloudData) => {
+      if (!isMounted) return;
+      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+      if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
+    });
+
+    // Assinaturas Realtime para atualização instantânea em qualquer aparelho ou aba
+    const unsubPlans = subscribeToCloudTable('plans', () => {
+      fetchCloudPlans().then((freshPlans) => {
+        if (freshPlans && freshPlans.length > 0 && isMounted) {
+          setPlans(freshPlans);
+        }
+      });
+    });
+
+    const unsubSite = subscribeToCloudTable('site_settings', () => {
+      fetchCloudSiteConfig().then((freshSite) => {
+        if (freshSite && isMounted) {
+          setSiteConfig(freshSite);
+        }
+      });
+    });
+
     // 2. CustomEvents da mesma janela (Master Admin alterado na mesma aba/janela)
     const handleSiteUpdated = (e: any) => {
       if (e?.detail) {
@@ -202,6 +234,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
+      isMounted = false;
+      unsubPlans();
+      unsubSite();
       window.removeEventListener('agrocontrol_site_settings_updated', handleSiteUpdated);
       window.removeEventListener('landing_page_settings_updated', handleSiteUpdated);
       window.removeEventListener('agrocontrol_plans_updated', handlePlansUpdated);
