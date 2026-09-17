@@ -45,6 +45,7 @@ import { PlanDefinition, SubscriberStatus, SiteConfig } from '../../types/master
 import { CompanyProfile } from '../../types';
 import { getStoredCompanyProfile } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 interface AuthPageProps {
   onEnterApp: () => void;
@@ -286,7 +287,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       setFormError('Por favor, informe o CPF ou CNPJ.');
       return;
     }
-    if (!formData.responsibleEmail.trim() || !formData.responsibleEmail.includes('@')) {
+    const emailClean = formData.responsibleEmail.trim().toLowerCase();
+    if (!emailClean || !emailClean.includes('@')) {
       setFormError('Por favor, informe um e-mail válido para acesso.');
       return;
     }
@@ -306,17 +308,174 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setIsLoading(true);
 
     try {
-      // Determina status: se veio pré-pago aprovado é 'ativa', caso contrário inicia como 'trial'
+      const nameClean = formData.name.trim();
+      const phoneClean = formData.phone.trim();
+      const documentClean = formData.cpfCnpj.trim();
+
+      // 1. Captura o nome do plano da URL do site (ex: ?plan=plano-pro ou nome do plano ativo)
+      let planNameCaptured = 'Frota Pro';
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const planParam = urlParams.get('plan');
+        if (planParam) {
+          const matched = plans.find(
+            p => p.id === planParam || p.name.toLowerCase() === planParam.toLowerCase()
+          );
+          planNameCaptured = matched ? matched.name : planParam;
+        } else if (activePlan?.name) {
+          planNameCaptured = activePlan.name;
+        }
+      } else if (activePlan?.name) {
+        planNameCaptured = activePlan.name;
+      }
+
+      // Calcula data de expiração do trial (Data atual somada aos dias de teste do plano - 15 dias)
+      const trialDays = 15;
+      const trialDate = new Date();
+      trialDate.setDate(trialDate.getDate() + trialDays);
+      const trialEndsAtIso = trialDate.toISOString();
+      const trialUntilDateOnly = trialDate.toISOString().split('T')[0];
+
+      // Determina status inicial (padrão 'Trial')
       const initialStatus: SubscriberStatus = isPrePaid ? 'ativa' : 'trial';
 
-      // 1. Cadastra o assinante gerando o registro no Admin Mestre e salvando o CompanyProfile
+      // =========================================================================
+      // 1. CRIAÇÃO DE USUÁRIO NO SUPABASE AUTH (tabela auth.users)
+      // =========================================================================
+      let authUserId: string | null = null;
+
+      if (isSupabaseConfigured) {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: emailClean,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: nameClean,
+              name: nameClean,
+              phone: phoneClean,
+              cpf_cnpj: documentClean,
+              plan_name: planNameCaptured,
+            }
+          }
+        });
+
+        if (authError) {
+          throw new Error(authError.message || 'Erro ao criar o usuário no serviço de autenticação.');
+        }
+
+        if (authData?.user?.id) {
+          authUserId = authData.user.id;
+        }
+      }
+
+      // Fallback de UID caso não esteja configurado
+      if (!authUserId) {
+        authUserId = `usr_${Date.now()}`;
+      }
+
+      // =========================================================================
+      // 2. INSERÇÃO IMEDIATA NA TABELA PÚBLICA 'subscribers'
+      // Mapeamento exato dos campos:
+      // - id: UUID gerado pelo Supabase Auth
+      // - name: Nome da Empresa / Assinante
+      // - email: E-mail digitado
+      // - phone: Telefone informado
+      // - document: CPF ou CNPJ digitado
+      // - plan_name: Nome do plano capturado da URL
+      // - status: 'Trial' de forma padrão
+      // - trial_ends_at: Data atual somada aos dias de teste
+      // =========================================================================
+      if (isSupabaseConfigured) {
+        const baseSubscriberPayload = {
+          id: authUserId,
+          name: nameClean,
+          email: emailClean,
+          phone: phoneClean,
+          document: documentClean,
+          plan_name: planNameCaptured,
+          status: 'Trial',
+          trial_ends_at: trialEndsAtIso,
+        };
+
+        // Payload enriquecido para compatibilidade total com esquemas existentes
+        const enrichedSubscriberPayload = {
+          ...baseSubscriberPayload,
+          responsible_email: emailClean,
+          cpf_cnpj: documentClean,
+          trial_until: trialUntilDateOnly,
+          plan_id: activePlan?.id || selectedPlanId || 'plano-pro',
+          monthly_value: Number(activePlan?.price) || 0,
+          cep: formData.cep.trim(),
+          street: formData.street.trim() || 'Endereço Comercial',
+          number: formData.number.trim() || 'S/N',
+          neighborhood: formData.neighborhood.trim() || 'Centro',
+          city: formData.city.trim(),
+          state: formData.state.trim().toUpperCase(),
+          updated_at: new Date().toISOString()
+        };
+
+        let { error: insertError } = await supabase
+          .from('subscribers')
+          .upsert(enrichedSubscriberPayload, { onConflict: 'id' });
+
+        // Se houver erro de coluna específica no banco, faz fallback inteligente
+        if (insertError) {
+          console.warn('Tentativa com payload enriquecido falhou, tentando payload estrito:', insertError.message);
+          const strictRes = await supabase
+            .from('subscribers')
+            .upsert(baseSubscriberPayload, { onConflict: 'id' });
+
+          if (!strictRes.error) {
+            insertError = null;
+          } else {
+            console.warn('Tentativa com payload estrito falhou, tentando colunas do schema legado:', strictRes.error.message);
+            const legacyPayload = {
+              id: authUserId,
+              name: nameClean,
+              responsible_email: emailClean,
+              phone: phoneClean,
+              cpf_cnpj: documentClean,
+              plan_name: planNameCaptured,
+              status: 'Trial',
+              trial_until: trialUntilDateOnly,
+              cep: formData.cep.trim(),
+              city: formData.city.trim(),
+              state: formData.state.trim().toUpperCase(),
+            };
+            const legacyRes = await supabase
+              .from('subscribers')
+              .upsert(legacyPayload, { onConflict: 'id' });
+
+            if (!legacyRes.error) {
+              insertError = null;
+            }
+          }
+        }
+
+        // =======================================================================
+        // 3. FALLBACK AUTOMÁTICO (TRATAMENTO DE ERROS):
+        // Garante que se a inserção na tabela subscribers falhar por qualquer motivo,
+        // o usuário seja alertado, evitando que contas fiquem "órfãs" no banco de dados.
+        // =======================================================================
+        if (insertError) {
+          console.error('Falha crítica ao gravar na tabela subscribers:', insertError);
+          throw new Error(
+            `Sua conta de autenticação (${emailClean}) foi criada com sucesso, mas ocorreu um erro ao registrar sua assinatura na tabela subscribers: ${insertError.message}. Entre em contato com o suporte ou execute o script SQL do banco.`
+          );
+        }
+      }
+
+      // =========================================================================
+      // 4. PERSISTÊNCIA LOCAL COM O MESMO UUID DO SUPABASE AUTH
+      // =========================================================================
       const result = registerNewSubscriber({
-        name: formData.name.trim(),
-        tradeName: formData.tradeName.trim() || formData.name.trim(),
-        responsibleEmail: formData.responsibleEmail.trim().toLowerCase(),
+        id: authUserId,
+        name: nameClean,
+        tradeName: formData.tradeName.trim() || nameClean,
+        responsibleEmail: emailClean,
         password: formData.password,
-        phone: formData.phone.trim(),
-        cpfCnpj: formData.cpfCnpj.trim(),
+        phone: phoneClean,
+        cpfCnpj: documentClean,
         stateRegistration: formData.stateRegistration.trim() || 'ISENTO',
         cep: formData.cep.trim(),
         street: formData.street.trim() || 'Endereço Comercial',
@@ -324,31 +483,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         neighborhood: formData.neighborhood.trim() || 'Centro',
         city: formData.city.trim(),
         state: formData.state.trim().toUpperCase(),
-        representativeName: formData.responsibleName.trim() || formData.name.trim(),
-        planId: activePlan?.id || 'plano-pro',
+        representativeName: formData.responsibleName.trim() || nameClean,
+        planId: activePlan?.id || selectedPlanId || 'plano-pro',
         status: initialStatus,
         trialDays: 15,
       });
 
-      // 2. Registra a conta no contexto de autenticação (Supabase ou Local)
-      try {
-        await signUp(
-          formData.responsibleEmail.trim().toLowerCase(),
-          formData.password,
-          formData.name.trim()
-        );
-      } catch (authErr) {
-        console.warn('Auth sign up notice:', authErr);
-      }
-
-      // 3. Notifica o estado do App sobre a nova empresa
+      // Notifica o estado do App sobre a nova empresa
       if (onCompanyCreated) {
         onCompanyCreated(result.companyProfile);
       }
 
-      setSuccessMessage('Empresa e conta criadas com sucesso! Inicializando seu painel...');
+      setSuccessMessage('Empresa, conta e assinatura criadas com sucesso! Inicializando seu painel...');
 
-      // 4. Redirecionamento suave para o ERP
+      // Redirecionamento suave para o ERP
       setTimeout(() => {
         onEnterApp();
       }, 1200);

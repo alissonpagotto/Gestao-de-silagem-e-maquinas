@@ -575,6 +575,7 @@ export function computeMasterMetrics(subscribers: Subscriber[]): MasterAdminMetr
 // ==========================================
 
 export interface CreateSubscriberPayload {
+  id?: string;
   name: string;
   tradeName?: string;
   responsibleEmail: string;
@@ -622,8 +623,8 @@ export function registerNewSubscriber(payload: CreateSubscriberPayload): { subsc
   // 3. Status inicial (TRIAL como padrão, ou ATIVA se vier com pagamento aprovado)
   const status: SubscriberStatus = payload.status || 'trial';
 
-  // 4. Gerar ID único para o novo assinante
-  const id = `sub-${Date.now().toString(36)}-${Math.floor(1000 + Math.random() * 9000)}`;
+  // 4. Utiliza o ID do Supabase Auth se fornecido, ou gera ID único
+  const id = payload.id || `sub-${Date.now().toString(36)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const newSubscriber: Subscriber = {
     id,

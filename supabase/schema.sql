@@ -360,6 +360,11 @@ ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 
+-- Compatibilidade de colunas da tabela de assinantes (subscribers)
+ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS document TEXT;
+ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+
 -- ==============================================================================
 -- 10. POLÍTICAS RLS E ACESSO PÚBLICO (ANON) PARA LANDING PAGE E PLANOS
 -- ==============================================================================

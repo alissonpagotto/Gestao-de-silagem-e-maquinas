@@ -1314,11 +1314,11 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 
     return data.map((row: any) => ({
       id: row.id,
-      name: row.name,
-      responsibleEmail: row.responsible_email,
+      name: row.name || 'Assinante',
+      responsibleEmail: row.responsible_email || row.email || '',
       password: row.password_hash || undefined,
-      trialUntil: row.trial_until || '',
-      cpfCnpj: row.cpf_cnpj || '',
+      trialUntil: row.trial_until || row.trial_ends_at || '',
+      cpfCnpj: row.cpf_cnpj || row.document || '',
       stateRegistration: row.state_registration || undefined,
       phone: row.phone || '',
       cep: row.cep || '',
@@ -1330,7 +1330,7 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
       planId: row.plan_id || '',
       planName: row.plan_name || '',
       monthlyValue: Number(row.monthly_value) || 0,
-      status: (row.status as any) || 'trial',
+      status: (row.status?.toLowerCase() as any) || 'trial',
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
     }));
@@ -1343,15 +1343,20 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const payload = {
+    const payload: Record<string, any> = {
       id: sub.id,
       name: sub.name,
+      email: sub.responsibleEmail.trim().toLowerCase(),
       responsible_email: sub.responsibleEmail.trim().toLowerCase(),
-      password_hash: sub.password || null,
-      trial_until: sub.trialUntil || null,
-      cpf_cnpj: sub.cpfCnpj || '',
-      state_registration: sub.stateRegistration || null,
       phone: sub.phone || '',
+      document: sub.cpfCnpj || '',
+      cpf_cnpj: sub.cpfCnpj || '',
+      plan_name: sub.planName || null,
+      status: sub.status === 'trial' ? 'Trial' : sub.status,
+      trial_ends_at: sub.trialUntil ? new Date(sub.trialUntil).toISOString() : null,
+      trial_until: sub.trialUntil || null,
+      password_hash: sub.password || null,
+      state_registration: sub.stateRegistration || null,
       cep: sub.cep || '',
       street: sub.street || '',
       number: sub.number || '',
@@ -1359,17 +1364,31 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
       city: sub.city || '',
       state: sub.state || '',
       plan_id: sub.planId || null,
-      plan_name: sub.planName || null,
       monthly_value: Number(sub.monthlyValue) || 0,
-      status: sub.status || 'trial',
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('subscribers')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
+      // Fallback estrito caso colunas expandidas não existam no schema
+      const strictPayload = {
+        id: sub.id,
+        name: sub.name,
+        email: sub.responsibleEmail.trim().toLowerCase(),
+        phone: sub.phone || '',
+        document: sub.cpfCnpj || '',
+        plan_name: sub.planName || 'Frota Pro',
+        status: 'Trial',
+        trial_ends_at: sub.trialUntil ? new Date(sub.trialUntil).toISOString() : null,
+      };
+      const fallback = await supabase
+        .from('subscribers')
+        .upsert(strictPayload, { onConflict: 'id' });
+      if (!fallback.error) return true;
+
       console.warn('Supabase upsertCloudSubscriber notice:', error.message);
       return false;
     }
