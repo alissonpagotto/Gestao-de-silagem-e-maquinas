@@ -650,7 +650,7 @@ export default function App() {
   };
 
   // Determinação de Rota com Isolamento Estrito de Ambientes
-  // 1. Admin Mestre: estritamente /master-admin (ou ?key=agro123)
+  // 1. Admin Mestre: rota limpa /master-admin ou /master-login com autenticação de Super Admin
   // 2. Formulários Públicos Externos: ?ficha=cliente, ?ficha=fornecedor, ?agendamento=...
   // 3. Painel Interno de Gestão de Silagem (ERP): rota /dashboard ou usuário com sessão ativa
   // 4. Landing Page Pública: Rota raiz "/" como padrão se o usuário não estiver logado
@@ -660,13 +660,14 @@ export default function App() {
     const search = window.location.search || '';
     const hash = window.location.hash || '';
 
-    // 1. Admin Mestre (Acesso estritamente isolado e sem Sidebar do cliente)
+    // 1. Admin Mestre (Acesso seguro e estritamente isolado sem Sidebar do cliente)
     if (
       path.includes('master-admin') ||
+      path.includes('master-login') ||
       search.includes('master-admin') ||
-      search.includes('key=agro123') ||
-      search.includes('admin=master') ||
-      hash.includes('master-admin')
+      search.includes('master-login') ||
+      hash.includes('master-admin') ||
+      hash.includes('master-login')
     ) {
       return 'master-admin';
     }
@@ -803,7 +804,7 @@ export default function App() {
 
   const handleOpenMasterAdmin = () => {
     try {
-      window.history.pushState({}, '', '/master-admin?key=agro123');
+      window.history.pushState({}, '', '/master-admin');
     } catch (e) {
       console.error(e);
     }
@@ -836,7 +837,7 @@ export default function App() {
     setCurrentRoute('landing');
   };
 
-  // 1. Rota Isolada: Admin Mestre (Apenas em /master-admin?key=agro123, sem Sidebar do cliente)
+  // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {
     return (
       <MasterAdminDashboard

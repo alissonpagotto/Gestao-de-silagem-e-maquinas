@@ -73,4 +73,10 @@ export interface AdminSettings {
   webhookCakto: string;
   webhookPerfectPay: string;
   superAdminEmails: string[];
+  masterPassword?: string; // Senha Mestre de Acesso ao Painel
+}
+
+export interface MasterSession {
+  email: string;
+  authenticatedAt: string;
 }

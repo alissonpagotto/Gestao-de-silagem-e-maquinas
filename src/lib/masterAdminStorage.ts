@@ -3,7 +3,8 @@ import {
   SiteConfig, 
   PlanDefinition, 
   AdminSettings, 
-  SubscriberStatus 
+  SubscriberStatus,
+  MasterSession
 } from '../types/masterAdmin';
 import { CompanyProfile } from '../types';
 import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
@@ -14,6 +15,7 @@ const STORAGE_KEYS = {
   SITE_CONFIG: 'silagem_master_site_config_v1',
   PLANS: 'silagem_master_plans_v1',
   SETTINGS: 'silagem_master_settings_v1',
+  MASTER_SESSION: 'silagem_master_session_v1',
 };
 
 // ==========================================
@@ -254,7 +256,8 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     'alisson1pagotto@gmail.com',
     'admin@agrocontrol.com.br',
     'diretoria@silagemfacil.com.br'
-  ]
+  ],
+  masterPassword: 'AgroControl@Master2026'
 };
 
 // ==========================================
@@ -354,6 +357,44 @@ export function saveStoredAdminSettings(settings: AdminSettings): void {
     notifyDataChanged();
   } catch (e) {
     console.error('Failed to save admin settings:', e);
+  }
+}
+
+export function getStoredMasterSession(): MasterSession | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEYS.MASTER_SESSION) || localStorage.getItem(STORAGE_KEYS.MASTER_SESSION);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (session && typeof session.email === 'string') {
+      return session;
+    }
+    return null;
+  } catch (e) {
+    console.error('Failed to load master session:', e);
+    return null;
+  }
+}
+
+export function saveStoredMasterSession(session: MasterSession): void {
+  try {
+    const serialized = JSON.stringify(session);
+    sessionStorage.setItem(STORAGE_KEYS.MASTER_SESSION, serialized);
+    localStorage.setItem(STORAGE_KEYS.MASTER_SESSION, serialized);
+    localStorage.setItem('silagem_master_authenticated', 'true');
+    notifyDataChanged();
+  } catch (e) {
+    console.error('Failed to save master session:', e);
+  }
+}
+
+export function clearStoredMasterSession(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_KEYS.MASTER_SESSION);
+    localStorage.removeItem(STORAGE_KEYS.MASTER_SESSION);
+    localStorage.removeItem('silagem_master_authenticated');
+    notifyDataChanged();
+  } catch (e) {
+    console.error('Failed to clear master session:', e);
   }
 }
 

@@ -25,14 +25,16 @@ import {
   Building2,
   RefreshCw,
   Lock,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
 import { 
   Subscriber, 
   SiteConfig, 
   PlanDefinition, 
   AdminSettings, 
-  SubscriberStatus 
+  SubscriberStatus,
+  MasterSession
 } from '../../types/masterAdmin';
 import { 
   getStoredSubscribers, 
@@ -43,11 +45,14 @@ import {
   saveStoredPlans,
   getStoredAdminSettings, 
   saveStoredAdminSettings,
-  computeMasterMetrics 
+  computeMasterMetrics,
+  getStoredMasterSession,
+  clearStoredMasterSession
 } from '../../lib/masterAdminStorage';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
 import { PlanModal } from './PlanModal';
+import { MasterAdminLogin } from './MasterAdminLogin';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
 interface MasterAdminDashboardProps {
@@ -59,24 +64,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   onBackToApp,
   onOpenLandingPage,
 }) => {
-  // Estado de Autenticação / Chave do Master Admin
-  const [accessKey, setAccessKey] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('key') || '';
-    }
-    return '';
+  // Estado de Sessão Autenticada de Super Admin
+  const [session, setSession] = useState<MasterSession | null>(() => {
+    const s = getStoredMasterSession();
+    if (!s) return null;
+    const currentSettings = getStoredAdminSettings();
+    const isSuperAdmin = (currentSettings.superAdminEmails || []).some(
+      (email) => email.trim().toLowerCase() === s.email.trim().toLowerCase()
+    );
+    return isSuperAdmin ? s : null;
   });
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const k = params.get('key');
-      return k === 'agro123' || localStorage.getItem('silagem_master_authenticated') === 'true';
-    }
-    return false;
-  });
-  const [keyInput, setKeyInput] = useState('');
-  const [keyError, setKeyError] = useState('');
 
   // Estados Principais de Dados
   const [subscribers, setSubscribers] = useState<Subscriber[]>(() => getStoredSubscribers());
@@ -144,16 +141,44 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     });
   }, [subscribers, statusFilter, searchQuery]);
 
-  // Handler de login mestre se a chave não estiver na URL
-  const handleKeySubmit = (e: React.FormEvent) => {
+  // Estado para alteração de senha mestre
+  const [newMasterPassword, setNewMasterPassword] = useState('');
+  const [confirmMasterPassword, setConfirmMasterPassword] = useState('');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
+
+  const handleChangeMasterPassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (keyInput.trim() === 'agro123') {
-      setIsAuthenticated(true);
-      localStorage.setItem('silagem_master_authenticated', 'true');
-      setKeyError('');
-    } else {
-      setKeyError('Chave mestre inválida. Utilize a chave agro123');
+    setPasswordChangeError(null);
+    setPasswordChangeSuccess(false);
+
+    const cleanPass = newMasterPassword.trim();
+    if (!cleanPass || cleanPass.length < 6) {
+      setPasswordChangeError('A nova senha mestre deve conter no mínimo 6 caracteres.');
+      return;
     }
+
+    if (cleanPass !== confirmMasterPassword.trim()) {
+      setPasswordChangeError('A confirmação de senha não confere com a nova senha digitada.');
+      return;
+    }
+
+    const updated: AdminSettings = {
+      ...settingsForm,
+      masterPassword: cleanPass
+    };
+    setSettingsForm(updated);
+    setSettings(updated);
+    saveStoredAdminSettings(updated);
+    setPasswordChangeSuccess(true);
+    setNewMasterPassword('');
+    setConfirmMasterPassword('');
+    setTimeout(() => setPasswordChangeSuccess(false), 4000);
+  };
+
+  const handleLogoutMaster = () => {
+    clearStoredMasterSession();
+    setSession(null);
   };
 
   // Salvar Assinante
@@ -259,75 +284,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   };
 
   // TELA DE BLOQUEIO / LOGIN MESTRE SE NÃO AUTENTICADO
-  if (!isAuthenticated) {
+  if (!session) {
     return (
-      <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-4 font-['Plus_Jakarta_Sans',sans-serif] text-stone-100">
-        <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-8 shadow-2xl space-y-6">
-          <div className="flex flex-col items-center text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 mb-1">
-              <Lock className="w-7 h-7" />
-            </div>
-            <h1 className="text-xl font-black tracking-tight text-white">
-              Admin Mestre • AgroControl
-            </h1>
-            <p className="text-xs text-stone-400">
-              Digite a chave mestre de acesso geral da plataforma para continuar.
-            </p>
-          </div>
-
-          <form onSubmit={handleKeySubmit} className="space-y-4">
-            {keyError && (
-              <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{keyError}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold text-stone-300 mb-1">
-                CHAVE MESTRE
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={keyInput}
-                  onChange={(e) => setKeyInput(e.target.value)}
-                  placeholder="Informe a chave (ex: agro123)"
-                  className="w-full p-3 bg-stone-950 border border-stone-700 rounded-xl text-sm font-mono text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                  autoFocus
-                />
-                <Key className="w-4 h-4 text-stone-500 absolute right-3.5 top-3.5 pointer-events-none" />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-950 cursor-pointer"
-            >
-              Autenticar Painel Mestre
-            </button>
-          </form>
-
-          <div className="pt-2 border-t border-stone-800/80 flex items-center justify-between text-xs text-stone-400">
-            <button
-              type="button"
-              onClick={onBackToApp}
-              className="hover:text-stone-200 transition cursor-pointer flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Voltar ao ERP</span>
-            </button>
-            <button
-              type="button"
-              onClick={onOpenLandingPage}
-              className="hover:text-stone-200 transition cursor-pointer flex items-center gap-1 text-emerald-400"
-            >
-              <span>Ver Landing Page</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <MasterAdminLogin
+        onSuccess={(newSession) => setSession(newSession)}
+        onBackToApp={onBackToApp}
+        onOpenLandingPage={onOpenLandingPage}
+      />
     );
   }
 
@@ -357,6 +320,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
         {/* Ações de Navegação do TopBar */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {session && (
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-950/80 border border-stone-800 text-xs">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-stone-400 text-[11px]">Sessão:</span>
+              <span className="font-mono text-emerald-400 font-bold text-[11px] max-w-[200px] truncate" title={session.email}>
+                {session.email}
+              </span>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={onOpenLandingPage}
@@ -375,6 +348,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Abrir ERP Silagem Fácil</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogoutMaster}
+            className="px-3 py-1.5 bg-stone-800/90 hover:bg-rose-950/50 hover:text-rose-300 hover:border-rose-800/60 text-stone-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700"
+            title="Encerrar sessão e deslogar do Admin Mestre"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden lg:inline">Sair do Master</span>
           </button>
         </div>
       </header>
@@ -1322,6 +1305,90 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* SENHA MESTRE DE ACESSO */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
+              <div className="border-b border-stone-800 pb-2 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <Lock className="w-4 h-4" />
+                    <span>Alterar Senha Mestre de Acesso</span>
+                  </h3>
+                  <p className="text-[11px] text-stone-400">
+                    Defina uma nova senha mestre forte para autenticação dos Super Administradores.
+                  </p>
+                </div>
+                <div className="px-2.5 py-1 rounded-lg bg-stone-950 border border-stone-800 text-[10px] text-stone-400 font-mono">
+                  Mínimo 6 caracteres
+                </div>
+              </div>
+
+              {passwordChangeSuccess && (
+                <div className="p-3 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-xs font-bold text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Senha mestre atualizada com sucesso! Todas as sessões administrativas usarão a nova credencial.</span>
+                </div>
+              )}
+
+              {passwordChangeError && (
+                <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{passwordChangeError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangeMasterPassword} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-300 mb-1">
+                      NOVA SENHA MESTRE
+                    </label>
+                    <div className="relative">
+                      <Key className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type="password"
+                        value={newMasterPassword}
+                        onChange={(e) => {
+                          setNewMasterPassword(e.target.value);
+                          if (passwordChangeError) setPasswordChangeError(null);
+                        }}
+                        placeholder="Digite a nova senha"
+                        className="w-full pl-9 pr-3 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-300 mb-1">
+                      CONFIRMAR NOVA SENHA
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type="password"
+                        value={confirmMasterPassword}
+                        onChange={(e) => {
+                          setConfirmMasterPassword(e.target.value);
+                          if (passwordChangeError) setPasswordChangeError(null);
+                        }}
+                        placeholder="Confirme a nova senha"
+                        className="w-full pl-9 pr-3 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end pt-1">
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-md"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Salvar Nova Senha Mestre</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
