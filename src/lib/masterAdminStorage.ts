@@ -11,7 +11,7 @@ import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
 
 // Chaves de armazenamento localStorage
 const STORAGE_KEYS = {
-  SUBSCRIBERS: 'silagem_master_subscribers_v1',
+  SUBSCRIBERS: 'silagem_master_subscribers_v2',
   SITE_CONFIG: 'silagem_master_site_config_v1',
   PLANS: 'silagem_master_plans_v1',
   SETTINGS: 'silagem_master_settings_v1',
@@ -110,140 +110,7 @@ export const DEFAULT_PLANS: PlanDefinition[] = [
 // ==========================================
 // 3. DADOS INICIAIS DE ASSINANTES (SUBSCRIBERS)
 // ==========================================
-export const DEFAULT_SUBSCRIBERS: Subscriber[] = [
-  {
-    id: 'sub-001',
-    name: 'Agropecuária Santa Fé Ltda',
-    responsibleEmail: 'marcos.gerencia@santafeagro.com.br',
-    password: '••••••••',
-    trialUntil: '2026-10-30',
-    cpfCnpj: '14.285.932/0001-44',
-    stateRegistration: '124.582.901.112',
-    phone: '(16) 99871-4420',
-    cep: '14010-060',
-    street: 'Avenida Presidente Vargas',
-    number: '1450',
-    neighborhood: 'Jardim América',
-    city: 'Ribeirão Preto',
-    state: 'SP',
-    planId: 'plano-pro',
-    planName: 'Frota Pro',
-    monthlyValue: 389.00,
-    status: 'ativa',
-    createdAt: '2026-07-15T10:30:00.000Z',
-    updatedAt: '2026-09-10T14:20:00.000Z',
-  },
-  {
-    id: 'sub-002',
-    name: 'Colheitas & Silagem do Cerrado',
-    responsibleEmail: 'roberto@cerradosilagem.agr.br',
-    password: '••••••••',
-    trialUntil: '2026-09-28',
-    cpfCnpj: '28.910.450/0001-89',
-    stateRegistration: '10.554.890-1',
-    phone: '(64) 99230-1188',
-    cep: '75901-020',
-    street: 'Rua das Acácias',
-    number: '310',
-    neighborhood: 'Setor Industrial',
-    city: 'Rio Verde',
-    state: 'GO',
-    planId: 'plano-pro',
-    planName: 'Frota Pro',
-    monthlyValue: 389.00,
-    status: 'ativa',
-    createdAt: '2026-08-01T09:15:00.000Z',
-    updatedAt: '2026-09-12T11:00:00.000Z',
-  },
-  {
-    id: 'sub-003',
-    name: 'Fazenda Boa Esperança - João Pedro Silva',
-    responsibleEmail: 'joaopedro.silagem@gmail.com',
-    password: '••••••••',
-    trialUntil: '2026-09-24',
-    cpfCnpj: '054.892.118-20',
-    stateRegistration: 'ISENTO',
-    phone: '(34) 99182-7733',
-    cep: '38400-100',
-    street: 'Rodovia Municipal KM 14',
-    number: 'S/N',
-    neighborhood: 'Zona Rural',
-    city: 'Uberlândia',
-    state: 'MG',
-    planId: 'plano-essencial',
-    planName: 'Produtor Essencial',
-    monthlyValue: 189.00,
-    status: 'trial',
-    createdAt: '2026-09-10T08:00:00.000Z',
-    updatedAt: '2026-09-10T08:00:00.000Z',
-  },
-  {
-    id: 'sub-004',
-    name: 'Cooperativa Agrícola Sul Catarinense',
-    responsibleEmail: 'diretoria@coopersul.coop.br',
-    password: '••••••••',
-    trialUntil: '2026-11-15',
-    cpfCnpj: '83.450.912/0001-02',
-    stateRegistration: '254.890.113',
-    phone: '(49) 98844-5511',
-    cep: '89801-000',
-    street: 'Rua Fernando Machado',
-    number: '820',
-    neighborhood: 'Centro',
-    city: 'Chapecó',
-    state: 'SC',
-    planId: 'plano-enterprise',
-    planName: 'Agro Enterprise',
-    monthlyValue: 749.00,
-    status: 'ativa',
-    createdAt: '2026-06-20T14:40:00.000Z',
-    updatedAt: '2026-09-15T16:30:00.000Z',
-  },
-  {
-    id: 'sub-005',
-    name: 'Tratores & Ensilagem Pioneiro',
-    responsibleEmail: 'contato@pioneirosilagem.com.br',
-    password: '••••••••',
-    trialUntil: '2026-08-30',
-    cpfCnpj: '19.782.330/0001-15',
-    stateRegistration: '098.441.229.001',
-    phone: '(44) 99770-3344',
-    cep: '87013-010',
-    street: 'Avenida Brasil',
-    number: '2500',
-    neighborhood: 'Zona 01',
-    city: 'Maringá',
-    state: 'PR',
-    planId: 'plano-pro',
-    planName: 'Frota Pro',
-    monthlyValue: 389.00,
-    status: 'inadimplente',
-    createdAt: '2026-05-10T11:20:00.000Z',
-    updatedAt: '2026-09-02T10:15:00.000Z',
-  },
-  {
-    id: 'sub-006',
-    name: 'AgroServiços Vale do Paranapanema',
-    responsibleEmail: 'financeiro@agrovaleparanapanema.com',
-    password: '••••••••',
-    trialUntil: '2026-07-20',
-    cpfCnpj: '32.190.441/0001-63',
-    stateRegistration: '189.774.200.119',
-    phone: '(18) 99650-8899',
-    cep: '19800-010',
-    street: 'Rua Floriano Peixoto',
-    number: '430',
-    neighborhood: 'Vila Operária',
-    city: 'Assis',
-    state: 'SP',
-    planId: 'plano-essencial',
-    planName: 'Produtor Essencial',
-    monthlyValue: 189.00,
-    status: 'cancelada',
-    createdAt: '2026-04-12T09:00:00.000Z',
-    updatedAt: '2026-07-22T15:00:00.000Z',
-  }
-];
+export const DEFAULT_SUBSCRIBERS: Subscriber[] = [];
 
 // ==========================================
 // 4. DADOS INICIAIS DE CONFIGURAÇÕES GERAIS
@@ -266,16 +133,39 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
 
 export function getStoredSubscribers(): Subscriber[] {
   try {
+    // Limpeza retroativa de chave legada caso ainda resida em cache do navegador
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_master_subscribers_v1')) {
+      localStorage.removeItem('silagem_master_subscribers_v1');
+    }
+
     const raw = localStorage.getItem(STORAGE_KEYS.SUBSCRIBERS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(DEFAULT_SUBSCRIBERS));
-      return DEFAULT_SUBSCRIBERS;
+      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([]));
+      return [];
     }
+
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_SUBSCRIBERS;
+    if (!Array.isArray(parsed)) {
+      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([]));
+      return [];
+    }
+
+    // Filtrar quaisquer resquícios das 6 empresas simuladas
+    const cleaned = parsed.filter(
+      (sub: any) =>
+        sub &&
+        !['sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006'].includes(sub.id) &&
+        !['Agropecuária Santa Fé Ltda', 'Colheitas & Silagem do Cerrado', 'Fazenda Boa Esperança - João Pedro Silva', 'Cooperativa Agrícola Sul Catarinense', 'Tratores & Ensilagem Pioneiro', 'AgroServiços Vale do Paranapanema'].includes(sub.name)
+    );
+
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cleaned));
+    }
+
+    return cleaned;
   } catch (e) {
     console.error('Failed to load subscribers:', e);
-    return DEFAULT_SUBSCRIBERS;
+    return [];
   }
 }
 

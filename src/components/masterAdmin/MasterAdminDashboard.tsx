@@ -613,8 +613,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   <tbody className="divide-y divide-stone-800/60 text-xs">
                     {filteredSubscribers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-stone-500">
-                          Nenhum assinante encontrado para os critérios selecionados.
+                        <td colSpan={7} className="py-16 text-center text-stone-400">
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <Building2 className="w-8 h-8 text-stone-600 stroke-[1.5]" />
+                            <p className="text-sm font-semibold text-stone-300">
+                              {subscribers.length === 0
+                                ? 'Nenhum assinante cadastrado na plataforma até o momento.'
+                                : 'Nenhum assinante encontrado para os critérios selecionados.'}
+                            </p>
+                            {subscribers.length === 0 && (
+                              <p className="text-xs text-stone-500 max-w-sm">
+                                Novos cadastros realizados na plataforma ou criados pelo botão "+ Novo Assinante" aparecerão aqui automaticamente.
+                              </p>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ) : (
