@@ -16,15 +16,17 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Truck
+  Truck,
+  ClipboardList
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile, ServiceAppointment } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal, ServiceTabType } from './ServiceFormModal';
 import { ServiceAgendaModule } from './ServiceAgendaModule';
+import { FieldFormsView } from './FieldFormsView';
 
-export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento';
+export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'formularios';
 
 interface ServicesModuleProps {
   services?: ServiceOrder[];
@@ -59,7 +61,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
   // Tabs Definition na ordem exata requerida:
-  // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento
+  // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento | Formulários
   const tabs = [
     { id: 'agenda' as ServiceTab, label: 'Agenda de Serviços', icon: CalendarDays },
     { id: 'corte' as ServiceTab, label: 'Corte', icon: Scissors },
@@ -68,6 +70,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     { id: 'maquina' as ServiceTab, label: 'Serviço de Máquina', icon: Wrench },
     { id: 'frete' as ServiceTab, label: 'Serviço de Frete', icon: Truck },
     { id: 'orcamento' as ServiceTab, label: 'Orçamento', icon: FileText },
+    { id: 'formularios' as ServiceTab, label: 'Formulários', icon: ClipboardList },
   ];
 
   // Configurações Dinâmicas por Aba
@@ -283,17 +286,19 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-white/20 pb-1.5">
         <div>
           <h1 className="text-base sm:text-lg font-black text-white tracking-tight">
-            {activeTab === 'agenda' ? 'Agenda de Serviços' : 'Serviços'}
+            {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Serviços'}
           </h1>
           <p className="text-[11px] sm:text-xs text-blue-100 font-medium mt-0.5">
             {activeTab === 'agenda'
               ? 'Planejamento logístico de campo, escala de frotas e controle de sobreposição de horários.'
+              : activeTab === 'formularios'
+              ? 'Blocos de lançamentos digitais para operadores de corte, tratoristas e transporte de silagem.'
               : 'Gestão de cortes, colheitas, serviços e orçamentos agrícolas.'}
           </p>
         </div>
 
         {/* Botão de Ação Principal em Verde-esmeralda escuro mantendo o realce colorido */}
-        {activeTab !== 'agenda' && (
+        {activeTab !== 'agenda' && activeTab !== 'formularios' && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -344,7 +349,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         })}
       </nav>
 
-      {/* RENDERIZAÇÃO DA ABA ATIVA: AGENDA DE SERVIÇOS OU LISTAGEM DE SERVIÇOS */}
+      {/* RENDERIZAÇÃO DA ABA ATIVA: AGENDA DE SERVIÇOS, FORMULÁRIOS DE CAMPO OU LISTAGEM DE SERVIÇOS */}
       {activeTab === 'agenda' ? (
         <ServiceAgendaModule
           machineries={machineries}
@@ -352,6 +357,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           clients={clients}
           companyProfile={companyProfile}
           onExecuteAppointment={handleExecuteAppointmentFromAgenda}
+        />
+      ) : activeTab === 'formularios' ? (
+        <FieldFormsView
+          companyProfile={companyProfile}
+          machineries={machineries}
+          employees={employees}
+          clients={clients}
         />
       ) : (
         <>
