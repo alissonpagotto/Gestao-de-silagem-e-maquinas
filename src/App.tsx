@@ -333,8 +333,24 @@ export default function App() {
     saveStoredSalaryAdvances(newAdvances);
   };
 
-  // Active Navigation Tab (Defaults to 'dashboard' matching the requested view)
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Active Navigation Tab (Defaults to 'dashboard' matching the requested view or URL query parameter)
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlTab = params.get('tab') || params.get('modulo');
+        if (urlTab === 'formularios' || urlTab === 'agenda' || urlTab === 'servicos') {
+          return 'servicos';
+        }
+        if (urlTab) {
+          return urlTab;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return 'dashboard';
+  });
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {

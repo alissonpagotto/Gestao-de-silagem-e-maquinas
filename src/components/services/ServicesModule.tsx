@@ -49,8 +49,21 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
 
-  // Active Tab State (Padrão: 'corte')
-  const [activeTab, setActiveTab] = useState<ServiceTab>('corte');
+  // Active Tab State (Padrão: 'corte', ou lendo o parâmetro da URL como ?tab=formularios)
+  const [activeTab, setActiveTab] = useState<ServiceTab>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab') || params.get('subtab');
+        if (tabParam === 'formularios' || tabParam === 'agenda' || tabParam === 'corte' || tabParam === 'colheita' || tabParam === 'trator' || tabParam === 'maquina' || tabParam === 'frete' || tabParam === 'orcamento') {
+          return tabParam as ServiceTab;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return 'corte';
+  });
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');

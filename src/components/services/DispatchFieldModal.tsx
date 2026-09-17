@@ -109,14 +109,33 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
     return matchByName?.phone || '';
   };
 
+  // Obter URL base do sistema para o formulário de campo externo
+  const getBaseAppUrl = (): string => {
+    // 1. Variável de ambiente pública (se configurada para o domínio de produção)
+    const envUrl = (import.meta as any).env?.VITE_PUBLIC_APP_URL || (import.meta as any).env?.VITE_APP_URL;
+    if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+      return envUrl.trim().replace(/\/$/, '');
+    }
+
+    // 2. Baseada no domínio atual do navegador (window.location.origin + pathname)
+    if (typeof window !== 'undefined' && window.location) {
+      const origin = window.location.origin || '';
+      const pathname = window.location.pathname || '';
+      return `${origin}${pathname}`.replace(/\/$/, '');
+    }
+
+    return '';
+  };
+
   // Gerar mensagem padrão para cada operador / motorista
   const createWhatsAppMessage = (staffMember: { employeeName: string; role: string; assignedVehiclePrefix?: string }) => {
     const roleText = staffMember.role || 'Operador / Motorista';
     const vehicleText = staffMember.assignedVehiclePrefix ? `\n🚛 *Seu Veículo:* ${staffMember.assignedVehiclePrefix}` : '';
     
-    // URL base do formulário de campo
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const formUrl = `${origin}?tab=formularios&agendamento=${encodeURIComponent(appointment.appointmentNumber)}`;
+    // URL base do formulário de campo preservando estritamente a rota e o agendamento
+    const baseUrl = getBaseAppUrl();
+    const queryParam = `?tab=formularios&agendamento=${encodeURIComponent(appointment.appointmentNumber)}`;
+    const formUrl = baseUrl ? `${baseUrl}${queryParam}` : queryParam;
 
     return `Olá *${staffMember.employeeName}* (${roleText})! 👋\n` +
       `Aqui é da central da *${companyName}*.\n\n` +
