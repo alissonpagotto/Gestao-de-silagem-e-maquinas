@@ -34,7 +34,10 @@ import {
   registerNewSubscriber, 
   getStoredPlans, 
   getStoredSubscribers,
-  getStoredSiteConfig
+  getStoredSiteConfig,
+  getStoredLandingSettings,
+  DEFAULT_SITE_CONFIG,
+  LANDING_PAGE_SETTINGS_KEY
 } from '../../lib/masterAdminStorage';
 import { PlanDefinition, SubscriberStatus, SiteConfig } from '../../types/masterAdmin';
 import { CompanyProfile } from '../../types';
@@ -60,7 +63,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 }) => {
   const { signIn, signUp } = useAuth();
   const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredSiteConfig());
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
 
   // Parâmetros da URL: ?mode=signup &plan=plano-pro &paid=true
   const [mode, setMode] = useState<'signup' | 'login'>(() => {
@@ -99,16 +102,34 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       setIsPrePaid(paidParam);
     };
 
-    const handleDataChange = () => {
-      setSiteConfig(getStoredSiteConfig());
+    const handleDataChange = (e?: any) => {
+      if (e?.detail) {
+        setSiteConfig((prev) => ({ ...prev, ...e.detail }));
+      } else {
+        setSiteConfig(getStoredLandingSettings());
+      }
       setPlans(getStoredPlans());
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === LANDING_PAGE_SETTINGS_KEY || 
+        e.key === 'silagem_master_site_config_v1' || 
+        e.key === 'silagem_master_plans_v1'
+      ) {
+        handleDataChange();
+      }
     };
 
     window.addEventListener('popstate', handleUrlChange);
     window.addEventListener('master_admin_data_changed', handleDataChange);
+    window.addEventListener('landing_page_settings_updated', handleDataChange);
+    window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('master_admin_data_changed', handleDataChange);
+      window.removeEventListener('landing_page_settings_updated', handleDataChange);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
@@ -393,24 +414,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       
       {/* 1. IMAGEM DE FUNDO DINÂMICA (HERDADA DO HERO DA LANDING PAGE) */}
       <div 
-        className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden"
+        className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden bg-cover bg-center fixed"
         aria-hidden="true"
       >
         <img
-          src={siteConfig.heroBackgroundImage || '/image.png'}
+          src={siteConfig.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png'}
           alt="AgroControl - Gestão de Silagem"
-          className="w-full h-full object-cover object-center filter brightness-[0.70] contrast-[1.05]"
+          className="w-full h-full object-cover object-center filter brightness-[0.75] contrast-[1.05]"
           referrerPolicy="no-referrer"
           onError={(e) => {
-            if (e.currentTarget.src !== '/hero-silagem.jpg') {
-              e.currentTarget.src = '/hero-silagem.jpg';
+            if (e.currentTarget.src !== '/hero-silagem.jpg' && e.currentTarget.src !== '/image.png') {
+              e.currentTarget.src = '/image.png';
             }
           }}
         />
 
         {/* 2. EFEITOS DE PROFUNDIDADE (FILTROS E OVERLAY DE VIDRO FUMÊ / GLASSMORPHISM) */}
-        <div className="absolute inset-0 bg-stone-950/70 backdrop-blur-[4px]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-stone-950/90 via-stone-950/60 to-stone-950/95" />
+        <div className="absolute inset-0 bg-black/60 bg-slate-950/70 backdrop-blur-sm backdrop-blur-[4px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-slate-950/65 to-slate-950/90" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-emerald-500/10 rounded-full blur-[110px] pointer-events-none" />
       </div>
 
@@ -513,7 +534,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             <form onSubmit={handleSignUpSubmit} className="space-y-6">
               
               {/* SELETOR DE PLANO & TRIAL INCLUSO */}
-              <div className="bg-stone-900/85 backdrop-blur-md border border-stone-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl shadow-black/40">
+              <div className="bg-stone-900/80 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl shadow-black/60">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-2xl bg-emerald-950/80 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
@@ -563,7 +584,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               </div>
 
               {/* SEÇÃO 1: DADOS DA EMPRESA AGRÍCOLA */}
-              <div className="bg-stone-900/85 backdrop-blur-md border border-stone-800 rounded-3xl p-5 sm:p-7 space-y-5 shadow-xl shadow-black/40">
+              <div className="bg-stone-900/80 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl shadow-black/60">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-stone-800/80">
                   <div className="p-1.5 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400">
                     <Building2 className="w-4 h-4" />
@@ -670,7 +691,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               </div>
 
               {/* SEÇÃO 2: DADOS DE ACESSO & RESPONSÁVEL */}
-              <div className="bg-stone-900/85 backdrop-blur-md border border-stone-800 rounded-3xl p-5 sm:p-7 space-y-5 shadow-xl shadow-black/40">
+              <div className="bg-stone-900/80 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl shadow-black/60">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-stone-800/80">
                   <div className="p-1.5 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400">
                     <UserCheck className="w-4 h-4" />
@@ -741,7 +762,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               </div>
 
               {/* SEÇÃO 3: ENDEREÇO COMPLETO */}
-              <div className="bg-stone-900/85 backdrop-blur-md border border-stone-800 rounded-3xl p-5 sm:p-7 space-y-5 shadow-xl shadow-black/40">
+              <div className="bg-stone-900/80 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl shadow-black/60">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-stone-800/80">
                   <div className="p-1.5 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400">
                     <MapPin className="w-4 h-4" />
@@ -882,7 +903,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </form>
           ) : (
             /* MODO LOGIN: ENTRAR */
-            <form onSubmit={handleLoginSubmit} className="max-w-md mx-auto space-y-5 bg-stone-900/85 backdrop-blur-md border border-stone-800 p-6 sm:p-8 rounded-3xl shadow-2xl shadow-black/60">
+            <form onSubmit={handleLoginSubmit} className="max-w-md mx-auto space-y-5 bg-stone-900/80 backdrop-blur-md border border-emerald-500/30 p-6 sm:p-8 rounded-3xl shadow-2xl shadow-black/60">
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-stone-300">
                   E-mail de Acesso

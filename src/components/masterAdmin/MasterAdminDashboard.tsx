@@ -110,13 +110,26 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   useEffect(() => {
     const handleSync = () => {
       setSubscribers(getStoredSubscribers());
-      setSiteConfig(getStoredSiteConfig());
+      const freshConfig = getStoredSiteConfig();
+      setSiteConfig(freshConfig);
       setPlans(getStoredPlans());
       setSettings(getStoredAdminSettings());
     };
     window.addEventListener('master_admin_data_changed', handleSync);
-    return () => window.removeEventListener('master_admin_data_changed', handleSync);
+    window.addEventListener('landing_page_settings_updated', handleSync);
+    return () => {
+      window.removeEventListener('master_admin_data_changed', handleSync);
+      window.removeEventListener('landing_page_settings_updated', handleSync);
+    };
   }, []);
+
+  // Sincroniza o formulário do site sempre que a aba 'site' for acessada
+  useEffect(() => {
+    if (adminTab === 'site') {
+      const freshConfig = getStoredSiteConfig();
+      setSiteForm(freshConfig);
+    }
+  }, [adminTab]);
 
   // Recalcular métricas em tempo real
   const metrics = useMemo(() => {
@@ -240,13 +253,34 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
-  // Salvar Configurações do Site
-  const handleSaveSiteConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSiteConfig(siteForm);
-    saveStoredSiteConfig(siteForm);
-    setSiteSaveSuccess(true);
-    setTimeout(() => setSiteSaveSuccess(false), 3000);
+  // Salvar Configurações do Site (Landing Page Pública)
+  const handleSaveSiteConfig = (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    try {
+      // 1. Atualização do estado local imediato
+      setSiteConfig(siteForm);
+
+      // 2. Persistência na chave centralizada 'landingPageSettings' e no storage geral
+      if (typeof localStorage !== 'undefined') {
+        const serialized = JSON.stringify(siteForm);
+        localStorage.setItem('landingPageSettings', serialized);
+      }
+      saveStoredSiteConfig(siteForm);
+
+      // 3. Notificação global de sincronização para a Landing Page
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail: siteForm }));
+        window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: siteForm }));
+      }
+
+      // 4. Exibição do Alerta Visual / Toast
+      setSiteSaveSuccess(true);
+      setTimeout(() => setSiteSaveSuccess(false), 4500);
+    } catch (err) {
+      console.error('Erro ao salvar configurações da Landing Page:', err);
+    }
   };
 
   // Salvar Configurações Gerais e Webhooks
@@ -884,6 +918,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         {adminTab === 'site' && (
           <form onSubmit={handleSaveSiteConfig} className="space-y-6">
             
+            {/* Toast Flutuante de Confirmação Obrigatório */}
+            {siteSaveSuccess && (
+              <div 
+                id="toast-landing-settings-success"
+                className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-2xl shadow-emerald-950/80 border border-emerald-400 font-bold text-xs"
+              >
+                <CheckCircle2 className="w-5 h-5 text-emerald-100 shrink-0" />
+                <span className="font-black text-sm">Configurações da Landing Page salvas com sucesso!</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between bg-stone-900 p-4 rounded-2xl border border-stone-800">
               <div>
                 <h2 className="text-sm font-black text-white">
@@ -894,8 +939,10 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 </p>
               </div>
               <button
-                type="submit"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-sm"
+                type="button"
+                id="btn-save-site-config-top"
+                onClick={() => handleSaveSiteConfig()}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-sm shadow-emerald-950"
               >
                 <Save className="w-4 h-4" />
                 <span>Salvar Alterações</span>
@@ -905,7 +952,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             {siteSaveSuccess && (
               <div className="p-3.5 bg-emerald-950/60 border border-emerald-800/80 rounded-2xl text-xs font-bold text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Configurações do site salvas com sucesso! As alterações já estão ativas na Landing Page.</span>
+                <span>Configurações da Landing Page salvas com sucesso!</span>
               </div>
             )}
 
@@ -1174,7 +1221,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             {/* Botão Salvar Flutuante ou no final */}
             <div className="flex justify-end">
               <button
-                type="submit"
+                type="button"
+                id="btn-save-site-config-bottom"
+                onClick={() => handleSaveSiteConfig()}
                 className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-950"
               >
                 <Save className="w-4 h-4" />

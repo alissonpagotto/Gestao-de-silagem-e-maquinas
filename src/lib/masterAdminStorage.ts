@@ -10,9 +10,12 @@ import { CompanyProfile } from '../types';
 import { getStoredCompanyProfile, saveStoredCompanyProfile } from './storage';
 
 // Chaves de armazenamento localStorage
+export const LANDING_PAGE_SETTINGS_KEY = 'landingPageSettings';
+
 const STORAGE_KEYS = {
   SUBSCRIBERS: 'silagem_master_subscribers_v2',
   SITE_CONFIG: 'silagem_master_site_config_v1',
+  LANDING_PAGE_SETTINGS: 'landingPageSettings',
   PLANS: 'silagem_master_plans_v1',
   SETTINGS: 'silagem_master_settings_v1',
   MASTER_SESSION: 'silagem_master_session_v1',
@@ -181,13 +184,34 @@ export function saveStoredSubscribers(subscribers: Subscriber[]): void {
 
 export function getStoredSiteConfig(): SiteConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
+    if (typeof localStorage === 'undefined') return DEFAULT_SITE_CONFIG;
+    // Tenta ler prioritariamente da chave centralizada 'landingPageSettings' ou da chave de compatibilidade
+    const raw = localStorage.getItem(LANDING_PAGE_SETTINGS_KEY) || localStorage.getItem(STORAGE_KEYS.SITE_CONFIG);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(DEFAULT_SITE_CONFIG));
+      const defStr = JSON.stringify(DEFAULT_SITE_CONFIG);
+      localStorage.setItem(LANDING_PAGE_SETTINGS_KEY, defStr);
+      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, defStr);
       return DEFAULT_SITE_CONFIG;
     }
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SITE_CONFIG, ...parsed };
+    return {
+      heroTitle: parsed.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
+      heroSubtitle: parsed.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
+      heroPrimaryBtnText: parsed.heroPrimaryBtnText || DEFAULT_SITE_CONFIG.heroPrimaryBtnText,
+      heroSecondaryBtnText: parsed.heroSecondaryBtnText || DEFAULT_SITE_CONFIG.heroSecondaryBtnText,
+      heroBackgroundImage: parsed.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png',
+      featuresSectionTitle: parsed.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
+      featuresSectionSubtitle: parsed.featuresSectionSubtitle || DEFAULT_SITE_CONFIG.featuresSectionSubtitle,
+      featuresHighlightImage: parsed.featuresHighlightImage || '',
+      feature1Title: parsed.feature1Title || DEFAULT_SITE_CONFIG.feature1Title,
+      feature1Desc: parsed.feature1Desc || DEFAULT_SITE_CONFIG.feature1Desc,
+      feature2Title: parsed.feature2Title || DEFAULT_SITE_CONFIG.feature2Title,
+      feature2Desc: parsed.feature2Desc || DEFAULT_SITE_CONFIG.feature2Desc,
+      feature3Title: parsed.feature3Title || DEFAULT_SITE_CONFIG.feature3Title,
+      feature3Desc: parsed.feature3Desc || DEFAULT_SITE_CONFIG.feature3Desc,
+      feature4Title: parsed.feature4Title || DEFAULT_SITE_CONFIG.feature4Title,
+      feature4Desc: parsed.feature4Desc || DEFAULT_SITE_CONFIG.feature4Desc,
+    };
   } catch (e) {
     console.error('Failed to load site config:', e);
     return DEFAULT_SITE_CONFIG;
@@ -196,12 +220,21 @@ export function getStoredSiteConfig(): SiteConfig {
 
 export function saveStoredSiteConfig(config: SiteConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, JSON.stringify(config));
-    notifyDataChanged();
+    if (typeof localStorage !== 'undefined') {
+      const serialized = JSON.stringify(config);
+      // Salva estritamente na chave centralizada 'landingPageSettings' e na chave legada para redundância
+      localStorage.setItem(LANDING_PAGE_SETTINGS_KEY, serialized);
+      localStorage.setItem(STORAGE_KEYS.SITE_CONFIG, serialized);
+    }
+    notifyDataChanged(config);
   } catch (e) {
     console.error('Failed to save site config:', e);
   }
 }
+
+// Aliases explícitos para clareza semântica
+export const getStoredLandingSettings = getStoredSiteConfig;
+export const saveStoredLandingSettings = saveStoredSiteConfig;
 
 export function getStoredPlans(): PlanDefinition[] {
   try {
@@ -290,9 +323,10 @@ export function clearStoredMasterSession(): void {
 }
 
 // Disparo de evento global para reatividade instantânea entre telas
-function notifyDataChanged() {
+function notifyDataChanged(detail?: any) {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('master_admin_data_changed'));
+    window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail }));
+    window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail }));
   }
 }
 

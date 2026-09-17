@@ -17,7 +17,13 @@ import {
   PhoneCall
 } from 'lucide-react';
 import { SiteConfig, PlanDefinition } from '../../types/masterAdmin';
-import { getStoredSiteConfig, getStoredPlans } from '../../lib/masterAdminStorage';
+import { 
+  getStoredSiteConfig, 
+  getStoredLandingSettings, 
+  getStoredPlans, 
+  DEFAULT_SITE_CONFIG,
+  LANDING_PAGE_SETTINGS_KEY 
+} from '../../lib/masterAdminStorage';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
 interface LandingPageProps {
@@ -31,18 +37,61 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenMasterAdmin,
   onNavigateToAuth,
 }) => {
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredSiteConfig());
+  // Leitura dinâmica inicial buscando prioritariamente de landingPageSettings com fallback integral
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
   const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
 
-  // Sincronização em tempo real caso o Master Admin altere em outra aba
+  // Sincronização em tempo real imediata via Custom Events e evento 'storage' nativo
   useEffect(() => {
-    const handleSync = () => {
-      setSiteConfig(getStoredSiteConfig());
+    const handleSync = (e?: any) => {
+      if (e?.detail) {
+        setSiteConfig((prev) => ({ ...prev, ...e.detail }));
+      } else {
+        setSiteConfig(getStoredLandingSettings());
+      }
       setPlans(getStoredPlans());
     };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === LANDING_PAGE_SETTINGS_KEY || 
+        e.key === 'silagem_master_site_config_v1' || 
+        e.key === 'silagem_master_plans_v1'
+      ) {
+        handleSync();
+      }
+    };
+
     window.addEventListener('master_admin_data_changed', handleSync);
-    return () => window.removeEventListener('master_admin_data_changed', handleSync);
+    window.addEventListener('landing_page_settings_updated', handleSync);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('master_admin_data_changed', handleSync);
+      window.removeEventListener('landing_page_settings_updated', handleSync);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
+
+  // Objeto de Configuração Dinâmica com Fallbacks Protegidos (valores originais do agro)
+  const currentSettings = {
+    heroTitle: siteConfig?.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
+    heroSubtitle: siteConfig?.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
+    heroPrimaryBtnText: siteConfig?.heroPrimaryBtnText || DEFAULT_SITE_CONFIG.heroPrimaryBtnText,
+    heroSecondaryBtnText: siteConfig?.heroSecondaryBtnText || DEFAULT_SITE_CONFIG.heroSecondaryBtnText,
+    heroBackgroundImage: siteConfig?.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png',
+    featuresSectionTitle: siteConfig?.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
+    featuresSectionSubtitle: siteConfig?.featuresSectionSubtitle || DEFAULT_SITE_CONFIG.featuresSectionSubtitle,
+    featuresHighlightImage: siteConfig?.featuresHighlightImage || '',
+    feature1Title: siteConfig?.feature1Title || DEFAULT_SITE_CONFIG.feature1Title,
+    feature1Desc: siteConfig?.feature1Desc || DEFAULT_SITE_CONFIG.feature1Desc,
+    feature2Title: siteConfig?.feature2Title || DEFAULT_SITE_CONFIG.feature2Title,
+    feature2Desc: siteConfig?.feature2Desc || DEFAULT_SITE_CONFIG.feature2Desc,
+    feature3Title: siteConfig?.feature3Title || DEFAULT_SITE_CONFIG.feature3Title,
+    feature3Desc: siteConfig?.feature3Desc || DEFAULT_SITE_CONFIG.feature3Desc,
+    feature4Title: siteConfig?.feature4Title || DEFAULT_SITE_CONFIG.feature4Title,
+    feature4Desc: siteConfig?.feature4Desc || DEFAULT_SITE_CONFIG.feature4Desc,
+  };
 
   // Filtrar apenas planos ativos e ordenar por displayOrder
   const activePlans = plans
@@ -146,13 +195,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Imagem de Fundo: Gestão Tecnológica no Campo (com corte inferior para mascarar texto IA artificial) */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
           <img
-            src={siteConfig.heroBackgroundImage || '/image.png'}
+            src={currentSettings.heroBackgroundImage || '/image.png'}
             alt="AgroControl - Gestão Tecnológica de Silagem e Frotas"
             className="w-full h-[128%] sm:h-[134%] md:h-[140%] object-cover object-top -translate-y-[5%] sm:-translate-y-[7%] md:-translate-y-[9%] filter brightness-[0.85] contrast-[1.05]"
             referrerPolicy="no-referrer"
             onError={(e) => {
-              if (e.currentTarget.src !== '/hero-silagem.jpg') {
-                e.currentTarget.src = '/hero-silagem.jpg';
+              if (e.currentTarget.src !== '/hero-silagem.jpg' && e.currentTarget.src !== '/image.png') {
+                e.currentTarget.src = '/image.png';
               }
             }}
           />
@@ -182,22 +231,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* TÍTULO PRINCIPAL (H1) */}
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-[1.14] drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]">
-            {siteConfig.heroTitle}
+            {currentSettings.heroTitle}
           </h1>
 
           {/* SUBTÍTULO */}
           <p className="text-sm sm:text-lg md:text-xl text-stone-200 max-w-2xl mx-auto leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
-            {siteConfig.heroSubtitle}
+            {currentSettings.heroSubtitle}
           </p>
 
           {/* BOTÕES DO HERO */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <button
               type="button"
-              onClick={() => onNavigateToAuth ? onNavigateToAuth('plano-pro', 'signup') : onEnterApp()}
+              onClick={() => onNavigateToAuth ? onNavigateToAuth('plano-pro', 'signup') : handleAccessErp()}
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-black text-sm rounded-xl transition shadow-xl shadow-emerald-950/60 flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
             >
-              <span>{siteConfig.heroPrimaryBtnText}</span>
+              <span>{currentSettings.heroPrimaryBtnText}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -205,7 +254,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               href="#planos"
               className="w-full sm:w-auto px-8 py-4 bg-stone-900/90 hover:bg-stone-800 text-stone-100 border border-stone-700/80 font-bold text-sm rounded-xl transition backdrop-blur-md shadow-lg shadow-black/30 flex items-center justify-center gap-2"
             >
-              <span>{siteConfig.heroSecondaryBtnText}</span>
+              <span>{currentSettings.heroSecondaryBtnText}</span>
             </a>
           </div>
 
@@ -231,19 +280,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {/* Cabeçalho de Recursos Dinâmico */}
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              {siteConfig.featuresSectionTitle}
+              {currentSettings.featuresSectionTitle}
             </h2>
             <p className="text-xs sm:text-sm text-stone-400">
-              {siteConfig.featuresSectionSubtitle}
+              {currentSettings.featuresSectionSubtitle}
             </p>
           </div>
 
           {/* Imagem de Destaque dos Recursos (Seção Inferior) */}
-          {siteConfig.featuresHighlightImage && siteConfig.featuresHighlightImage.trim() !== '' && (
+          {currentSettings.featuresHighlightImage && currentSettings.featuresHighlightImage.trim() !== '' && (
             <div className="max-w-5xl mx-auto rounded-2xl sm:rounded-3xl overflow-hidden border border-stone-800 shadow-2xl bg-stone-900/60 p-2 sm:p-3 relative group">
               <div className="rounded-xl sm:rounded-2xl overflow-hidden relative">
                 <img
-                  src={siteConfig.featuresHighlightImage}
+                  src={currentSettings.featuresHighlightImage}
                   alt="Destaque de Recursos e Funcionalidades AgroControl"
                   className="w-full max-h-[520px] object-cover object-top transition duration-500 group-hover:scale-[1.01]"
                   referrerPolicy="no-referrer"
@@ -262,10 +311,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {featureIcons[0]}
               </div>
               <h3 className="text-base font-black text-white">
-                {siteConfig.feature1Title}
+                {currentSettings.feature1Title}
               </h3>
               <p className="text-xs text-stone-400 leading-relaxed">
-                {siteConfig.feature1Desc}
+                {currentSettings.feature1Desc}
               </p>
             </div>
 
@@ -275,10 +324,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {featureIcons[1]}
               </div>
               <h3 className="text-base font-black text-white">
-                {siteConfig.feature2Title}
+                {currentSettings.feature2Title}
               </h3>
               <p className="text-xs text-stone-400 leading-relaxed">
-                {siteConfig.feature2Desc}
+                {currentSettings.feature2Desc}
               </p>
             </div>
 
@@ -288,10 +337,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {featureIcons[2]}
               </div>
               <h3 className="text-base font-black text-white">
-                {siteConfig.feature3Title}
+                {currentSettings.feature3Title}
               </h3>
               <p className="text-xs text-stone-400 leading-relaxed">
-                {siteConfig.feature3Desc}
+                {currentSettings.feature3Desc}
               </p>
             </div>
 
@@ -301,10 +350,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {featureIcons[3]}
               </div>
               <h3 className="text-base font-black text-white">
-                {siteConfig.feature4Title}
+                {currentSettings.feature4Title}
               </h3>
               <p className="text-xs text-stone-400 leading-relaxed">
-                {siteConfig.feature4Desc}
+                {currentSettings.feature4Desc}
               </p>
             </div>
           </div>
