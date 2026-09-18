@@ -89,6 +89,24 @@ export function formatPhone(value: string | undefined | null): string {
 }
 
 // ==========================================
+// 4.1 Data Brasileira (DD/MM/AAAA)
+// ==========================================
+
+export function formatDateBR(dateString: string | undefined | null): string {
+  if (!dateString) return '-';
+  try {
+    const clean = dateString.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  } catch {
+    return String(dateString);
+  }
+}
+
+// ==========================================
 // 5. Moeda BRL (R$ 0,00) Formatting & Parsing
 // ==========================================
 

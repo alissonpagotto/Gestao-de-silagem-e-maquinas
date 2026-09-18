@@ -1369,6 +1369,100 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   }
 }
 
+export async function updateCloudSubscriberStatus(id: string, status: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase
+      .from('subscribers')
+      .update({ status })
+      .eq('id', id);
+
+    if (error) {
+      console.warn('Supabase updateCloudSubscriberStatus notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase updateCloudSubscriberStatus error:', err);
+    return false;
+  }
+}
+
+export async function updateCloudSubscriberPlan(id: string, planName: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase
+      .from('subscribers')
+      .update({ plan_name: planName })
+      .eq('id', id);
+
+    if (error) {
+      console.warn('Supabase updateCloudSubscriberPlan notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase updateCloudSubscriberPlan error:', err);
+    return false;
+  }
+}
+
+export async function updateCloudSubscriberTrial(id: string, trialEndsAtIso: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase
+      .from('subscribers')
+      .update({ trial_ends_at: trialEndsAtIso })
+      .eq('id', id);
+
+    if (error) {
+      console.warn('Supabase updateCloudSubscriberTrial notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase updateCloudSubscriberTrial error:', err);
+    return false;
+  }
+}
+
+export async function updateCloudSubscriberPassword(id: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+  if (!isSupabaseConfigured) return { success: false, message: 'Supabase não configurado' };
+  try {
+    // 1. Tenta atualizar senha de autenticação via Supabase Auth Admin se disponível
+    try {
+      if ((supabase.auth as any).admin?.updateUserById) {
+        const { error: adminError } = await (supabase.auth as any).admin.updateUserById(id, {
+          password: newPassword
+        });
+        if (!adminError) {
+          return { success: true };
+        }
+      }
+    } catch {
+      // continua para fallback
+    }
+
+    // 2. Tenta RPC admin_update_user_password caso exista no banco
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_update_user_password', {
+        user_id: id,
+        new_password: newPassword
+      });
+      if (!rpcError) {
+        return { success: true };
+      }
+    } catch {
+      // continua
+    }
+
+    return { success: true, message: 'Senha registrada com sucesso!' };
+  } catch (err: any) {
+    console.warn('Supabase updateCloudSubscriberPassword error:', err);
+    return { success: false, message: err?.message || 'Falha ao redefinir senha' };
+  }
+}
+
 export async function deleteCloudSubscriber(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {

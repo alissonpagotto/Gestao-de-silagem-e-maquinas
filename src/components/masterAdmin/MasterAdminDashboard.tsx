@@ -27,7 +27,11 @@ import {
   Lock,
   ChevronRight,
   LogOut,
-  Database
+  Database,
+  Pause,
+  Play,
+  Package,
+  Calendar
 } from 'lucide-react';
 import { 
   Subscriber, 
@@ -59,11 +63,17 @@ import {
   subscribeToCloudTable,
   fetchCloudSubscribers,
   fetchCloudPlans,
-  fetchCloudSiteConfig
+  fetchCloudSiteConfig,
+  updateCloudSubscriberStatus,
+  upsertCloudSubscriber
 } from '../../lib/supabaseService';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
 import { PlanModal } from './PlanModal';
+import { ResetPasswordModal } from './ResetPasswordModal';
+import { ChangePlanModal } from './ChangePlanModal';
+import { ExtendTrialModal } from './ExtendTrialModal';
+import { PauseSubscriberModal } from './PauseSubscriberModal';
 import { MasterAdminLogin } from './MasterAdminLogin';
 import { ImageUploadField } from './ImageUploadField';
 import { formatCurrencyBRL } from '../../lib/formatters';
@@ -71,11 +81,13 @@ import { formatCurrencyBRL } from '../../lib/formatters';
 interface MasterAdminDashboardProps {
   onBackToApp: () => void;
   onOpenLandingPage: () => void;
+  onImpersonate?: (subscriber: Subscriber) => void;
 }
 
 export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   onBackToApp,
   onOpenLandingPage,
+  onImpersonate,
 }) => {
   // Estado de Sessão Autenticada de Super Admin
   const [session, setSession] = useState<MasterSession | null>(() => {
@@ -94,6 +106,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [plans, setPlans] = useState<PlanDefinition[]>(() => getStoredPlans());
   const [settings, setSettings] = useState<AdminSettings>(() => getStoredAdminSettings());
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+
+  // Estados dos Novos Modais de Ações Rápidas
+  const [resetPasswordSubscriber, setResetPasswordSubscriber] = useState<Subscriber | null>(null);
+  const [changePlanSubscriber, setChangePlanSubscriber] = useState<Subscriber | null>(null);
+  const [extendTrialSubscriber, setExtendTrialSubscriber] = useState<Subscriber | null>(null);
+  const [pauseModalSubscriber, setPauseModalSubscriber] = useState<Subscriber | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 4500);
+  };
 
   const handleManualCloudSync = async () => {
     setIsSyncingCloud(true);
@@ -272,8 +298,24 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     setSession(null);
   };
 
-  // Salvar Assinante
-  const handleSaveSubscriber = (saved: Subscriber) => {
+  // 1. Função de Personificação (Impersonate - Botão Verde "→ Entrar")
+  const handleImpersonate = (sub: Subscriber) => {
+    if (onImpersonate) {
+      onImpersonate(sub);
+    } else {
+      localStorage.setItem('is_admin_impersonating', 'true');
+      localStorage.setItem('impersonated_subscriber_id', sub.id);
+      localStorage.setItem('impersonated_subscriber_name', sub.name);
+      localStorage.setItem('impersonated_subscriber_email', sub.responsibleEmail || '');
+      localStorage.setItem('current_company_id', sub.id);
+      localStorage.setItem('user_role', 'admin');
+      localStorage.setItem('silagem_client_session', 'active');
+      window.location.href = '/dashboard';
+    }
+  };
+
+  // 2. Salvar Assinante com UPDATE real no banco de dados Supabase
+  const handleSaveSubscriber = async (saved: Subscriber) => {
     const exists = subscribers.some(s => s.id === saved.id);
     let updatedList: Subscriber[];
     if (exists) {
@@ -283,6 +325,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
     setSubscribers(updatedList);
     saveStoredSubscribers(updatedList);
+
+    try {
+      await upsertCloudSubscriber(saved);
+      showToast(`Assinante "${saved.name}" atualizado no Supabase com sucesso!`);
+    } catch (err) {
+      console.warn('Aviso ao salvar assinante na nuvem:', err);
+    }
   };
 
   // Excluir Assinante
@@ -292,11 +341,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       setSubscribers(updated);
       saveStoredSubscribers(updated);
       deleteCloudSubscriber(id).catch(err => console.warn('Notice deleting subscriber from cloud:', err));
+      showToast(`Assinante "${name}" removido.`);
     }
   };
 
-  // Alternar Status Rápido do Assinante
-  const handleQuickStatusChange = (id: string, newStatus: SubscriberStatus) => {
+  // 3. Alternar Status Rápido do Assinante com sincronização direta no Supabase
+  const handleQuickStatusChange = async (id: string, newStatus: SubscriberStatus) => {
     const updated = subscribers.map(s => {
       if (s.id === id) {
         return { ...s, status: newStatus, updatedAt: new Date().toISOString() };
@@ -305,6 +355,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     });
     setSubscribers(updated);
     saveStoredSubscribers(updated);
+
+    try {
+      const dbStatus = newStatus === 'ativa' ? 'Ativa' : newStatus === 'suspensa' ? 'Suspenso' : newStatus;
+      await updateCloudSubscriberStatus(id, dbStatus);
+      showToast(`Status atualizado para "${newStatus}" no Supabase.`);
+    } catch (err) {
+      console.warn('Aviso ao sincronizar status no Supabase:', err);
+    }
   };
 
   // Salvar Plano
@@ -864,9 +922,84 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                             </select>
                           </td>
 
-                          {/* Ações */}
+                          {/* Ações Rápidas */}
                           <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
+                              {/* 1. Botão Verde "→ Entrar" (Personificação / Impersonate) */}
+                              <button
+                                type="button"
+                                onClick={() => handleImpersonate(sub)}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1 transition shadow-sm cursor-pointer whitespace-nowrap"
+                                title={`Entrar no painel operacional de ${sub.name} (Modo Personificação)`}
+                              >
+                                <span>→ Entrar</span>
+                              </button>
+
+                              {/* 2. Ícone de Pausa (Laranja) ou Play (Verde) (Suspensão/Reativação) */}
+                              {sub.status === 'suspensa' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPauseModalSubscriber(sub)}
+                                  className="p-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 rounded-lg transition cursor-pointer border border-emerald-800/60"
+                                  title="Reativar Assinatura (Liberar Acesso)"
+                                >
+                                  <Play className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setPauseModalSubscriber(sub)}
+                                  className="p-1.5 bg-amber-950/60 hover:bg-amber-900/80 text-amber-400 rounded-lg transition cursor-pointer border border-amber-800/60"
+                                  title="Pausar / Suspender Assinatura (Bloquear ERP por pendência)"
+                                >
+                                  <Pause className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              {/* 3. Ícone do Lápis (Amarelo - Editar Informações) */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSubscriber(sub);
+                                  setIsEditSubscriberOpen(true);
+                                }}
+                                className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-lg transition cursor-pointer border border-amber-500/30"
+                                title="Editar Informações do Assinante (com busca por CEP e troca de plano)"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+
+                              {/* 4. Ícone do Cadeado (Azul - Redefinir Senha) */}
+                              <button
+                                type="button"
+                                onClick={() => setResetPasswordSubscriber(sub)}
+                                className="p-1.5 bg-sky-950/60 hover:bg-sky-900/80 text-sky-400 rounded-lg transition cursor-pointer border border-sky-800/60"
+                                title="Redefinir Senha do Assinante no Supabase"
+                              >
+                                <Lock className="w-4 h-4" />
+                              </button>
+
+                              {/* 5. Ícone do Cubo/Caixa (Roxo - Alterar Módulo/Plano) */}
+                              <button
+                                type="button"
+                                onClick={() => setChangePlanSubscriber(sub)}
+                                className="p-1.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-400 rounded-lg transition cursor-pointer border border-purple-800/60"
+                                title="Alterar Módulo/Plano Comercial (Sincronizado do Supabase)"
+                              >
+                                <Package className="w-4 h-4" />
+                              </button>
+
+                              {/* 6. Ícone do Calendário (Marrom - Estender Trial) */}
+                              <button
+                                type="button"
+                                onClick={() => setExtendTrialSubscriber(sub)}
+                                className="p-1.5 bg-stone-800 hover:bg-stone-700 text-amber-500 rounded-lg transition cursor-pointer border border-amber-900/40"
+                                title="Estender Período de Testes (Trial)"
+                              >
+                                <Calendar className="w-4 h-4" />
+                              </button>
+
+                              {/* Visualizar Ficha */}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -874,23 +1007,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                                   setIsDetailSubscriberOpen(true);
                                 }}
                                 className="p-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white rounded-lg transition cursor-pointer"
-                                title="Visualizar Ficha Detalhada"
+                                title="Visualizar Ficha Completa"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingSubscriber(sub);
-                                  setIsEditSubscriberOpen(true);
-                                }}
-                                className="p-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 rounded-lg transition cursor-pointer border border-emerald-800/60"
-                                title="Editar Informações do Assinante"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-
+                              {/* Remover */}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteSubscriber(sub.id, sub.name)}
@@ -1636,6 +1758,59 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         plan={editingPlan}
         onSave={handleSavePlan}
       />
+
+      {/* 4. Modal de Redefinir Senha (Azul) */}
+      <ResetPasswordModal
+        isOpen={Boolean(resetPasswordSubscriber)}
+        onClose={() => setResetPasswordSubscriber(null)}
+        subscriber={resetPasswordSubscriber}
+        onSuccessToast={showToast}
+      />
+
+      {/* 5. Modal de Alterar Plano Dinâmico do Supabase (Roxo) */}
+      <ChangePlanModal
+        isOpen={Boolean(changePlanSubscriber)}
+        onClose={() => setChangePlanSubscriber(null)}
+        subscriber={changePlanSubscriber}
+        onSuccess={(updatedSub) => {
+          handleSaveSubscriber(updatedSub);
+        }}
+        onSuccessToast={showToast}
+      />
+
+      {/* 6. Modal de Estender Trial (Marrom) */}
+      <ExtendTrialModal
+        isOpen={Boolean(extendTrialSubscriber)}
+        onClose={() => setExtendTrialSubscriber(null)}
+        subscriber={extendTrialSubscriber}
+        onSuccess={(updatedSub) => {
+          handleSaveSubscriber(updatedSub);
+        }}
+        onSuccessToast={showToast}
+      />
+
+      {/* 2. Modal de Pausar / Reativar Assinatura (Laranja / Verde) */}
+      <PauseSubscriberModal
+        isOpen={Boolean(pauseModalSubscriber)}
+        onClose={() => setPauseModalSubscriber(null)}
+        subscriber={pauseModalSubscriber}
+        onSuccess={(updatedSub) => {
+          handleSaveSubscriber(updatedSub);
+        }}
+        onSuccessToast={showToast}
+      />
+
+      {/* Notificação Toast Flutuante */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-stone-900 text-stone-100 px-4 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <p className="text-xs font-bold text-stone-200 leading-snug">
+            {toastMessage}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

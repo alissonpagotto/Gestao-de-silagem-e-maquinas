@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -23,6 +23,8 @@ import {
   LeaveRecord,
   SalaryAdvance
 } from './types';
+import { Subscriber } from './types/masterAdmin';
+import { getStoredSubscribers } from './lib/masterAdminStorage';
 import { 
   getStoredExpenses, 
   saveStoredExpenses,
@@ -76,11 +78,12 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { MainDashboard } from './components/dashboard/MainDashboard';
 
-import { PlusCircle, Sparkles } from 'lucide-react';
+import { PlusCircle, Sparkles, ArrowLeft } from 'lucide-react';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
 import { ExpenseReceiptViewer } from './components/expenses/ExpenseReceiptViewer';
 import { ExpenseCategoriesModal } from './components/expenses/ExpenseCategoriesModal';
 import { AiExpenseParserModal } from './components/ai/AiExpenseParserModal';
+import { SuspendedAccountScreen } from './components/auth/SuspendedAccountScreen';
 
 import { CrmModule } from './components/crm/CrmModule';
 import { ClientModal } from './components/crm/ClientModal';
@@ -873,12 +876,127 @@ export default function App() {
     setCurrentRoute('landing');
   };
 
+  // Estado de Personificação (Impersonate) pelo Admin Mestre
+  const [isAdminImpersonating, setIsAdminImpersonating] = useState<boolean>(() => {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('is_admin_impersonating') === 'true';
+  });
+  const [impersonatedSubscriber, setImpersonatedSubscriber] = useState<{ id: string; name: string; email: string } | null>(() => {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('is_admin_impersonating') === 'true') {
+      return {
+        id: localStorage.getItem('impersonated_subscriber_id') || '',
+        name: localStorage.getItem('impersonated_subscriber_name') || 'Assinante',
+        email: localStorage.getItem('impersonated_subscriber_email') || '',
+      };
+    }
+    return null;
+  });
+
+  // Função para Personificar o Assinante
+  const handleImpersonateSubscriber = async (sub: Subscriber) => {
+    try {
+      localStorage.setItem('is_admin_impersonating', 'true');
+      localStorage.setItem('impersonated_subscriber_id', sub.id);
+      localStorage.setItem('impersonated_subscriber_name', sub.name);
+      localStorage.setItem('impersonated_subscriber_email', sub.responsibleEmail || '');
+      localStorage.setItem('current_company_id', sub.id);
+      localStorage.setItem('user_role', 'admin');
+      localStorage.setItem('silagem_client_session', 'active');
+    } catch (e) {
+      console.error(e);
+    }
+
+    setIsAdminImpersonating(true);
+    setImpersonatedSubscriber({
+      id: sub.id,
+      name: sub.name,
+      email: sub.responsibleEmail || '',
+    });
+
+    const impersonatedProfile: CompanyProfile = {
+      ...companyProfile,
+      id: sub.id,
+      corporateName: sub.name,
+      tradeName: sub.name,
+      email: sub.responsibleEmail || '',
+      cnpjCpf: sub.cpfCnpj || '',
+      stateRegistration: sub.stateRegistration || '',
+      phone: sub.phone || '',
+      cep: sub.cep || '',
+      address: sub.street || '',
+      neighborhood: sub.neighborhood || '',
+      city: sub.city || '',
+      state: sub.state || '',
+      planName: sub.planName || 'Produtor Essencial',
+    };
+    setCompanyProfile(impersonatedProfile);
+
+    // Carrega estritamente os tratores, frotas e dados reais da fazenda personificada
+    try {
+      const cloudData = await fetchAllDataFromSupabase(sub.id);
+      if (cloudData) {
+        if (cloudData.clientes) setClients(cloudData.clientes);
+        if (cloudData.fornecedores) setSuppliers(cloudData.fornecedores);
+        if (cloudData.estoque) setInventory(cloudData.estoque);
+        if (cloudData.rh_funcionarios) setEmployees(cloudData.rh_funcionarios);
+        if (cloudData.gestao_frotas) setMachineries(cloudData.gestao_frotas);
+        if (cloudData.contas_a_pagar) setExpenses(cloudData.contas_a_pagar);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar dados da empresa personificada:', e);
+    }
+
+    try {
+      window.history.pushState({}, '', '/dashboard');
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('dashboard');
+  };
+
+  // Função para Encerrar a Personificação e Retornar ao Master Admin
+  const handleExitImpersonation = () => {
+    try {
+      localStorage.removeItem('is_admin_impersonating');
+      localStorage.removeItem('impersonated_subscriber_id');
+      localStorage.removeItem('impersonated_subscriber_name');
+      localStorage.removeItem('impersonated_subscriber_email');
+    } catch (e) {
+      console.error(e);
+    }
+
+    setIsAdminImpersonating(false);
+    setImpersonatedSubscriber(null);
+
+    try {
+      window.history.pushState({}, '', '/master-admin');
+    } catch (e) {
+      console.error(e);
+    }
+    setCurrentRoute('master-admin');
+  };
+
+  // Verifica se o assinante atual está com a assinatura suspensa no Supabase/banco
+  const isSuspendedAccount = useMemo(() => {
+    if (isAdminImpersonating) return false;
+    const currentSubEmail = (currentUser?.email || companyProfile?.email || '').toLowerCase().trim();
+    const storedSubs = getStoredSubscribers();
+    const matched = storedSubs.find(s => 
+      (currentSubEmail && s.responsibleEmail?.toLowerCase().trim() === currentSubEmail) ||
+      (companyProfile?.id && s.id === companyProfile.id)
+    );
+    if (matched) {
+      return matched.status?.toLowerCase() === 'suspensa' || matched.status?.toLowerCase() === 'suspenso';
+    }
+    return false;
+  }, [currentUser, companyProfile, isAdminImpersonating]);
+
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {
     return (
       <MasterAdminDashboard
         onBackToApp={handleEnterApp}
         onOpenLandingPage={handleOpenLandingPage}
+        onImpersonate={handleImpersonateSubscriber}
       />
     );
   }
@@ -959,9 +1077,50 @@ export default function App() {
     );
   }
 
+  // Se a conta do assinante estiver com status 'Suspenso', bloqueia o ERP e exibe a tela de regularização
+  if (isSuspendedAccount) {
+    return (
+      <SuspendedAccountScreen
+        subscriberName={companyProfile?.tradeName || companyProfile?.corporateName}
+        subscriberEmail={currentUser?.email || companyProfile?.email}
+        onBackToHome={handleOpenLandingPage}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-blue-50/50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900">
       
+      {/* Barra Fixa Amarela de Personificação (Impersonate) no topo do ERP */}
+      {isAdminImpersonating && (
+        <div className="sticky top-0 z-50 w-full bg-amber-400 text-stone-950 font-bold px-4 py-2.5 flex items-center justify-between shadow-md border-b border-amber-500">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-700 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-800"></span>
+            </span>
+            <span>
+              Você está visualizando o sistema como{' '}
+              <strong className="font-black text-stone-950 underline decoration-stone-950 underline-offset-2">
+                {impersonatedSubscriber?.name || 'Assinante'}
+              </strong>{' '}
+              <span className="hidden sm:inline text-stone-800 font-mono text-xs">
+                ({impersonatedSubscriber?.email || ''})
+              </span>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleExitImpersonation}
+            className="px-3.5 py-1.5 bg-stone-950 hover:bg-stone-800 text-amber-300 hover:text-amber-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer shrink-0"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Voltar ao Painel Master</span>
+          </button>
+        </div>
+      )}
+
       {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
       <Sidebar
         activeTab={activeTab}
