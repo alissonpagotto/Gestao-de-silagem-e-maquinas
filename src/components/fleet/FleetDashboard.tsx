@@ -209,9 +209,9 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
 
       {/* CNH & Revision Alerts Section */}
       {(cnhReport.expired.length > 0 || cnhReport.expiringSoon.length > 0 || maintenanceCount > 0) && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-3 sm:p-3.5 space-y-2">
-          <div className="flex items-center space-x-1.5 text-amber-800 dark:text-amber-300 font-bold text-xs">
-            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl p-3 sm:p-3.5 space-y-2">
+          <div className="flex items-center space-x-1.5 text-zinc-900 dark:text-stone-200 font-bold text-xs uppercase tracking-wider">
+            <ShieldAlert className="w-4 h-4 text-zinc-700 dark:text-stone-400 shrink-0" />
             <span>Alertas de Conformidade e Atenção da Frota</span>
           </div>
 
@@ -221,20 +221,20 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
               <div 
                 key={emp.id}
                 onClick={() => onNavigateSubtab('motoristas')}
-                className="bg-white dark:bg-stone-900 p-2 sm:p-2.5 rounded-xl border border-rose-200 dark:border-rose-800 flex items-center justify-between cursor-pointer hover:shadow-xs transition"
+                className="bg-zinc-100 dark:bg-stone-800 p-2 sm:p-2.5 rounded-xl border-l-4 border-red-500 border-t border-r border-b border-zinc-300 dark:border-stone-700 flex items-center justify-between cursor-pointer hover:shadow-xs transition"
               >
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center font-bold text-[10px]">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center font-bold text-[10px] border border-red-200 dark:border-red-900/60">
                     CNH
                   </div>
                   <div>
-                    <h5 className="text-xs font-bold text-stone-900 dark:text-stone-100">{emp.name}</h5>
-                    <p className="text-[10px] text-rose-600 font-semibold">
+                    <h5 className="text-xs font-bold text-zinc-900 dark:text-stone-100">{emp.name}</h5>
+                    <p className="text-[10px] text-red-600 font-semibold">
                       CNH Vencida em {formatDateBR(emp.cnhExpiration)} (Cat. {emp.cnhCategory})
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-lg">
+                <span className="text-[10px] font-bold text-red-700 bg-red-50 dark:bg-red-950/80 px-2 py-0.5 rounded-lg border border-red-200 dark:border-red-900/60">
                   Regularizar
                 </span>
               </div>
@@ -245,20 +245,20 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
               <div 
                 key={emp.id}
                 onClick={() => onNavigateSubtab('motoristas')}
-                className="bg-white dark:bg-stone-900 p-2 sm:p-2.5 rounded-xl border border-amber-200 dark:border-amber-800 flex items-center justify-between cursor-pointer hover:shadow-xs transition"
+                className="bg-zinc-100 dark:bg-stone-800 p-2 sm:p-2.5 rounded-xl border-l-4 border-amber-500 border-t border-r border-b border-zinc-300 dark:border-stone-700 flex items-center justify-between cursor-pointer hover:shadow-xs transition"
               >
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold text-[10px]">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold text-[10px] border border-amber-200 dark:border-amber-900/60">
                     CNH
                   </div>
                   <div>
-                    <h5 className="text-xs font-bold text-stone-900 dark:text-stone-100">{emp.name}</h5>
-                    <p className="text-[10px] text-amber-600 font-semibold">
+                    <h5 className="text-xs font-bold text-zinc-900 dark:text-stone-100">{emp.name}</h5>
+                    <p className="text-[10px] text-amber-700 font-semibold">
                       Vence em breve: {formatDateBR(emp.cnhExpiration)}
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-lg">
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-900/60">
                   Aviso 30d
                 </span>
               </div>

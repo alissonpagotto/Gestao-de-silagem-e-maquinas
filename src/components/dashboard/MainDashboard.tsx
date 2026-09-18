@@ -836,17 +836,17 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <div 
                 id="alert-cnh-vencida"
                 onClick={() => onNavigate('funcionarios')}
-                className="bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800/70 dark:hover:bg-stone-800 text-zinc-900 dark:text-white rounded-lg p-2.5 flex items-center justify-between transition border border-zinc-200 dark:border-stone-700 shadow-2xs cursor-pointer group"
+                className="bg-zinc-100 hover:bg-zinc-200/80 dark:bg-stone-800 dark:hover:bg-stone-700/80 text-zinc-900 dark:text-white rounded-lg p-2.5 flex items-center justify-between transition border-l-4 border-red-500 border-t border-r border-b border-zinc-300 dark:border-stone-700 shadow-2xs cursor-pointer group"
               >
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-md bg-zinc-200 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center font-bold text-xs shrink-0">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-6 h-6 rounded-md bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-xs shrink-0 border border-red-200 dark:border-red-900/60">
                     <span>!</span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white leading-tight">
+                    <h4 className="font-bold text-[11px] text-red-700 dark:text-red-400 leading-tight">
                       {cnhReport.expiredCount} CNH(s) Vencida(s)
                     </h4>
-                    <p className="text-[9px] text-zinc-500 dark:text-stone-400 leading-tight">
+                    <p className="text-[9px] text-zinc-600 dark:text-stone-400 leading-tight">
                       Regularização necessária
                     </p>
                   </div>
@@ -858,17 +858,17 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <div 
                 id="alert-cnh-a-vencer"
                 onClick={() => onNavigate('funcionarios')}
-                className="bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800/70 dark:hover:bg-stone-800 text-zinc-900 dark:text-white rounded-lg p-2.5 flex items-center justify-between transition border border-zinc-200 dark:border-stone-700 shadow-2xs cursor-pointer group"
+                className="bg-zinc-100 hover:bg-zinc-200/80 dark:bg-stone-800 dark:hover:bg-stone-700/80 text-zinc-900 dark:text-white rounded-lg p-2.5 flex items-center justify-between transition border-l-4 border-amber-500 border-t border-r border-b border-zinc-300 dark:border-stone-700 shadow-2xs cursor-pointer group"
               >
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-md bg-zinc-200 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-900/60">
+                    <AlertTriangle className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white leading-tight">
+                    <h4 className="font-bold text-[11px] text-amber-800 dark:text-amber-400 leading-tight">
                       {cnhReport.expiringIn60DaysCount} CNH(s) a Vencer
                     </h4>
-                    <p className="text-[9px] text-zinc-500 dark:text-stone-400 leading-tight">
+                    <p className="text-[9px] text-zinc-600 dark:text-stone-400 leading-tight">
                       Próximos 60 dias
                     </p>
                   </div>

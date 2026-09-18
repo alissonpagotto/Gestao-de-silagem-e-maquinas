@@ -63,23 +63,23 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-md w-full shadow-2xl border border-sky-200 dark:border-sky-900/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-md w-full shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho */}
-        <div className="px-5 py-4 bg-gradient-to-r from-sky-700 to-blue-800 text-white flex items-center justify-between">
+        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-white/10 rounded-xl">
-              <Lock className="w-5 h-5 text-sky-200" />
+              <Lock className="w-5 h-5 text-zinc-200" />
             </div>
             <div>
-              <h3 className="text-base font-black tracking-tight">Redefinir Senha do Assinante</h3>
-              <p className="text-xs text-sky-100/80">Atualização direta na nuvem do Supabase</p>
+              <h3 className="text-base font-black tracking-tight text-white">Redefinir Senha do Assinante</h3>
+              <p className="text-xs text-zinc-300">Atualização direta na nuvem do Supabase</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -87,8 +87,8 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
 
         {/* Conteúdo */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="p-3 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/40 rounded-xl space-y-1">
-            <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300 block uppercase tracking-wider">
+          <div className="p-3 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl space-y-1">
+            <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 block uppercase tracking-wider">
               Assinante Selecionado
             </span>
             <p className="text-sm font-black text-stone-900 dark:text-stone-100">
@@ -106,17 +106,17 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             </div>
           )}
 
-          <div>
+          <div className="bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
+              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                 NOVA SENHA DO CLIENTE *
               </label>
               <button
                 type="button"
                 onClick={handleGeneratePassword}
-                className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-3.5 h-3.5 text-zinc-600" />
                 <span>Gerar Senha Segura</span>
               </button>
             </div>
@@ -128,7 +128,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Digite ou gere a nova senha"
-                className="w-full pl-3 pr-10 py-2.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl text-sm font-mono text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 outline-none"
+                className="w-full pl-3 pr-10 py-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-sm font-mono text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
               />
               <button
                 type="button"
@@ -144,19 +144,19 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             </p>
           </div>
 
-          <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-xl transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>{isSubmitting ? 'Salvando...' : 'Salvar Nova Senha'}</span>

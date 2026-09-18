@@ -689,28 +689,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       {/* Modal 1: Novo Item */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+          <div className="bg-zinc-100 dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
             
             {/* Header */}
-            <div className="px-5 py-3.5 bg-[#009688] text-white flex items-center justify-between">
+            <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
               <div className="flex items-center space-x-2">
-                <Package className="w-5 h-5" />
-                <h3 className="text-base sm:text-lg font-bold tracking-tight">
+                <Package className="w-5 h-5 text-zinc-200" />
+                <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
                   Novo Item de Estoque
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreateSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              <div>
-                <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+              <div className="bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700">
+                <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                   NOME DO PRODUTO / INSUMO <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -719,118 +719,120 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Lona Dupla Face 200 Micras"
-                  className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
+                  className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    CATEGORIA
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  >
-                    <option value="combustivel">Combustível (Diesel)</option>
-                    <option value="lona_embalagem">Lona & Embalagens</option>
-                    <option value="inoculante">Inoculante Bacteriano</option>
-                    <option value="pecas">Peças & Facas</option>
-                    <option value="sementes">Sementes & Adubos</option>
-                    <option value="outro">Outro Insumo</option>
-                  </select>
+              <div className="bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      CATEGORIA
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as any)}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    >
+                      <option value="combustivel">Combustível (Diesel)</option>
+                      <option value="lona_embalagem">Lona & Embalagens</option>
+                      <option value="inoculante">Inoculante Bacteriano</option>
+                      <option value="pecas">Peças & Facas</option>
+                      <option value="sementes">Sementes & Adubos</option>
+                      <option value="outro">Outro Insumo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      LOCALIZAÇÃO
+                    </label>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Ex: Barracão Principal"
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    LOCALIZAÇÃO
-                  </label>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Ex: Barracão Principal"
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    UNIDADE
-                  </label>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    placeholder="litros, rolos, doses, peças, un"
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      UNIDADE
+                    </label>
+                    <input
+                      type="text"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      placeholder="litros, rolos, doses, peças, un"
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      QUANTIDADE ATUAL
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    QUANTIDADE ATUAL
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    ESTOQUE MÍNIMO
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={minQuantity}
-                    onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    CUSTO UNITÁRIO (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={unitCost}
-                    onChange={(e) => {
-                      const costVal = e.target.value === '' ? '' : Number(e.target.value);
-                      setUnitCost(costVal);
-                      if (typeof costVal === 'number' && costVal > 0) {
-                        if (profitMargin !== '') setSalePrice(Math.round(costVal * (1 + Number(profitMargin) / 100) * 100) / 100);
-                        if (wholesaleMargin !== '') setWholesalePrice(Math.round(costVal * (1 + Number(wholesaleMargin) / 100) * 100) / 100);
-                        if (promoMargin !== '') setPromoPrice(Math.round(costVal * (1 + Number(promoMargin) / 100) * 100) / 100);
-                      }
-                    }}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#009688]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      ESTOQUE MÍNIMO
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={minQuantity}
+                      onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      CUSTO UNITÁRIO (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={unitCost}
+                      onChange={(e) => {
+                        const costVal = e.target.value === '' ? '' : Number(e.target.value);
+                        setUnitCost(costVal);
+                        if (typeof costVal === 'number' && costVal > 0) {
+                          if (profitMargin !== '') setSalePrice(Math.round(costVal * (1 + Number(profitMargin) / 100) * 100) / 100);
+                          if (wholesaleMargin !== '') setWholesalePrice(Math.round(costVal * (1 + Number(wholesaleMargin) / 100) * 100) / 100);
+                          if (promoMargin !== '') setPromoPrice(Math.round(costVal * (1 + Number(promoMargin) / 100) * 100) / 100);
+                        }
+                      }}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Seção de Precificação Sincronizada */}
-              <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-700/60 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300">
+              <div className="p-3.5 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-700/60 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700 pb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-800 dark:text-stone-200">
                     Precificação & Margens de Venda
                   </span>
-                  <span className="text-[10px] text-stone-500">Cálculo Automático Baseado no Custo</span>
+                  <span className="text-[10px] text-zinc-500">Cálculo Automático Baseado no Custo</span>
                 </div>
 
                 {/* Margem Padrão / Venda Final */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-purple-900 dark:text-purple-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       % Margem Padrão
                     </label>
                     <div className="relative">
@@ -846,13 +848,13 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           }
                         }}
                         placeholder="30"
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white dark:bg-stone-900 border border-purple-300 dark:border-purple-700 rounded-lg text-xs font-mono font-bold"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-purple-900">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-rose-900 dark:text-rose-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       V. Final (R$)
                     </label>
                     <input
@@ -868,7 +870,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         }
                       }}
                       placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-rose-300 dark:border-rose-700 rounded-lg text-xs font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -876,7 +878,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 {/* Atacado */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-cyan-900 dark:text-cyan-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       % Margem Atacado
                     </label>
                     <div className="relative">
@@ -892,13 +894,13 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           }
                         }}
                         placeholder="15"
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white dark:bg-stone-900 border border-cyan-300 dark:border-cyan-700 rounded-lg text-xs font-mono font-bold"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-cyan-900">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       V. Atacado (R$)
                     </label>
                     <input
@@ -914,7 +916,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         }
                       }}
                       placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
+                      className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
                     />
                   </div>
                 </div>
@@ -922,7 +924,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 {/* Promoção */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-orange-900 dark:text-orange-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       % Margem Promoção
                     </label>
                     <div className="relative">
@@ -938,13 +940,13 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           }
                         }}
                         placeholder="10"
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white dark:bg-stone-900 border border-orange-300 dark:border-orange-700 rounded-lg text-xs font-mono font-bold"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-orange-900">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       V. Promo (R$)
                     </label>
                     <input
@@ -960,32 +962,32 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         }
                       }}
                       placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
+                      className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Previsão de Valor Total */}
-              <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-700/60 flex items-center justify-between text-xs">
-                <span className="text-stone-500 dark:text-stone-400 font-medium">Subtotal Estimado em Estoque:</span>
-                <span className="font-mono font-bold text-stone-900 dark:text-stone-100 text-sm">
+              <div className="p-3.5 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-700/60 flex items-center justify-between text-xs">
+                <span className="text-zinc-600 dark:text-stone-400 font-bold uppercase tracking-wider text-[11px]">Subtotal Estimado em Estoque:</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-stone-100 text-sm">
                   {formatCurrencyBRL((Number(quantity) || 0) * (Number(unitCost) || 0))}
                 </span>
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end space-x-3 pt-3 border-t border-stone-100 dark:border-stone-800">
+              <div className="flex justify-end space-x-3 pt-3 border-t border-zinc-200 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                  className="px-5 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-bold transition cursor-pointer"
                 >
-                  Cancelar
+                  Sair
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-xl bg-[#156f33] hover:bg-[#0e5224] text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+                  className="px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs sm:text-sm font-bold border border-zinc-900 shadow-xs transition cursor-pointer"
                 >
                   Salvar Item
                 </button>
@@ -998,17 +1000,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       {/* Modal 2: Editar Item (com campos preenchidos) */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+          <div className="bg-zinc-100 dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
             
             {/* Header */}
-            <div className="px-5 py-3.5 bg-amber-600 dark:bg-amber-700 text-white flex items-center justify-between">
+            <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
               <div className="flex items-center space-x-2">
-                <Edit3 className="w-5 h-5" />
+                <Edit3 className="w-5 h-5 text-zinc-200" />
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold tracking-tight">
+                  <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
                     Editar Item de Estoque
                   </h3>
-                  <p className="text-[11px] text-amber-100">
+                  <p className="text-[11px] text-zinc-300">
                     Alteração de dados cadastrais e valores
                   </p>
                 </div>
@@ -1016,15 +1018,15 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setEditingItem(null)}
-                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleEditSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-              <div>
-                <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+              <div className="bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700">
+                <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                   NOME DO PRODUTO / INSUMO <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1033,118 +1035,120 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Lona Dupla Face 200 Micras"
-                  className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    CATEGORIA
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="combustivel">Combustível (Diesel)</option>
-                    <option value="lona_embalagem">Lona & Embalagens</option>
-                    <option value="inoculante">Inoculante Bacteriano</option>
-                    <option value="pecas">Peças & Facas</option>
-                    <option value="sementes">Sementes & Adubos</option>
-                    <option value="outro">Outro Insumo</option>
-                  </select>
+              <div className="bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      CATEGORIA
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as any)}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    >
+                      <option value="combustivel">Combustível (Diesel)</option>
+                      <option value="lona_embalagem">Lona & Embalagens</option>
+                      <option value="inoculante">Inoculante Bacteriano</option>
+                      <option value="pecas">Peças & Facas</option>
+                      <option value="sementes">Sementes & Adubos</option>
+                      <option value="outro">Outro Insumo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      LOCALIZAÇÃO
+                    </label>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Ex: Barracão Principal"
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    LOCALIZAÇÃO
-                  </label>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Ex: Barracão Principal"
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    UNIDADE
-                  </label>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    placeholder="litros, rolos, doses, peças, un"
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      UNIDADE
+                    </label>
+                    <input
+                      type="text"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      placeholder="litros, rolos, doses, peças, un"
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      QUANTIDADE ATUAL
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    QUANTIDADE ATUAL
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    ESTOQUE MÍNIMO
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={minQuantity}
-                    onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    CUSTO UNITÁRIO (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={unitCost}
-                    onChange={(e) => {
-                      const costVal = e.target.value === '' ? '' : Number(e.target.value);
-                      setUnitCost(costVal);
-                      if (typeof costVal === 'number' && costVal > 0) {
-                        if (profitMargin !== '') setSalePrice(Math.round(costVal * (1 + Number(profitMargin) / 100) * 100) / 100);
-                        if (wholesaleMargin !== '') setWholesalePrice(Math.round(costVal * (1 + Number(wholesaleMargin) / 100) * 100) / 100);
-                        if (promoMargin !== '') setPromoPrice(Math.round(costVal * (1 + Number(promoMargin) / 100) * 100) / 100);
-                      }
-                    }}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      ESTOQUE MÍNIMO
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={minQuantity}
+                      onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      CUSTO UNITÁRIO (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={unitCost}
+                      onChange={(e) => {
+                        const costVal = e.target.value === '' ? '' : Number(e.target.value);
+                        setUnitCost(costVal);
+                        if (typeof costVal === 'number' && costVal > 0) {
+                          if (profitMargin !== '') setSalePrice(Math.round(costVal * (1 + Number(profitMargin) / 100) * 100) / 100);
+                          if (wholesaleMargin !== '') setWholesalePrice(Math.round(costVal * (1 + Number(wholesaleMargin) / 100) * 100) / 100);
+                          if (promoMargin !== '') setPromoPrice(Math.round(costVal * (1 + Number(promoMargin) / 100) * 100) / 100);
+                        }
+                      }}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Seção de Precificação Sincronizada */}
-              <div className="p-3 bg-amber-50/50 dark:bg-stone-800/60 rounded-xl border border-amber-200/80 dark:border-stone-700/60 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300">
+              <div className="p-3.5 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-700/60 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700 pb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-800 dark:text-stone-200">
                     Precificação & Margens de Venda
                   </span>
-                  <span className="text-[10px] text-stone-500">Cálculo Automático Baseado no Custo</span>
+                  <span className="text-[10px] text-zinc-500">Cálculo Automático Baseado no Custo</span>
                 </div>
 
                 {/* Margem Padrão / Venda Final */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-purple-900 dark:text-purple-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       % Margem Padrão
                     </label>
                     <div className="relative">
@@ -1160,13 +1164,13 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           }
                         }}
                         placeholder="30"
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white dark:bg-stone-900 border border-purple-300 dark:border-purple-700 rounded-lg text-xs font-mono font-bold"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-purple-900">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-rose-900 dark:text-rose-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       V. Final (R$)
                     </label>
                     <input
@@ -1182,7 +1186,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         }
                       }}
                       placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-rose-300 dark:border-rose-700 rounded-lg text-xs font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -1190,7 +1194,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 {/* Atacado */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-cyan-900 dark:text-cyan-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       % Margem Atacado
                     </label>
                     <div className="relative">
@@ -1206,13 +1210,13 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           }
                         }}
                         placeholder="15"
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white dark:bg-stone-900 border border-cyan-300 dark:border-cyan-700 rounded-lg text-xs font-mono font-bold"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-cyan-900">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       V. Atacado (R$)
                     </label>
                     <input
@@ -1228,7 +1232,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         }
                       }}
                       placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
+                      className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
                     />
                   </div>
                 </div>
@@ -1236,7 +1240,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 {/* Promoção */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-orange-900 dark:text-orange-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       % Margem Promoção
                     </label>
                     <div className="relative">
@@ -1252,13 +1256,13 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                           }
                         }}
                         placeholder="10"
-                        className="w-full pr-6 pl-2.5 py-1.5 bg-white dark:bg-stone-900 border border-orange-300 dark:border-orange-700 rounded-lg text-xs font-mono font-bold"
+                        className="w-full pr-6 pl-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-orange-900">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-600">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 uppercase mb-1">
                       V. Promo (R$)
                     </label>
                     <input
@@ -1274,32 +1278,32 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                         }
                       }}
                       placeholder="0.00"
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
+                      className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-medium"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Previsão de Valor Total */}
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs">
-                <span className="text-amber-800 dark:text-amber-300 font-medium">Novo Valor Total em Estoque:</span>
-                <span className="font-mono font-bold text-amber-950 dark:text-amber-100 text-sm">
+              <div className="p-3.5 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-700/60 flex items-center justify-between text-xs">
+                <span className="text-zinc-600 dark:text-stone-400 font-bold uppercase tracking-wider text-[11px]">Novo Valor Total em Estoque:</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-stone-100 text-sm">
                   {formatCurrencyBRL((Number(quantity) || 0) * (Number(unitCost) || 0))}
                 </span>
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end space-x-3 pt-3 border-t border-stone-100 dark:border-stone-800">
+              <div className="flex justify-end space-x-3 pt-3 border-t border-zinc-200 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setEditingItem(null)}
-                  className="px-5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                  className="px-5 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-bold transition cursor-pointer"
                 >
-                  Cancelar
+                  Sair
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer flex items-center space-x-1.5"
+                  className="px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs sm:text-sm font-bold border border-zinc-900 shadow-xs transition cursor-pointer flex items-center space-x-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Salvar Alterações</span>
@@ -1313,26 +1317,26 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       {/* Modal 3: Detalhes do Produto (Ficha Completa & Histórico de Movimentações) */}
       {viewingItem && (
         <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-zinc-100 dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
             {/* Header */}
-            <div className="px-5 py-4 bg-sky-700 dark:bg-sky-900 text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/10 rounded-xl">
+                <div className="p-2 bg-white/10 rounded-xl text-zinc-200">
                   {getCategoryIcon(viewingItem.category)}
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-base sm:text-lg font-bold tracking-tight">
+                    <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
                       {viewingItem.name}
                     </h3>
                     {viewingItem.quantity <= viewingItem.minQuantity && (
-                      <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-rose-500 text-white">
+                      <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-rose-600 text-white">
                         Estoque Crítico
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-sky-100">
+                  <p className="text-xs text-zinc-300">
                     Ficha Técnica Completa & Histórico de Movimentações
                   </p>
                 </div>
@@ -1340,7 +1344,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingItem(null)}
-                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
@@ -1348,12 +1352,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             </div>
 
             {/* Content Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-5">
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 bg-zinc-100 dark:bg-stone-900">
               
               {/* Grid de Informações Básicas do Item */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-500 uppercase">
+                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
                     <Tag className="w-3.5 h-3.5" />
                     <span>Categoria</span>
                   </div>
@@ -1362,8 +1366,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-500 uppercase">
+                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
                     <MapPin className="w-3.5 h-3.5" />
                     <span>Localização</span>
                   </div>
@@ -1372,22 +1376,22 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-500 uppercase">
+                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
                     <Package className="w-3.5 h-3.5" />
                     <span>Estoque Atual</span>
                   </div>
                   <div className={`text-xs sm:text-sm font-black mt-1 ${
                     viewingItem.quantity <= viewingItem.minQuantity 
                       ? 'text-rose-600 dark:text-rose-400' 
-                      : 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-zinc-800 dark:text-zinc-200'
                   }`}>
                     {viewingItem.quantity} {viewingItem.unit}
                   </div>
                 </div>
 
-                <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-800">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-500 uppercase">
+                <div className="p-3 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-zinc-600 uppercase">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span>Estoque Mínimo</span>
                   </div>
@@ -1399,83 +1403,83 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
               {/* Destaque Financeiro */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/20 rounded-xl border border-blue-200/80 dark:border-blue-900/40 flex items-center justify-between">
+                <div className="p-3.5 bg-white dark:bg-stone-800 rounded-xl border border-zinc-300 dark:border-stone-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                       Média de Custo Unitário
                     </span>
-                    <div className="text-base sm:text-lg font-black text-blue-950 dark:text-blue-100 font-mono mt-0.5">
+                    <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                       {formatCurrencyBRL(viewingItem.unitCost)}
                       <span className="text-xs font-normal text-stone-500 ml-1">/{viewingItem.unit}</span>
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-stone-600 flex items-center justify-center">
                     <DollarSign className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 flex items-center justify-between">
+                <div className="p-3.5 bg-white dark:bg-stone-800 rounded-xl border border-zinc-300 dark:border-stone-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                       Valor Total em Estoque
                     </span>
-                    <div className="text-base sm:text-lg font-black text-emerald-950 dark:text-emerald-100 font-mono mt-0.5">
+                    <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                       {formatCurrencyBRL(viewingItem.quantity * viewingItem.unitCost)}
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-stone-600 flex items-center justify-center">
                     <BarChart3 className="w-4 h-4" />
                   </div>
                 </div>
               </div>
 
               {/* Precificação Sincronizada (Margens de Venda, Atacado e Promoção) */}
-              <div className="p-3.5 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200 dark:border-stone-800 space-y-2.5">
-                <div className="text-[11px] font-black uppercase tracking-wider text-stone-700 dark:text-stone-300">
+              <div className="p-3.5 bg-white dark:bg-stone-800/60 rounded-xl border border-zinc-300 dark:border-stone-800 space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-800 dark:text-stone-300">
                   Tabela de Preços & Margens Sincronizadas
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   {/* V. Final */}
-                  <div className="p-2.5 rounded-lg bg-purple-50/80 dark:bg-purple-950/30 border border-purple-200/70 dark:border-purple-900/50">
-                    <span className="text-[9.5px] font-bold text-purple-900 dark:text-purple-300 uppercase block">
+                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700">
+                    <span className="text-[9.5px] font-bold text-zinc-700 dark:text-zinc-300 uppercase block">
                       Venda Final (% Padrão)
                     </span>
-                    <div className="text-sm font-black text-purple-950 dark:text-purple-100 font-mono mt-0.5">
+                    <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                       {viewingItem.salePrice !== undefined 
                         ? formatCurrencyBRL(viewingItem.salePrice) 
                         : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.unitCost * 1.3) : 'R$ 0,00')}
                     </div>
-                    <span className="text-[9.5px] font-semibold text-purple-800 dark:text-purple-300">
+                    <span className="text-[9.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                       Margem: +{viewingItem.profitMargin ?? (viewingItem.salePrice && viewingItem.unitCost > 0 ? Math.round(((viewingItem.salePrice - viewingItem.unitCost) / viewingItem.unitCost) * 100 * 10) / 10 : 30)}%
                     </span>
                   </div>
 
                   {/* V. Atacado */}
-                  <div className="p-2.5 rounded-lg bg-cyan-50/80 dark:bg-cyan-950/30 border border-cyan-200/70 dark:border-cyan-900/50">
-                    <span className="text-[9.5px] font-bold text-cyan-900 dark:text-cyan-300 uppercase block">
+                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700">
+                    <span className="text-[9.5px] font-bold text-zinc-700 dark:text-zinc-300 uppercase block">
                       Atacado (% Atac.)
                     </span>
-                    <div className="text-sm font-black text-cyan-950 dark:text-cyan-100 font-mono mt-0.5">
+                    <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                       {viewingItem.wholesalePrice !== undefined 
                         ? formatCurrencyBRL(viewingItem.wholesalePrice) 
                         : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.unitCost * 1.15) : 'R$ 0,00')}
                     </div>
-                    <span className="text-[9.5px] font-semibold text-cyan-800 dark:text-cyan-300">
+                    <span className="text-[9.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                       Margem: +{viewingItem.wholesaleMargin ?? (viewingItem.wholesalePrice && viewingItem.unitCost > 0 ? Math.round(((viewingItem.wholesalePrice - viewingItem.unitCost) / viewingItem.unitCost) * 100 * 10) / 10 : 15)}%
                     </span>
                   </div>
 
                   {/* V. Promoção */}
-                  <div className="p-2.5 rounded-lg bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/70 dark:border-orange-900/50">
-                    <span className="text-[9.5px] font-bold text-orange-900 dark:text-orange-300 uppercase block">
+                  <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700">
+                    <span className="text-[9.5px] font-bold text-zinc-700 dark:text-zinc-300 uppercase block">
                       Promoção (% Promo.)
                     </span>
-                    <div className="text-sm font-black text-orange-950 dark:text-orange-100 font-mono mt-0.5">
+                    <div className="text-sm font-black text-zinc-900 dark:text-zinc-100 font-mono mt-0.5">
                       {viewingItem.promoPrice !== undefined 
                         ? formatCurrencyBRL(viewingItem.promoPrice) 
-                        : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.unitCost * 1.10) : 'R$ 0,00')}
+                        : (viewingItem.unitCost > 0 ? formatCurrencyBRL(viewingItem.promoPrice && viewingItem.unitCost > 0 ? viewingItem.promoPrice : viewingItem.unitCost * 1.10) : 'R$ 0,00')}
                     </div>
-                    <span className="text-[9.5px] font-semibold text-orange-800 dark:text-orange-300">
+                    <span className="text-[9.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                       Margem: +{viewingItem.promoMargin ?? (viewingItem.promoPrice && viewingItem.unitCost > 0 ? Math.round(((viewingItem.promoPrice - viewingItem.unitCost) / viewingItem.unitCost) * 100 * 10) / 10 : 10)}%
                     </span>
                   </div>
@@ -1484,37 +1488,37 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
               {/* Histórico Recente de Movimentações */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-1.5">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-800 pb-1.5">
                   <div className="flex items-center space-x-1.5">
-                    <History className="w-4 h-4 text-stone-500" />
-                    <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 uppercase tracking-wider">
+                    <History className="w-4 h-4 text-zinc-600" />
+                    <h4 className="text-xs font-bold text-zinc-800 dark:text-stone-100 uppercase tracking-wider">
                       Histórico Recente de Movimentações
                     </h4>
                   </div>
-                  <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                  <span className="text-[11px] text-zinc-500 dark:text-stone-400">
                     {itemMovements.length} registro(s) localizados
                   </span>
                 </div>
 
                 {itemMovements.length === 0 ? (
-                  <div className="p-6 text-center border border-dashed border-stone-200 dark:border-stone-800 rounded-xl bg-stone-50/50 dark:bg-stone-800/20">
-                    <Clock className="w-6 h-6 mx-auto text-stone-300 dark:text-stone-600 mb-1" />
-                    <p className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+                  <div className="p-6 text-center border border-dashed border-zinc-300 dark:border-stone-800 rounded-xl bg-white dark:bg-stone-800/20">
+                    <Clock className="w-6 h-6 mx-auto text-zinc-400 dark:text-stone-600 mb-1" />
+                    <p className="text-xs text-zinc-600 dark:text-stone-400 font-medium">
                       Nenhuma saída recente registrada para este insumo em ordens de serviço ou abastecimento.
                     </p>
-                    <p className="text-[10px] text-stone-400 mt-0.5">
+                    <p className="text-[10px] text-zinc-400 mt-0.5">
                       As utilizações associadas a manutenções e frotas serão rastreadas automaticamente aqui.
                     </p>
                   </div>
                 ) : (
-                  <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-stone-100 dark:divide-stone-800 text-xs">
+                  <div className="border border-zinc-300 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-zinc-200 dark:divide-stone-800 text-xs bg-white">
                     {itemMovements.slice(0, 8).map((mov) => (
-                      <div key={mov.id} className="p-3 hover:bg-stone-50 dark:hover:bg-stone-800/40 transition flex items-center justify-between gap-2">
+                      <div key={mov.id} className="p-3 hover:bg-zinc-50 dark:hover:bg-stone-800/40 transition flex items-center justify-between gap-2">
                         <div className="flex items-center space-x-3">
                           <div className={`p-1.5 rounded-lg ${
                             mov.type === 'saida' 
                               ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' 
-                              : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                              : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200'
                           }`}>
                             {mov.type === 'saida' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                           </div>
@@ -1554,7 +1558,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             </div>
 
             {/* Footer com Botão Fechar Destacado e Atalho para Edição */}
-            <div className="px-5 py-3.5 bg-stone-100 dark:bg-stone-800/90 border-t border-stone-200 dark:border-stone-700 flex items-center justify-between">
+            <div className="px-5 py-3.5 bg-zinc-100 dark:bg-stone-800/90 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
@@ -1562,7 +1566,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   setViewingItem(null);
                   handleOpenEditModal(target);
                 }}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-xs font-bold transition cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-stone-700 border border-zinc-300 dark:border-stone-600 bg-white text-xs font-bold transition cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Editar este Item</span>
@@ -1571,7 +1575,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingItem(null)}
-                className="px-6 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+                className="px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs sm:text-sm font-bold border border-zinc-900 shadow-xs transition cursor-pointer"
               >
                 Fechar Ficha
               </button>

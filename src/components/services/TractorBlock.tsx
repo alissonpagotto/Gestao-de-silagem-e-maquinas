@@ -149,28 +149,30 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
   };
 
   return (
-    <div className={`border rounded-xl p-4 space-y-4 border-l-4 transition-colors shadow-sm bg-[#4e98dd] ${
+    <div className={`border rounded-xl p-4 space-y-4 border-l-4 transition-colors shadow-sm bg-white border-zinc-300 ${
       isTractorActive 
-        ? 'border-[#387cc0] border-l-[#17528c]' 
-        : 'border-[#387cc0]/80 border-l-slate-300'
+        ? 'border-l-zinc-800' 
+        : 'border-l-zinc-400'
     }`}>
       
       {/* Cabeçalho do Bloco */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-300/40 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2.5">
         <div className="flex items-center gap-2">
-          <Tractor className={`w-4 h-4 ${isTractorActive ? 'text-white' : 'text-blue-200'}`} />
-          <span className="text-xs font-bold text-white uppercase tracking-wider">
+          <div className="w-7 h-7 rounded-lg bg-zinc-800 text-white flex items-center justify-center shadow-2xs shrink-0">
+            <Tractor className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
             {blockTitle}
           </span>
           {!isTractorActive && (
-            <span className="text-[10px] uppercase font-bold text-blue-950 bg-white/90 px-2 py-0.5 rounded shadow-2xs">
+            <span className="text-[10px] uppercase font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded shadow-2xs">
               Desativado / Nenhum
             </span>
           )}
         </div>
         
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-blue-950 bg-white/90 px-2.5 py-0.5 rounded-full border border-blue-200 shadow-2xs">
+          <span className="text-[11px] font-semibold text-zinc-700 bg-zinc-100 px-2.5 py-0.5 rounded-full border border-zinc-300 shadow-2xs">
             Faturamento & Operador Independentes
           </span>
           {isTractorActive && (
@@ -191,10 +193,10 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
       <div className="space-y-3">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold text-white uppercase tracking-wider">
+            <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider">
               {fieldLabel}
             </label>
-            <span className="text-[10px] text-blue-100 font-semibold">
+            <span className="text-[10px] text-zinc-500 font-semibold">
               {tratoresDisponiveis.length} trator(es) cadastrado(s) disponível(is)
             </span>
           </div>
@@ -205,7 +207,7 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
               value={tratorNome}
               onChange={(e) => onTratorNomeChange(e.target.value)}
               placeholder="-- Não Utilizar Trator / Nenhum (Clique para escolher) --"
-              className="w-full px-3.5 py-2.5 bg-white border border-slate-400 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-800/40 focus:border-blue-800 font-semibold shadow-2xs transition-colors"
+              className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 font-semibold shadow-2xs transition-colors"
             />
             <select
               value={tratorId}
@@ -225,11 +227,11 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
 
         {/* Se o trator estiver desativado/neutro, exibe card explicativo e oculta campos internos */}
         {!isTractorActive ? (
-          <div className="p-3.5 rounded-lg border border-dashed border-blue-200 bg-white/90 text-center text-xs text-slate-700 shadow-2xs">
-            <p className="font-bold text-slate-800">
+          <div className="p-3.5 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-center text-xs text-zinc-700 shadow-2xs">
+            <p className="font-bold text-zinc-800">
               Nenhum trator selecionado para este serviço.
             </p>
-            <p className="text-[11px] mt-0.5 text-slate-600">
+            <p className="text-[11px] mt-0.5 text-zinc-600">
               Os custos de faturamento e comissão do trator estão zerados e não afetarão o DRE final. Para adicionar, clique no campo acima e selecione um trator da lista.
             </p>
           </div>
@@ -238,9 +240,9 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
             {/* Operadores: Principal (Autocompletado) e Segundo Operador (Opcional - inicia vazio) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-xs font-bold text-white uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span>{operatorFieldLabel} (Principal)</span>
-                  <span className="text-[10px] text-blue-950 bg-white/90 font-bold px-1.5 py-0.2 rounded shadow-2xs">Autocompletado</span>
+                  <span className="text-[10px] text-zinc-700 bg-zinc-100 border border-zinc-200 font-bold px-1.5 py-0.2 rounded shadow-2xs">Autocompletado</span>
                 </label>
                 <div className="relative">
                   <input
@@ -248,7 +250,7 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     value={operadorTratorNome}
                     onChange={(e) => onOperadorChange('', e.target.value)}
                     placeholder="Ex: Tratorista Roberto"
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-400 rounded-lg text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-800/40 focus:border-blue-800 shadow-2xs transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
                   />
                   {employees.length > 0 && (
                     <select
@@ -272,9 +274,9 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span>Segundo Operador (Opcional)</span>
-                  <span className="text-[10px] text-blue-100 font-semibold">Inicia Vazio</span>
+                  <span className="text-[10px] text-zinc-500 font-semibold">Inicia Vazio</span>
                 </label>
                 <div className="relative">
                   <input
@@ -282,7 +284,7 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     value={segundoOperadorTratorNome}
                     onChange={(e) => onSegundoOperadorChange('', e.target.value)}
                     placeholder="Ex: Auxiliar de Silo / Suplente"
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-400 rounded-lg text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-800/40 focus:border-blue-800 shadow-2xs transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-300 rounded-lg text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors"
                   />
                   {employees.length > 0 && (
                     <select
@@ -307,22 +309,22 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
             </div>
 
             {/* SEÇÃO 1 DA INDEPENDÊNCIA: COBRANÇA DO TRATOR (CLIENTE) */}
-            <div className="bg-white border border-slate-300 rounded-lg p-3.5 space-y-3 shadow-xs">
+            <div className="bg-zinc-50 border border-zinc-300 rounded-lg p-3.5 space-y-3 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                  <Tractor className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-xs font-bold text-zinc-900 uppercase tracking-wide flex items-center gap-1.5">
+                  <Tractor className="w-3.5 h-3.5 text-zinc-700" />
                   1. Cobrança do Trator (Faturamento da Máquina)
                 </span>
 
                 {/* Seletor Individual de Unidade do Trator */}
-                <div className="inline-flex rounded-lg p-0.5 bg-blue-100 self-start sm:self-auto text-xs">
+                <div className="inline-flex rounded-lg p-0.5 bg-zinc-200 self-start sm:self-auto text-xs">
                   <button
                     type="button"
                     onClick={() => onModoCobrancaChange('horas')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoCobrancaTrator === 'horas'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Horas (h)
@@ -332,8 +334,8 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     onClick={() => onModoCobrancaChange('area_alq')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoCobrancaTrator === 'area_alq'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Por Alqueire (alq)
@@ -343,8 +345,8 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     onClick={() => onModoCobrancaChange('area_ha')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoCobrancaTrator === 'area_ha'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Por Hectare (ha)
@@ -354,10 +356,10 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span>{modoCobrancaTrator === 'horas' ? 'Horas Trabalhadas (h)' : modoCobrancaTrator === 'area_alq' ? 'Área Cobrada (Alqueires)' : 'Área Cobrada (Hectares)'}</span>
                     {modoCobrancaTrator !== 'horas' && (
-                      <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-1.5 py-0.2 rounded">
+                      <span className="text-[10px] text-zinc-700 font-semibold bg-zinc-200 px-1.5 py-0.2 rounded">
                         Puxado da Área
                       </span>
                     )}
@@ -372,14 +374,14 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     placeholder={modoCobrancaTrator === 'horas' ? 'Ex: 10.0 (Input livre)' : 'Puxado da Área Global'}
                     className={`w-full px-3 py-2 rounded-lg text-xs font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       modoCobrancaTrator === 'horas'
-                        ? 'bg-white border border-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-2xs transition-colors'
-                        : 'bg-slate-100 border border-slate-300 text-slate-800 cursor-not-allowed'
+                        ? 'bg-white border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors'
+                        : 'bg-zinc-100 border border-zinc-300 text-zinc-800 cursor-not-allowed'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
                     R$ / {modoCobrancaTrator === 'horas' ? 'Hora Trator' : modoCobrancaTrator === 'area_alq' ? 'Alqueire Trator' : 'Hectare Trator'}
                   </label>
                   <input
@@ -389,17 +391,17 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     onChange={(e) => onValorUnitarioChange(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="Ex: 220.00"
-                    className="w-full px-3 py-2 bg-white border border-slate-400 rounded-lg text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs text-zinc-900 font-bold focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
                     Subtotal do Trator (Cobrado)
                   </label>
-                  <div className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 flex items-center justify-between shadow-2xs">
+                  <div className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs font-bold text-zinc-900 flex items-center justify-between shadow-2xs">
                     <span>{formatCurrencyBRL(subtotalTrator)}</span>
-                    <span className="text-[10px] font-normal text-slate-600">
+                    <span className="text-[10px] font-normal text-zinc-600">
                       {qtdCobrancaTrator || 0} {modoCobrancaTrator === 'horas' ? 'h' : modoCobrancaTrator === 'area_alq' ? 'alq' : 'ha'}
                     </span>
                   </div>
@@ -408,22 +410,22 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
             </div>
 
             {/* SEÇÃO 2 DA INDEPENDÊNCIA: COMISSÃO DO OPERADOR DO TRATOR (INFORMATIVA DRE) */}
-            <div className="bg-white border border-slate-300 rounded-lg p-3.5 space-y-3 print-client-hide shadow-xs">
+            <div className="bg-zinc-50 border border-zinc-300 rounded-lg p-3.5 space-y-3 print-client-hide shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-xs font-bold text-zinc-900 uppercase tracking-wide flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-zinc-700" />
                   2. Comissão do Operador do Trator (Independente)
                 </span>
 
                 {/* Seletor Individual de Unidade para a Comissão do Operador */}
-                <div className="inline-flex rounded-lg p-0.5 bg-blue-100 self-start sm:self-auto text-xs">
+                <div className="inline-flex rounded-lg p-0.5 bg-zinc-200 self-start sm:self-auto text-xs">
                   <button
                     type="button"
                     onClick={() => onModoComissaoChange('livre')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoComissaoOperador === 'livre'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Digitar (livre)
@@ -433,8 +435,8 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     onClick={() => onModoComissaoChange('horas')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoComissaoOperador === 'horas'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Por Horas (h)
@@ -444,8 +446,8 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     onClick={() => onModoComissaoChange('area_alq')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoComissaoOperador === 'area_alq'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Por Alqueire (alq)
@@ -455,8 +457,8 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     onClick={() => onModoComissaoChange('area_ha')}
                     className={`px-2.5 py-1 font-semibold rounded-md transition cursor-pointer ${
                       modoComissaoOperador === 'area_ha'
-                        ? 'bg-blue-600 text-white shadow-xs font-bold'
-                        : 'text-gray-700 hover:text-gray-900'
+                        ? 'bg-zinc-800 text-white shadow-xs font-bold'
+                        : 'text-zinc-700 hover:text-zinc-900'
                     }`}
                   >
                     Por Hectare (ha)
@@ -466,10 +468,10 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1 flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span>Base do Operador ({modoComissaoOperador === 'livre' ? 'Digitada Livre' : modoComissaoOperador === 'horas' ? 'Horas trabalhadas' : modoComissaoOperador === 'area_alq' ? 'Alqueires' : 'Hectares'})</span>
                     {modoComissaoOperador !== 'livre' && (
-                      <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-1.5 py-0.2 rounded">
+                      <span className="text-[10px] text-zinc-700 font-semibold bg-zinc-200 px-1.5 py-0.2 rounded">
                         {modoComissaoOperador === 'horas' ? 'Puxado Horas Trator' : 'Puxado Área Global'}
                       </span>
                     )}
@@ -490,14 +492,14 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                     }
                     className={`w-full px-3 py-2 rounded-lg text-xs font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       modoComissaoOperador === 'livre'
-                        ? 'bg-white border border-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-2xs transition-colors'
-                        : 'bg-slate-100 border border-slate-300 text-slate-800 cursor-not-allowed'
+                        ? 'bg-white border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors'
+                        : 'bg-zinc-100 border border-zinc-300 text-zinc-800 cursor-not-allowed'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-800 uppercase tracking-wider mb-1">
                     R$ Comissão por {modoComissaoOperador === 'livre' ? 'Hora / Unidade (R$)' : modoComissaoOperador === 'horas' ? 'Hora (R$/h)' : modoComissaoOperador === 'area_alq' ? 'Alqueire (R$/alq)' : 'Hectare (R$/ha)'}
                   </label>
                   <input
@@ -512,16 +514,16 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                         onTaxaComissaoChange(Number(taxaComissaoOperador.toFixed(2)));
                       }
                     }}
-                    className="w-full px-3 py-2 bg-white border border-slate-400 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-700 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
 
               {/* Card Informativo de Comissão do Operador do Trator */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5 space-y-1 text-xs text-blue-950">
+              <div className="bg-white border border-zinc-300 rounded-md p-2.5 space-y-1 text-xs text-zinc-900">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold flex items-center gap-1.5">
-                    <Calculator className="w-3.5 h-3.5 text-blue-600" />
+                    <Calculator className="w-3.5 h-3.5 text-zinc-700" />
                     Comissão Operador ({operadorTratorNome || 'Não selecionado'}):
                   </span>
                   <span className="font-mono font-bold">
@@ -530,7 +532,7 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
                 </div>
 
                 {segundoOperadorTratorNome && comissaoTratorP2Total > 0 && (
-                  <div className="flex items-center justify-between pt-1 border-t border-blue-200">
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-200">
                     <span className="font-semibold">
                       Comissão 2º Operador ({segundoOperadorTratorNome}):
                     </span>

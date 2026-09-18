@@ -149,17 +149,17 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-xl w-full shadow-2xl border border-purple-200 dark:border-purple-900/50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-xl w-full shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho */}
-        <div className="px-5 py-4 bg-gradient-to-r from-purple-700 via-purple-800 to-indigo-900 text-white flex items-center justify-between">
+        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-white/10 rounded-xl">
-              <Layers className="w-5 h-5 text-purple-200" />
+              <Layers className="w-5 h-5 text-zinc-200" />
             </div>
             <div>
-              <h3 className="text-base font-black tracking-tight">Alterar Plano do Assinante</h3>
-              <p className="text-xs text-purple-100/80">
+              <h3 className="text-base font-black tracking-tight text-white">Alterar Plano do Assinante</h3>
+              <p className="text-xs text-zinc-300">
                 Planos comerciais sincronizados dinamicamente com o Supabase
               </p>
             </div>
@@ -167,7 +167,7 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -176,9 +176,9 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
         {/* Corpo do Modal */}
         <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
           {/* Identificação do Cliente */}
-          <div className="p-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/40 rounded-xl flex items-center justify-between">
+          <div className="p-3.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider block">
                 Assinante
               </span>
               <p className="text-sm font-black text-stone-900 dark:text-stone-100">
@@ -189,10 +189,10 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
               </p>
             </div>
             <div className="text-right">
-              <span className="text-[10px] font-bold text-stone-400 block uppercase">
+              <span className="text-[10px] font-bold text-zinc-600 block uppercase">
                 Plano Atual
               </span>
-              <span className="px-2.5 py-1 bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 font-bold text-xs rounded-lg inline-block mt-0.5">
+              <span className="px-2.5 py-1 bg-zinc-100 dark:bg-stone-700 border border-zinc-300 dark:border-stone-600 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-lg inline-block mt-0.5">
                 {subscriber.planName || 'Sem Plano'}
               </span>
             </div>
@@ -208,11 +208,11 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
           {/* Lista Dinâmica de Planos */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                 Selecione o Novo Plano Comercial
               </label>
               {isLoading && (
-                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+                <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-bold flex items-center gap-1">
                   <RefreshCw className="w-3 h-3 animate-spin" />
                   Sincronizando...
                 </span>
@@ -228,8 +228,8 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
                     onClick={() => setSelectedPlanName(p.name)}
                     className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
                       isSelected
-                        ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/20'
-                        : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-purple-300 dark:hover:border-purple-800'
+                        ? 'bg-white dark:bg-stone-950 border-zinc-800 ring-2 ring-zinc-800/20'
+                        : 'bg-white dark:bg-stone-900 border-zinc-300 dark:border-stone-800 hover:border-zinc-500 dark:hover:border-stone-700'
                     }`}
                   >
                     <div className="space-y-0.5 pr-3">
@@ -238,12 +238,12 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
                           {p.name}
                         </span>
                         {p.badge && (
-                          <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[10px] font-black rounded-full">
+                          <span className="px-2 py-0.5 bg-zinc-200 dark:bg-stone-700 text-zinc-800 dark:text-zinc-200 text-[10px] font-bold rounded-full">
                             {p.badge}
                           </span>
                         )}
                         {subscriber.planName === p.name && (
-                          <span className="text-[10px] font-bold text-stone-400">
+                          <span className="text-[10px] font-bold text-zinc-500">
                             (Atual)
                           </span>
                         )}
@@ -258,18 +258,18 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
 
                     <div className="text-right shrink-0 flex items-center gap-3">
                       <div>
-                        <span className="text-sm font-black text-purple-600 dark:text-purple-400 block">
+                        <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 block font-mono">
                           {formatCurrencyBRL(p.price)}
                         </span>
-                        <span className="text-[10px] text-stone-400 uppercase font-bold">
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold">
                           /{p.billingCycle || 'mês'}
                         </span>
                       </div>
                       <div
                         className={`w-5 h-5 rounded-full flex items-center justify-center transition ${
                           isSelected
-                            ? 'bg-purple-600 text-white'
-                            : 'border border-stone-300 dark:border-stone-700'
+                            ? 'bg-zinc-800 text-white'
+                            : 'border border-zinc-300 dark:border-stone-700'
                         }`}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -283,12 +283,12 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
         </div>
 
         {/* Rodapé com botões de ação */}
-        <div className="p-4 bg-stone-50 dark:bg-stone-900/80 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end gap-2">
+        <div className="p-4 bg-zinc-100 dark:bg-stone-900/80 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+            className="px-4 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-xl transition cursor-pointer"
           >
             Cancelar
           </button>
@@ -296,7 +296,7 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
             type="button"
             onClick={handleSave}
             disabled={isSaving || !selectedPlanName}
-            className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+            className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
           >
             <Save className="w-4 h-4" />
             <span>{isSaving ? 'Salvando na Nuvem...' : 'Confirmar Alteração de Plano'}</span>
