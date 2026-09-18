@@ -1339,19 +1339,64 @@ export function normalizeSubscriberStatus(status?: string): 'ativa' | 'trial' | 
 export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
-    // 1. Tenta buscar prioritariamente da tabela oficial 'assinantes'
-    const { data: assinantesData, error: assinantesError } = await supabase
-      .from('assinantes')
-      .select('*')
-      .order('criado_em', { ascending: false });
+    // Busca em paralelo tanto na tabela oficial 'assinantes' quanto na tabela 'subscribers'
+    const [assinantesRes, subscribersRes] = await Promise.allSettled([
+      supabase.from('assinantes').select('*').order('criado_em', { ascending: false }),
+      supabase.from('subscribers').select('*').order('created_at', { ascending: false }),
+    ]);
 
-    if (!assinantesError && assinantesData && Array.isArray(assinantesData)) {
-      return assinantesData.map((row: any) => {
+    const assinantesData = assinantesRes.status === 'fulfilled' && !assinantesRes.value.error ? assinantesRes.value.data : null;
+    const subsData = subscribersRes.status === 'fulfilled' && !subscribersRes.value.error ? subscribersRes.value.data : null;
+
+    if (!assinantesData && !subsData) {
+      return null;
+    }
+
+    const mergedMap = new Map<string, Subscriber>();
+
+    // 1. Processa tabela legada 'subscribers' primeiro (base)
+    if (Array.isArray(subsData)) {
+      for (const row of subsData) {
+        const planKey = normalizeSubscriberPlanKey(row.plan_name || row.plan_id || row.plano_selecionado);
+        const emailKey = (row.responsible_email || row.email || '').trim().toLowerCase();
+        const idKey = row.id || toValidUUID(emailKey);
+        const subItem: Subscriber = {
+          id: idKey,
+          name: row.name || row.nome || 'Assinante',
+          responsibleEmail: emailKey,
+          password: row.password_hash || undefined,
+          trialUntil: row.trial_until || row.trial_ends_at || '',
+          cpfCnpj: row.cpf_cnpj || row.document || '',
+          stateRegistration: row.state_registration || undefined,
+          phone: row.phone || row.telefone || '',
+          cep: row.cep || '',
+          street: row.street || '',
+          number: row.number || '',
+          neighborhood: row.neighborhood || '',
+          city: row.city || '',
+          state: row.state || '',
+          planId: planKey,
+          planName: getSubscriberPlanDisplayName(planKey),
+          monthlyValue: Number(row.monthly_value) || Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+          status: normalizeSubscriberStatus(row.status),
+          createdAt: row.created_at || new Date().toISOString(),
+          updatedAt: row.updated_at || new Date().toISOString(),
+        };
+        mergedMap.set(idKey, subItem);
+        if (emailKey) mergedMap.set(emailKey, subItem);
+      }
+    }
+
+    // 2. Processa tabela oficial 'assinantes' com prioridade máxima
+    if (Array.isArray(assinantesData)) {
+      for (const row of assinantesData) {
         const planKey = normalizeSubscriberPlanKey(row.plano_selecionado || row.plan_id || row.plan_name);
-        return {
-          id: row.id,
+        const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
+        const idKey = row.id || toValidUUID(emailKey);
+        const subItem: Subscriber = {
+          id: idKey,
           name: row.nome || row.name || 'Assinante',
-          responsibleEmail: (row.email || row.responsible_email || '').trim().toLowerCase(),
+          responsibleEmail: emailKey,
           password: row.password_hash || row.senha || undefined,
           trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || ''),
           cpfCnpj: row.cpf_cnpj || row.document || '',
@@ -1370,47 +1415,17 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
           createdAt: row.criado_em || row.created_at || new Date().toISOString(),
           updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
         };
-      });
+        // Sobrescreve dados legados com dados mais recentes e prioritários de 'assinantes'
+        mergedMap.set(idKey, subItem);
+        if (emailKey) mergedMap.set(emailKey, subItem);
+      }
     }
 
-    // 2. Fallback de compatibilidade com a tabela 'subscribers'
-    const { data: subsData, error: subsError } = await supabase
-      .from('subscribers')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Deduplica por ID único preservando ordenação decrescente por data
+    const uniqueSubscribers = Array.from(new Set(Array.from(mergedMap.values())));
+    uniqueSubscribers.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-    if (subsError) {
-      console.warn('Supabase fetchCloudSubscribers notice:', subsError.message);
-      return null;
-    }
-
-    if (!subsData) return null;
-
-    return subsData.map((row: any) => {
-      const planKey = normalizeSubscriberPlanKey(row.plan_name || row.plan_id || row.plano_selecionado);
-      return {
-        id: row.id,
-        name: row.name || row.nome || 'Assinante',
-        responsibleEmail: (row.responsible_email || row.email || '').trim().toLowerCase(),
-        password: row.password_hash || undefined,
-        trialUntil: row.trial_until || row.trial_ends_at || '',
-        cpfCnpj: row.cpf_cnpj || row.document || '',
-        stateRegistration: row.state_registration || undefined,
-        phone: row.phone || row.telefone || '',
-        cep: row.cep || '',
-        street: row.street || '',
-        number: row.number || '',
-        neighborhood: row.neighborhood || '',
-        city: row.city || '',
-        state: row.state || '',
-        planId: planKey,
-        planName: getSubscriberPlanDisplayName(planKey),
-        monthlyValue: Number(row.monthly_value) || Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
-        status: normalizeSubscriberStatus(row.status),
-        createdAt: row.created_at || new Date().toISOString(),
-        updatedAt: row.updated_at || new Date().toISOString(),
-      };
-    });
+    return uniqueSubscribers;
   } catch (err) {
     console.warn('Supabase fetchCloudSubscribers error:', err);
     return null;
@@ -1454,6 +1469,11 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
         assinantesSuccess = true;
       } else {
         console.warn('Supabase upsert assinantes notice:', assinantesError.message);
+        // Fallback por email
+        const { error: fallbackError } = await supabase
+          .from('assinantes')
+          .upsert(payloadAssinantes, { onConflict: 'email' });
+        if (!fallbackError) assinantesSuccess = true;
       }
     } catch (e) {
       console.warn('Erro ao salvar em assinantes:', e);

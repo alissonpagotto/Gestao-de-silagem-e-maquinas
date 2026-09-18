@@ -355,8 +355,104 @@ ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS document TEXT;
 ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 
 -- ==============================================================================
--- 10. POLÍTICAS RLS E ACESSO PÚBLICO (ANON) PARA LANDING PAGE E PLANOS
+-- 10. TABELA OFICIAL: public.assinantes (Painel Master Admin & Planos)
 -- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.assinantes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nome TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    plano_selecionado TEXT NOT NULL DEFAULT 'essencial',
+    valor_mensal NUMERIC(15,2) NOT NULL DEFAULT 195.00,
+    status TEXT NOT NULL DEFAULT 'trial',
+    trial_ate TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days'),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ==============================================================================
+-- 11. TRIGGER & FUNÇÃO: Sincronização Automática entre auth.users e assinantes
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_nome TEXT;
+    v_plano TEXT;
+    v_valor NUMERIC;
+BEGIN
+    v_nome := COALESCE(
+        new.raw_user_meta_data->>'full_name',
+        new.raw_user_meta_data->>'name',
+        split_part(new.email, '@', 1)
+    );
+    v_plano := COALESCE(
+        new.raw_user_meta_data->>'plano_selecionado',
+        'essencial'
+    );
+    v_valor := CASE 
+        WHEN v_plano = 'enterprise' THEN 495.00
+        WHEN v_plano = 'pro' THEN 295.00
+        ELSE 195.00
+    END;
+
+    INSERT INTO public.assinantes (
+        id,
+        nome,
+        email,
+        plano_selecionado,
+        valor_mensal,
+        status,
+        trial_ate,
+        criado_em
+    ) VALUES (
+        new.id,
+        v_nome,
+        new.email,
+        v_plano,
+        v_valor,
+        'trial',
+        now() + interval '7 days',
+        now()
+    )
+    ON CONFLICT (email) DO UPDATE SET
+        id = EXCLUDED.id,
+        nome = COALESCE(EXCLUDED.nome, public.assinantes.nome),
+        plano_selecionado = COALESCE(EXCLUDED.plano_selecionado, public.assinantes.plano_selecionado),
+        valor_mensal = COALESCE(EXCLUDED.valor_mensal, public.assinantes.valor_mensal);
+
+    -- Espelha também para a tabela subscribers (contingência)
+    INSERT INTO public.subscribers (
+        id,
+        name,
+        email,
+        plan_name,
+        status,
+        trial_ends_at,
+        created_at
+    ) VALUES (
+        new.id,
+        v_nome,
+        new.email,
+        CASE WHEN v_plano = 'enterprise' THEN 'Agro Enterprise' WHEN v_plano = 'pro' THEN 'Frota Pro' ELSE 'Produtor Essencial' END,
+        'Trial',
+        now() + interval '7 days',
+        now()
+    )
+    ON CONFLICT (email) DO UPDATE SET
+        id = EXCLUDED.id,
+        name = COALESCE(EXCLUDED.name, public.subscribers.name);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+
+-- ==============================================================================
+-- 12. POLÍTICAS RLS E ACESSO PÚBLICO (ANON) PARA LANDING PAGE E PLANOS
+-- ==============================================================================
+ALTER TABLE public.assinantes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
@@ -374,6 +470,10 @@ BEGIN
     DROP POLICY IF EXISTS "Permissao Total Site Settings" ON public.site_settings;
     DROP POLICY IF EXISTS "Leitura Publica Site Settings" ON public.site_settings;
     CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+    -- Assinantes (Tabela Oficial 'assinantes')
+    DROP POLICY IF EXISTS "Permissao Total Assinantes" ON public.assinantes;
+    CREATE POLICY "Permissao Total Assinantes" ON public.assinantes FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
     -- Assinantes (Subscribers)
     DROP POLICY IF EXISTS "Permissao Total Subscribers" ON public.subscribers;
@@ -404,7 +504,9 @@ BEGIN
             public.rh_funcionarios,
             public.gestao_frotas,
             public.plans,
-            public.site_settings;
+            public.site_settings,
+            public.assinantes,
+            public.subscribers;
     END IF;
 EXCEPTION
     WHEN OTHERS THEN

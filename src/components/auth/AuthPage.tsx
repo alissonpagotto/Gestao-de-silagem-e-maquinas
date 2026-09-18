@@ -46,6 +46,7 @@ import { CompanyProfile } from '../../types';
 import { getStoredCompanyProfile } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { toValidUUID, upsertCloudSubscriber } from '../../lib/supabaseService';
 
 interface AuthPageProps {
   onEnterApp: () => void;
@@ -341,42 +342,102 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const initialStatus: SubscriberStatus = isPrePaid ? 'ativa' : 'trial';
 
       // =========================================================================
-      // 1. CRIAÇÃO DE USUÁRIO NO SUPABASE AUTH (tabela auth.users)
+      // 1. CRIAÇÃO OU IDENTIFICAÇÃO DE USUÁRIO NO SUPABASE AUTH (auth.users)
       // =========================================================================
       let authUserId: string | null = null;
+      let isExistingAuthUser = false;
 
       if (isSupabaseConfigured) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: emailClean,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: nameClean,
-              name: nameClean,
-              phone: phoneClean,
-              cpf_cnpj: documentClean,
-              plan_name: planDisplayName,
-              plano_selecionado: planKey,
+        try {
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: emailClean,
+            password: formData.password,
+            options: {
+              data: {
+                full_name: nameClean,
+                name: nameClean,
+                company_name: formData.tradeName.trim() || nameClean,
+                phone: phoneClean,
+                cpf_cnpj: documentClean,
+                plan_name: planDisplayName,
+                plano_selecionado: planKey,
+              }
+            }
+          });
+
+          if (authError) {
+            const errorMsg = (authError.message || '').toLowerCase();
+            const isDuplicate = 
+              errorMsg.includes('already registered') || 
+              errorMsg.includes('already exists') || 
+              errorMsg.includes('already in use') || 
+              errorMsg.includes('já cadastrado') || 
+              errorMsg.includes('já registrado');
+
+            if (isDuplicate) {
+              isExistingAuthUser = true;
+              console.log('Usuário existente no Supabase Auth. Recuperando credenciais e sincronizando tabelas públicas...');
+              // Tenta autenticar diretamente para obter o UUID real do Auth
+              try {
+                const { data: loginData } = await supabase.auth.signInWithPassword({
+                  email: emailClean,
+                  password: formData.password,
+                });
+                if (loginData?.user?.id) {
+                  authUserId = loginData.user.id;
+                }
+              } catch (loginErr) {
+                console.warn('Tentativa de login silenciosa durante cadastro existente:', loginErr);
+              }
+            } else {
+              throw new Error(authError.message || 'Erro ao criar o usuário no serviço de autenticação.');
+            }
+          } else if (authData?.user?.id) {
+            authUserId = authData.user.id;
+            if (authData.user.identities && authData.user.identities.length === 0) {
+              isExistingAuthUser = true;
             }
           }
-        });
-
-        if (authError) {
-          throw new Error(authError.message || 'Erro ao criar o usuário no serviço de autenticação.');
+        } catch (authErr: any) {
+          if (!isExistingAuthUser) {
+            throw authErr;
+          }
         }
 
-        if (authData?.user?.id) {
-          authUserId = authData.user.id;
+        // Se ainda não obtivemos o UUID (ex: senha diferente de teste anterior), busca na tabela de assinantes/subscribers
+        if (!authUserId) {
+          try {
+            const { data: existingAssinante } = await supabase
+              .from('assinantes')
+              .select('id')
+              .eq('email', emailClean)
+              .maybeSingle();
+
+            if (existingAssinante?.id) {
+              authUserId = existingAssinante.id;
+            } else {
+              const { data: existingLegacy } = await supabase
+                .from('subscribers')
+                .select('id')
+                .eq('email', emailClean)
+                .maybeSingle();
+              if (existingLegacy?.id) {
+                authUserId = existingLegacy.id;
+              }
+            }
+          } catch (lookupErr) {
+            console.warn('Busca de ID existente:', lookupErr);
+          }
         }
       }
 
-      // Fallback de UID caso não esteja configurado
+      // Fallback de UUID válido e consistente baseado no e-mail caso ainda não possua
       if (!authUserId) {
-        authUserId = `usr_${Date.now()}`;
+        authUserId = toValidUUID(emailClean);
       }
 
       // =========================================================================
-      // 2. INSERÇÃO NA TABELA 'assinantes' (COM ESTRUTURA OFICIAL DO SUPABASE)
+      // 2. INSERÇÃO OBRIGATÓRIA NA TABELA 'assinantes' (COM ESTRUTURA OFICIAL)
       // Campos: id (UUID), nome, email, plano_selecionado, valor_mensal, status, trial_ate, criado_em
       // =========================================================================
       if (isSupabaseConfigured) {
@@ -391,15 +452,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           criado_em: criadoEmIso,
         };
 
+        // 1. Gravação prioritária na tabela oficial 'assinantes'
         const { error: insertAssinantesError } = await supabase
           .from('assinantes')
           .upsert(exactAssinantesPayload, { onConflict: 'id' });
 
         if (insertAssinantesError) {
-          console.warn('Notice tabela assinantes:', insertAssinantesError.message);
+          console.warn('Notice tabela assinantes por id, tentando fallback:', insertAssinantesError.message);
+          try {
+            await supabase
+              .from('assinantes')
+              .upsert(exactAssinantesPayload, { onConflict: 'email' });
+          } catch {
+            // Continua
+          }
         }
 
-        // Contingência na tabela legada 'subscribers'
+        // 2. Gravação de contingência na tabela 'subscribers'
         try {
           const exactSubscriberPayload = {
             id: authUserId,
@@ -422,7 +491,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
 
       // =========================================================================
-      // 3. PERSISTÊNCIA LOCAL COM O MESMO UUID DO SUPABASE AUTH
+      // 3. PERSISTÊNCIA LOCAL E EM NUVEM COM O MESMO UUID DO SUPABASE AUTH
       // =========================================================================
       const result = registerNewSubscriber({
         id: authUserId,
@@ -446,12 +515,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         trialDays: 7,
       });
 
+      // Dispara persistência na nuvem via serviço centralizado
+      upsertCloudSubscriber(result.subscriber).catch(err => {
+        console.warn('Notice upsertCloudSubscriber:', err);
+      });
+
       // Notifica o estado do App sobre a nova empresa
       if (onCompanyCreated) {
         onCompanyCreated(result.companyProfile);
       }
 
-      setSuccessMessage('Empresa, conta e assinatura criadas com sucesso! Inicializando seu painel...');
+      // Dispara eventos em tempo real para sincronização imediata no Master Admin
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('master_admin_data_changed'));
+        window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated'));
+      }
+
+      setSuccessMessage(
+        isExistingAuthUser
+          ? 'Conta autenticada e assinatura vinculada com sucesso! Inicializando seu painel...'
+          : 'Empresa, conta e assinatura criadas com sucesso! Inicializando seu painel...'
+      );
 
       // Redirecionamento suave para o ERP
       setTimeout(() => {

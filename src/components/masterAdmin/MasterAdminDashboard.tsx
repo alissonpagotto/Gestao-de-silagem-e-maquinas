@@ -172,6 +172,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       setSiteConfig(freshConfig);
       setPlans(getStoredPlans());
       setSettings(getStoredAdminSettings());
+      syncMasterAdminFromCloud().then(cloudData => {
+        if (!isMounted) return;
+        if (cloudData.subscribers) setSubscribers(cloudData.subscribers);
+        if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+        if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
+      }).catch(() => {});
     };
 
     // Sincronização inicial com o Supabase Cloud
