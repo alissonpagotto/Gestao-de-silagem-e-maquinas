@@ -35,7 +35,11 @@ import {
   Tag,
   BarChart3,
   Menu,
-  X
+  X,
+  TrendingUp,
+  LayoutDashboard,
+  CreditCard,
+  UserPlus
 } from 'lucide-react';
 import { 
   Subscriber, 
@@ -138,7 +142,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   };
 
   // Aba ativa do Painel Mestre
-  const [adminTab, setAdminTab] = useState<'assinantes' | 'planos' | 'site' | 'configuracoes'>('assinantes');
+  const [adminTab, setAdminTab] = useState<'painel' | 'assinantes' | 'assinaturas' | 'planos' | 'site' | 'configuracoes'>('painel');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Filtros da Tabela de Assinantes
@@ -527,239 +531,251 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* Topo da Sidebar: Identidade Visual e Fechamento Mobile */}
-        <div className="p-4 sm:p-5 border-b border-stone-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-sm shadow-md shadow-emerald-950/40">
-              AM
-            </div>
+        {/* Topo da Sidebar: Logo e Identidade Visual */}
+        <div className="p-5 border-b border-stone-800 shrink-0">
+          <div className="flex items-start justify-between">
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black tracking-tight text-white">
-                  Admin Mestre
-                </h1>
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                  Super
+              {/* Título Principal em 2 Linhas: ADMIN / MESTRE */}
+              <div className="text-2xl font-black tracking-wider text-white uppercase leading-none">
+                ADMIN
+              </div>
+              <div className="text-2xl font-black tracking-wider text-white uppercase leading-none mt-1">
+                MESTRE
+              </div>
+
+              {/* Subtexto: VENDAS & GROWTH com ícone de gráfico de crescimento ascendente */}
+              <div className="flex items-center gap-1.5 mt-2.5 text-xs font-black text-emerald-400 tracking-wider uppercase">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>VENDAS &amp; GROWTH</span>
+              </div>
+            </div>
+
+            {/* Botão para fechar no Mobile */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="md:hidden p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition cursor-pointer"
+              title="Fechar menu lateral"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Itens de Navegação Agrupados por Categorias */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+          
+          {/* SEÇÃO 1: OPERAÇÃO */}
+          <div>
+            <div className="px-3 pb-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-400">
+              OPERAÇÃO
+            </div>
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminTab('painel');
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer text-left group ${
+                  adminTab === 'painel'
+                    ? 'bg-stone-800 text-emerald-400 font-bold shadow-sm'
+                    : 'text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium'
+                }`}
+              >
+                <LayoutDashboard className={`w-4 h-4 shrink-0 transition ${
+                  adminTab === 'painel' ? 'text-emerald-400' : 'text-stone-400 group-hover:text-white'
+                }`} />
+                <span>Painel</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SEÇÃO 2: CATÁLOGO */}
+          <div>
+            <div className="px-3 pb-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-400">
+              CATÁLOGO
+            </div>
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminTab('assinantes');
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer text-left group ${
+                  adminTab === 'assinantes'
+                    ? 'bg-stone-800 text-emerald-400 font-bold shadow-sm'
+                    : 'text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Users className={`w-4 h-4 shrink-0 transition ${
+                    adminTab === 'assinantes' ? 'text-emerald-400' : 'text-stone-400 group-hover:text-white'
+                  }`} />
+                  <span className="truncate">Assinantes</span>
+                </div>
+                <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+                  adminTab === 'assinantes'
+                    ? 'bg-emerald-500/20 text-emerald-300 font-black'
+                    : 'bg-stone-800/80 text-stone-400'
+                }`}>
+                  {subscribers.length}
                 </span>
-              </div>
-              <p className="text-[11px] text-stone-400 font-medium">
-                Painel Central Global
-              </p>
+              </button>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsMobileSidebarOpen(false)}
-            className="md:hidden p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition"
-            title="Fechar menu lateral"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          {/* SEÇÃO 3: ADMINISTRAÇÃO */}
+          <div>
+            <div className="px-3 pb-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-400">
+              ADMINISTRAÇÃO
+            </div>
+            <div className="space-y-1">
+              {/* Assinaturas */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminTab('assinaturas');
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer text-left group ${
+                  adminTab === 'assinaturas'
+                    ? 'bg-stone-800 text-emerald-400 font-bold shadow-sm'
+                    : 'text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <CreditCard className={`w-4 h-4 shrink-0 transition ${
+                    adminTab === 'assinaturas' ? 'text-emerald-400' : 'text-stone-400 group-hover:text-white'
+                  }`} />
+                  <span className="truncate">Assinaturas</span>
+                </div>
+                <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+                  adminTab === 'assinaturas'
+                    ? 'bg-emerald-500/20 text-emerald-300 font-black'
+                    : 'bg-stone-800/80 text-stone-400'
+                }`}>
+                  {metrics.activeSubscribers}
+                </span>
+              </button>
 
-        {/* Itens do Menu Empilhados Verticalmente */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
-          <div className="px-3 pb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
-            Módulos Globais
+              {/* Planos */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminTab('planos');
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer text-left group ${
+                  adminTab === 'planos'
+                    ? 'bg-stone-800 text-emerald-400 font-bold shadow-sm'
+                    : 'text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Tag className={`w-4 h-4 shrink-0 transition ${
+                    adminTab === 'planos' ? 'text-emerald-400' : 'text-stone-400 group-hover:text-white'
+                  }`} />
+                  <span className="truncate">Planos</span>
+                </div>
+                <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+                  adminTab === 'planos'
+                    ? 'bg-emerald-500/20 text-emerald-300 font-black'
+                    : 'bg-stone-800/80 text-stone-400'
+                }`}>
+                  {plans.length}
+                </span>
+              </button>
+
+              {/* Novo Assinante (Abre Modal de Cadastro Rápido) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSubscriber(null);
+                  setIsEditSubscriberOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium transition-all cursor-pointer text-left group"
+              >
+                <UserPlus className="w-4 h-4 shrink-0 text-stone-400 group-hover:text-white transition" />
+                <span>Novo Assinante</span>
+              </button>
+
+              {/* Configurações */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminTab('configuracoes');
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer text-left group ${
+                  adminTab === 'configuracoes'
+                    ? 'bg-stone-800 text-emerald-400 font-bold shadow-sm'
+                    : 'text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium'
+                }`}
+              >
+                <Settings className={`w-4 h-4 shrink-0 transition ${
+                  adminTab === 'configuracoes' ? 'text-emerald-400' : 'text-stone-400 group-hover:text-white'
+                }`} />
+                <span>Configurações</span>
+              </button>
+
+              {/* Configurações do Site */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminTab('site');
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer text-left group ${
+                  adminTab === 'site'
+                    ? 'bg-stone-800 text-emerald-400 font-bold shadow-sm'
+                    : 'text-stone-400 hover:text-white hover:bg-stone-800/60 font-medium'
+                }`}
+              >
+                <Globe className={`w-4 h-4 shrink-0 transition ${
+                  adminTab === 'site' ? 'text-emerald-400' : 'text-stone-400 group-hover:text-white'
+                }`} />
+                <span>Configurações do Site</span>
+              </button>
+            </div>
           </div>
 
-          {/* 1. Módulo: Assinaturas & Assinantes */}
-          <button
-            type="button"
-            onClick={() => {
-              setAdminTab('assinantes');
-              setIsMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
-              adminTab === 'assinantes'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
-                adminTab === 'assinantes'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
-              }`}>
-                <Users className="w-4 h-4" />
-              </div>
-              <div className="truncate">
-                <div className={`truncate ${adminTab === 'assinantes' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
-                  Assinantes
-                </div>
-                <div className="text-[10px] text-stone-400 truncate">
-                  Clientes e Contratos
-                </div>
-              </div>
-            </div>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
-              adminTab === 'assinantes'
-                ? 'bg-emerald-500/30 text-emerald-300 font-black'
-                : 'bg-stone-800 text-stone-400'
-            }`}>
-              {subscribers.length}
-            </span>
-          </button>
-
-          {/* 2. Módulo: Módulo de Planos */}
-          <button
-            type="button"
-            onClick={() => {
-              setAdminTab('planos');
-              setIsMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
-              adminTab === 'planos'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
-                adminTab === 'planos'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
-              }`}>
-                <Tag className="w-4 h-4" />
-              </div>
-              <div className="truncate">
-                <div className={`truncate ${adminTab === 'planos' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
-                  Módulo de Planos
-                </div>
-                <div className="text-[10px] text-stone-400 truncate">
-                  Tabelas de Preços
-                </div>
-              </div>
-            </div>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
-              adminTab === 'planos'
-                ? 'bg-emerald-500/30 text-emerald-300 font-black'
-                : 'bg-stone-800 text-stone-400'
-            }`}>
-              {plans.length}
-            </span>
-          </button>
-
-          {/* 3. Módulo: Configurações do Site (Landing Page) */}
-          <button
-            type="button"
-            onClick={() => {
-              setAdminTab('site');
-              setIsMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
-              adminTab === 'site'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
-                adminTab === 'site'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
-              }`}>
-                <Globe className="w-4 h-4" />
-              </div>
-              <div className="truncate">
-                <div className={`truncate ${adminTab === 'site' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
-                  Configurações do Site
-                </div>
-                <div className="text-[10px] text-stone-400 truncate">
-                  Landing Page Pública
-                </div>
-              </div>
-            </div>
-            {adminTab === 'site' && (
-              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shrink-0" />
-            )}
-          </button>
-
-          {/* 4. Módulo: Webhooks & Super Admins */}
-          <button
-            type="button"
-            onClick={() => {
-              setAdminTab('configuracoes');
-              setIsMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
-              adminTab === 'configuracoes'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
-                adminTab === 'configuracoes'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
-              }`}>
-                <Key className="w-4 h-4" />
-              </div>
-              <div className="truncate">
-                <div className={`truncate ${adminTab === 'configuracoes' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
-                  Webhooks & Admins
-                </div>
-                <div className="text-[10px] text-stone-400 truncate">
-                  Segurança & Integrações
-                </div>
-              </div>
-            </div>
-            {adminTab === 'configuracoes' && (
-              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shrink-0" />
-            )}
-          </button>
         </div>
 
-        {/* Rodapé da Sidebar: Sessão & Ações Rápidas */}
-        <div className="p-3 sm:p-4 border-t border-stone-800 space-y-2 bg-stone-900/80 shrink-0">
+        {/* Rodapé Fixo da Sidebar */}
+        <div className="p-4 border-t border-stone-800 shrink-0 bg-stone-900 space-y-2.5">
+          {/* Link de retorno fixo na extremidade inferior esquerda */}
+          <button
+            type="button"
+            onClick={onBackToApp}
+            className="text-xs text-stone-400 hover:text-stone-200 transition-colors flex items-center gap-2 py-1 font-medium group cursor-pointer"
+            title="Voltar ao Sistema ERP Silagem Fácil"
+          >
+            <span className="transition-transform group-hover:-translate-x-0.5">←</span>
+            <span>Voltar ao Sistema</span>
+          </button>
+
+          {/* Identificação de Sessão e Logout do Super Admin */}
           {session && (
-            <div className="px-3 py-2 rounded-xl bg-stone-950/80 border border-stone-800/80 text-xs">
-              <div className="flex items-center gap-2 mb-0.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">
-                  Super Admin
+            <div className="pt-2 border-t border-stone-800/60 flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+                <span className="text-stone-400 truncate max-w-[140px] font-mono text-[10px]" title={session.email}>
+                  {session.email}
                 </span>
               </div>
-              <div className="font-mono text-emerald-400 font-bold text-[11px] truncate" title={session.email}>
-                {session.email}
-              </div>
+              <button
+                type="button"
+                onClick={handleLogoutMaster}
+                className="text-stone-400 hover:text-rose-400 transition-colors p-1 cursor-pointer"
+                title="Sair do Master"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
-
-          <div className="pt-1 space-y-1">
-            <button
-              type="button"
-              onClick={onOpenLandingPage}
-              className="w-full px-3 py-2 bg-stone-800/80 hover:bg-stone-800 text-stone-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-stone-700/60"
-              title="Abrir a Landing Page pública de vendas"
-            >
-              <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">Ver Landing Page</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onBackToApp}
-              className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2.5 transition cursor-pointer shadow-sm"
-              title="Acessar o ERP Interno"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Abrir ERP Silagem Fácil</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLogoutMaster}
-              className="w-full px-3 py-2 bg-stone-950 hover:bg-rose-950/40 hover:text-rose-300 hover:border-rose-800/60 text-stone-400 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-stone-800"
-              title="Encerrar sessão e deslogar do Admin Mestre"
-            >
-              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-              <span className="truncate">Sair do Master</span>
-            </button>
-          </div>
         </div>
       </aside>
 
@@ -782,20 +798,26 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black tracking-tight text-white truncate">
-                  {adminTab === 'assinantes' && 'Assinaturas & Assinantes'}
+                  {adminTab === 'painel' && 'Painel Operacional'}
+                  {adminTab === 'assinantes' && 'Catálogo de Assinantes'}
+                  {adminTab === 'assinaturas' && 'Gestão de Assinaturas'}
                   {adminTab === 'planos' && 'Módulo de Planos Comerciais'}
                   {adminTab === 'site' && 'Configurações do Site (Landing Page)'}
-                  {adminTab === 'configuracoes' && 'Webhooks & Super Admins'}
+                  {adminTab === 'configuracoes' && 'Configurações & Webhooks'}
                 </h2>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block shrink-0">
-                  {adminTab === 'assinantes' && `${subscribers.length} registros`}
+                  {adminTab === 'painel' && 'Vendas & Growth'}
+                  {adminTab === 'assinantes' && `${subscribers.length} cadastros`}
+                  {adminTab === 'assinaturas' && `${metrics.activeSubscribers} ativas`}
                   {adminTab === 'planos' && `${plans.length} planos`}
                   {adminTab === 'site' && 'Landing Page'}
                   {adminTab === 'configuracoes' && 'Segurança'}
                 </span>
               </div>
               <p className="text-xs text-stone-400 hidden sm:block truncate">
-                {adminTab === 'assinantes' && 'Gestão unificada de clientes rurais, contratos e faturamento recorrente'}
+                {adminTab === 'painel' && 'Visão consolidada de crescimento, MRR e status das contas'}
+                {adminTab === 'assinantes' && 'Catálogo e registros detalhados dos produtores rurais e clientes'}
+                {adminTab === 'assinaturas' && 'Contratos, vencimentos e faturamento recorrente'}
                 {adminTab === 'planos' && 'Tabelas de preços, limites operacionais e recursos cadastrados'}
                 {adminTab === 'site' && 'Customização visual e conteúdo da Landing Page pública de vendas'}
                 {adminTab === 'configuracoes' && 'Chaves de API, webhooks e credenciais de acesso restrito'}
@@ -906,9 +928,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           </div>
 
           {/* ======================================================== */}
-          {/* ABA 1: ASSINATURAS & ASSINANTES                          */}
+          {/* ABA 1: OPERAÇÃO, ASSINANTES & ASSINATURAS                */}
           {/* ======================================================== */}
-          {adminTab === 'assinantes' && (
+          {(adminTab === 'painel' || adminTab === 'assinantes' || adminTab === 'assinaturas') && (
           <div className="space-y-4">
             
             {/* Barra de Filtros e Busca */}
