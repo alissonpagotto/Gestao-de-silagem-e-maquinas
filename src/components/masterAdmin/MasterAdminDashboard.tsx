@@ -853,7 +853,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         </header>
 
         {/* Conteúdo Principal (Cards de Indicadores + Tabela e Formulários) */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <main className="flex-1 w-full max-w-[95%] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           
           {/* CARDS DE CONTADORES SUPERIORES & MRR ESTIMADO EM TEMPO REAL */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
