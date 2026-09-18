@@ -1198,29 +1198,25 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/75 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="bg-[#b0d2ed] rounded-2xl max-w-4xl w-full shadow-2xl border border-blue-300 overflow-hidden flex flex-col max-h-[92vh]"
-        style={{ backgroundColor: '#b0d2ed' }}
+        className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[92vh]"
       >
         
-        {/* Header - Solid Blue #0963cb with White Text */}
+        {/* Header - Charcoal bg-zinc-800 with White Text */}
         <div 
-          className="px-5 sm:px-6 py-3.5 bg-[#0963cb] text-white flex items-center justify-between shrink-0 shadow-xs"
-          style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+          className="px-5 sm:px-6 py-3.5 bg-zinc-800 text-white flex items-center justify-between shrink-0 shadow-xs"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-zinc-700 text-white flex items-center justify-center shadow-xs">
               <Truck className="w-4 h-4 text-white" />
             </div>
             <div>
               <h3 
                 className="text-base sm:text-lg font-bold text-white font-['Outfit']"
-                style={{ color: '#ffffff' }}
               >
                 {editingVehicle ? 'Editar Veículo / Máquina' : 'Cadastrar Novo Veículo / Máquina'}
               </h3>
               <p 
-                className="text-[11px] text-white/90"
-                style={{ color: '#ffffff' }}
+                className="text-[11px] text-zinc-300"
               >
                 Gestão de dados cadastrais, dados de propriedade, pesos e controle de compra
               </p>
@@ -1229,9 +1225,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700/60 transition cursor-pointer"
             aria-label="Fechar"
-            style={{ color: '#ffffff' }}
           >
             <X className="w-5 h-5 text-white" />
           </button>
@@ -1239,20 +1234,18 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
         {/* Tabs Bar with Print Action Buttons */}
         <div 
-          className="p-2.5 sm:p-3 bg-[#b0d2ed] border-b border-blue-300 flex flex-wrap items-center justify-between gap-2.5 shrink-0"
-          style={{ backgroundColor: '#b0d2ed' }}
+          className="p-2.5 sm:p-3 bg-zinc-100/90 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0"
         >
           {/* Central Tabs: Dados & Histórico */}
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto max-w-md bg-white/70 p-1 rounded-xl shadow-xs">
+          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto max-w-md bg-zinc-200/80 p-1 rounded-xl shadow-xs">
             <button
               type="button"
               onClick={() => setActiveTab('dados')}
               className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
                 activeTab === 'dados'
-                  ? 'bg-[#0963cb] text-white shadow-xs'
-                  : 'text-stone-700 hover:text-black'
+                  ? 'bg-zinc-800 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               }`}
-              style={activeTab === 'dados' ? { backgroundColor: '#0963cb', color: '#ffffff' } : {}}
             >
               <Car className="w-4 h-4" />
               <span>Dados do Veículo</span>
@@ -1262,10 +1255,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               onClick={() => setActiveTab('historico')}
               className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
                 activeTab === 'historico'
-                  ? 'bg-[#0963cb] text-white shadow-xs'
-                  : 'text-stone-700 hover:text-black'
+                  ? 'bg-zinc-800 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               }`}
-              style={activeTab === 'historico' ? { backgroundColor: '#0963cb', color: '#ffffff' } : {}}
             >
               <Clock className="w-4 h-4" />
               <span>Histórico, Consumo & DRE</span>
@@ -1278,11 +1270,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               type="button"
               onClick={handlePrintCadastro}
               title="Imprimir Ficha Cadastral do Veículo"
-              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-stone-300 cursor-pointer text-black hover:bg-[#b0d2ed] active:scale-95"
-              style={{ backgroundColor: '#ffffff', color: '#000000' }}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
             >
-              <Printer className="w-4 h-4 text-black" style={{ color: '#000000' }} />
-              <span className="text-black font-extrabold whitespace-nowrap" style={{ color: '#000000' }}>
+              <Printer className="w-4 h-4 text-zinc-700" />
+              <span className="font-bold whitespace-nowrap">
                 Imprimir Cadastro
               </span>
             </button>
@@ -1291,11 +1282,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               type="button"
               onClick={handlePrintHistorico}
               title="Imprimir Relatório de Histórico, Consumo e DRE"
-              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-stone-300 cursor-pointer text-black hover:bg-[#b0d2ed] active:scale-95"
-              style={{ backgroundColor: '#ffffff', color: '#000000' }}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
             >
-              <Printer className="w-4 h-4 text-black" style={{ color: '#000000' }} />
-              <span className="text-black font-extrabold whitespace-nowrap" style={{ color: '#000000' }}>
+              <Printer className="w-4 h-4 text-zinc-700" />
+              <span className="font-bold whitespace-nowrap">
                 Imprimir Histórico
               </span>
             </button>
@@ -1306,15 +1296,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         {activeTab === 'dados' && (
           <form 
             onSubmit={handleSubmit} 
-            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-[#b0d2ed]"
-            style={{ backgroundColor: '#b0d2ed' }}
+            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5 bg-zinc-50"
           >
             
             {/* SEÇÃO 1: IDENTIFICAÇÃO BÁSICA (CARD BRANCO) */}
-            <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-3">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3.5">
               <div className="flex items-center space-x-2">
-                <Truck className="w-4 h-4 text-[#0963cb]" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                <Truck className="w-4 h-4 text-zinc-700" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                   1. IDENTIFICAÇÃO DO VEÍCULO / MÁQUINA
                 </h4>
               </div>
@@ -1322,33 +1311,31 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
                 {/* 1º: Placa do Veículo */}
                 <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Placa do Veículo
                   </label>
                   <input
                     type="text"
                     value={plate}
                     onChange={(e) => setPlate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                    style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* 2º: Nº da Frota */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Nº da Frota
                   </label>
                   <input
                     type="text"
                     value={fleetNumber}
                     onChange={(e) => setFleetNumber(e.target.value)}
-                    className={`w-full px-3.5 py-2 rounded-xl border text-[#000000] text-sm font-bold uppercase focus:outline-none shadow-xs transition-colors ${
+                    className={`w-full px-3.5 py-2 rounded-xl border text-zinc-900 text-sm font-bold uppercase focus:outline-none shadow-xs transition-colors ${
                       isFleetNumberDuplicate
                         ? 'border-rose-500 ring-2 ring-rose-500/40 bg-rose-50/50 focus:border-rose-600 focus:ring-rose-500'
-                        : 'border-stone-300 bg-white focus:ring-2 focus:ring-[#0963cb]'
+                        : 'border-zinc-300 bg-white focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700'
                     }`}
-                    style={{ backgroundColor: isFleetNumberDuplicate ? '#fff5f5' : '#ffffff', color: '#000000' }}
                     placeholder="Ex: 10"
                   />
                   {isFleetNumberDuplicate && (
@@ -1363,29 +1350,27 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 3º: Nº de Série (Chassi / Fabricante) */}
                 <div className="sm:col-span-4">
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Nº de Série (Chassi / Fabricante)
                   </label>
                   <input
                     type="text"
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                    style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* 4º: Código RENAVAM */}
                 <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Código RENAVAM
                   </label>
                   <input
                     type="text"
                     value={renavam}
                     onChange={(e) => setRenavam(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                    style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
               </div>
@@ -1393,52 +1378,50 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               {/* Marca, Modelo, Ano, Cor */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Marca
                   </label>
                   <input
                     type="text"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                    style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Modelo
                   </label>
                   <input
                     type="text"
                     value={model}
                     onChange={(e) => setModel(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                    style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Ano de Fabricação
                   </label>
                   <input
                     type="number"
                     value={year}
                     onChange={(e) => setYear(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Cor
                   </label>
                   <input
                     type="text"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
               </div>
@@ -1448,16 +1431,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 {/* Categoria do Veículo - Lista Editável */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-[#000000]" style={{ color: '#000000' }}>
+                    <label className="block text-xs font-bold text-zinc-700">
                       Categoria do Veículo
                     </label>
                     <button
                       type="button"
                       onClick={() => setIsCategoriesModalOpen(true)}
-                      className="text-[11px] text-[#0963cb] hover:underline font-bold flex items-center space-x-1 cursor-pointer"
+                      className="text-[11px] text-zinc-700 hover:text-zinc-900 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
                       title="Gerenciar lista: incluir novas ou excluir opções"
                     >
-                      <Tag className="w-3 h-3" />
+                      <Tag className="w-3 h-3 text-zinc-600" />
                       <span>Editar Lista</span>
                     </button>
                   </div>
@@ -1477,7 +1460,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           }
                         }
                       }}
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs cursor-pointer"
+                      className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
                     >
                       {categoriesList.map((cat) => (
                         <option key={cat} value={cat}>
@@ -1494,22 +1477,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsCategoriesModalOpen(true)}
-                      className="p-2 border border-stone-300 bg-white hover:bg-stone-50 rounded-xl text-[#0963cb] transition cursor-pointer shrink-0 shadow-xs"
+                      className="p-2 border border-zinc-300 bg-white hover:bg-zinc-50 rounded-xl text-zinc-700 transition cursor-pointer shrink-0 shadow-xs"
                       title="Incluir nova categoria ou excluir existente"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4 text-zinc-700" />
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Status Operacional
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   >
                     <option value="disponivel">Disponível</option>
                     <option value="operacional">Operacional (Em Atividade / Campo)</option>
@@ -1521,27 +1504,27 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
               {/* BLOCO CONDICIONAL: DETALHAMENTO DO REBOQUE (quando Categoria = Reboque) */}
               {isReboqueCategory && (
-                <div className="pt-3.5 border-t border-blue-100/90 space-y-3">
+                <div className="pt-3.5 border-t border-zinc-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Layers className="w-4 h-4 text-[#0963cb]" />
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                      <Layers className="w-4 h-4 text-zinc-700" />
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                         Detalhamento do Reboque
                       </h5>
                     </div>
-                    <span className="text-[11px] font-bold text-[#0963cb] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    <span className="text-[11px] font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-300">
                       Categoria: Reboque
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 bg-blue-50/40 p-3.5 rounded-xl border border-blue-200/80">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
                     {/* Campo: Tipo de Reboque */}
                     <div className="sm:col-span-8">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-[#000000]" style={{ color: '#000000' }}>
+                        <label className="block text-xs font-bold text-zinc-700">
                           Tipo de Reboque
                         </label>
-                        <span className="text-[10px] text-stone-500 font-medium">
+                        <span className="text-[10px] text-zinc-500 font-medium">
                           Selecione uma opção ou digite livremente
                         </span>
                       </div>
@@ -1553,8 +1536,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           value={trailerType}
                           onChange={(e) => setTrailerType(e.target.value)}
                           placeholder="Ex: Prancha, Baú, Graneleiro, Basculante, Sider..."
-                          className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                          style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
                         <datalist id="reboque-tipo-sugestoes">
                           <option value="Prancha" />
@@ -1570,7 +1552,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                         {/* Sugestões rápidas de 1 clique */}
                         <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
-                          <span className="text-[10px] font-semibold text-stone-500 mr-0.5">Sugestões:</span>
+                          <span className="text-[10px] font-semibold text-zinc-500 mr-0.5">Sugestões:</span>
                           {['Prancha', 'Baú', 'Graneleiro', 'Basculante', 'Sider'].map((tipo) => {
                             const isSelected = trailerType.trim().toLowerCase() === tipo.toLowerCase();
                             return (
@@ -1580,8 +1562,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                                 onClick={() => setTrailerType(tipo)}
                                 className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer shadow-2xs ${
                                   isSelected
-                                    ? 'bg-[#0963cb] text-white border-[#0963cb]'
-                                    : 'bg-white text-stone-700 border-stone-300 hover:border-[#0963cb] hover:bg-blue-50/60'
+                                    ? 'bg-zinc-800 text-white border-zinc-800'
+                                    : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-500 hover:bg-zinc-100'
                                 }`}
                               >
                                 {tipo}
@@ -1594,7 +1576,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                     {/* Campo: Quantidade de Eixos */}
                     <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Quantidade de Eixos
                       </label>
                       <div className="space-y-1.5">
@@ -1605,13 +1587,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           value={trailerAxlesCount}
                           onChange={(e) => setTrailerAxlesCount(e.target.value)}
                           placeholder="Ex: 1, 2, 3, 4+"
-                          className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                          style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                          className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
 
                         {/* Atalhos numéricos rápidos */}
                         <div className="flex items-center gap-1.5 pt-0.5">
-                          <span className="text-[10px] font-semibold text-stone-500 mr-0.5">Eixos:</span>
+                          <span className="text-[10px] font-semibold text-zinc-500 mr-0.5">Eixos:</span>
                           {['1', '2', '3', '4'].map((num) => {
                             const isSelected = trailerAxlesCount === num;
                             return (
@@ -1621,8 +1602,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                                 onClick={() => setTrailerAxlesCount(num)}
                                 className={`flex-1 py-1 text-xs font-bold rounded-lg border text-center transition cursor-pointer shadow-2xs ${
                                   isSelected
-                                    ? 'bg-[#0963cb] text-white border-[#0963cb]'
-                                    : 'bg-white text-stone-700 border-stone-300 hover:border-[#0963cb] hover:bg-blue-50/60'
+                                    ? 'bg-zinc-800 text-white border-zinc-800'
+                                    : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-500 hover:bg-zinc-100'
                                 }`}
                               >
                                 {num}
@@ -1639,30 +1620,30 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
             {/* SEÇÃO: VÍNCULO DE REBOQUE / IMPLEMENTO (CARD BRANCO) */}
             {!isReboqueCategory ? (
-            <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-2.5">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Link2 className="w-4 h-4 text-[#0963cb]" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                  <Link2 className="w-4 h-4 text-zinc-700" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                     Vínculo de Reboque / Implemento
                   </h4>
                 </div>
-                <span className="text-[11px] font-semibold text-stone-500">
+                <span className="text-[11px] font-semibold text-zinc-500">
                   Acoplamento Operacional
                 </span>
               </div>
 
               {/* 1. Pergunta de Vínculo (Checkbox / Switch) */}
-              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-blue-50/50 border border-blue-200/80">
+              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-zinc-50 border border-zinc-200">
                 <div className="flex items-center space-x-2.5">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition shadow-2xs ${hasCoupledTrailer ? 'bg-[#0963cb] text-white' : 'bg-stone-200 text-stone-600'}`}>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition shadow-2xs ${hasCoupledTrailer ? 'bg-zinc-800 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
                     <Truck className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <label htmlFor="coupledTrailerSwitch" className="text-xs font-bold text-[#000000] cursor-pointer block" style={{ color: '#000000' }}>
+                    <label htmlFor="coupledTrailerSwitch" className="text-xs font-bold text-zinc-800 cursor-pointer block">
                       Este veículo possui reboque vinculado?
                     </label>
-                    <span className="text-[11px] text-stone-600">
+                    <span className="text-[11px] text-zinc-600">
                       {hasCoupledTrailer 
                         ? 'Sim — Reboque, carreta ou implemento acoplado a este veículo' 
                         : 'Não — Veículo operando de forma isolada / sem reboque'}
@@ -1679,8 +1660,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     onChange={(e) => handleToggleCoupledTrailer(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0963cb]"></div>
-                  <span className="ml-2 text-xs font-black uppercase text-[#000000]" style={{ color: '#000000' }}>
+                  <div className="w-10 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-800"></div>
+                  <span className="ml-2 text-xs font-black uppercase text-zinc-800">
                     {hasCoupledTrailer ? 'Sim' : 'Não'}
                   </span>
                 </label>
@@ -1688,16 +1669,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
               {/* 2. Bloco Dinâmico do Reboque */}
               {hasCoupledTrailer && (
-                <div className="pt-3 border-t border-blue-100/90 space-y-3">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-stone-200/80">
+                <div className="pt-3 border-t border-zinc-200 space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200">
                     <div className="flex items-center space-x-1.5">
-                      <Layers className="w-3.5 h-3.5 text-[#0963cb]" />
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                      <Layers className="w-3.5 h-3.5 text-zinc-700" />
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                         Dados do Reboque
                       </h5>
                     </div>
                     {candidateTrailers.length > 0 && (
-                      <span className="text-[11px] text-stone-500 font-medium">
+                      <span className="text-[11px] text-zinc-500 font-medium">
                         Preenchimento manual ou vínculo rápido
                       </span>
                     )}
@@ -1706,13 +1687,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   {/* Seletor Opcional de Reboques Cadastrados */}
                   {candidateTrailers.length > 0 && (
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-stone-700">
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Vincular a partir da Frota Existente (Opcional):
                       </label>
                       <select
                         value={coupledTrailerId}
                         onChange={(e) => handleSelectCandidateTrailer(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
+                        className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       >
                         <option value="">-- Preencher dados manualmente ou selecionar reboque da frota --</option>
                         {candidateTrailers.map((t) => (
@@ -1728,7 +1709,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-[130px_repeat(4,minmax(0,1fr))] gap-4">
                     {/* 1º: Placa do Reboque (Compacto para 7 caracteres) */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Placa do Reboque
                       </label>
                       <input
@@ -1737,14 +1718,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         maxLength={8}
                         value={trailerPlate}
                         onChange={(e) => setTrailerPlate(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                        style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       />
                     </div>
 
                     {/* 2º: Modelo do Reboque (Largura média idêntica aos demais) */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Modelo do Reboque
                       </label>
                       <input
@@ -1752,14 +1732,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         placeholder="Ex: Randon Basculante"
                         value={trailerModel}
                         onChange={(e) => setTrailerModel(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                        style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       />
                     </div>
 
                     {/* 3º: Tipo de Reboque (Largura média idêntica aos demais) */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Tipo de Reboque
                       </label>
                       <input
@@ -1767,14 +1746,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         placeholder="Ex: Graneleiro, Caçamba"
                         value={coupledTrailerType}
                         onChange={(e) => setCoupledTrailerType(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                        style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       />
                     </div>
 
                     {/* 4º: Capacidade Carga (kg) (Largura idêntica aos de Modelo e Tipo) */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Capacidade Carga (kg)
                       </label>
                       <div className="relative">
@@ -1784,10 +1762,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           placeholder="Ex: 25000"
                           value={trailerCapacityLoadKg}
                           onChange={(e) => setTrailerCapacityLoadKg(e.target.value)}
-                          className="w-full px-3 py-2 pr-8 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                          style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                          className="w-full px-3 py-2 pr-8 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-stone-500 pointer-events-none">
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-zinc-500 pointer-events-none">
                           kg
                         </span>
                       </div>
@@ -1795,7 +1772,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                     {/* 5º: Capacidade Volumétrica (m³) (Largura idêntica aos de Modelo e Tipo) */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Capacidade (m³)
                       </label>
                       <div className="relative">
@@ -1805,10 +1782,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           placeholder="Ex: 40"
                           value={trailerCapacityM3}
                           onChange={(e) => setTrailerCapacityM3(e.target.value)}
-                          className="w-full px-3 py-2 pr-8 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
-                          style={{ backgroundColor: '#ffffff', color: '#000000' }}
+                          className="w-full px-3 py-2 pr-8 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-stone-500 pointer-events-none">
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-zinc-500 pointer-events-none">
                           m³
                         </span>
                       </div>
@@ -1818,35 +1794,35 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               )}
             </div>
             ) : (
-              <div className="p-3 sm:p-3.5 rounded-xl bg-stone-100/80 border border-stone-200 flex items-center justify-between text-xs text-stone-600">
+              <div className="p-3.5 sm:p-4 rounded-xl bg-zinc-100/80 border border-zinc-200 flex items-center justify-between text-xs text-zinc-600">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-stone-200 text-stone-500 flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-zinc-200 text-zinc-600 flex items-center justify-center shrink-0">
                     <Link2 className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <span className="font-bold text-[#000000]">Vínculo de Reboque / Implemento: </span>
-                    <span className="text-stone-600">
+                    <span className="font-bold text-zinc-800">Vínculo de Reboque / Implemento: </span>
+                    <span className="text-zinc-600">
                       Desativado porque o veículo cadastrado já é da categoria <strong>Reboque</strong>.
                     </span>
                   </div>
                 </div>
-                <span className="text-[11px] font-bold text-stone-500 bg-stone-200 px-2 py-0.5 rounded-md shrink-0">
+                <span className="text-[11px] font-bold text-zinc-600 bg-zinc-200 px-2 py-0.5 rounded-md shrink-0">
                   Não Aplicável
                 </span>
               </div>
             )}
 
             {/* SEÇÃO 2: PROPRIEDADE & NO NOME DE QUEM (CARD BRANCO) */}
-            <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-3">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center space-x-2">
-                  <Building className="w-4 h-4 text-[#0963cb]" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                  <Building className="w-4 h-4 text-zinc-700" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                     Propriedade & Documentação ("No Nome de Quem")
                   </h4>
                 </div>
                 <div className="flex items-center space-x-1.5 self-end sm:self-auto">
-                  <span className="text-[11px] text-stone-600 font-semibold">Regime:</span>
+                  <span className="text-[11px] text-zinc-600 font-semibold">Regime:</span>
                   <select
                     value={ownership}
                     onChange={(e) => {
@@ -1856,7 +1832,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         setOwnership(e.target.value);
                       }
                     }}
-                    className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-[#000000] text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#0963cb] cursor-pointer shadow-xs"
+                    className="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 cursor-pointer shadow-xs"
                   >
                     {regimesList.map((r) => (
                       <option key={r} value={r}>
@@ -1873,10 +1849,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsRegimesModalOpen(true)}
-                    className="p-1 border border-stone-300 bg-white hover:bg-stone-50 rounded-lg text-[#0963cb] transition cursor-pointer shrink-0 shadow-xs"
+                    className="p-1 border border-zinc-300 bg-white hover:bg-zinc-50 rounded-lg text-zinc-700 transition cursor-pointer shrink-0 shadow-xs"
                     title="Incluir novo regime ou excluir opções da lista"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 h-3.5 text-zinc-700" />
                   </button>
                 </div>
               </div>
@@ -1884,37 +1860,37 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               {/* Titular Principal */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Está no Nome de Quem (Razão Social ou Nome do Proprietário)
                   </label>
                   <input
                     type="text"
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
-                  <p className="text-[10px] text-stone-600 mt-1">Nome constante no documento do veículo</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">Nome constante no documento do veículo</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     CNPJ ou CPF do Proprietário
                   </label>
                   <input
                     type="text"
                     value={ownerDocument}
                     onChange={(e) => setOwnerDocument(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0963cb] shadow-xs"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
-                  <p className="text-[10px] text-stone-600 mt-1">Permite veículos no CPF e no CNPJ da empresa</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">Permite veículos no CPF e no CNPJ da empresa</p>
                 </div>
               </div>
 
               {/* Segundo Proprietário / Sócio (Opcional) */}
               {showSecondaryOwner ? (
-                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2.5">
+                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#000000]" style={{ color: '#000000' }}>
+                    <span className="text-xs font-bold text-zinc-800">
                       Segundo Proprietário / Coproprietário / Sócio
                     </span>
                     <button
@@ -1935,7 +1911,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         type="text"
                         value={secondaryOwnerName}
                         onChange={(e) => setSecondaryOwnerName(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-[#000000] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
                     <div>
@@ -1943,7 +1919,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         type="text"
                         value={secondaryOwnerDocument}
                         onChange={(e) => setSecondaryOwnerDocument(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-[#000000] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
                   </div>
@@ -1952,19 +1928,19 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowSecondaryOwner(true)}
-                  className="inline-flex items-center space-x-1.5 text-xs text-[#0963cb] font-bold hover:underline cursor-pointer"
+                  className="inline-flex items-center space-x-1.5 text-xs text-zinc-700 font-bold hover:text-zinc-900 hover:underline cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5 text-zinc-700" />
                   <span>Possui mais de um sócio / coproprietário? Adicionar segundo titular</span>
                 </button>
               )}
             </div>
 
             {/* SEÇÃO 3: CONTROLE DE PESO (TARA & LOTAÇÃO) E MEDIÇÕES (CARD BRANCO) */}
-            <div className="p-4 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-3.5">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3.5">
               <div className="flex items-center space-x-2">
-                <Weight className="w-4 h-4 text-[#0963cb]" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                <Weight className="w-4 h-4 text-zinc-700" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                   Controle de Pesos, Capacidade & Odômetro/Horímetro
                 </h4>
               </div>
@@ -1972,7 +1948,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Tara (kg) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Tara (kg)
                   </label>
                   <div className="relative">
@@ -1981,18 +1957,18 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       step="any"
                       value={taraWeightKg}
                       onChange={(e) => setTaraWeightKg(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       kg
                     </span>
                   </div>
-                  <p className="text-[10px] text-stone-600 mt-1">Peso do veículo vazio sem carga</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">Peso do veículo vazio sem carga</p>
                 </div>
 
                 {/* Lotação (kg) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Lotação (kg)
                   </label>
                   <div className="relative">
@@ -2001,24 +1977,24 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       step="any"
                       value={capacityLoadKg}
                       onChange={(e) => setCapacityLoadKg(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       kg
                     </span>
                   </div>
-                  <p className="text-[10px] text-stone-600 mt-1">Carga máxima útil permitida</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">Carga máxima útil permitida</p>
                 </div>
 
                 {/* PBT Calculado */}
-                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-[#000000] uppercase" style={{ color: '#000000' }}>
+                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex flex-col justify-center">
+                  <span className="text-[10px] font-bold text-zinc-700 uppercase">
                     PBT Calculado (Tara + Lotação)
                   </span>
-                  <div className="text-lg font-black text-[#0963cb] font-mono mt-0.5">
+                  <div className="text-lg font-black text-zinc-900 font-mono mt-0.5">
                     {computedPbt > 0 ? `${computedPbt.toLocaleString('pt-BR')} kg` : '--'}
                   </div>
-                  <span className="text-[10px] text-stone-600">
+                  <span className="text-[10px] text-zinc-500">
                     {computedPbt > 0 ? `Equivale a ${(computedPbt / 1000).toFixed(1)} toneladas` : 'Informe Tara e Lotação'}
                   </span>
                 </div>
@@ -2028,8 +2004,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
                 {/* Capacidade M³ */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-[#000000]" style={{ color: '#000000' }}>
-                    <Layers className="w-3.5 h-3.5 text-[#0963cb]" />
+                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-zinc-700">
+                    <Layers className="w-3.5 h-3.5 text-zinc-600" />
                     <span>Capacidade Caçamba (m³)</span>
                   </label>
                   <div className="relative">
@@ -2038,9 +2014,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       step="0.1"
                       value={capacityM3}
                       onChange={(e) => setCapacityM3(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       m³
                     </span>
                   </div>
@@ -2048,8 +2024,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* Horímetro Atual */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-[#000000]" style={{ color: '#000000' }}>
-                    <Clock className="w-3.5 h-3.5 text-[#0963cb]" />
+                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-zinc-700">
+                    <Clock className="w-3.5 h-3.5 text-zinc-600" />
                     <span>Horímetro Atual (Horas)</span>
                   </label>
                   <div className="relative">
@@ -2058,9 +2034,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       step="any"
                       value={hourMeter}
                       onChange={(e) => setHourMeter(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       h
                     </span>
                   </div>
@@ -2068,8 +2044,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* Odômetro Atual */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-[#000000]" style={{ color: '#000000' }}>
-                    <Gauge className="w-3.5 h-3.5 text-[#0963cb]" />
+                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-zinc-700">
+                    <Gauge className="w-3.5 h-3.5 text-zinc-600" />
                     <span>Odômetro Atual (KM)</span>
                   </label>
                   <div className="relative">
@@ -2078,9 +2054,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       step="any"
                       value={currentKm}
                       onChange={(e) => setCurrentKm(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       km
                     </span>
                   </div>
@@ -2089,22 +2065,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 4: CONTROLE DE COMPRA, NOTA FISCAL & FINANCIAMENTO (CARD BRANCO) */}
-            <div className="p-4 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center space-x-2">
-                  <Receipt className="w-4 h-4 text-[#0963cb]" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                  <Receipt className="w-4 h-4 text-zinc-700" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                     Controle de Compra, Nota Fiscal & Financiamento
                   </h4>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs font-medium text-stone-700">Modalidade:</span>
-                  <div className="inline-flex rounded-lg p-0.5 bg-stone-200">
+                  <span className="text-xs font-medium text-zinc-600">Modalidade:</span>
+                  <div className="inline-flex rounded-lg p-0.5 bg-zinc-200 border border-zinc-300">
                     <button
                       type="button"
                       onClick={() => setIsFinanced(false)}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                        !isFinanced ? 'bg-[#0963cb] text-white shadow-xs' : 'text-stone-700 hover:text-black'
+                        !isFinanced ? 'bg-zinc-800 text-white shadow-xs' : 'text-zinc-700 hover:text-zinc-900'
                       }`}
                     >
                       À Vista
@@ -2113,7 +2089,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       type="button"
                       onClick={() => setIsFinanced(true)}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                        isFinanced ? 'bg-[#0963cb] text-white shadow-xs' : 'text-stone-700 hover:text-black'
+                        isFinanced ? 'bg-zinc-800 text-white shadow-xs' : 'text-zinc-700 hover:text-zinc-900'
                       }`}
                     >
                       Parcelado / Financiado
@@ -2145,40 +2121,40 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* Nota Fiscal de Compra */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Nota Fiscal de Compra
                   </label>
                   <input
                     type="text"
                     value={purchaseInvoiceNumber}
                     onChange={(e) => setPurchaseInvoiceNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* Data da Compra */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Data da Compra
                   </label>
                   <input
                     type="date"
                     value={purchaseDate}
                     onChange={(e) => setPurchaseDate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* Fornecedor / Vendedor */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Concessionária / Vendedor
                   </label>
                   <input
                     type="text"
                     value={purchaseSupplier}
                     onChange={(e) => setPurchaseSupplier(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
               </div>
@@ -2186,30 +2162,30 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               {/* Chave de Acesso e Anexo da Nota */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Chave de Acesso da NF-e (44 dígitos)
                   </label>
                   <input
                     type="text"
                     value={purchaseInvoiceKey}
                     onChange={(e) => setPurchaseInvoiceKey(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Anexar Arquivo da Nota Fiscal (PDF ou Imagem)
                   </label>
                   <div className="flex items-center space-x-2">
-                    <label className="px-3 py-2 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-[#000000] text-xs font-bold flex items-center space-x-1.5 cursor-pointer">
-                      <Paperclip className="w-3.5 h-3.5 text-[#0963cb]" />
+                    <label className="px-3.5 py-2 rounded-xl border border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition shadow-xs">
+                      <Paperclip className="w-3.5 h-3.5 text-zinc-700" />
                       <span>Selecionar Arquivo...</span>
                       <input type="file" onChange={handleFileUpload} className="hidden" accept=".pdf,image/*" />
                     </label>
                     {purchaseAttachmentName && (
-                      <span className="text-xs text-[#0963cb] font-medium truncate max-w-xs flex items-center space-x-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span className="text-xs text-zinc-800 font-medium truncate max-w-xs flex items-center space-x-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                         <span>{purchaseAttachmentName}</span>
                       </span>
                     )}
@@ -2219,15 +2195,15 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
               {/* SE FINANCIADO / PARCELADO */}
               {isFinanced && (
-                <div className="p-3.5 bg-blue-50/50 rounded-xl border border-blue-200 space-y-3">
+                <div className="p-3.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-[#000000] flex items-center space-x-1.5" style={{ color: '#000000' }}>
-                      <CreditCard className="w-4 h-4 text-[#0963cb]" />
+                    <span className="text-xs font-bold text-zinc-800 flex items-center space-x-1.5">
+                      <CreditCard className="w-4 h-4 text-zinc-700" />
                       <span>Condições do Financiamento / Parcelamento</span>
                     </span>
                     <div className="flex items-center space-x-2">
                       {editingVehicle?.installmentsGenerated && (
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-100 text-[#0963cb]">
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 border border-zinc-300">
                           Parcelas já lançadas no Contas a Pagar
                         </span>
                       )}
@@ -2235,10 +2211,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         type="button"
                         id="btn-abrir-modal-parcelas-compra-financiamento"
                         onClick={handleOpenPurchaseInstallmentsModal}
-                        className="px-3 py-1.5 bg-[#0963cb] hover:bg-[#0752a8] text-white text-xs font-black rounded-lg transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-98"
+                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-900 text-white text-xs font-bold rounded-lg transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-98"
                         title="Abrir a grade de Parcelas Geradas para Compra / Financiamento"
                       >
-                        <CreditCard className="w-3.5 h-3.5" />
+                        <CreditCard className="w-3.5 h-3.5 text-zinc-200" />
                         <span>Parcelas da Compra / Financiamento</span>
                       </button>
                     </div>
@@ -2255,7 +2231,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     {/* Quantidade de parcelas */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Qtd. de Parcelas
                       </label>
                       <input
@@ -2264,7 +2240,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         max="120"
                         value={installmentsCount}
                         onChange={(e) => handleInstallmentsCountChange(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-[#000000] text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
 
@@ -2283,46 +2259,46 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                     {/* Data 1º Vencimento */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         1º Vencimento
                       </label>
                       <input
                         type="date"
                         value={firstInstallmentDueDate}
                         onChange={(e) => setFirstInstallmentDueDate(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-[#000000] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
 
                     {/* Banco / Financeira */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                      <label className="block text-xs font-bold mb-1 text-zinc-700">
                         Banco / Instituição
                       </label>
                       <input
                         type="text"
                         value={financialInstitution}
                         onChange={(e) => setFinancialInstitution(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-[#000000] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
                   </div>
 
                   {/* Automação: Incluir no Contas a Pagar */}
                   {!editingVehicle?.installmentsGenerated && (
-                    <div className="pt-2 border-t border-blue-200/80 flex items-start space-x-2.5">
+                    <div className="pt-2 border-t border-zinc-200 flex items-start space-x-2.5">
                       <input
                         type="checkbox"
                         id="generatePayablesCheck"
                         checked={generatePayables}
                         onChange={(e) => setGeneratePayables(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-stone-300 text-[#0963cb] focus:ring-[#0963cb] cursor-pointer"
+                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-800 focus:ring-zinc-700 cursor-pointer accent-zinc-800"
                       />
-                      <label htmlFor="generatePayablesCheck" className="text-xs text-[#000000] cursor-pointer" style={{ color: '#000000' }}>
-                        <strong className="text-[#0963cb]">
+                      <label htmlFor="generatePayablesCheck" className="text-xs text-zinc-800 cursor-pointer">
+                        <strong className="text-zinc-900">
                           Incluir as parcelas no Contas a Pagar automaticamente
                         </strong>
-                        <span className="block text-[11px] text-stone-600">
+                        <span className="block text-[11px] text-zinc-600">
                           O sistema irá gerar as {installmentsCount || 'X'} despesas mensais sequenciais no módulo financeiro vinculadas à aquisição deste veículo.
                         </span>
                       </label>
@@ -2332,16 +2308,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               )}
             </div>
 
-            {/* SEÇÃO 4: CONTROLE PATRIMONIAL, IMPOSTOS & TAXAS (FUNDO BRANCO, LABELS EM PRETO #000000) */}
-            <div className="p-4 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-stone-200">
+            {/* SEÇÃO 4: CONTROLE PATRIMONIAL, IMPOSTOS & TAXAS */}
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-200">
                 <div className="flex items-center space-x-2">
-                  <ShieldCheck className="w-4 h-4 text-[#0963cb]" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                  <ShieldCheck className="w-4 h-4 text-zinc-700" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                     4. Controle Patrimonial, Impostos & Taxas
                   </h4>
                 </div>
-                <span className="text-[11px] text-stone-600 font-medium">
+                <span className="text-[11px] text-zinc-500 font-medium">
                   Ativo Imobilizado, Avaliação FIPE e Tributos da Frota
                 </span>
               </div>
@@ -2376,7 +2352,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 3. Alíquota IPVA (%) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Alíquota IPVA (%)
                   </label>
                   <div className="relative">
@@ -2386,9 +2362,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       placeholder="Ex: 2"
                       value={ipvaRatePercent}
                       onChange={(e) => setIpvaRatePercent(e.target.value)}
-                      className="w-full px-3 py-2 pr-7 rounded-xl border border-stone-300 bg-white text-[#000000] text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                      className="w-full px-3 py-2 pr-7 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                     />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-500">
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
                       %
                     </span>
                   </div>
@@ -2396,10 +2372,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 4. Valor Total IPVA (R$) - Calculado Automaticamente */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Total IPVA (R$)
                   </label>
-                  <div className="px-3 py-2 rounded-xl border border-stone-300 bg-stone-100 text-[#000000] text-xs sm:text-sm font-black text-[#0963cb] flex items-center h-[38px]">
+                  <div className="px-3 py-2 rounded-xl border border-zinc-300 bg-zinc-100 text-zinc-900 text-xs sm:text-sm font-black flex items-center h-[38px]">
                     {computedIpvaTotal > 0 
                       ? computedIpvaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                       : 'R$ 0,00'}
@@ -2411,13 +2387,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                 {/* 5. Qtd. Parcelas IPVA */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-[#000000]" style={{ color: '#000000' }}>
+                  <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Qtd. Parcelas IPVA
                   </label>
                   <select
                     value={ipvaInstallmentsCount}
                     onChange={(e) => setIpvaInstallmentsCount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                   >
                     <option value="1">1x (À Vista / Cota Única)</option>
                     <option value="2">2x mensais</option>
@@ -2442,7 +2418,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 7. Ação de Lançar IPVA no Financeiro */}
                 <div className="flex flex-col justify-end">
-                  <span className="block text-[10px] font-bold text-stone-500 mb-1">
+                  <span className="block text-[10px] font-bold text-zinc-500 mb-1">
                     Integração Contas a Pagar
                   </span>
                   {ipvaFinancialStatus === 'lancado' ? (
@@ -2465,20 +2441,20 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       type="button"
                       onClick={handleLaunchIpva}
                       disabled={computedIpvaTotal <= 0}
-                      className="h-[38px] px-3 rounded-xl border border-stone-300 bg-white hover:bg-[#b0d2ed] text-[#000000] text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-[38px] px-3 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Landmark className="w-4 h-4 text-[#000000]" />
-                      <span>💰 Lançar IPVA no Financeiro</span>
+                      <Landmark className="w-4 h-4 text-zinc-700" />
+                      <span>Lançar IPVA no Financeiro</span>
                     </button>
                   )}
-                  <span className="text-xs text-stone-600 text-center mt-1.5 leading-tight">
-                    Último lançamento automático: {effectiveIpvaLaunchDate ? formatDateBR(effectiveIpvaLaunchDate) : '-'}
+                  <span className="text-[11px] text-zinc-500 text-center mt-1.5 leading-tight">
+                    Último lançamento: {effectiveIpvaLaunchDate ? formatDateBR(effectiveIpvaLaunchDate) : '-'}
                   </span>
                 </div>
 
                 {/* 8. Ação de Lançar Licenciamento no Financeiro */}
                 <div className="flex flex-col justify-end">
-                  <span className="block text-[10px] font-bold text-stone-500 mb-1">
+                  <span className="block text-[10px] font-bold text-zinc-500 mb-1">
                     Taxa Anual CRLV
                   </span>
                   {licensingFinancialStatus === 'lancado' ? (
@@ -2500,35 +2476,35 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     <button
                       type="button"
                       onClick={handleLaunchLicensing}
-                      className="h-[38px] px-3 rounded-xl border border-stone-300 bg-white hover:bg-[#b0d2ed] text-[#000000] text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
+                      className="h-[38px] px-3 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
                     >
-                      <DollarSign className="w-4 h-4 text-[#000000]" />
-                      <span>💰 Lançar Licenciamento</span>
+                      <DollarSign className="w-4 h-4 text-zinc-700" />
+                      <span>Lançar Licenciamento</span>
                     </button>
                   )}
-                  <span className="text-xs text-stone-600 text-center mt-1.5 leading-tight">
-                    Último lançamento automático: {effectiveLicensingLaunchDate ? formatDateBR(effectiveLicensingLaunchDate) : '-'}
+                  <span className="text-[11px] text-zinc-500 text-center mt-1.5 leading-tight">
+                    Último lançamento: {effectiveLicensingLaunchDate ? formatDateBR(effectiveLicensingLaunchDate) : '-'}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* SEÇÃO 5: MOTORISTAS / OPERADORES (CARD BRANCO) */}
-            <div className="p-4 bg-white rounded-xl border border-blue-200/80 shadow-xs space-y-3">
+            <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-zinc-200 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold flex items-center space-x-1.5 text-[#000000]" style={{ color: '#000000' }}>
-                  <Users className="w-4 h-4 text-[#0963cb]" />
+                <label className="text-xs font-bold flex items-center space-x-1.5 text-zinc-800">
+                  <Users className="w-4 h-4 text-zinc-700" />
                   <span>Motoristas & Operadores Vinculados (Múltiplos)</span>
                 </label>
-                <span className="text-[11px] font-semibold text-stone-600">
+                <span className="text-[11px] font-semibold text-zinc-500">
                   {selectedDriverIds.length} selecionado(s)
                 </span>
               </div>
 
               {/* Chips of selected employees */}
-              <div className="flex flex-wrap gap-2 min-h-[38px] p-2 bg-stone-50 border border-stone-200 rounded-xl">
+              <div className="flex flex-wrap gap-2 min-h-[38px] p-2 bg-zinc-50 border border-zinc-200 rounded-xl">
                 {selectedDriverIds.length === 0 ? (
-                  <span className="text-xs text-stone-500 italic py-1 px-1">
+                  <span className="text-xs text-zinc-500 italic py-1 px-1">
                     Nenhum motorista ou operador selecionado. Escolha na lista abaixo:
                   </span>
                 ) : (
@@ -2538,17 +2514,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     return (
                       <span
                         key={emp.id}
-                        className="inline-flex items-center space-x-1.5 py-1 px-2.5 rounded-lg bg-blue-50 border border-blue-200 text-[#0963cb] text-xs font-bold shadow-2xs"
+                        className="inline-flex items-center space-x-1.5 py-1 px-2.5 rounded-lg bg-zinc-100 border border-zinc-300 text-zinc-800 text-xs font-bold shadow-2xs"
                       >
-                        <UserCheck className="w-3.5 h-3.5 text-[#0963cb]" />
+                        <UserCheck className="w-3.5 h-3.5 text-zinc-700" />
                         <span>{emp.name}</span>
-                        <span className="text-[10px] text-stone-600 font-normal">
+                        <span className="text-[10px] text-zinc-500 font-normal">
                           ({emp.role})
                         </span>
                         <button
                           type="button"
                           onClick={() => handleRemoveDriver(emp.id)}
-                          className="hover:bg-blue-100 rounded-full p-0.5 transition cursor-pointer text-[#0963cb]"
+                          className="hover:bg-zinc-200 rounded-full p-0.5 transition cursor-pointer text-zinc-600 hover:text-zinc-900"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -2566,23 +2542,23 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     value={driverSearchQuery}
                     onChange={(e) => setDriverSearchQuery(e.target.value)}
                     placeholder="Pesquisar funcionário..."
-                    className="w-full px-3.5 py-2 bg-white border border-stone-300 rounded-xl text-xs sm:text-sm text-[#000000] focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                    className="w-full px-3.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs sm:text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                   />
                   {filteredEmployeeSuggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-stone-100">
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-zinc-100">
                       {filteredEmployeeSuggestions.map((emp) => (
                         <button
                           key={emp.id}
                           type="button"
                           onClick={() => handleToggleDriver(emp.id)}
-                          className="w-full text-left px-3.5 py-2 hover:bg-blue-50 flex items-center justify-between text-xs transition cursor-pointer"
+                          className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 flex items-center justify-between text-xs transition cursor-pointer"
                         >
                           <div className="flex items-center space-x-2">
-                            <span className="font-bold text-[#000000]">{emp.name}</span>
-                            <span className="text-stone-500 text-[11px]">({emp.role})</span>
+                            <span className="font-bold text-zinc-900">{emp.name}</span>
+                            <span className="text-zinc-500 text-[11px]">({emp.role})</span>
                           </div>
-                          <span className="text-[#0963cb] font-bold flex items-center space-x-1">
-                            <Plus className="w-3 h-3" />
+                          <span className="text-zinc-700 font-bold flex items-center space-x-1">
+                            <Plus className="w-3 h-3 text-zinc-700" />
                             <span>Adicionar</span>
                           </span>
                         </button>
@@ -2602,11 +2578,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         onClick={() => handleToggleDriver(emp.id)}
                         className={`text-xs py-1 px-2.5 rounded-lg border transition flex items-center space-x-1.5 cursor-pointer ${
                           isSelected
-                            ? 'bg-[#0963cb] text-white border-[#0963cb] font-bold'
-                            : 'bg-white border-stone-200 text-[#000000] hover:border-[#0963cb] font-medium'
+                            ? 'bg-zinc-800 text-white border-zinc-800 font-bold'
+                            : 'bg-white border-zinc-300 text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50 font-medium'
                         }`}
                       >
-                        {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 text-stone-400" />}
+                        {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 text-zinc-400" />}
                         <span>{emp.name}</span>
                       </button>
                     );
@@ -2616,34 +2592,34 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
 
             {/* SEÇÃO 6: MÉDIAS DE CONSUMO AUTOMÁTICAS (CARD BRANCO) */}
-            <div className="p-4 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-3">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-lg bg-[#0963cb] text-white flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
                     <Fuel className="w-3.5 h-3.5 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#000000]" style={{ color: '#000000' }}>
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-800">
                       Médias de Consumo de Combustível
                     </h4>
-                    <p className="text-[11px] text-stone-600">
+                    <p className="text-[11px] text-zinc-500">
                       Calculadas automaticamente com base nos registros de abastecimento
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-[#0963cb]">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-300">
                   Cálculo Automático
                 </span>
               </div>
 
               {/* Metric Badges */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between">
+                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-stone-600">
+                    <span className="text-[11px] font-bold text-zinc-600">
                       Média por Km (km/L)
                     </span>
-                    <div className="text-lg font-black text-[#0963cb] font-['Outfit']">
+                    <div className="text-lg font-black text-zinc-900 font-['Outfit']">
                       {consumptionMetrics.avgKmPerLiter !== null 
                         ? `${consumptionMetrics.avgKmPerLiter.toLocaleString('pt-BR')} km/L` 
                         : (editingVehicle?.averageConsumptionKmPerLiter 
@@ -2651,15 +2627,15 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                             : 'Aguardando Abastecimento')}
                     </div>
                   </div>
-                  <Gauge className="w-6 h-6 text-[#0963cb]/60" />
+                  <Gauge className="w-6 h-6 text-zinc-400" />
                 </div>
 
-                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between">
+                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-stone-600">
+                    <span className="text-[11px] font-bold text-zinc-600">
                       Média por Horas (L/h)
                     </span>
-                    <div className="text-lg font-black text-amber-600 font-['Outfit']">
+                    <div className="text-lg font-black text-zinc-900 font-['Outfit']">
                       {consumptionMetrics.avgLitersPerHour !== null 
                         ? `${consumptionMetrics.avgLitersPerHour.toLocaleString('pt-BR')} L/h` 
                         : (editingVehicle?.averageConsumptionLitersPerHour 
@@ -2667,33 +2643,32 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                             : 'Aguardando Abastecimento')}
                     </div>
                   </div>
-                  <Clock className="w-6 h-6 text-amber-500/60" />
+                  <Clock className="w-6 h-6 text-zinc-400" />
                 </div>
               </div>
             </div>
 
             {/* SEÇÃO 7: OBSERVAÇÕES (CARD BRANCO) */}
-            <div className="p-4 rounded-xl bg-white border border-blue-200/80 shadow-xs space-y-2">
-              <label className="block text-xs font-bold text-[#000000]" style={{ color: '#000000' }}>
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+              <label className="block text-xs font-bold text-zinc-800">
                 Observações Adicionais
               </label>
               <textarea
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-[#000000] text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] resize-none shadow-xs"
+                className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 resize-none shadow-xs"
               />
             </div>
 
             {/* Actions / Rodapé */}
             <div 
-              className="p-4 bg-white rounded-xl border border-blue-200/80 shadow-xs flex items-center justify-end space-x-2.5"
+              className="p-3.5 sm:p-4 bg-white rounded-xl border border-zinc-200 shadow-xs flex items-center justify-end space-x-2.5"
             >
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-100 text-[#000000] text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
-                style={{ color: '#000000' }}
+                className="px-5 py-2.5 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
               >
                 Cancelar
               </button>
@@ -2702,10 +2677,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 disabled={isFleetNumberDuplicate}
                 className={`px-6 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-2 ${
                   isFleetNumberDuplicate
-                    ? 'bg-stone-400 opacity-60 cursor-not-allowed'
-                    : 'bg-[#0963cb] hover:bg-[#074ea3] cursor-pointer active:scale-95'
+                    ? 'bg-zinc-400 opacity-60 cursor-not-allowed'
+                    : 'bg-zinc-800 hover:bg-zinc-900 cursor-pointer active:scale-95'
                 }`}
-                style={isFleetNumberDuplicate ? { backgroundColor: '#9ca3af', color: '#ffffff' } : { backgroundColor: '#0963cb', color: '#ffffff' }}
                 title={isFleetNumberDuplicate ? 'Corrija o número de frota duplicado para salvar' : undefined}
               >
                 <Save className="w-4 h-4 text-white" />

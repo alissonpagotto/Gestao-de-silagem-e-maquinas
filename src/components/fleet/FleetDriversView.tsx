@@ -229,7 +229,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         
         {/* Left: Title & Subtitle */}
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-700 flex items-center justify-center shrink-0">
             <UserCheck className="w-4 h-4" />
           </div>
           <div>
@@ -287,7 +287,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         {/* Right: Cadastrar Motorista Button */}
         <button
           onClick={openNewDriverModal}
-          className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Cadastrar Motorista</span>
@@ -623,16 +623,16 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
       {/* Driver Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-blue-700 text-white flex items-center justify-between">
-              <h3 className="text-base font-bold font-['Outfit']">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-zinc-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+              <h3 className="text-base font-bold font-['Outfit'] text-white">
                 {editingDriver ? 'Editar Motorista' : 'Novo Motorista'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer text-white"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -640,7 +640,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div>
-                <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
                   Nome Completo <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -649,13 +649,13 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Carlos Eduardo Ramos"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
                     Função / Cargo
                   </label>
                   <input
@@ -663,12 +663,12 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                     placeholder="Ex: Motorista de Caminhão"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
                     Telefone / WhatsApp
                   </label>
                   <input
@@ -676,14 +676,14 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(45) 99999-9999"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
                     Número CNH
                   </label>
                   <input
@@ -691,18 +691,18 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                     value={cnhNumber}
                     onChange={(e) => setCnhNumber(e.target.value)}
                     placeholder="12345678900"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
                     Categoria CNH
                   </label>
                   <select
                     value={cnhCategory}
                     onChange={(e) => setCnhCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs cursor-pointer"
                   >
                     <option value="E">E (Pesados / Bitrem)</option>
                     <option value="D">D (Ônibus / Vans)</option>
@@ -713,29 +713,29 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
                     Validade CNH
                   </label>
                   <input
                     type="date"
                     value={cnhExpiration}
                     onChange={(e) => setCnhExpiration(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-end space-x-3">
+              <div className="pt-4 border-t border-zinc-200 flex items-center justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 flex items-center space-x-2"
+                  className="px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition active:scale-98 flex items-center space-x-2 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>Salvar Motorista</span>
