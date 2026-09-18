@@ -1,5 +1,92 @@
 @import "tailwindcss";
 
+@theme {
+  --color-canvas-dark: #1a1d24;
+  --color-sidebar-dark: #131519;
+  --color-card-dark: #252a34;
+  --color-table-header: #1e222b;
+  --color-table-row-hover: #2a303c;
+  --color-border-dark: #2f3644;
+  --color-border-action: #4d576a;
+  --color-text-secondary: #8a92a6;
+  --color-btn-dark: #3a4150;
+  --color-btn-dark-hover: #475062;
+  --color-btn-action: #343a46;
+}
+
+/* ==========================================================================
+   TEMA DARK ELEGANCE - MINIMALISTA EM TONS DE CINZA ESCURO
+   ========================================================================== */
+.dark-elegance-canvas {
+  background-color: #1a1d24 !important;
+  color: #ffffff !important;
+}
+
+.dark-elegance-sidebar {
+  background-color: #131519 !important;
+  border-color: #232732 !important;
+}
+
+.dark-elegance-card {
+  background-color: #252a34 !important;
+  border-color: #2f3644 !important;
+}
+
+.dark-elegance-table-container {
+  background-color: #252a34 !important;
+  border: 1px solid #2f3644 !important;
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+}
+
+.dark-elegance-table th {
+  background-color: #1e222b !important;
+  color: #8a92a6 !important;
+  border-bottom: 1px solid #2f3644 !important;
+  text-transform: uppercase !important;
+  font-size: 0.6875rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.dark-elegance-table td {
+  border-color: rgba(47, 54, 68, 0.5) !important;
+}
+
+.dark-elegance-table tr:hover {
+  background-color: #2a303c !important;
+}
+
+.dark-elegance-input {
+  background-color: #1a1d24 !important;
+  border-color: #2f3644 !important;
+  color: #ffffff !important;
+}
+
+.dark-elegance-input::placeholder {
+  color: #8a92a6 !important;
+}
+
+.dark-elegance-btn-primary {
+  background-color: #3a4150 !important;
+  border-color: #4d576a !important;
+  color: #ffffff !important;
+}
+
+.dark-elegance-btn-primary:hover {
+  background-color: #475062 !important;
+}
+
+.dark-elegance-btn-action {
+  background-color: #343a46 !important;
+  border-color: #444d5c !important;
+  color: #ffffff !important;
+}
+
+.dark-elegance-btn-action:hover {
+  background-color: #414856 !important;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
