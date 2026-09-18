@@ -59,29 +59,29 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-xl w-full shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-zinc-300 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header - Standardized Solid Teal Bar */}
-        <div className="px-5 py-3.5 bg-[#009688] text-white flex items-center justify-between">
+        {/* Header - Charcoal bg-zinc-800 with White Text */}
+        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
           <div>
-            <h3 className="text-base sm:text-lg font-bold tracking-tight">
+            <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
               Novo Pedido de Silagem
             </h3>
-            <p className="text-xs text-white/80">
+            <p className="text-xs text-zinc-300">
               Venda de volumoso para nutrição animal
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-white">
           
           <div>
             <label className="block text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider mb-1">
@@ -242,17 +242,17 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           </div>
 
           {/* Footer - Standardized */}
-          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex justify-end space-x-3">
+          <div className="pt-3 border-t border-zinc-200 flex justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs sm:text-sm font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              className="px-5 py-2 rounded-xl border border-zinc-300 text-zinc-700 text-xs sm:text-sm font-semibold hover:bg-zinc-100 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-[#156f33] hover:bg-[#0e5224] text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+              className="px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
             >
               Confirmar Pedido
             </button>

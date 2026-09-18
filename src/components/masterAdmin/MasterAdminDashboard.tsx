@@ -1013,14 +1013,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-stone-800 bg-stone-950/50 text-[11px] font-black text-stone-400 uppercase tracking-wider">
-                      <th className="py-3.5 px-4">Assinante / Empresa</th>
-                      <th className="py-3.5 px-4">Responsável & Contato</th>
-                      <th className="py-3.5 px-4">Documento / Cidade</th>
-                      <th className="py-3.5 px-4">Plano & Valor</th>
-                      <th className="py-3.5 px-4">Trial Até</th>
-                      <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4 text-right">Ações</th>
+                    <tr className="border-b border-emerald-950 bg-emerald-950/70 text-[11px] font-black text-emerald-400 uppercase tracking-wider">
+                      <th className="py-3.5 px-4 text-emerald-400">Assinante / Empresa</th>
+                      <th className="py-3.5 px-4 text-emerald-400">Responsável & Contato</th>
+                      <th className="py-3.5 px-4 text-emerald-400">Documento / Cidade</th>
+                      <th className="py-3.5 px-4 text-emerald-400">Plano & Valor</th>
+                      <th className="py-3.5 px-4 text-emerald-400">Trial Até</th>
+                      <th className="py-3.5 px-4 text-emerald-400">Status</th>
+                      <th className="py-3.5 px-4 text-right text-emerald-400">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-800/60 text-xs">

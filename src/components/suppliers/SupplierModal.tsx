@@ -387,11 +387,11 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto`}>
-      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto`}>
+      <div className="bg-zinc-100 rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-300 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
         
-        {/* Header */}
-        <div className="px-5 py-3 bg-zinc-900 dark:bg-stone-800 text-white flex items-center justify-between relative">
+        {/* Header - Charcoal bg-zinc-800 with White Text */}
+        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 relative">
           <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
             Cadastro Fornecedor
           </h3>

@@ -510,25 +510,25 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto">
-        <div className="bg-zinc-100 dark:bg-stone-900 border border-zinc-200 dark:border-stone-700 rounded-2xl max-w-2xl w-full my-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto">
+        <div className="bg-white border border-zinc-300 rounded-2xl max-w-2xl w-full my-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header com zinc neutro */}
-        <div className="px-5 py-3.5 bg-zinc-900 dark:bg-stone-800 text-white flex items-center justify-between">
+        {/* Header - Charcoal bg-zinc-800 with White Text */}
+        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
           <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
             {editingExpense ? 'Editar Despesa' : 'Nova Despesa'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
           >
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-zinc-100 dark:bg-stone-900">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-white">
           
           {/* Row 1: Categoria & Data */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1144,17 +1144,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
 
           {/* Action Buttons - Standardized Footer */}
-          <div className="pt-3 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3">
+          <div className="pt-3 border-t border-zinc-200 flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 text-xs sm:text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-stone-700 transition cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-white border border-zinc-300 text-zinc-700 text-xs sm:text-sm font-semibold hover:bg-zinc-50 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-zinc-900 dark:bg-stone-800 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer"
+              className="px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
             >
               {editingExpense ? 'Atualizar Despesa' : 'Salvar Despesa'}
             </button>

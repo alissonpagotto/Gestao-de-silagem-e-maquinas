@@ -318,22 +318,22 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
 
           {/* Nome do Período Atual */}
           <div className="flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4 text-[#2e65aa] dark:text-blue-400" />
-            <span className="text-sm sm:text-base font-black text-stone-900 dark:text-stone-100 tracking-tight">
+            <CalendarIcon className="w-4 h-4 text-zinc-800" />
+            <span className="text-sm sm:text-base font-black text-zinc-900 tracking-tight">
               {periodHeader}
             </span>
           </div>
         </div>
 
         {/* Lado Direito: Alternância de Modo [Diário] [Semanal] [Mensal] [Anual] */}
-        <div className="flex items-center gap-1 bg-white dark:bg-stone-800 p-1 rounded-xl border border-stone-200 dark:border-stone-700 shadow-2xs self-start md:self-auto">
+        <div className="flex items-center gap-1 bg-zinc-200 p-1 rounded-xl border border-zinc-300 shadow-2xs self-start md:self-auto">
           <button
             type="button"
             onClick={() => setCalendarMode('diario')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               calendarMode === 'diario'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 font-bold border border-transparent'
             }`}
           >
             Diário
@@ -343,8 +343,8 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
             onClick={() => setCalendarMode('semanal')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               calendarMode === 'semanal'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 font-bold border border-transparent'
             }`}
           >
             Semanal
@@ -354,8 +354,8 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
             onClick={() => setCalendarMode('mensal')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               calendarMode === 'mensal'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 font-bold border border-transparent'
             }`}
           >
             Mensal
@@ -365,8 +365,8 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
             onClick={() => setCalendarMode('anual')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               calendarMode === 'anual'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 font-bold border border-transparent'
             }`}
           >
             Anual
@@ -429,7 +429,7 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
                     <span
                       className={`text-xs font-extrabold px-1.5 py-0.5 rounded-full inline-block ${
                         item.isToday
-                          ? 'bg-[#2e65aa] text-white shadow-2xs font-black'
+                          ? 'bg-zinc-800 text-white shadow-2xs font-black'
                           : item.isCurrentMonth
                           ? 'text-stone-700 dark:text-stone-300'
                           : 'text-stone-400 dark:text-stone-600'
@@ -501,7 +501,7 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
                   <span
                     className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                       item.isToday
-                        ? 'bg-[#2e65aa] text-white font-black shadow-xs'
+                        ? 'bg-zinc-800 text-white font-black shadow-xs'
                         : 'text-stone-800 dark:text-stone-200'
                     }`}
                   >
@@ -636,7 +636,7 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onCreateAppointmentForDate(formatIsoDate(currentDate))}
-                  className="px-3 py-1.5 bg-[#0f2d59] hover:bg-[#1a4279] dark:bg-[#1e40af] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Agendar para este Dia
@@ -670,7 +670,7 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({
                     {/* Informações Principais */}
                     <div className="flex items-start gap-3">
                       <div className="p-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 flex flex-col items-center justify-center min-w-[64px]">
-                        <Clock className="w-4 h-4 text-[#2e65aa] dark:text-blue-400 mb-0.5" />
+                        <Clock className="w-4 h-4 text-zinc-700 mb-0.5" />
                         <span className="text-xs font-black font-mono text-stone-900 dark:text-stone-100">
                           {app.startTime}h
                         </span>

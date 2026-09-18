@@ -1129,20 +1129,20 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     <div className="space-y-2.5">
       
       {/* 1. CABEÇALHO DO MÓDULO & AÇÕES PRINCIPAIS (LAYOUT COMPACTO) */}
-      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-2.5 sm:p-3 shadow-2xs">
+      <div className="bg-white rounded-xl border border-zinc-300 p-2.5 sm:p-3 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#2e65aa]/10 text-[#2e65aa] dark:bg-blue-950 dark:text-blue-300 shrink-0">
-              <CalendarDays className="w-5 h-5" />
+            <span className="p-1.5 rounded-lg bg-zinc-100 text-zinc-800 border border-zinc-300 shrink-0">
+              <CalendarDays className="w-5 h-5 text-zinc-800" />
             </span>
             <div>
-              <h1 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-extrabold text-zinc-900 flex items-center gap-2">
                 <span>Agenda de Serviços Agrícolas</span>
-                <span className="text-[10px] px-2 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-300 text-zinc-700 font-bold">
                   Logística & Frotas
                 </span>
               </h1>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.2">
+              <p className="text-[11px] text-zinc-500 mt-0.5">
                 Cálculo de tempos (Deslocamento + Prancha + Execução), escala de frotas e logística de campo.
               </p>
             </div>
@@ -1152,7 +1152,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             <button
               type="button"
               onClick={() => handleCreateNew()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2e65aa] hover:bg-[#25528c] active:bg-[#1d4273] text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Novo Agendamento</span>
@@ -1161,56 +1161,56 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
         </div>
 
         {/* 2. CARDS DE MÉTRICAS KPI (COMPACTOS: ALTURA E FONTES OTIMIZADAS) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-stone-100 dark:border-stone-800">
-          <div className="bg-stone-50 dark:bg-stone-800/40 px-2.5 py-1.5 rounded-lg border border-stone-200/80 dark:border-stone-800">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-stone-500 block">Total Agendado</span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 pt-2 border-t border-zinc-200">
+          <div className="bg-zinc-50 px-2.5 py-1.5 rounded-lg border border-zinc-300">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-zinc-500 block">Total Agendado</span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">{metrics.total}</span>
-              <span className="text-[10px] font-semibold text-stone-400">operações</span>
+              <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.total}</span>
+              <span className="text-[10px] font-semibold text-zinc-500">operações</span>
             </div>
           </div>
 
-          <div className="bg-amber-50/60 dark:bg-amber-950/20 px-2.5 py-1.5 rounded-lg border border-amber-200/80 dark:border-amber-900/40">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-amber-700 dark:text-amber-400 block">Aguardando Saída</span>
+          <div className="bg-amber-50/70 px-2.5 py-1.5 rounded-lg border border-amber-200">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-amber-800 block">Aguardando Saída</span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300">{metrics.agendados}</span>
-              <span className="text-[10px] font-semibold text-amber-600">na base</span>
+              <span className="text-base sm:text-lg font-black text-amber-900">{metrics.agendados}</span>
+              <span className="text-[10px] font-semibold text-amber-700">na base</span>
             </div>
           </div>
 
-          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 px-2.5 py-1.5 rounded-lg border border-emerald-200/80 dark:border-emerald-900/40">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 block">Em Campo / Execução</span>
+          <div className="bg-emerald-50/70 px-2.5 py-1.5 rounded-lg border border-emerald-200">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-800 block">Em Campo / Execução</span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-base sm:text-lg font-black text-emerald-900 dark:text-emerald-300">{metrics.emExecucao}</span>
-              <span className="text-[10px] font-semibold text-emerald-600">em operação</span>
+              <span className="text-base sm:text-lg font-black text-emerald-900">{metrics.emExecucao}</span>
+              <span className="text-[10px] font-semibold text-emerald-700">em operação</span>
             </div>
           </div>
 
-          <div className="bg-blue-50/60 dark:bg-blue-950/20 px-2.5 py-1.5 rounded-lg border border-blue-200/80 dark:border-blue-900/40">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400 block">Área Programada</span>
+          <div className="bg-zinc-100 px-2.5 py-1.5 rounded-lg border border-zinc-300">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-zinc-700 block">Área Programada</span>
             <div className="flex items-baseline flex-wrap gap-x-2.5 sm:gap-x-3 gap-y-1 mt-0.5">
               {/* Bloco 1: Hectares */}
               <div className="flex items-baseline gap-1">
-                <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalHectares.toFixed(1)}</span>
-                <span className="text-[10px] font-semibold text-blue-600">ha estimados</span>
+                <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.totalHectares.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-zinc-600">ha estimados</span>
               </div>
 
               {/* Divisor */}
-              <span className="text-blue-300 dark:text-blue-800 font-bold select-none text-xs">/</span>
+              <span className="text-zinc-400 font-bold select-none text-xs">/</span>
 
               {/* Bloco 2: Alqueires */}
               <div className="flex items-baseline gap-1">
-                <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalAlqueires.toFixed(1)}</span>
-                <span className="text-[10px] font-semibold text-blue-600">alq estimados</span>
+                <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.totalAlqueires.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-zinc-600">alq estimados</span>
               </div>
 
               {/* Divisor */}
-              <span className="text-blue-300 dark:text-blue-800 font-bold select-none text-xs">/</span>
+              <span className="text-zinc-400 font-bold select-none text-xs">/</span>
 
               {/* Bloco 3: Horas */}
               <div className="flex items-baseline gap-1">
-                <span className="text-base sm:text-lg font-black text-blue-900 dark:text-blue-300">{metrics.totalHours.toFixed(1)}</span>
-                <span className="text-[10px] font-semibold text-blue-600">hrs estimadas</span>
+                <span className="text-base sm:text-lg font-black text-zinc-900">{metrics.totalHours.toFixed(1)}</span>
+                <span className="text-[10px] font-semibold text-zinc-600">hrs estimadas</span>
               </div>
             </div>
           </div>
@@ -1218,16 +1218,16 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
       </div>
 
       {/* 3. BARRA DE FILTROS E SELEÇÃO DE VISÃO COMPACTA */}
-      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-2 sm:p-2.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2">
+      <div className="bg-white rounded-xl border border-zinc-300 p-2 sm:p-2.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-2">
         {/* Seletor de Abas de Visão */}
-        <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800/90 p-1 rounded-xl border border-stone-200/80 dark:border-stone-700/80">
+        <div className="flex items-center gap-1 bg-zinc-200 p-1 rounded-xl border border-zinc-300">
           <button
             type="button"
             onClick={() => setViewMode('cronograma')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               viewMode === 'cronograma'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-300/60 font-bold border border-transparent'
             }`}
           >
             1. Cronograma Operacional
@@ -1237,8 +1237,8 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             onClick={() => setViewMode('frotas')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               viewMode === 'frotas'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-300/60 font-bold border border-transparent'
             }`}
           >
             2. Escala por Placas/Frotas
@@ -1248,8 +1248,8 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             onClick={() => setViewMode('calendario')}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none ${
               viewMode === 'calendario'
-                ? 'bg-[#0f2d59] text-white shadow-sm border border-[#0b2140] dark:bg-[#1e40af] dark:border-blue-600'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/70 dark:hover:bg-stone-700/60 font-bold border border-transparent'
+                ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700'
+                : 'text-zinc-700 hover:text-zinc-900 hover:bg-zinc-300/60 font-bold border border-transparent'
             }`}
           >
             3. Calendário
@@ -1516,10 +1516,10 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
 
                               {/* 2. DATA E HORA DO AGENDAMENTO (EM DESTAQUE CRONOLÓGICO) */}
                               <div className="space-y-1">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100 bg-stone-50 dark:bg-stone-800/60 p-1.5 rounded-md border border-stone-200 dark:border-stone-700">
-                                  <Clock className="w-3.5 h-3.5 text-[#2e65aa] shrink-0" />
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 bg-zinc-50 p-1.5 rounded-md border border-zinc-300">
+                                  <Clock className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
                                   <span className="truncate">
-                                    {formatDateBR(app.startDate)} às <span className="font-black text-[#2e65aa] dark:text-blue-400">{app.startTime}h</span>
+                                    {formatDateBR(app.startDate)} às <span className="font-black text-black">{app.startTime}h</span>
                                   </span>
                                   {app.endTime && (
                                     <span className="text-[10px] text-stone-500 font-normal shrink-0 ml-auto">

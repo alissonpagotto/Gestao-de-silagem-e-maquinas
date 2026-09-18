@@ -321,13 +321,13 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
           </select>
 
           {/* View toggle */}
-          <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-0.5 rounded-xl border border-stone-200 dark:border-stone-700 shrink-0">
+          <div className="flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-300 shrink-0">
             <button
               onClick={() => setViewMode('table')}
               className={`p-1.5 rounded-lg transition cursor-pointer ${
                 viewMode === 'table'
-                  ? 'bg-white dark:bg-stone-700 text-blue-600 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                  ? 'bg-zinc-800 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900'
               }`}
               title="Visualização em Lista / Tabela"
             >
@@ -337,8 +337,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded-lg transition cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-white dark:bg-stone-700 text-blue-600 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+                  ? 'bg-zinc-800 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900'
               }`}
               title="Visualização em Cards"
             >
@@ -350,8 +350,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
       {/* Empty State */}
       {driversList.length === 0 && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-12 text-center shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white rounded-2xl border border-zinc-300 p-12 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-700 flex items-center justify-center mx-auto mb-3 border border-zinc-300">
             <UserCheck className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
@@ -393,14 +393,14 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                       {/* Motorista / Cargo */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
+                          <div className="w-9 h-9 rounded-xl bg-zinc-800 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                             {driver.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-bold text-stone-900 dark:text-stone-100 text-sm">
+                            <div className="font-bold text-zinc-900 text-sm">
                               {driver.name}
                             </div>
-                            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                            <div className="text-xs text-zinc-600 font-medium">
                               {driver.role}
                             </div>
                           </div>
@@ -410,10 +410,10 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                       {/* CNH & Categoria */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
-                          <span className="font-mono text-stone-800 dark:text-stone-200">
+                          <span className="font-mono text-zinc-800">
                             {driver.cnhNumber || 'Não informada'}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-extrabold text-[10px]">
+                          <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200 font-extrabold text-[10px]">
                             Cat. {driver.cnhCategory || 'E'}
                           </span>
                         </div>
@@ -529,34 +529,34 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               <div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-md shadow-blue-600/20">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-800 text-white font-black text-sm flex items-center justify-center shadow-xs">
                       {driver.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                      <h4 className="text-sm font-bold text-zinc-900">
                         {driver.name}
                       </h4>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      <p className="text-xs text-zinc-600 font-medium">
                         {driver.role}
                       </p>
                     </div>
                   </div>
 
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                    driver.status === 'ativo' ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-600'
+                    driver.status === 'ativo' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-zinc-100 text-zinc-600 border border-zinc-200'
                   }`}>
                     {driver.status}
                   </span>
                 </div>
 
                 {/* CNH Details Box */}
-                <div className="mt-4 p-3 rounded-xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700/60 space-y-2">
+                <div className="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-stone-500 flex items-center space-x-1">
+                    <span className="text-zinc-600 flex items-center space-x-1">
                       <CreditCard className="w-3.5 h-3.5" />
                       <span>CNH {driver.cnhNumber || 'Não informada'}</span>
                     </span>
-                    <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-extrabold text-[10px]">
+                    <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200 font-extrabold text-[10px]">
                       Cat. {driver.cnhCategory || 'E'}
                     </span>
                   </div>

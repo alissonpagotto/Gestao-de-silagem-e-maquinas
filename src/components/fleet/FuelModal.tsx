@@ -197,20 +197,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/75 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-2xl w-full shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header */}
-        <div className="px-6 py-4 bg-amber-600 text-white flex items-center justify-between">
+        {/* Header - Charcoal bg-zinc-800 with White Text */}
+        <div className="px-6 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center text-white">
-              <Fuel className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center text-white shadow-xs">
+              <Fuel className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold font-['Outfit']">
+              <h3 className="text-base font-bold text-white font-['Outfit']">
                 {editingLog ? 'Editar Abastecimento' : 'Novo Registro de Abastecimento'}
               </h3>
-              <p className="text-xs text-amber-100">
+              <p className="text-xs text-zinc-300">
                 Controle de combustível com cálculo automático de média por KM (km/L) e por Horas (L/h)
               </p>
             </div>
@@ -218,14 +218,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer text-white"
+            className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto bg-white">
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Veículo */}
@@ -471,17 +471,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           )}
 
           {/* Actions */}
-          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-end space-x-3">
+          <div className="pt-3 border-t border-zinc-200 flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-zinc-300 text-zinc-700 text-xs font-semibold hover:bg-zinc-100 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition flex items-center space-x-2 cursor-pointer active:scale-95"
+              className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>Salvar Abastecimento</span>
