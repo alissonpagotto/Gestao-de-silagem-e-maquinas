@@ -1343,52 +1343,22 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const payload: Record<string, any> = {
+    const payload = {
       id: sub.id,
       name: sub.name,
       email: sub.responsibleEmail.trim().toLowerCase(),
-      responsible_email: sub.responsibleEmail.trim().toLowerCase(),
       phone: sub.phone || '',
       document: sub.cpfCnpj || '',
-      cpf_cnpj: sub.cpfCnpj || '',
-      plan_name: sub.planName || null,
-      status: sub.status === 'trial' ? 'Trial' : sub.status,
-      trial_ends_at: sub.trialUntil ? new Date(sub.trialUntil).toISOString() : null,
-      trial_until: sub.trialUntil || null,
-      password_hash: sub.password || null,
-      state_registration: sub.stateRegistration || null,
-      cep: sub.cep || '',
-      street: sub.street || '',
-      number: sub.number || '',
-      neighborhood: sub.neighborhood || '',
-      city: sub.city || '',
-      state: sub.state || '',
-      plan_id: sub.planId || null,
-      monthly_value: Number(sub.monthlyValue) || 0,
-      updated_at: new Date().toISOString()
+      plan_name: sub.planName || 'Produtor Essencial',
+      status: sub.status === 'ativa' ? 'Ativa' : 'Trial',
+      trial_ends_at: sub.trialUntil ? new Date(sub.trialUntil).toISOString() : new Date(Date.now() + 15 * 86400000).toISOString(),
     };
 
-    let { error } = await supabase
+    const { error } = await supabase
       .from('subscribers')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      // Fallback estrito caso colunas expandidas não existam no schema
-      const strictPayload = {
-        id: sub.id,
-        name: sub.name,
-        email: sub.responsibleEmail.trim().toLowerCase(),
-        phone: sub.phone || '',
-        document: sub.cpfCnpj || '',
-        plan_name: sub.planName || 'Frota Pro',
-        status: 'Trial',
-        trial_ends_at: sub.trialUntil ? new Date(sub.trialUntil).toISOString() : null,
-      };
-      const fallback = await supabase
-        .from('subscribers')
-        .upsert(strictPayload, { onConflict: 'id' });
-      if (!fallback.error) return true;
-
       console.warn('Supabase upsertCloudSubscriber notice:', error.message);
       return false;
     }

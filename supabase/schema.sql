@@ -288,26 +288,15 @@ END $$;
 -- 8. TABELAS: Master Admin, Assinantes & Landing Page
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.subscribers (
-    id TEXT PRIMARY KEY,
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    responsible_email TEXT NOT NULL,
-    password_hash TEXT,
-    trial_until DATE,
-    cpf_cnpj TEXT,
-    state_registration TEXT,
+    email TEXT NOT NULL UNIQUE,
     phone TEXT,
-    cep TEXT,
-    street TEXT,
-    number TEXT,
-    neighborhood TEXT,
-    city TEXT,
-    state TEXT,
-    plan_id TEXT,
-    plan_name TEXT,
-    monthly_value NUMERIC(15,2) DEFAULT 0,
-    status TEXT DEFAULT 'trial',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    document TEXT,
+    plan_name TEXT DEFAULT 'Produtor Essencial',
+    status TEXT DEFAULT 'Trial',
+    trial_ends_at TIMESTAMP WITH TIME ZONE DEFAULT (now() + interval '15 days'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.plans (
@@ -386,7 +375,16 @@ BEGIN
     DROP POLICY IF EXISTS "Leitura Publica Site Settings" ON public.site_settings;
     CREATE POLICY "Permissao Total Site Settings" ON public.site_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
+    -- Assinantes (Subscribers)
     DROP POLICY IF EXISTS "Permissao Total Subscribers" ON public.subscribers;
+    DROP POLICY IF EXISTS "Permissao Insercao Anonima Subscribers" ON public.subscribers;
+    DROP POLICY IF EXISTS "Permissao Leitura Master Subscribers" ON public.subscribers;
+
+    -- Permite inserção anônima e autenticada de novos assinantes vindos da Landing Page
+    CREATE POLICY "Permissao Insercao Anonima Subscribers" ON public.subscribers FOR INSERT TO anon, authenticated WITH CHECK (true);
+    -- Permite leitura completa dos assinantes pelo Painel Master
+    CREATE POLICY "Permissao Leitura Master Subscribers" ON public.subscribers FOR SELECT TO anon, authenticated USING (true);
+    -- Permite atualização e manutenção completa
     CREATE POLICY "Permissao Total Subscribers" ON public.subscribers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 END $$;
 

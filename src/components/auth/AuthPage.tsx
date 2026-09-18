@@ -313,7 +313,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const documentClean = formData.cpfCnpj.trim();
 
       // 1. Captura o nome do plano da URL do site (ex: ?plan=plano-pro ou nome do plano ativo)
-      let planNameCaptured = 'Frota Pro';
+      let planNameCaptured = 'Produtor Essencial';
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const planParam = urlParams.get('plan');
@@ -329,12 +329,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         planNameCaptured = activePlan.name;
       }
 
-      // Calcula data de expiração do trial (Data atual somada aos dias de teste do plano - 15 dias)
+      // Calcula data de expiração do trial (Data atual somada aos 15 dias de teste do plano)
       const trialDays = 15;
       const trialDate = new Date();
       trialDate.setDate(trialDate.getDate() + trialDays);
       const trialEndsAtIso = trialDate.toISOString();
-      const trialUntilDateOnly = trialDate.toISOString().split('T')[0];
 
       // Determina status inicial (padrão 'Trial')
       const initialStatus: SubscriberStatus = isPrePaid ? 'ativa' : 'trial';
@@ -375,18 +374,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
       // =========================================================================
       // 2. INSERÇÃO IMEDIATA NA TABELA PÚBLICA 'subscribers'
-      // Mapeamento exato dos campos:
-      // - id: UUID gerado pelo Supabase Auth
+      // Mapeamento exato das colunas:
+      // - id: UUID gerado pelo Supabase Auth (REFERENCES auth.users(id))
       // - name: Nome da Empresa / Assinante
       // - email: E-mail digitado
       // - phone: Telefone informado
       // - document: CPF ou CNPJ digitado
-      // - plan_name: Nome do plano capturado da URL
+      // - plan_name: Nome do plano capturado da URL (default 'Produtor Essencial')
       // - status: 'Trial' de forma padrão
-      // - trial_ends_at: Data atual somada aos dias de teste
+      // - trial_ends_at: Data atual somada aos dias de teste (TIMESTAMP WITH TIME ZONE)
       // =========================================================================
       if (isSupabaseConfigured) {
-        const baseSubscriberPayload = {
+        const exactSubscriberPayload = {
           id: authUserId,
           name: nameClean,
           email: emailClean,
@@ -397,70 +396,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           trial_ends_at: trialEndsAtIso,
         };
 
-        // Payload enriquecido para compatibilidade total com esquemas existentes
-        const enrichedSubscriberPayload = {
-          ...baseSubscriberPayload,
-          responsible_email: emailClean,
-          cpf_cnpj: documentClean,
-          trial_until: trialUntilDateOnly,
-          plan_id: activePlan?.id || selectedPlanId || 'plano-pro',
-          monthly_value: Number(activePlan?.price) || 0,
-          cep: formData.cep.trim(),
-          street: formData.street.trim() || 'Endereço Comercial',
-          number: formData.number.trim() || 'S/N',
-          neighborhood: formData.neighborhood.trim() || 'Centro',
-          city: formData.city.trim(),
-          state: formData.state.trim().toUpperCase(),
-          updated_at: new Date().toISOString()
-        };
-
-        let { error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('subscribers')
-          .upsert(enrichedSubscriberPayload, { onConflict: 'id' });
+          .upsert(exactSubscriberPayload, { onConflict: 'id' });
 
-        // Se houver erro de coluna específica no banco, faz fallback inteligente
         if (insertError) {
-          console.warn('Tentativa com payload enriquecido falhou, tentando payload estrito:', insertError.message);
-          const strictRes = await supabase
-            .from('subscribers')
-            .upsert(baseSubscriberPayload, { onConflict: 'id' });
-
-          if (!strictRes.error) {
-            insertError = null;
-          } else {
-            console.warn('Tentativa com payload estrito falhou, tentando colunas do schema legado:', strictRes.error.message);
-            const legacyPayload = {
-              id: authUserId,
-              name: nameClean,
-              responsible_email: emailClean,
-              phone: phoneClean,
-              cpf_cnpj: documentClean,
-              plan_name: planNameCaptured,
-              status: 'Trial',
-              trial_until: trialUntilDateOnly,
-              cep: formData.cep.trim(),
-              city: formData.city.trim(),
-              state: formData.state.trim().toUpperCase(),
-            };
-            const legacyRes = await supabase
-              .from('subscribers')
-              .upsert(legacyPayload, { onConflict: 'id' });
-
-            if (!legacyRes.error) {
-              insertError = null;
-            }
-          }
-        }
-
-        // =======================================================================
-        // 3. FALLBACK AUTOMÁTICO (TRATAMENTO DE ERROS):
-        // Garante que se a inserção na tabela subscribers falhar por qualquer motivo,
-        // o usuário seja alertado, evitando que contas fiquem "órfãs" no banco de dados.
-        // =======================================================================
-        if (insertError) {
-          console.error('Falha crítica ao gravar na tabela subscribers:', insertError);
+          console.error('Falha ao gravar na tabela subscribers:', insertError);
           throw new Error(
-            `Sua conta de autenticação (${emailClean}) foi criada com sucesso, mas ocorreu um erro ao registrar sua assinatura na tabela subscribers: ${insertError.message}. Entre em contato com o suporte ou execute o script SQL do banco.`
+            `A conta de acesso (${emailClean}) foi criada, mas o registro na tabela subscribers falhou: ${insertError.message}. Certifique-se de executar o script SQL no Supabase SQL Editor para criar a tabela com as permissões RLS.`
           );
         }
       }
