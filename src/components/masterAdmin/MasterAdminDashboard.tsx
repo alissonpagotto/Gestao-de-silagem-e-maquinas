@@ -31,7 +31,11 @@ import {
   Pause,
   Play,
   Package,
-  Calendar
+  Calendar,
+  Tag,
+  BarChart3,
+  Menu,
+  X
 } from 'lucide-react';
 import { 
   Subscriber, 
@@ -135,6 +139,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // Aba ativa do Painel Mestre
   const [adminTab, setAdminTab] = useState<'assinantes' | 'planos' | 'site' | 'configuracoes'>('assinantes');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Filtros da Tabela de Assinantes
   const [statusFilter, setStatusFilter] = useState<'todas' | SubscriberStatus>('todas');
@@ -506,226 +511,404 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-stone-950 text-stone-100 flex font-['Plus_Jakarta_Sans',sans-serif] relative">
       
-      {/* TopBar Superior do Admin Mestre */}
-      <header className="bg-stone-900/90 backdrop-blur-md border-b border-stone-800 sticky top-0 z-40 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-sm shadow-md">
-            AM
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
-                Admin Mestre
-              </h1>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
-                Super Admin
-              </span>
+      {/* Backdrop Mobile para fechar a Sidebar */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* 1. BARRA LATERAL VERTICAL (SIDEBAR) FIXA NA EXTREMIDADE ESQUERDA */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 w-64 xl:w-72 bg-stone-900 border-r border-stone-800 flex flex-col justify-between select-none h-screen transition-transform duration-300 ease-in-out ${
+          isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        {/* Topo da Sidebar: Identidade Visual e Fechamento Mobile */}
+        <div className="p-4 sm:p-5 border-b border-stone-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-sm shadow-md shadow-emerald-950/40">
+              AM
             </div>
-            <p className="text-[11px] text-stone-400">
-              Controle Global de Assinantes, Planos, Site e Webhooks
-            </p>
-          </div>
-        </div>
-
-        {/* Ações de Navegação do TopBar */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {session && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-950/80 border border-stone-800 text-xs">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-stone-400 text-[11px]">Sessão:</span>
-              <span className="font-mono text-emerald-400 font-bold text-[11px] max-w-[200px] truncate" title={session.email}>
-                {session.email}
-              </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-black tracking-tight text-white">
+                  Admin Mestre
+                </h1>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                  Super
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-400 font-medium">
+                Painel Central Global
+              </p>
             </div>
-          )}
+          </div>
 
           <button
             type="button"
-            onClick={handleManualCloudSync}
-            disabled={isSyncingCloud}
-            className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700 disabled:opacity-60"
-            title="Sincronizar dados em tempo real com o banco de dados Supabase na nuvem"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="md:hidden p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition"
+            title="Fechar menu lateral"
           >
-            <Database className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{isSyncingCloud ? 'Sincronizando...' : 'Nuvem Supabase'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenLandingPage}
-            className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700"
-            title="Abrir a Landing Page pública de vendas"
-          >
-            <Globe className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">Ver Landing Page</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onBackToApp}
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-            title="Acessar o ERP Interno"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Abrir ERP Silagem Fácil</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLogoutMaster}
-            className="px-3 py-1.5 bg-stone-800/90 hover:bg-rose-950/50 hover:text-rose-300 hover:border-rose-800/60 text-stone-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700"
-            title="Encerrar sessão e deslogar do Admin Mestre"
-          >
-            <LogOut className="w-3.5 h-3.5 text-rose-400" />
-            <span className="hidden lg:inline">Sair do Master</span>
+            <X className="w-5 h-5" />
           </button>
         </div>
-      </header>
 
-      {/* Conteúdo Principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        
-        {/* CARDS DE CONTADORES SUPERIORES & MRR ESTIMADO EM TEMPO REAL */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-          
-          {/* 1. Total de Assinantes */}
-          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-stone-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Total Assinantes</span>
-              <Users className="w-4 h-4 text-stone-400" />
-            </div>
-            <p className="text-2xl font-black text-white tracking-tight">
-              {metrics.totalSubscribers}
-            </p>
-            <span className="text-[10px] text-stone-500 font-medium">
-              Registros no banco
-            </span>
+        {/* Itens do Menu Empilhados Verticalmente */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
+          <div className="px-3 pb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
+            Módulos Globais
           </div>
 
-          {/* 2. Assinaturas Ativas */}
-          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-emerald-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Ativas</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            </div>
-            <p className="text-2xl font-black text-emerald-400 tracking-tight">
-              {metrics.activeSubscribers}
-            </p>
-            <span className="text-[10px] text-emerald-500/80 font-medium">
-              Contratos adimplentes
-            </span>
-          </div>
-
-          {/* 3. Em Trial */}
-          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-amber-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Em Trial</span>
-              <Clock className="w-4 h-4 text-amber-400" />
-            </div>
-            <p className="text-2xl font-black text-amber-400 tracking-tight">
-              {metrics.trialSubscribers}
-            </p>
-            <span className="text-[10px] text-amber-500/80 font-medium">
-              Testando a plataforma
-            </span>
-          </div>
-
-          {/* 4. Suspensas / Inadimplentes */}
-          <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-rose-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Suspensas</span>
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
-            </div>
-            <p className="text-2xl font-black text-rose-400 tracking-tight">
-              {metrics.suspendedSubscribers}
-            </p>
-            <span className="text-[10px] text-rose-500/80 font-medium">
-              Inadimplência ou pausa
-            </span>
-          </div>
-
-          {/* 5. MRR Estimado (Soma dinâmica de clientes com status "ATIVA") */}
-          <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-emerald-950/60 to-stone-900 border border-emerald-800/50 p-4 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-emerald-300">
-              <span className="text-[11px] font-black uppercase tracking-wider">MRR Estimado</span>
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-            </div>
-            <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
-              {formatCurrencyBRL(metrics.estimatedMrr)}
-            </p>
-            <span className="text-[10px] text-emerald-400/80 font-bold block">
-              Receita Recorrente Mensal
-            </span>
-          </div>
-        </div>
-
-        {/* NAVEGAÇÃO DE ABAS PRINCIPAIS DO ADMIN MESTRE */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-stone-800 pb-3">
+          {/* 1. Módulo: Assinaturas & Assinantes */}
           <button
             type="button"
-            onClick={() => setAdminTab('assinantes')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+            onClick={() => {
+              setAdminTab('assinantes');
+              setIsMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
               adminTab === 'assinantes'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
+                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span>Assinaturas & Assinantes</span>
-            <span className="ml-1 px-2 py-0.5 text-[10px] rounded-full bg-black/20 text-white font-bold">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`p-2 rounded-lg transition ${
+                adminTab === 'assinantes'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+              }`}>
+                <Users className="w-4 h-4" />
+              </div>
+              <div className="truncate">
+                <div className={`truncate ${adminTab === 'assinantes' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                  Assinantes
+                </div>
+                <div className="text-[10px] text-stone-400 truncate">
+                  Clientes e Contratos
+                </div>
+              </div>
+            </div>
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+              adminTab === 'assinantes'
+                ? 'bg-emerald-500/30 text-emerald-300 font-black'
+                : 'bg-stone-800 text-stone-400'
+            }`}>
               {subscribers.length}
             </span>
           </button>
 
+          {/* 2. Módulo: Módulo de Planos */}
           <button
             type="button"
-            onClick={() => setAdminTab('planos')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+            onClick={() => {
+              setAdminTab('planos');
+              setIsMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
               adminTab === 'planos'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
+                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Módulo de Planos</span>
-            <span className="ml-1 px-2 py-0.5 text-[10px] rounded-full bg-black/20 text-white font-bold">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`p-2 rounded-lg transition ${
+                adminTab === 'planos'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+              }`}>
+                <Tag className="w-4 h-4" />
+              </div>
+              <div className="truncate">
+                <div className={`truncate ${adminTab === 'planos' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                  Módulo de Planos
+                </div>
+                <div className="text-[10px] text-stone-400 truncate">
+                  Tabelas de Preços
+                </div>
+              </div>
+            </div>
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+              adminTab === 'planos'
+                ? 'bg-emerald-500/30 text-emerald-300 font-black'
+                : 'bg-stone-800 text-stone-400'
+            }`}>
               {plans.length}
             </span>
           </button>
 
+          {/* 3. Módulo: Configurações do Site (Landing Page) */}
           <button
             type="button"
-            onClick={() => setAdminTab('site')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+            onClick={() => {
+              setAdminTab('site');
+              setIsMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
               adminTab === 'site'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
+                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <Globe className="w-4 h-4" />
-            <span>Configurações do Site (Landing Page)</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`p-2 rounded-lg transition ${
+                adminTab === 'site'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+              }`}>
+                <Globe className="w-4 h-4" />
+              </div>
+              <div className="truncate">
+                <div className={`truncate ${adminTab === 'site' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                  Configurações do Site
+                </div>
+                <div className="text-[10px] text-stone-400 truncate">
+                  Landing Page Pública
+                </div>
+              </div>
+            </div>
+            {adminTab === 'site' && (
+              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shrink-0" />
+            )}
           </button>
 
+          {/* 4. Módulo: Webhooks & Super Admins */}
           <button
             type="button"
-            onClick={() => setAdminTab('configuracoes')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+            onClick={() => {
+              setAdminTab('configuracoes');
+              setIsMobileSidebarOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
               adminTab === 'configuracoes'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-stone-900 text-stone-400 hover:text-white hover:bg-stone-800 border border-stone-800'
+                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
+                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <Settings className="w-4 h-4" />
-            <span>Webhooks & Super Admins</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`p-2 rounded-lg transition ${
+                adminTab === 'configuracoes'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+              }`}>
+                <Key className="w-4 h-4" />
+              </div>
+              <div className="truncate">
+                <div className={`truncate ${adminTab === 'configuracoes' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                  Webhooks & Admins
+                </div>
+                <div className="text-[10px] text-stone-400 truncate">
+                  Segurança & Integrações
+                </div>
+              </div>
+            </div>
+            {adminTab === 'configuracoes' && (
+              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shrink-0" />
+            )}
           </button>
         </div>
 
-        {/* ======================================================== */}
-        {/* ABA 1: ASSINATURAS & ASSINANTES                          */}
-        {/* ======================================================== */}
-        {adminTab === 'assinantes' && (
+        {/* Rodapé da Sidebar: Sessão & Ações Rápidas */}
+        <div className="p-3 sm:p-4 border-t border-stone-800 space-y-2 bg-stone-900/80 shrink-0">
+          {session && (
+            <div className="px-3 py-2 rounded-xl bg-stone-950/80 border border-stone-800/80 text-xs">
+              <div className="flex items-center gap-2 mb-0.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">
+                  Super Admin
+                </span>
+              </div>
+              <div className="font-mono text-emerald-400 font-bold text-[11px] truncate" title={session.email}>
+                {session.email}
+              </div>
+            </div>
+          )}
+
+          <div className="pt-1 space-y-1">
+            <button
+              type="button"
+              onClick={onOpenLandingPage}
+              className="w-full px-3 py-2 bg-stone-800/80 hover:bg-stone-800 text-stone-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-stone-700/60"
+              title="Abrir a Landing Page pública de vendas"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">Ver Landing Page</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onBackToApp}
+              className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2.5 transition cursor-pointer shadow-sm"
+              title="Acessar o ERP Interno"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Abrir ERP Silagem Fácil</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogoutMaster}
+              className="w-full px-3 py-2 bg-stone-950 hover:bg-rose-950/40 hover:text-rose-300 hover:border-rose-800/60 text-stone-400 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-stone-800"
+              title="Encerrar sessão e deslogar do Admin Mestre"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="truncate">Sair do Master</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* 2. ÁREA DE EXIBIÇÃO DA DIREITA (Começa logo após a Sidebar) */}
+      <div className="flex-1 md:pl-64 xl:pl-72 flex flex-col min-h-screen w-full min-w-0 bg-stone-950">
+        
+        {/* TopBar Superior da Área de Conteúdo */}
+        <header className="bg-stone-900/90 backdrop-blur-md border-b border-stone-800 sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Botão Hambúrguer Mobile */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-700 transition shrink-0"
+              title="Abrir Menu Lateral de Módulos"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-white truncate">
+                  {adminTab === 'assinantes' && 'Assinaturas & Assinantes'}
+                  {adminTab === 'planos' && 'Módulo de Planos Comerciais'}
+                  {adminTab === 'site' && 'Configurações do Site (Landing Page)'}
+                  {adminTab === 'configuracoes' && 'Webhooks & Super Admins'}
+                </h2>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block shrink-0">
+                  {adminTab === 'assinantes' && `${subscribers.length} registros`}
+                  {adminTab === 'planos' && `${plans.length} planos`}
+                  {adminTab === 'site' && 'Landing Page'}
+                  {adminTab === 'configuracoes' && 'Segurança'}
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 hidden sm:block truncate">
+                {adminTab === 'assinantes' && 'Gestão unificada de clientes rurais, contratos e faturamento recorrente'}
+                {adminTab === 'planos' && 'Tabelas de preços, limites operacionais e recursos cadastrados'}
+                {adminTab === 'site' && 'Customização visual e conteúdo da Landing Page pública de vendas'}
+                {adminTab === 'configuracoes' && 'Chaves de API, webhooks e credenciais de acesso restrito'}
+              </p>
+            </div>
+          </div>
+
+          {/* Ações Rápidas no TopBar Superior */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handleManualCloudSync}
+              disabled={isSyncingCloud}
+              className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700 disabled:opacity-60"
+              title="Sincronizar dados em tempo real com o banco de dados Supabase na nuvem"
+            >
+              <Database className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isSyncingCloud ? 'Sincronizando...' : 'Nuvem Supabase'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onBackToApp}
+              className="hidden lg:flex px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black items-center gap-1.5 transition cursor-pointer shadow-sm"
+              title="Acessar o ERP Interno"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Abrir ERP</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Conteúdo Principal (Cards de Indicadores + Tabela e Formulários) */}
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+          
+          {/* CARDS DE CONTADORES SUPERIORES & MRR ESTIMADO EM TEMPO REAL */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            
+            {/* 1. Total de Assinantes */}
+            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-stone-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Total Assinantes</span>
+                <Users className="w-4 h-4 text-stone-400" />
+              </div>
+              <p className="text-2xl font-black text-white tracking-tight">
+                {metrics.totalSubscribers}
+              </p>
+              <span className="text-[10px] text-stone-500 font-medium">
+                Registros no banco
+              </span>
+            </div>
+
+            {/* 2. Assinaturas Ativas */}
+            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-emerald-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Ativas</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              </div>
+              <p className="text-2xl font-black text-emerald-400 tracking-tight">
+                {metrics.activeSubscribers}
+              </p>
+              <span className="text-[10px] text-emerald-500/80 font-medium">
+                Contratos adimplentes
+              </span>
+            </div>
+
+            {/* 3. Em Trial */}
+            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-amber-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Em Trial</span>
+                <Clock className="w-4 h-4 text-amber-400" />
+              </div>
+              <p className="text-2xl font-black text-amber-400 tracking-tight">
+                {metrics.trialSubscribers}
+              </p>
+              <span className="text-[10px] text-amber-500/80 font-medium">
+                Testando a plataforma
+              </span>
+            </div>
+
+            {/* 4. Suspensas / Inadimplentes */}
+            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-rose-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Suspensas</span>
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              </div>
+              <p className="text-2xl font-black text-rose-400 tracking-tight">
+                {metrics.suspendedSubscribers}
+              </p>
+              <span className="text-[10px] text-rose-500/80 font-medium">
+                Inadimplência ou pausa
+              </span>
+            </div>
+
+            {/* 5. MRR Estimado (Soma dinâmica de clientes com status "ATIVA") */}
+            <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-emerald-950/60 to-stone-900 border border-emerald-800/50 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-emerald-300">
+                <span className="text-[11px] font-black uppercase tracking-wider">MRR Estimado</span>
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                {formatCurrencyBRL(metrics.estimatedMrr)}
+              </p>
+              <span className="text-[10px] text-emerald-400/80 font-bold block">
+                Receita Recorrente Mensal
+              </span>
+            </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* ABA 1: ASSINATURAS & ASSINANTES                          */}
+          {/* ======================================================== */}
+          {adminTab === 'assinantes' && (
           <div className="space-y-4">
             
             {/* Barra de Filtros e Busca */}
@@ -1723,6 +1906,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           </div>
         )}
       </main>
+      </div>
 
       {/* MODAIS DO MASTER ADMIN */}
       <EditSubscriberModal
