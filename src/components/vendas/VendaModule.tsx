@@ -180,7 +180,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
             id="btn-nova-venda"
             type="button"
             onClick={handleOpenNew}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm border border-emerald-600 transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs font-bold rounded-lg shadow-sm border border-zinc-900 transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:ring-offset-2"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ Nova Venda</span>
@@ -190,7 +190,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
 
       {/* 2. CARDS DE INDICADORES (KPIS) */}
       <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Total Faturado</span>
             <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -201,7 +201,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Todas as vendas registradas</span>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Volume Total</span>
             <Scale className="w-4 h-4 text-amber-600 dark:text-amber-400" />
@@ -212,7 +212,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Silagem comercializada</span>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Contratos / Pedidos</span>
             <FileCheck2 className="w-4 h-4 text-sky-600 dark:text-sky-400" />
@@ -223,7 +223,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium block mt-0.5">Volume de operações</span>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Ticket Médio</span>
             <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -250,7 +250,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar cliente, fazenda ou nº da venda..."
-            className="w-full pl-9 pr-8 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-black dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 transition-colors shadow-2xs"
+            className="w-full pl-9 pr-8 py-2 bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-black dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-colors shadow-2xs"
           />
           {searchTerm && (
             <button
@@ -268,7 +268,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full appearance-none pl-3 pr-8 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 transition-colors shadow-2xs cursor-pointer"
+            className="w-full appearance-none pl-3 pr-8 py-2 bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-colors shadow-2xs cursor-pointer"
           >
             <option value="todos">Todos os Status</option>
             <option value="agendado">Agendado</option>
@@ -285,12 +285,12 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
       {/* 4. TABELA DE VENDAS (Área Central com Fundo Branco Sólido e Borda Nítida) */}
       <section 
         aria-label="Lista de Vendas"
-        className="crm-card bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl shadow-xs overflow-hidden"
+        className="crm-card bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl shadow-xs overflow-hidden"
       >
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-zinc-300 dark:border-stone-700 bg-zinc-100 dark:bg-stone-800">
+              <tr className="border-b border-zinc-400 dark:border-stone-700 bg-zinc-100 dark:bg-stone-800">
                 <th scope="col" className="px-4 py-2.5 text-xs font-black text-zinc-800 dark:text-zinc-200 uppercase tracking-wider w-16">
                   Nº
                 </th>
@@ -334,7 +334,7 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                       <button
                         type="button"
                         onClick={handleOpenNew}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-2xs transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs font-bold rounded-lg border border-zinc-900 shadow-2xs transition cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Cadastrar Venda</span>
@@ -346,10 +346,10 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
                 filteredSales.map((sale, index) => {
                   const itemNumber = (index + 1).toString().padStart(3, '0');
                   const statusColors: Record<string, string> = {
-                    agendado: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-                    em_andamento: 'bg-sky-100 text-sky-900 border-sky-300 font-bold',
-                    concluido: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
-                    cancelado: 'bg-rose-100 text-rose-900 border-rose-300 font-bold',
+                    agendado: 'bg-white text-amber-700 border border-zinc-400 dark:bg-stone-800 dark:text-amber-400 dark:border-stone-700 font-bold',
+                    em_andamento: 'bg-white text-blue-700 border border-zinc-400 dark:bg-stone-800 dark:text-blue-400 dark:border-stone-700 font-bold',
+                    concluido: 'bg-white text-emerald-700 border border-zinc-400 dark:bg-stone-800 dark:text-emerald-400 dark:border-stone-700 font-bold',
+                    cancelado: 'bg-white text-rose-700 border border-zinc-400 dark:bg-stone-800 dark:text-rose-400 dark:border-stone-700 font-bold',
                   };
 
                   const statusLabels: Record<string, string> = {

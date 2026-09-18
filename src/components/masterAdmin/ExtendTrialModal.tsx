@@ -74,24 +74,24 @@ export const ExtendTrialModal: React.FC<ExtendTrialModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-md w-full shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs">
+      <div className="bg-[#1a1d24] rounded-2xl max-w-md w-full shadow-2xl border border-[#2f3644] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho */}
-        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-5 py-4 bg-[#14161d] text-white flex items-center justify-between border-b border-[#2f3644]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white/10 rounded-xl">
-              <Calendar className="w-5 h-5 text-zinc-200" />
+            <div className="p-2 bg-[#252a34] border border-[#2f3644] rounded-xl">
+              <Calendar className="w-5 h-5 text-[#8a92a6]" />
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight text-white">Estender Período de Trial</h3>
-              <p className="text-xs text-zinc-300">Atualização em tempo real na nuvem do Supabase</p>
+              <p className="text-xs text-[#8a92a6]">Atualização em tempo real na nuvem do Supabase</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-[#8a92a6] hover:text-white hover:bg-[#252a34] transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -100,32 +100,32 @@ export const ExtendTrialModal: React.FC<ExtendTrialModalProps> = ({
         {/* Conteúdo */}
         <form onSubmit={handleSave} className="p-5 space-y-4">
           {/* Informações do Assinante */}
-          <div className="p-3.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl space-y-1">
-            <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider block">
+          <div className="p-3.5 bg-[#252a34] border border-[#2f3644] rounded-xl space-y-1">
+            <span className="text-[10px] font-bold text-[#8a92a6] uppercase tracking-wider block">
               Assinante
             </span>
-            <p className="text-sm font-black text-stone-900 dark:text-stone-100">
+            <p className="text-sm font-black text-white">
               {subscriber.name}
             </p>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-stone-400 font-medium">
-              <Clock className="w-3.5 h-3.5 text-zinc-500" />
+            <div className="flex items-center gap-1.5 text-xs text-[#8a92a6] font-medium">
+              <Clock className="w-3.5 h-3.5 text-[#8a92a6]" />
               <span>Vencimento atual do Trial: </span>
-              <strong className="text-zinc-900 dark:text-stone-200 font-bold">
+              <strong className="text-white font-bold">
                 {subscriber.trialUntil ? formatDateBR(subscriber.trialUntil) : 'Não definido'}
               </strong>
             </div>
           </div>
 
           {errorMessage && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <div className="p-3 bg-[#252a34] border border-rose-800/80 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-300">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {/* Seleção de dias */}
-          <div className="space-y-2 bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700">
-            <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
+          <div className="space-y-2 bg-[#252a34] p-3.5 rounded-xl border border-[#2f3644]">
+            <label className="block text-xs font-bold text-[#8a92a6] uppercase tracking-wider">
               DIAS ADICIONAIS DE TESTE
             </label>
             
@@ -137,9 +137,9 @@ export const ExtendTrialModal: React.FC<ExtendTrialModalProps> = ({
                 required
                 value={daysToAdd}
                 onChange={(e) => setDaysToAdd(Math.max(1, parseInt(e.target.value) || 0))}
-                className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-sm font-black text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-sm font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
               />
-              <span className="text-xs font-bold text-zinc-500 dark:text-stone-400 shrink-0">
+              <span className="text-xs font-bold text-[#8a92a6] shrink-0">
                 dias
               </span>
             </div>
@@ -153,8 +153,8 @@ export const ExtendTrialModal: React.FC<ExtendTrialModalProps> = ({
                   onClick={() => handleQuickAdd(days)}
                   className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
                     daysToAdd === days
-                      ? 'bg-zinc-800 text-white shadow-xs'
-                      : 'bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-300 hover:bg-zinc-200'
+                      ? 'bg-[#3a4150] text-white border border-[#4d576a] shadow-xs'
+                      : 'bg-[#1a1d24] text-[#8a92a6] border border-[#2f3644] hover:text-white hover:bg-[#252a34]'
                   }`}
                 >
                   <Plus className="w-3 h-3" />
@@ -165,34 +165,34 @@ export const ExtendTrialModal: React.FC<ExtendTrialModalProps> = ({
           </div>
 
           {/* Pré-visualização do Novo Vencimento */}
-          <div className="p-3.5 bg-white dark:bg-stone-800/80 rounded-xl border border-zinc-300 dark:border-stone-700 flex items-center justify-between">
+          <div className="p-3.5 bg-[#252a34] rounded-xl border border-[#2f3644] flex items-center justify-between">
             <div>
-              <span className="text-[11px] font-bold text-zinc-600 dark:text-stone-400 block">
+              <span className="text-[11px] font-bold text-[#8a92a6] block">
                 Nova Data de Término do Trial
               </span>
-              <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">
+              <span className="text-sm font-black text-white">
                 {formatDateBR(newExpirationDateString)}
               </span>
             </div>
-            <span className="px-2.5 py-1 bg-zinc-200 dark:bg-stone-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-bold rounded-lg border border-zinc-300">
+            <span className="px-2.5 py-1 bg-[#1a1d24] text-[#8a92a6] text-[11px] font-bold rounded-lg border border-[#2f3644]">
               +{daysToAdd} dias adicionados
             </span>
           </div>
 
           {/* Ações */}
-          <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-[#2f3644] flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-xl transition cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-[#d1d5db] bg-[#1a1d24] hover:bg-[#252a34] border border-[#2f3644] rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              className="px-5 py-2.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] disabled:opacity-50 text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center gap-1.5 transition shadow-xs cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Gravando...' : 'Confirmar Prorrogação'}</span>

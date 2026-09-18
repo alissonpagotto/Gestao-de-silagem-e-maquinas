@@ -309,13 +309,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           </p>
         </div>
 
-        {/* Botão de Ação Principal em Verde-esmeralda */}
+        {/* Botão de Ação Principal em Cinza Grafite Escuro */}
         {activeTab !== 'agenda' && activeTab !== 'formularios' && (
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleOpenNew}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs font-bold rounded-lg border border-zinc-900 shadow-xs transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:ring-offset-1"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>{tabConfig.newButtonLabel || '+ Novo'}</span>
@@ -327,11 +327,11 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       {/* ========================================================
           3. MENU DE ABAS (TABS) DE NAVEGAÇÃO
           Barra com fundo cinza gelo suave (bg-zinc-200), abas inativas em cinza escuro
-          e aba ativa com fundo branco sólido, contorno nítido e destaque esmeralda
+          e aba ativa com fundo branco sólido e contorno nítido
           ======================================================== */}
       <nav 
         aria-label="Abas de Serviços" 
-        className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 overflow-x-auto scrollbar-none shadow-2xs"
+        className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border border-zinc-400 dark:border-stone-700 overflow-x-auto scrollbar-none shadow-2xs"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -344,14 +344,14 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
               onClick={() => setActiveTab(tab.id)}
               className={`group inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none ${
                 isActive
-                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-300/90 dark:border-stone-700'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-400 dark:border-stone-600'
                   : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <Icon 
                 className={`w-4 h-4 transition-colors ${
                   isActive 
-                    ? 'text-emerald-600 dark:text-emerald-400' 
+                    ? 'text-zinc-900 dark:text-white' 
                     : 'text-zinc-500 group-hover:text-zinc-800 dark:text-stone-400 dark:group-hover:text-stone-200'
                 }`} 
               />
@@ -396,7 +396,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar cliente, fazenda ou nº..."
-            className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-zinc-900 dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs"
+            className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-zinc-900 dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-colors shadow-2xs"
           />
           {searchTerm && (
             <button
@@ -414,7 +414,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs cursor-pointer"
+            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-colors shadow-2xs cursor-pointer"
           >
             <option value="todos" className="text-zinc-900 font-semibold">Status: Todos</option>
             <option value="agendado" className="text-zinc-900 font-semibold">Agendado</option>
@@ -430,18 +430,18 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
       {/* ========================================================
           5. TABELA / CARDS DAS ORDENS DE SERVIÇO
-          Fundo central branco sólido (bg-white), borda perimetral escura/nítida (border-zinc-300)
+          Fundo central branco sólido (bg-white), borda perimetral escura/nítida (border-zinc-400)
           e cabeçalho cinza claro (bg-zinc-100) com texto escuro
           ======================================================== */}
       <section 
         aria-label="Lista de Serviços"
-        className="crm-card bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden"
+        className="crm-card bg-white dark:bg-stone-900 border border-zinc-400 dark:border-stone-700 rounded-xl shadow-xs overflow-hidden"
       >
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left border-collapse">
             {/* Cabeçalho da Tabela - Fundo bg-zinc-100 com Texto em Cinza Escuro de Alta Legibilidade */}
             <thead>
-              <tr className="border-b border-zinc-300 dark:border-stone-800 bg-zinc-100 dark:bg-stone-800/80">
+              <tr className="border-b border-zinc-400 dark:border-stone-700 bg-zinc-100 dark:bg-stone-800/80">
                 <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16">
                   Nº
                 </th>
@@ -482,10 +482,10 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                 filteredServices.map((service, index) => {
                   const itemNumber = (index + 1).toString().padStart(3, '0');
                   const statusColors: Record<string, string> = {
-                    agendado: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800 font-bold',
-                    em_andamento: 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 font-bold',
-                    concluido: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 font-bold',
-                    cancelado: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800 font-bold',
+                    agendado: 'bg-white text-amber-700 border border-zinc-400 dark:bg-stone-800 dark:text-amber-400 dark:border-stone-700 font-bold',
+                    em_andamento: 'bg-white text-blue-700 border border-zinc-400 dark:bg-stone-800 dark:text-blue-400 dark:border-stone-700 font-bold',
+                    concluido: 'bg-white text-emerald-700 border border-zinc-400 dark:bg-stone-800 dark:text-emerald-400 dark:border-stone-700 font-bold',
+                    cancelado: 'bg-white text-rose-700 border border-zinc-400 dark:bg-stone-800 dark:text-rose-400 dark:border-stone-700 font-bold',
                   };
 
                   const statusLabels: Record<string, string> = {

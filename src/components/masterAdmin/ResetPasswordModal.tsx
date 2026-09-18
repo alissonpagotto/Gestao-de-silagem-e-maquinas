@@ -62,24 +62,24 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-md w-full shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs">
+      <div className="bg-[#1a1d24] rounded-2xl max-w-md w-full shadow-2xl border border-[#2f3644] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho */}
-        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-5 py-4 bg-[#14161d] text-white flex items-center justify-between border-b border-[#2f3644]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white/10 rounded-xl">
-              <Lock className="w-5 h-5 text-zinc-200" />
+            <div className="p-2 bg-[#252a34] border border-[#2f3644] rounded-xl">
+              <Lock className="w-5 h-5 text-[#8a92a6]" />
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight text-white">Redefinir Senha do Assinante</h3>
-              <p className="text-xs text-zinc-300">Atualização direta na nuvem do Supabase</p>
+              <p className="text-xs text-[#8a92a6]">Atualização direta na nuvem do Supabase</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-[#8a92a6] hover:text-white hover:bg-[#252a34] transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -87,36 +87,36 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
 
         {/* Conteúdo */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="p-3 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl space-y-1">
-            <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 block uppercase tracking-wider">
+          <div className="p-3 bg-[#252a34] border border-[#2f3644] rounded-xl space-y-1">
+            <span className="text-[11px] font-bold text-[#8a92a6] block uppercase tracking-wider">
               Assinante Selecionado
             </span>
-            <p className="text-sm font-black text-stone-900 dark:text-stone-100">
+            <p className="text-sm font-black text-white">
               {subscriber.name}
             </p>
-            <p className="text-xs text-stone-600 dark:text-stone-400 font-mono">
+            <p className="text-xs text-[#8a92a6] font-mono">
               {subscriber.responsibleEmail} (ID: {subscriber.id.substring(0, 13)}...)
             </p>
           </div>
 
           {errorMsg && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <div className="p-3 bg-[#252a34] border border-rose-800/80 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-300">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          <div className="bg-white dark:bg-stone-800 p-3.5 rounded-xl border border-zinc-300 dark:border-stone-700">
+          <div className="bg-[#252a34] p-3.5 rounded-xl border border-[#2f3644]">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
+              <label className="text-xs font-bold text-[#8a92a6] uppercase tracking-wider">
                 NOVA SENHA DO CLIENTE *
               </label>
               <button
                 type="button"
                 onClick={handleGeneratePassword}
-                className="text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-[#d1d5db] hover:text-white hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-zinc-600" />
+                <Sparkles className="w-3.5 h-3.5 text-[#8a92a6]" />
                 <span>Gerar Senha Segura</span>
               </button>
             </div>
@@ -128,35 +128,35 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Digite ou gere a nova senha"
-                className="w-full pl-3 pr-10 py-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-sm font-mono text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                className="w-full pl-3 pr-10 py-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-sm font-mono text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 absolute right-2.5 top-2.5 cursor-pointer"
+                className="p-1 text-[#8a92a6] hover:text-white absolute right-2.5 top-2.5 cursor-pointer"
                 title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+            <p className="text-[11px] text-[#8a92a6] mt-1">
               Esta senha permitirá que o produtor acesse o ERP com o email cadastrado.
             </p>
           </div>
 
-          <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-[#2f3644] flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-xl transition cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-[#d1d5db] bg-[#1a1d24] hover:bg-[#252a34] border border-[#2f3644] rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              className="px-5 py-2.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] disabled:opacity-50 text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center gap-1.5 transition shadow-xs cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>{isSubmitting ? 'Salvando...' : 'Salvar Nova Senha'}</span>

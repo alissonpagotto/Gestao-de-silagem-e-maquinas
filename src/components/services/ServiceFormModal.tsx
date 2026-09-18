@@ -2343,7 +2343,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       >
         <div 
           id="printable-service-order-modal"
-          className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-800 flex flex-col max-h-[94vh] overflow-hidden overflow-x-hidden my-auto"
+          className="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-400 dark:border-zinc-700 flex flex-col max-h-[94vh] overflow-hidden overflow-x-hidden my-auto"
         >
           {/* Badge para Cupom Térmico (Visível apenas em impressão 80mm) */}
           <div className="hidden print:block thermal-receipt-badge text-center">
@@ -4156,7 +4156,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 setPrintPreviewPaperFormat('thermal_80mm');
                 setShowPrintPreview(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold rounded-lg shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-400 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold rounded-lg shadow-2xs transition cursor-pointer"
               title="Abrir prévia e impressão da Via Cliente (Cupom 80mm pré-ativado, comissões ocultas)"
             >
               <Printer className="w-3.5 h-3.5 text-zinc-600" />
@@ -4171,7 +4171,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                 setPrintPreviewPaperFormat('a4');
                 setShowPrintPreview(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold rounded-lg shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-400 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold rounded-lg shadow-2xs transition cursor-pointer"
               title="Abrir prévia e impressão da Via Completa (Folha A4 pré-ativada, com DRE e comissões)"
             >
               <PrinterCheck className="w-3.5 h-3.5 text-zinc-600" />
@@ -4182,7 +4182,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-lg transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-400 rounded-lg transition cursor-pointer"
               title="Fechar o formulário e voltar à tela anterior"
             >
               <LogOut className="w-4 h-4 text-zinc-500" />
@@ -4198,7 +4198,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 sm:py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs sm:text-sm font-bold rounded-lg shadow-sm border border-zinc-900 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 sm:py-2 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs sm:text-sm font-bold rounded-lg shadow-sm border border-zinc-900 transition cursor-pointer"
               title="Salvar alterações no pedido sem fechar a janela"
             >
               <Check className="w-4 h-4 stroke-[2.5]" />

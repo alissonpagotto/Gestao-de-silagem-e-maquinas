@@ -182,18 +182,18 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
     : ['Produtor Essencial', 'Starter', 'Pro', 'Business'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-[#1a1d24] rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-[#2f3644] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho do Modal */}
-        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-5 py-4 bg-[#14161d] text-white flex items-center justify-between border-b border-[#2f3644]">
           <div className="flex items-center gap-2.5">
-            <Building2 className="w-5 h-5 text-zinc-200" />
+            <Building2 className="w-5 h-5 text-[#8a92a6]" />
             <div>
               <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
                 {subscriber ? 'Editar Informações do Assinante' : 'Novo Assinante do Sistema'}
               </h3>
-              <p className="text-xs text-zinc-300">
+              <p className="text-xs text-[#8a92a6]">
                 Atualize o cadastro, plano comercial e credenciais em nuvem
               </p>
             </div>
@@ -201,7 +201,7 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-[#8a92a6] hover:text-white hover:bg-[#252a34] transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -210,22 +210,22 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
         {/* Formulário */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
           {validationError && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <div className="p-3 bg-[#252a34] border border-rose-800/80 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-300">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{validationError}</span>
             </div>
           )}
 
           {/* Seção 1: Identificação & Acesso */}
-          <div className="space-y-3 p-4 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl">
-            <div className="flex items-center gap-2 text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider border-b border-zinc-200 dark:border-stone-700 pb-2">
-              <User className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="space-y-3 p-4 bg-[#252a34] border border-[#2f3644] rounded-xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider border-b border-[#2f3644] pb-2">
+              <User className="w-4 h-4 text-[#8a92a6]" />
               <span>1. Identificação do Assinante & Acesso</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   NOME DO ASSINANTE *
                 </label>
                 <input
@@ -234,12 +234,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Fazenda Santa Fé ou Agropecuária Sol Nascente"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   EMAIL DO RESPONSÁVEL *
                 </label>
                 <input
@@ -248,22 +248,22 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={responsibleEmail}
                   onChange={(e) => setResponsibleEmail(e.target.value)}
                   placeholder="responsavel@empresa.com.br"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-semibold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300">
+                  <label className="block text-xs font-bold text-[#8a92a6]">
                     SENHA DE ACESSO
                   </label>
                   <button
                     type="button"
                     onClick={handleGenerateRandomPassword}
-                    className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-[11px] font-bold text-[#d1d5db] hover:text-white flex items-center gap-1 cursor-pointer transition"
                     title="Gerar uma nova senha segura aleatória"
                   >
-                    <Sparkles className="w-3 h-3 text-zinc-600" />
+                    <Sparkles className="w-3 h-3 text-[#8a92a6]" />
                     <span>Gerar Senha Aleatória</span>
                   </button>
                 </div>
@@ -273,24 +273,24 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Deixe em branco para manter a atual"
-                    className="w-full p-2.5 pr-9 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                    className="w-full p-2.5 pr-9 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-mono text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
-                  <Key className="w-4 h-4 text-stone-400 absolute right-3 top-3 pointer-events-none" />
+                  <Key className="w-4 h-4 text-[#8a92a6] absolute right-3 top-3 pointer-events-none" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Seção 2: Dados Fiscais & Contato */}
-          <div className="space-y-3 p-4 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl">
-            <div className="flex items-center gap-2 text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider border-b border-zinc-200 dark:border-stone-700 pb-2">
-              <CreditCard className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="space-y-3 p-4 bg-[#252a34] border border-[#2f3644] rounded-xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider border-b border-[#2f3644] pb-2">
+              <CreditCard className="w-4 h-4 text-[#8a92a6]" />
               <span>2. Dados Fiscais & Contato</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   CPF OU CNPJ
                 </label>
                 <input
@@ -298,12 +298,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={cpfCnpj}
                   onChange={(e) => setCpfCnpj(formatCpfCnpj(e.target.value))}
                   placeholder="00.000.000/0000-00"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-mono font-bold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   INSCRIÇÃO ESTADUAL
                 </label>
                 <input
@@ -311,12 +311,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={stateRegistration}
                   onChange={(e) => setStateRegistration(formatIE(e.target.value))}
                   placeholder="ISENTO ou 000.000.000"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-semibold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   TELEFONE / WHATSAPP
                 </label>
                 <input
@@ -324,25 +324,25 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(formatPhone(e.target.value))}
                   placeholder="(00) 00000-0000"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-semibold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
             </div>
           </div>
 
           {/* Seção 3: Endereço & Localização com Busca Automática de CEP */}
-          <div className="space-y-3 p-4 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700 pb-2">
-              <div className="flex items-center gap-2 text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
-                <MapPin className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="space-y-3 p-4 bg-[#252a34] border border-[#2f3644] rounded-xl">
+            <div className="flex items-center justify-between border-b border-[#2f3644] pb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                <MapPin className="w-4 h-4 text-[#8a92a6]" />
                 <span>3. Endereço & Localização</span>
               </div>
-              <span className="text-[11px] text-stone-400 font-medium">Busca automática via CEP</span>
+              <span className="text-[11px] text-[#8a92a6] font-medium">Busca automática via CEP</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-6 gap-3.5">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   CEP (Busca Automática)
                 </label>
                 <div className="relative">
@@ -356,19 +356,19 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                     }}
                     onBlur={() => handleCepSearch(cep)}
                     placeholder="00000-000"
-                    className="w-full p-2.5 pr-8 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                    className="w-full p-2.5 pr-8 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                   {isLoadingCep ? (
-                    <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin absolute right-2.5 top-2.5" />
+                    <RefreshCw className="w-4 h-4 text-[#8a92a6] animate-spin absolute right-2.5 top-2.5" />
                   ) : (
-                    <Search className="w-4 h-4 text-stone-400 absolute right-2.5 top-2.5 pointer-events-none" />
+                    <Search className="w-4 h-4 text-[#8a92a6] absolute right-2.5 top-2.5 pointer-events-none" />
                   )}
                 </div>
-                {cepError && <span className="text-[10px] text-rose-500 font-bold block mt-0.5">{cepError}</span>}
+                {cepError && <span className="text-[10px] text-rose-400 font-bold block mt-0.5">{cepError}</span>}
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   LOGRADOURO
                 </label>
                 <input
@@ -376,12 +376,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
                   placeholder="Rua, Avenida, Rodovia ou Estrada Rural"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-semibold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div className="sm:col-span-1">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   Nº
                 </label>
                 <input
@@ -389,12 +389,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={number}
                   onChange={(e) => setNumber(e.target.value)}
                   placeholder="123 ou S/N"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   BAIRRO
                 </label>
                 <input
@@ -402,12 +402,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={neighborhood}
                   onChange={(e) => setNeighborhood(e.target.value)}
                   placeholder="Centro, Zona Rural..."
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-semibold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   CIDADE
                 </label>
                 <input
@@ -415,12 +415,12 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Cidade"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
 
               <div className="sm:col-span-1">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   ESTADO
                 </label>
                 <input
@@ -429,71 +429,71 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   value={state}
                   onChange={(e) => setState(e.target.value.toUpperCase())}
                   placeholder="UF"
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 text-center uppercase focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white text-center uppercase placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                 />
               </div>
             </div>
           </div>
 
           {/* Seção 4: Dropdown 'PLANO ATUAL' conforme diretriz técnica */}
-          <div className="space-y-3 p-4 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl">
-            <div className="flex items-center gap-2 text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
-              <Layers className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="space-y-3 p-4 bg-[#252a34] border border-[#2f3644] rounded-xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+              <Layers className="w-4 h-4 text-[#8a92a6]" />
               <span>4. Plano Comercial & Status da Conta</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   PLANO ATUAL *
                 </label>
                 <select
                   value={planName}
                   onChange={(e) => handlePlanChangeByName(e.target.value)}
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none cursor-pointer"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none cursor-pointer transition"
                 >
                   {availablePlanOptions.map((opt) => (
-                    <option key={opt} value={opt}>
+                    <option key={opt} value={opt} className="bg-[#1a1d24] text-white">
                       {opt}
                     </option>
                   ))}
                 </select>
-                <span className="text-[10px] text-stone-500 dark:text-stone-400 block mt-1">
+                <span className="text-[10px] text-[#8a92a6] block mt-1">
                   Altera o pacote contratado e as permissões operacionais do assinante.
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                   STATUS DA CONTA
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as Subscriber['status'])}
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none cursor-pointer"
+                  className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none cursor-pointer transition"
                 >
-                  <option value="ativa">Ativa</option>
-                  <option value="trial">Trial (Período de Testes)</option>
-                  <option value="suspensa">Suspensa (Bloqueio Financeiro)</option>
-                  <option value="inadimplente">Inadimplente</option>
-                  <option value="cancelada">Cancelada</option>
+                  <option value="ativa" className="bg-[#1a1d24] text-white">Ativa</option>
+                  <option value="trial" className="bg-[#1a1d24] text-white">Trial (Período de Testes)</option>
+                  <option value="suspensa" className="bg-[#1a1d24] text-white">Suspensa (Bloqueio Financeiro)</option>
+                  <option value="inadimplente" className="bg-[#1a1d24] text-white">Inadimplente</option>
+                  <option value="cancelada" className="bg-[#1a1d24] text-white">Cancelada</option>
                 </select>
               </div>
             </div>
           </div>
 
           {/* Rodapé e Botões */}
-          <div className="pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end gap-2.5">
+          <div className="pt-4 border-t border-[#2f3644] flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-lg transition cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-[#d1d5db] bg-[#1a1d24] hover:bg-[#252a34] border border-[#2f3644] rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold border border-zinc-900 flex items-center gap-2 shadow-sm transition cursor-pointer"
+              className="px-5 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center gap-2 shadow-xs transition cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>Salvar Alterações no Banco</span>

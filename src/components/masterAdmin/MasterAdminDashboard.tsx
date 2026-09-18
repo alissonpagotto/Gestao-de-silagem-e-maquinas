@@ -511,7 +511,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex font-['Plus_Jakarta_Sans',sans-serif] relative">
+    <div className="min-h-screen bg-[#1a1d24] text-white flex font-['Plus_Jakarta_Sans',sans-serif] relative selection:bg-[#3a4150] selection:text-white">
       
       {/* Backdrop Mobile para fechar a Sidebar */}
       {isMobileSidebarOpen && (
@@ -521,16 +521,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         />
       )}
 
-      {/* 1. BARRA LATERAL VERTICAL (SIDEBAR) FIXA NA EXTREMIDADE ESQUERDA */}
+      {/* 1. BARRA LATERAL VERTICAL (SIDEBAR) FIXA NA EXTREMIDADE ESQUERDA - #14161d */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 xl:w-72 bg-stone-900 border-r border-stone-800 flex flex-col justify-between select-none h-screen transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 xl:w-72 bg-[#14161d] border-r border-[#232732] flex flex-col justify-between select-none h-screen transition-transform duration-300 ease-in-out ${
           isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
         }`}
       >
         {/* Topo da Sidebar: Identidade Visual e Fechamento Mobile */}
-        <div className="p-4 sm:p-5 border-b border-stone-800 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-[#232732] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-sm shadow-md shadow-emerald-950/40">
+            <div className="w-9 h-9 rounded-xl bg-[#252a34] border border-[#2f3644] flex items-center justify-center text-white font-black text-sm shadow-xs">
               AM
             </div>
             <div>
@@ -538,11 +538,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <h1 className="text-base font-black tracking-tight text-white">
                   Admin Mestre
                 </h1>
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                <span className="text-[9px] bg-[#252a34] text-[#8a92a6] border border-[#2f3644] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   Super
                 </span>
               </div>
-              <p className="text-[11px] text-stone-400 font-medium">
+              <p className="text-[11px] text-[#8a92a6] font-medium">
                 Painel Central Global
               </p>
             </div>
@@ -551,7 +551,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           <button
             type="button"
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="md:hidden p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition"
+            className="md:hidden p-1.5 rounded-lg text-[#8a92a6] hover:text-white hover:bg-[#252a34] transition cursor-pointer"
             title="Fechar menu lateral"
           >
             <X className="w-5 h-5" />
@@ -560,7 +560,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
         {/* Itens do Menu Empilhados Verticalmente */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
-          <div className="px-3 pb-1 text-[11px] font-black uppercase tracking-wider text-stone-400">
+          <div className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-[#8a92a6]">
             Módulos Globais
           </div>
 
@@ -573,33 +573,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             }}
             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'assinantes'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
+                ? 'bg-[#252a34] text-white border border-[#2f3644] shadow-xs'
+                : 'text-[#8a92a6] hover:text-white hover:bg-[#1a1d24] border border-transparent'
             }`}
           >
             <div className="flex items-center gap-3.5 min-w-0">
               <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'assinantes'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+                  ? 'bg-[#3a4150] text-white'
+                  : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white group-hover:bg-[#252a34]'
               }`}>
                 <Users className="w-5 h-5" />
               </div>
               <div className="truncate">
                 <div className={`text-sm sm:text-[15px] leading-snug truncate ${
-                  adminTab === 'assinantes' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                  adminTab === 'assinantes' ? 'text-white font-black' : 'text-white font-bold group-hover:text-white'
                 }`}>
                   Assinantes
                 </div>
-                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
+                <div className="text-xs text-[#8a92a6] font-medium truncate mt-0.5">
                   Clientes e Contratos
                 </div>
               </div>
             </div>
             <span className={`px-2.5 py-1 text-xs rounded-full font-bold shrink-0 ml-2 ${
               adminTab === 'assinantes'
-                ? 'bg-emerald-500/30 text-emerald-300 font-black'
-                : 'bg-stone-800 text-stone-400 group-hover:text-stone-300'
+                ? 'bg-[#3a4150] text-white font-bold'
+                : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white'
             }`}>
               {subscribers.length}
             </span>
@@ -614,33 +614,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             }}
             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'planos'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
+                ? 'bg-[#252a34] text-white border border-[#2f3644] shadow-xs'
+                : 'text-[#8a92a6] hover:text-white hover:bg-[#1a1d24] border border-transparent'
             }`}
           >
             <div className="flex items-center gap-3.5 min-w-0">
               <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'planos'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+                  ? 'bg-[#3a4150] text-white'
+                  : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white group-hover:bg-[#252a34]'
               }`}>
                 <Tag className="w-5 h-5" />
               </div>
               <div className="truncate">
                 <div className={`text-sm sm:text-[15px] leading-snug truncate ${
-                  adminTab === 'planos' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                  adminTab === 'planos' ? 'text-white font-black' : 'text-white font-bold group-hover:text-white'
                 }`}>
                   Módulo de Planos
                 </div>
-                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
+                <div className="text-xs text-[#8a92a6] font-medium truncate mt-0.5">
                   Tabelas de Preços
                 </div>
               </div>
             </div>
             <span className={`px-2.5 py-1 text-xs rounded-full font-bold shrink-0 ml-2 ${
               adminTab === 'planos'
-                ? 'bg-emerald-500/30 text-emerald-300 font-black'
-                : 'bg-stone-800 text-stone-400 group-hover:text-stone-300'
+                ? 'bg-[#3a4150] text-white font-bold'
+                : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white'
             }`}>
               {plans.length}
             </span>
@@ -655,31 +655,31 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             }}
             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'site'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
+                ? 'bg-[#252a34] text-white border border-[#2f3644] shadow-xs'
+                : 'text-[#8a92a6] hover:text-white hover:bg-[#1a1d24] border border-transparent'
             }`}
           >
             <div className="flex items-center gap-3.5 min-w-0">
               <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'site'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+                  ? 'bg-[#3a4150] text-white'
+                  : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white group-hover:bg-[#252a34]'
               }`}>
                 <Globe className="w-5 h-5" />
               </div>
               <div className="truncate">
                 <div className={`text-sm sm:text-[15px] leading-snug truncate ${
-                  adminTab === 'site' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                  adminTab === 'site' ? 'text-white font-black' : 'text-white font-bold group-hover:text-white'
                 }`}>
                   Configurações do Site
                 </div>
-                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
+                <div className="text-xs text-[#8a92a6] font-medium truncate mt-0.5">
                   Landing Page Pública
                 </div>
               </div>
             </div>
             {adminTab === 'site' && (
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shrink-0 ml-2" />
+              <div className="w-2 h-2 rounded-full bg-white shadow-xs shrink-0 ml-2" />
             )}
           </button>
 
@@ -692,46 +692,46 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             }}
             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'configuracoes'
-                ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
+                ? 'bg-[#252a34] text-white border border-[#2f3644] shadow-xs'
+                : 'text-[#8a92a6] hover:text-white hover:bg-[#1a1d24] border border-transparent'
             }`}
           >
             <div className="flex items-center gap-3.5 min-w-0">
               <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'configuracoes'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
+                  ? 'bg-[#3a4150] text-white'
+                  : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white group-hover:bg-[#252a34]'
               }`}>
                 <Key className="w-5 h-5" />
               </div>
               <div className="truncate">
                 <div className={`text-sm sm:text-[15px] leading-snug truncate ${
-                  adminTab === 'configuracoes' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                  adminTab === 'configuracoes' ? 'text-white font-black' : 'text-white font-bold group-hover:text-white'
                 }`}>
                   Webhooks & Admins
                 </div>
-                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
+                <div className="text-xs text-[#8a92a6] font-medium truncate mt-0.5">
                   Segurança & Integrações
                 </div>
               </div>
             </div>
             {adminTab === 'configuracoes' && (
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shrink-0 ml-2" />
+              <div className="w-2 h-2 rounded-full bg-white shadow-xs shrink-0 ml-2" />
             )}
           </button>
         </div>
 
         {/* Rodapé da Sidebar: Sessão & Ações Rápidas */}
-        <div className="p-3 sm:p-4 border-t border-stone-800 space-y-2 bg-stone-900/80 shrink-0">
+        <div className="p-3 sm:p-4 border-t border-[#232732] space-y-2 bg-[#14161d] shrink-0">
           {session && (
-            <div className="px-3 py-2 rounded-xl bg-stone-950/80 border border-stone-800/80 text-xs">
+            <div className="px-3 py-2 rounded-xl bg-[#1a1d24] border border-[#2f3644] text-xs">
               <div className="flex items-center gap-2 mb-0.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#8a92a6]">
                   Super Admin
                 </span>
               </div>
-              <div className="font-mono text-emerald-400 font-bold text-[11px] truncate" title={session.email}>
+              <div className="font-mono text-white font-bold text-[11px] truncate" title={session.email}>
                 {session.email}
               </div>
             </div>
@@ -741,17 +741,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             <button
               type="button"
               onClick={onOpenLandingPage}
-              className="w-full px-3 py-2 bg-stone-800/80 hover:bg-stone-800 text-stone-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-stone-700/60"
+              className="w-full px-3 py-2 bg-[#1e222b] hover:bg-[#252a34] text-[#8a92a6] hover:text-white rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-[#2f3644]"
               title="Abrir a Landing Page pública de vendas"
             >
-              <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <Globe className="w-3.5 h-3.5 text-[#8a92a6] shrink-0" />
               <span className="truncate">Ver Landing Page</span>
             </button>
 
             <button
               type="button"
               onClick={onBackToApp}
-              className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2.5 transition cursor-pointer shadow-sm"
+              className="w-full px-3 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-[#4d576a] shadow-xs"
               title="Acessar o ERP Interno"
             >
               <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -761,7 +761,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             <button
               type="button"
               onClick={handleLogoutMaster}
-              className="w-full px-3 py-2 bg-stone-950 hover:bg-rose-950/40 hover:text-rose-300 hover:border-rose-800/60 text-stone-400 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-stone-800"
+              className="w-full px-3 py-2 bg-[#1a1d24] hover:bg-[#252a34] hover:text-rose-300 text-[#8a92a6] rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer border border-[#2f3644]"
               title="Encerrar sessão e deslogar do Admin Mestre"
             >
               <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
@@ -772,16 +772,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       </aside>
 
       {/* 2. ÁREA DE EXIBIÇÃO DA DIREITA (Começa logo após a Sidebar) */}
-      <div className="flex-1 md:pl-64 xl:pl-72 flex flex-col min-h-screen w-full min-w-0 bg-stone-950">
+      <div className="flex-1 md:pl-64 xl:pl-72 flex flex-col min-h-screen w-full min-w-0 bg-[#1a1d24]">
         
         {/* TopBar Superior da Área de Conteúdo */}
-        <header className="bg-stone-900/90 backdrop-blur-md border-b border-stone-800 sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+        <header className="bg-[#1a1d24]/95 backdrop-blur-md border-b border-[#2f3644] sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             {/* Botão Hambúrguer Mobile */}
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl bg-stone-800 text-stone-300 hover:text-white hover:bg-stone-700 transition shrink-0"
+              className="md:hidden p-2 rounded-xl bg-[#252a34] text-[#8a92a6] hover:text-white hover:bg-[#343a46] transition shrink-0 cursor-pointer border border-[#2f3644]"
               title="Abrir Menu Lateral de Módulos"
             >
               <Menu className="w-5 h-5" />
@@ -795,14 +795,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   {adminTab === 'site' && 'Configurações do Site (Landing Page)'}
                   {adminTab === 'configuracoes' && 'Webhooks & Super Admins'}
                 </h2>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block shrink-0">
+                <span className="text-[10px] bg-[#252a34] text-[#8a92a6] border border-[#2f3644] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block shrink-0">
                   {adminTab === 'assinantes' && `${subscribers.length} registros`}
                   {adminTab === 'planos' && `${plans.length} planos`}
                   {adminTab === 'site' && 'Landing Page'}
                   {adminTab === 'configuracoes' && 'Segurança'}
                 </span>
               </div>
-              <p className="text-xs text-stone-400 hidden sm:block truncate">
+              <p className="text-xs text-[#8a92a6] hidden sm:block truncate">
                 {adminTab === 'assinantes' && 'Gestão unificada de clientes rurais, contratos e faturamento recorrente'}
                 {adminTab === 'planos' && 'Tabelas de preços, limites operacionais e recursos cadastrados'}
                 {adminTab === 'site' && 'Customização visual e conteúdo da Landing Page pública de vendas'}
@@ -817,17 +817,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               type="button"
               onClick={handleManualCloudSync}
               disabled={isSyncingCloud}
-              className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-stone-700 disabled:opacity-60"
+              className="px-3 py-1.5 bg-[#252a34] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-[#2f3644] disabled:opacity-60"
               title="Sincronizar dados em tempo real com o banco de dados Supabase na nuvem"
             >
-              <Database className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+              <Database className={`w-3.5 h-3.5 text-[#8a92a6] ${isSyncingCloud ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{isSyncingCloud ? 'Sincronizando...' : 'Nuvem Supabase'}</span>
             </button>
 
             <button
               type="button"
               onClick={onBackToApp}
-              className="hidden lg:flex px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black items-center gap-1.5 transition cursor-pointer shadow-sm"
+              className="hidden lg:flex px-3 py-1.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-lg text-xs font-bold items-center gap-1.5 transition cursor-pointer border border-[#4d576a] shadow-xs"
               title="Acessar o ERP Interno"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -843,71 +843,83 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             
             {/* 1. Total de Assinantes */}
-            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-              <div className="flex items-center justify-between text-stone-400">
+            <div className="bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-[#8a92a6]">
                 <span className="text-[11px] font-bold uppercase tracking-wider">Total Assinantes</span>
-                <Users className="w-4 h-4 text-stone-400" />
+                <Users className="w-4 h-4 text-[#8a92a6]" />
               </div>
               <p className="text-2xl font-black text-white tracking-tight">
                 {metrics.totalSubscribers}
               </p>
-              <span className="text-[10px] text-stone-500 font-medium">
+              <span className="text-[10px] text-[#8a92a6] font-medium">
                 Registros no banco
               </span>
             </div>
 
             {/* 2. Assinaturas Ativas */}
-            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-              <div className="flex items-center justify-between text-emerald-400">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Ativas</span>
+            <div className="bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-[#8a92a6]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Ativas</span>
+                </div>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl font-black text-emerald-400 tracking-tight">
+              <p className="text-2xl font-black text-white tracking-tight">
                 {metrics.activeSubscribers}
               </p>
-              <span className="text-[10px] text-emerald-500/80 font-medium">
+              <span className="text-[10px] text-[#8a92a6] font-medium">
                 Contratos adimplentes
               </span>
             </div>
 
             {/* 3. Em Trial */}
-            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-              <div className="flex items-center justify-between text-amber-400">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Em Trial</span>
+            <div className="bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-[#8a92a6]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Em Trial</span>
+                </div>
                 <Clock className="w-4 h-4 text-amber-400" />
               </div>
-              <p className="text-2xl font-black text-amber-400 tracking-tight">
+              <p className="text-2xl font-black text-white tracking-tight">
                 {metrics.trialSubscribers}
               </p>
-              <span className="text-[10px] text-amber-500/80 font-medium">
+              <span className="text-[10px] text-[#8a92a6] font-medium">
                 Testando a plataforma
               </span>
             </div>
 
             {/* 4. Suspensas / Inadimplentes */}
-            <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl space-y-1">
-              <div className="flex items-center justify-between text-rose-400">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Suspensas</span>
+            <div className="bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-[#8a92a6]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Suspensas</span>
+                </div>
                 <AlertTriangle className="w-4 h-4 text-rose-400" />
               </div>
-              <p className="text-2xl font-black text-rose-400 tracking-tight">
+              <p className="text-2xl font-black text-white tracking-tight">
                 {metrics.suspendedSubscribers}
               </p>
-              <span className="text-[10px] text-rose-500/80 font-medium">
+              <span className="text-[10px] text-[#8a92a6] font-medium">
                 Inadimplência ou pausa
               </span>
             </div>
 
             {/* 5. MRR Estimado (Soma dinâmica de clientes com status "ATIVA") */}
-            <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-emerald-950/60 to-stone-900 border border-emerald-800/50 p-4 rounded-2xl space-y-1">
-              <div className="flex items-center justify-between text-emerald-300">
-                <span className="text-[11px] font-black uppercase tracking-wider">MRR Estimado</span>
-                <DollarSign className="w-4 h-4 text-emerald-400" />
+            <div className="col-span-2 sm:col-span-1 bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-[#8a92a6]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">MRR Estimado</span>
+                </div>
+                <DollarSign className="w-4 h-4 text-[#8a92a6]" />
               </div>
-              <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+              <p className="text-xl sm:text-2xl font-black text-white tracking-tight">
                 {formatCurrencyBRL(metrics.estimatedMrr)}
               </p>
-              <span className="text-[10px] text-emerald-400/80 font-bold block">
+              <span className="text-[10px] text-[#8a92a6] font-medium block">
                 Receita Recorrente Mensal
               </span>
             </div>
@@ -920,77 +932,82 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           <div className="space-y-4">
             
             {/* Barra de Filtros e Busca */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-stone-900 p-3.5 rounded-2xl border border-stone-800">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[#252a34] p-3.5 rounded-2xl border border-[#2f3644]">
               
               {/* Abas de filtro instantâneo por status */}
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('todas')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                     statusFilter === 'todas'
-                      ? 'bg-stone-700 text-white'
-                      : 'text-stone-400 hover:text-white hover:bg-stone-800'
+                      ? 'bg-[#3a4150] text-white border border-[#4d576a] shadow-xs'
+                      : 'bg-[#1a1d24] text-[#8a92a6] hover:text-white hover:bg-[#202530] border border-[#2f3644]'
                   }`}
                 >
-                  Todas ({subscribers.length})
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8a92a6]" />
+                  <span>Todas ({subscribers.length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('ativa')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                     statusFilter === 'ativa'
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-emerald-400 hover:bg-emerald-950/40'
+                      ? 'bg-[#3a4150] text-white border border-[#4d576a] shadow-xs'
+                      : 'bg-[#1a1d24] text-[#8a92a6] hover:text-white hover:bg-[#202530] border border-[#2f3644]'
                   }`}
                 >
-                  Ativa ({subscribers.filter(s => s.status === 'ativa').length})
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Ativa ({subscribers.filter(s => s.status === 'ativa').length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('trial')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                     statusFilter === 'trial'
-                      ? 'bg-amber-600 text-white'
-                      : 'text-amber-400 hover:bg-amber-950/40'
+                      ? 'bg-[#3a4150] text-white border border-[#4d576a] shadow-xs'
+                      : 'bg-[#1a1d24] text-[#8a92a6] hover:text-white hover:bg-[#202530] border border-[#2f3644]'
                   }`}
                 >
-                  Trial ({subscribers.filter(s => s.status === 'trial').length})
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Trial ({subscribers.filter(s => s.status === 'trial').length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('inadimplente')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                     statusFilter === 'inadimplente'
-                      ? 'bg-rose-600 text-white'
-                      : 'text-rose-400 hover:bg-rose-950/40'
+                      ? 'bg-[#3a4150] text-white border border-[#4d576a] shadow-xs'
+                      : 'bg-[#1a1d24] text-[#8a92a6] hover:text-white hover:bg-[#202530] border border-[#2f3644]'
                   }`}
                 >
-                  Inadimplente ({subscribers.filter(s => s.status === 'inadimplente').length})
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  <span>Inadimplente ({subscribers.filter(s => s.status === 'inadimplente').length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('cancelada')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                     statusFilter === 'cancelada'
-                      ? 'bg-stone-600 text-white'
-                      : 'text-stone-400 hover:bg-stone-800'
+                      ? 'bg-[#3a4150] text-white border border-[#4d576a] shadow-xs'
+                      : 'bg-[#1a1d24] text-[#8a92a6] hover:text-white hover:bg-[#202530] border border-[#2f3644]'
                   }`}
                 >
-                  Cancelada ({subscribers.filter(s => s.status === 'cancelada').length})
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                  <span>Cancelada ({subscribers.filter(s => s.status === 'cancelada').length})</span>
                 </button>
               </div>
 
               {/* Busca e Botão Novo Assinante */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1 sm:w-64">
-                  <Search className="w-4 h-4 text-stone-500 absolute left-3 top-2.5 pointer-events-none" />
+                  <Search className="w-4 h-4 text-[#8a92a6] absolute left-3 top-2.5 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Buscar assinante, e-mail, CNPJ..."
-                    className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white placeholder-stone-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full pl-9 pr-3 py-2 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
 
@@ -1000,7 +1017,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     setEditingSubscriber(null);
                     setIsEditSubscriberOpen(true);
                   }}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                  className="px-3.5 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white border border-[#4d576a] rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Novo Assinante</span>
@@ -1009,33 +1026,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* Tabela de Assinantes */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden shadow-xl">
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-emerald-950 bg-emerald-950/70 text-[11px] font-black text-emerald-400 uppercase tracking-wider">
-                      <th className="py-3.5 px-4 text-emerald-400">Assinante / Empresa</th>
-                      <th className="py-3.5 px-4 text-emerald-400">Responsável & Contato</th>
-                      <th className="py-3.5 px-4 text-emerald-400">Documento / Cidade</th>
-                      <th className="py-3.5 px-4 text-emerald-400">Plano & Valor</th>
-                      <th className="py-3.5 px-4 text-emerald-400">Trial Até</th>
-                      <th className="py-3.5 px-4 text-emerald-400">Status</th>
-                      <th className="py-3.5 px-4 text-right text-emerald-400">Ações</th>
+                    <tr className="border-b border-[#2f3644] bg-[#1e222b] text-[11px] font-bold text-[#8a92a6] uppercase tracking-wider">
+                      <th className="py-3.5 px-4 text-[#8a92a6]">Assinante / Empresa</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]">Responsável & Contato</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]">Documento / Cidade</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]">Plano & Valor</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]">Trial Até</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]">Status</th>
+                      <th className="py-3.5 px-4 text-right text-[#8a92a6]">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-800/60 text-xs">
+                  <tbody className="divide-y divide-[#2f3644]/50 text-xs">
                     {filteredSubscribers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-16 text-center text-stone-400">
+                        <td colSpan={7} className="py-16 text-center text-[#8a92a6]">
                           <div className="flex flex-col items-center justify-center space-y-2">
-                            <Building2 className="w-8 h-8 text-stone-600 stroke-[1.5]" />
-                            <p className="text-sm font-semibold text-stone-300">
+                            <Building2 className="w-8 h-8 text-[#8a92a6] stroke-[1.5]" />
+                            <p className="text-sm font-semibold text-white">
                               {subscribers.length === 0
                                 ? 'Nenhum assinante cadastrado na plataforma até o momento.'
                                 : 'Nenhum assinante encontrado para os critérios selecionados.'}
                             </p>
                             {subscribers.length === 0 && (
-                              <p className="text-xs text-stone-500 max-w-sm">
+                              <p className="text-xs text-[#8a92a6] max-w-sm">
                                 Novos cadastros realizados na plataforma ou criados pelo botão "+ Novo Assinante" aparecerão aqui automaticamente.
                               </p>
                             )}
@@ -1044,15 +1061,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       </tr>
                     ) : (
                       filteredSubscribers.map((sub) => (
-                        <tr key={sub.id} className="hover:bg-stone-800/40 transition">
+                        <tr key={sub.id} className="hover:bg-[#2a303c] transition-colors">
                           
                           {/* Nome do Assinante */}
                           <td className="py-3 px-4 font-bold text-white">
                             <div className="flex items-center gap-2">
-                              <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <Building2 className="w-4 h-4 text-[#8a92a6] shrink-0" />
                               <div>
-                                <span>{sub.name}</span>
-                                <span className="block text-[10px] text-stone-500 font-mono">
+                                <span className="text-white font-bold">{sub.name}</span>
+                                <span className="block text-[10px] text-[#8a92a6] font-mono">
                                   ID: {sub.id}
                                 </span>
                               </div>
@@ -1060,131 +1077,129 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           </td>
 
                           {/* Email & Telefone */}
-                          <td className="py-3 px-4 text-stone-300">
+                          <td className="py-3 px-4 text-[#d1d5db]">
                             <div>
-                              <span className="font-medium text-stone-200 block">{sub.responsibleEmail}</span>
-                              <span className="text-[11px] text-stone-400 font-mono">{sub.phone || '-'}</span>
+                              <span className="font-medium text-white block">{sub.responsibleEmail}</span>
+                              <span className="text-[11px] text-[#8a92a6] font-mono">{sub.phone || '-'}</span>
                             </div>
                           </td>
 
                           {/* Documento & Cidade */}
-                          <td className="py-3 px-4 text-stone-300">
-                            <span className="font-mono text-stone-300 block">{sub.cpfCnpj || '-'}</span>
-                            <span className="text-[11px] text-stone-400">
+                          <td className="py-3 px-4 text-[#d1d5db]">
+                            <span className="font-mono text-white block">{sub.cpfCnpj || '-'}</span>
+                            <span className="text-[11px] text-[#8a92a6]">
                               {sub.city ? `${sub.city} - ${sub.state}` : '-'}
                             </span>
                           </td>
 
                           {/* Plano & Valor */}
                           <td className="py-3 px-4">
-                            <span className="font-black text-teal-400 block">{sub.planName}</span>
-                            <span className="text-[11px] font-black text-emerald-400">
+                            <span className="font-bold text-white block">{sub.planName}</span>
+                            <span className="text-[11px] font-semibold text-[#8a92a6]">
                               {formatCurrencyBRL(sub.monthlyValue)}/mês
                             </span>
                           </td>
 
                           {/* Trial Até */}
-                          <td className="py-3 px-4 font-mono text-stone-300">
+                          <td className="py-3 px-4 font-mono text-[#8a92a6]">
                             {sub.trialUntil ? new Date(sub.trialUntil + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
                           </td>
 
                           {/* Status */}
                           <td className="py-3 px-4">
-                            <select
-                              value={sub.status}
-                              onChange={(e) => handleQuickStatusChange(sub.id, e.target.value as SubscriberStatus)}
-                              className={`text-[11px] font-black px-2.5 py-1 rounded-lg border outline-none cursor-pointer ${
-                                sub.status === 'ativa'
-                                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
-                                  : sub.status === 'trial'
-                                  ? 'bg-amber-950/60 text-amber-300 border-amber-800'
-                                  : sub.status === 'inadimplente'
-                                  ? 'bg-rose-950/60 text-rose-300 border-rose-800'
-                                  : sub.status === 'suspensa'
-                                  ? 'bg-purple-950/60 text-purple-300 border-purple-800'
-                                  : 'bg-stone-800 text-stone-400 border-stone-700'
-                              }`}
-                            >
-                              <option value="ativa">Ativa</option>
-                              <option value="trial">Trial</option>
-                              <option value="inadimplente">Inadimplente</option>
-                              <option value="suspensa">Suspensa</option>
-                              <option value="cancelada">Cancelada</option>
-                            </select>
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1a1d24] border border-[#2f3644]">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                sub.status === 'ativa' ? 'bg-emerald-400' :
+                                sub.status === 'trial' ? 'bg-amber-400' :
+                                sub.status === 'inadimplente' ? 'bg-rose-400' :
+                                sub.status === 'suspensa' ? 'bg-purple-400' : 'bg-zinc-500'
+                              }`} />
+                              <select
+                                value={sub.status}
+                                onChange={(e) => handleQuickStatusChange(sub.id, e.target.value as SubscriberStatus)}
+                                className="bg-transparent text-[11px] font-bold text-[#d1d5db] outline-none cursor-pointer"
+                              >
+                                <option value="ativa" className="bg-[#1a1d24] text-white">Ativa</option>
+                                <option value="trial" className="bg-[#1a1d24] text-white">Trial</option>
+                                <option value="inadimplente" className="bg-[#1a1d24] text-white">Inadimplente</option>
+                                <option value="suspensa" className="bg-[#1a1d24] text-white">Suspensa</option>
+                                <option value="cancelada" className="bg-[#1a1d24] text-white">Cancelada</option>
+                              </select>
+                            </div>
                           </td>
 
                           {/* Ações Rápidas */}
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
-                              {/* 1. Botão Verde "→ Entrar" (Personificação / Impersonate) */}
+                              {/* 1. Botão Cinza Médio "→ Entrar" (Personificação / Impersonate) */}
                               <button
                                 type="button"
                                 onClick={() => handleImpersonate(sub)}
-                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1 transition shadow-sm cursor-pointer whitespace-nowrap"
+                                className="px-2.5 py-1.5 bg-[#343a46] hover:bg-[#414856] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors border border-[#444d5c] shadow-2xs cursor-pointer whitespace-nowrap"
                                 title={`Entrar no painel operacional de ${sub.name} (Modo Personificação)`}
                               >
                                 <span>→ Entrar</span>
                               </button>
 
-                              {/* 2. Ícone de Pausa (Laranja) ou Play (Verde) (Suspensão/Reativação) */}
+                              {/* 2. Ícone de Pausa ou Play (Suspensão/Reativação) */}
                               {sub.status === 'suspensa' ? (
                                 <button
                                   type="button"
                                   onClick={() => setPauseModalSubscriber(sub)}
-                                  className="p-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 rounded-lg transition cursor-pointer border border-emerald-800/60"
+                                  className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
                                   title="Reativar Assinatura (Liberar Acesso)"
                                 >
-                                  <Play className="w-4 h-4" />
+                                  <Play className="w-4 h-4 text-emerald-400" />
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => setPauseModalSubscriber(sub)}
-                                  className="p-1.5 bg-amber-950/60 hover:bg-amber-900/80 text-amber-400 rounded-lg transition cursor-pointer border border-amber-800/60"
+                                  className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
                                   title="Pausar / Suspender Assinatura (Bloquear ERP por pendência)"
                                 >
-                                  <Pause className="w-4 h-4" />
+                                  <Pause className="w-4 h-4 text-amber-400" />
                                 </button>
                               )}
 
-                              {/* 3. Ícone do Lápis (Amarelo - Editar Informações) */}
+                              {/* 3. Ícone do Lápis (Editar Informações) */}
                               <button
                                 type="button"
                                 onClick={() => {
                                   setEditingSubscriber(sub);
                                   setIsEditSubscriberOpen(true);
                                 }}
-                                className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-lg transition cursor-pointer border border-amber-500/30"
-                                title="Editar Informações do Assinante (com busca por CEP e troca de plano)"
+                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
+                                title="Editar Informações do Assinante"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
 
-                              {/* 4. Ícone do Cadeado (Azul - Redefinir Senha) */}
+                              {/* 4. Ícone do Cadeado (Redefinir Senha) */}
                               <button
                                 type="button"
                                 onClick={() => setResetPasswordSubscriber(sub)}
-                                className="p-1.5 bg-sky-950/60 hover:bg-sky-900/80 text-sky-400 rounded-lg transition cursor-pointer border border-sky-800/60"
+                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
                                 title="Redefinir Senha do Assinante no Supabase"
                               >
                                 <Lock className="w-4 h-4" />
                               </button>
 
-                              {/* 5. Ícone do Cubo/Caixa (Roxo - Alterar Módulo/Plano) */}
+                              {/* 5. Ícone do Cubo/Caixa (Alterar Módulo/Plano) */}
                               <button
                                 type="button"
                                 onClick={() => setChangePlanSubscriber(sub)}
-                                className="p-1.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-400 rounded-lg transition cursor-pointer border border-purple-800/60"
-                                title="Alterar Módulo/Plano Comercial (Sincronizado do Supabase)"
+                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
+                                title="Alterar Módulo/Plano Comercial"
                               >
                                 <Package className="w-4 h-4" />
                               </button>
 
-                              {/* 6. Ícone do Calendário (Marrom - Estender Trial) */}
+                              {/* 6. Ícone do Calendário (Estender Trial) */}
                               <button
                                 type="button"
                                 onClick={() => setExtendTrialSubscriber(sub)}
-                                className="p-1.5 bg-stone-800 hover:bg-stone-700 text-amber-500 rounded-lg transition cursor-pointer border border-amber-900/40"
+                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
                                 title="Estender Período de Testes (Trial)"
                               >
                                 <Calendar className="w-4 h-4" />
@@ -1197,7 +1212,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                                   setViewingSubscriber(sub);
                                   setIsDetailSubscriberOpen(true);
                                 }}
-                                className="p-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white rounded-lg transition cursor-pointer"
+                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
                                 title="Visualizar Ficha Completa"
                               >
                                 <Eye className="w-4 h-4" />
@@ -1207,7 +1222,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleDeleteSubscriber(sub.id, sub.name)}
-                                className="p-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-lg transition cursor-pointer border border-rose-800/40"
+                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-rose-400 rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
                                 title="Remover Assinante"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1229,12 +1244,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         {/* ======================================================== */}
         {adminTab === 'planos' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-stone-900 p-4 rounded-2xl border border-stone-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#252a34] p-4 rounded-2xl border border-[#2f3644]">
               <div>
                 <h2 className="text-sm font-black text-white">
                   Planos Comerciais da Plataforma
                 </h2>
-                <p className="text-xs text-stone-400">
+                <p className="text-xs text-[#8a92a6]">
                   Planos com status ativo aparecem na Landing Page pública com link direto de checkout.
                 </p>
               </div>
@@ -1244,7 +1259,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   setEditingPlan(null);
                   setIsPlanModalOpen(true);
                 }}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+                className="px-3.5 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white border border-[#4d576a] rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto shadow-xs"
               >
                 <Plus className="w-4 h-4" />
                 <span>Novo Plano</span>
@@ -1255,14 +1270,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               {plans.map((p) => (
                 <div 
                   key={p.id}
-                  className={`bg-stone-900 rounded-2xl border p-5 flex flex-col justify-between space-y-4 relative ${
+                  className={`bg-[#252a34] rounded-2xl border p-5 flex flex-col justify-between space-y-4 relative ${
                     p.isFeatured 
-                      ? 'border-emerald-500/80 shadow-lg shadow-emerald-950/50 ring-1 ring-emerald-500/40' 
-                      : 'border-stone-800'
+                      ? 'border-[#4d576a] shadow-md ring-1 ring-[#4d576a]/60' 
+                      : 'border-[#2f3644]'
                   }`}
                 >
                   {p.isFeatured && (
-                    <span className="absolute -top-3 right-4 px-3 py-0.5 bg-emerald-500 text-stone-950 text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm">
+                    <span className="absolute -top-3 right-4 px-3 py-0.5 bg-[#3a4150] text-white border border-[#4d576a] text-[10px] font-bold rounded-full uppercase tracking-wider shadow-xs">
                       Destaque
                     </span>
                   )}
@@ -1271,54 +1286,51 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-base font-black text-white">{p.name}</h3>
-                        <span className="text-[11px] text-stone-400">Ordem de Exibição: #{p.displayOrder}</span>
+                        <span className="text-[11px] text-[#8a92a6]">Ordem de Exibição: #{p.displayOrder}</span>
                       </div>
-                      <span className={`px-2.5 py-0.5 text-[10px] font-black rounded-full border ${
-                        p.isActive 
-                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800' 
-                          : 'bg-stone-800 text-stone-500 border-stone-700'
-                      }`}>
-                        {p.isActive ? 'ATIVO NO SITE' : 'INATIVO'}
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border bg-[#1a1d24] text-[#d1d5db] border-[#2f3644]">
+                        <span className={`w-1.5 h-1.5 rounded-full ${p.isActive ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+                        <span>{p.isActive ? 'ATIVO NO SITE' : 'INATIVO'}</span>
                       </span>
                     </div>
 
-                    <p className="text-xs text-stone-400 min-h-[36px]">
+                    <p className="text-xs text-[#8a92a6] min-h-[36px]">
                       {p.description}
                     </p>
 
-                    <div className="pt-2 border-t border-stone-800">
-                      <span className="text-2xl font-black text-emerald-400 tracking-tight">
+                    <div className="pt-2 border-t border-[#2f3644]">
+                      <span className="text-2xl font-black text-white tracking-tight">
                         {formatCurrencyBRL(p.price)}
                       </span>
-                      <span className="text-xs text-stone-400">/mês</span>
+                      <span className="text-xs text-[#8a92a6] ml-1">/mês</span>
                     </div>
 
                     {/* Limites */}
-                    <div className="p-3 bg-stone-950/70 rounded-xl border border-stone-800/80 text-[11px] space-y-1 text-stone-300">
+                    <div className="p-3 bg-[#1a1d24] rounded-xl border border-[#2f3644] text-[11px] space-y-1 text-[#d1d5db]">
                       <div className="flex justify-between">
-                        <span className="text-stone-500">Máquinas/Veículos:</span>
-                        <span className="font-bold">{p.limits.maxMachineries === 'unlimited' ? 'Ilimitado' : p.limits.maxMachineries}</span>
+                        <span className="text-[#8a92a6]">Máquinas/Veículos:</span>
+                        <span className="font-bold text-white">{p.limits.maxMachineries === 'unlimited' ? 'Ilimitado' : p.limits.maxMachineries}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-stone-500">Usuários no painel:</span>
-                        <span className="font-bold">{p.limits.maxUsers === 'unlimited' ? 'Ilimitado' : p.limits.maxUsers}</span>
+                        <span className="text-[#8a92a6]">Usuários no painel:</span>
+                        <span className="font-bold text-white">{p.limits.maxUsers === 'unlimited' ? 'Ilimitado' : p.limits.maxUsers}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-stone-500">Clientes CRM:</span>
-                        <span className="font-bold">{p.limits.maxClients === 'unlimited' ? 'Ilimitado' : p.limits.maxClients}</span>
+                        <span className="text-[#8a92a6]">Clientes CRM:</span>
+                        <span className="font-bold text-white">{p.limits.maxClients === 'unlimited' ? 'Ilimitado' : p.limits.maxClients}</span>
                       </div>
                     </div>
 
                     {/* Features Preview */}
-                    <div className="space-y-1.5 text-xs text-stone-300">
-                      <span className="text-[10px] font-black text-stone-500 uppercase tracking-wider block">
+                    <div className="space-y-1.5 text-xs text-[#d1d5db]">
+                      <span className="text-[10px] font-bold text-[#8a92a6] uppercase tracking-wider block">
                         Features (renderizadas no site):
                       </span>
                       <ul className="space-y-1">
                         {p.featuresText.split('\n').filter(Boolean).slice(0, 4).map((feat, idx) => (
                           <li key={idx} className="flex items-center gap-2 text-[11px]">
                             <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span className="truncate">{feat}</span>
+                            <span className="truncate text-[#d1d5db]">{feat}</span>
                           </li>
                         ))}
                       </ul>
@@ -1326,14 +1338,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   </div>
 
                   {/* Botões de Ação */}
-                  <div className="pt-3 border-t border-stone-800 flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-[#2f3644] flex items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => {
                         setEditingPlan(p);
                         setIsPlanModalOpen(true);
                       }}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      className="flex-1 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white border border-[#4d576a] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                     >
                       <Edit className="w-3.5 h-3.5" />
                       <span>Refatorar Plano</span>
@@ -1342,7 +1354,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDeletePlan(p.id, p.name)}
-                      className="p-2 bg-stone-800 hover:bg-rose-900/50 text-stone-400 hover:text-rose-300 rounded-xl transition cursor-pointer border border-stone-700"
+                      className="p-2 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-rose-400 rounded-xl transition cursor-pointer border border-[#2f3644]"
                       title="Excluir Plano"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1364,19 +1376,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             {siteSaveSuccess && (
               <div 
                 id="toast-landing-settings-success"
-                className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-2xl shadow-emerald-950/80 border border-emerald-400 font-bold text-xs"
+                className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-[#252a34] text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-[#4d576a] font-bold text-xs"
               >
-                <CheckCircle2 className="w-5 h-5 text-emerald-100 shrink-0" />
-                <span className="font-black text-sm">Configurações da Landing Page salvas com sucesso!</span>
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <span className="font-bold text-sm text-white">Configurações da Landing Page salvas com sucesso!</span>
               </div>
             )}
 
-            <div className="flex items-center justify-between bg-stone-900 p-4 rounded-2xl border border-stone-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#252a34] p-4 rounded-2xl border border-[#2f3644]">
               <div>
                 <h2 className="text-sm font-black text-white">
                   Controle Dinâmico da Landing Page Pública
                 </h2>
-                <p className="text-xs text-stone-400">
+                <p className="text-xs text-[#8a92a6]">
                   Edite os títulos, chamadas e cartões de recursos. Ao salvar, a Landing Page atualiza instantaneamente.
                 </p>
               </div>
@@ -1384,7 +1396,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 type="button"
                 id="btn-save-site-config-top"
                 onClick={() => handleSaveSiteConfig()}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-sm shadow-emerald-950"
+                className="px-5 py-2.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white border border-[#4d576a] rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer self-start sm:self-auto shadow-xs"
               >
                 <Save className="w-4 h-4" />
                 <span>Salvar Alterações</span>
@@ -1392,26 +1404,26 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {siteSaveSuccess && (
-              <div className="p-3.5 bg-emerald-950/60 border border-emerald-800/80 rounded-2xl text-xs font-bold text-emerald-300 flex items-center gap-2">
+              <div className="p-3.5 bg-[#252a34] border border-[#2f3644] rounded-2xl text-xs font-bold text-white flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Configurações da Landing Page salvas com sucesso!</span>
               </div>
             )}
 
             {/* BLOCO HERO */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2">
-                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+              <div className="border-b border-[#2f3644] pb-2">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   1. Bloco Hero (Topo da Página)
                 </h3>
-                <p className="text-[11px] text-stone-400">
+                <p className="text-[11px] text-[#8a92a6]">
                   Configuração do título principal, subtítulo e textos dos botões de conversão.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     TÍTULO PRINCIPAL (H1) *
                   </label>
                   <input
@@ -1419,12 +1431,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     required
                     value={siteForm.heroTitle}
                     onChange={(e) => setSiteForm({ ...siteForm, heroTitle: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-black text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     SUBTÍTULO *
                   </label>
                   <textarea
@@ -1432,12 +1444,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     required
                     value={siteForm.heroSubtitle}
                     onChange={(e) => setSiteForm({ ...siteForm, heroSubtitle: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-medium text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-medium text-[#d1d5db] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     TEXTO BOTÃO PRINCIPAL *
                   </label>
                   <input
@@ -1445,12 +1457,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     required
                     value={siteForm.heroPrimaryBtnText}
                     onChange={(e) => setSiteForm({ ...siteForm, heroPrimaryBtnText: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     TEXTO BOTÃO SECUNDÁRIO *
                   </label>
                   <input
@@ -1458,7 +1470,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     required
                     value={siteForm.heroSecondaryBtnText}
                     onChange={(e) => setSiteForm({ ...siteForm, heroSecondaryBtnText: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
 
@@ -1477,12 +1489,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* BLOCO IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR) */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2">
-                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+              <div className="border-b border-[#2f3644] pb-2">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   2. Imagem de Destaque dos Recursos (Seção Inferior)
                 </h3>
-                <p className="text-[11px] text-stone-400">
+                <p className="text-[11px] text-[#8a92a6]">
                   Imagem ilustrativa das funcionalidades do sistema, exibida logo abaixo do bloco de cabeçalho de recursos na Landing Page.
                 </p>
               </div>
@@ -1498,19 +1510,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* BLOCO CABEÇALHO DE RECURSOS */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2">
-                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+              <div className="border-b border-[#2f3644] pb-2">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   3. Bloco Cabeçalho de Recursos
                 </h3>
-                <p className="text-[11px] text-stone-400">
+                <p className="text-[11px] text-[#8a92a6]">
                   Cabeçalho da seção de diferenciais da página de vendas.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     TÍTULO DA SEÇÃO *
                   </label>
                   <input
@@ -1518,12 +1530,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     required
                     value={siteForm.featuresSectionTitle}
                     onChange={(e) => setSiteForm({ ...siteForm, featuresSectionTitle: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-black text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     SUBTÍTULO DA SEÇÃO *
                   </label>
                   <input
@@ -1531,19 +1543,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     required
                     value={siteForm.featuresSectionSubtitle}
                     onChange={(e) => setSiteForm({ ...siteForm, featuresSectionSubtitle: e.target.value })}
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-medium text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-medium text-[#d1d5db] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                 </div>
               </div>
             </div>
 
             {/* BLOCO RECURSOS (BENEFÍCIOS) - 4 CARTÕES CONECTADOS */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2">
-                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+              <div className="border-b border-[#2f3644] pb-2">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   4. Bloco Recursos (Benefícios - 4 Cartões da Landing Page)
                 </h3>
-                <p className="text-[11px] text-stone-400">
+                <p className="text-[11px] text-[#8a92a6]">
                   Estes campos alimentam diretamente os 4 cartões de benefícios da página pública de vendas.
                 </p>
               </div>
@@ -1551,109 +1563,109 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Recurso #1 */}
-                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
-                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                <div className="p-4 bg-[#1a1d24] rounded-xl border border-[#2f3644] space-y-3">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider block">
                     RECURSO #1
                   </span>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">TÍTULO</label>
                     <input
                       type="text"
                       required
                       value={siteForm.feature1Title}
                       onChange={(e) => setSiteForm({ ...siteForm, feature1Title: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs font-bold text-white outline-none focus:border-[#4d576a]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">DESCRIÇÃO</label>
                     <textarea
                       rows={2}
                       required
                       value={siteForm.feature1Desc}
                       onChange={(e) => setSiteForm({ ...siteForm, feature1Desc: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs text-[#d1d5db] outline-none focus:border-[#4d576a]"
                     />
                   </div>
                 </div>
 
                 {/* Recurso #2 */}
-                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
-                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                <div className="p-4 bg-[#1a1d24] rounded-xl border border-[#2f3644] space-y-3">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider block">
                     RECURSO #2
                   </span>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">TÍTULO</label>
                     <input
                       type="text"
                       required
                       value={siteForm.feature2Title}
                       onChange={(e) => setSiteForm({ ...siteForm, feature2Title: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs font-bold text-white outline-none focus:border-[#4d576a]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">DESCRIÇÃO</label>
                     <textarea
                       rows={2}
                       required
                       value={siteForm.feature2Desc}
                       onChange={(e) => setSiteForm({ ...siteForm, feature2Desc: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs text-[#d1d5db] outline-none focus:border-[#4d576a]"
                     />
                   </div>
                 </div>
 
                 {/* Recurso #3 */}
-                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
-                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                <div className="p-4 bg-[#1a1d24] rounded-xl border border-[#2f3644] space-y-3">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider block">
                     RECURSO #3
                   </span>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">TÍTULO</label>
                     <input
                       type="text"
                       required
                       value={siteForm.feature3Title}
                       onChange={(e) => setSiteForm({ ...siteForm, feature3Title: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs font-bold text-white outline-none focus:border-[#4d576a]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">DESCRIÇÃO</label>
                     <textarea
                       rows={2}
                       required
                       value={siteForm.feature3Desc}
                       onChange={(e) => setSiteForm({ ...siteForm, feature3Desc: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs text-[#d1d5db] outline-none focus:border-[#4d576a]"
                     />
                   </div>
                 </div>
 
                 {/* Recurso #4 */}
-                <div className="p-4 bg-stone-950/60 rounded-xl border border-stone-800 space-y-3">
-                  <span className="text-xs font-black text-emerald-400 uppercase tracking-wider block">
+                <div className="p-4 bg-[#1a1d24] rounded-xl border border-[#2f3644] space-y-3">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider block">
                     RECURSO #4
                   </span>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">TÍTULO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">TÍTULO</label>
                     <input
                       type="text"
                       required
                       value={siteForm.feature4Title}
                       onChange={(e) => setSiteForm({ ...siteForm, feature4Title: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs font-bold text-white outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs font-bold text-white outline-none focus:border-[#4d576a]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-400 mb-1">DESCRIÇÃO</label>
+                    <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">DESCRIÇÃO</label>
                     <textarea
                       rows={2}
                       required
                       value={siteForm.feature4Desc}
                       onChange={(e) => setSiteForm({ ...siteForm, feature4Desc: e.target.value })}
-                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-stone-200 outline-none"
+                      className="w-full p-2 bg-[#252a34] border border-[#2f3644] rounded-lg text-xs text-[#d1d5db] outline-none focus:border-[#4d576a]"
                     />
                   </div>
                 </div>
@@ -1666,7 +1678,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 type="button"
                 id="btn-save-site-config-bottom"
                 onClick={() => handleSaveSiteConfig()}
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-950"
+                className="px-6 py-3 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white border border-[#4d576a] rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm"
               >
                 <Save className="w-4 h-4" />
                 <span>Salvar Todas as Alterações do Site</span>
@@ -1679,40 +1691,40 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         {/* ABA 4: CONFIGURAÇÕES (WEBHOOKS E SUPER ADMINS)            */}
         {/* ======================================================== */}
         {adminTab === 'configuracoes' && (
-          <div className="space-y-6 bg-zinc-50 dark:bg-stone-900/60 p-4 sm:p-6 rounded-2xl border border-zinc-300 dark:border-stone-800 shadow-xs">
+          <div className="space-y-6 bg-[#1a1d24] p-4 sm:p-6 rounded-2xl border border-[#2f3644] shadow-xs">
             
             {/* Cabeçalho do Módulo */}
-            <div className="bg-white dark:bg-stone-900 p-4 sm:p-5 rounded-xl border border-zinc-300 dark:border-stone-800 shadow-2xs">
-              <h2 className="text-base font-black text-zinc-900 dark:text-white tracking-tight">
+            <div className="bg-[#252a34] p-4 sm:p-5 rounded-xl border border-[#2f3644] shadow-2xs">
+              <h2 className="text-base font-black text-white tracking-tight">
                 Webhooks de Pagamento & Permissões de Super Admin
               </h2>
-              <p className="text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
+              <p className="text-xs text-[#8a92a6] font-medium mt-0.5">
                 Integre plataformas de checkout automáticas e gerencie os e-mails com permissão de acesso ao Admin Mestre.
               </p>
             </div>
 
             {settingsSaveSuccess && (
-              <div className="p-3.5 bg-zinc-100 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2 shadow-2xs">
-                <CheckCircle2 className="w-4 h-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
+              <div className="p-3.5 bg-[#252a34] border border-[#2f3644] rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Configurações atualizadas com sucesso!</span>
               </div>
             )}
 
             {/* Form Webhooks */}
-            <form onSubmit={handleSaveAdminSettings} className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl p-5 space-y-4 shadow-2xs">
-              <div className="border-b border-zinc-200 dark:border-stone-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <form onSubmit={handleSaveAdminSettings} className="bg-[#252a34] border border-[#2f3644] rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-[#2f3644] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <Webhook className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Webhook className="w-4 h-4 text-[#8a92a6]" />
                     <span>URLs de Webhook de Pagamento</span>
                   </h3>
-                  <p className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
+                  <p className="text-[11px] text-[#8a92a6] font-medium mt-0.5">
                     Insira as rotas de retorno das plataformas para aprovação e cancelamento automático de assinantes.
                   </p>
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-white rounded-lg text-xs font-bold border border-zinc-900 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-zinc-600"
+                  className="px-4 py-2 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-[#4d576a]"
                 >
                   <Save className="w-4 h-4" />
                   <span>Salvar Webhooks</span>
@@ -1721,7 +1733,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
               <div className="space-y-3.5 pt-1">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1 tracking-wide">
                     WEBHOOK KIWIFY
                   </label>
                   <input
@@ -1729,12 +1741,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={settingsForm.webhookKiwify}
                     onChange={(e) => setSettingsForm({ ...settingsForm, webhookKiwify: e.target.value })}
                     placeholder="https://api.seusistema.com.br/webhooks/kiwify"
-                    className="w-full p-2.5 bg-zinc-50 dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none transition shadow-2xs"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-mono text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1 tracking-wide">
                     WEBHOOK CAKTO
                   </label>
                   <input
@@ -1742,12 +1754,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={settingsForm.webhookCakto}
                     onChange={(e) => setSettingsForm({ ...settingsForm, webhookCakto: e.target.value })}
                     placeholder="https://api.seusistema.com.br/webhooks/cakto"
-                    className="w-full p-2.5 bg-zinc-50 dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none transition shadow-2xs"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-mono text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1 tracking-wide">
                     WEBHOOK PERFECTPAY
                   </label>
                   <input
@@ -1755,20 +1767,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={settingsForm.webhookPerfectPay}
                     onChange={(e) => setSettingsForm({ ...settingsForm, webhookPerfectPay: e.target.value })}
                     placeholder="https://api.seusistema.com.br/webhooks/perfectpay"
-                    className="w-full p-2.5 bg-zinc-50 dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none transition shadow-2xs"
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-mono text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
                   />
                 </div>
               </div>
             </form>
 
             {/* SUPER ADMINS */}
-            <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl p-5 space-y-4 shadow-2xs">
-              <div className="border-b border-zinc-200 dark:border-stone-800 pb-3">
-                <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-[#2f3644] pb-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#8a92a6]" />
                   <span>E-mails Autorizados a Acessar o Admin Mestre</span>
                 </h3>
-                <p className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
+                <p className="text-[11px] text-[#8a92a6] font-medium mt-0.5">
                   Usuários com estes e-mails possuem privilégios de super admin para administrar a plataforma.
                 </p>
               </div>
@@ -1776,7 +1788,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               {/* Input e Botão "+ Adicionar" */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Mail className="w-4 h-4 text-zinc-400 absolute left-3 top-3 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-[#8a92a6] absolute left-3 top-3 pointer-events-none" />
                   <input
                     type="email"
                     value={newSuperAdminEmail}
@@ -1788,14 +1800,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       }
                     }}
                     placeholder="Digite o e-mail do super admin (ex: admin@empresa.com)"
-                    className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none transition shadow-2xs"
+                    className="w-full pl-9 pr-3 py-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleAddSuperAdminEmail}
-                  className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-white rounded-lg text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-600"
+                  className="px-4 py-2.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-xs focus:outline-none focus:ring-1 focus:ring-[#4d576a]"
                 >
                   <Plus className="w-4 h-4 stroke-[2.5]" />
                   <span>+ Adicionar</span>
@@ -1807,19 +1819,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 {settingsForm.superAdminEmails.map((email) => (
                   <div
                     key={email}
-                    className="flex items-center justify-between p-3 bg-white dark:bg-stone-950 rounded-lg border border-zinc-300 dark:border-stone-800 text-xs shadow-2xs hover:border-zinc-400 dark:hover:border-stone-700 transition-colors"
+                    className="flex items-center justify-between p-3 bg-[#1a1d24] rounded-lg border border-[#2f3644] text-xs shadow-2xs hover:border-[#4d576a] transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-stone-800 text-zinc-800 dark:text-zinc-200 flex items-center justify-center font-bold text-[10px] border border-zinc-300 dark:border-stone-700 shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-[#252a34] text-[#8a92a6] flex items-center justify-center font-bold text-[10px] border border-[#2f3644] shrink-0">
                         ✓
                       </div>
-                      <span className="font-bold text-zinc-900 dark:text-white font-mono">{email}</span>
+                      <span className="font-bold text-white font-mono">{email}</span>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleRemoveSuperAdminEmail(email)}
-                      className="text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition cursor-pointer"
+                      className="text-[#8a92a6] hover:text-rose-400 p-1.5 hover:bg-[#252a34] rounded-md transition cursor-pointer"
                       title="Remover autorização"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1830,32 +1842,32 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* SENHA MESTRE DE ACESSO */}
-            <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl p-5 space-y-4 shadow-2xs">
-              <div className="border-b border-zinc-200 dark:border-stone-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-[#2f3644] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-[#8a92a6]" />
                     <span>Alterar Senha Mestre de Acesso</span>
                   </h3>
-                  <p className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
+                  <p className="text-[11px] text-[#8a92a6] font-medium mt-0.5">
                     Defina uma nova senha mestre forte para autenticação dos Super Administradores.
                   </p>
                 </div>
-                <div className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-stone-950 border border-zinc-300 dark:border-stone-800 text-[10px] text-zinc-600 dark:text-stone-400 font-mono self-start sm:self-auto">
+                <div className="px-2.5 py-1 rounded-md bg-[#1a1d24] border border-[#2f3644] text-[10px] text-[#8a92a6] font-mono self-start sm:self-auto">
                   Mínimo 6 caracteres
                 </div>
               </div>
 
               {passwordChangeSuccess && (
-                <div className="p-3 bg-zinc-100 dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2 shadow-2xs">
-                  <CheckCircle2 className="w-4 h-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
+                <div className="p-3 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white flex items-center gap-2 shadow-2xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>Senha mestre atualizada com sucesso! Todas as sessões administrativas usarão a nova credencial.</span>
                 </div>
               )}
 
               {passwordChangeError && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800/80 rounded-lg text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-2 shadow-2xs">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <div className="p-3 bg-[#1a1d24] border border-rose-800/80 rounded-lg text-xs font-bold text-rose-300 flex items-center gap-2 shadow-2xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>{passwordChangeError}</span>
                 </div>
               )}
@@ -1863,11 +1875,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               <form onSubmit={handleChangeMasterPassword} className="space-y-3.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
+                    <label className="block text-xs font-bold text-[#8a92a6] mb-1 tracking-wide">
                       NOVA SENHA MESTRE
                     </label>
                     <div className="relative">
-                      <Key className="w-4 h-4 text-zinc-400 absolute left-3 top-3 pointer-events-none" />
+                      <Key className="w-4 h-4 text-[#8a92a6] absolute left-3 top-3 pointer-events-none" />
                       <input
                         type="password"
                         value={newMasterPassword}
@@ -1876,17 +1888,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           if (passwordChangeError) setPasswordChangeError(null);
                         }}
                         placeholder="Digite a nova senha"
-                        className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none transition shadow-2xs"
+                        className="w-full pl-9 pr-3 py-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
+                    <label className="block text-xs font-bold text-[#8a92a6] mb-1 tracking-wide">
                       CONFIRMAR NOVA SENHA
                     </label>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3 pointer-events-none" />
+                      <Lock className="w-4 h-4 text-[#8a92a6] absolute left-3 top-3 pointer-events-none" />
                       <input
                         type="password"
                         value={confirmMasterPassword}
@@ -1895,7 +1907,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           if (passwordChangeError) setPasswordChangeError(null);
                         }}
                         placeholder="Confirme a nova senha"
-                        className="w-full pl-9 pr-3 py-2.5 bg-zinc-50 dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-600/30 focus:border-zinc-600 outline-none transition shadow-2xs"
+                        className="w-full pl-9 pr-3 py-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs text-white placeholder-[#8a92a6] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition shadow-2xs"
                       />
                     </div>
                   </div>
@@ -1904,7 +1916,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <div className="flex items-center justify-end pt-1">
                   <button
                     type="submit"
-                    className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-white rounded-lg text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-600"
+                    className="px-5 py-2.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center gap-1.5 transition cursor-pointer shadow-xs focus:outline-none focus:ring-1 focus:ring-[#4d576a]"
                   >
                     <Save className="w-4 h-4" />
                     <span>Salvar Nova Senha Mestre</span>

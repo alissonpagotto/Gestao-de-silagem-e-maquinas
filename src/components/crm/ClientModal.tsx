@@ -443,7 +443,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
   return (
     <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto`}>
-      <div className="bg-zinc-100 rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-300 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+      <div className="bg-white rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-400 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
         
         {/* Header */}
         <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 relative">
@@ -916,7 +916,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                 type="button"
                 onClick={handleCancel}
                 title="Descartar alterações não salvas"
-                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300"
+                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-400"
               >
                 Cancelar
               </button>
@@ -924,13 +924,13 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                 type="button"
                 onClick={onClose}
                 title="Fechar janela de cadastro"
-                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-300"
+                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer border border-zinc-400"
               >
                 Sair
               </button>
               <button
                 type="submit"
-                className="px-5 sm:px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-900"
               >
                 {activeClient ? 'Atualizar Cliente' : 'Salvar Cliente'}
               </button>

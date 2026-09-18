@@ -39,36 +39,37 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
     switch (status) {
       case 'ativa':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            ATIVA / EM DIA
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#1a1d24] text-[#d1d5db] border border-[#2f3644]">
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>ATIVA / EM DIA</span>
           </span>
         );
       case 'trial':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-            <Clock className="w-3.5 h-3.5" />
-            EM TESTE (TRIAL)
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#1a1d24] text-[#d1d5db] border border-[#2f3644]">
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span>EM TESTE (TRIAL)</span>
           </span>
         );
       case 'inadimplente':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            INADIMPLENTE
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#1a1d24] text-[#d1d5db] border border-[#2f3644]">
+            <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+            <span>INADIMPLENTE</span>
           </span>
         );
       case 'suspensa':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-            <ShieldAlert className="w-3.5 h-3.5" />
-            SUSPENSA
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#1a1d24] text-[#d1d5db] border border-[#2f3644]">
+            <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+            <span>SUSPENSA</span>
           </span>
         );
       case 'cancelada':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
-            CANCELADA
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#1a1d24] text-[#8a92a6] border border-[#2f3644]">
+            <span className="w-2 h-2 rounded-full bg-zinc-500"></span>
+            <span>CANCELADA</span>
           </span>
         );
     }
@@ -80,13 +81,13 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/75 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-[#1a1d24] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-[#2f3644] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho */}
-        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-5 py-4 bg-[#14161d] text-white flex items-center justify-between border-b border-[#2f3644]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-zinc-700 border border-zinc-600 flex items-center justify-center text-white font-black text-base shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-[#252a34] border border-[#2f3644] flex items-center justify-center text-white font-black text-base shadow-xs">
               {subscriber.name.slice(0, 2).toUpperCase()}
             </div>
             <div>
@@ -95,8 +96,8 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
                   {subscriber.name}
                 </h3>
               </div>
-              <p className="text-xs text-zinc-300">
-                Ficha Detalhada do Assinante • ID: <span className="font-mono text-zinc-200">{subscriber.id}</span>
+              <p className="text-xs text-[#8a92a6]">
+                Ficha Detalhada do Assinante • ID: <span className="font-mono text-[#d1d5db]">{subscriber.id}</span>
               </p>
             </div>
           </div>
@@ -107,7 +108,7 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
                 onClose();
                 onEdit(subscriber);
               }}
-              className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg text-xs font-bold border border-zinc-600 flex items-center gap-1.5 transition cursor-pointer"
+              className="px-3 py-1.5 bg-[#252a34] hover:bg-[#323846] text-[#d1d5db] hover:text-white rounded-lg text-xs font-bold border border-[#2f3644] flex items-center gap-1.5 transition cursor-pointer"
             >
               <Edit className="w-3.5 h-3.5" />
               <span>Editar</span>
@@ -115,7 +116,7 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-[#8a92a6] hover:text-white hover:bg-[#252a34] transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -123,60 +124,60 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
         </div>
 
         {/* Status Bar */}
-        <div className="bg-white dark:bg-stone-800/60 px-5 py-3 border-b border-zinc-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-[#14161d]/80 px-5 py-3 border-b border-[#2f3644] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-bold uppercase tracking-wider">Situação:</span>
+            <span className="text-xs text-[#8a92a6] font-bold uppercase tracking-wider">Situação:</span>
             {getStatusBadge(subscriber.status)}
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-zinc-700 dark:text-zinc-300 font-bold uppercase tracking-wider">Plano:</span>
-            <span className="px-2.5 py-0.5 rounded-md font-black bg-zinc-100 text-zinc-800 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200">
+            <span className="text-[#8a92a6] font-bold uppercase tracking-wider">Plano:</span>
+            <span className="px-2.5 py-0.5 rounded-md font-bold bg-[#252a34] text-white border border-[#2f3644]">
               {subscriber.planName}
             </span>
-            <span className="font-black text-zinc-900 dark:text-zinc-100">
+            <span className="font-bold text-white">
               {formatCurrencyBRL(subscriber.monthlyValue)}/mês
             </span>
           </div>
         </div>
 
         {/* Conteúdo Dinâmico Completo */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
           
           {/* 1. Informações de Acesso e Responsável */}
-          <div className="p-4 bg-white dark:bg-stone-800/40 rounded-xl border border-zinc-300 dark:border-stone-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700/60 pb-2">
-              <span className="text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5">
-                <User className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="p-4 bg-[#252a34] rounded-xl border border-[#2f3644] space-y-3">
+            <div className="flex items-center justify-between border-b border-[#2f3644] pb-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <User className="w-4 h-4 text-[#8a92a6]" />
                 Responsável & Acesso ao Sistema
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-stone-500 font-medium block">E-mail de Login:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100 select-all">
+                <span className="text-[#8a92a6] font-medium block">E-mail de Login:</span>
+                <span className="font-bold text-white select-all">
                   {subscriber.responsibleEmail}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Senha do Painel:</span>
-                <span className="font-mono text-stone-800 dark:text-stone-200 font-bold">
+                <span className="text-[#8a92a6] font-medium block">Senha do Painel:</span>
+                <span className="font-mono text-[#d1d5db] font-bold">
                   {subscriber.password || '••••••••'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Telefone / WhatsApp:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100">
+                <span className="text-[#8a92a6] font-medium block">Telefone / WhatsApp:</span>
+                <span className="font-bold text-white">
                   {subscriber.phone || 'Não informado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Vencimento do Trial:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                <span className="text-[#8a92a6] font-medium block">Vencimento do Trial:</span>
+                <span className="font-bold text-white flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-[#8a92a6]" />
                   {subscriber.trialUntil ? new Date(subscriber.trialUntil + 'T12:00:00').toLocaleDateString('pt-BR') : 'Sem trial'}
                 </span>
               </div>
@@ -184,25 +185,25 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
           </div>
 
           {/* 2. Dados Fiscais e Cadastrais */}
-          <div className="p-4 bg-white dark:bg-stone-800/40 rounded-xl border border-zinc-300 dark:border-stone-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700/60 pb-2">
-              <span className="text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="p-4 bg-[#252a34] rounded-xl border border-[#2f3644] space-y-3">
+            <div className="flex items-center justify-between border-b border-[#2f3644] pb-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-[#8a92a6]" />
                 Dados Cadastrais & Fiscais
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-stone-500 font-medium block">CPF ou CNPJ:</span>
-                <span className="font-mono font-bold text-stone-900 dark:text-stone-100 select-all">
+                <span className="text-[#8a92a6] font-medium block">CPF ou CNPJ:</span>
+                <span className="font-mono font-bold text-white select-all">
                   {subscriber.cpfCnpj || 'Não cadastrado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Inscrição Estadual (IE):</span>
-                <span className="font-mono font-bold text-stone-900 dark:text-stone-100">
+                <span className="text-[#8a92a6] font-medium block">Inscrição Estadual (IE):</span>
+                <span className="font-mono font-bold text-white">
                   {subscriber.stateRegistration || 'ISENTO'}
                 </span>
               </div>
@@ -210,46 +211,46 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
           </div>
 
           {/* 3. Endereço e Localização */}
-          <div className="p-4 bg-white dark:bg-stone-800/40 rounded-xl border border-zinc-300 dark:border-stone-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-stone-700/60 pb-2">
-              <span className="text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <div className="p-4 bg-[#252a34] rounded-xl border border-[#2f3644] space-y-3">
+            <div className="flex items-center justify-between border-b border-[#2f3644] pb-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#8a92a6]" />
                 Endereço Operacional / Fiscal
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="sm:col-span-2">
-                <span className="text-stone-500 font-medium block">Logradouro e Número:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100">
+                <span className="text-[#8a92a6] font-medium block">Logradouro e Número:</span>
+                <span className="font-bold text-white">
                   {subscriber.street ? `${subscriber.street}, Nº ${subscriber.number || 'S/N'}` : 'Não informado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Bairro:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100">
+                <span className="text-[#8a92a6] font-medium block">Bairro:</span>
+                <span className="font-bold text-white">
                   {subscriber.neighborhood || 'Não informado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Cidade / UF:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100">
+                <span className="text-[#8a92a6] font-medium block">Cidade / UF:</span>
+                <span className="font-bold text-white">
                   {subscriber.city ? `${subscriber.city} - ${subscriber.state}` : 'Não informado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">CEP:</span>
-                <span className="font-mono font-bold text-stone-900 dark:text-stone-100">
+                <span className="text-[#8a92a6] font-medium block">CEP:</span>
+                <span className="font-mono font-bold text-white">
                   {subscriber.cep || 'Não informado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-stone-500 font-medium block">Cadastrado em:</span>
-                <span className="font-medium text-stone-700 dark:text-stone-300">
+                <span className="text-[#8a92a6] font-medium block">Cadastrado em:</span>
+                <span className="font-medium text-[#d1d5db]">
                   {subscriber.createdAt ? new Date(subscriber.createdAt).toLocaleDateString('pt-BR') : '-'}
                 </span>
               </div>
@@ -258,14 +259,14 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
         </div>
 
         {/* Rodapé */}
-        <div className="px-5 py-3.5 bg-zinc-100 dark:bg-stone-800/80 border-t border-zinc-300 dark:border-stone-800 flex items-center justify-between">
-          <span className="text-[11px] text-zinc-600 dark:text-stone-400">
+        <div className="px-5 py-3.5 bg-[#14161d] border-t border-[#2f3644] flex items-center justify-between">
+          <span className="text-[11px] text-[#8a92a6]">
             Última alteração em {new Date(subscriber.updatedAt || subscriber.createdAt).toLocaleString('pt-BR')}
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 border border-zinc-300 rounded-lg text-xs font-bold transition cursor-pointer"
+            className="px-4 py-1.5 bg-[#252a34] hover:bg-[#323846] text-[#d1d5db] hover:text-white border border-[#2f3644] rounded-lg text-xs font-bold transition cursor-pointer"
           >
             Fechar
           </button>

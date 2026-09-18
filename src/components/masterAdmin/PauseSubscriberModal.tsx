@@ -56,24 +56,24 @@ export const PauseSubscriberModal: React.FC<PauseSubscriberModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
-      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl max-w-md w-full shadow-2xl border border-zinc-300 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs">
+      <div className="bg-[#1a1d24] rounded-2xl max-w-md w-full shadow-2xl border border-[#2f3644] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Cabeçalho */}
-        <div className="px-5 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-5 py-4 bg-[#14161d] text-white flex items-center justify-between border-b border-[#2f3644]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white/10 rounded-xl">
+            <div className="p-2 bg-[#252a34] border border-[#2f3644] rounded-xl">
               {isCurrentlySuspended ? (
-                <Play className="w-5 h-5 text-zinc-200" />
+                <Play className="w-5 h-5 text-[#8a92a6]" />
               ) : (
-                <Pause className="w-5 h-5 text-zinc-200" />
+                <Pause className="w-5 h-5 text-[#8a92a6]" />
               )}
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight text-white">
                 {isCurrentlySuspended ? 'Reativar Assinatura' : 'Pausar / Suspender Assinatura'}
               </h3>
-              <p className="text-xs text-zinc-300">
+              <p className="text-xs text-[#8a92a6]">
                 Sincronização instantânea com o banco Supabase
               </p>
             </div>
@@ -81,7 +81,7 @@ export const PauseSubscriberModal: React.FC<PauseSubscriberModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-[#8a92a6] hover:text-white hover:bg-[#252a34] transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -89,40 +89,40 @@ export const PauseSubscriberModal: React.FC<PauseSubscriberModalProps> = ({
 
         {/* Conteúdo */}
         <div className="p-5 space-y-4">
-          <div className="p-3.5 bg-white dark:bg-stone-800 rounded-xl border border-zinc-300 dark:border-stone-700 space-y-1">
-            <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider block">
+          <div className="p-3.5 bg-[#252a34] rounded-xl border border-[#2f3644] space-y-1">
+            <span className="text-[10px] font-bold text-[#8a92a6] uppercase tracking-wider block">
               Assinante
             </span>
-            <p className="text-sm font-black text-stone-900 dark:text-stone-100">
+            <p className="text-sm font-black text-white">
               {subscriber.name}
             </p>
-            <p className="text-xs text-stone-500 font-mono">
+            <p className="text-xs text-[#8a92a6] font-mono">
               {subscriber.responsibleEmail}
             </p>
           </div>
 
           {errorMsg && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300">
+            <div className="p-3 bg-[#252a34] border border-rose-800/80 rounded-xl text-xs font-bold text-rose-300">
               {errorMsg}
             </div>
           )}
 
           {isCurrentlySuspended ? (
-            <div className="flex items-start gap-3 p-3.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs text-zinc-800 dark:text-zinc-200">
-              <ShieldCheck className="w-5 h-5 text-zinc-700 dark:text-zinc-300 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-3.5 bg-[#252a34] border border-[#2f3644] rounded-xl text-xs text-[#d1d5db]">
+              <ShieldCheck className="w-5 h-5 text-[#8a92a6] shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="font-bold text-zinc-900 dark:text-white">Deseja liberar e reativar o acesso?</p>
-                <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                <p className="font-bold text-white">Deseja liberar e reativar o acesso?</p>
+                <p className="text-[11px] leading-relaxed text-[#8a92a6]">
                   O status do cliente voltará para <strong>Ativa</strong> e os operadores desta fazenda poderão acessar e apontar silagem normalmente no ERP.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="flex items-start gap-3 p-3.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs text-zinc-800 dark:text-zinc-200">
-              <AlertTriangle className="w-5 h-5 text-zinc-700 dark:text-zinc-300 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-3.5 bg-[#252a34] border border-[#2f3644] rounded-xl text-xs text-[#d1d5db]">
+              <AlertTriangle className="w-5 h-5 text-[#8a92a6] shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="font-bold text-zinc-900 dark:text-white">Aviso de Suspensão de Acesso</p>
-                <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                <p className="font-bold text-white">Aviso de Suspensão de Acesso</p>
+                <p className="text-[11px] leading-relaxed text-[#8a92a6]">
                   Ao suspender, o status será definido como <strong>Suspenso</strong> no banco. Qualquer tentativa de login ou acesso ao ERP será bloqueada com a tela de pendência financeira.
                 </p>
               </div>
@@ -130,12 +130,12 @@ export const PauseSubscriberModal: React.FC<PauseSubscriberModalProps> = ({
           )}
 
           {/* Botões */}
-          <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-[#2f3644] flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 rounded-xl transition cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-[#d1d5db] bg-[#1a1d24] hover:bg-[#252a34] border border-[#2f3644] rounded-lg transition cursor-pointer"
             >
               Cancelar
             </button>
@@ -143,7 +143,7 @@ export const PauseSubscriberModal: React.FC<PauseSubscriberModalProps> = ({
               type="button"
               onClick={handleConfirm}
               disabled={isSaving}
-              className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold border border-zinc-900 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              className="px-5 py-2.5 bg-[#3a4150] hover:bg-[#475062] active:bg-[#2d3340] disabled:opacity-50 text-white rounded-lg text-xs font-bold border border-[#4d576a] flex items-center gap-1.5 transition shadow-xs cursor-pointer"
             >
               {isCurrentlySuspended ? (
                 <>
