@@ -17,6 +17,8 @@
 /* ==========================================================================
    TEMA DARK ELEGANCE - MINIMALISTA EM TONS DE CINZA ESCURO
    ========================================================================== */
+#master-admin-root,
+.master-admin-container,
 .dark-elegance-canvas {
   background-color: #1a1d24 !important;
   color: #ffffff !important;
@@ -32,6 +34,8 @@
   border-color: #2f3644 !important;
 }
 
+#master-admin-root .dark-elegance-table-container,
+.master-admin-container .dark-elegance-table-container,
 .dark-elegance-table-container {
   background-color: #252a34 !important;
   border: 1px solid #2f3644 !important;
@@ -39,6 +43,26 @@
   overflow: hidden !important;
 }
 
+#master-admin-root table,
+.master-admin-container table,
+.dark-elegance-table-container table,
+table.dark-elegance-table {
+  background-color: #252a34 !important;
+  color: #ffffff !important;
+  border-collapse: collapse !important;
+}
+
+#master-admin-root table thead,
+.master-admin-container table thead,
+.dark-elegance-table-container table thead,
+table.dark-elegance-table thead {
+  background-color: #1e222b !important;
+}
+
+#master-admin-root table thead th,
+.master-admin-container table thead th,
+.dark-elegance-table-container table thead th,
+table.dark-elegance-table th,
 .dark-elegance-table th {
   background-color: #1e222b !important;
   color: #8a92a6 !important;
@@ -49,12 +73,38 @@
   letter-spacing: 0.05em !important;
 }
 
-.dark-elegance-table td {
+#master-admin-root table tbody,
+.master-admin-container table tbody,
+.dark-elegance-table-container table tbody,
+table.dark-elegance-table tbody,
+.dark-elegance-table tbody {
+  background-color: #252a34 !important;
+}
+
+#master-admin-root table tbody tr,
+.master-admin-container table tbody tr,
+.dark-elegance-table-container table tbody tr,
+table.dark-elegance-table tr,
+.dark-elegance-table tr {
+  background-color: #252a34 !important;
   border-color: rgba(47, 54, 68, 0.5) !important;
 }
 
+#master-admin-root table tbody tr:hover,
+.master-admin-container table tbody tr:hover,
+.dark-elegance-table-container table tbody tr:hover,
+table.dark-elegance-table tr:hover,
 .dark-elegance-table tr:hover {
   background-color: #2a303c !important;
+}
+
+#master-admin-root table tbody td,
+.master-admin-container table tbody td,
+.dark-elegance-table-container table tbody td,
+table.dark-elegance-table td,
+.dark-elegance-table td {
+  color: #ffffff !important;
+  border-color: rgba(47, 54, 68, 0.5) !important;
 }
 
 .dark-elegance-input {
@@ -763,22 +813,22 @@ html.dark .crm-card-label {
   letter-spacing: 0.05em;
 }
 
-/* 4. Tabelas e Cabeçalhos Padrão no Modo Claro */
-html:not(.dark) table thead {
+/* 4. Tabelas e Cabeçalhos Padrão no Modo Claro (Apenas para o ERP Claro, nunca em telas Dark Elegance) */
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table) thead {
   background-color: #f4f4f5 !important; /* zinc-100 */
 }
 
-html:not(.dark) table thead th {
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table) thead th {
   background-color: #f4f4f5 !important; /* zinc-100 */
   color: #3f3f46 !important;            /* zinc-700 */
   border-color: #e4e4e7 !important;     /* zinc-200 */
 }
 
-html:not(.dark) table tbody {
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table) tbody {
   background-color: #ffffff !important;
 }
 
-html:not(.dark) table tbody tr {
+html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#master-admin-root table):not(.master-admin-container table) tbody tr {
   border-color: #f4f4f5 !important;     /* zinc-100 */
 }
 

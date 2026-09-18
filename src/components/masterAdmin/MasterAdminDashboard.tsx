@@ -511,7 +511,10 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1d24] text-white flex font-['Plus_Jakarta_Sans',sans-serif] relative selection:bg-[#3a4150] selection:text-white">
+    <div 
+      id="master-admin-root" 
+      className="master-admin-container min-h-screen bg-[#1a1d24] text-white flex font-['Plus_Jakarta_Sans',sans-serif] relative selection:bg-[#3a4150] selection:text-white"
+    >
       
       {/* Backdrop Mobile para fechar a Sidebar */}
       {isMobileSidebarOpen && (
@@ -1026,24 +1029,31 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* Tabela de Assinantes */}
-            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl overflow-hidden shadow-xl">
+            <div 
+              id="master-admin-table-container"
+              className="dark-elegance-table-container bg-[#252a34] border border-[#2f3644] rounded-2xl overflow-hidden shadow-xl"
+              style={{ backgroundColor: '#252a34' }}
+            >
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#2f3644] bg-[#1e222b] text-[11px] font-bold text-[#8a92a6] uppercase tracking-wider">
-                      <th className="py-3.5 px-4 text-[#8a92a6]">Assinante / Empresa</th>
-                      <th className="py-3.5 px-4 text-[#8a92a6]">Responsável & Contato</th>
-                      <th className="py-3.5 px-4 text-[#8a92a6]">Documento / Cidade</th>
-                      <th className="py-3.5 px-4 text-[#8a92a6]">Plano & Valor</th>
-                      <th className="py-3.5 px-4 text-[#8a92a6]">Trial Até</th>
-                      <th className="py-3.5 px-4 text-[#8a92a6]">Status</th>
-                      <th className="py-3.5 px-4 text-right text-[#8a92a6]">Ações</th>
+                <table 
+                  className="w-full text-left border-collapse dark-elegance-table bg-[#252a34] text-white"
+                  style={{ backgroundColor: '#252a34', color: '#ffffff' }}
+                >
+                  <thead className="bg-[#1e222b]" style={{ backgroundColor: '#1e222b' }}>
+                    <tr className="border-b border-[#2f3644] bg-[#1e222b] text-[11px] font-bold text-[#8a92a6] uppercase tracking-wider" style={{ backgroundColor: '#1e222b' }}>
+                      <th className="py-3.5 px-4 text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Assinante / Empresa</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Responsável & Contato</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Documento / Cidade</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Plano & Valor</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Trial Até</th>
+                      <th className="py-3.5 px-4 text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Status</th>
+                      <th className="py-3.5 px-4 text-right text-[#8a92a6]" style={{ backgroundColor: '#1e222b', color: '#8a92a6' }}>Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#2f3644]/50 text-xs">
+                  <tbody className="divide-y divide-[#2f3644]/50 text-xs bg-[#252a34]" style={{ backgroundColor: '#252a34' }}>
                     {filteredSubscribers.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-16 text-center text-[#8a92a6]">
+                      <tr style={{ backgroundColor: '#252a34' }}>
+                        <td colSpan={7} className="py-16 text-center text-[#8a92a6]" style={{ backgroundColor: '#252a34', color: '#8a92a6' }}>
                           <div className="flex flex-col items-center justify-center space-y-2">
                             <Building2 className="w-8 h-8 text-[#8a92a6] stroke-[1.5]" />
                             <p className="text-sm font-semibold text-white">
@@ -1061,15 +1071,21 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       </tr>
                     ) : (
                       filteredSubscribers.map((sub) => (
-                        <tr key={sub.id} className="hover:bg-[#2a303c] transition-colors">
+                        <tr 
+                          key={sub.id} 
+                          className="hover:bg-[#2a303c] transition-colors bg-[#252a34]"
+                          style={{ backgroundColor: '#252a34' }}
+                        >
                           
                           {/* Nome do Assinante */}
-                          <td className="py-3 px-4 font-bold text-white">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="w-4 h-4 text-[#8a92a6] shrink-0" />
+                          <td className="py-3.5 px-4 font-bold text-white" style={{ backgroundColor: '#252a34', color: '#ffffff' }}>
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#1a1d24] border border-[#2f3644] flex items-center justify-center shrink-0">
+                                <Building2 className="w-4.5 h-4.5 text-[#8a92a6]" />
+                              </div>
                               <div>
-                                <span className="text-white font-bold">{sub.name}</span>
-                                <span className="block text-[10px] text-[#8a92a6] font-mono">
+                                <span className="text-sm sm:text-base font-bold text-white block tracking-tight">{sub.name}</span>
+                                <span className="block text-xs text-[#8a92a6] font-mono">
                                   ID: {sub.id}
                                 </span>
                               </div>
@@ -1077,38 +1093,38 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           </td>
 
                           {/* Email & Telefone */}
-                          <td className="py-3 px-4 text-[#d1d5db]">
+                          <td className="py-3.5 px-4 text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
                             <div>
-                              <span className="font-medium text-white block">{sub.responsibleEmail}</span>
-                              <span className="text-[11px] text-[#8a92a6] font-mono">{sub.phone || '-'}</span>
+                              <span className="text-sm font-medium text-white block">{sub.responsibleEmail}</span>
+                              <span className="text-xs text-[#8a92a6] font-mono">{sub.phone || '-'}</span>
                             </div>
                           </td>
 
                           {/* Documento & Cidade */}
-                          <td className="py-3 px-4 text-[#d1d5db]">
-                            <span className="font-mono text-white block">{sub.cpfCnpj || '-'}</span>
-                            <span className="text-[11px] text-[#8a92a6]">
+                          <td className="py-3.5 px-4 text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
+                            <span className="font-mono text-sm text-white block">{sub.cpfCnpj || '-'}</span>
+                            <span className="text-xs text-[#8a92a6]">
                               {sub.city ? `${sub.city} - ${sub.state}` : '-'}
                             </span>
                           </td>
 
                           {/* Plano & Valor */}
-                          <td className="py-3 px-4">
-                            <span className="font-bold text-white block">{sub.planName}</span>
-                            <span className="text-[11px] font-semibold text-[#8a92a6]">
+                          <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
+                            <span className="text-sm font-bold text-white block">{sub.planName}</span>
+                            <span className="text-xs sm:text-sm font-semibold text-[#8a92a6]">
                               {formatCurrencyBRL(sub.monthlyValue)}/mês
                             </span>
                           </td>
 
                           {/* Trial Até */}
-                          <td className="py-3 px-4 font-mono text-[#8a92a6]">
+                          <td className="py-3.5 px-4 font-mono text-xs sm:text-sm text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
                             {sub.trialUntil ? new Date(sub.trialUntil + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
                           </td>
 
                           {/* Status */}
-                          <td className="py-3 px-4">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1a1d24] border border-[#2f3644]">
-                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1a1d24] border border-[#2f3644]">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${
                                 sub.status === 'ativa' ? 'bg-emerald-400' :
                                 sub.status === 'trial' ? 'bg-amber-400' :
                                 sub.status === 'inadimplente' ? 'bg-rose-400' :
@@ -1117,7 +1133,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                               <select
                                 value={sub.status}
                                 onChange={(e) => handleQuickStatusChange(sub.id, e.target.value as SubscriberStatus)}
-                                className="bg-transparent text-[11px] font-bold text-[#d1d5db] outline-none cursor-pointer"
+                                className="bg-transparent text-xs font-bold text-[#d1d5db] outline-none cursor-pointer"
                               >
                                 <option value="ativa" className="bg-[#1a1d24] text-white">Ativa</option>
                                 <option value="trial" className="bg-[#1a1d24] text-white">Trial</option>
@@ -1129,104 +1145,106 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           </td>
 
                           {/* Ações Rápidas */}
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3.5 px-4 text-right" style={{ backgroundColor: '#252a34' }}>
                             <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
-                              {/* 1. Botão Cinza Médio "→ Entrar" (Personificação / Impersonate) */}
-                              <button
-                                type="button"
-                                onClick={() => handleImpersonate(sub)}
-                                className="px-2.5 py-1.5 bg-[#343a46] hover:bg-[#414856] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors border border-[#444d5c] shadow-2xs cursor-pointer whitespace-nowrap"
-                                title={`Entrar no painel operacional de ${sub.name} (Modo Personificação)`}
-                              >
-                                <span>→ Entrar</span>
-                              </button>
-
-                              {/* 2. Ícone de Pausa ou Play (Suspensão/Reativação) */}
-                              {sub.status === 'suspensa' ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setPauseModalSubscriber(sub)}
-                                  className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
-                                  title="Reativar Assinatura (Liberar Acesso)"
-                                >
-                                  <Play className="w-4 h-4 text-emerald-400" />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setPauseModalSubscriber(sub)}
-                                  className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
-                                  title="Pausar / Suspender Assinatura (Bloquear ERP por pendência)"
-                                >
-                                  <Pause className="w-4 h-4 text-amber-400" />
-                                </button>
-                              )}
-
-                              {/* 3. Ícone do Lápis (Editar Informações) */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingSubscriber(sub);
-                                  setIsEditSubscriberOpen(true);
-                                }}
-                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
-                                title="Editar Informações do Assinante"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-
-                              {/* 4. Ícone do Cadeado (Redefinir Senha) */}
-                              <button
-                                type="button"
-                                onClick={() => setResetPasswordSubscriber(sub)}
-                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
-                                title="Redefinir Senha do Assinante no Supabase"
-                              >
-                                <Lock className="w-4 h-4" />
-                              </button>
-
-                              {/* 5. Ícone do Cubo/Caixa (Alterar Módulo/Plano) */}
-                              <button
-                                type="button"
-                                onClick={() => setChangePlanSubscriber(sub)}
-                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
-                                title="Alterar Módulo/Plano Comercial"
-                              >
-                                <Package className="w-4 h-4" />
-                              </button>
-
-                              {/* 6. Ícone do Calendário (Estender Trial) */}
-                              <button
-                                type="button"
-                                onClick={() => setExtendTrialSubscriber(sub)}
-                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
-                                title="Estender Período de Testes (Trial)"
-                              >
-                                <Calendar className="w-4 h-4" />
-                              </button>
-
-                              {/* Visualizar Ficha */}
+                              
+                              {/* 1. Visualizar Ficha (Verde Vibrante) */}
                               <button
                                 type="button"
                                 onClick={() => {
                                   setViewingSubscriber(sub);
                                   setIsDetailSubscriberOpen(true);
                                 }}
-                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-white rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 transition-colors cursor-pointer"
                                 title="Visualizar Ficha Completa"
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-4.5 h-4.5" />
                               </button>
 
-                              {/* Remover */}
+                              {/* 2. Pausar ou Play (Amarelo/Laranja Vibrante) */}
+                              {sub.status === 'suspensa' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPauseModalSubscriber(sub)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 transition-colors cursor-pointer"
+                                  title="Reativar Assinatura (Liberar Acesso)"
+                                >
+                                  <Play className="w-4.5 h-4.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setPauseModalSubscriber(sub)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
+                                  title="Pausar / Suspender Assinatura (Bloquear ERP por pendência)"
+                                >
+                                  <Pause className="w-4.5 h-4.5" />
+                                </button>
+                              )}
+
+                              {/* 3. Lápis (Editar - Amarelo/Laranja Vibrante) */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSubscriber(sub);
+                                  setIsEditSubscriberOpen(true);
+                                }}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
+                                title="Editar Informações do Assinante"
+                              >
+                                <Edit className="w-4.5 h-4.5" />
+                              </button>
+
+                              {/* 4. Cadeado (Redefinir Senha - Azul/Ciano) */}
+                              <button
+                                type="button"
+                                onClick={() => setResetPasswordSubscriber(sub)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 hover:border-sky-500/50 transition-colors cursor-pointer"
+                                title="Redefinir Senha do Assinante no Supabase"
+                              >
+                                <Lock className="w-4.5 h-4.5" />
+                              </button>
+
+                              {/* 5. Cubo (Alterar Plano - Roxo/Índigo) */}
+                              <button
+                                type="button"
+                                onClick={() => setChangePlanSubscriber(sub)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 transition-colors cursor-pointer"
+                                title="Alterar Módulo/Plano Comercial"
+                              >
+                                <Package className="w-4.5 h-4.5" />
+                              </button>
+
+                              {/* 6. Calendário (Estender Trial - Laranja/Âmbar) */}
+                              <button
+                                type="button"
+                                onClick={() => setExtendTrialSubscriber(sub)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
+                                title="Estender Período de Testes (Trial)"
+                              >
+                                <Calendar className="w-4.5 h-4.5" />
+                              </button>
+
+                              {/* 7. Lixeira (Excluir - Vermelho Bem Destacado) */}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteSubscriber(sub.id, sub.name)}
-                                className="p-1.5 bg-[#1a1d24] hover:bg-[#343a46] text-[#8a92a6] hover:text-rose-400 rounded-lg transition-colors border border-[#2f3644] cursor-pointer"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-rose-500/20 text-rose-500 hover:text-rose-400 border border-rose-500/40 hover:border-rose-500/60 transition-colors cursor-pointer"
                                 title="Remover Assinante"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-4.5 h-4.5" />
                               </button>
+
+                              {/* 8. Botão "→ Entrar" com Fundo Verde Vibrante e Negrito */}
+                              <button
+                                type="button"
+                                onClick={() => handleImpersonate(sub)}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap ml-1"
+                                title={`Entrar no painel operacional de ${sub.name} (Modo Personificação)`}
+                              >
+                                <span>→ Entrar</span>
+                              </button>
+
                             </div>
                           </td>
                         </tr>
