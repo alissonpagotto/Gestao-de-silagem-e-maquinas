@@ -803,6 +803,7 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
   const activeCompanyId = companyId || getActiveCompanyId();
   try {
     const queryTable = async (tableName: string) => {
+      if (!tableName || tableName === 'null' || tableName === 'undefined') return [];
       try {
         const { data, error } = await supabase
           .from(tableName)
@@ -1125,12 +1126,23 @@ function isTableMissingError(err: any): boolean {
 export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
   if (!isSupabaseConfigured || isTableUnmigrated('site_settings')) return null;
   try {
-    // 1. Busca direta pública na tabela site_settings
-    const { data, error } = await supabase
+    // 1. Busca direta pública na linha fixa 'global' da tabela pública site_settings
+    let { data, error } = await supabase
       .from('site_settings')
       .select('*')
-      .limit(1)
+      .eq('id', 'global')
       .maybeSingle();
+
+    if (error || !data) {
+      // Fallback para qualquer primeira linha caso o ID seja diferente de 'global'
+      const fallback = await supabase
+        .from('site_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       if (isTableMissingError(error)) {
@@ -1750,7 +1762,7 @@ export function subscribeToCloudTable(
   tableName: string,
   onChange: (payload: any) => void
 ): () => void {
-  if (!isSupabaseConfigured || isTableUnmigrated(tableName)) {
+  if (!tableName || tableName === 'null' || tableName === 'undefined' || !isSupabaseConfigured || isTableUnmigrated(tableName)) {
     return () => {};
   }
 

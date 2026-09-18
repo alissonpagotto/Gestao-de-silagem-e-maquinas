@@ -40,15 +40,23 @@ if (isSupabaseConfigured) {
   console.warn('⚠️ Credenciais do Supabase não encontradas no ambiente.');
 }
 
-// Inicialização direta do cliente oficial com as credenciais reais de produção
+// Inicialização direta do cliente oficial com as credenciais reais de produção e schema público estático
 export const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   {
+    db: {
+      schema: 'public',
+    },
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+    },
+    global: {
+      headers: {
+        'x-application-name': 'agrocontrol-silagem',
+      }
     }
   }
 );
