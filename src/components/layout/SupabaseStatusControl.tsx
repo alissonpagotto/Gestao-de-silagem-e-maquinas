@@ -39,18 +39,18 @@ export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
       <button
         type="button"
         onClick={() => setIsOpenMenu(prev => !prev)}
-        className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-white/30 hover:bg-white/15 bg-white/10 text-white transition cursor-pointer text-xs"
+        className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 hover:bg-zinc-100 dark:hover:bg-stone-800 bg-white dark:bg-stone-800 text-zinc-800 dark:text-stone-100 shadow-2xs transition cursor-pointer text-xs font-semibold"
         title="Status da Conexão Supabase PostgreSQL"
       >
-        <Database className="w-3.5 h-3.5 text-emerald-300" />
-        <span className="font-semibold text-[11px]">
+        <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <span className="font-bold text-[11px] text-zinc-800 dark:text-stone-200">
           {isConfigured ? 'Supabase' : 'DB Local'}
         </span>
         <span 
-          className={`w-1.5 h-1.5 rounded-full ${
+          className={`w-2 h-2 rounded-full ${
             isConnectedToSupabase || isConfigured 
-              ? 'bg-emerald-400 animate-pulse' 
-              : 'bg-emerald-300'
+              ? 'bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-950 animate-pulse' 
+              : 'bg-amber-400 ring-2 ring-amber-200'
           }`} 
         />
       </button>

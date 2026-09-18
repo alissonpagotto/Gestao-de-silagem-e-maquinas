@@ -288,20 +288,19 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
   return (
     <div 
-      className="w-full max-w-none min-h-screen bg-[#2e65aa] text-black antialiased p-2 sm:p-3 lg:p-4 space-y-2.5 rounded-2xl shadow-md"
-      style={{ backgroundColor: '#2e65aa' }}
+      className="w-full max-w-none space-y-3 antialiased text-zinc-900 dark:text-zinc-100"
     >
       
       {/* ========================================================
           2. CABEÇALHO (HEADER) COMPACTO
           Título, subtítulo e botão de ação principal "+ Novo"
           ======================================================== */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-white/20 pb-1.5">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-zinc-300 dark:border-stone-800 pb-2">
         <div>
-          <h1 className="text-base sm:text-lg font-black text-white tracking-tight">
+          <h1 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
             {activeTab === 'agenda' ? 'Agenda de Serviços' : activeTab === 'formularios' ? 'Formulários de Campo' : 'Serviços'}
           </h1>
-          <p className="text-[11px] sm:text-xs text-blue-100 font-medium mt-0.5">
+          <p className="text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
             {activeTab === 'agenda'
               ? 'Planejamento logístico de campo, escala de frotas e controle de sobreposição de horários.'
               : activeTab === 'formularios'
@@ -310,16 +309,16 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
           </p>
         </div>
 
-        {/* Botão de Ação Principal em Verde-esmeralda escuro mantendo o realce colorido */}
+        {/* Botão de Ação Principal em Verde-esmeralda */}
         {activeTab !== 'agenda' && activeTab !== 'formularios' && (
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleOpenNew}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-700 active:bg-emerald-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>+ Novo</span>
+              <span>{tabConfig.newButtonLabel || '+ Novo'}</span>
             </button>
           </div>
         )}
@@ -327,12 +326,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
       {/* ========================================================
           3. MENU DE ABAS (TABS) DE NAVEGAÇÃO
-          Corte | Colheita | Serviço de Trator | Serviço de Máquina | Orçamento | Venda
-          Mantém realces coloridos ativos para itens selecionados
+          Barra com fundo cinza gelo suave (bg-zinc-200), abas inativas em cinza escuro
+          e aba ativa com fundo branco sólido, contorno nítido e destaque esmeralda
           ======================================================== */}
       <nav 
         aria-label="Abas de Serviços" 
-        className="flex items-center gap-1 sm:gap-1.5 border-b border-white/25 overflow-x-auto scrollbar-none pb-px"
+        className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 overflow-x-auto scrollbar-none shadow-2xs"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -343,17 +342,17 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none rounded-t-lg ${
+              className={`group inline-flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none ${
                 isActive
-                  ? 'border-emerald-400 bg-emerald-700/90 text-white shadow-xs'
-                  : 'border-transparent text-blue-100 hover:text-white hover:bg-white/10'
+                  ? 'bg-white text-zinc-900 dark:bg-stone-800 dark:text-white shadow-xs border border-zinc-300/90 dark:border-stone-700'
+                  : 'text-zinc-700 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-stone-200 hover:bg-zinc-300/60 dark:hover:bg-stone-800/60'
               }`}
             >
               <Icon 
-                className={`w-3.5 h-3.5 transition-colors ${
+                className={`w-4 h-4 transition-colors ${
                   isActive 
-                    ? 'text-emerald-300' 
-                    : 'text-blue-200 group-hover:text-white'
+                    ? 'text-emerald-600 dark:text-emerald-400' 
+                    : 'text-zinc-500 group-hover:text-zinc-800 dark:text-stone-400 dark:group-hover:text-stone-200'
                 }`} 
               />
               <span>{tab.label}</span>
@@ -382,49 +381,48 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         <>
           {/* ========================================================
               4. BARRA DE FILTROS (SEARCH & DROPDOWN)
-              Busca com fundo branco e texto preto puro
               ======================================================== */}
       <section 
         aria-label="Filtros de Serviços"
         className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full"
       >
-        {/* Campo de Busca Amplo com Fundo Branco Total e Texto Preto */}
+        {/* Campo de Busca */}
         <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
             <Search className="w-3.5 h-3.5" />
           </div>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar cliente ou nº..."
-            className="w-full pl-9 pr-8 py-1.5 bg-white border border-gray-300 rounded-lg text-xs sm:text-sm text-black font-semibold placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs"
+            placeholder="Buscar cliente, fazenda ou nº..."
+            className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm text-zinc-900 dark:text-white font-semibold placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs"
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-500 hover:text-black cursor-pointer"
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Dropdown de Status com Fundo Branco Total e Texto Preto */}
-        <div className="relative sm:w-40">
+        {/* Dropdown de Status */}
+        <div className="relative sm:w-44">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-black focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs cursor-pointer"
+            className="w-full appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-bold text-zinc-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors shadow-2xs cursor-pointer"
           >
-            <option value="todos" className="text-black font-semibold">Todos</option>
-            <option value="agendado" className="text-black font-semibold">Agendado</option>
-            <option value="em_andamento" className="text-black font-semibold">Em Andamento</option>
-            <option value="concluido" className="text-black font-semibold">Concluído</option>
-            <option value="cancelado" className="text-black font-semibold">Cancelado</option>
+            <option value="todos" className="text-zinc-900 font-semibold">Status: Todos</option>
+            <option value="agendado" className="text-zinc-900 font-semibold">Agendado</option>
+            <option value="em_andamento" className="text-zinc-900 font-semibold">Em Andamento</option>
+            <option value="concluido" className="text-zinc-900 font-semibold">Concluído</option>
+            <option value="cancelado" className="text-zinc-900 font-semibold">Cancelado</option>
           </select>
-          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-500">
+          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-zinc-400">
             <ChevronDown className="w-3.5 h-3.5" />
           </div>
         </div>
@@ -432,61 +430,62 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
       {/* ========================================================
           5. TABELA / CARDS DAS ORDENS DE SERVIÇO
-          Fundo #87AFE3 no Modo Dia e Fontes PRETO PURO (text-black)
+          Fundo central branco sólido (bg-white), borda perimetral escura/nítida (border-zinc-300)
+          e cabeçalho cinza claro (bg-zinc-100) com texto escuro
           ======================================================== */}
       <section 
         aria-label="Lista de Serviços"
-        className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl shadow-md overflow-hidden"
+        className="crm-card bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden"
       >
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            {/* Cabeçalho da Tabela - Fundo #87AFE3 com Texto Preto Puro */}
+            {/* Cabeçalho da Tabela - Fundo bg-zinc-100 com Texto em Cinza Escuro de Alta Legibilidade */}
             <thead>
-              <tr className="border-b-2 border-blue-200/80 dark:border-stone-800 bg-[#87AFE3] dark:bg-stone-900">
-                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider w-16">
+              <tr className="border-b border-zinc-300 dark:border-stone-800 bg-zinc-100 dark:bg-stone-800/80">
+                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider w-16">
                   Nº
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider">
+                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                   CLIENTE
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider">
+                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
                   {tabConfig.dateColumn}
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-center">
+                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center">
                   {tabConfig.quantityColumn}
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-center">
+                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-center">
                   STATUS
                 </th>
-                <th scope="col" className="px-3 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-right">
+                <th scope="col" className="px-3 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right">
                   TOTAL
                 </th>
-                <th scope="col" className="px-2.5 py-1.5 text-xs font-black text-black dark:text-white uppercase tracking-wider text-right w-20">
+                <th scope="col" className="px-2.5 py-2 text-xs font-bold text-zinc-700 dark:text-stone-300 uppercase tracking-wider text-right w-20">
                   <span className="sr-only">Ações</span>
                 </th>
               </tr>
             </thead>
 
-            {/* Corpo da Tabela - Linhas / Cards com Fundo #87AFE3 e Textos Preto Puro */}
-            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900">
+            {/* Corpo da Tabela - Linhas com Fundo Branco Sólido e Textos em Alta Legibilidade */}
+            <tbody className="divide-y divide-zinc-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
               {filteredServices.length === 0 ? (
                 /* Bloco de Estado Vazio Centralizado */
-                <tr className="bg-[#87AFE3] dark:bg-stone-900">
-                  <td colSpan={7} className="px-4 py-10 text-center bg-[#87AFE3] dark:bg-stone-900">
-                    <p className="text-sm font-bold text-black dark:text-white">
+                <tr className="bg-white dark:bg-stone-900">
+                  <td colSpan={7} className="px-4 py-12 text-center bg-white dark:bg-stone-900">
+                    <p className="text-sm font-semibold text-zinc-500 dark:text-stone-400">
                       Nenhum registro encontrado
                     </p>
                   </td>
                 </tr>
               ) : (
-                /* Linhas Preenchidas com Fundo #87AFE3 e Textos em Preto Puro */
+                /* Linhas Preenchidas com Fundo Branco e Textos Legíveis */
                 filteredServices.map((service, index) => {
                   const itemNumber = (index + 1).toString().padStart(3, '0');
                   const statusColors: Record<string, string> = {
-                    agendado: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-                    em_andamento: 'bg-blue-100 text-blue-900 border-blue-300 font-bold',
-                    concluido: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
-                    cancelado: 'bg-rose-100 text-rose-900 border-rose-300 font-bold',
+                    agendado: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800 font-bold',
+                    em_andamento: 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 font-bold',
+                    concluido: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 font-bold',
+                    cancelado: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800 font-bold',
                   };
 
                   const statusLabels: Record<string, string> = {
@@ -531,54 +530,54 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                   return (
                     <tr 
                       key={service.id} 
-                      className="bg-[#87AFE3] dark:bg-stone-900 hover:bg-blue-200/50 dark:hover:bg-stone-800 transition-colors duration-150 group border-b border-blue-200/60 dark:border-stone-800"
+                      className="bg-white dark:bg-stone-900 hover:bg-zinc-50 dark:hover:bg-stone-800/60 transition-colors duration-150 group border-b border-zinc-200 dark:border-stone-800"
                     >
-                      {/* Nº em Preto Puro */}
-                      <td className="px-3 py-1.5 text-xs font-mono text-black font-bold">
+                      {/* Nº */}
+                      <td className="px-3 py-2 text-xs font-mono text-zinc-600 dark:text-stone-400 font-bold">
                         #{itemNumber}
                       </td>
 
-                      {/* Cliente e Descrições Secundárias em Preto Puro */}
-                      <td className="px-3 py-1.5">
-                        <div className="font-bold text-black text-sm leading-snug">
+                      {/* Cliente e Descrições Secundárias */}
+                      <td className="px-3 py-2">
+                        <div className="font-bold text-zinc-900 dark:text-white text-sm leading-snug">
                           {service.clientName}
                         </div>
                         {service.farmName && (
-                          <div className="text-[11px] text-black font-semibold">
+                          <div className="text-[11px] text-zinc-500 dark:text-stone-400 font-medium">
                             {service.farmName}
                           </div>
                         )}
                         {(service.freightOrigin || service.freightDestination) && (
-                          <div className="text-[11px] text-black font-semibold flex items-center gap-1 mt-0.5">
-                            <span className="bg-emerald-100 text-emerald-900 font-bold px-1 py-0.2 rounded border border-emerald-300">
+                          <div className="text-[11px] text-zinc-600 dark:text-stone-300 font-medium flex items-center gap-1 mt-0.5">
+                            <span className="bg-zinc-100 dark:bg-stone-800 text-zinc-800 dark:text-stone-200 font-semibold px-1.5 py-0.5 rounded border border-zinc-200 dark:border-stone-700">
                               Rota: {service.freightOrigin || 'Origem'} ➔ {service.freightDestination || 'Destino'}
                             </span>
                           </div>
                         )}
                         {(service.machineryAssigned || service.operatorAssigned || service.tractorName || service.forageHarvesterName || service.freightDriverName || service.freightMaterialType) && (
-                          <div className="text-[11px] text-black font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
+                          <div className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
                             {service.freightMaterialType && (
-                              <span className="text-black font-bold bg-purple-100 px-1 py-0.2 rounded border border-purple-300">
+                              <span className="text-purple-800 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
                                 Carga: {service.freightMaterialType}
                               </span>
                             )}
                             {service.forageHarvesterName && (
-                              <span className="text-black font-bold bg-amber-100 px-1 py-0.2 rounded border border-amber-300">
+                              <span className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
                                 Forr: {service.forageHarvesterName}
                               </span>
                             )}
                             {service.tractorName && (
-                              <span className="text-black font-bold bg-blue-100 px-1 py-0.2 rounded border border-blue-300">
+                              <span className="text-blue-800 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/50 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
                                 Trator: {service.tractorName}
                               </span>
                             )}
                             {!service.forageHarvesterName && !service.tractorName && service.machineryAssigned && (
-                              <span className="text-black font-bold bg-slate-100 px-1 py-0.2 rounded border border-slate-300">
+                              <span className="text-zinc-700 dark:text-stone-300 font-semibold bg-zinc-100 dark:bg-stone-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-stone-700">
                                 {activeTab === 'frete' || service.serviceTab === 'frete' ? `Caminhão: ${service.machineryAssigned}` : service.machineryAssigned}
                               </span>
                             )}
                             {(service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName || service.freightDriverName) && (
-                              <span className="text-black font-semibold">
+                              <span className="text-zinc-600 dark:text-stone-400 font-medium">
                                 • {activeTab === 'frete' || service.serviceTab === 'frete' ? 'Motorista' : 'Op'}: {service.freightDriverName || service.operatorAssigned || service.tractorOperatorName || service.forageOperatorName}
                               </span>
                             )}
@@ -586,39 +585,39 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                         )}
                       </td>
 
-                      {/* Data em Preto Puro */}
-                      <td className="px-3 py-1.5 text-xs text-black font-semibold whitespace-nowrap">
+                      {/* Data */}
+                      <td className="px-3 py-2 text-xs text-zinc-700 dark:text-stone-300 font-medium whitespace-nowrap">
                         {service.startDate ? formatDateBR(service.startDate) : '--'}
                       </td>
 
-                      {/* Quantidade / Área em Preto Puro */}
-                      <td className="px-3 py-1.5 text-xs text-center text-black font-black whitespace-nowrap">
+                      {/* Quantidade / Área */}
+                      <td className="px-3 py-2 text-xs text-center text-zinc-800 dark:text-stone-200 font-bold whitespace-nowrap">
                         {quantityDisplay}
                       </td>
 
-                      {/* Status com Realce Colorido e Texto de Alto Contraste */}
-                      <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                      {/* Status */}
+                      <td className="px-3 py-2 text-center whitespace-nowrap">
                         <span 
-                          className={`inline-flex items-center px-2 py-0.2 rounded-full text-[10px] font-bold border ${
-                            statusColors[currentStatus] || 'bg-gray-100 text-black border-gray-300'
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            statusColors[currentStatus] || 'bg-zinc-100 text-zinc-800 border-zinc-300'
                           }`}
                         >
                           {statusLabels[currentStatus] || currentStatus}
                         </span>
                       </td>
 
-                      {/* Total em Preto Puro */}
-                      <td className="px-3 py-1.5 text-right font-black text-black text-xs sm:text-sm whitespace-nowrap">
+                      {/* Total */}
+                      <td className="px-3 py-2 text-right font-black text-zinc-900 dark:text-white text-xs sm:text-sm whitespace-nowrap">
                         {formatCurrencyBRL(service.totalAmount || 0)}
                       </td>
 
                       {/* Ações */}
-                      <td className="px-2.5 py-1.5 text-right whitespace-nowrap">
+                      <td className="px-2.5 py-2 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(service)}
-                            className="p-1 text-black hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                            className="p-1 text-zinc-500 hover:text-emerald-700 hover:bg-emerald-50 dark:text-stone-400 dark:hover:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-md transition-colors cursor-pointer"
                             title="Editar serviço"
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -626,7 +625,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDeleteService(service.id, service.clientName)}
-                            className="p-1 text-black hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                            className="p-1 text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/30 rounded-md transition-colors cursor-pointer"
                             title="Excluir serviço"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

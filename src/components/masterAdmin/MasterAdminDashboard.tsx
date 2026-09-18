@@ -1679,48 +1679,49 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         {/* ABA 4: CONFIGURAÇÕES (WEBHOOKS E SUPER ADMINS)            */}
         {/* ======================================================== */}
         {adminTab === 'configuracoes' && (
-          <div className="space-y-6">
+          <div className="space-y-6 bg-zinc-50 dark:bg-stone-900/60 p-4 sm:p-6 rounded-2xl border border-zinc-300 dark:border-stone-800 shadow-xs">
             
-            <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
-              <h2 className="text-sm font-black text-white">
+            {/* Cabeçalho do Módulo */}
+            <div className="bg-white dark:bg-stone-900 p-4 sm:p-5 rounded-xl border border-zinc-300 dark:border-stone-800 shadow-2xs">
+              <h2 className="text-base font-black text-zinc-900 dark:text-white tracking-tight">
                 Webhooks de Pagamento & Permissões de Super Admin
               </h2>
-              <p className="text-xs text-stone-400">
+              <p className="text-xs text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
                 Integre plataformas de checkout automáticas e gerencie os e-mails com permissão de acesso ao Admin Mestre.
               </p>
             </div>
 
             {settingsSaveSuccess && (
-              <div className="p-3.5 bg-emerald-950/60 border border-emerald-800/80 rounded-2xl text-xs font-bold text-emerald-300 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/80 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Configurações atualizadas com sucesso!</span>
               </div>
             )}
 
             {/* Form Webhooks */}
-            <form onSubmit={handleSaveAdminSettings} className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2 flex items-center justify-between">
+            <form onSubmit={handleSaveAdminSettings} className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-zinc-200 dark:border-stone-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                    <Webhook className="w-4 h-4" />
+                  <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <Webhook className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                     <span>URLs de Webhook de Pagamento</span>
                   </h3>
-                  <p className="text-[11px] text-stone-400">
+                  <p className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
                     Insira as rotas de retorno das plataformas para aprovação e cancelamento automático de assinantes.
                   </p>
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
                 >
                   <Save className="w-4 h-4" />
                   <span>Salvar Webhooks</span>
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3.5 pt-1">
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
                     WEBHOOK KIWIFY
                   </label>
                   <input
@@ -1728,12 +1729,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={settingsForm.webhookKiwify}
                     onChange={(e) => setSettingsForm({ ...settingsForm, webhookKiwify: e.target.value })}
                     placeholder="https://api.seusistema.com.br/webhooks/kiwify"
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-white dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-black dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
                     WEBHOOK CAKTO
                   </label>
                   <input
@@ -1741,12 +1742,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={settingsForm.webhookCakto}
                     onChange={(e) => setSettingsForm({ ...settingsForm, webhookCakto: e.target.value })}
                     placeholder="https://api.seusistema.com.br/webhooks/cakto"
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-white dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-black dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
                     WEBHOOK PERFECTPAY
                   </label>
                   <input
@@ -1754,20 +1755,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={settingsForm.webhookPerfectPay}
                     onChange={(e) => setSettingsForm({ ...settingsForm, webhookPerfectPay: e.target.value })}
                     placeholder="https://api.seusistema.com.br/webhooks/perfectpay"
-                    className="w-full p-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs font-mono text-stone-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full p-2.5 bg-white dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-mono text-black dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-2xs"
                   />
                 </div>
               </div>
             </form>
 
             {/* SUPER ADMINS */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2">
-                <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" />
+            <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-zinc-200 dark:border-stone-800 pb-3">
+                <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   <span>E-mails Autorizados a Acessar o Admin Mestre</span>
                 </h3>
-                <p className="text-[11px] text-stone-400">
+                <p className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
                   Usuários com estes e-mails possuem privilégios de super admin para administrar a plataforma.
                 </p>
               </div>
@@ -1775,7 +1776,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               {/* Input e Botão "+ Adicionar" */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Mail className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-zinc-400 absolute left-3 top-3 pointer-events-none" />
                   <input
                     type="email"
                     value={newSuperAdminEmail}
@@ -1787,41 +1788,41 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       }
                     }}
                     placeholder="Digite o e-mail do super admin (ex: admin@empresa.com)"
-                    className="w-full pl-9 pr-3 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-black dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-2xs"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleAddSuperAdminEmail}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
                   <span>+ Adicionar</span>
                 </button>
               </div>
 
               {/* Lista de Super Admins Cadastrados */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-1">
                 {settingsForm.superAdminEmails.map((email) => (
                   <div
                     key={email}
-                    className="flex items-center justify-between p-3 bg-stone-950/70 rounded-xl border border-stone-800 text-xs"
+                    className="flex items-center justify-between p-3 bg-white dark:bg-stone-950 rounded-lg border border-zinc-300 dark:border-stone-800 text-xs shadow-2xs hover:border-zinc-400 dark:hover:border-stone-700 transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-emerald-950 text-emerald-400 flex items-center justify-center font-bold text-[10px] border border-emerald-800">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 flex items-center justify-center font-bold text-[10px] border border-emerald-300 dark:border-emerald-800 shrink-0">
                         ✓
                       </div>
-                      <span className="font-bold text-white font-mono">{email}</span>
+                      <span className="font-bold text-zinc-900 dark:text-white font-mono">{email}</span>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleRemoveSuperAdminEmail(email)}
-                      className="text-stone-500 hover:text-rose-400 p-1 rounded-md transition cursor-pointer"
+                      className="text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition cursor-pointer"
                       title="Remover autorização"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
@@ -1829,44 +1830,44 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* SENHA MESTRE DE ACESSO */}
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4">
-              <div className="border-b border-stone-800 pb-2 flex items-center justify-between">
+            <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="border-b border-zinc-200 dark:border-stone-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
+                  <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                     <span>Alterar Senha Mestre de Acesso</span>
                   </h3>
-                  <p className="text-[11px] text-stone-400">
+                  <p className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium mt-0.5">
                     Defina uma nova senha mestre forte para autenticação dos Super Administradores.
                   </p>
                 </div>
-                <div className="px-2.5 py-1 rounded-lg bg-stone-950 border border-stone-800 text-[10px] text-stone-400 font-mono">
+                <div className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-stone-950 border border-zinc-300 dark:border-stone-800 text-[10px] text-zinc-600 dark:text-stone-400 font-mono self-start sm:self-auto">
                   Mínimo 6 caracteres
                 </div>
               </div>
 
               {passwordChangeSuccess && (
-                <div className="p-3 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-xs font-bold text-emerald-300 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/80 rounded-lg text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2 shadow-2xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Senha mestre atualizada com sucesso! Todas as sessões administrativas usarão a nova credencial.</span>
                 </div>
               )}
 
               {passwordChangeError && (
-                <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800/80 rounded-lg text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-2 shadow-2xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                   <span>{passwordChangeError}</span>
                 </div>
               )}
 
-              <form onSubmit={handleChangeMasterPassword} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleChangeMasterPassword} className="space-y-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block text-xs font-bold text-stone-300 mb-1">
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
                       NOVA SENHA MESTRE
                     </label>
                     <div className="relative">
-                      <Key className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
+                      <Key className="w-4 h-4 text-zinc-400 absolute left-3 top-3 pointer-events-none" />
                       <input
                         type="password"
                         value={newMasterPassword}
@@ -1875,17 +1876,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           if (passwordChangeError) setPasswordChangeError(null);
                         }}
                         placeholder="Digite a nova senha"
-                        className="w-full pl-9 pr-3 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-black dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-2xs"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-stone-300 mb-1">
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-stone-200 mb-1 tracking-wide">
                       CONFIRMAR NOVA SENHA
                     </label>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
+                      <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-3 pointer-events-none" />
                       <input
                         type="password"
                         value={confirmMasterPassword}
@@ -1894,7 +1895,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           if (passwordChangeError) setPasswordChangeError(null);
                         }}
                         placeholder="Confirme a nova senha"
-                        className="w-full pl-9 pr-3 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                        className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-stone-950 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-black dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-2xs"
                       />
                     </div>
                   </div>
@@ -1903,7 +1904,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <div className="flex items-center justify-end pt-1">
                   <button
                     type="submit"
-                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-md"
+                    className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
                   >
                     <Save className="w-4 h-4" />
                     <span>Salvar Nova Senha Mestre</span>
