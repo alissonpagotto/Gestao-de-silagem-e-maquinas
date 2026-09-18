@@ -1108,10 +1108,13 @@ function isTableMissingError(err: any): boolean {
     code === 'PGRST205' ||
     code === 'PGRST204' ||
     code === '42P01' ||
+    code === '42501' || // RLS policy violation
     msg.includes('could not find the table') ||
     msg.includes('schema cache') ||
     details.includes('schema cache') ||
-    (msg.includes('relation') && msg.includes('does not exist'))
+    (msg.includes('relation') && msg.includes('does not exist')) ||
+    msg.includes('row-level security') ||
+    msg.includes('permission denied')
   );
 }
 
@@ -1495,7 +1498,6 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
         updatedAt: new Date().toISOString(),
       };
       uniqueSubscribers.unshift(colacaSub);
-      upsertCloudSubscriber(colacaSub).catch(() => {});
     }
 
     uniqueSubscribers.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());

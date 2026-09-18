@@ -15,7 +15,6 @@ import {
   upsertCloudPlan,
   deleteCloudPlan,
   fetchCloudSubscribers,
-  upsertCloudSubscriber,
   deleteCloudSubscriber
 } from './supabaseService';
 
@@ -226,10 +225,6 @@ export function saveStoredSubscribers(subscribers: Subscriber[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(subscribers));
     notifyDataChanged();
-    // Persistência em Nuvem (Supabase)
-    Promise.all(subscribers.map(sub => upsertCloudSubscriber(sub))).catch(err => {
-      console.warn('Notice saving subscribers to cloud:', err);
-    });
   } catch (e) {
     console.error('Failed to save subscribers:', e);
   }

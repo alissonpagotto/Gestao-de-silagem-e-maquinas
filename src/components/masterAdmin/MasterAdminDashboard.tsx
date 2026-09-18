@@ -193,7 +193,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       fetchCloudSubscribers().then(freshSubs => {
         if (freshSubs && isMounted) {
           setSubscribers(freshSubs);
-          saveStoredSubscribers(freshSubs);
         }
       });
     });
@@ -202,7 +201,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       fetchCloudSubscribers().then(freshSubs => {
         if (freshSubs && isMounted) {
           setSubscribers(freshSubs);
-          saveStoredSubscribers(freshSubs);
         }
       });
     });
