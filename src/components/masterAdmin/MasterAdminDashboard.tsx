@@ -559,8 +559,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         </div>
 
         {/* Itens do Menu Empilhados Verticalmente */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
-          <div className="px-3 pb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
+          <div className="px-3 pb-1 text-[11px] font-black uppercase tracking-wider text-stone-400">
             Módulos Globais
           </div>
 
@@ -571,33 +571,35 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               setAdminTab('assinantes');
               setIsMobileSidebarOpen(false);
             }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'assinantes'
                 ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
                 : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'assinantes'
                   ? 'bg-emerald-500/20 text-emerald-400'
                   : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
               }`}>
-                <Users className="w-4 h-4" />
+                <Users className="w-5 h-5" />
               </div>
               <div className="truncate">
-                <div className={`truncate ${adminTab === 'assinantes' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                <div className={`text-sm sm:text-[15px] leading-snug truncate ${
+                  adminTab === 'assinantes' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                }`}>
                   Assinantes
                 </div>
-                <div className="text-[10px] text-stone-400 truncate">
+                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
                   Clientes e Contratos
                 </div>
               </div>
             </div>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+            <span className={`px-2.5 py-1 text-xs rounded-full font-bold shrink-0 ml-2 ${
               adminTab === 'assinantes'
                 ? 'bg-emerald-500/30 text-emerald-300 font-black'
-                : 'bg-stone-800 text-stone-400'
+                : 'bg-stone-800 text-stone-400 group-hover:text-stone-300'
             }`}>
               {subscribers.length}
             </span>
@@ -610,33 +612,35 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               setAdminTab('planos');
               setIsMobileSidebarOpen(false);
             }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'planos'
                 ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
                 : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'planos'
                   ? 'bg-emerald-500/20 text-emerald-400'
                   : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
               }`}>
-                <Tag className="w-4 h-4" />
+                <Tag className="w-5 h-5" />
               </div>
               <div className="truncate">
-                <div className={`truncate ${adminTab === 'planos' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                <div className={`text-sm sm:text-[15px] leading-snug truncate ${
+                  adminTab === 'planos' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                }`}>
                   Módulo de Planos
                 </div>
-                <div className="text-[10px] text-stone-400 truncate">
+                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
                   Tabelas de Preços
                 </div>
               </div>
             </div>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 ${
+            <span className={`px-2.5 py-1 text-xs rounded-full font-bold shrink-0 ml-2 ${
               adminTab === 'planos'
                 ? 'bg-emerald-500/30 text-emerald-300 font-black'
-                : 'bg-stone-800 text-stone-400'
+                : 'bg-stone-800 text-stone-400 group-hover:text-stone-300'
             }`}>
               {plans.length}
             </span>
@@ -649,31 +653,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               setAdminTab('site');
               setIsMobileSidebarOpen(false);
             }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'site'
                 ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
                 : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'site'
                   ? 'bg-emerald-500/20 text-emerald-400'
                   : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
               }`}>
-                <Globe className="w-4 h-4" />
+                <Globe className="w-5 h-5" />
               </div>
               <div className="truncate">
-                <div className={`truncate ${adminTab === 'site' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                <div className={`text-sm sm:text-[15px] leading-snug truncate ${
+                  adminTab === 'site' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                }`}>
                   Configurações do Site
                 </div>
-                <div className="text-[10px] text-stone-400 truncate">
+                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
                   Landing Page Pública
                 </div>
               </div>
             </div>
             {adminTab === 'site' && (
-              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shrink-0" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shrink-0 ml-2" />
             )}
           </button>
 
@@ -684,31 +690,33 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               setAdminTab('configuracoes');
               setIsMobileSidebarOpen(false);
             }}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer group text-left ${
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all cursor-pointer group text-left ${
               adminTab === 'configuracoes'
                 ? 'bg-stone-800 text-emerald-400 border border-stone-700/90 shadow-md ring-1 ring-emerald-500/30'
                 : 'text-stone-400 hover:text-white hover:bg-stone-800/50 border border-transparent'
             }`}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-2 rounded-lg transition ${
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className={`p-2.5 rounded-xl transition shrink-0 ${
                 adminTab === 'configuracoes'
                   ? 'bg-emerald-500/20 text-emerald-400'
                   : 'bg-stone-800/70 text-stone-400 group-hover:text-stone-200 group-hover:bg-stone-800'
               }`}>
-                <Key className="w-4 h-4" />
+                <Key className="w-5 h-5" />
               </div>
               <div className="truncate">
-                <div className={`truncate ${adminTab === 'configuracoes' ? 'text-emerald-400 font-black' : 'text-stone-200'}`}>
+                <div className={`text-sm sm:text-[15px] leading-snug truncate ${
+                  adminTab === 'configuracoes' ? 'text-emerald-400 font-black' : 'text-white font-bold group-hover:text-white'
+                }`}>
                   Webhooks & Admins
                 </div>
-                <div className="text-[10px] text-stone-400 truncate">
+                <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
                   Segurança & Integrações
                 </div>
               </div>
             </div>
             {adminTab === 'configuracoes' && (
-              <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shrink-0" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shrink-0 ml-2" />
             )}
           </button>
         </div>
