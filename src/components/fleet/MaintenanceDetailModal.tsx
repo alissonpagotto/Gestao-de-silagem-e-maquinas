@@ -200,7 +200,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
         {/* Header - Não impresso */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/40 print:hidden">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-[#0963cb] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-800 flex items-center justify-center border border-zinc-200">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -229,7 +229,7 @@ export const MaintenanceDetailModal: React.FC<MaintenanceDetailModalProps> = ({
             </button>
             <button
               onClick={handlePrint}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-[#0963cb] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir OS</span>
