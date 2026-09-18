@@ -24,6 +24,12 @@ export interface Subscriber {
 }
 
 export interface SiteConfig {
+  // Configurações Gerais da Empresa / Site
+  logoUrl?: string;
+  companyName?: string;
+  primaryColor?: string;
+  maintenanceMode?: boolean;
+
   // Bloco Hero
   heroTitle: string; // TÍTULO PRINCIPAL (H1)
   heroSubtitle: string; // SUBTÍTULO

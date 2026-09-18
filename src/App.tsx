@@ -112,6 +112,7 @@ import { PublicClientForm } from './components/crm/PublicClientForm';
 import { PublicSupplierForm } from './components/suppliers/PublicSupplierForm';
 import { FieldFormsView } from './components/services/FieldFormsView';
 import { MasterAdminDashboard } from './components/masterAdmin/MasterAdminDashboard';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LandingPage } from './components/landing/LandingPage';
 import { AuthPage } from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
@@ -993,11 +994,16 @@ export default function App() {
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {
     return (
-      <MasterAdminDashboard
-        onBackToApp={handleEnterApp}
-        onOpenLandingPage={handleOpenLandingPage}
-        onImpersonate={handleImpersonateSubscriber}
-      />
+      <ErrorBoundary
+        fallbackTitle="Painel Admin Mestre"
+        fallbackDescription="Ocorreu uma falha ao renderizar os dados do painel mestre. Clique abaixo para reiniciar a visualização com proteção total."
+      >
+        <MasterAdminDashboard
+          onBackToApp={handleEnterApp}
+          onOpenLandingPage={handleOpenLandingPage}
+          onImpersonate={handleImpersonateSubscriber}
+        />
+      </ErrorBoundary>
     );
   }
 

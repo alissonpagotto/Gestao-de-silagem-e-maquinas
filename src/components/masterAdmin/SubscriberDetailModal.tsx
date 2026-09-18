@@ -132,10 +132,10 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
           <div className="flex items-center gap-2 text-xs">
             <span className="text-[#8a92a6] font-bold uppercase tracking-wider">Plano:</span>
             <span className="px-2.5 py-0.5 rounded-md font-bold bg-[#252a34] text-white border border-[#2f3644]">
-              {subscriber.planName}
+              {subscriber?.planName || 'Produtor Essencial'}
             </span>
             <span className="font-bold text-white">
-              {formatCurrencyBRL(subscriber.monthlyValue)}/mês
+              {formatCurrencyBRL(subscriber?.monthlyValue || 0)}/mês
             </span>
           </div>
         </div>
@@ -247,21 +247,29 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
               <div>
                 <span className="text-[#8a92a6] font-medium block">Cidade / UF:</span>
                 <span className="font-bold text-white">
-                  {subscriber.city ? `${subscriber.city} - ${subscriber.state}` : 'Não informado'}
+                  {subscriber?.city ? `${subscriber.city}${subscriber.state ? ` - ${subscriber.state}` : ''}` : 'Não informado'}
                 </span>
               </div>
 
               <div>
                 <span className="text-[#8a92a6] font-medium block">CEP:</span>
                 <span className="font-mono font-bold text-white">
-                  {subscriber.cep || 'Não informado'}
+                  {subscriber?.cep || 'Não informado'}
                 </span>
               </div>
 
               <div>
                 <span className="text-[#8a92a6] font-medium block">Cadastrado em:</span>
                 <span className="font-medium text-[#d1d5db]">
-                  {subscriber.createdAt ? new Date(subscriber.createdAt).toLocaleDateString('pt-BR') : '-'}
+                  {(() => {
+                    if (!subscriber?.createdAt) return '-';
+                    try {
+                      const d = new Date(subscriber.createdAt);
+                      return !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : String(subscriber.createdAt);
+                    } catch {
+                      return '-';
+                    }
+                  })()}
                 </span>
               </div>
             </div>
@@ -271,7 +279,16 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
         {/* Rodapé */}
         <div className="px-5 py-3.5 bg-[#14161d] border-t border-[#2f3644] flex items-center justify-between">
           <span className="text-[11px] text-[#8a92a6]">
-            Última alteração em {new Date(subscriber.updatedAt || subscriber.createdAt).toLocaleString('pt-BR')}
+            {(() => {
+              const dt = subscriber?.updatedAt || subscriber?.createdAt;
+              if (!dt) return 'Registro ativo';
+              try {
+                const d = new Date(dt);
+                return !isNaN(d.getTime()) ? `Última alteração em ${d.toLocaleString('pt-BR')}` : 'Registro ativo';
+              } catch {
+                return 'Registro ativo';
+              }
+            })()}
           </span>
           <button
             type="button"

@@ -202,7 +202,11 @@ CREATE INDEX IF NOT EXISTS idx_agenda_conflito_horario ON public.agenda_servicos
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.site_settings (
     id TEXT PRIMARY KEY DEFAULT 'global',
-    hero_title TEXT NOT NULL,
+    logo_url TEXT,
+    company_name TEXT DEFAULT 'AgroControl Silagem',
+    primary_color TEXT DEFAULT '#16a34a',
+    maintenance_mode BOOLEAN DEFAULT false,
+    hero_title TEXT NOT NULL DEFAULT 'Gestão Completa de Silagem e Frotas',
     hero_subtitle TEXT,
     hero_primary_btn_text TEXT,
     hero_secondary_btn_text TEXT,
@@ -283,6 +287,7 @@ CREATE TABLE IF NOT EXISTS public.assinantes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
+    plano_nome TEXT NOT NULL DEFAULT 'Produtor Essencial',
     plano_selecionado TEXT NOT NULL DEFAULT 'essencial',
     valor_mensal NUMERIC(15,2) NOT NULL DEFAULT 195.00,
     status TEXT NOT NULL DEFAULT 'trial',

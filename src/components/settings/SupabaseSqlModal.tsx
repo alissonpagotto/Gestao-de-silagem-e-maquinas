@@ -263,6 +263,7 @@ CREATE TABLE IF NOT EXISTS public.assinantes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
+    plano_nome TEXT NOT NULL DEFAULT 'Produtor Essencial',
     plano_selecionado TEXT NOT NULL DEFAULT 'essencial',
     valor_mensal NUMERIC(15,2) NOT NULL DEFAULT 195.00,
     status TEXT NOT NULL DEFAULT 'trial',
@@ -433,29 +434,10 @@ CREATE TABLE IF NOT EXISTS public.plans (
 
 CREATE TABLE IF NOT EXISTS public.site_settings (
     id TEXT PRIMARY KEY DEFAULT 'global',
-    hero_title TEXT,
-    hero_subtitle TEXT,
-    hero_primary_btn_text TEXT,
-    hero_secondary_btn_text TEXT,
-    hero_background_image TEXT,
-    features_section_title TEXT,
-    features_section_subtitle TEXT,
-    features_highlight_image TEXT,
-    feature1_title TEXT,
-    feature1_desc TEXT,
-    feature2_title TEXT,
-    feature2_desc TEXT,
-    feature3_title TEXT,
-    feature3_desc TEXT,
-    feature4_title TEXT,
-    feature4_desc TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- 9. TABELA: site_settings (Configurações da Landing Page & Hero)
-CREATE TABLE IF NOT EXISTS public.site_settings (
-    id TEXT PRIMARY KEY DEFAULT 'global',
+    logo_url TEXT,
+    company_name TEXT DEFAULT 'AgroControl Silagem',
+    primary_color TEXT DEFAULT '#16a34a',
+    maintenance_mode BOOLEAN DEFAULT false,
     hero_title TEXT,
     hero_subtitle TEXT,
     hero_primary_btn_text TEXT,

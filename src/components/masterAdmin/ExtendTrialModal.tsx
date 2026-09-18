@@ -25,13 +25,22 @@ export const ExtendTrialModal: React.FC<ExtendTrialModalProps> = ({
 
   if (!isOpen || !subscriber) return null;
 
-  // Calcula a base de data: se o trial atual for futuro, soma em cima dele, senão soma em cima de hoje
-  const currentExpirationDate = subscriber.trialUntil ? new Date(subscriber.trialUntil) : new Date();
-  const baseDate = currentExpirationDate > new Date() ? currentExpirationDate : new Date();
+  // Calcula a base de data com segurança: se o trial atual for válido e futuro, soma em cima dele, senão soma em cima de hoje
+  let baseDate = new Date();
+  if (subscriber?.trialUntil) {
+    try {
+      const parsed = new Date(subscriber.trialUntil);
+      if (!isNaN(parsed.getTime()) && parsed > new Date()) {
+        baseDate = parsed;
+      }
+    } catch {
+      baseDate = new Date();
+    }
+  }
 
   const newExpirationDate = new Date(baseDate);
   newExpirationDate.setDate(newExpirationDate.getDate() + (Number(daysToAdd) || 0));
-  const newExpirationIso = newExpirationDate.toISOString();
+  const newExpirationIso = isNaN(newExpirationDate.getTime()) ? new Date().toISOString() : newExpirationDate.toISOString();
   const newExpirationDateString = newExpirationIso.split('T')[0];
 
   const handleQuickAdd = (days: number) => {

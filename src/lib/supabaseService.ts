@@ -1083,38 +1083,66 @@ export async function upsertFrente(front: {
 }
 
 // ==============================================================================
+// CONTROLE DE TABELAS AUSENTES NO SCHEMA CACHE (Elimina erros 404 no console)
+// ==============================================================================
+const unmigratedTables = new Set<string>();
+
+export function markTableUnmigrated(table: string) {
+  unmigratedTables.add(table);
+}
+
+export function isTableUnmigrated(table: string): boolean {
+  return unmigratedTables.has(table);
+}
+
+export function clearUnmigratedTables() {
+  unmigratedTables.clear();
+}
+
+function isTableMissingError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err.message || '').toLowerCase();
+  const details = String(err.details || '').toLowerCase();
+  const code = String(err.code || '');
+  return (
+    code === 'PGRST205' ||
+    code === 'PGRST204' ||
+    code === '42P01' ||
+    msg.includes('could not find the table') ||
+    msg.includes('schema cache') ||
+    details.includes('schema cache') ||
+    (msg.includes('relation') && msg.includes('does not exist'))
+  );
+}
+
+// ==============================================================================
 // GESTÃO CLOUD: site_settings (Landing Page & Hero)
 // ==============================================================================
 
 export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || isTableUnmigrated('site_settings')) return null;
   try {
     // 1. Busca direta pública na tabela site_settings
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('site_settings')
       .select('*')
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      // Fallback para configuracoes_site
-      const fallback = await supabase
-        .from('configuracoes_site')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-      if (!fallback.error && fallback.data) {
-        data = fallback.data;
-        error = null;
-      } else {
-        console.warn('Supabase fetchCloudSiteConfig notice:', error.message);
-        return null;
+      if (isTableMissingError(error)) {
+        markTableUnmigrated('site_settings');
       }
+      return null;
     }
 
     if (!data) return null;
 
     return {
+      logoUrl: data.logo_url || '',
+      companyName: data.company_name || 'AgroControl Silagem',
+      primaryColor: data.primary_color || '#16a34a',
+      maintenanceMode: Boolean(data.maintenance_mode),
       heroTitle: data.hero_title || '',
       heroSubtitle: data.hero_subtitle || '',
       heroPrimaryBtnText: data.hero_primary_btn_text || '',
@@ -1133,19 +1161,22 @@ export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
       feature4Desc: data.feature4_desc || '',
     };
   } catch (err) {
-    console.warn('Supabase fetchCloudSiteConfig error:', err);
     return null;
   }
 }
 
 export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  if (!isSupabaseConfigured || isTableUnmigrated('site_settings')) return false;
   try {
     const payload: any = {
       id: 'global',
       updated_at: new Date().toISOString()
     };
 
+    if (config.logoUrl !== undefined) payload.logo_url = config.logoUrl;
+    if (config.companyName !== undefined) payload.company_name = config.companyName;
+    if (config.primaryColor !== undefined) payload.primary_color = config.primaryColor;
+    if (config.maintenanceMode !== undefined) payload.maintenance_mode = config.maintenanceMode;
     if (config.heroTitle !== undefined) payload.hero_title = config.heroTitle;
     if (config.heroSubtitle !== undefined) payload.hero_subtitle = config.heroSubtitle;
     if (config.heroPrimaryBtnText !== undefined) payload.hero_primary_btn_text = config.heroPrimaryBtnText;
@@ -1163,21 +1194,18 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.feature4Title !== undefined) payload.feature4_title = config.feature4Title;
     if (config.feature4Desc !== undefined) payload.feature4_desc = config.feature4Desc;
 
-    let { error } = await supabase
+    const { error } = await supabase
       .from('site_settings')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      const fallback = await supabase
-        .from('configuracoes_site')
-        .upsert(payload, { onConflict: 'id' });
-      if (!fallback.error) return true;
-      console.warn('Supabase upsertCloudSiteConfig notice:', error.message);
+      if (isTableMissingError(error)) {
+        markTableUnmigrated('site_settings');
+      }
       return false;
     }
     return true;
   } catch (err) {
-    console.warn('Supabase upsertCloudSiteConfig error:', err);
     return false;
   }
 }
@@ -1187,26 +1215,19 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
 // ==============================================================================
 
 export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || isTableUnmigrated('plans')) return null;
   try {
     // Busca pública e irrestrita sem filtro de usuário
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('plans')
       .select('*')
       .order('display_order', { ascending: true });
 
     if (error) {
-      const fallback = await supabase
-        .from('planos')
-        .select('*')
-        .order('display_order', { ascending: true });
-      if (!fallback.error && fallback.data && fallback.data.length > 0) {
-        data = fallback.data;
-        error = null;
-      } else {
-        console.warn('Supabase fetchCloudPlans notice:', error.message);
-        return null;
+      if (isTableMissingError(error)) {
+        markTableUnmigrated('plans');
       }
+      return null;
     }
 
     if (!data || data.length === 0) return null;
@@ -1219,7 +1240,7 @@ export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
       billingCycle: row.billing_cycle || 'mensal',
       badge: row.badge || undefined,
       isFeatured: Boolean(row.is_featured),
-      isActive: Boolean(row.is_active),
+      isActive: row.is_active !== undefined ? Boolean(row.is_active) : true,
       displayOrder: Number(row.display_order) || 1,
       limits: typeof row.limits === 'object' && row.limits ? row.limits : {
         maxUsers: 5,
@@ -1231,13 +1252,12 @@ export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
       checkoutUrl: row.checkout_url || '',
     }));
   } catch (err) {
-    console.warn('Supabase fetchCloudPlans error:', err);
     return null;
   }
 }
 
 export async function upsertCloudPlan(plan: PlanDefinition): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  if (!isSupabaseConfigured || isTableUnmigrated('plans')) return false;
   try {
     const payload = {
       id: plan.id,
@@ -1255,27 +1275,24 @@ export async function upsertCloudPlan(plan: PlanDefinition): Promise<boolean> {
       updated_at: new Date().toISOString()
     };
 
-    let { error } = await supabase
+    const { error } = await supabase
       .from('plans')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      const fallback = await supabase
-        .from('planos')
-        .upsert(payload, { onConflict: 'id' });
-      if (!fallback.error) return true;
-      console.warn('Supabase upsertCloudPlan notice:', error.message);
+      if (isTableMissingError(error)) {
+        markTableUnmigrated('plans');
+      }
       return false;
     }
     return true;
   } catch (err) {
-    console.warn('Supabase upsertCloudPlan error:', err);
     return false;
   }
 }
 
 export async function deleteCloudPlan(planId: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  if (!isSupabaseConfigured || isTableUnmigrated('plans')) return false;
   try {
     const { error } = await supabase
       .from('plans')
@@ -1283,12 +1300,13 @@ export async function deleteCloudPlan(planId: string): Promise<boolean> {
       .eq('id', planId);
 
     if (error) {
-      console.warn('Supabase deleteCloudPlan notice:', error.message);
+      if (isTableMissingError(error)) {
+        markTableUnmigrated('plans');
+      }
       return false;
     }
     return true;
   } catch (err) {
-    console.warn('Supabase deleteCloudPlan error:', err);
     return false;
   }
 }
@@ -1337,16 +1355,40 @@ export function normalizeSubscriberStatus(status?: string): 'ativa' | 'trial' | 
 }
 
 export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || (isTableUnmigrated('assinantes') && isTableUnmigrated('subscribers'))) return null;
   try {
-    // Busca em paralelo tanto na tabela oficial 'assinantes' quanto na tabela 'subscribers'
-    const [assinantesRes, subscribersRes] = await Promise.allSettled([
-      supabase.from('assinantes').select('*').order('criado_em', { ascending: false }),
-      supabase.from('subscribers').select('*').order('created_at', { ascending: false }),
-    ]);
+    const queries: Promise<any>[] = [];
+    const queryTypes: ('assinantes' | 'subscribers')[] = [];
 
-    const assinantesData = assinantesRes.status === 'fulfilled' && !assinantesRes.value.error ? assinantesRes.value.data : null;
-    const subsData = subscribersRes.status === 'fulfilled' && !subscribersRes.value.error ? subscribersRes.value.data : null;
+    if (!isTableUnmigrated('assinantes')) {
+      queries.push(Promise.resolve(supabase.from('assinantes').select('*').order('criado_em', { ascending: false })));
+      queryTypes.push('assinantes');
+    }
+    if (!isTableUnmigrated('subscribers')) {
+      queries.push(Promise.resolve(supabase.from('subscribers').select('*').order('created_at', { ascending: false })));
+      queryTypes.push('subscribers');
+    }
+
+    if (queries.length === 0) return null;
+
+    const results = await Promise.allSettled(queries);
+
+    let assinantesData: any[] | null = null;
+    let subsData: any[] | null = null;
+
+    results.forEach((res, idx) => {
+      const type = queryTypes[idx];
+      if (res.status === 'fulfilled') {
+        if (res.value.error) {
+          if (isTableMissingError(res.value.error)) {
+            markTableUnmigrated(type);
+          }
+        } else if (Array.isArray(res.value.data)) {
+          if (type === 'assinantes') assinantesData = res.value.data;
+          if (type === 'subscribers') subsData = res.value.data;
+        }
+      }
+    });
 
     if (!assinantesData && !subsData) {
       return null;
@@ -1390,7 +1432,7 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
     // 2. Processa tabela oficial 'assinantes' com prioridade máxima
     if (Array.isArray(assinantesData)) {
       for (const row of assinantesData) {
-        const planKey = normalizeSubscriberPlanKey(row.plano_selecionado || row.plan_id || row.plan_name);
+        const planKey = normalizeSubscriberPlanKey(row.plano_nome || row.plano_selecionado || row.plan_id || row.plan_name);
         const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
         const idKey = row.id || toValidUUID(emailKey);
         const subItem: Subscriber = {
@@ -1409,7 +1451,7 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
           city: row.cidade || row.city || '',
           state: row.estado || row.state || '',
           planId: planKey,
-          planName: getSubscriberPlanDisplayName(planKey),
+          planName: row.plano_nome || getSubscriberPlanDisplayName(planKey),
           monthlyValue: Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
           status: normalizeSubscriberStatus(row.status),
           createdAt: row.criado_em || row.created_at || new Date().toISOString(),
@@ -1460,7 +1502,6 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 
     return uniqueSubscribers;
   } catch (err) {
-    console.warn('Supabase fetchCloudSubscribers error:', err);
     return null;
   }
 }
@@ -1470,6 +1511,7 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   try {
     const validId = toValidUUID(sub.id);
     const planKey = normalizeSubscriberPlanKey(sub.planId || sub.planName);
+    const planDisplayName = getSubscriberPlanDisplayName(planKey);
     const valorMensal = Number(sub.monthlyValue) > 0 ? Number(sub.monthlyValue) : getSubscriberPlanPrice(planKey);
     const statusVal = normalizeSubscriberStatus(sub.status);
 
@@ -1485,6 +1527,7 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
       id: validId,
       nome: sub.name.trim(),
       email: sub.responsibleEmail.trim().toLowerCase(),
+      plano_nome: planDisplayName,
       plano_selecionado: planKey,
       valor_mensal: valorMensal,
       status: statusVal,
@@ -1493,49 +1536,58 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
     };
 
     let assinantesSuccess = false;
-    try {
-      const { error: assinantesError } = await supabase
-        .from('assinantes')
-        .upsert(payloadAssinantes, { onConflict: 'id' });
-
-      if (!assinantesError) {
-        assinantesSuccess = true;
-      } else {
-        console.warn('Supabase upsert assinantes notice:', assinantesError.message);
-        // Fallback por email
-        const { error: fallbackError } = await supabase
+    if (!isTableUnmigrated('assinantes')) {
+      try {
+        const { error: assinantesError } = await supabase
           .from('assinantes')
-          .upsert(payloadAssinantes, { onConflict: 'email' });
-        if (!fallbackError) assinantesSuccess = true;
+          .upsert(payloadAssinantes, { onConflict: 'id' });
+
+        if (!assinantesError) {
+          assinantesSuccess = true;
+        } else {
+          if (isTableMissingError(assinantesError)) {
+            markTableUnmigrated('assinantes');
+          } else {
+            // Fallback por email
+            const { error: fallbackError } = await supabase
+              .from('assinantes')
+              .upsert(payloadAssinantes, { onConflict: 'email' });
+            if (!fallbackError) assinantesSuccess = true;
+          }
+        }
+      } catch (e) {
+        // Fallback silencioso
       }
-    } catch (e) {
-      console.warn('Erro ao salvar em assinantes:', e);
     }
 
-    // 2. Gravação de contingência na tabela 'subscribers'
-    try {
-      const payloadSubscribers = {
-        id: validId,
-        name: sub.name.trim(),
-        email: sub.responsibleEmail.trim().toLowerCase(),
-        phone: sub.phone || '',
-        document: sub.cpfCnpj || '',
-        plan_name: getSubscriberPlanDisplayName(planKey),
-        status: statusVal === 'ativa' ? 'Ativa' : statusVal === 'cancelada' ? 'Cancelada' : 'Trial',
-        trial_ends_at: trialDateIso,
-        created_at: criadoEmIso,
-      };
+    // 2. Gravação de contingência na tabela 'subscribers' se disponível
+    if (!isTableUnmigrated('subscribers')) {
+      try {
+        const payloadSubscribers = {
+          id: validId,
+          name: sub.name.trim(),
+          email: sub.responsibleEmail.trim().toLowerCase(),
+          phone: sub.phone || '',
+          document: sub.cpfCnpj || '',
+          plan_name: planDisplayName,
+          status: statusVal === 'ativa' ? 'Ativa' : statusVal === 'cancelada' ? 'Cancelada' : 'Trial',
+          trial_ends_at: trialDateIso,
+          created_at: criadoEmIso,
+        };
 
-      await supabase
-        .from('subscribers')
-        .upsert(payloadSubscribers, { onConflict: 'id' });
-    } catch {
-      // Ignora falha na tabela legada se assinantes funcionar
+        const { error: subErr } = await supabase
+          .from('subscribers')
+          .upsert(payloadSubscribers, { onConflict: 'id' });
+        if (subErr && isTableMissingError(subErr)) {
+          markTableUnmigrated('subscribers');
+        }
+      } catch {
+        // Ignora falha na tabela legada
+      }
     }
 
     return assinantesSuccess;
   } catch (err) {
-    console.warn('Supabase upsertCloudSubscriber error:', err);
     return false;
   }
 }
@@ -1547,20 +1599,25 @@ export async function updateCloudSubscriberStatus(id: string, status: string): P
     const normalized = normalizeSubscriberStatus(status);
 
     // Atualiza em assinantes
-    await supabase
-      .from('assinantes')
-      .update({ status: normalized })
-      .eq('id', validId);
+    if (!isTableUnmigrated('assinantes')) {
+      const { error: err1 } = await supabase
+        .from('assinantes')
+        .update({ status: normalized })
+        .eq('id', validId);
+      if (err1 && isTableMissingError(err1)) markTableUnmigrated('assinantes');
+    }
 
     // Atualiza em subscribers
-    await supabase
-      .from('subscribers')
-      .update({ status: normalized === 'ativa' ? 'Ativa' : normalized === 'cancelada' ? 'Cancelada' : 'Trial' })
-      .eq('id', validId);
+    if (!isTableUnmigrated('subscribers')) {
+      const { error: err2 } = await supabase
+        .from('subscribers')
+        .update({ status: normalized === 'ativa' ? 'Ativa' : normalized === 'cancelada' ? 'Cancelada' : 'Trial' })
+        .eq('id', validId);
+      if (err2 && isTableMissingError(err2)) markTableUnmigrated('subscribers');
+    }
 
     return true;
   } catch (err) {
-    console.warn('Supabase updateCloudSubscriberStatus error:', err);
     return false;
   }
 }
@@ -1574,23 +1631,29 @@ export async function updateCloudSubscriberPlan(id: string, planNameOrKey: strin
     const displayName = getSubscriberPlanDisplayName(planKey);
 
     // Atualiza em assinantes
-    await supabase
-      .from('assinantes')
-      .update({ 
-        plano_selecionado: planKey,
-        valor_mensal: valorMensal
-      })
-      .eq('id', validId);
+    if (!isTableUnmigrated('assinantes')) {
+      const { error: err1 } = await supabase
+        .from('assinantes')
+        .update({ 
+          plano_nome: displayName,
+          plano_selecionado: planKey,
+          valor_mensal: valorMensal
+        })
+        .eq('id', validId);
+      if (err1 && isTableMissingError(err1)) markTableUnmigrated('assinantes');
+    }
 
     // Atualiza em subscribers
-    await supabase
-      .from('subscribers')
-      .update({ plan_name: displayName })
-      .eq('id', validId);
+    if (!isTableUnmigrated('subscribers')) {
+      const { error: err2 } = await supabase
+        .from('subscribers')
+        .update({ plan_name: displayName })
+        .eq('id', validId);
+      if (err2 && isTableMissingError(err2)) markTableUnmigrated('subscribers');
+    }
 
     return true;
   } catch (err) {
-    console.warn('Supabase updateCloudSubscriberPlan error:', err);
     return false;
   }
 }
@@ -1601,20 +1664,25 @@ export async function updateCloudSubscriberTrial(id: string, trialEndsAtIso: str
     const validId = toValidUUID(id);
 
     // Atualiza em assinantes
-    await supabase
-      .from('assinantes')
-      .update({ trial_ate: trialEndsAtIso })
-      .eq('id', validId);
+    if (!isTableUnmigrated('assinantes')) {
+      const { error: err1 } = await supabase
+        .from('assinantes')
+        .update({ trial_ate: trialEndsAtIso })
+        .eq('id', validId);
+      if (err1 && isTableMissingError(err1)) markTableUnmigrated('assinantes');
+    }
 
     // Atualiza em subscribers
-    await supabase
-      .from('subscribers')
-      .update({ trial_ends_at: trialEndsAtIso })
-      .eq('id', validId);
+    if (!isTableUnmigrated('subscribers')) {
+      const { error: err2 } = await supabase
+        .from('subscribers')
+        .update({ trial_ends_at: trialEndsAtIso })
+        .eq('id', validId);
+      if (err2 && isTableMissingError(err2)) markTableUnmigrated('subscribers');
+    }
 
     return true;
   } catch (err) {
-    console.warn('Supabase updateCloudSubscriberTrial error:', err);
     return false;
   }
 }
@@ -1652,7 +1720,6 @@ export async function updateCloudSubscriberPassword(id: string, newPassword: str
 
     return { success: true, message: 'Senha registrada com sucesso!' };
   } catch (err: any) {
-    console.warn('Supabase updateCloudSubscriberPassword error:', err);
     return { success: false, message: err?.message || 'Falha ao redefinir senha' };
   }
 }
@@ -1661,11 +1728,14 @@ export async function deleteCloudSubscriber(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const validId = toValidUUID(id);
-    await supabase.from('assinantes').delete().eq('id', validId);
-    await supabase.from('subscribers').delete().eq('id', validId);
+    if (!isTableUnmigrated('assinantes')) {
+      await supabase.from('assinantes').delete().eq('id', validId);
+    }
+    if (!isTableUnmigrated('subscribers')) {
+      await supabase.from('subscribers').delete().eq('id', validId);
+    }
     return true;
   } catch (err) {
-    console.warn('Supabase deleteCloudSubscriber error:', err);
     return false;
   }
 }
@@ -1678,7 +1748,7 @@ export function subscribeToCloudTable(
   tableName: string,
   onChange: (payload: any) => void
 ): () => void {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || isTableUnmigrated(tableName)) {
     return () => {};
   }
 
@@ -1692,13 +1762,22 @@ export function subscribeToCloudTable(
           onChange(payload);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          markTableUnmigrated(tableName);
+          try {
+            supabase.removeChannel(channel);
+          } catch {}
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
     };
   } catch (e) {
-    console.warn(`Notice subscribing to realtime for ${tableName}:`, e);
+    markTableUnmigrated(tableName);
     return () => {};
   }
 }

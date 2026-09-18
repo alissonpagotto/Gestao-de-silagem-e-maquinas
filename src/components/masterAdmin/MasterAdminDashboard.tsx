@@ -344,19 +344,21 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // 2. Salvar Assinante com UPDATE real no banco de dados Supabase
   const handleSaveSubscriber = async (saved: Subscriber) => {
-    const exists = subscribers.some(s => s.id === saved.id);
+    if (!saved || !saved.id) return;
+    const currentList = Array.isArray(subscribers) ? subscribers : [];
+    const exists = currentList.some(s => s?.id === saved.id);
     let updatedList: Subscriber[];
     if (exists) {
-      updatedList = subscribers.map(s => s.id === saved.id ? saved : s);
+      updatedList = currentList.map(s => s?.id === saved.id ? saved : s);
     } else {
-      updatedList = [saved, ...subscribers];
+      updatedList = [saved, ...currentList];
     }
     setSubscribers(updatedList);
     saveStoredSubscribers(updatedList);
 
     try {
       await upsertCloudSubscriber(saved);
-      showToast(`Assinante "${saved.name}" atualizado no Supabase com sucesso!`);
+      showToast(`Assinante "${saved.name || 'Assinante'}" atualizado no Supabase com sucesso!`);
     } catch (err) {
       console.warn('Aviso ao salvar assinante na nuvem:', err);
     }
@@ -364,19 +366,21 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // Excluir Assinante
   const handleDeleteSubscriber = (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja remover o assinante "${name}"? Esta ação é irreversível.`)) {
-      const updated = subscribers.filter(s => s.id !== id);
+    if (window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível.`)) {
+      const currentList = Array.isArray(subscribers) ? subscribers : [];
+      const updated = currentList.filter(s => s?.id !== id);
       setSubscribers(updated);
       saveStoredSubscribers(updated);
       deleteCloudSubscriber(id).catch(err => console.warn('Notice deleting subscriber from cloud:', err));
-      showToast(`Assinante "${name}" removido.`);
+      showToast(`Assinante "${name || 'Assinante'}" removido.`);
     }
   };
 
   // 3. Alternar Status Rápido do Assinante com sincronização direta no Supabase
   const handleQuickStatusChange = async (id: string, newStatus: SubscriberStatus) => {
-    const updated = subscribers.map(s => {
-      if (s.id === id) {
+    const currentList = Array.isArray(subscribers) ? subscribers : [];
+    const updated = currentList.map(s => {
+      if (s?.id === id) {
         return { ...s, status: newStatus, updatedAt: new Date().toISOString() };
       }
       return s;
@@ -627,7 +631,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 ? 'bg-[#3a4150] text-white font-bold'
                 : 'bg-[#1e222b] text-[#8a92a6] group-hover:text-white'
             }`}>
-              {subscribers.length}
+              {(subscribers || []).length}
             </span>
           </button>
 
@@ -822,8 +826,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   {adminTab === 'configuracoes' && 'Webhooks & Super Admins'}
                 </h2>
                 <span className="text-[10px] bg-[#252a34] text-[#8a92a6] border border-[#2f3644] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block shrink-0">
-                  {adminTab === 'assinantes' && `${subscribers.length} registros`}
-                  {adminTab === 'planos' && `${plans.length} planos`}
+                  {adminTab === 'assinantes' && `${(subscribers || []).length} registros`}
+                  {adminTab === 'planos' && `${(plans || []).length} planos`}
                   {adminTab === 'site' && 'Landing Page'}
                   {adminTab === 'configuracoes' && 'Segurança'}
                 </span>
@@ -972,7 +976,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#8a92a6]" />
-                  <span>Todas ({subscribers.length})</span>
+                  <span>Todas ({(subscribers || []).filter(Boolean).length})</span>
                 </button>
                 <button
                   type="button"
@@ -984,7 +988,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>Ativa ({subscribers.filter(s => s.status === 'ativa').length})</span>
+                  <span>Ativa ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'ativa').length})</span>
                 </button>
                 <button
                   type="button"
@@ -996,7 +1000,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span>Trial ({subscribers.filter(s => s.status === 'trial').length})</span>
+                  <span>Trial ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'trial').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1008,7 +1012,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                  <span>Inadimplente ({subscribers.filter(s => s.status === 'inadimplente').length})</span>
+                  <span>Inadimplente ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'inadimplente').length})</span>
                 </button>
                 <button
                   type="button"
@@ -1020,7 +1024,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>Cancelada ({subscribers.filter(s => s.status === 'cancelada').length})</span>
+                  <span>Cancelada ({(subscribers || []).filter(s => (s?.status || '').toLowerCase() === 'cancelada').length})</span>
                 </button>
               </div>
 
@@ -1080,11 +1084,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                           <div className="flex flex-col items-center justify-center space-y-2">
                             <Building2 className="w-8 h-8 text-[#8a92a6] stroke-[1.5]" />
                             <p className="text-sm font-semibold text-white">
-                              {subscribers.length === 0
+                              {(subscribers || []).length === 0
                                 ? 'Nenhum assinante cadastrado na plataforma até o momento.'
                                 : 'Nenhum assinante encontrado para os critérios selecionados.'}
                             </p>
-                            {subscribers.length === 0 && (
+                            {(subscribers || []).length === 0 && (
                               <p className="text-xs text-[#8a92a6] max-w-sm">
                                 Novos cadastros realizados na plataforma ou criados pelo botão "+ Novo Assinante" aparecerão aqui automaticamente.
                               </p>
