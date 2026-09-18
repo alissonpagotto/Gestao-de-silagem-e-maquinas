@@ -814,8 +814,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
           </div>
 
-        </div>
-
         {/* Right Section: 1 Column - Status da Frota e Máquinas no Pátio (Compacto) */}
         <div className="space-y-2.5">
           <div 
