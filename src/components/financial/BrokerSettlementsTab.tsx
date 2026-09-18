@@ -428,7 +428,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
   return (
     <div className="space-y-4">
       {/* 1. TOPO: Cabeçalho do Submódulo e Ações Rápidas */}
-      <div className="bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl p-4 shadow-xs">
+      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-4 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-start space-x-3">
             <div className="p-2.5 bg-sky-600 text-white rounded-xl shadow-xs shrink-0">
@@ -490,9 +490,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       {/* 2. CARDS DE MÉTRICAS (KPIS) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Total a Repassar (Pendente) */}
-        <div className="bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-black/75 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
               Total a Repassar (Pendente)
             </span>
             <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-900 dark:text-amber-300">
@@ -503,7 +503,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-amber-950 dark:text-amber-200 font-['Outfit']">
               {formatCurrencyBRL(totalPendingAmount)}
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] text-black/75 dark:text-stone-400 mt-1 font-semibold">
+            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-amber-600"></span>
               <span>{pendingCount} lançamento(s) aguardando baixa</span>
             </div>
@@ -511,9 +511,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
         </div>
 
         {/* Card 2: Total Repassado (Pago / Baixado) */}
-        <div className="bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-black/75 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
               Total Repassado (Baixado)
             </span>
             <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-900 dark:text-emerald-300">
@@ -524,7 +524,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-200 font-['Outfit']">
               {formatCurrencyBRL(totalPaidAmount)}
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] text-black/75 dark:text-stone-400 mt-1 font-semibold">
+            <div className="flex items-center space-x-1.5 text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-600"></span>
               <span>{paidCount} lançamento(s) quitados</span>
             </div>
@@ -532,29 +532,29 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
         </div>
 
         {/* Card 3: Total Geral Acumulado */}
-        <div className="bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-black/75 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
               Volume de Comissões
             </span>
-            <span className="p-1.5 rounded-lg bg-sky-500/20 text-sky-900 dark:text-sky-300">
+            <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-sky-500/20 text-zinc-800 dark:text-sky-300">
               <DollarSign className="w-4 h-4" />
             </span>
           </div>
           <div className="mt-2">
-            <div className="text-xl sm:text-2xl font-black text-black dark:text-white font-['Outfit']">
+            <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white font-['Outfit']">
               {formatCurrencyBRL(totalPendingAmount + totalPaidAmount)}
             </div>
-            <div className="text-[11px] text-black/75 dark:text-stone-400 mt-1 font-semibold">
+            <div className="text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold">
               {totalSettlementsCount} comissão(ões) registradas
             </div>
           </div>
         </div>
 
         {/* Card 4: Agenciadores Ativos */}
-        <div className="bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-black/75 dark:text-stone-300">
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-300">
               Agenciadores Ativos
             </span>
             <span className="p-1.5 rounded-lg bg-orange-500/20 text-orange-900 dark:text-orange-300">
@@ -565,7 +565,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
             <div className="text-xl sm:text-2xl font-black text-orange-950 dark:text-orange-200 font-['Outfit']">
               {brokerEmployees.length}
             </div>
-            <div className="text-[11px] text-black/75 dark:text-stone-400 mt-1 font-semibold truncate">
+            <div className="text-[11px] text-zinc-500 dark:text-stone-400 mt-1 font-semibold truncate">
               {brokerEmployees.length > 0 ? 'Profissionais no quadro de intermediação' : 'Cadastre em RH > Funcionários'}
             </div>
           </div>
@@ -658,7 +658,7 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       )}
 
       {/* 4. BARRA DE FILTROS */}
-      <div className="bg-[#87AFE3] dark:bg-stone-900 border border-slate-400 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {/* Busca por texto */}
           <div className="relative min-w-[220px]">

@@ -2828,24 +2828,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       {/* 2. PAINEL DADOS EXTRAÍDOS DA NOTA - APARECE DINAMICAMENTE LOGO ACIMA DA TABELA DE HISTÓRICO */}
       {parsedData && (
-        <div id="painel-itens-nfe-aberta" className="w-full bg-[#0a8bc1] dark:bg-stone-900 border-2 border-white/30 dark:border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4 animate-in fade-in duration-200 text-black">
+        <div id="painel-itens-nfe-aberta" className="w-full bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4 animate-in fade-in duration-200 text-zinc-900 dark:text-stone-100">
           
           {/* Banner de Modo de Edição ou Importação Ativo */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-[#b0d2ed] dark:bg-stone-800 border border-[#96c1e5] dark:border-stone-700 rounded-xl animate-in fade-in text-black">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl animate-in fade-in text-zinc-900 dark:text-stone-100">
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-lg bg-sky-800 text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
+              <div className="w-9 h-9 rounded-lg bg-zinc-900 dark:bg-stone-700 text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
                 <FileEdit className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-black dark:text-stone-100">
+                  <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-stone-100">
                     {editingExpenseId ? 'Editando Detalhes da Nota Fiscal' : 'Itens Identificados na Nota Fiscal'}
                   </span>
-                  <span className="px-2 py-0.5 text-[10px] font-black rounded-md bg-white/90 text-black border border-[#96c1e5] font-mono">
+                  <span className="px-2 py-0.5 text-[10px] font-black rounded-md bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 font-mono">
                     {parsedData.invoiceNumber}
                   </span>
                 </div>
-                <p className="text-xs text-black/90 dark:text-stone-300 mt-0.5 font-medium">
+                <p className="text-xs text-zinc-600 dark:text-stone-300 mt-0.5 font-medium">
                   Revise os produtos, quantidades, valores e vínculos com o estoque antes de confirmar.
                 </p>
               </div>
@@ -2860,7 +2860,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   setSearchNfeNumber('');
                   setEditingExpenseId(null);
                 }}
-                className="inline-flex items-center space-x-1 text-xs text-black hover:text-rose-800 transition cursor-pointer font-bold px-2.5 py-1.5 rounded-lg hover:bg-white/40"
+                className="inline-flex items-center space-x-1 text-xs text-zinc-700 dark:text-stone-300 hover:text-rose-800 transition cursor-pointer font-bold px-2.5 py-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-stone-700"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Limpar</span>
@@ -2869,7 +2869,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 type="button"
                 id="btn-voltar-para-lista-topo"
                 onClick={handleBackToList}
-                className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white/90 hover:bg-white text-black text-xs font-black rounded-xl border border-[#96c1e5] shadow-2xs transition cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 hover:bg-zinc-100 text-zinc-800 dark:text-stone-200 text-xs font-black rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs transition cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>Fechar</span>
@@ -2882,10 +2882,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 {parsedData.recipientCnpj && companyProfile?.cnpjCpf && (
                   parsedData.recipientCnpj.replace(/\D/g, '') !== companyProfile.cnpjCpf.replace(/\D/g, '')
                 ) && (
-                  <div className="p-3.5 bg-[#b0d2ed] dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex items-start space-x-2.5 text-black">
+                  <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex items-start space-x-2.5 text-zinc-900 dark:text-stone-100">
                     <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-900" />
                     <div className="text-xs leading-relaxed font-medium">
-                      <strong className="block font-bold mb-0.5 text-black">Aviso: CNPJ da nota difere do sistema</strong>
+                      <strong className="block font-bold mb-0.5 text-zinc-900 dark:text-stone-100">Aviso: CNPJ da nota difere do sistema</strong>
                       O destinatário na nota ({formatCpfCnpj(parsedData.recipientCnpj)}) difere do CNPJ cadastrado no sistema ({formatCpfCnpj(companyProfile.cnpjCpf)}). Os dados foram carregados normalmente e você pode prosseguir com a importação.
                     </div>
                   </div>
@@ -2893,12 +2893,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                 {/* Chave de Acesso em Destaque */}
                 {parsedData.accessKey && (
-                  <div className="p-3.5 rounded-xl bg-[#b0d2ed] dark:bg-stone-800/60 border border-[#96c1e5] dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-black">
+                  <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-zinc-900 dark:text-stone-100">
                     <div className="flex items-center space-x-2">
-                      <Hash className="w-4 h-4 text-sky-900" />
-                      <span className="text-xs font-black text-black">Chave de Acesso:</span>
+                      <Hash className="w-4 h-4 text-zinc-700 dark:text-stone-300" />
+                      <span className="text-xs font-black text-zinc-800 dark:text-stone-200">Chave de Acesso:</span>
                     </div>
-                    <span className="font-mono text-xs sm:text-sm font-black text-black break-all select-all">
+                    <span className="font-mono text-xs sm:text-sm font-black text-zinc-900 dark:text-stone-100 break-all select-all">
                       {parsedData.accessKey}
                     </span>
                   </div>
@@ -2908,26 +2908,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <div className="space-y-4 w-full">
                   
                   {/* Informações Principais da Nota Fiscal em 4 Colunas */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 rounded-xl bg-[#b0d2ed] dark:bg-stone-800/40 border border-[#96c1e5] dark:border-stone-700 text-xs sm:text-sm text-black">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-stone-800/40 border border-zinc-200 dark:border-stone-700 text-xs sm:text-sm text-zinc-900 dark:text-stone-100">
                     <div>
-                      <span className="text-black/80 font-bold block text-xs">Número da NF-e:</span>
-                      <span className="font-black text-black dark:text-stone-100 font-mono text-sm">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Número da NF-e:</span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 font-mono text-sm">
                         {parsedData.invoiceNumber} {parsedData.series ? `(Série ${parsedData.series})` : ''}
                       </span>
                     </div>
                     <div>
-                      <span className="text-black/80 font-bold block text-xs">Data de Emissão:</span>
-                      <span className="font-black text-black dark:text-stone-100 text-sm">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Data de Emissão:</span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 text-sm">
                         {formatDateBR(parsedData.issueDate)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-black/80 font-bold block text-xs">Emitente / Fornecedor:</span>
-                      <span className="font-black text-black dark:text-stone-100 block text-sm truncate" title={parsedData.supplier}>
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Emitente / Fornecedor:</span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 block text-sm truncate" title={parsedData.supplier}>
                         {parsedData.supplier}
                       </span>
                       {parsedData.supplierCnpj && (
-                        <span className="text-xs text-black/80 font-mono block font-bold">
+                        <span className="text-xs text-zinc-500 dark:text-stone-400 font-mono block font-bold">
                           CNPJ: {formatCpfCnpj(parsedData.supplierCnpj)}
                         </span>
                       )}
@@ -2951,21 +2951,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             if (s) setSupplierForModal(s);
                             setIsSupplierModalOpen(true);
                           }}
-                          className="text-[11px] font-black text-black hover:text-sky-950 hover:underline inline-flex items-center gap-1 cursor-pointer bg-white/70 px-1.5 py-0.5 rounded border border-[#96c1e5]"
+                          className="text-[11px] font-black text-zinc-800 dark:text-stone-200 hover:text-zinc-950 hover:underline inline-flex items-center gap-1 cursor-pointer bg-white dark:bg-stone-800 px-1.5 py-0.5 rounded border border-zinc-300 dark:border-stone-600"
                           title="Validar dados e ficha cadastral do fornecedor"
                         >
-                          <Building2 className="w-3 h-3 text-sky-800" />
+                          <Building2 className="w-3 h-3 text-zinc-700 dark:text-stone-300" />
                           <span>Validar Ficha</span>
                         </button>
                       </div>
                     </div>
                     <div>
-                      <span className="text-black/80 font-bold block text-xs">Destinatário:</span>
-                      <span className="font-black text-black dark:text-stone-100 block text-sm">
+                      <span className="text-zinc-500 dark:text-stone-400 font-bold block text-xs">Destinatário:</span>
+                      <span className="font-black text-zinc-900 dark:text-stone-100 block text-sm">
                         {parsedData.recipient || companyProfile?.name || 'Não informado'}
                       </span>
                       {parsedData.recipientCnpj && (
-                        <span className="text-xs text-black/80 font-mono font-bold block">
+                        <span className="text-xs text-zinc-500 dark:text-stone-400 font-mono font-bold block">
                           CNPJ: {formatCpfCnpj(parsedData.recipientCnpj)}
                         </span>
                       )}
@@ -2974,28 +2974,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                   {/* Tabela de Produtos da NF-e (100% da Largura da Tela - Formato Lista Enxuta) */}
                   {parsedData.items && parsedData.items.length > 0 && (
-                    <div className="border border-[#96c1e5] dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs w-full bg-[#b0d2ed]">
-                      <div className="bg-[#96c1e5]/90 dark:bg-stone-800/80 px-3 py-1.5 flex items-center justify-between text-black">
-                        <div className="flex items-center space-x-2 text-xs font-black text-black dark:text-stone-200">
-                          <Package className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
+                    <div className="border border-zinc-200 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs w-full bg-white dark:bg-stone-900">
+                      <div className="bg-zinc-100 dark:bg-stone-800 px-3 py-1.5 flex items-center justify-between text-zinc-900 dark:text-stone-100">
+                        <div className="flex items-center space-x-2 text-xs font-black text-zinc-900 dark:text-stone-200">
+                          <Package className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300 shrink-0" />
                           <span>Itens Identificados na Nota Fiscal ({parsedData.items.length})</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <button
                             type="button"
                             onClick={() => setShowExtraPrices(!showExtraPrices)}
-                            className="text-[10px] font-bold px-2 py-0.5 rounded border border-[#0963cb]/40 bg-white/80 hover:bg-white text-[#0963cb] transition cursor-pointer"
+                            className="text-[10px] font-bold px-2 py-0.5 rounded border border-zinc-300 dark:border-stone-600 bg-white dark:bg-stone-700 hover:bg-zinc-100 dark:hover:bg-stone-600 text-zinc-800 dark:text-stone-200 transition cursor-pointer"
                           >
                             {showExtraPrices ? 'Ocultar Atacado/Promo' : '+ Atacado/Promo'}
                           </button>
-                          <span className="text-[10px] text-black/80 font-bold hidden sm:inline">
+                          <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-bold hidden sm:inline">
                             Lista enxuta com precificação de venda sincronizada ao estoque
                           </span>
                         </div>
                       </div>
                       <div className="overflow-x-auto max-h-[380px] overflow-y-auto w-full">
                         <table className="w-full text-left text-xs border-collapse table-fixed">
-                          <thead className="bg-[#b0d2ed] dark:bg-stone-800 text-black uppercase text-[9px] font-black border-b border-[#96c1e5] dark:border-stone-700 sticky top-0 z-10 whitespace-nowrap">
+                          <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[9px] font-black border-b border-zinc-200 dark:border-stone-700 sticky top-0 z-10 whitespace-nowrap">
                             <tr>
                               {/* 1. Área Verde: Identificação & De-Para (Ultracompactas e Enxutas) */}
                               <th className="py-1 px-1 w-10 text-center bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 border-r border-emerald-200/60 dark:border-emerald-800 shrink-0">
@@ -3052,7 +3052,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               )}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#96c1e5]/30 bg-white/95 dark:bg-stone-900 text-black">
+                          <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100">
                             {parsedData.items.map((item, idx) => (
                               <tr key={idx} className="hover:bg-sky-50/50 dark:hover:bg-stone-800/30 transition-colors">
                                 {/* CÓD & NCM (Área Verde - Super Enxuta) */}
@@ -3295,20 +3295,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
                     costCenterError 
                       ? 'bg-rose-50/95 dark:bg-rose-950/30 border-rose-500 ring-2 ring-rose-500/30' 
-                      : 'bg-[#b0d2ed] dark:bg-stone-900 border-[#96c1e5] dark:border-stone-700 shadow-2xs text-black'
+                      : 'bg-zinc-50 dark:bg-stone-900 border-zinc-200 dark:border-stone-700 shadow-2xs text-zinc-900 dark:text-stone-100'
                   }`}>
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div className="flex-1 space-y-1.5">
                         <div className="flex items-center space-x-2">
-                          <Building2 className={`w-4 h-4 ${costCenterError ? 'text-rose-600' : 'text-sky-900 dark:text-sky-400'}`} />
-                          <h4 className="text-xs font-black uppercase tracking-wider text-black dark:text-stone-200">
+                          <Building2 className={`w-4 h-4 ${costCenterError ? 'text-rose-600' : 'text-zinc-700 dark:text-stone-300'}`} />
+                          <h4 className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-stone-200">
                             Classificação Financeira & Centro de Custo
                           </h4>
                           <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white shadow-2xs">
                             Seleção Obrigatória
                           </span>
                         </div>
-                        <p className="text-xs text-black dark:text-stone-300 leading-relaxed font-medium">
+                        <p className="text-xs text-zinc-600 dark:text-stone-300 leading-relaxed font-medium">
                           Antes de finalizar o salvamento da nota importada, informe a qual Centro de Custo esta despesa pertence (Safra, Maquinários, Administrativo ou Geral) para integração com o Contas a Pagar.
                         </p>
                       </div>
@@ -3317,7 +3317,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <div className="flex items-center justify-between gap-1 flex-wrap">
                           <label 
                             htmlFor="select-centro-de-custo-nfe"
-                            className="block text-xs font-black text-black dark:text-stone-300"
+                            className="block text-xs font-black text-zinc-900 dark:text-stone-300"
                           >
                             Centro de Custo <span className="text-rose-600 font-black">*</span>
                           </label>
@@ -3328,10 +3328,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               type="button"
                               id="btn-novo-centro-custo"
                               onClick={handleOpenCreateCostCenter}
-                              className="text-[11px] font-black text-black hover:text-sky-950 bg-white/90 hover:bg-white px-2 py-0.5 rounded-lg border border-[#96c1e5] shadow-2xs transition cursor-pointer inline-flex items-center gap-1"
+                              className="text-[11px] font-black text-zinc-800 dark:text-stone-200 hover:text-zinc-950 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-stone-600 shadow-2xs transition cursor-pointer inline-flex items-center gap-1"
                               title="Cadastrar novo Centro de Custo"
                             >
-                              <Plus className="w-3 h-3 text-sky-700" />
+                              <Plus className="w-3 h-3 text-zinc-700 dark:text-stone-300" />
                               <span>+ Novo Centro</span>
                             </button>
 
@@ -3349,7 +3349,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               className={`p-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
                                 selectedCostCenterId
                                   ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-950 shadow-2xs'
-                                  : 'bg-white/80 hover:bg-white border-[#96c1e5] text-black'
+                                  : 'bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border-zinc-200 dark:border-stone-700 text-zinc-800 dark:text-stone-200'
                               }`}
                               title={selectedCostCenterId ? `Editar ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Gerenciar e Editar Centros de Custo"}
                             >
@@ -3371,7 +3371,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               className={`p-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
                                 selectedCostCenterId
                                   ? 'bg-rose-100 hover:bg-rose-200 border-rose-300 text-rose-950 shadow-2xs'
-                                  : 'bg-white/80 hover:bg-white border-[#96c1e5] text-black'
+                                  : 'bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border-zinc-200 dark:border-stone-700 text-zinc-800 dark:text-stone-200'
                               }`}
                               title={selectedCostCenterId ? `Excluir ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Gerenciar e Excluir Centros de Custo"}
                             >
@@ -3389,10 +3389,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               setSelectedCostCenterId(e.target.value);
                               if (e.target.value) setCostCenterError(false);
                             }}
-                            className={`w-full px-3 py-2 text-xs font-bold rounded-xl border bg-white dark:bg-stone-800 text-black dark:text-stone-100 focus:outline-hidden transition cursor-pointer shadow-2xs ${
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-xl border bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 focus:outline-hidden transition cursor-pointer shadow-2xs ${
                               costCenterError 
                                 ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/30' 
-                                : 'border-[#96c1e5] dark:border-stone-700 focus:ring-2 focus:ring-sky-500/20'
+                                : 'border-zinc-300 dark:border-stone-700 focus:ring-2 focus:ring-zinc-500/20'
                             }`}
                           >
                             <option value="">-- Selecione o Centro de Custo (Obrigatório) --</option>
@@ -3415,7 +3415,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             className={`p-2 rounded-xl border transition shrink-0 cursor-pointer ${
                               selectedCostCenterId 
                                 ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-950 shadow-2xs' 
-                                : 'bg-white/40 border-[#96c1e5] text-stone-400 opacity-40 cursor-not-allowed'
+                                : 'bg-zinc-100 dark:bg-stone-800 border-zinc-200 dark:border-stone-700 text-zinc-400 opacity-40 cursor-not-allowed'
                             }`}
                             title={selectedCostCenterId ? `Editar ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Selecione um centro para editar"}
                           >
@@ -3434,7 +3434,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             className={`p-2 rounded-xl border transition shrink-0 cursor-pointer ${
                               selectedCostCenterId 
                                 ? 'bg-rose-100 hover:bg-rose-200 border-rose-300 text-rose-950 shadow-2xs' 
-                                : 'bg-white/40 border-[#96c1e5] text-stone-400 opacity-40 cursor-not-allowed'
+                                : 'bg-zinc-100 dark:bg-stone-800 border-zinc-200 dark:border-stone-700 text-zinc-400 opacity-40 cursor-not-allowed'
                             }`}
                             title={selectedCostCenterId ? `Excluir ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Selecione um centro para excluir"}
                           >
@@ -3452,33 +3452,33 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     </div>
 
                     {/* Informações Financeiras Complementares Extraídas do XML */}
-                    <div className="mt-4 pt-3 border-t border-[#96c1e5] dark:border-stone-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-stone-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-sky-900 dark:text-stone-400" />
+                        <Calendar className="w-4 h-4 text-zinc-600 dark:text-stone-400" />
                         <div>
-                          <span className="text-black/80 font-bold block text-[11px]">Vencimento Principal:</span>
-                          <span className="font-black text-black dark:text-stone-200">
+                          <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Vencimento Principal:</span>
+                          <span className="font-black text-zinc-900 dark:text-stone-200">
                             {formatDateBR(parsedData.dueDate || parsedData.issueDate)}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <CreditCard className="w-4 h-4 text-sky-900 dark:text-stone-400" />
+                        <CreditCard className="w-4 h-4 text-zinc-600 dark:text-stone-400" />
                         <div>
-                          <span className="text-black/80 font-bold block text-[11px]">Forma de Pagamento:</span>
-                          <span className="font-black text-black dark:text-stone-200 capitalize">
+                          <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Forma de Pagamento:</span>
+                          <span className="font-black text-zinc-900 dark:text-stone-200 capitalize">
                             {parsedData.paymentMethod || 'Boleto Bancário'}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/70 p-2.5 rounded-xl border border-[#96c1e5]">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-stone-800 p-2.5 rounded-xl border border-zinc-200 dark:border-stone-700">
                         <div className="flex items-center space-x-2">
-                          <Receipt className="w-4 h-4 text-sky-900 shrink-0" />
+                          <Receipt className="w-4 h-4 text-zinc-700 dark:text-stone-300 shrink-0" />
                           <div>
-                            <span className="text-black/80 font-bold block text-[11px]">Condição / Parcelas:</span>
-                            <span className="font-black text-black">
+                            <span className="text-zinc-500 dark:text-stone-400 font-bold block text-[11px]">Condição / Parcelas:</span>
+                            <span className="font-black text-zinc-900 dark:text-stone-100">
                               {parsedData.installments && parsedData.installments.length > 1
                                 ? `${parsedData.installments.length} parcelas identificadas no XML`
                                 : `${userInstallmentCount} parcela(s)`}
@@ -3504,7 +3504,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             setErrorMessage('');
                             setIsInstallmentsModalOpen(true);
                           }}
-                          className="px-3 py-1.5 bg-[#0963cb] hover:bg-[#0752a8] text-white rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
+                          className="px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
                           title="Abrir Janela 2 (Grade de Parcelas com Códigos Contábeis e Vencimentos)"
                         >
                           <Layers className="w-3.5 h-3.5" />
@@ -3515,27 +3515,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   </div>
 
                   {/* Card de Resumo Horizontal no Rodapé (100% de Largura) */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-[#b0d2ed] dark:bg-stone-800/40 border border-[#96c1e5] dark:border-stone-700 w-full shadow-2xs text-black">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-zinc-50 dark:bg-stone-800/40 border border-zinc-200 dark:border-stone-700 w-full shadow-2xs text-zinc-900 dark:text-stone-100">
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                       
                       {/* Grid Horizontal dos 3 Blocos Restantes de Informação */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 flex-1">
                         
                         {/* Bloco 1: Total dos Produtos */}
-                        <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-[#96c1e5] dark:border-stone-700/80 flex flex-col justify-between shadow-2xs">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-black block mb-1">
+                        <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-zinc-200 dark:border-stone-700/80 flex flex-col justify-between shadow-2xs">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-1">
                             Total dos Produtos
                           </span>
-                          <span className="text-base sm:text-lg font-black text-black dark:text-stone-100 font-mono">
+                          <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 font-mono">
                             {formatCurrencyBRL(parsedData.productsAmount || parsedData.totalAmount)}
                           </span>
                         </div>
 
                         {/* Bloco 2: Vinculação ao Estoque */}
-                        <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-[#96c1e5] dark:border-stone-700/80 flex flex-col justify-between shadow-2xs">
+                        <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-zinc-200 dark:border-stone-700/80 flex flex-col justify-between shadow-2xs">
                           <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="text-[11px] font-black uppercase tracking-wider text-black flex items-center space-x-1">
-                              <Package className="w-3.5 h-3.5 text-sky-800" />
+                            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 flex items-center space-x-1">
+                              <Package className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
                               <span>Vinculação ao Estoque</span>
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
@@ -3546,7 +3546,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               {parsedData.items?.filter(i => i.linkedInventoryId).length || 0} de {parsedData.items?.length || 0}
                             </span>
                           </div>
-                          <span className="text-[11px] text-black font-semibold truncate block">
+                          <span className="text-[11px] text-zinc-700 dark:text-stone-300 font-semibold truncate block">
                             {(parsedData.items?.filter(i => i.linkedInventoryId).length || 0) === (parsedData.items?.length || 0)
                               ? 'Todos os itens vinculados ao estoque'
                               : 'Vincule os itens para atualizar o estoque'}
@@ -3555,7 +3555,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                         {/* Bloco 3: Valor Total NF-e */}
                         <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border-2 border-emerald-500 shadow-2xs flex flex-col justify-between">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-black block mb-1">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-1">
                             Valor Total NF-e
                           </span>
                           <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 font-mono leading-none">
@@ -3578,7 +3578,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             type="button"
                             id="btn-voltar-para-lista-rodape"
                             onClick={handleBackToList}
-                            className="w-full sm:w-auto px-4 py-3.5 bg-white hover:bg-stone-50 text-black font-bold rounded-xl border border-[#96c1e5] transition flex items-center justify-center space-x-2 cursor-pointer text-sm min-h-[50px] shadow-2xs"
+                            className="w-full sm:w-auto px-4 py-3.5 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 font-bold rounded-xl border border-zinc-200 dark:border-stone-700 transition flex items-center justify-center space-x-2 cursor-pointer text-sm min-h-[50px] shadow-2xs"
                           >
                             <X className="w-4 h-4" />
                             <span>Cancelar</span>

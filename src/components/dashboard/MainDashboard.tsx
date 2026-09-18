@@ -263,20 +263,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div 
           id="stat-card-despesas-mes"
           onClick={() => onNavigate('despesas')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               DESPESAS DO MÊS
             </span>
-            <div className="text-base sm:text-lg font-black text-black dark:text-white font-['Outfit'] leading-tight truncate">
+            <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {formatCurrencyBRL(currentMonthTotal)}
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
               {currentMonthCount} lançamentos
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-rose-500 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
             <ArrowDownRight className="w-4 h-4 stroke-[2.5]" />
           </div>
         </div>
@@ -285,20 +285,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div 
           id="stat-card-total-despesas"
           onClick={() => onNavigate('despesas')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               TOTAL DESPESAS
             </span>
-            <div className="text-base sm:text-lg font-black text-black dark:text-white font-['Outfit'] leading-tight truncate">
+            <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {formatCurrencyBRL(totalExpensesAmount)}
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
               {totalExpensesCount} registros
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
             <DollarSign className="w-4 h-4 stroke-[2.5]" />
           </div>
         </div>
@@ -307,20 +307,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div 
           id="stat-card-clientes"
           onClick={() => onNavigate('clientes')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               CLIENTES
             </span>
-            <div className="text-base sm:text-lg font-black text-black dark:text-white font-['Outfit'] leading-tight truncate">
+            <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {clientsCount}
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
               {clientsCount} cadastrados
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
             <Users className="w-4 h-4 stroke-[2.2]" />
           </div>
         </div>
@@ -329,20 +329,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div 
           id="stat-card-frotas"
           onClick={() => onNavigate('frotas')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               FROTAS
             </span>
-            <div className="text-base sm:text-lg font-black text-black dark:text-white font-['Outfit'] leading-tight truncate">
+            <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {machineriesCount}
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
               {operatorsCount} motoristas/operadores
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500 flex items-center justify-center text-stone-950 shadow-xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
             <Tractor className="w-4 h-4 stroke-[2.2]" />
           </div>
         </div>
@@ -358,20 +358,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <button 
           id="shortcut-card-despesas"
           onClick={() => onNavigate('despesas')}
-          className="crm-card bg-[#b0d2ed] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-400 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-black dark:text-white text-left w-full"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               Despesas
             </span>
-            <div className="text-xs sm:text-sm font-black text-black dark:text-white font-['Outfit'] truncate leading-tight">
+            <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Lançamentos
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-300 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
               {formatCurrencyBRL(currentMonthTotal)} ({currentMonthCount})
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <Receipt className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
@@ -380,20 +380,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <button 
           id="shortcut-card-servicos"
           onClick={() => onNavigate('servicos')}
-          className="crm-card bg-[#b0d2ed] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-400 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-black dark:text-white text-left w-full"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               Serviços
             </span>
-            <div className="text-xs sm:text-sm font-black text-black dark:text-white font-['Outfit'] truncate leading-tight">
+            <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Ensilagem
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-300 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
               {services.length} ordens de corte
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-green-100 dark:bg-green-950/70 text-green-800 dark:text-green-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <Tractor className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
@@ -402,20 +402,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <button 
           id="shortcut-card-estoque"
           onClick={() => onNavigate('estoque')}
-          className="crm-card bg-[#b0d2ed] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-400 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-black dark:text-white text-left w-full"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               Estoque
             </span>
-            <div className="text-xs sm:text-sm font-black text-black dark:text-white font-['Outfit'] truncate leading-tight">
+            <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Insumos
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-300 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
               {inventory.length} itens controlados
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
@@ -424,20 +424,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <button 
           id="shortcut-card-clientes"
           onClick={() => onNavigate('clientes')}
-          className="crm-card bg-[#b0d2ed] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2 sm:p-2.5 shadow-xs hover:border-blue-400 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-black dark:text-white text-left w-full"
+          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-black tracking-wider text-black dark:text-stone-300 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
               Clientes
             </span>
-            <div className="text-xs sm:text-sm font-black text-black dark:text-white font-['Outfit'] truncate leading-tight">
+            <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Produtores
             </div>
-            <span className="text-[10px] font-semibold text-black/80 dark:text-stone-300 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
               {clientsCount} cadastrados
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <Users className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
@@ -451,76 +451,73 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div className="lg:col-span-2 space-y-2.5">
           
           {/* Main Container: Analytical Safra & Operations Dashboard */}
-          <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs text-black dark:text-white">
+          <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs text-zinc-900 dark:text-white space-y-2.5 sm:space-y-3">
             
-            {/* Inner White Container for high contrast, clean typography and pristine layout */}
-            <div className="bg-white dark:bg-stone-900 rounded-xl p-2.5 sm:p-3 border border-slate-200 dark:border-stone-800 shadow-xs space-y-2.5 sm:space-y-3">
-
-              {/* 1. Header do Bloco Analítico Executivo */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-800 pb-2">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 flex items-center justify-center shrink-0">
-                    <BarChart3 className="w-4 h-4 stroke-[2.2]" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-black text-black dark:text-white font-['Outfit'] tracking-tight">
-                      Gráficos & Tabelas da Safra & Custos Operacionais
-                    </h3>
-                    <p className="text-[11px] text-black/75 dark:text-stone-400 font-medium">
-                      Acompanhamento direto em tempo real de custos por safra, diesel das ensiladeiras e fluxo financeiro
-                    </p>
-                  </div>
+            {/* 1. Header do Bloco Analítico Executivo */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-zinc-200 dark:border-stone-800 pb-2">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-4 h-4 stroke-[2.2]" />
                 </div>
-
-                {/* Badges Executivos de Resumo */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
-                      Faturamento Safras
-                    </span>
-                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 font-['Outfit']">
-                      {formatCurrencyBRL(totalSafraFaturamento)}
-                    </span>
-                  </div>
-
-                  <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 block">
-                      Custos Totais
-                    </span>
-                    <span className="text-xs font-black text-sky-800 dark:text-sky-300 font-['Outfit']">
-                      {formatCurrencyBRL(totalSafraCustos)}
-                    </span>
-                  </div>
-
-                  <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
-                      Margem ({margemPercentual.toFixed(1)}%)
-                    </span>
-                    <span className="text-xs font-black text-amber-700 dark:text-amber-400 font-['Outfit']">
-                      {formatCurrencyBRL(totalSafraMargem)}
-                    </span>
-                  </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white font-['Outfit'] tracking-tight">
+                    Gráficos & Tabelas da Safra & Custos Operacionais
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-stone-400 font-medium">
+                    Acompanhamento direto em tempo real de custos por safra, diesel das ensiladeiras e fluxo financeiro
+                  </p>
                 </div>
               </div>
 
-              {/* 2. Gráficos da Safra (2 Colunas Responsivas com Altura Otimizada) */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5">
-                
-                {/* Gráfico 1: Faturamento vs. Custos Operacionais */}
-                <div className="bg-slate-50/80 dark:bg-stone-800/40 rounded-xl p-2 sm:p-2.5 border border-slate-200/80 dark:border-stone-800 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center space-x-1.5">
-                      <div className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
-                        <TrendingUp className="w-3 h-3" />
-                      </div>
-                      <h4 className="text-xs font-bold text-black dark:text-white">
-                        Fluxo Operacional: Faturamento vs. Custos
-                      </h4>
+              {/* Badges Executivos de Resumo */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-zinc-50 dark:bg-stone-800/80 border border-zinc-200 dark:border-stone-700">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block">
+                    Faturamento Safras
+                  </span>
+                  <span className="text-xs font-black text-zinc-900 dark:text-white font-['Outfit']">
+                    {formatCurrencyBRL(totalSafraFaturamento)}
+                  </span>
+                </div>
+
+                <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-zinc-50 dark:bg-stone-800/80 border border-zinc-200 dark:border-stone-700">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block">
+                    Custos Totais
+                  </span>
+                  <span className="text-xs font-black text-zinc-900 dark:text-white font-['Outfit']">
+                    {formatCurrencyBRL(totalSafraCustos)}
+                  </span>
+                </div>
+
+                <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-zinc-50 dark:bg-stone-800/80 border border-zinc-200 dark:border-stone-700">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block">
+                    Margem ({margemPercentual.toFixed(1)}%)
+                  </span>
+                  <span className="text-xs font-black text-zinc-900 dark:text-white font-['Outfit']">
+                    {formatCurrencyBRL(totalSafraMargem)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Gráficos da Safra (2 Colunas Responsivas com Altura Otimizada) */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5">
+              
+              {/* Gráfico 1: Faturamento vs. Custos Operacionais */}
+              <div className="bg-zinc-50/80 dark:bg-stone-800/40 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-5 h-5 rounded-md bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
+                      <TrendingUp className="w-3 h-3" />
                     </div>
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-white dark:bg-stone-800 text-black/70 dark:text-stone-300 border border-slate-200 dark:border-stone-700">
-                      Últimos 6 Meses
-                    </span>
+                    <h4 className="text-xs font-bold text-zinc-900 dark:text-white">
+                      Fluxo Operacional: Faturamento vs. Custos
+                    </h4>
                   </div>
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-white dark:bg-stone-800 text-zinc-600 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
+                    Últimos 6 Meses
+                  </span>
+                </div>
 
                   <div className="h-36 sm:h-40 w-full flex items-center justify-center">
                     {monthlyData.length > 0 ? (
@@ -646,22 +643,22 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               </div>
 
               {/* 3. Tabela de Custos por Safra (Densidade Compacta) */}
-              <div className="bg-white dark:bg-stone-900 rounded-xl border border-slate-200 dark:border-stone-800 overflow-hidden shadow-2xs">
-                <div className="p-2 sm:p-2.5 bg-slate-50 dark:bg-stone-800/60 border-b border-slate-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <div className="bg-white dark:bg-stone-900 rounded-xl border border-zinc-200 dark:border-stone-800 overflow-hidden shadow-2xs">
+                <div className="p-2 sm:p-2.5 bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <div className="flex items-center space-x-1.5">
-                    <Sprout className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <h4 className="text-xs font-bold text-black dark:text-white font-['Outfit']">
+                    <Sprout className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
+                    <h4 className="text-xs font-bold text-zinc-900 dark:text-white font-['Outfit']">
                       Tabela de Custos & Rentabilidade por Safra
                     </h4>
                   </div>
-                  <span className="text-[10px] text-black/75 dark:text-stone-400 font-medium">
+                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium">
                     Fluxo financeiro detalhado de corte, ensilagem e faturamento
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[11px]">
-                    <thead className="bg-slate-100/80 dark:bg-stone-800 text-black dark:text-stone-300 font-bold border-b border-slate-200 dark:border-stone-800">
+                    <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 font-bold border-b border-zinc-200 dark:border-stone-800">
                       <tr>
                         <th className="py-1.5 px-2">Safra</th>
                         <th className="py-1.5 px-2">Cultura</th>
@@ -673,42 +670,42 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         <th className="py-1.5 px-2 text-center">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200/80 dark:divide-stone-800">
+                    <tbody className="divide-y divide-zinc-100 dark:divide-stone-800">
                       {seasonsSummary.length > 0 ? (
                         seasonsSummary.map((season) => {
                           const totalCusto = season.custoDiesel + season.outrosCustos;
                           const margem = season.faturamento - totalCusto;
                           const percMargem = season.faturamento > 0 ? (margem / season.faturamento) * 100 : 0;
                           return (
-                            <tr key={season.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/40 transition">
-                              <td className="py-1 px-2 font-bold text-black dark:text-white whitespace-nowrap">
+                            <tr key={season.id} className="hover:bg-zinc-50/70 dark:hover:bg-stone-800/40 transition">
+                              <td className="py-1 px-2 font-bold text-zinc-900 dark:text-white whitespace-nowrap">
                                 {season.nome}
                               </td>
-                              <td className="py-1 px-2 text-black/80 dark:text-stone-300 whitespace-nowrap">
+                              <td className="py-1 px-2 text-zinc-700 dark:text-stone-300 whitespace-nowrap">
                                 {season.cultura}
                               </td>
-                              <td className="py-1 px-2 text-black/80 dark:text-stone-300 whitespace-nowrap">
+                              <td className="py-1 px-2 text-zinc-700 dark:text-stone-300 whitespace-nowrap">
                                 {season.area} • <span className="font-semibold">{season.producao}</span>
                               </td>
-                              <td className="py-1 px-2 font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                              <td className="py-1 px-2 font-semibold text-zinc-800 dark:text-stone-300 whitespace-nowrap">
                                 {formatCurrencyBRL(season.custoDiesel)}
                               </td>
-                              <td className="py-1 px-2 text-black/80 dark:text-stone-400 whitespace-nowrap">
+                              <td className="py-1 px-2 text-zinc-700 dark:text-stone-400 whitespace-nowrap">
                                 {formatCurrencyBRL(season.outrosCustos)}
                               </td>
-                              <td className="py-1 px-2 font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                              <td className="py-1 px-2 font-bold text-zinc-900 dark:text-white whitespace-nowrap">
                                 {formatCurrencyBRL(season.faturamento)}
                               </td>
                               <td className="py-1 px-2 whitespace-nowrap">
-                                <span className="font-black text-black dark:text-white">
+                                <span className="font-black text-zinc-900 dark:text-white">
                                   {formatCurrencyBRL(margem)}
                                 </span>{' '}
-                                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1 py-0.2 rounded ml-1">
+                                <span className="text-[9px] font-bold text-zinc-700 dark:text-stone-300 bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 px-1 py-0.2 rounded ml-1">
                                   +{percMargem.toFixed(1)}%
                                 </span>
                               </td>
                               <td className="py-1 px-2 text-center whitespace-nowrap">
-                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${season.statusColor}`}>
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700">
                                   {season.status}
                                 </span>
                               </td>
@@ -717,7 +714,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         })
                       ) : (
                         <tr>
-                          <td colSpan={8} className="py-4 px-2 text-center text-xs text-slate-500 dark:text-stone-400">
+                          <td colSpan={8} className="py-4 px-2 text-center text-xs text-zinc-500 dark:text-stone-400">
                             Nenhuma safra cadastrada ou ativa no sistema.
                           </td>
                         </tr>
@@ -823,13 +820,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div className="space-y-2.5">
           <div 
             id="card-status-frota"
-            className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs text-black dark:text-white"
+            className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3 shadow-xs text-zinc-900 dark:text-white"
           >
             
             {/* Header: Status da Frota */}
-            <div className="flex items-center space-x-2 pb-2 border-b border-blue-200/60 dark:border-stone-800">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <h3 className="text-xs sm:text-sm font-bold text-black dark:text-white font-['Outfit']">
+            <div className="flex items-center space-x-2 pb-2 border-b border-zinc-200 dark:border-stone-800">
+              <AlertTriangle className="w-4 h-4 text-zinc-700 dark:text-stone-300" />
+              <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white font-['Outfit']">
                 Status da Frota
               </h3>
             </div>
@@ -837,66 +834,66 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             {/* Alert Cards Container */}
             <div className="space-y-1.5 mt-2">
               
-              {/* Red Card: CNH(s) Vencida(s) */}
+              {/* Alert 1: CNH(s) Vencida(s) */}
               <div 
                 id="alert-cnh-vencida"
                 onClick={() => onNavigate('funcionarios')}
-                className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg p-2 flex items-center justify-between transition shadow-xs cursor-pointer group"
+                className="bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800/70 dark:hover:bg-stone-800 text-zinc-900 dark:text-white rounded-lg p-2.5 flex items-center justify-between transition border border-zinc-200 dark:border-stone-700 shadow-2xs cursor-pointer group"
               >
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                    <span className="font-bold text-xs">!</span>
+                  <div className="w-6 h-6 rounded-md bg-zinc-200 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center font-bold text-xs shrink-0">
+                    <span>!</span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-[11px] leading-tight">
+                    <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white leading-tight">
                       {cnhReport.expiredCount} CNH(s) Vencida(s)
                     </h4>
-                    <p className="text-[9px] text-rose-100 leading-tight">
+                    <p className="text-[9px] text-zinc-500 dark:text-stone-400 leading-tight">
                       Regularização necessária
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-white/80 group-hover:translate-x-0.5 transition" />
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
               </div>
 
-              {/* Amber Card: CNH(s) a Vencer */}
+              {/* Alert 2: CNH(s) a Vencer */}
               <div 
                 id="alert-cnh-a-vencer"
                 onClick={() => onNavigate('funcionarios')}
-                className="bg-amber-400 hover:bg-amber-500 text-stone-950 rounded-lg p-2 flex items-center justify-between transition shadow-xs cursor-pointer group"
+                className="bg-zinc-50 hover:bg-zinc-100 dark:bg-stone-800/70 dark:hover:bg-stone-800 text-zinc-900 dark:text-white rounded-lg p-2.5 flex items-center justify-between transition border border-zinc-200 dark:border-stone-700 shadow-2xs cursor-pointer group"
               >
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-black/10 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-3.5 h-3.5 text-stone-900" />
+                  <div className="w-6 h-6 rounded-md bg-zinc-200 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-[11px] leading-tight">
+                    <h4 className="font-bold text-[11px] text-zinc-900 dark:text-white leading-tight">
                       {cnhReport.expiringIn60DaysCount} CNH(s) a Vencer
                     </h4>
-                    <p className="text-[9px] text-stone-800 leading-tight">
+                    <p className="text-[9px] text-zinc-500 dark:text-stone-400 leading-tight">
                       Próximos 60 dias
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-stone-900/80 group-hover:translate-x-0.5 transition" />
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition" />
               </div>
 
             </div>
 
             {/* Footer status text */}
-            <div className="mt-2 pt-2 border-t border-blue-200/60 dark:border-stone-800">
+            <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-stone-800">
               {cnhReport.expiredCount === 0 && cnhReport.expiringIn60DaysCount === 0 ? (
-                <div className="flex items-center space-x-1.5 text-[10px] text-black/75 dark:text-stone-400 font-semibold">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                <div className="flex items-center space-x-1.5 text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">
+                  <CheckCircle2 className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
                   <span>Nenhum alerta de CNH pendente.</span>
                 </div>
               ) : (
                 <div className="space-y-0.5 text-[10px]">
-                  <span className="font-bold text-rose-600 block">
+                  <span className="font-bold text-zinc-800 dark:text-stone-200 block">
                     Motoristas com CNH a vencer:
                   </span>
                   {cnhReport.expiringEmployees.map(emp => (
-                    <div key={emp.id} className="flex justify-between text-black dark:text-stone-200 font-medium">
+                    <div key={emp.id} className="flex justify-between text-zinc-700 dark:text-stone-300 font-medium">
                       <span className="truncate pr-1">{emp.name}</span>
                       <span className="font-bold shrink-0">{formatDateBR(emp.cnhExpiration)}</span>
                     </div>
@@ -908,30 +905,30 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             {/* Button to fleet management */}
             <button
               onClick={() => onNavigate('frotas')}
-              className="w-full mt-2 py-1 px-2 bg-blue-100/70 hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-black dark:text-white text-[11px] font-bold rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer border border-blue-200/80 dark:border-stone-700"
+              className="w-full mt-2 py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 text-[11px] font-bold rounded-lg transition flex items-center justify-center space-x-1.5 cursor-pointer border border-zinc-200 dark:border-stone-700"
             >
-              <Truck className="w-3.5 h-3.5 text-black dark:text-white" />
+              <Truck className="w-3.5 h-3.5 text-zinc-700 dark:text-stone-300" />
               <span>Ver Gestão de Frotas</span>
             </button>
 
           </div>
 
           {/* Quick Machinery Status Widget */}
-          <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs text-black dark:text-white">
-            <h4 className="text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-2">
+          <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3 shadow-xs text-zinc-900 dark:text-white">
+            <h4 className="text-[10px] font-black text-zinc-500 dark:text-stone-400 uppercase tracking-wider mb-2">
               Máquinas no Pátio / Operação
             </h4>
             <div className="space-y-1.5">
               {machineries.slice(0, 3).map((m) => (
-                <div key={m.id} className="flex items-center justify-between text-[11px] p-1.5 px-2 rounded-lg bg-blue-50/70 dark:bg-stone-800 border border-blue-200/60 dark:border-stone-700">
+                <div key={m.id} className="flex items-center justify-between text-[11px] p-2 rounded-lg bg-zinc-50 dark:bg-stone-800/70 border border-zinc-200 dark:border-stone-700">
                   <div className="min-w-0 pr-1.5">
-                    <p className="font-bold text-black dark:text-white truncate">{m.name}</p>
-                    <span className="text-[10px] text-black/75 dark:text-stone-400 font-medium">{m.hourMeter}h de uso</span>
+                    <p className="font-bold text-zinc-900 dark:text-white truncate">{m.name}</p>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium">{m.hourMeter}h de uso</span>
                   </div>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${
                     m.status === 'operacional' 
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-                      : 'bg-rose-100 text-rose-800 border border-rose-200'
+                      ? 'bg-zinc-100 text-zinc-800 border-zinc-200 dark:bg-stone-700 dark:text-stone-200 dark:border-stone-600' 
+                      : 'bg-zinc-200 text-zinc-700 border-zinc-300 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700'
                   }`}>
                     {m.status === 'operacional' ? 'Operacional' : 'Manutenção'}
                   </span>

@@ -45,7 +45,7 @@ const MoneyCellInput: React.FC<{
 
   return (
     <div className="relative w-full">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black/70 font-black text-xs pointer-events-none select-none">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-stone-400 font-black text-xs pointer-events-none select-none">
         R$
       </span>
       <input
@@ -61,7 +61,7 @@ const MoneyCellInput: React.FC<{
           const num = desformatarMoeda(formatted);
           onChange(num);
         }}
-        className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm font-black bg-white text-black border border-[#96c1e5] rounded-xl focus:ring-2 focus:ring-[#0963cb]/40 focus:outline-hidden font-mono shadow-2xs disabled:bg-stone-100 disabled:text-stone-500"
+        className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden font-mono shadow-2xs disabled:bg-zinc-100 dark:disabled:bg-stone-800 disabled:text-zinc-400"
       />
     </div>
   );
@@ -142,27 +142,24 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
   return (
     <div 
       id="modal-confirmacao-licenciamento-crlv"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto backdrop-blur-xs animate-in fade-in"
-      style={{ backgroundColor: 'rgba(10, 139, 193, 0.75)' }} // Azul intermediário #0a8bc1 com transparência
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto backdrop-blur-xs bg-black/60 animate-in fade-in"
     >
       <div 
-        className="w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-sky-300 dark:border-sky-700 my-auto flex flex-col max-h-[92vh]"
-        style={{ backgroundColor: '#b0d2ed' }} // Fundo do bloco: Azul claro #b0d2ed
+        className="w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-stone-700 my-auto flex flex-col max-h-[92vh] bg-zinc-100 dark:bg-stone-900"
       >
-        {/* 1. CABEÇALHO E TÍTULO: Azul forte #0963cb com texto em branco */}
+        {/* 1. CABEÇALHO E TÍTULO */}
         <div 
-          className="px-5 py-4 flex items-center justify-between shrink-0 shadow-sm"
-          style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+          className="px-5 py-4 flex items-center justify-between shrink-0 shadow-sm bg-zinc-900 dark:bg-stone-800 text-white"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner text-white shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shadow-inner text-white shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
                 Lançamento da Taxa Anual CRLV (Licenciamento)
               </h2>
-              <p className="text-xs text-sky-100 font-medium">
+              <p className="text-xs text-zinc-400 font-medium">
                 Veículo: <strong className="text-white font-bold">{vehicleName}</strong> • Placa / Identificador: <strong className="text-white font-bold">{vehicleIdentifier || 'S/N'}</strong> {year ? `• Exercício: ${year}` : ''}
               </p>
             </div>
@@ -172,27 +169,27 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
             type="button"
             id="btn-fechar-modal-licenciamento"
             onClick={onClose}
-            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
             title="Fechar Janela de Licenciamento"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* CORPO DO MODAL: Fundo Azul Claro #b0d2ed com textos em Preto #000000 */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-black">
+        {/* CORPO DO MODAL */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-zinc-900 dark:text-stone-100">
           
           {/* Card de Destaque: Total Consolidado do Licenciamento */}
-          <div className="bg-white/95 rounded-2xl p-4 sm:p-5 border border-[#96c1e5] shadow-xs flex items-center justify-between gap-4">
+          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-stone-700 shadow-xs flex items-center justify-between gap-4">
             <div className="flex items-center space-x-3.5">
-              <div className="w-12 h-12 rounded-xl bg-[#0963cb]/10 text-[#0963cb] flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-stone-700 text-zinc-900 dark:text-stone-100 flex items-center justify-center shrink-0">
                 <DollarSign className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-black block mb-0.5">
+                <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-0.5">
                   Total a Lançar no Contas a Pagar
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-black font-mono tracking-tight">
+                <span className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-stone-100 font-mono tracking-tight">
                   {formatCurrencyBRL(totalAmount)}
                 </span>
               </div>
@@ -200,7 +197,7 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
 
             {interestAmount > 0 && (
               <div className="text-right">
-                <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-1 rounded-lg border border-amber-300 block">
+                <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-300 dark:border-amber-800 block">
                   + Juros/Acréscimos: {formatCurrencyBRL(interestAmount)}
                 </span>
               </div>
@@ -219,17 +216,17 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
           )}
 
           {/* Card dos Campos Principais */}
-          <div className="bg-white/95 rounded-2xl p-4 sm:p-5 border border-[#96c1e5] shadow-xs space-y-4">
+          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
               {/* 1. Valor Base (R$) - Preenchido automaticamente */}
               <div>
                 <label 
                   htmlFor="input-licenciamento-valor-base" 
-                  className="block text-xs font-black text-black mb-1.5 flex items-center justify-between"
+                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1.5 flex items-center justify-between"
                 >
                   <span>Valor Base (R$)</span>
-                  <span className="text-[10px] text-stone-500 font-semibold">(Taxa Estadual)</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">(Taxa Estadual)</span>
                 </label>
                 <MoneyCellInput
                   id="input-licenciamento-valor-base"
@@ -246,13 +243,13 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
               <div>
                 <label 
                   htmlFor="input-licenciamento-juros" 
-                  className="block text-xs font-black text-black mb-1.5 flex items-center justify-between"
+                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1.5 flex items-center justify-between"
                 >
                   <span className="flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-amber-700" />
+                    <TrendingUp className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
                     <span>Juros / Encargos (R$)</span>
                   </span>
-                  <span className="text-[10px] text-stone-500 font-semibold">(Se em atraso)</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">(Se em atraso)</span>
                 </label>
                 <MoneyCellInput
                   id="input-licenciamento-juros"
@@ -273,9 +270,9 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
               <div>
                 <label 
                   htmlFor="input-licenciamento-vencimento" 
-                  className="block text-xs font-black text-black mb-1.5 flex items-center gap-1"
+                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1.5 flex items-center gap-1"
                 >
-                  <Calendar className="w-3.5 h-3.5 text-[#0963cb]" />
+                  <Calendar className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
                   <span>Data de Vencimento *</span>
                 </label>
                 <input
@@ -286,17 +283,17 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
                     setValidationError('');
                     setDueDate(e.target.value);
                   }}
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-black bg-white text-black border border-[#96c1e5] rounded-xl focus:ring-2 focus:ring-[#0963cb]/40 focus:outline-hidden shadow-2xs cursor-pointer"
+                  className="w-full px-3 py-2 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden shadow-2xs cursor-pointer"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-black text-black mb-1.5">
+                <label className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1.5">
                   Categoria Contas a Pagar
                 </label>
-                <div className="px-3 py-2 text-xs font-bold bg-stone-100 text-stone-700 rounded-xl border border-stone-300 flex items-center justify-between select-none">
+                <div className="px-3 py-2 text-xs font-bold bg-zinc-100 dark:bg-stone-900 text-zinc-700 dark:text-stone-300 rounded-xl border border-zinc-300 dark:border-stone-700 flex items-center justify-between select-none">
                   <span>Licenciamento / Taxas Detran</span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold">
+                  <span className="text-[10px] px-1.5 py-0.5 bg-zinc-200 dark:bg-stone-800 text-zinc-800 dark:text-stone-200 rounded font-semibold">
                     Automático
                   </span>
                 </div>
@@ -308,9 +305,9 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
             <div>
               <label 
                 htmlFor="input-licenciamento-observacoes" 
-                className="block text-xs font-black text-black mb-1.5 flex items-center gap-1"
+                className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1.5 flex items-center gap-1"
               >
-                <FileText className="w-3.5 h-3.5 text-[#0963cb]" />
+                <FileText className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
                 <span>Observações do Lançamento</span>
               </label>
               <input
@@ -319,14 +316,14 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
                 placeholder="Descrição para controle financeiro..."
-                className="w-full px-3 py-2 text-xs font-bold bg-white text-black border border-[#96c1e5] rounded-xl focus:ring-2 focus:ring-[#0963cb]/40 focus:outline-hidden shadow-2xs"
+                className="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden shadow-2xs"
               />
             </div>
 
           </div>
 
           {/* Dica Informativa */}
-          <div className="text-[11px] text-black font-semibold flex items-center justify-between px-1">
+          <div className="text-[11px] text-zinc-600 dark:text-stone-400 font-semibold flex items-center justify-between px-1">
             <span>
               * O lançamento será gerado diretamente no <strong>Contas a Pagar</strong> como pendência financeira sob a titularidade do Detran.
             </span>
@@ -336,16 +333,16 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
 
         {/* 5. RODAPÉ: Botões Cancelar e Confirmar e Gravar Lançamento */}
         <div 
-          className="px-5 py-3.5 bg-white/95 border-t border-[#96c1e5] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
+          className="px-5 py-3.5 bg-white dark:bg-stone-800 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
         >
-          <div className="flex items-center space-x-2 text-xs text-black font-bold">
-            <span className="text-black/80">Status:</span>
+          <div className="flex items-center space-x-2 text-xs text-zinc-700 dark:text-stone-300 font-bold">
+            <span className="text-zinc-500 dark:text-stone-400">Status:</span>
             {isValid ? (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded font-black text-[11px]">
                 Pronto para Gravar
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-950 border border-amber-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-950 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded font-black text-[11px]">
                 Informe o valor e vencimento
               </span>
             )}
@@ -356,7 +353,7 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
               type="button"
               id="btn-cancelar-modal-licenciamento"
               onClick={onClose}
-              className="px-4 py-2.5 bg-white hover:bg-stone-100 text-black font-bold text-xs rounded-xl border border-[#96c1e5] transition cursor-pointer shadow-2xs min-h-[42px]"
+              className="px-4 py-2.5 bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-900 dark:text-stone-100 font-bold text-xs rounded-xl border border-zinc-300 dark:border-stone-700 transition cursor-pointer shadow-2xs min-h-[42px]"
             >
               Cancelar
             </button>
@@ -369,7 +366,7 @@ export const LicensingLaunchModal: React.FC<LicensingLaunchModalProps> = ({
               className={`px-5 py-2.5 font-black text-xs rounded-xl shadow-md transition flex items-center space-x-2 min-h-[42px] ${
                 isValid
                   ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer active:scale-98'
-                  : 'bg-stone-300 text-stone-500 border border-stone-300 cursor-not-allowed opacity-60'
+                  : 'bg-stone-300 dark:bg-stone-700 text-stone-500 dark:text-stone-400 border border-stone-300 dark:border-stone-600 cursor-not-allowed opacity-60'
               }`}
               title={isValid ? 'Confirmar e Gravar Lançamento no Contas a Pagar' : 'Preencha os campos obrigatórios'}
             >

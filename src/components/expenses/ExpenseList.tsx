@@ -284,28 +284,28 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   }, [activeCompany, filteredExpenses]);
 
   return (
-    <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-blue-200/80 dark:border-stone-800 shadow-xs overflow-hidden text-black dark:text-white">
+    <div className="crm-card bg-white dark:bg-stone-900 rounded-2xl border border-zinc-200 dark:border-stone-800 shadow-xs overflow-hidden text-zinc-900 dark:text-white">
       
       {/* Top Filter & Search Bar */}
-      <div className="p-3 sm:p-3.5 border-b border-blue-200/80 dark:border-stone-800 bg-blue-100/40 dark:bg-stone-800/50 space-y-2.5">
+      <div className="p-3 sm:p-3.5 border-b border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-800/50 space-y-2.5">
         
         {/* Search & Actions Row */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2 w-3.5 h-3.5 text-black/60 dark:text-stone-400" />
+            <Search className="absolute left-3 top-2 w-3.5 h-3.5 text-zinc-400 dark:text-stone-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por descrição, fornecedor, trator ou NF..."
-              className="w-full pl-8 pr-4 py-1.5 bg-blue-100/60 dark:bg-stone-800 text-xs rounded-xl border border-blue-300 dark:border-stone-700 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold"
+              className="w-full pl-8 pr-4 py-1.5 bg-white dark:bg-stone-800 text-xs rounded-xl border border-zinc-200 dark:border-stone-700 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white font-bold"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-2 text-black/60 dark:text-stone-400 hover:text-black dark:hover:text-white text-xs font-bold"
+                className="absolute right-2.5 top-2 text-zinc-400 dark:text-stone-400 hover:text-zinc-900 dark:hover:text-white text-xs font-bold"
               >
                 ✕
               </button>
@@ -316,34 +316,34 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           <div className="flex items-center space-x-1.5">
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-black dark:text-stone-200 bg-blue-100/80 dark:bg-stone-800 hover:bg-blue-200 dark:hover:bg-stone-700 border border-blue-300 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border border-zinc-200 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
               title="Exportar dados para Excel / CSV"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-black dark:text-emerald-400" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-600 dark:text-emerald-400" />
               <span className="hidden sm:inline">CSV</span>
             </button>
 
             <button
               onClick={() => setIsPrintModalOpen(true)}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-black dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 border border-emerald-300 dark:border-emerald-800 rounded-xl transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-emerald-300 bg-white dark:bg-emerald-950/60 hover:bg-zinc-100 dark:hover:bg-emerald-900 border border-zinc-200 dark:border-emerald-800 rounded-xl transition shadow-2xs cursor-pointer"
               title="Compartilhar lista de despesas por WhatsApp"
             >
-              <MessageCircle className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-400" />
+              <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span className="hidden sm:inline">WhatsApp</span>
             </button>
 
             <button
               onClick={() => setIsPrintModalOpen(true)}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-black dark:text-stone-200 bg-blue-100/80 dark:bg-stone-800 hover:bg-blue-200 dark:hover:bg-stone-700 border border-blue-300 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold text-zinc-700 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border border-zinc-200 dark:border-stone-700 rounded-xl transition shadow-2xs cursor-pointer"
               title="Imprimir relatório com logotipo e dados cadastrais da empresa"
             >
-              <Printer className="w-3.5 h-3.5 text-black dark:text-stone-300" />
+              <Printer className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-300" />
               <span className="hidden sm:inline">Imprimir</span>
             </button>
 
             <button
               onClick={onNewExpense}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition shadow-xs active:scale-95 cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 rounded-xl transition shadow-xs active:scale-95 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Novo Lançamento</span>
@@ -357,11 +357,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           
           {/* Status Filter */}
           <div>
-            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Status</label>
+            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Status</label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-blue-100/60 dark:bg-stone-800 rounded-lg border border-blue-300 dark:border-stone-700 font-bold text-black dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
             >
               <option value="todos">Todos os Status</option>
               <option value="pago">Pagas</option>
@@ -373,11 +373,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
           {/* Category Filter */}
           <div>
-            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Categoria</label>
+            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Categoria</label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-blue-100/60 dark:bg-stone-800 rounded-lg border border-blue-300 dark:border-stone-700 font-bold text-black dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
             >
               <option value="todas">Todas as Categorias</option>
               {categories.map((c) => (
@@ -390,11 +390,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
           {/* Cost Center Filter */}
           <div>
-            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Centro de Custo</label>
+            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Centro de Custo</label>
             <select
               value={selectedCostCenter}
               onChange={(e) => setSelectedCostCenter(e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-blue-100/60 dark:bg-stone-800 rounded-lg border border-blue-300 dark:border-stone-700 font-bold text-black dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
             >
               <option value="todos">Todos os Centros</option>
               {costCenters.map((cc) => (
@@ -407,11 +407,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
           {/* Sort By */}
           <div>
-            <label className="block text-[10px] font-black text-black dark:text-stone-300 uppercase tracking-wider mb-0.5">Ordenar por</label>
+            <label className="block text-[10px] font-black text-zinc-500 dark:text-stone-300 uppercase tracking-wider mb-0.5">Ordenar por</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full px-2 py-1 text-xs bg-blue-100/60 dark:bg-stone-800 rounded-lg border border-blue-300 dark:border-stone-700 font-bold text-black dark:text-white"
+              className="w-full px-2 py-1 text-xs bg-white dark:bg-stone-800 rounded-lg border border-zinc-200 dark:border-stone-700 font-bold text-zinc-900 dark:text-white"
             >
               <option value="date_asc">Vencimento (Mais Próximo / Evolução)</option>
               <option value="date_desc">Vencimento (Mais Distante)</option>
@@ -425,19 +425,19 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       </div>
 
       {/* Summary of current view */}
-      <div className="px-4 py-2 bg-blue-200/50 dark:bg-stone-800/80 border-b border-blue-200/80 dark:border-stone-800 text-xs text-black dark:text-stone-300 flex items-center justify-between">
+      <div className="px-4 py-2 bg-zinc-50 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-800 text-xs text-zinc-600 dark:text-stone-300 flex items-center justify-between">
         <span>
-          Mostrando <strong className="text-black dark:text-white font-black">{filteredExpenses.length}</strong> lançamento(s)
+          Mostrando <strong className="text-zinc-900 dark:text-white font-black">{filteredExpenses.length}</strong> lançamento(s)
         </span>
         <span>
-          Soma do filtro: <strong className="text-black dark:text-white font-black">{formatCurrencyBRL(totalFiltered)}</strong>
+          Soma do filtro: <strong className="text-zinc-900 dark:text-white font-black">{formatCurrencyBRL(totalFiltered)}</strong>
         </span>
       </div>
 
       {/* Desktop Table View */}
       <div className="overflow-x-auto hidden md:block">
-        <table className="w-full text-left text-xs text-black dark:text-stone-200">
-          <thead className="bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 font-black border-b border-blue-200/80 dark:border-stone-700 uppercase tracking-wider text-[10px]">
+        <table className="w-full text-left text-xs text-zinc-900 dark:text-stone-200">
+          <thead className="bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 font-black border-b border-zinc-200 dark:border-stone-700 uppercase tracking-wider text-[10px]">
             <tr>
               <th className="py-1.5 px-3">Descrição & Fornecedor</th>
               <th className="py-1.5 px-3">Categoria</th>
@@ -448,7 +448,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               <th className="py-1.5 px-3 text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 font-medium bg-[#87AFE3] dark:bg-stone-900">
+          <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 font-medium bg-white dark:bg-stone-900">
             {filteredExpenses.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-black/75 dark:text-stone-400">
@@ -614,7 +614,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       </div>
 
       {/* Mobile Card List View */}
-      <div className="divide-y divide-blue-200/60 dark:divide-stone-800 md:hidden bg-[#87AFE3] dark:bg-stone-900">
+      <div className="divide-y divide-zinc-100 dark:divide-stone-800 md:hidden bg-white dark:bg-stone-900">
         {filteredExpenses.length === 0 ? (
           <div className="py-10 text-center text-black/75 dark:text-stone-400 text-xs">
             Nenhum lançamento encontrado.

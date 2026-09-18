@@ -1144,7 +1144,7 @@ export default function App() {
 
       {/* Main Body Area with left padding for desktop sidebar */}
       <div 
-        className="lg:pl-64 flex flex-col flex-1 min-h-screen bg-slate-100/70 dark:bg-stone-950"
+        className="lg:pl-64 flex flex-col flex-1 min-h-screen bg-zinc-100 dark:bg-stone-950"
       >
         
         {/* Top Bar with Trial Notice and Horizontal Pill Carousel */}
@@ -1163,7 +1163,7 @@ export default function App() {
         {/* Dynamic Page Content (100% Full Width across all modules) */}
         <main 
           id="crm-main-content"
-          className="flex-1 p-2.5 sm:p-3 lg:p-3.5 w-full max-w-none"
+          className="flex-1 p-2.5 sm:p-3 lg:p-3.5 w-full max-w-none bg-zinc-100 dark:bg-stone-950"
         >
           
           {/* TAB 1: Main Dashboard (Matching Screenshot) */}

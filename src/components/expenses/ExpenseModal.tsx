@@ -511,10 +511,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto">
-        <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl max-w-2xl w-full my-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="bg-zinc-100 dark:bg-stone-900 border border-zinc-200 dark:border-stone-700 rounded-2xl max-w-2xl w-full my-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
-        {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-        <div className="px-5 py-3.5 bg-[#0963cb] text-white flex items-center justify-between">
+        {/* Header com zinc neutro */}
+        <div className="px-5 py-3.5 bg-zinc-900 dark:bg-stone-800 text-white flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
             {editingExpense ? 'Editar Despesa' : 'Nova Despesa'}
           </h2>
@@ -528,19 +528,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-[#b0d2ed]">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-zinc-100 dark:bg-stone-900">
           
           {/* Row 1: Categoria & Data */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
                   CATEGORIA <span className="text-rose-600">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(true)}
-                  className="inline-flex items-center space-x-1 text-[10px] font-bold text-[#0963cb] hover:text-[#0852a8] px-2 py-0.5 rounded-md bg-white/70 hover:bg-white transition cursor-pointer"
+                  className="inline-flex items-center space-x-1 text-[10px] font-bold text-zinc-700 dark:text-stone-300 hover:text-black dark:hover:text-white px-2 py-0.5 rounded-md bg-white dark:bg-stone-800 hover:bg-zinc-50 transition cursor-pointer border border-zinc-200 dark:border-stone-700"
                   title="Incluir, editar ou excluir categorias de despesas"
                 >
                   <Edit2 className="w-2.5 h-2.5" />
@@ -552,7 +552,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] appearance-none pr-9"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-9"
                   >
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
@@ -565,7 +565,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(true)}
-                  className="w-9 h-9 shrink-0 rounded-xl bg-[#0963cb] hover:bg-[#0852a8] text-white flex items-center justify-center transition shadow-xs cursor-pointer"
+                  className="w-9 h-9 shrink-0 rounded-xl bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
                   title="Incluir nova categoria ou gerenciar existentes"
                 >
                   <Plus className="w-4 h-4" />
@@ -574,7 +574,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                 DATA <span className="text-rose-600">*</span>
               </label>
               <div className="relative">
@@ -583,7 +583,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   required
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
                 />
               </div>
             </div>
@@ -593,7 +593,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isAlimentacao ? (
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   TIPO DE REFEIÇÃO
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -602,8 +602,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     onClick={() => setMealType('cafe')}
                     className={`py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                       mealType === 'cafe'
-                        ? 'bg-[#0963cb] text-white border-[#0963cb] font-bold shadow-xs'
-                        : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50'
+                        ? 'bg-zinc-900 dark:bg-stone-700 text-white border-zinc-900 dark:border-stone-700 font-bold shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50'
                     }`}
                   >
                     Café da Manhã
@@ -613,8 +613,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     onClick={() => setMealType('almoco')}
                     className={`py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                       mealType === 'almoco'
-                        ? 'bg-[#0963cb] text-white border-[#0963cb] font-bold shadow-xs'
-                        : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50'
+                        ? 'bg-zinc-900 dark:bg-stone-700 text-white border-zinc-900 dark:border-stone-700 font-bold shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50'
                     }`}
                   >
                     Almoço
@@ -624,8 +624,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     onClick={() => setMealType('janta')}
                     className={`py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
                       mealType === 'janta'
-                        ? 'bg-[#0963cb] text-white border-[#0963cb] font-bold shadow-xs'
-                        : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-50'
+                        ? 'bg-zinc-900 dark:bg-stone-700 text-white border-zinc-900 dark:border-stone-700 font-bold shadow-xs'
+                        : 'bg-white dark:bg-stone-800 border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50'
                     }`}
                   >
                     Janta
@@ -634,20 +634,20 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
             ) : (
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   DESCRIÇÃO DA DESPESA
                 </label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                 VALOR TOTAL (R$) <span className="text-rose-600">*</span>
               </label>
               <input
@@ -657,7 +657,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
               />
             </div>
           </div>
@@ -673,7 +673,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setSelectedTargets(['todos'])}
-                    className="text-[#0963cb] font-bold hover:underline cursor-pointer"
+                    className="text-zinc-900 dark:text-stone-100 font-bold hover:underline cursor-pointer"
                   >
                     + Todos da Empresa
                   </button>
@@ -925,7 +925,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     setIsSupplierDropdownOpen(true);
                   }}
                   onFocus={() => setIsSupplierDropdownOpen(true)}
-                  className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
                 />
               </div>
               <button
@@ -934,7 +934,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   setIsSupplierModalOpen(true);
                   setIsSupplierDropdownOpen(false);
                 }}
-                className="w-9 h-9 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-9 h-9 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center transition cursor-pointer shrink-0"
                 title="Cadastrar Novo Fornecedor"
               >
                 <Plus className="w-4 h-4" />
@@ -943,9 +943,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
             {/* Dropdown Lista de Fornecedores */}
             {isSupplierDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
                 {filteredSuppliers.length > 0 ? (
-                  <div className="divide-y divide-stone-100">
+                  <div className="divide-y divide-zinc-100 dark:divide-stone-700">
                     {filteredSuppliers.map((s) => (
                       <div
                         key={s.id}
@@ -953,19 +953,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                           setSupplier(s.name);
                           setIsSupplierDropdownOpen(false);
                         }}
-                        className="p-3 hover:bg-blue-50/70 cursor-pointer transition flex flex-col justify-center text-left group"
+                        className="p-3 hover:bg-zinc-50 dark:hover:bg-stone-700/60 cursor-pointer transition flex flex-col justify-center text-left group"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-black text-xs sm:text-sm group-hover:text-[#0963cb]">
+                          <span className="font-bold text-zinc-900 dark:text-stone-100 text-xs sm:text-sm group-hover:text-black dark:group-hover:text-white">
                             {s.name}
                           </span>
                           {s.category && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 font-medium shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-stone-700 text-zinc-600 dark:text-stone-300 font-medium shrink-0">
                               {s.category}
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-stone-500 flex items-center gap-1.5 mt-0.5">
+                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
                           {s.cnpjOrCpf && <span>{s.cnpjOrCpf}</span>}
                           {s.tradeName && s.tradeName !== s.name && (
                             <span>· {s.tradeName}</span>
@@ -978,22 +978,22 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 text-xs text-stone-500 text-center">
+                  <div className="p-3 text-xs text-zinc-500 dark:text-stone-400 text-center">
                     Nenhum fornecedor cadastrado com esse termo.
                   </div>
                 )}
 
                 {/* Opção de Cadastrar Novo Fornecedor */}
-                <div className="border-t border-stone-200 bg-stone-50/80">
+                <div className="border-t border-zinc-200 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800">
                   <button
                     type="button"
                     onClick={() => {
                       setIsSupplierModalOpen(true);
                       setIsSupplierDropdownOpen(false);
                     }}
-                    className="w-full p-2.5 sm:p-3 flex items-center space-x-2 text-[#0963cb] hover:text-[#0852a8] hover:bg-blue-50 text-xs sm:text-sm font-semibold transition cursor-pointer text-left"
+                    className="w-full p-2.5 sm:p-3 flex items-center space-x-2 text-zinc-800 dark:text-stone-200 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-700 text-xs sm:text-sm font-semibold transition cursor-pointer text-left"
                   >
-                    <Plus className="w-4 h-4 text-[#0963cb]" />
+                    <Plus className="w-4 h-4 text-zinc-800 dark:text-stone-200" />
                     <span>+ Cadastrar novo fornecedor</span>
                   </button>
                 </div>
@@ -1004,14 +1004,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           {/* Status e Forma de Pagamento */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                 STATUS DO PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as ExpenseStatus)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] appearance-none pr-9"
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-9"
                 >
                   <option value="pago">Pago (Liquidado)</option>
                   <option value="pendente">A Pagar (Pendente)</option>
@@ -1021,14 +1021,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                 FORMA DE PAGAMENTO
               </label>
               <div className="relative">
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] appearance-none pr-9"
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-9"
                 >
                   <option value="pix">PIX</option>
                   <option value="dinheiro">Dinheiro em Espécie</option>
@@ -1045,23 +1045,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Se o status for Pago: Identificar Responsável e Conta de Débito */}
           {status === 'pago' && (
-            <div className="p-3.5 bg-sky-50/80 border border-sky-200 rounded-xl space-y-3">
-              <div className="flex items-center space-x-2 text-[#0963cb] font-bold text-xs">
-                <CheckCircle2 className="w-4 h-4 text-[#0963cb]" />
+            <div className="p-3.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-200 dark:border-stone-700 rounded-xl space-y-3">
+              <div className="flex items-center space-x-2 text-zinc-800 dark:text-stone-200 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4 text-zinc-800 dark:text-stone-200" />
                 <span>Dados da Baixa / Liquidação do Pagamento</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Quem realizou o pagamento */}
                 <div>
-                  <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                     Quem Realizou o Pagamento (Responsável) <span className="text-rose-600">*</span>
                   </label>
                   <div className="relative">
                     <select
                       value={paidByEmployeeId}
                       onChange={(e) => setPaidByEmployeeId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] appearance-none pr-8"
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-8"
                     >
                       <option value="">-- Selecione o colaborador responsável --</option>
                       {activeEmployees.map((emp) => (
@@ -1076,14 +1076,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
                 {/* De qual banco debitar */}
                 <div>
-                  <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                     Conta Bancária de Débito (Origem) <span className="text-rose-600">*</span>
                   </label>
                   <div className="relative">
                     <select
                       value={bankAccountId}
                       onChange={(e) => setBankAccountId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-black text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0963cb] appearance-none pr-8"
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900/20 appearance-none pr-8"
                     >
                       <option value="">-- Selecione o Banco / Conta --</option>
                       {bankAccounts.map((acc) => (
@@ -1098,14 +1098,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   Data Efetiva da Baixa
                 </label>
                 <input
                   type="date"
                   value={paymentDate || dueDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full sm:w-1/2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-black text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full sm:w-1/2 px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20"
                 />
               </div>
             </div>
@@ -1113,10 +1113,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Foto / Comprovante Upload Box */}
           <div>
-            <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
               FOTO / COMPROVANTE
             </label>
-            <label className="cursor-pointer border-2 border-dashed border-stone-300 hover:border-[#0963cb] rounded-xl p-3 flex flex-col sm:flex-row items-center justify-center gap-2 text-stone-600 hover:text-black transition bg-white shadow-xs">
+            <label className="cursor-pointer border-2 border-dashed border-zinc-300 dark:border-stone-700 hover:border-zinc-500 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-center gap-2 text-zinc-600 dark:text-stone-400 hover:text-black dark:hover:text-white transition bg-white dark:bg-stone-800 shadow-xs">
               <Camera className="w-4 h-4 text-stone-500" />
               <span className="text-xs font-medium">
                 {receiptName ? `Anexado: ${receiptName}` : 'Tirar foto ou selecionar imagem'}
@@ -1132,29 +1132,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Observações */}
           <div>
-            <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
               OBSERVAÇÕES
             </label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white text-black text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] resize-none"
+              className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/20 resize-none"
             />
           </div>
 
           {/* Action Buttons - Standardized Footer */}
-          <div className="pt-3 border-t border-black/15 flex items-center justify-end space-x-3">
+          <div className="pt-3 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl bg-white border border-stone-300 text-stone-700 text-xs sm:text-sm font-semibold hover:bg-stone-50 transition cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 text-xs sm:text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-stone-700 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer"
+              className="px-6 py-2 rounded-xl bg-zinc-900 dark:bg-stone-800 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer"
             >
               {editingExpense ? 'Atualizar Despesa' : 'Salvar Despesa'}
             </button>

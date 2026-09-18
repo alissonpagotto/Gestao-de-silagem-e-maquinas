@@ -387,11 +387,11 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-[#0a8bc1]/85 backdrop-blur-xs overflow-y-auto`}>
-      <div className="bg-[#0a8bc1] rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-white/20 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs overflow-y-auto`}>
+      <div className="bg-zinc-100 dark:bg-stone-900 rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
         
         {/* Header */}
-        <div className="px-5 py-3 bg-[#0963cb] text-white flex items-center justify-between relative">
+        <div className="px-5 py-3 bg-zinc-900 dark:bg-stone-800 text-white flex items-center justify-between relative">
           <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
             Cadastro Fornecedor
           </h3>
@@ -402,7 +402,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsShareDropdownOpen(!isShareDropdownOpen)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition cursor-pointer border border-white/20 shadow-2xs"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold transition cursor-pointer border border-white/20 shadow-2xs"
                 title="Enviar link do formulário de cadastro em branco para o fornecedor"
               >
                 <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
@@ -417,9 +417,9 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     className="fixed inset-0 z-10" 
                     onClick={() => setIsShareDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-64 bg-white text-stone-900 rounded-xl shadow-2xl border border-stone-200 z-20 overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3.5 py-1.5 border-b border-stone-100 bg-stone-50/70">
-                      <p className="text-[10px] font-bold text-stone-600 uppercase tracking-wider">
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 rounded-xl shadow-2xl border border-zinc-200 dark:border-stone-700 z-20 overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3.5 py-1.5 border-b border-zinc-100 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800/80">
+                      <p className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider">
                         Compartilhar Ficha de Fornecedor
                       </p>
                     </div>
@@ -427,28 +427,28 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     <button
                       type="button"
                       onClick={handleShareWhatsApp}
-                      className="w-full px-3.5 py-2.5 text-left text-xs sm:text-sm font-medium hover:bg-emerald-50 text-stone-800 hover:text-emerald-900 flex items-center space-x-2.5 transition cursor-pointer"
+                      className="w-full px-3.5 py-2.5 text-left text-xs sm:text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-zinc-800 dark:text-stone-200 hover:text-emerald-900 dark:hover:text-emerald-300 flex items-center space-x-2.5 transition cursor-pointer"
                     >
-                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
                         <MessageSquare className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex-1">
                         <span className="font-bold block">Enviar por WhatsApp</span>
-                        <span className="text-[10px] text-stone-500 block">Link pronto com mensagem</span>
+                        <span className="text-[10px] text-zinc-500 dark:text-stone-400 block">Link pronto com mensagem</span>
                       </div>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleShareEmail}
-                      className="w-full px-3.5 py-2.5 text-left text-xs sm:text-sm font-medium hover:bg-blue-50 text-stone-800 hover:text-blue-900 flex items-center space-x-2.5 transition cursor-pointer"
+                      className="w-full px-3.5 py-2.5 text-left text-xs sm:text-sm font-medium hover:bg-zinc-100 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 flex items-center space-x-2.5 transition cursor-pointer"
                     >
-                      <div className="w-6 h-6 rounded-full bg-blue-100 text-[#0963cb] flex items-center justify-center flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center flex-shrink-0">
                         <Mail className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex-1">
                         <span className="font-bold block">Enviar por E-mail</span>
-                        <span className="text-[10px] text-stone-500 block">Dispara via seu cliente de e-mail</span>
+                        <span className="text-[10px] text-zinc-500 dark:text-stone-400 block">Dispara via seu cliente de e-mail</span>
                       </div>
                     </button>
 
@@ -509,15 +509,15 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-[#0a8bc1] max-h-[92vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-zinc-100 dark:bg-stone-900 max-h-[92vh] overflow-y-auto">
           
           {/* Card 1: Dados Principais & Fiscais */}
-          <div className="bg-[#b0d2ed] p-3 sm:p-3.5 rounded-xl border border-[#96c1e5] shadow-2xs space-y-2.5">
+          <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">
             {/* Linha 1: CNPJ/CPF (Auto-preenchimento), Razão Social / Nome (espaço amplo), Nome Fantasia */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="col-span-1">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-black uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
                     CNPJ OU CPF (AUTO-PREENCHIMENTO)
                   </label>
                   
@@ -528,7 +528,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
-                          className="text-[10px] font-bold bg-[#0963cb] hover:bg-[#0852a8] text-white px-2 py-0.5 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-xs animate-pulse"
+                          className="text-[10px] font-bold bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white px-2 py-0.5 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-xs"
                           title="Fichas preenchidas online aguardando importação"
                         >
                           <Inbox className="w-3 h-3 text-amber-300" />
@@ -538,24 +538,24 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                         {isImportDropdownOpen && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setIsImportDropdownOpen(false)} />
-                            <div className="absolute left-0 mt-1 w-64 bg-white text-stone-900 rounded-xl shadow-xl border border-stone-200 z-20 overflow-hidden py-1">
-                              <div className="px-3 py-1.5 border-b border-stone-100 bg-stone-50">
-                                <p className="text-[10px] font-bold text-stone-600 uppercase">Fichas Online Recebidas</p>
+                            <div className="absolute left-0 mt-1 w-64 bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 rounded-xl shadow-xl border border-zinc-200 dark:border-stone-700 z-20 overflow-hidden py-1">
+                              <div className="px-3 py-1.5 border-b border-zinc-100 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800/80">
+                                <p className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase">Fichas Online Recebidas</p>
                               </div>
-                              <div className="max-h-48 overflow-y-auto divide-y divide-stone-100">
+                              <div className="max-h-48 overflow-y-auto divide-y divide-zinc-100 dark:divide-stone-700">
                                 {pendingSubmissions.map(sub => (
                                   <button
                                     key={sub.id}
                                     type="button"
                                     onClick={() => applySubmission(sub)}
-                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 transition flex flex-col cursor-pointer"
+                                    className="w-full px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-stone-700 transition flex flex-col cursor-pointer"
                                   >
                                     <div className="flex items-center justify-between">
-                                      <span className="font-bold text-xs text-stone-900">{sub.name}</span>
-                                      <span className="text-[10px] text-stone-500">{sub.city}/{sub.state}</span>
+                                      <span className="font-bold text-xs text-zinc-900 dark:text-stone-100">{sub.name}</span>
+                                      <span className="text-[10px] text-zinc-500 dark:text-stone-400">{sub.city}/{sub.state}</span>
                                     </div>
-                                    <span className="text-[11px] text-stone-600 font-medium">{sub.tradeName || sub.category}</span>
-                                    <span className="text-[10px] text-blue-700">{sub.cnpjOrCpf || sub.phone}</span>
+                                    <span className="text-[11px] text-zinc-600 dark:text-stone-400 font-medium">{sub.tradeName || sub.category}</span>
+                                    <span className="text-[10px] text-zinc-500 dark:text-stone-400">{sub.cnpjOrCpf || sub.phone}</span>
                                   </button>
                                 ))}
                               </div>
@@ -566,8 +566,8 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     )}
 
                     {isLoadingCnpj && (
-                      <span className="text-[10px] text-black font-bold flex items-center space-x-1">
-                        <Loader2 className="w-3 h-3 animate-spin text-[#0963cb]" />
+                      <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1">
+                        <Loader2 className="w-3 h-3 animate-spin text-zinc-700 dark:text-stone-300" />
                         <span>Buscando...</span>
                       </span>
                     )}
@@ -579,23 +579,23 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     value={cnpjOrCpf}
                     onChange={(e) => handleCnpjChange(e.target.value)}
                     maxLength={18}
-                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb] pr-8"
+                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15 pr-8"
                   />
                   <button
                     type="button"
                     onClick={() => searchCnpj()}
                     disabled={isLoadingCnpj}
                     title="Buscar dados deste fornecedor na Receita ou importar ficha"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-black hover:text-[#0963cb] rounded-md transition cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-600 dark:text-stone-400 hover:text-black dark:hover:text-white rounded-md transition cursor-pointer"
                   >
                     <Search className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Razão Social / Nome Amplo (2 colunas para comportar cooperativas e indústrias longas de XML) */}
+              {/* Razão Social / Nome Amplo */}
               <div className="col-span-1 lg:col-span-2">
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   RAZÃO SOCIAL / NOME <span className="text-rose-600">*</span>
                 </label>
                 <input
@@ -603,19 +603,19 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
               <div className="col-span-1">
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   NOME FANTASIA
                 </label>
                 <input
                   type="text"
                   value={tradeName}
                   onChange={(e) => setTradeName(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
             </div>
@@ -623,14 +623,14 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
             {/* Linha 2: Categoria Principal, Inscrição Estadual (IE), Inscrição Municipal (IM) e WhatsApp / Telefone */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   CATEGORIA PRINCIPAL
                 </label>
                 <div className="relative">
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-stone-300 bg-white text-black focus:ring-2 focus:ring-[#0963cb] font-medium appearance-none pr-8 cursor-pointer"
+                    className="w-full px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 focus:ring-2 focus:ring-zinc-900/15 font-medium appearance-none pr-8 cursor-pointer"
                   >
                     <option value="Combustível">Combustível & Arla</option>
                     <option value="Alimentação & Restaurante">Alimentação & Restaurante</option>
@@ -641,12 +641,12 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     <option value="Transporte & Frete">Transporte & Frete</option>
                     <option value="Outros">Outros</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-black absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   INSCRIÇÃO ESTADUAL (IE)
                 </label>
                 <input
@@ -654,13 +654,12 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                   value={stateRegistration}
                   onChange={(e) => setStateRegistration(formatIE(e.target.value))}
                   maxLength={18}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
-              {/* Novo Campo Fiscal: INSCRIÇÃO MUNICIPAL (IM) logo ao lado da Inscrição Estadual */}
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   INSCRIÇÃO MUNICIPAL (IM)
                 </label>
                 <input
@@ -668,12 +667,12 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                   value={municipalRegistration}
                   onChange={(e) => setMunicipalRegistration(e.target.value)}
                   maxLength={20}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   WHATSAPP / TELEFONE
                 </label>
                 <input
@@ -681,23 +680,23 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(formatPhone(e.target.value))}
                   maxLength={15}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 2: Endereço & Localização */}
-          <div className="bg-[#b0d2ed] p-3 sm:p-3.5 rounded-xl border border-[#96c1e5] shadow-2xs space-y-2.5">
+          <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-black uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider">
                     CEP
                   </label>
                   {isLoadingCep && (
-                    <span className="text-[10px] text-black font-bold flex items-center space-x-1">
-                      <Loader2 className="w-3 h-3 animate-spin text-[#0963cb]" />
+                    <span className="text-[10px] text-zinc-700 dark:text-stone-300 font-bold flex items-center space-x-1">
+                      <Loader2 className="w-3 h-3 animate-spin text-zinc-700 dark:text-stone-300" />
                       <span>Buscando...</span>
                     </span>
                   )}
@@ -708,14 +707,14 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                     value={zipCode}
                     onChange={(e) => handleCepChange(e.target.value)}
                     maxLength={9}
-                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#0963cb] pr-8"
+                    className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15 pr-8"
                   />
                   <button
                     type="button"
                     onClick={() => searchCep()}
                     disabled={isLoadingCep}
                     title="Buscar endereço deste CEP"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-black hover:text-[#0963cb] rounded-md transition cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-600 dark:text-stone-400 hover:text-black dark:hover:text-white rounded-md transition cursor-pointer"
                   >
                     <Search className="w-3.5 h-3.5" />
                   </button>
@@ -723,45 +722,45 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   ENDEREÇO / LOGRADOURO
                 </label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   BAIRRO / COMUNIDADE
                 </label>
                 <input
                   type="text"
                   value={neighborhood}
                   onChange={(e) => setNeighborhood(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   CIDADE
                 </label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   ESTADO (UF)
                 </label>
                 <input
@@ -769,85 +768,83 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
                   value={state}
                   onChange={(e) => setState(e.target.value.toUpperCase())}
                   maxLength={2}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium uppercase focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 3: Informações Complementares & Observações */}
-          <div className="bg-[#b0d2ed] p-3 sm:p-3.5 rounded-xl border border-[#96c1e5] shadow-2xs space-y-2.5">
+          <div className="bg-white dark:bg-stone-800 p-3 sm:p-3.5 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2.5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   E-MAIL COMERCIAL
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#0963cb]"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-black uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
                   OBSERVAÇÕES / DADOS BANCÁRIOS / PIX
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-stone-300 bg-white text-black text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#0963cb] resize-none h-10 sm:h-11 leading-snug"
+                  className="w-full px-3 py-1.5 sm:py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-zinc-900/15 resize-none h-10 sm:h-11 leading-snug"
                 />
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="pt-2.5 border-t border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="pt-2.5 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             {/* Auditoria Automática (Canto inferior esquerdo) */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-black">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-zinc-600 dark:text-stone-400">
               <span className="inline-flex items-center space-x-1">
-                <span className="font-bold text-black">Cadastrado em:</span>
-                <span className="text-black/80">
+                <span className="font-bold text-zinc-900 dark:text-stone-200">Cadastrado em:</span>
+                <span>
                   {activeSupplier?.createdAt ? (formatDateTimeBR(activeSupplier.createdAt) || '—') : formatDateTimeBR(registrationTimestamp)}
                 </span>
               </span>
-              <span className="text-black/40 hidden sm:inline">•</span>
+              <span className="text-zinc-400 dark:text-stone-600 hidden sm:inline">•</span>
               <span className="inline-flex items-center space-x-1">
-                <span className="font-bold text-black">Alterado em:</span>
-                <span className="text-black/80">
+                <span className="font-bold text-zinc-900 dark:text-stone-200">Alterado em:</span>
+                <span>
                   {activeSupplier?.updatedAt ? (formatDateTimeBR(activeSupplier.updatedAt) || 'Sem alterações') : 'Sem alterações'}
                 </span>
               </span>
             </div>
 
-            {/* Ações (Canto inferior direito: [Cancelar] [Sair] [Salvar Fornecedor]) */}
+            {/* Ações */}
             <div className="flex items-center justify-end space-x-2 sm:space-x-2.5">
               <button
                 type="button"
                 onClick={handleCancel}
                 title="Descartar alterações não salvas"
-                className="px-4 py-2 rounded-xl bg-white hover:bg-stone-100 text-stone-800 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-stone-200"
+                className="px-4 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-200 dark:border-stone-700"
               >
                 Cancelar
               </button>
               
-              {/* Botão Sair com estilo secundário neutro/cinza para fechar o modal */}
               <button
                 type="button"
                 onClick={onClose}
                 title="Fechar janela de cadastro"
-                className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-900 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-stone-300"
+                className="px-4 py-2 rounded-xl bg-zinc-200 dark:bg-stone-700 hover:bg-zinc-300 dark:hover:bg-stone-600 text-zinc-900 dark:text-stone-100 text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer border border-zinc-300 dark:border-stone-600"
               >
                 Sair
               </button>
 
-              {/* Botão Salvar Fornecedor (destaque em azul forte, mantém o modal aberto após salvar) */}
               <button
                 type="submit"
-                className="px-5 sm:px-6 py-2 rounded-xl bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
+                className="px-5 sm:px-6 py-2 rounded-xl bg-zinc-900 dark:bg-stone-700 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
               >
                 Salvar Fornecedor
               </button>

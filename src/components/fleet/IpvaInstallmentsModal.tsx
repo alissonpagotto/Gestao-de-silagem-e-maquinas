@@ -48,7 +48,7 @@ const MoneyCellInput: React.FC<{
 
   return (
     <div className="relative w-full">
-      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-black/70 font-black text-xs pointer-events-none select-none">
+      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-stone-400 font-black text-xs pointer-events-none select-none">
         R$
       </span>
       <input
@@ -63,7 +63,7 @@ const MoneyCellInput: React.FC<{
           const num = desformatarMoeda(formatted);
           onChange(num);
         }}
-        className="w-full pl-8 pr-2.5 py-1.5 text-xs font-black bg-white text-black border border-[#96c1e5] rounded-lg focus:ring-2 focus:ring-[#0963cb]/30 focus:outline-hidden font-mono shadow-2xs"
+        className="w-full pl-8 pr-2.5 py-1.5 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-lg focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden font-mono shadow-2xs"
       />
     </div>
   );
@@ -273,27 +273,24 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
   return (
     <div 
       id="modal-parcelas-geradas-ipva"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto backdrop-blur-xs animate-in fade-in"
-      style={{ backgroundColor: 'rgba(10, 139, 193, 0.75)' }} // Azul intermediário #0a8bc1 com transparência
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto backdrop-blur-xs bg-black/60 animate-in fade-in"
     >
       <div 
-        className="w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden border border-sky-300 dark:border-sky-700 my-auto flex flex-col max-h-[92vh]"
-        style={{ backgroundColor: '#b0d2ed' }} // Fundo do bloco da grade: Azul claro #b0d2ed
+        className="w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-stone-700 my-auto flex flex-col max-h-[92vh] bg-zinc-100 dark:bg-stone-900"
       >
-        {/* 1. CABEÇALHO E TÍTULO: Azul forte #0963cb com texto em branco */}
+        {/* 1. CABEÇALHO E TÍTULO */}
         <div 
-          className="px-5 py-4 flex items-center justify-between shrink-0 shadow-sm"
-          style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+          className="px-5 py-4 flex items-center justify-between shrink-0 shadow-sm bg-zinc-900 dark:bg-stone-800 text-white"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner text-white">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shadow-inner text-white">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
                 Parcelas Geradas para IPVA
               </h2>
-              <p className="text-xs text-sky-100 font-medium">
+              <p className="text-xs text-zinc-400 font-medium">
                 Veículo: <strong className="text-white font-bold">{vehicleName}</strong> • Identificador / Placa: <strong className="text-white font-bold">{vehicleIdentifier || 'S/N'}</strong> {year ? `• Exercício: ${year}` : ''}
               </p>
             </div>
@@ -303,41 +300,41 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
             type="button"
             id="btn-fechar-modal-ipva"
             onClick={onClose}
-            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition cursor-pointer"
+            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
             title="Fechar Janela de Parcelas"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* CORPO DO MODAL: Fundo Azul Claro #b0d2ed com textos e rótulos em Preto #000000 */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-black">
+        {/* CORPO DO MODAL */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-zinc-900 dark:text-stone-100">
           
           {/* 2. Topo do Bloco: Destaque do "Valor Consolidado" & Controles do Topo */}
-          <div className="bg-white/95 rounded-2xl p-4 sm:p-5 border border-[#96c1e5] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 sm:p-5 border border-zinc-200 dark:border-stone-700 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Bloco de Destaque: Valor Total IPVA */}
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-xl bg-[#0963cb]/10 text-[#0963cb] flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-stone-700 text-zinc-900 dark:text-stone-100 flex items-center justify-center shrink-0">
                 <DollarSign className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-black block mb-0.5">
+                <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block mb-0.5">
                   Total IPVA (R$) Calculado
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-black font-mono tracking-tight">
+                <span className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-stone-100 font-mono tracking-tight">
                   {formatCurrencyBRL(totalAmount)}
                 </span>
               </div>
             </div>
 
             {/* 3. Controles do Topo: Quantidade [-] [+], + Dividir Igualmente, + Linha */}
-            <div className="flex flex-wrap items-center gap-3 bg-[#b0d2ed]/60 p-2.5 rounded-xl border border-[#96c1e5]">
+            <div className="flex flex-wrap items-center gap-3 bg-zinc-100 dark:bg-stone-800/80 p-2.5 rounded-xl border border-zinc-200 dark:border-stone-700">
               <div className="flex items-center space-x-2">
-                <label htmlFor="input-qtd-parcelas-ipva" className="text-xs font-black text-black">
+                <label htmlFor="input-qtd-parcelas-ipva" className="text-xs font-black text-zinc-900 dark:text-stone-100">
                   Quantidade:
                 </label>
-                <div className="flex items-center bg-white rounded-lg border border-[#96c1e5] overflow-hidden shadow-2xs">
+                <div className="flex items-center bg-white dark:bg-stone-900 rounded-lg border border-zinc-300 dark:border-stone-600 overflow-hidden shadow-2xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -345,7 +342,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                       setInstallmentsCountInput(next);
                       handleApplyEqualDivision(next);
                     }}
-                    className="px-2.5 py-1 text-black hover:bg-stone-100 font-black cursor-pointer"
+                    className="px-2.5 py-1 text-zinc-900 dark:text-stone-100 hover:bg-zinc-100 dark:hover:bg-stone-800 font-black cursor-pointer"
                     title="Diminuir parcela"
                   >
                     -
@@ -358,7 +355,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                     value={installmentsCountInput}
                     onChange={(e) => setInstallmentsCountInput(parseInt(e.target.value, 10) || 1)}
                     onBlur={() => handleApplyEqualDivision(installmentsCountInput)}
-                    className="w-12 text-center text-xs font-black text-black py-1 focus:outline-hidden"
+                    className="w-12 text-center text-xs font-black text-zinc-900 dark:text-stone-100 py-1 focus:outline-hidden"
                   />
                   <button
                     type="button"
@@ -367,7 +364,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                       setInstallmentsCountInput(next);
                       handleApplyEqualDivision(next);
                     }}
-                    className="px-2.5 py-1 text-black hover:bg-stone-100 font-black cursor-pointer"
+                    className="px-2.5 py-1 text-zinc-900 dark:text-stone-100 hover:bg-zinc-100 dark:hover:bg-stone-800 font-black cursor-pointer"
                     title="Aumentar parcela"
                   >
                     +
@@ -379,7 +376,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                 type="button"
                 id="btn-dividir-igualmente-ipva"
                 onClick={() => handleApplyEqualDivision()}
-                className="px-3 py-1.5 bg-[#0963cb] hover:bg-[#0752a8] text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-95"
+                className="px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-95"
                 title="Dividir valor total igualmente entre as parcelas"
               >
                 <Divide className="w-3.5 h-3.5" />
@@ -390,10 +387,10 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                 type="button"
                 id="btn-adicionar-linha-parcela-ipva"
                 onClick={handleAddInstallment}
-                className="px-3 py-1.5 bg-white hover:bg-stone-100 text-black border border-[#96c1e5] rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-95"
+                className="px-3 py-1.5 bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-95"
                 title="Adicionar uma nova linha de parcela"
               >
-                <Plus className="w-3.5 h-3.5 text-[#0963cb]" />
+                <Plus className="w-3.5 h-3.5 text-zinc-900 dark:text-stone-100" />
                 <span>+ Linha</span>
               </button>
             </div>
@@ -452,11 +449,11 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
           )}
 
           {/* 4. Estrutura da Tabela (Colunas) */}
-          <div className="rounded-2xl border border-[#96c1e5] bg-white/70 overflow-hidden shadow-xs">
+          <div className="rounded-2xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-800 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-black border-collapse">
+              <table className="w-full text-left text-xs text-zinc-900 dark:text-stone-100 border-collapse">
                 <thead>
-                  <tr className="bg-[#b0d2ed] border-b border-[#96c1e5] text-black font-black uppercase tracking-wider text-[11px]">
+                  <tr className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-700 text-zinc-900 dark:text-stone-100 font-black uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-3 w-16 text-center">Nº</th>
                     <th className="py-3 px-3 min-w-[150px]">Valor (R$)</th>
                     <th className="py-3 px-3 min-w-[150px]">Juros / Encargos (R$)</th>
@@ -465,17 +462,17 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                     <th className="py-3 px-2 w-12 text-center">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#96c1e5]/60 bg-transparent">
+                <tbody className="divide-y divide-zinc-200 dark:divide-stone-700 bg-transparent">
                   {installments.map((inst) => {
                     const totalRowAmount = Math.round((inst.amount + (inst.interest || 0)) * 100) / 100;
                     return (
                       <tr 
                         key={inst.id} 
-                        className="hover:bg-white/90 transition-colors"
+                        className="hover:bg-zinc-50 dark:hover:bg-stone-700/50 transition-colors"
                       >
                         {/* 1. Coluna Número: Indicador sequencial da parcela (ex: 01, 02, 03...) */}
                         <td className="py-2.5 px-3 text-center">
-                          <span className="inline-block px-2 py-1 bg-white font-black text-black rounded-lg border border-[#96c1e5] shadow-2xs font-mono text-xs">
+                          <span className="inline-block px-2 py-1 bg-white dark:bg-stone-900 font-black text-zinc-900 dark:text-stone-100 rounded-lg border border-zinc-200 dark:border-stone-700 shadow-2xs font-mono text-xs">
                             {inst.number}
                           </span>
                         </td>
@@ -500,7 +497,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                               placeholder="0,00"
                             />
                             {inst.interest > 0 && (
-                              <span className="text-[10px] font-bold text-emerald-800 block mt-0.5">
+                              <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 block mt-0.5">
                                 Total Parcela: {formatCurrencyBRL(totalRowAmount)}
                               </span>
                             )}
@@ -513,7 +510,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                             type="date"
                             value={inst.dueDate}
                             onChange={(e) => handleUpdateInstallment(inst.id, 'dueDate', e.target.value)}
-                            className="w-full px-2 py-1.5 text-xs font-black bg-white text-black border border-[#96c1e5] rounded-lg focus:ring-2 focus:ring-[#0963cb]/30 focus:outline-hidden shadow-2xs cursor-pointer"
+                            className="w-full px-2 py-1.5 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-lg focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden shadow-2xs cursor-pointer"
                           />
                         </td>
 
@@ -524,7 +521,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                             value={inst.observations}
                             placeholder={`Parcela IPVA ${inst.number}/${String(installments.length).padStart(2, '0')}`}
                             onChange={(e) => handleUpdateInstallment(inst.id, 'observations', e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white text-black border border-[#96c1e5] rounded-lg focus:ring-2 focus:ring-[#0963cb]/30 focus:outline-hidden shadow-2xs"
+                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-700 rounded-lg focus:ring-2 focus:ring-zinc-900/20 focus:outline-hidden shadow-2xs"
                             title="Observações da Parcela"
                           />
                         </td>
@@ -537,8 +534,8 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
                             disabled={installments.length <= 1}
                             className={`p-1.5 rounded-lg transition ${
                               installments.length <= 1 
-                                ? 'text-stone-300 cursor-not-allowed opacity-40' 
-                                : 'text-rose-600 hover:text-rose-900 hover:bg-rose-100 cursor-pointer'
+                                ? 'text-stone-300 dark:text-stone-600 cursor-not-allowed opacity-40' 
+                                : 'text-rose-600 hover:text-rose-900 hover:bg-rose-100 dark:hover:bg-rose-950/40 cursor-pointer'
                             }`}
                             title={installments.length <= 1 ? 'Mínimo de 1 parcela' : 'Excluir esta parcela'}
                           >
@@ -555,12 +552,12 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
           </div>
 
           {/* Dica Informativa */}
-          <div className="text-[11px] text-black font-semibold flex items-center justify-between flex-wrap gap-2 px-1">
+          <div className="text-[11px] text-zinc-600 dark:text-stone-400 font-semibold flex items-center justify-between flex-wrap gap-2 px-1">
             <span>
               * Cada parcela será gravada de forma individual no Contas a Pagar com categoria <strong>"IPVA / Impostos de Frotas"</strong>, vinculada ao veículo <strong>{vehicleName}</strong> ({vehicleIdentifier}).
             </span>
             <span>
-              Total de Linhas: <strong className="font-black">{installments.length} parcela(s)</strong>
+              Total de Linhas: <strong className="font-black text-zinc-900 dark:text-stone-100">{installments.length} parcela(s)</strong>
             </span>
           </div>
 
@@ -568,16 +565,16 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
 
         {/* 5. RODAPÉ: Botões Cancelar e Confirmar e Gravar Lançamentos */}
         <div 
-          className="px-5 py-3.5 bg-white/95 border-t border-[#96c1e5] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
+          className="px-5 py-3.5 bg-white dark:bg-stone-800 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
         >
-          <div className="flex items-center space-x-2 text-xs text-black font-bold">
-            <span className="text-black/80">Status de Validação:</span>
+          <div className="flex items-center space-x-2 text-xs text-zinc-700 dark:text-stone-300 font-bold">
+            <span className="text-zinc-500 dark:text-stone-400">Status de Validação:</span>
             {isSumValid ? (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 border border-emerald-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded font-black text-[11px]">
                 Pronto para Gravar
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 border border-rose-300 rounded font-black text-[11px]">
+              <span className="px-2 py-0.5 bg-rose-100 text-rose-950 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-300 dark:border-rose-800 rounded font-black text-[11px]">
                 Ajuste a soma antes de gravar
               </span>
             )}
@@ -588,7 +585,7 @@ export const IpvaInstallmentsModal: React.FC<IpvaInstallmentsModalProps> = ({
               type="button"
               id="btn-cancelar-modal-ipva"
               onClick={onClose}
-              className="px-4 py-2.5 bg-white hover:bg-stone-100 text-black font-bold text-xs rounded-xl border border-[#96c1e5] transition cursor-pointer shadow-2xs min-h-[42px]"
+              className="px-4 py-2.5 bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-900 dark:text-stone-100 font-bold text-xs rounded-xl border border-zinc-300 dark:border-stone-700 transition cursor-pointer shadow-2xs min-h-[42px]"
             >
               Cancelar
             </button>

@@ -117,17 +117,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside 
         id="main-sidebar"
         className={`
-          no-print fixed inset-y-0 left-0 z-40 w-64 bg-blue-700 dark:bg-stone-900 border-r border-blue-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out
+          no-print fixed inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r border-zinc-300 dark:border-stone-800 flex flex-col justify-between transition-transform duration-300 ease-in-out
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Top Section: Logo & Brand */}
-        <div className="flex flex-col flex-1 overflow-y-auto bg-blue-700 dark:bg-stone-900 scrollbar-none">
+        <div className="flex flex-col flex-1 overflow-y-auto bg-zinc-200 dark:bg-stone-900 scrollbar-none">
           
           {/* Brand Header */}
-          <div className="p-4 sm:p-5 border-b border-blue-800/60 flex items-center space-x-3 cursor-pointer bg-blue-800/40 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
+          <div className="p-4 sm:p-5 border-b border-zinc-300 dark:border-stone-800 flex items-center space-x-3 cursor-pointer bg-zinc-200/90 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
             {companyProfile?.logoUrl ? (
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-emerald-950/60 border border-slate-200 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                 <img 
                   src={companyProfile.logoUrl} 
                   alt="Logo" 
@@ -136,22 +136,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-blue-500 dark:bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-zinc-800 dark:bg-emerald-600 flex items-center justify-center text-white shadow-xs shrink-0">
                 <Sprout className="w-6 h-6 stroke-[2.5]" />
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-white truncate tracking-tight font-['Outfit']">
+              <h2 className="text-base font-extrabold text-zinc-900 dark:text-white truncate tracking-tight font-['Outfit']">
                 {companyProfile?.tradeName || 'Silagem Fácil'}
               </h2>
-              <p className="text-[10px] font-black text-blue-200 dark:text-stone-400 tracking-wider uppercase">
+              <p className="text-[10px] font-black text-zinc-600 dark:text-stone-400 tracking-wider uppercase">
                 GESTÃO AGRÍCOLA
               </p>
             </div>
           </div>
 
           {/* Navigation Section Header: Título MENU PRINCIPAL com os botões rápidos alinhados horizontalmente à direita */}
-          <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-blue-200/70 dark:text-stone-400 uppercase tracking-wider">
+          <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider">
             <span className="shrink-0">MENU PRINCIPAL</span>
 
             {/* Grupo de botões de atalho rápidos realocados do cabeçalho */}
@@ -161,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={() => handleSelect('funcionarios')}
                 title="Notificações e Avisos de CNH"
-                className="relative p-1.5 rounded-lg text-white hover:bg-white/15 transition cursor-pointer"
+                className="relative p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
@@ -175,12 +175,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => setIsDarkMode(prev => !prev)}
                   title={isDarkMode ? 'Mudar para modo claro (Light)' : 'Mudar para modo escuro (Dark)'}
                   aria-label="Alternar tema claro e escuro"
-                  className="p-1.5 rounded-lg text-white hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
+                  className="p-1.5 rounded-lg text-zinc-700 hover:bg-zinc-300/60 dark:text-white dark:hover:bg-white/15 transition cursor-pointer flex items-center justify-center active:scale-95"
                 >
                   {isDarkMode ? (
                     <Sun className="w-4 h-4 fill-amber-400/20 text-amber-300" />
                   ) : (
-                    <Moon className="w-4 h-4 text-white" />
+                    <Moon className="w-4 h-4 text-zinc-700 dark:text-white" />
                   )}
                 </button>
               )}
@@ -208,28 +208,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
                     ${
                       isActive
-                        ? 'bg-blue-500 text-white font-bold shadow-sm shadow-blue-900/30 border border-blue-400/50 dark:bg-sky-600 dark:text-white dark:border-sky-500'
-                        : 'text-white/80 dark:text-stone-300 hover:bg-blue-600/40 dark:hover:bg-stone-800 hover:text-white'
+                        ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                        : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
                     }
                   `}
                 >
                   <div className="flex items-center space-x-3 truncate">
                     <Icon 
-                      className={`w-4 h-4 shrink-0 transition ${isActive ? 'text-white' : 'text-blue-200 group-hover:text-white'}`} 
+                      className={`w-4 h-4 shrink-0 transition ${isActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'}`} 
                     />
                     <span 
-                      className={`truncate ${isActive ? 'text-white font-bold' : 'text-white/90 group-hover:text-white'}`}
+                      className={`truncate ${isActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'}`}
                     >
                       {item.label}
                     </span>
                   </div>
 
                   {isActive && (
-                    <ChevronRight className="w-4 h-4 text-white shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-black dark:text-white shrink-0" />
                   )}
 
                   {!isActive && item.hasSubmenu && (
-                    <ChevronRight className="w-3.5 h-3.5 text-blue-300/60 dark:text-stone-500 group-hover:text-white shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-700 dark:text-stone-500 group-hover:dark:text-white shrink-0" />
                   )}
                 </button>
               );
@@ -239,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Section: Logout & Supabase */}
-        <div className="p-3 border-t border-blue-800/60 bg-blue-800/30 dark:bg-stone-900 flex items-center justify-between gap-2">
+        <div className="p-3 border-t border-zinc-300 dark:border-stone-800 bg-zinc-200/90 dark:bg-stone-900 flex items-center justify-between gap-2">
           <button
             id="btn-sidebar-logout"
             onClick={() => {
@@ -249,10 +249,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 setActiveTab('dashboard');
               }
             }}
-            className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-rose-200 hover:bg-rose-900/40 hover:text-white dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
+            className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-100/70 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
           >
             <LogOut 
-              className="w-4 h-4 text-rose-400 shrink-0" 
+              className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" 
             />
             <span>Sair</span>
           </button>

@@ -161,7 +161,7 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Buscar por código (ex: 001, 133, 756) ou nome..."
-          className="w-full py-2 pl-9.5 pr-16 text-xs sm:text-sm border border-stone-300 rounded-xl bg-white text-black font-semibold focus:ring-2 focus:ring-[#0963cb] focus:border-[#0963cb] outline-hidden shadow-2xs transition"
+          className="w-full py-2 pl-9.5 pr-16 text-xs sm:text-sm border border-zinc-300 dark:border-stone-600 rounded-xl bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs transition"
         />
 
         {/* Ações da Direita: Limpar & Dropdown Chevron */}
@@ -175,7 +175,7 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
                 onChange('', undefined);
                 inputRef.current?.focus();
               }}
-              className="p-1 rounded-md text-stone-400 hover:text-stone-700 transition cursor-pointer"
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-stone-300 transition cursor-pointer"
               title="Limpar campo"
             >
               <X className="w-3.5 h-3.5" />
@@ -190,10 +190,10 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
               setIsOpen((prev) => !prev);
               inputRef.current?.focus();
             }}
-            className="p-1 rounded-md text-stone-400 hover:text-stone-700 transition cursor-pointer"
+            className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-stone-300 transition cursor-pointer"
             title="Ver lista de bancos"
           >
-            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#0963cb]' : ''}`} />
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180 text-zinc-900 dark:text-stone-100' : ''}`} />
           </button>
         </div>
       </div>
@@ -202,27 +202,27 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
       {isOpen && !disabled && (
         <div 
           id="dropdown-lista-bancos"
-          className="absolute z-50 left-0 right-0 mt-1 bg-white border border-stone-300 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+          className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
         >
-          <div className="p-2 border-b border-stone-100 bg-stone-50 flex items-center justify-between text-[11px] font-bold text-stone-600">
+          <div className="p-2 border-b border-zinc-100 dark:border-stone-800 bg-zinc-50 dark:bg-stone-800/60 flex items-center justify-between text-[11px] font-bold text-zinc-700 dark:text-stone-300">
             <span className="flex items-center gap-1.5">
-              <Search className="w-3.5 h-3.5 text-[#0963cb]" />
+              <Search className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
               <span>Bancos e Cooperativas ({filteredBanks.length})</span>
             </span>
-            <span className="text-[10px] text-stone-500 font-normal">
+            <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-normal">
               Ex: 001, 104, Cresol, Sicoob, Sicredi
             </span>
           </div>
 
           <ul
             ref={listRef}
-            className="max-h-60 overflow-y-auto py-1 divide-y divide-stone-100 text-xs"
+            className="max-h-60 overflow-y-auto py-1 divide-y divide-zinc-100 dark:divide-stone-800 text-xs"
             role="listbox"
           >
             {filteredBanks.length === 0 ? (
-              <li className="px-3 py-3 text-center text-stone-500 text-xs">
+              <li className="px-3 py-3 text-center text-zinc-500 dark:text-stone-400 text-xs">
                 <span>Nenhum banco registrado para "{searchTerm}".</span>
-                <p className="text-[11px] text-stone-600 font-semibold mt-1">
+                <p className="text-[11px] text-zinc-600 dark:text-stone-300 font-semibold mt-1">
                   Você pode pressionar Enter ou continuar para salvar este nome personalizado.
                 </p>
               </li>
@@ -240,8 +240,8 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
                     onMouseEnter={() => setHighlightedIndex(index)}
                     onClick={() => handleSelectBank(bank)}
                     className={`px-3 py-2 flex items-center justify-between cursor-pointer transition ${
-                      isHighlighted ? 'bg-[#b0d2ed]/45 text-black font-bold' : 'hover:bg-stone-50 text-stone-800'
-                    } ${isSelected ? 'bg-sky-50 font-black' : ''}`}
+                      isHighlighted ? 'bg-zinc-100 dark:bg-stone-800 text-zinc-900 dark:text-stone-100 font-bold' : 'hover:bg-zinc-50 dark:hover:bg-stone-800/50 text-zinc-800 dark:text-stone-200'
+                    } ${isSelected ? 'bg-zinc-100 dark:bg-stone-800 font-black' : ''}`}
                   >
                     <div className="flex items-center space-x-2.5 truncate">
                       {/* Logo / Identidade do Banco em Miniatura */}
@@ -251,17 +251,17 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
 
                       {/* Registro Exato e Nome Formatado */}
                       <div className="truncate">
-                        <span className="font-bold text-black text-xs block truncate">
+                        <span className="font-bold text-zinc-900 dark:text-stone-100 text-xs block truncate">
                           {bank.displayName}
                         </span>
-                        <span className="text-[10px] text-stone-500 block truncate">
+                        <span className="text-[10px] text-zinc-500 dark:text-stone-400 block truncate">
                           {bank.name}
                         </span>
                       </div>
                     </div>
 
                     {isSelected && (
-                      <Check className="w-4 h-4 text-[#0963cb] shrink-0 ml-2 stroke-[2.5]" />
+                      <Check className="w-4 h-4 text-zinc-900 dark:text-stone-100 shrink-0 ml-2 stroke-[2.5]" />
                     )}
                   </li>
                 );
@@ -270,7 +270,7 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
           </ul>
 
           {/* Dica no rodapé do dropdown */}
-          <div className="px-3 py-1.5 bg-stone-50 border-t border-stone-100 text-[10px] text-stone-500 font-medium flex justify-between items-center">
+          <div className="px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/60 border-t border-zinc-100 dark:border-stone-800 text-[10px] text-zinc-500 dark:text-stone-400 font-medium flex justify-between items-center">
             <span>Dica: Use ↑ ↓ para navegar e Enter para selecionar</span>
             {searchTerm && !selectedBank && (
               <span className="text-emerald-700 font-bold">

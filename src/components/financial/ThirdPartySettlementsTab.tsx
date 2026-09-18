@@ -539,10 +539,10 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       {/* Modal Acerto de Terceiro */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
             
-            {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0963cb] text-white shrink-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-zinc-900 dark:bg-stone-800 text-white shrink-0">
               <h3 className="text-base font-bold text-white tracking-tight">
                 {editingItem ? 'Editar Acerto de Terceiro' : 'Novo Acerto (Freteiro / Operador)'}
               </h3>
@@ -555,7 +555,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-5 space-y-3.5 bg-[#b0d2ed] overflow-y-auto">
+            <form onSubmit={handleSave} className="p-5 space-y-3.5 bg-white dark:bg-stone-900 overflow-y-auto">
               <div>
                 <label className="block text-xs font-bold text-black mb-1">
                   Nome do Terceiro / Motorista / Empresa <span className="text-rose-600">*</span>

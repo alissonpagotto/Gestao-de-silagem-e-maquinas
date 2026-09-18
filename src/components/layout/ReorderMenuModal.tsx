@@ -140,27 +140,23 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div 
-        className="bg-[#b0d2ed] border border-[#0963cb]/40 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]"
-        style={{ backgroundColor: '#b0d2ed' }}
+        className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]"
       >
         
-        {/* Header - Azul mais forte do sistema #0963cb com textos brancos */}
+        {/* Header */}
         <div 
-          className="px-5 py-3.5 bg-[#0963cb] text-white flex items-center justify-between shrink-0"
-          style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+          className="px-5 py-3.5 bg-zinc-900 dark:bg-stone-800 text-white flex items-center justify-between shrink-0"
         >
           <div className="flex items-center space-x-2.5">
             <SlidersHorizontal className="w-5 h-5 text-white shrink-0" />
             <div>
               <h3 
                 className="text-base font-bold tracking-tight text-white leading-snug"
-                style={{ color: '#ffffff' }}
               >
                 Organizar Ordem do Menu
               </h3>
               <p 
-                className="text-[11px] text-white/90 font-medium"
-                style={{ color: '#ffffff' }}
+                className="text-[11px] text-zinc-300 font-medium"
               >
                 Mova os itens para cima ou para baixo conforme sua preferência
               </p>
@@ -171,23 +167,20 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
             onClick={onClose} 
             className="p-1.5 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition cursor-pointer"
             aria-label="Fechar"
-            style={{ color: '#ffffff' }}
           >
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
-        {/* Content list - Fundo azul claro #b0d2ed */}
+        {/* Content list */}
         <div 
-          className="p-4 sm:p-5 overflow-y-auto space-y-2 flex-1 scrollbar-thin bg-[#b0d2ed]"
-          style={{ backgroundColor: '#b0d2ed' }}
+          className="p-4 sm:p-5 overflow-y-auto space-y-2 flex-1 scrollbar-thin bg-zinc-50 dark:bg-stone-900"
         >
           <div 
-            className="flex items-center justify-between pb-2 border-b border-[#0963cb]/30 text-[11px] font-extrabold text-[#000000] uppercase tracking-wider"
-            style={{ color: '#000000' }}
+            className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-stone-800 text-[11px] font-extrabold text-zinc-500 dark:text-stone-300 uppercase tracking-wider"
           >
-            <span style={{ color: '#000000' }}>POSIÇÃO &amp; ITEM</span>
-            <span style={{ color: '#000000' }}>AÇÕES DE REORDENAÇÃO</span>
+            <span>POSIÇÃO &amp; ITEM</span>
+            <span>AÇÕES DE REORDENAÇÃO</span>
           </div>
 
           <div className="space-y-1.5">
@@ -206,35 +199,32 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
                   className={`
-                    flex items-center justify-between p-2.5 sm:p-3 rounded-xl border transition select-none bg-white shadow-xs
+                    flex items-center justify-between p-2.5 sm:p-3 rounded-xl border transition select-none bg-white dark:bg-stone-800 shadow-xs
                     ${draggedIndex === index 
-                      ? 'border-[#0963cb] ring-2 ring-[#0963cb]/50 opacity-90 scale-[0.99]' 
-                      : 'border-blue-200/80 hover:border-blue-300'
+                      ? 'border-zinc-900 ring-2 ring-zinc-900/20 opacity-90 scale-[0.99]' 
+                      : 'border-zinc-200 dark:border-stone-700 hover:border-zinc-400'
                     }
                   `}
                 >
                   <div className="flex items-center space-x-3 truncate">
                     <div 
-                      className="cursor-grab active:cursor-grabbing text-[#000000]/70 hover:text-[#000000]"
-                      style={{ color: '#000000' }}
+                      className="cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
                     >
-                      <GripVertical className="w-4 h-4 text-[#000000]" />
+                      <GripVertical className="w-4 h-4" />
                     </div>
 
                     <div 
-                      className="w-6 h-6 rounded-lg bg-[#b0d2ed] border border-[#91bddf] flex items-center justify-center text-xs font-bold text-[#000000] shrink-0"
-                      style={{ color: '#000000', backgroundColor: '#b0d2ed' }}
+                      className="w-6 h-6 rounded-lg bg-zinc-100 dark:bg-stone-700 border border-zinc-200 dark:border-stone-600 flex items-center justify-center text-xs font-bold text-zinc-800 dark:text-white shrink-0"
                     >
                       {index + 1}
                     </div>
 
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-[#0963cb]" />
+                    <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-700 border border-zinc-200 dark:border-stone-600 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-zinc-700 dark:text-white" />
                     </div>
 
                     <span 
-                      className="text-xs sm:text-sm font-bold text-[#000000] truncate"
-                      style={{ color: '#000000' }}
+                      className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate"
                     >
                       {def.label}
                     </span>
@@ -247,8 +237,7 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
                       onClick={() => moveToTop(index)}
                       disabled={isFirst}
                       title="Mover para o topo"
-                      className="px-2 py-1 rounded-lg text-[#000000] bg-stone-100 hover:bg-stone-200 disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer text-[10px] font-bold hidden sm:inline-flex border border-stone-200 active:scale-95"
-                      style={{ color: '#000000' }}
+                      className="px-2 py-1 rounded-lg text-zinc-700 dark:text-stone-200 bg-zinc-100 dark:bg-stone-700 hover:bg-zinc-200 disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer text-[10px] font-bold hidden sm:inline-flex border border-zinc-200 dark:border-stone-600 active:scale-95"
                     >
                       Topo
                     </button>
@@ -258,10 +247,9 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
                       onClick={() => moveItem(index, 'up')}
                       disabled={isFirst}
                       title="Subir posição"
-                      className="p-1.5 rounded-lg text-[#000000] bg-stone-100 hover:bg-stone-200 disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer border border-stone-200 active:scale-95"
-                      style={{ color: '#000000' }}
+                      className="p-1.5 rounded-lg text-zinc-700 dark:text-stone-200 bg-zinc-100 dark:bg-stone-700 hover:bg-zinc-200 disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer border border-zinc-200 dark:border-stone-600 active:scale-95"
                     >
-                      <ArrowUp className="w-4 h-4 stroke-[2.5] text-[#000000]" />
+                      <ArrowUp className="w-4 h-4 stroke-[2.5]" />
                     </button>
 
                     <button
@@ -269,10 +257,9 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
                       onClick={() => moveItem(index, 'down')}
                       disabled={isLast}
                       title="Descer posição"
-                      className="p-1.5 rounded-lg text-[#000000] bg-stone-100 hover:bg-stone-200 disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer border border-stone-200 active:scale-95"
-                      style={{ color: '#000000' }}
+                      className="p-1.5 rounded-lg text-zinc-700 dark:text-stone-200 bg-zinc-100 dark:bg-stone-700 hover:bg-zinc-200 disabled:opacity-25 disabled:pointer-events-none transition cursor-pointer border border-zinc-200 dark:border-stone-600 active:scale-95"
                     >
-                      <ArrowDown className="w-4 h-4 stroke-[2.5] text-[#000000]" />
+                      <ArrowDown className="w-4 h-4 stroke-[2.5]" />
                     </button>
                   </div>
                 </div>
@@ -283,35 +270,31 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
 
         {/* Footer actions */}
         <div 
-          className="p-4 border-t border-[#0963cb]/30 bg-[#b0d2ed] flex items-center justify-between gap-2 shrink-0"
-          style={{ backgroundColor: '#b0d2ed' }}
+          className="p-4 border-t border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-900 flex items-center justify-between gap-2 shrink-0"
         >
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-bold rounded-xl text-[#000000] hover:text-[#0963cb] hover:bg-white/40 transition cursor-pointer"
-            style={{ color: '#000000' }}
+            className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-bold rounded-xl text-zinc-600 dark:text-stone-300 hover:text-zinc-900 hover:bg-zinc-200 transition cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-[#000000]" />
-            <span style={{ color: '#000000' }}>Restaurar Padrão</span>
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Restaurar Padrão</span>
           </button>
 
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl border border-stone-400/60 bg-white text-[#000000] hover:bg-stone-100 transition cursor-pointer shadow-xs"
-              style={{ color: '#000000' }}
+              className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-800 dark:text-stone-200 hover:bg-zinc-100 transition cursor-pointer shadow-xs"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="inline-flex items-center space-x-1.5 px-5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[#0963cb] hover:bg-[#074ea3] text-white shadow-sm transition cursor-pointer"
-              style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+              className="inline-flex items-center space-x-1.5 px-5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 text-white shadow-sm transition cursor-pointer"
             >
-              <Check className="w-4 h-4 text-white stroke-[2.5]" />
+              <Check className="w-4 h-4 stroke-[2.5]" />
               <span>Salvar Ordem</span>
             </button>
           </div>

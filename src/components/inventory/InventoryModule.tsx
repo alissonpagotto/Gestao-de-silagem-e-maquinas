@@ -349,47 +349,47 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-black dark:text-white">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-zinc-900 dark:text-white">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-black dark:text-stone-300">
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
               Valor Total em Estoque
             </span>
-            <div className="text-lg sm:text-xl font-black text-black dark:text-white font-['Outfit'] mt-0.5">
+            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
               {formatCurrencyBRL(totalInventoryValue)}
             </div>
-            <p className="text-[10px] font-bold text-black/80 dark:text-stone-400 mt-0.5">{inventory.length} produtos cadastrados</p>
+            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">{inventory.length} produtos cadastrados</p>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-sky-950 text-blue-900 dark:text-sky-300 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
             <Package className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-black dark:text-white">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-zinc-900 dark:text-white">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-black dark:text-stone-300">
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
               Alertas de Estoque Mínimo
             </span>
-            <div className="text-lg sm:text-xl font-black text-amber-950 dark:text-amber-300 font-['Outfit'] mt-0.5">
+            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
               {lowStockCount}
             </div>
-            <p className="text-[10px] font-bold text-black/80 dark:text-stone-400 mt-0.5">Itens em nível crítico</p>
+            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">Itens em nível crítico</p>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
             <AlertTriangle className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-black dark:text-white">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-lg p-2.5 flex items-center justify-between text-zinc-900 dark:text-white">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-black dark:text-stone-300">
+            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
               Diesel em Tanque
             </span>
-            <div className="text-lg sm:text-xl font-black text-black dark:text-white font-['Outfit'] mt-0.5">
+            <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
               {inventory.find(i => i.category === 'combustivel')?.quantity || 0} L
             </div>
-            <p className="text-[10px] font-bold text-black/80 dark:text-stone-400 mt-0.5">Óleo diesel S10 disponível</p>
+            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">Óleo diesel S10 disponível</p>
           </div>
-          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-stone-800 text-amber-900 dark:text-amber-300 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
             <Fuel className="w-4 h-4" />
           </div>
         </div>
@@ -408,73 +408,73 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       </div>
 
       {/* Inventory Table */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs text-black dark:text-white">
+      <div className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs text-zinc-900 dark:text-white">
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#87AFE3] dark:bg-stone-900 border-b-2 border-blue-200/80 dark:border-stone-800 text-black dark:text-white uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
+            <thead className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
               <tr>
                 {/* 1. ITEM & LOCAL */}
-                <th className="py-1.5 px-2 text-black dark:text-white font-black w-[15%] min-w-[120px]">
+                <th className="py-1.5 px-2 text-zinc-800 dark:text-white font-black w-[15%] min-w-[120px]">
                   ITEM & LOCAL
                 </th>
 
                 {/* 2. CATEGORIA */}
-                <th className="py-1.5 px-2 text-black dark:text-white font-black w-[10%] min-w-[90px]">
+                <th className="py-1.5 px-2 text-zinc-800 dark:text-white font-black w-[10%] min-w-[90px]">
                   CATEGORIA
                 </th>
 
                 {/* 3. QUANTIDADE */}
-                <th className="py-1.5 px-2 text-right text-black dark:text-white font-black w-[8%] min-w-[70px]">
+                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[8%] min-w-[70px]">
                   QUANTIDADE
                 </th>
 
                 {/* 4. CUSTO UNITÁRIO (R$) */}
-                <th className="py-1.5 px-2 text-right text-black dark:text-white font-black w-[9%] min-w-[75px]">
+                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[9%] min-w-[75px]">
                   CUSTO UNIT. (R$)
                 </th>
 
                 {/* 5. VALOR TOTAL (R$) */}
-                <th className="py-1.5 px-2 text-right text-black dark:text-white font-black w-[9%] min-w-[80px]">
+                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[9%] min-w-[80px]">
                   VALOR TOTAL (R$)
                 </th>
 
                 {/* 6. % CÁLC. */}
-                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-purple-200/60 dark:bg-purple-950/40 text-purple-950 dark:text-purple-200 border-l border-purple-300/60 dark:border-purple-800">
+                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                   % CÁLC.
                 </th>
 
                 {/* 7. V. FINAL (R$) */}
-                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-rose-200/60 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200">
+                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
                   V. FINAL (R$)
                 </th>
 
                 {/* 8. % ATAC. */}
-                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-cyan-200/60 dark:bg-cyan-950/40 text-cyan-950 dark:text-cyan-200 border-l border-cyan-300/60 dark:border-cyan-800">
+                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                   % ATAC.
                 </th>
 
                 {/* 9. V. ATACADO (R$) */}
-                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-cyan-100/50 dark:bg-stone-800 text-stone-900 dark:text-stone-200">
+                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
                   V. ATACADO (R$)
                 </th>
 
                 {/* 10. % PROMO. */}
-                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-orange-200/60 dark:bg-orange-950/40 text-orange-950 dark:text-orange-200 border-l border-orange-300/60 dark:border-orange-800">
+                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                   % PROMO.
                 </th>
 
                 {/* 11. V. PROMO (R$) */}
-                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-orange-100/50 dark:bg-stone-800 text-stone-900 dark:text-stone-200">
+                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
                   V. PROMO (R$)
                 </th>
 
                 {/* 12. AÇÕES */}
-                <th className="py-1.5 px-2 text-right text-black dark:text-white font-black w-[7%] min-w-[75px]">
+                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[7%] min-w-[75px]">
                   AÇÕES
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900 text-black dark:text-white">
+            <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-8 text-center text-black/70 dark:text-stone-400 font-bold">

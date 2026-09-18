@@ -129,25 +129,22 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-[#b0d2ed] border border-[#0963cb]/40 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
         
-        {/* Header - Azul mais forte do sistema #0963cb com textos estritamente brancos */}
+        {/* Header */}
         <div 
-          className="px-5 py-3.5 bg-[#0963cb] text-white flex items-center justify-between shrink-0"
-          style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+          className="px-5 py-3.5 bg-zinc-900 dark:bg-stone-800 text-white flex items-center justify-between shrink-0"
         >
           <div className="flex items-center space-x-2.5">
             <SlidersHorizontal className="w-5 h-5 text-white shrink-0" />
             <div>
               <h3 
                 className="text-base sm:text-lg font-bold tracking-tight text-white leading-snug"
-                style={{ color: '#ffffff' }}
               >
                 Personalizar Atalhos do Topo
               </h3>
               <p 
-                className="text-[11px] text-white/90 font-medium"
-                style={{ color: '#ffffff' }}
+                className="text-[11px] text-zinc-300 font-medium"
               >
                 Escolha os módulos exibidos e organize a ordem de exibição
               </p>
@@ -158,23 +155,21 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
             onClick={onClose} 
             className="p-1.5 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition cursor-pointer"
             aria-label="Fechar modal"
-            style={{ color: '#ffffff' }}
           >
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
         {/* Sub-tabs: Visibilidade vs Ordem */}
-        <div className="flex items-center border-b border-[#0852a8]/30 px-5 pt-2.5 bg-white shrink-0">
+        <div className="flex items-center border-b border-zinc-200 dark:border-stone-800 px-5 pt-2.5 bg-zinc-50 dark:bg-stone-900 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('visibilidade')}
             className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer ${
               activeTab === 'visibilidade'
-                ? 'border-[#0963cb] text-[#0963cb]'
-                : 'border-transparent text-stone-600 hover:text-stone-900'
+                ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white'
             }`}
-            style={activeTab === 'visibilidade' ? { color: '#0963cb', borderColor: '#0963cb' } : { color: '#4b5563' }}
           >
             1. Selecionar Atalhos ({currentSelected.length})
           </button>
@@ -183,25 +178,22 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
             onClick={() => setActiveTab('ordem')}
             className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer ${
               activeTab === 'ordem'
-                ? 'border-[#0963cb] text-[#0963cb]'
-                : 'border-transparent text-stone-600 hover:text-stone-900'
+                ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white'
             }`}
-            style={activeTab === 'ordem' ? { color: '#0963cb', borderColor: '#0963cb' } : { color: '#4b5563' }}
           >
             2. Organizar Ordem
           </button>
         </div>
 
-        {/* Shortcuts Content - Fundo unificado azul claro #b0d2ed em ambas as abas */}
+        {/* Shortcuts Content */}
         <div 
-          className="p-5 sm:p-6 space-y-4 bg-[#b0d2ed] flex-1 overflow-hidden flex flex-col"
-          style={{ backgroundColor: '#b0d2ed' }}
+          className="p-5 sm:p-6 space-y-4 bg-zinc-50 dark:bg-stone-900 flex-1 overflow-hidden flex flex-col"
         >
           {activeTab === 'visibilidade' ? (
             <>
               <label 
-                className="block text-[11px] font-extrabold text-[#000000] uppercase tracking-wider shrink-0"
-                style={{ color: '#000000' }}
+                className="block text-[11px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider shrink-0"
               >
                 SELECIONE OS MÓDULOS DE ACESSO RÁPIDO:
               </label>
@@ -220,26 +212,25 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
                         w-full px-3.5 py-2.5 rounded-xl border flex items-center space-x-3 transition cursor-pointer text-left select-none shadow-xs
                         ${
                           isChecked
-                            ? 'border-[#0963cb] bg-white ring-1 ring-[#0963cb]'
-                            : 'border-blue-200/80 bg-white/90 hover:bg-white hover:border-blue-300'
+                            ? 'border-zinc-900 bg-white dark:bg-stone-800 ring-1 ring-zinc-900 dark:border-white dark:ring-white'
+                            : 'border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-zinc-400'
                         }
                       `}
                     >
                       {/* Custom Checkbox */}
                       <div className={`
                         w-5 h-5 rounded-md flex items-center justify-center transition shrink-0
-                        ${isChecked ? 'bg-[#0963cb] text-white' : 'border-2 border-stone-400 bg-white'}
+                        ${isChecked ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'border-2 border-zinc-300 dark:border-stone-600 bg-white dark:bg-stone-700'}
                       `}>
-                        {isChecked && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
 
                       {/* Shortcut Icon */}
-                      <Icon className={`w-4 h-4 shrink-0 ${isChecked ? 'text-[#0963cb]' : shortcut.iconColor}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isChecked ? 'text-zinc-900 dark:text-white' : shortcut.iconColor}`} />
 
-                      {/* Shortcut Label - Obrigatório na cor preta #000000 */}
+                      {/* Shortcut Label */}
                       <span 
-                        className="text-xs font-bold tracking-tight truncate text-[#000000]"
-                        style={{ color: '#000000' }}
+                        className="text-xs font-bold tracking-tight truncate text-zinc-900 dark:text-white"
                       >
                         {shortcut.label}
                       </span>
@@ -251,16 +242,15 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
           ) : (
             <>
               <label 
-                className="block text-[11px] font-extrabold text-[#000000] uppercase tracking-wider shrink-0"
-                style={{ color: '#000000' }}
+                className="block text-[11px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider shrink-0"
               >
                 ORDENAR ATALHOS ATIVOS (SUBIR / DESCER):
               </label>
 
               <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                 {currentSelected.length === 0 ? (
-                  <div className="p-6 text-center bg-white/90 rounded-xl border border-blue-200 shadow-xs">
-                    <p className="text-xs font-bold text-[#000000]" style={{ color: '#000000' }}>
+                  <div className="p-6 text-center bg-white dark:bg-stone-800 rounded-xl border border-zinc-200 dark:border-stone-700 shadow-xs">
+                    <p className="text-xs font-bold text-zinc-600 dark:text-stone-300">
                       Nenhum atalho selecionado. Selecione atalhos na aba anterior.
                     </p>
                   </div>
@@ -275,21 +265,19 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
                     return (
                       <div
                         key={id}
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-blue-200 bg-white shadow-xs"
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-800 shadow-xs"
                       >
                         <div className="flex items-center space-x-2.5 truncate">
                           {/* Número sequencial em destaque limpo */}
                           <span 
-                            className="w-6 h-6 rounded-md bg-[#b0d2ed] border border-[#91bddf] text-[#000000] text-xs font-bold flex items-center justify-center shrink-0"
-                            style={{ color: '#000000', backgroundColor: '#b0d2ed' }}
+                            className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-stone-700 border border-zinc-200 dark:border-stone-600 text-zinc-800 dark:text-white text-xs font-bold flex items-center justify-center shrink-0"
                           >
                             {index + 1}
                           </span>
-                          <Icon className="w-4 h-4 shrink-0 text-[#0963cb]" />
-                          {/* Nome do módulo na cor preta #000000 */}
+                          <Icon className="w-4 h-4 shrink-0 text-zinc-700 dark:text-white" />
+                          {/* Nome do módulo */}
                           <span 
-                            className="text-xs font-bold text-[#000000] truncate"
-                            style={{ color: '#000000' }}
+                            className="text-xs font-bold text-zinc-900 dark:text-white truncate"
                           >
                             {def.label}
                           </span>
@@ -301,9 +289,8 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
                             type="button"
                             onClick={() => moveShortcut(index, 'up')}
                             disabled={isFirst}
-                            className="p-1.5 rounded-lg text-[#000000] bg-stone-100 hover:bg-stone-200 disabled:opacity-25 transition cursor-pointer border border-stone-200 active:scale-95"
+                            className="p-1.5 rounded-lg text-zinc-700 dark:text-stone-200 bg-zinc-100 dark:bg-stone-700 hover:bg-zinc-200 disabled:opacity-25 transition cursor-pointer border border-zinc-200 dark:border-stone-600 active:scale-95"
                             title="Subir na lista"
-                            style={{ color: '#000000' }}
                           >
                             <ArrowUp className="w-3.5 h-3.5 stroke-[2.5]" />
                           </button>
@@ -311,9 +298,8 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
                             type="button"
                             onClick={() => moveShortcut(index, 'down')}
                             disabled={isLast}
-                            className="p-1.5 rounded-lg text-[#000000] bg-stone-100 hover:bg-stone-200 disabled:opacity-25 transition cursor-pointer border border-stone-200 active:scale-95"
+                            className="p-1.5 rounded-lg text-zinc-700 dark:text-stone-200 bg-zinc-100 dark:bg-stone-700 hover:bg-zinc-200 disabled:opacity-25 transition cursor-pointer border border-zinc-200 dark:border-stone-600 active:scale-95"
                             title="Descer na lista"
-                            style={{ color: '#000000' }}
                           >
                             <ArrowDown className="w-3.5 h-3.5 stroke-[2.5]" />
                           </button>
@@ -326,15 +312,14 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
             </>
           )}
 
-          {/* Actions do Rodapé: Cancelar e Salvar no canto direito, Restaurar Padrão à esquerda */}
-          <div className="flex items-center justify-between pt-3 border-t border-[#0963cb]/30 shrink-0">
+          {/* Actions do Rodapé */}
+          <div className="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-stone-800 shrink-0">
             <button
               type="button"
               onClick={() => setCurrentSelected(DEFAULT_SHORTCUT_IDS)}
-              className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#000000] hover:text-[#0963cb] transition cursor-pointer"
-              style={{ color: '#000000' }}
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-zinc-600 dark:text-stone-300 hover:text-zinc-900 transition cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-[#000000]" />
+              <RotateCcw className="w-3.5 h-3.5" />
               <span>Restaurar Padrão</span>
             </button>
 
@@ -342,8 +327,7 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl border border-stone-400/60 bg-white text-[#000000] hover:bg-stone-100 transition cursor-pointer shadow-xs"
-                style={{ color: '#000000' }}
+                className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-800 dark:text-stone-200 hover:bg-zinc-100 transition cursor-pointer shadow-xs"
               >
                 Cancelar
               </button>
@@ -351,10 +335,9 @@ export const CustomizeShortcutsModal: React.FC<CustomizeShortcutsModalProps> = (
               <button
                 type="button"
                 onClick={handleSavePreferences}
-                className="px-5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[#0963cb] hover:bg-[#074ea3] text-white shadow-sm transition cursor-pointer flex items-center space-x-1.5"
-                style={{ backgroundColor: '#0963cb', color: '#ffffff' }}
+                className="px-5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 text-white shadow-sm transition cursor-pointer flex items-center space-x-1.5"
               >
-                <Check className="w-4 h-4 text-white stroke-[2.5]" />
+                <Check className="w-4 h-4 stroke-[2.5]" />
                 <span>Salvar Preferências</span>
               </button>
             </div>
