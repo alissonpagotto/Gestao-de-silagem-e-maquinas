@@ -26,7 +26,6 @@ import {
   PhoneCall
 } from 'lucide-react';
 import { CompanyProfile, ExpenseCategory, CostCenter } from '../../types';
-import { DEFAULT_FORAGE_HARVESTER_LOGO } from '../../lib/initialData';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { SupabaseSqlModal } from './SupabaseSqlModal';
 import { useAuth } from '../../context/AuthContext';
@@ -65,9 +64,16 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 }) => {
   const { currentUser, isConnectedToSupabase, isConfigured, isSyncing, lastSyncedAt, signIn } = useAuth();
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const cleanLogoUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.includes('a7f3d0') || url.includes('15803d') || url.includes('viewBox="0 0 200 160"')) return '';
+    return url;
+  };
+
   // Form State initialized from props
   const [formData, setFormData] = useState<CompanyProfile>({
     ...companyProfile,
+    logoUrl: cleanLogoUrl(companyProfile.logoUrl),
     cnpjCpf: formatCpfCnpj(companyProfile.cnpjCpf || ''),
     stateRegistration: formatIE(companyProfile.stateRegistration || ''),
     phone: formatPhone(companyProfile.phone || ''),
@@ -85,6 +91,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   useEffect(() => {
     setFormData({
       ...companyProfile,
+      logoUrl: cleanLogoUrl(companyProfile.logoUrl),
       cnpjCpf: formatCpfCnpj(companyProfile.cnpjCpf || ''),
       stateRegistration: formatIE(companyProfile.stateRegistration || ''),
       phone: formatPhone(companyProfile.phone || ''),
@@ -242,7 +249,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   const handleResetToDefaultLogo = () => {
     setFormData(prev => ({
       ...prev,
-      logoUrl: DEFAULT_FORAGE_HARVESTER_LOGO
+      logoUrl: ''
     }));
   };
 
@@ -396,7 +403,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 <button
                   type="button"
                   onClick={handleResetToDefaultLogo}
-                  title="Restaurar logotipo padrão (Ensiladeira Claas)"
+                  title="Remover logotipo (deixar campo limpo)"
                   className="p-1.5 bg-white dark:bg-stone-800 hover:bg-stone-50 text-black dark:text-stone-400 border border-slate-300 dark:border-stone-700 rounded-xl text-xs transition cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />

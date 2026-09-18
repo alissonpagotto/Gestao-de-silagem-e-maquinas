@@ -403,7 +403,17 @@ export function getStoredCompanyProfile(): CompanyProfile {
     const raw = localStorage.getItem(STORAGE_KEYS.COMPANY_PROFILE);
     if (!raw) return INITIAL_COMPANY_PROFILE;
     const parsed = JSON.parse(raw);
-    return { ...INITIAL_COMPANY_PROFILE, ...parsed };
+    const profile = { ...INITIAL_COMPANY_PROFILE, ...parsed };
+    // Remove o logotipo padrão do carrinho/trator verde legado para manter o perfil limpo
+    if (
+      profile.logoUrl &&
+      (profile.logoUrl.includes('a7f3d0') ||
+        profile.logoUrl.includes('15803d') ||
+        profile.logoUrl.includes('viewBox="0 0 200 160"'))
+    ) {
+      profile.logoUrl = '';
+    }
+    return profile;
   } catch (e) {
     return INITIAL_COMPANY_PROFILE;
   }

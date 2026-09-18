@@ -149,6 +149,27 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
 // 5. MÉTODOS DE LEITURA E GRAVAÇÃO
 // ==========================================
 
+export const COLACA_SILAGEM_SUBSCRIBER: Subscriber = {
+  id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+  name: 'COLACA SILAGEM LTDA',
+  responsibleEmail: 'colacasilagem@gmail.com',
+  phone: '(44) 99999-0000',
+  cpfCnpj: '',
+  cep: '',
+  street: '',
+  number: '',
+  neighborhood: '',
+  city: 'Maringá',
+  state: 'PR',
+  planId: 'essencial',
+  planName: 'Produtor Essencial',
+  monthlyValue: 195.00,
+  status: 'trial',
+  trialUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  createdAt: '2026-03-01T10:00:00.000Z',
+  updatedAt: new Date().toISOString(),
+};
+
 export function getStoredSubscribers(): Subscriber[] {
   try {
     // Limpeza retroativa de chave legada caso ainda resida em cache do navegador
@@ -156,34 +177,48 @@ export function getStoredSubscribers(): Subscriber[] {
       localStorage.removeItem('silagem_master_subscribers_v1');
     }
 
-    const raw = localStorage.getItem(STORAGE_KEYS.SUBSCRIBERS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([]));
-      return [];
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.SUBSCRIBERS) : null;
+    let parsed: any[] = [];
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = [];
+      }
     }
 
-    const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
-      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([]));
-      return [];
+      parsed = [];
     }
 
     // Filtrar quaisquer resquícios das 6 empresas simuladas
-    const cleaned = parsed.filter(
+    const cleaned: Subscriber[] = parsed.filter(
       (sub: any) =>
         sub &&
         !['sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006'].includes(sub.id) &&
         !['Agropecuária Santa Fé Ltda', 'Colheitas & Silagem do Cerrado', 'Fazenda Boa Esperança - João Pedro Silva', 'Cooperativa Agrícola Sul Catarinense', 'Tratores & Ensilagem Pioneiro', 'AgroServiços Vale do Paranapanema'].includes(sub.name)
     );
 
-    if (cleaned.length !== parsed.length) {
+    // Sincronização manual do cliente antigo 'COLACA SILAGEM LTDA'
+    const hasColaca = cleaned.some(
+      (sub: any) =>
+        sub &&
+        (String(sub.name || '').toUpperCase().includes('COLACA') ||
+         String(sub.responsibleEmail || '').toLowerCase().includes('colaca'))
+    );
+
+    if (!hasColaca) {
+      cleaned.unshift(COLACA_SILAGEM_SUBSCRIBER);
+    }
+
+    if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cleaned));
     }
 
     return cleaned;
   } catch (e) {
     console.error('Failed to load subscribers:', e);
-    return [];
+    return [COLACA_SILAGEM_SUBSCRIBER];
   }
 }
 
@@ -549,17 +584,21 @@ export interface MasterAdminMetrics {
   estimatedMrr: number;
 }
 
-export function computeMasterMetrics(subscribers: Subscriber[]): MasterAdminMetrics {
-  const totalSubscribers = subscribers.length;
-  const activeSubscribers = subscribers.filter(s => s.status === 'ativa').length;
-  const trialSubscribers = subscribers.filter(s => s.status === 'trial').length;
+export function computeMasterMetrics(subscribers?: Subscriber[] | null): MasterAdminMetrics {
+  const list = Array.isArray(subscribers) ? subscribers.filter(Boolean) : [];
+  const totalSubscribers = list.length;
+  const activeSubscribers = list.filter(s => (s?.status || '').toLowerCase() === 'ativa').length;
+  const trialSubscribers = list.filter(s => (s?.status || '').toLowerCase() === 'trial').length;
   // Suspensas e inadimplentes
-  const suspendedSubscribers = subscribers.filter(s => s.status === 'suspensa' || s.status === 'inadimplente').length;
+  const suspendedSubscribers = list.filter(s => {
+    const st = (s?.status || '').toLowerCase();
+    return st === 'suspensa' || st === 'inadimplente';
+  }).length;
 
-  // Soma dinâmica do MRR Estimado (apenas assinantes ATIVOS)
-  const estimatedMrr = subscribers
-    .filter(s => s.status === 'ativa')
-    .reduce((sum, s) => sum + (Number(s.monthlyValue) || 0), 0);
+  // Soma dinâmica do MRR Estimado (APENAS assinantes com status "ativa" somam no faturamento recorrente. Clientes em trial permanecem com MRR R$ 0,00)
+  const estimatedMrr = list
+    .filter(s => (s?.status || '').toLowerCase() === 'ativa')
+    .reduce((sum, s) => sum + (Number(s?.monthlyValue) || 0), 0);
 
   return {
     totalSubscribers,

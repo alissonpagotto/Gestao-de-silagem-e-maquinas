@@ -88,12 +88,12 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
         <div className="px-5 py-4 bg-[#14161d] text-white flex items-center justify-between border-b border-[#2f3644]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#252a34] border border-[#2f3644] flex items-center justify-center text-white font-black text-base shadow-xs">
-              {subscriber.name.slice(0, 2).toUpperCase()}
+              {(subscriber.name || 'AS').slice(0, 2).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
-                  {subscriber.name}
+                  {subscriber.name || 'Assinante'}
                 </h3>
               </div>
               <p className="text-xs text-[#8a92a6]">
@@ -178,7 +178,17 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
                 <span className="text-[#8a92a6] font-medium block">Vencimento do Trial:</span>
                 <span className="font-bold text-white flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-[#8a92a6]" />
-                  {subscriber.trialUntil ? new Date(subscriber.trialUntil + 'T12:00:00').toLocaleDateString('pt-BR') : 'Sem trial'}
+                  {(() => {
+                    if (!subscriber.trialUntil) return 'Sem trial';
+                    try {
+                      const raw = String(subscriber.trialUntil).trim();
+                      const iso = raw.includes('T') ? raw : `${raw}T12:00:00`;
+                      const d = new Date(iso);
+                      return !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : raw;
+                    } catch {
+                      return String(subscriber.trialUntil);
+                    }
+                  })()}
                 </span>
               </div>
             </div>

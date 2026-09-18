@@ -18,7 +18,7 @@ import {
   ThirdPartySettlement
 } from '../types';
 
-export const DEFAULT_FORAGE_HARVESTER_LOGO = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" width="200" height="160"><rect width="200" height="160" rx="16" fill="%23a7f3d0"/><path d="M40 100 L75 45 L135 45 L165 75 L165 110 L40 110 Z" fill="%2315803d"/><path d="M75 45 L125 45 L145 75 L75 75 Z" fill="%2386efac" opacity="0.6"/><path d="M125 45 L155 20 L165 22 L135 50 Z" fill="%23ca8a04"/><circle cx="65" cy="115" r="24" fill="%231c1917" stroke="%23dc2626" stroke-width="4"/><circle cx="65" cy="115" r="10" fill="%23f8fafc"/><circle cx="145" cy="120" r="18" fill="%231c1917" stroke="%23dc2626" stroke-width="3"/><circle cx="145" cy="120" r="8" fill="%23f8fafc"/><path d="M15 95 L40 110 L25 125 L10 110 Z" fill="%23ca8a04"/><path d="M20 90 L35 90 L30 120 L15 120 Z" fill="%2316a34a"/></svg>`;
+export const DEFAULT_FORAGE_HARVESTER_LOGO = '';
 
 export const INITIAL_COMPANY_PROFILE: CompanyProfile = {
   corporateName: 'Silagem Fácil',
@@ -35,7 +35,7 @@ export const INITIAL_COMPANY_PROFILE: CompanyProfile = {
   city: '',
   state: 'PR',
   activitySector: 'GESTÃO AGRÍCOLA',
-  logoUrl: DEFAULT_FORAGE_HARVESTER_LOGO,
+  logoUrl: '',
 };
 
 export const INITIAL_CATEGORIES: ExpenseCategory[] = [

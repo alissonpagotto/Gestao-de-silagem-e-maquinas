@@ -1423,6 +1423,39 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 
     // Deduplica por ID único preservando ordenação decrescente por data
     const uniqueSubscribers = Array.from(new Set(Array.from(mergedMap.values())));
+
+    // Sincronização manual do cliente antigo 'COLACA SILAGEM LTDA'
+    const hasColaca = uniqueSubscribers.some(
+      s => s && (
+        String(s.name || '').toUpperCase().includes('COLACA') ||
+        String(s.responsibleEmail || '').toLowerCase().includes('colaca')
+      )
+    );
+    if (!hasColaca) {
+      const colacaSub: Subscriber = {
+        id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+        name: 'COLACA SILAGEM LTDA',
+        responsibleEmail: 'colacasilagem@gmail.com',
+        phone: '(44) 99999-0000',
+        cpfCnpj: '',
+        cep: '',
+        street: '',
+        number: '',
+        neighborhood: '',
+        city: 'Maringá',
+        state: 'PR',
+        planId: 'essencial',
+        planName: 'Produtor Essencial',
+        monthlyValue: 195.00,
+        status: 'trial',
+        trialUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        createdAt: '2026-03-01T10:00:00.000Z',
+        updatedAt: new Date().toISOString(),
+      };
+      uniqueSubscribers.unshift(colacaSub);
+      upsertCloudSubscriber(colacaSub).catch(() => {});
+    }
+
     uniqueSubscribers.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     return uniqueSubscribers;

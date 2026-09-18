@@ -263,19 +263,22 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     return computeMasterMetrics(subscribers);
   }, [subscribers]);
 
-  // Filtrar assinantes instantaneamente por status e busca
+  // Filtrar assinantes instantaneamente por status e busca (100% à prova de valores nulos ou incompletos)
   const filteredSubscribers = useMemo(() => {
+    if (!Array.isArray(subscribers)) return [];
     return subscribers.filter(sub => {
-      if (statusFilter !== 'todas' && sub.status !== statusFilter) {
+      if (!sub) return false;
+      const subStatus = (sub?.status || 'trial').toLowerCase();
+      if (statusFilter !== 'todas' && subStatus !== statusFilter.toLowerCase()) {
         return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = sub.name.toLowerCase().includes(q);
-        const matchesEmail = sub.responsibleEmail.toLowerCase().includes(q);
-        const matchesDoc = (sub.cpfCnpj || '').toLowerCase().includes(q);
-        const matchesCity = (sub.city || '').toLowerCase().includes(q);
-        const matchesPlan = (sub.planName || '').toLowerCase().includes(q);
+      if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = (sub?.name || '').toLowerCase().includes(q);
+        const matchesEmail = (sub?.responsibleEmail || '').toLowerCase().includes(q);
+        const matchesDoc = (sub?.cpfCnpj || '').toLowerCase().includes(q);
+        const matchesCity = (sub?.city || '').toLowerCase().includes(q);
+        const matchesPlan = (sub?.planName || '').toLowerCase().includes(q);
         return matchesName || matchesEmail || matchesDoc || matchesCity || matchesPlan;
       }
       return true;
@@ -324,14 +327,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // 1. Função de Personificação (Impersonate - Botão Verde "→ Entrar")
   const handleImpersonate = (sub: Subscriber) => {
+    if (!sub) return;
     if (onImpersonate) {
       onImpersonate(sub);
     } else {
       localStorage.setItem('is_admin_impersonating', 'true');
-      localStorage.setItem('impersonated_subscriber_id', sub.id);
-      localStorage.setItem('impersonated_subscriber_name', sub.name);
-      localStorage.setItem('impersonated_subscriber_email', sub.responsibleEmail || '');
-      localStorage.setItem('current_company_id', sub.id);
+      localStorage.setItem('impersonated_subscriber_id', sub?.id || '');
+      localStorage.setItem('impersonated_subscriber_name', sub?.name || 'Assinante');
+      localStorage.setItem('impersonated_subscriber_email', sub?.responsibleEmail || '');
+      localStorage.setItem('current_company_id', sub?.id || '');
       localStorage.setItem('user_role', 'admin');
       localStorage.setItem('silagem_client_session', 'active');
       window.location.href = '/dashboard';
@@ -871,7 +875,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <Users className="w-4 h-4 text-[#8a92a6]" />
               </div>
               <p className="text-2xl font-black text-white tracking-tight">
-                {metrics.totalSubscribers}
+                {metrics?.totalSubscribers ?? 0}
               </p>
               <span className="text-[10px] text-[#8a92a6] font-medium">
                 Registros no banco
@@ -888,7 +892,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               </div>
               <p className="text-2xl font-black text-white tracking-tight">
-                {metrics.activeSubscribers}
+                {metrics?.activeSubscribers ?? 0}
               </p>
               <span className="text-[10px] text-[#8a92a6] font-medium">
                 Contratos adimplentes
@@ -905,7 +909,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <Clock className="w-4 h-4 text-amber-400" />
               </div>
               <p className="text-2xl font-black text-white tracking-tight">
-                {metrics.trialSubscribers}
+                {metrics?.trialSubscribers ?? 0}
               </p>
               <span className="text-[10px] text-[#8a92a6] font-medium">
                 Testando a plataforma
@@ -922,7 +926,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <AlertTriangle className="w-4 h-4 text-rose-400" />
               </div>
               <p className="text-2xl font-black text-white tracking-tight">
-                {metrics.suspendedSubscribers}
+                {metrics?.suspendedSubscribers ?? 0}
               </p>
               <span className="text-[10px] text-[#8a92a6] font-medium">
                 Inadimplência ou pausa
@@ -939,7 +943,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <DollarSign className="w-4 h-4 text-[#8a92a6]" />
               </div>
               <p className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                {formatCurrencyBRL(metrics.estimatedMrr)}
+                {formatCurrencyBRL(metrics?.estimatedMrr ?? 0)}
               </p>
               <span className="text-[10px] text-[#8a92a6] font-medium block">
                 Receita Recorrente Mensal
@@ -1089,185 +1093,215 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      filteredSubscribers.map((sub) => (
-                        <tr 
-                          key={sub.id} 
-                          className="hover:bg-[#2a303c] transition-colors bg-[#252a34]"
-                          style={{ backgroundColor: '#252a34' }}
-                        >
-                          
-                          {/* Nome do Assinante */}
-                          <td className="py-3.5 px-4 font-bold text-white" style={{ backgroundColor: '#252a34', color: '#ffffff' }}>
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-[#1a1d24] border border-[#2f3644] flex items-center justify-center shrink-0">
-                                <Building2 className="w-4.5 h-4.5 text-[#8a92a6]" />
+                      filteredSubscribers.map((sub, idx) => {
+                        if (!sub) return null;
+                        const subId = sub?.id || `sub-${idx}`;
+                        const subName = sub?.name || 'Assinante';
+                        const subEmail = sub?.responsibleEmail || '-';
+                        const subPhone = sub?.phone || '-';
+                        const subDoc = sub?.cpfCnpj || '-';
+                        const subCity = sub?.city || '';
+                        const subState = sub?.state || '';
+                        const subLocation = (subCity || subState) ? `${subCity}${subCity && subState ? ' - ' : ''}${subState}` : '-';
+                        const subPlan = sub?.planName || 'Produtor Essencial';
+                        const subValue = Number(sub?.monthlyValue) || 0;
+                        const subStatus = ((sub?.status || 'trial') as string).toLowerCase() as SubscriberStatus;
+                        
+                        let trialDateFormatted = '-';
+                        if (sub?.trialUntil) {
+                          try {
+                            const rawDate = String(sub.trialUntil).trim();
+                            const isoDate = rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`;
+                            const d = new Date(isoDate);
+                            if (!isNaN(d.getTime())) {
+                              trialDateFormatted = d.toLocaleDateString('pt-BR');
+                            } else {
+                              trialDateFormatted = rawDate;
+                            }
+                          } catch {
+                            trialDateFormatted = String(sub.trialUntil);
+                          }
+                        }
+
+                        return (
+                          <tr 
+                            key={subId} 
+                            className="hover:bg-[#2a303c] transition-colors bg-[#252a34]"
+                            style={{ backgroundColor: '#252a34' }}
+                          >
+                            {/* Nome do Assinante */}
+                            <td className="py-3.5 px-4 font-bold text-white" style={{ backgroundColor: '#252a34', color: '#ffffff' }}>
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-[#1a1d24] border border-[#2f3644] flex items-center justify-center shrink-0">
+                                  <Building2 className="w-4.5 h-4.5 text-[#8a92a6]" />
+                                </div>
+                                <div>
+                                  <span className="text-sm sm:text-base font-bold text-white block tracking-tight">{subName}</span>
+                                  <span className="block text-xs text-[#8a92a6] font-mono">
+                                    ID: {subId}
+                                  </span>
+                                </div>
                               </div>
+                            </td>
+
+                            {/* Email & Telefone */}
+                            <td className="py-3.5 px-4 text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
                               <div>
-                                <span className="text-sm sm:text-base font-bold text-white block tracking-tight">{sub.name}</span>
-                                <span className="block text-xs text-[#8a92a6] font-mono">
-                                  ID: {sub.id}
-                                </span>
+                                <span className="text-sm font-medium text-white block">{subEmail}</span>
+                                <span className="text-xs text-[#8a92a6] font-mono">{subPhone}</span>
                               </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Email & Telefone */}
-                          <td className="py-3.5 px-4 text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
-                            <div>
-                              <span className="text-sm font-medium text-white block">{sub.responsibleEmail}</span>
-                              <span className="text-xs text-[#8a92a6] font-mono">{sub.phone || '-'}</span>
-                            </div>
-                          </td>
+                            {/* Documento & Cidade */}
+                            <td className="py-3.5 px-4 text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
+                              <span className="font-mono text-sm text-white block">{subDoc}</span>
+                              <span className="text-xs text-[#8a92a6]">
+                                {subLocation}
+                              </span>
+                            </td>
 
-                          {/* Documento & Cidade */}
-                          <td className="py-3.5 px-4 text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
-                            <span className="font-mono text-sm text-white block">{sub.cpfCnpj || '-'}</span>
-                            <span className="text-xs text-[#8a92a6]">
-                              {sub.city ? `${sub.city} - ${sub.state}` : '-'}
-                            </span>
-                          </td>
+                            {/* Plano & Valor */}
+                            <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
+                              <span className="text-sm font-bold text-white block">{subPlan}</span>
+                              <span className="text-xs sm:text-sm font-semibold text-[#8a92a6]">
+                                {formatCurrencyBRL(subValue)}/mês
+                              </span>
+                            </td>
 
-                          {/* Plano & Valor */}
-                          <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
-                            <span className="text-sm font-bold text-white block">{sub.planName}</span>
-                            <span className="text-xs sm:text-sm font-semibold text-[#8a92a6]">
-                              {formatCurrencyBRL(sub.monthlyValue)}/mês
-                            </span>
-                          </td>
+                            {/* Trial Até */}
+                            <td className="py-3.5 px-4 font-mono text-xs sm:text-sm text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
+                              {trialDateFormatted}
+                            </td>
 
-                          {/* Trial Até */}
-                          <td className="py-3.5 px-4 font-mono text-xs sm:text-sm text-[#d1d5db]" style={{ backgroundColor: '#252a34', color: '#d1d5db' }}>
-                            {sub.trialUntil ? new Date(sub.trialUntil + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
-                          </td>
+                            {/* Status */}
+                            <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1a1d24] border border-[#2f3644]">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                  subStatus === 'ativa' ? 'bg-emerald-400' :
+                                  subStatus === 'trial' ? 'bg-amber-400' :
+                                  subStatus === 'inadimplente' ? 'bg-rose-400' :
+                                  subStatus === 'suspensa' ? 'bg-purple-400' : 'bg-zinc-500'
+                                }`} />
+                                <select
+                                  value={subStatus}
+                                  onChange={(e) => handleQuickStatusChange(subId, e.target.value as SubscriberStatus)}
+                                  className="bg-transparent text-xs font-bold text-[#d1d5db] outline-none cursor-pointer"
+                                >
+                                  <option value="ativa" className="bg-[#1a1d24] text-white">Ativa</option>
+                                  <option value="trial" className="bg-[#1a1d24] text-white">Trial</option>
+                                  <option value="inadimplente" className="bg-[#1a1d24] text-white">Inadimplente</option>
+                                  <option value="suspensa" className="bg-[#1a1d24] text-white">Suspensa</option>
+                                  <option value="cancelada" className="bg-[#1a1d24] text-white">Cancelada</option>
+                                </select>
+                              </div>
+                            </td>
 
-                          {/* Status */}
-                          <td className="py-3.5 px-4" style={{ backgroundColor: '#252a34' }}>
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1a1d24] border border-[#2f3644]">
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                sub.status === 'ativa' ? 'bg-emerald-400' :
-                                sub.status === 'trial' ? 'bg-amber-400' :
-                                sub.status === 'inadimplente' ? 'bg-rose-400' :
-                                sub.status === 'suspensa' ? 'bg-purple-400' : 'bg-zinc-500'
-                              }`} />
-                              <select
-                                value={sub.status}
-                                onChange={(e) => handleQuickStatusChange(sub.id, e.target.value as SubscriberStatus)}
-                                className="bg-transparent text-xs font-bold text-[#d1d5db] outline-none cursor-pointer"
-                              >
-                                <option value="ativa" className="bg-[#1a1d24] text-white">Ativa</option>
-                                <option value="trial" className="bg-[#1a1d24] text-white">Trial</option>
-                                <option value="inadimplente" className="bg-[#1a1d24] text-white">Inadimplente</option>
-                                <option value="suspensa" className="bg-[#1a1d24] text-white">Suspensa</option>
-                                <option value="cancelada" className="bg-[#1a1d24] text-white">Cancelada</option>
-                              </select>
-                            </div>
-                          </td>
-
-                          {/* Ações Rápidas */}
-                          <td className="py-3.5 px-4 text-right" style={{ backgroundColor: '#252a34' }}>
-                            <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
-                              
-                              {/* 1. Visualizar Ficha (Verde Vibrante) */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setViewingSubscriber(sub);
-                                  setIsDetailSubscriberOpen(true);
-                                }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 transition-colors cursor-pointer"
-                                title="Visualizar Ficha Completa"
-                              >
-                                <Eye className="w-4.5 h-4.5" />
-                              </button>
-
-                              {/* 2. Pausar ou Play (Amarelo/Laranja Vibrante) */}
-                              {sub.status === 'suspensa' ? (
+                            {/* Ações Rápidas */}
+                            <td className="py-3.5 px-4 text-right" style={{ backgroundColor: '#252a34' }}>
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
+                                
+                                {/* 1. Visualizar Ficha (Verde Vibrante) */}
                                 <button
                                   type="button"
-                                  onClick={() => setPauseModalSubscriber(sub)}
+                                  onClick={() => {
+                                    setViewingSubscriber(sub);
+                                    setIsDetailSubscriberOpen(true);
+                                  }}
                                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 transition-colors cursor-pointer"
-                                  title="Reativar Assinatura (Liberar Acesso)"
+                                  title="Visualizar Ficha Completa"
                                 >
-                                  <Play className="w-4.5 h-4.5" />
+                                  <Eye className="w-4.5 h-4.5" />
                                 </button>
-                              ) : (
+
+                                {/* 2. Pausar ou Play (Amarelo/Laranja Vibrante) */}
+                                {subStatus === 'suspensa' ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPauseModalSubscriber(sub)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 transition-colors cursor-pointer"
+                                    title="Reativar Assinatura (Liberar Acesso)"
+                                  >
+                                    <Play className="w-4.5 h-4.5" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPauseModalSubscriber(sub)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
+                                    title="Pausar / Suspender Assinatura (Bloquear ERP por pendência)"
+                                  >
+                                    <Pause className="w-4.5 h-4.5" />
+                                  </button>
+                                )}
+
+                                {/* 3. Lápis (Editar - Amarelo/Laranja Vibrante) */}
                                 <button
                                   type="button"
-                                  onClick={() => setPauseModalSubscriber(sub)}
+                                  onClick={() => {
+                                    setEditingSubscriber(sub);
+                                    setIsEditSubscriberOpen(true);
+                                  }}
                                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
-                                  title="Pausar / Suspender Assinatura (Bloquear ERP por pendência)"
+                                  title="Editar Informações do Assinante"
                                 >
-                                  <Pause className="w-4.5 h-4.5" />
+                                  <Edit className="w-4.5 h-4.5" />
                                 </button>
-                              )}
 
-                              {/* 3. Lápis (Editar - Amarelo/Laranja Vibrante) */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingSubscriber(sub);
-                                  setIsEditSubscriberOpen(true);
-                                }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
-                                title="Editar Informações do Assinante"
-                              >
-                                <Edit className="w-4.5 h-4.5" />
-                              </button>
+                                {/* 4. Cadeado (Redefinir Senha - Azul/Ciano) */}
+                                <button
+                                  type="button"
+                                  onClick={() => setResetPasswordSubscriber(sub)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 hover:border-sky-500/50 transition-colors cursor-pointer"
+                                  title="Redefinir Senha do Assinante no Supabase"
+                                >
+                                  <Lock className="w-4.5 h-4.5" />
+                                </button>
 
-                              {/* 4. Cadeado (Redefinir Senha - Azul/Ciano) */}
-                              <button
-                                type="button"
-                                onClick={() => setResetPasswordSubscriber(sub)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 hover:border-sky-500/50 transition-colors cursor-pointer"
-                                title="Redefinir Senha do Assinante no Supabase"
-                              >
-                                <Lock className="w-4.5 h-4.5" />
-                              </button>
+                                {/* 5. Cubo (Alterar Plano - Roxo/Índigo) */}
+                                <button
+                                  type="button"
+                                  onClick={() => setChangePlanSubscriber(sub)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 transition-colors cursor-pointer"
+                                  title="Alterar Módulo/Plano Comercial"
+                                >
+                                  <Package className="w-4.5 h-4.5" />
+                                </button>
 
-                              {/* 5. Cubo (Alterar Plano - Roxo/Índigo) */}
-                              <button
-                                type="button"
-                                onClick={() => setChangePlanSubscriber(sub)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 transition-colors cursor-pointer"
-                                title="Alterar Módulo/Plano Comercial"
-                              >
-                                <Package className="w-4.5 h-4.5" />
-                              </button>
+                                {/* 6. Calendário (Estender Trial - Laranja/Âmbar) */}
+                                <button
+                                  type="button"
+                                  onClick={() => setExtendTrialSubscriber(sub)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
+                                  title="Estender Período de Testes (Trial)"
+                                >
+                                  <Calendar className="w-4.5 h-4.5" />
+                                </button>
 
-                              {/* 6. Calendário (Estender Trial - Laranja/Âmbar) */}
-                              <button
-                                type="button"
-                                onClick={() => setExtendTrialSubscriber(sub)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 transition-colors cursor-pointer"
-                                title="Estender Período de Testes (Trial)"
-                              >
-                                <Calendar className="w-4.5 h-4.5" />
-                              </button>
+                                {/* 7. Lixeira (Excluir - Vermelho Bem Destacado) */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSubscriber(subId, subName)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-rose-500/20 text-rose-500 hover:text-rose-400 border border-rose-500/40 hover:border-rose-500/60 transition-colors cursor-pointer"
+                                  title="Remover Assinante"
+                                >
+                                  <Trash2 className="w-4.5 h-4.5" />
+                                </button>
 
-                              {/* 7. Lixeira (Excluir - Vermelho Bem Destacado) */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteSubscriber(sub.id, sub.name)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-rose-500/20 text-rose-500 hover:text-rose-400 border border-rose-500/40 hover:border-rose-500/60 transition-colors cursor-pointer"
-                                title="Remover Assinante"
-                              >
-                                <Trash2 className="w-4.5 h-4.5" />
-                              </button>
+                                {/* 8. Botão "→ Entrar" com Fundo Verde Vibrante e Negrito */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleImpersonate(sub)}
+                                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap ml-1"
+                                  title={`Entrar no painel operacional de ${subName} (Modo Personificação)`}
+                                >
+                                  <span>→ Entrar</span>
+                                </button>
 
-                              {/* 8. Botão "→ Entrar" com Fundo Verde Vibrante e Negrito */}
-                              <button
-                                type="button"
-                                onClick={() => handleImpersonate(sub)}
-                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap ml-1"
-                                title={`Entrar no painel operacional de ${sub.name} (Modo Personificação)`}
-                              >
-                                <span>→ Entrar</span>
-                              </button>
-
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

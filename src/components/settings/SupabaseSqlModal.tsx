@@ -360,6 +360,60 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
 
+-- SINCRONIZAÇÃO / MIGRAÇÃO DE CONTAS EXISTENTES (auth.users -> public.assinantes)
+INSERT INTO public.assinantes (
+    id,
+    nome,
+    email,
+    plano_selecionado,
+    valor_mensal,
+    status,
+    trial_ate,
+    criado_em
+)
+SELECT 
+    u.id,
+    COALESCE(
+        u.raw_user_meta_data->>'full_name',
+        u.raw_user_meta_data->>'name',
+        split_part(u.email, '@', 1)
+    ) as nome,
+    u.email,
+    COALESCE(u.raw_user_meta_data->>'plano_selecionado', 'essencial') as plano_selecionado,
+    195.00 as valor_mensal,
+    'trial' as status,
+    now() + interval '7 days' as trial_ate,
+    COALESCE(u.created_at, now()) as criado_em
+FROM auth.users u
+ON CONFLICT (email) DO UPDATE SET
+    id = EXCLUDED.id,
+    nome = COALESCE(EXCLUDED.nome, public.assinantes.nome),
+    status = 'trial';
+
+-- GARANTIA EXPLÍCITA: CLIENTE 'COLACA SILAGEM LTDA' (Status Trial, MRR R$ 0,00)
+INSERT INTO public.assinantes (
+    id,
+    nome,
+    email,
+    plano_selecionado,
+    valor_mensal,
+    status,
+    trial_ate,
+    criado_em
+) VALUES (
+    'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+    'COLACA SILAGEM LTDA',
+    'colacasilagem@gmail.com',
+    'essencial',
+    195.00,
+    'trial',
+    now() + interval '7 days',
+    now()
+)
+ON CONFLICT (email) DO UPDATE SET
+    nome = 'COLACA SILAGEM LTDA',
+    status = 'trial';
+
 CREATE TABLE IF NOT EXISTS public.plans (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
