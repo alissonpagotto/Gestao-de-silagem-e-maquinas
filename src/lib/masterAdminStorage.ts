@@ -592,6 +592,7 @@ export interface CreateSubscriberPayload {
   representativeName?: string;
   representativeCpf?: string;
   planId?: string;
+  monthlyValue?: number;
   status?: SubscriberStatus;
   trialDays?: number;
 }
@@ -609,13 +610,13 @@ export function registerNewSubscriber(payload: CreateSubscriberPayload): { subsc
                        plans.find(p => p.isFeatured && p.isActive) || 
                        plans.find(p => p.isActive) || 
                        plans[0] || {
-                         id: 'plano-pro',
+                         id: 'pro',
                          name: 'Frota Pro',
-                         price: 389.00
+                         price: 295.00
                        };
 
-  // 2. Definir expiração do Trial (Padrão 15 dias conforme solicitado)
-  const trialDays = payload.trialDays !== undefined ? payload.trialDays : 15;
+  // 2. Definir expiração do Trial (Padrão 7 dias conforme solicitado)
+  const trialDays = payload.trialDays !== undefined ? payload.trialDays : 7;
   const trialDate = new Date();
   trialDate.setDate(trialDate.getDate() + trialDays);
   const trialUntil = trialDate.toISOString().split('T')[0];

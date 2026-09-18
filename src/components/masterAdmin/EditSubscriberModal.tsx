@@ -43,6 +43,15 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
   const [cepError, setCepError] = useState('');
   const [validationError, setValidationError] = useState('');
 
+  // 3 Planos Comerciais Oficiais Mapeados do Sistema
+  const OFFICIAL_ADMIN_PLANS = [
+    { id: 'essencial', name: 'Produtor Essencial', price: 195.00 },
+    { id: 'pro', name: 'Frota Pro', price: 295.00 },
+    { id: 'enterprise', name: 'Agro Enterprise', price: 495.00 },
+  ] as const;
+
+  type AdminPlanOption = (typeof OFFICIAL_ADMIN_PLANS)[number];
+
   // Carrega os dados ao abrir o modal
   useEffect(() => {
     if (subscriber) {
@@ -59,17 +68,27 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       setNeighborhood(subscriber.neighborhood || '');
       setCity(subscriber.city || '');
       setState(subscriber.state || '');
-      setPlanId(subscriber.planId || plans[0]?.id || 'starter');
-      setPlanName(subscriber.planName || plans[0]?.name || 'Produtor Essencial');
-      setMonthlyValue(subscriber.monthlyValue || 195);
+
+      // Normaliza o plano atual do assinante
+      const subPlanKey = (subscriber.planId || subscriber.planName || '').toLowerCase();
+      let matchedPlan: AdminPlanOption = OFFICIAL_ADMIN_PLANS[0];
+      if (subPlanKey.includes('enter') || subPlanKey.includes('business')) {
+        matchedPlan = OFFICIAL_ADMIN_PLANS[2];
+      } else if (subPlanKey.includes('pro')) {
+        matchedPlan = OFFICIAL_ADMIN_PLANS[1];
+      }
+
+      setPlanId(matchedPlan.id);
+      setPlanName(matchedPlan.name);
+      setMonthlyValue(subscriber.monthlyValue || matchedPlan.price);
       setStatus(subscriber.status || 'ativa');
     } else {
-      // Novo Assinante
+      // Novo Assinante (7 dias de trial padrão e plano Produtor Essencial)
       setName('');
       setResponsibleEmail('');
       setPassword('');
       const trialDate = new Date();
-      trialDate.setDate(trialDate.getDate() + 15);
+      trialDate.setDate(trialDate.getDate() + 7);
       setTrialUntil(trialDate.toISOString().split('T')[0]);
       setCpfCnpj('');
       setStateRegistration('');
@@ -80,14 +99,14 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       setNeighborhood('');
       setCity('');
       setState('PR');
-      setPlanId(plans[0]?.id || 'starter');
-      setPlanName(plans[0]?.name || 'Produtor Essencial');
-      setMonthlyValue(plans[0]?.price || 195);
+      setPlanId('essencial');
+      setPlanName('Produtor Essencial');
+      setMonthlyValue(195.00);
       setStatus('trial');
     }
     setCepError('');
     setValidationError('');
-  }, [subscriber, isOpen, plans]);
+  }, [subscriber, isOpen]);
 
   if (!isOpen) return null;
 
@@ -125,17 +144,11 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
     }
   };
 
-  const handlePlanChangeByName = (selectedName: string) => {
-    setPlanName(selectedName);
-    const matched = plans.find(p => p.name.toLowerCase() === selectedName.toLowerCase());
-    if (matched) {
-      setPlanId(matched.id);
-      setMonthlyValue(matched.price);
-    } else {
-      if (selectedName === 'Starter') setMonthlyValue(149);
-      else if (selectedName === 'Pro') setMonthlyValue(299);
-      else if (selectedName === 'Business') setMonthlyValue(599);
-    }
+  const handlePlanChangeById = (selectedId: string) => {
+    const matched = OFFICIAL_ADMIN_PLANS.find(p => p.id === selectedId) || OFFICIAL_ADMIN_PLANS[0];
+    setPlanId(matched.id);
+    setPlanName(matched.name);
+    setMonthlyValue(matched.price);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -175,11 +188,6 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
     onSave(updatedSubscriber);
     onClose();
   };
-
-  // Lista combinada de planos comerciais para o Select
-  const availablePlanOptions = plans.length > 0 
-    ? Array.from(new Set([...plans.map(p => p.name), 'Starter', 'Pro', 'Business']))
-    : ['Produtor Essencial', 'Starter', 'Pro', 'Business'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
@@ -448,13 +456,13 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
                   PLANO ATUAL *
                 </label>
                 <select
-                  value={planName}
-                  onChange={(e) => handlePlanChangeByName(e.target.value)}
+                  value={planId}
+                  onChange={(e) => handlePlanChangeById(e.target.value)}
                   className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none cursor-pointer transition"
                 >
-                  {availablePlanOptions.map((opt) => (
-                    <option key={opt} value={opt} className="bg-[#1a1d24] text-white">
-                      {opt}
+                  {OFFICIAL_ADMIN_PLANS.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-[#1a1d24] text-white">
+                      {opt.name} (R$ {opt.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês)
                     </option>
                   ))}
                 </select>

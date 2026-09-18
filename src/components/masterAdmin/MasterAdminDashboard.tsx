@@ -182,10 +182,22 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
     });
 
-    // Assinaturas Realtime para que alterações feitas por outros administradores ou novos cadastros apareçam na hora
+    // Assinaturas Realtime para que novos cadastros na Landing Page ou alterações apareçam instantaneamente
+    const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
+      fetchCloudSubscribers().then(freshSubs => {
+        if (freshSubs && isMounted) {
+          setSubscribers(freshSubs);
+          saveStoredSubscribers(freshSubs);
+        }
+      });
+    });
+
     const unsubSubs = subscribeToCloudTable('subscribers', () => {
       fetchCloudSubscribers().then(freshSubs => {
-        if (freshSubs && isMounted) setSubscribers(freshSubs);
+        if (freshSubs && isMounted) {
+          setSubscribers(freshSubs);
+          saveStoredSubscribers(freshSubs);
+        }
       });
     });
 
@@ -220,6 +232,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     window.addEventListener('storage', handleStorage);
     return () => {
       isMounted = false;
+      unsubAssinantes();
       unsubSubs();
       unsubPlans();
       unsubSite();

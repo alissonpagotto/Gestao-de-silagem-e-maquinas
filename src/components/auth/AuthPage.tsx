@@ -88,12 +88,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return params.get('mode') === 'login' ? 'login' : 'signup';
   });
 
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'plano-pro';
+  // 3 Planos Comerciais Oficiais Mapeados da Landing Page
+  const COMMERCIAL_PLANS: { key: 'essencial' | 'pro' | 'enterprise'; name: string; price: number }[] = [
+    { key: 'essencial', name: 'Produtor Essencial', price: 195.00 },
+    { key: 'pro', name: 'Frota Pro', price: 295.00 },
+    { key: 'enterprise', name: 'Agro Enterprise', price: 495.00 },
+  ];
+
+  const resolvePlanParam = (param?: string | null): 'essencial' | 'pro' | 'enterprise' => {
+    if (!param) return 'pro';
+    const clean = param.toLowerCase().trim();
+    if (clean === 'essencial' || clean.includes('essen') || clean.includes('starter')) return 'essencial';
+    if (clean === 'enterprise' || clean.includes('enter') || clean.includes('business')) return 'enterprise';
+    return 'pro';
+  };
+
+  const [selectedPlanId, setSelectedPlanId] = useState<'essencial' | 'pro' | 'enterprise'>(() => {
+    if (typeof window === 'undefined') return 'pro';
     const params = new URLSearchParams(window.location.search);
-    const planParam = params.get('plan');
-    if (planParam) return planParam;
-    return 'plano-pro';
+    return resolvePlanParam(params.get('plan'));
   });
 
   const [isPrePaid, setIsPrePaid] = useState<boolean>(() => {
@@ -112,7 +125,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
       const planParam = params.get('plan');
       if (planParam) {
-        setSelectedPlanId(planParam);
+        setSelectedPlanId(resolvePlanParam(planParam));
       }
       const paidParam = params.get('paid') === 'true' || params.get('status') === 'pago';
       setIsPrePaid(paidParam);
@@ -312,30 +325,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const phoneClean = formData.phone.trim();
       const documentClean = formData.cpfCnpj.trim();
 
-      // 1. Captura o nome do plano da URL do site (ex: ?plan=plano-pro ou nome do plano ativo)
-      let planNameCaptured = 'Produtor Essencial';
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const planParam = urlParams.get('plan');
-        if (planParam) {
-          const matched = plans.find(
-            p => p.id === planParam || p.name.toLowerCase() === planParam.toLowerCase()
-          );
-          planNameCaptured = matched ? matched.name : planParam;
-        } else if (activePlan?.name) {
-          planNameCaptured = activePlan.name;
-        }
-      } else if (activePlan?.name) {
-        planNameCaptured = activePlan.name;
-      }
+      // 1. Mapeamento preciso do plano selecionado e seus valores comerciais
+      const planKey: 'essencial' | 'pro' | 'enterprise' = resolvePlanParam(selectedPlanId);
+      const planPrice = planKey === 'essencial' ? 195.00 : planKey === 'enterprise' ? 495.00 : 295.00;
+      const planDisplayName = planKey === 'essencial' ? 'Produtor Essencial' : planKey === 'enterprise' ? 'Agro Enterprise' : 'Frota Pro';
 
-      // Calcula data de expiração do trial (Data atual somada aos 15 dias de teste do plano)
-      const trialDays = 15;
+      // 2. Calcula data de expiração do trial (+7 dias conforme especificação comercial)
+      const trialDays = 7;
       const trialDate = new Date();
       trialDate.setDate(trialDate.getDate() + trialDays);
       const trialEndsAtIso = trialDate.toISOString();
+      const criadoEmIso = new Date().toISOString();
 
-      // Determina status inicial (padrão 'Trial')
+      // Determina status inicial ('trial' ou 'ativa' se pré-pago)
       const initialStatus: SubscriberStatus = isPrePaid ? 'ativa' : 'trial';
 
       // =========================================================================
@@ -353,7 +355,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               name: nameClean,
               phone: phoneClean,
               cpf_cnpj: documentClean,
-              plan_name: planNameCaptured,
+              plan_name: planDisplayName,
+              plano_selecionado: planKey,
             }
           }
         });
@@ -373,43 +376,53 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
 
       // =========================================================================
-      // 2. INSERÇÃO IMEDIATA NA TABELA PÚBLICA 'subscribers'
-      // Mapeamento exato das colunas:
-      // - id: UUID gerado pelo Supabase Auth (REFERENCES auth.users(id))
-      // - name: Nome da Empresa / Assinante
-      // - email: E-mail digitado
-      // - phone: Telefone informado
-      // - document: CPF ou CNPJ digitado
-      // - plan_name: Nome do plano capturado da URL (default 'Produtor Essencial')
-      // - status: 'Trial' de forma padrão
-      // - trial_ends_at: Data atual somada aos dias de teste (TIMESTAMP WITH TIME ZONE)
+      // 2. INSERÇÃO NA TABELA 'assinantes' (COM ESTRUTURA OFICIAL DO SUPABASE)
+      // Campos: id (UUID), nome, email, plano_selecionado, valor_mensal, status, trial_ate, criado_em
       // =========================================================================
       if (isSupabaseConfigured) {
-        const exactSubscriberPayload = {
+        const exactAssinantesPayload = {
           id: authUserId,
-          name: nameClean,
+          nome: nameClean,
           email: emailClean,
-          phone: phoneClean,
-          document: documentClean,
-          plan_name: planNameCaptured,
-          status: 'Trial',
-          trial_ends_at: trialEndsAtIso,
+          plano_selecionado: planKey,
+          valor_mensal: planPrice,
+          status: 'trial',
+          trial_ate: trialEndsAtIso,
+          criado_em: criadoEmIso,
         };
 
-        const { error: insertError } = await supabase
-          .from('subscribers')
-          .upsert(exactSubscriberPayload, { onConflict: 'id' });
+        const { error: insertAssinantesError } = await supabase
+          .from('assinantes')
+          .upsert(exactAssinantesPayload, { onConflict: 'id' });
 
-        if (insertError) {
-          console.error('Falha ao gravar na tabela subscribers:', insertError);
-          throw new Error(
-            `A conta de acesso (${emailClean}) foi criada, mas o registro na tabela subscribers falhou: ${insertError.message}. Certifique-se de executar o script SQL no Supabase SQL Editor para criar a tabela com as permissões RLS.`
-          );
+        if (insertAssinantesError) {
+          console.warn('Notice tabela assinantes:', insertAssinantesError.message);
+        }
+
+        // Contingência na tabela legada 'subscribers'
+        try {
+          const exactSubscriberPayload = {
+            id: authUserId,
+            name: nameClean,
+            email: emailClean,
+            phone: phoneClean,
+            document: documentClean,
+            plan_name: planDisplayName,
+            status: 'Trial',
+            trial_ends_at: trialEndsAtIso,
+            created_at: criadoEmIso,
+          };
+
+          await supabase
+            .from('subscribers')
+            .upsert(exactSubscriberPayload, { onConflict: 'id' });
+        } catch {
+          // fallback silencioso
         }
       }
 
       // =========================================================================
-      // 4. PERSISTÊNCIA LOCAL COM O MESMO UUID DO SUPABASE AUTH
+      // 3. PERSISTÊNCIA LOCAL COM O MESMO UUID DO SUPABASE AUTH
       // =========================================================================
       const result = registerNewSubscriber({
         id: authUserId,
@@ -427,9 +440,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         city: formData.city.trim(),
         state: formData.state.trim().toUpperCase(),
         representativeName: formData.responsibleName.trim() || nameClean,
-        planId: activePlan?.id || selectedPlanId || 'plano-pro',
+        planId: planKey,
+        monthlyValue: planPrice,
         status: initialStatus,
-        trialDays: 15,
+        trialDays: 7,
       });
 
       // Notifica o estado do App sobre a nova empresa
@@ -666,7 +680,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       <h3 className="text-base font-black text-white flex items-center gap-2">
                         <span>{activePlan?.name || 'Frota Pro'}</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black uppercase">
-                          {isPrePaid ? 'Assinatura Ativa' : '15 Dias Grátis'}
+                          {isPrePaid ? 'Assinatura Ativa' : '7 Dias Grátis'}
                         </span>
                       </h3>
                     </div>
@@ -674,10 +688,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                   <div className="text-right">
                     <span className="text-xl sm:text-2xl font-black text-emerald-400">
-                      {formatCurrencyBRL(activePlan?.price || 295.00)}
+                      {formatCurrencyBRL(
+                        selectedPlanId === 'essencial' ? 195.00 : selectedPlanId === 'enterprise' ? 495.00 : 295.00
+                      )}
                     </span>
                     <span className="text-xs text-stone-400 font-bold block">
-                      /mês após o período de teste
+                      /mês após os 7 dias de teste
                     </span>
                   </div>
                 </div>
@@ -685,13 +701,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 {/* Opções de troca rápida de plano */}
                 <div className="pt-3 border-t border-stone-800/80 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-stone-400 font-bold">Mudar plano:</span>
-                  {plans.map(p => (
+                  {COMMERCIAL_PLANS.map(p => (
                     <button
-                      key={p.id}
+                      key={p.key}
                       type="button"
-                      onClick={() => setSelectedPlanId(p.id)}
+                      onClick={() => setSelectedPlanId(p.key)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        selectedPlanId === p.id 
+                        selectedPlanId === p.key 
                           ? 'bg-emerald-600 text-white font-black shadow-sm' 
                           : 'bg-stone-800/80 text-stone-300 hover:bg-stone-700'
                       }`}

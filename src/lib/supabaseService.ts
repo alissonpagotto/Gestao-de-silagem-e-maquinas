@@ -1297,43 +1297,120 @@ export async function deleteCloudPlan(planId: string): Promise<boolean> {
 // GESTÃO CLOUD: subscribers (Assinantes, Empresas e Dados de Faturamento)
 // ==============================================================================
 
+// ==============================================================================
+// 12. ASSINANTES / SUBSCRIBERS (Tabela: public.assinantes / fallback: public.subscribers)
+// Campos da tabela assinantes: id (UUID), nome, email, plano_selecionado, valor_mensal, status, trial_ate, criado_em
+// ==============================================================================
+
+export type PlanSelectedKey = 'essencial' | 'pro' | 'enterprise';
+
+export function normalizeSubscriberPlanKey(plan?: string): PlanSelectedKey {
+  if (!plan) return 'pro';
+  const clean = plan.toLowerCase().trim();
+  if (clean === 'essencial' || clean.includes('essen') || clean.includes('starter')) return 'essencial';
+  if (clean === 'enterprise' || clean.includes('enter') || clean.includes('business')) return 'enterprise';
+  return 'pro';
+}
+
+export function getSubscriberPlanPrice(plan: PlanSelectedKey): number {
+  switch (plan) {
+    case 'essencial': return 195.00;
+    case 'pro': return 295.00;
+    case 'enterprise': return 495.00;
+  }
+}
+
+export function getSubscriberPlanDisplayName(plan: PlanSelectedKey): string {
+  switch (plan) {
+    case 'essencial': return 'Produtor Essencial';
+    case 'pro': return 'Frota Pro';
+    case 'enterprise': return 'Agro Enterprise';
+  }
+}
+
+export function normalizeSubscriberStatus(status?: string): 'ativa' | 'trial' | 'cancelada' {
+  if (!status) return 'trial';
+  const clean = status.toLowerCase().trim();
+  if (clean === 'ativa' || clean === 'ativo') return 'ativa';
+  if (clean === 'cancelada' || clean === 'cancelado' || clean === 'suspensa' || clean === 'inadimplente') return 'cancelada';
+  return 'trial';
+}
+
 export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
-    const { data, error } = await supabase
+    // 1. Tenta buscar prioritariamente da tabela oficial 'assinantes'
+    const { data: assinantesData, error: assinantesError } = await supabase
+      .from('assinantes')
+      .select('*')
+      .order('criado_em', { ascending: false });
+
+    if (!assinantesError && assinantesData && Array.isArray(assinantesData)) {
+      return assinantesData.map((row: any) => {
+        const planKey = normalizeSubscriberPlanKey(row.plano_selecionado || row.plan_id || row.plan_name);
+        return {
+          id: row.id,
+          name: row.nome || row.name || 'Assinante',
+          responsibleEmail: (row.email || row.responsible_email || '').trim().toLowerCase(),
+          password: row.password_hash || row.senha || undefined,
+          trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || ''),
+          cpfCnpj: row.cpf_cnpj || row.document || '',
+          stateRegistration: row.state_registration || undefined,
+          phone: row.telefone || row.phone || '',
+          cep: row.cep || '',
+          street: row.logradouro || row.street || '',
+          number: row.numero || row.number || '',
+          neighborhood: row.bairro || row.neighborhood || '',
+          city: row.cidade || row.city || '',
+          state: row.estado || row.state || '',
+          planId: planKey,
+          planName: getSubscriberPlanDisplayName(planKey),
+          monthlyValue: Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+          status: normalizeSubscriberStatus(row.status),
+          createdAt: row.criado_em || row.created_at || new Date().toISOString(),
+          updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
+        };
+      });
+    }
+
+    // 2. Fallback de compatibilidade com a tabela 'subscribers'
+    const { data: subsData, error: subsError } = await supabase
       .from('subscribers')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Supabase fetchCloudSubscribers notice:', error.message);
+    if (subsError) {
+      console.warn('Supabase fetchCloudSubscribers notice:', subsError.message);
       return null;
     }
 
-    if (!data) return null;
+    if (!subsData) return null;
 
-    return data.map((row: any) => ({
-      id: row.id,
-      name: row.name || 'Assinante',
-      responsibleEmail: row.responsible_email || row.email || '',
-      password: row.password_hash || undefined,
-      trialUntil: row.trial_until || row.trial_ends_at || '',
-      cpfCnpj: row.cpf_cnpj || row.document || '',
-      stateRegistration: row.state_registration || undefined,
-      phone: row.phone || '',
-      cep: row.cep || '',
-      street: row.street || '',
-      number: row.number || '',
-      neighborhood: row.neighborhood || '',
-      city: row.city || '',
-      state: row.state || '',
-      planId: row.plan_id || '',
-      planName: row.plan_name || '',
-      monthlyValue: Number(row.monthly_value) || 0,
-      status: (row.status?.toLowerCase() as any) || 'trial',
-      createdAt: row.created_at || new Date().toISOString(),
-      updatedAt: row.updated_at || new Date().toISOString(),
-    }));
+    return subsData.map((row: any) => {
+      const planKey = normalizeSubscriberPlanKey(row.plan_name || row.plan_id || row.plano_selecionado);
+      return {
+        id: row.id,
+        name: row.name || row.nome || 'Assinante',
+        responsibleEmail: (row.responsible_email || row.email || '').trim().toLowerCase(),
+        password: row.password_hash || undefined,
+        trialUntil: row.trial_until || row.trial_ends_at || '',
+        cpfCnpj: row.cpf_cnpj || row.document || '',
+        stateRegistration: row.state_registration || undefined,
+        phone: row.phone || row.telefone || '',
+        cep: row.cep || '',
+        street: row.street || '',
+        number: row.number || '',
+        neighborhood: row.neighborhood || '',
+        city: row.city || '',
+        state: row.state || '',
+        planId: planKey,
+        planName: getSubscriberPlanDisplayName(planKey),
+        monthlyValue: Number(row.monthly_value) || Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+        status: normalizeSubscriberStatus(row.status),
+        createdAt: row.created_at || new Date().toISOString(),
+        updatedAt: row.updated_at || new Date().toISOString(),
+      };
+    });
   } catch (err) {
     console.warn('Supabase fetchCloudSubscribers error:', err);
     return null;
@@ -1343,26 +1420,67 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const payload = {
-      id: sub.id,
-      name: sub.name,
+    const validId = toValidUUID(sub.id);
+    const planKey = normalizeSubscriberPlanKey(sub.planId || sub.planName);
+    const valorMensal = Number(sub.monthlyValue) > 0 ? Number(sub.monthlyValue) : getSubscriberPlanPrice(planKey);
+    const statusVal = normalizeSubscriberStatus(sub.status);
+
+    // Validade do trial (+7 dias padrão caso não definido)
+    const trialDateIso = sub.trialUntil 
+      ? new Date(sub.trialUntil.includes('T') ? sub.trialUntil : `${sub.trialUntil}T23:59:59Z`).toISOString()
+      : new Date(Date.now() + 7 * 86400000).toISOString();
+
+    const criadoEmIso = sub.createdAt ? new Date(sub.createdAt).toISOString() : new Date().toISOString();
+
+    // 1. Gravação prioritária na tabela 'assinantes' com a tipagem e nomes solicitados
+    const payloadAssinantes: Record<string, any> = {
+      id: validId,
+      nome: sub.name.trim(),
       email: sub.responsibleEmail.trim().toLowerCase(),
-      phone: sub.phone || '',
-      document: sub.cpfCnpj || '',
-      plan_name: sub.planName || 'Produtor Essencial',
-      status: sub.status === 'ativa' ? 'Ativa' : 'Trial',
-      trial_ends_at: sub.trialUntil ? new Date(sub.trialUntil).toISOString() : new Date(Date.now() + 15 * 86400000).toISOString(),
+      plano_selecionado: planKey,
+      valor_mensal: valorMensal,
+      status: statusVal,
+      trial_ate: trialDateIso,
+      criado_em: criadoEmIso,
     };
 
-    const { error } = await supabase
-      .from('subscribers')
-      .upsert(payload, { onConflict: 'id' });
+    let assinantesSuccess = false;
+    try {
+      const { error: assinantesError } = await supabase
+        .from('assinantes')
+        .upsert(payloadAssinantes, { onConflict: 'id' });
 
-    if (error) {
-      console.warn('Supabase upsertCloudSubscriber notice:', error.message);
-      return false;
+      if (!assinantesError) {
+        assinantesSuccess = true;
+      } else {
+        console.warn('Supabase upsert assinantes notice:', assinantesError.message);
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar em assinantes:', e);
     }
-    return true;
+
+    // 2. Gravação de contingência na tabela 'subscribers'
+    try {
+      const payloadSubscribers = {
+        id: validId,
+        name: sub.name.trim(),
+        email: sub.responsibleEmail.trim().toLowerCase(),
+        phone: sub.phone || '',
+        document: sub.cpfCnpj || '',
+        plan_name: getSubscriberPlanDisplayName(planKey),
+        status: statusVal === 'ativa' ? 'Ativa' : statusVal === 'cancelada' ? 'Cancelada' : 'Trial',
+        trial_ends_at: trialDateIso,
+        created_at: criadoEmIso,
+      };
+
+      await supabase
+        .from('subscribers')
+        .upsert(payloadSubscribers, { onConflict: 'id' });
+    } catch {
+      // Ignora falha na tabela legada se assinantes funcionar
+    }
+
+    return assinantesSuccess;
   } catch (err) {
     console.warn('Supabase upsertCloudSubscriber error:', err);
     return false;
@@ -1372,15 +1490,21 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
 export async function updateCloudSubscriberStatus(id: string, status: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
-      .from('subscribers')
-      .update({ status })
-      .eq('id', id);
+    const validId = toValidUUID(id);
+    const normalized = normalizeSubscriberStatus(status);
 
-    if (error) {
-      console.warn('Supabase updateCloudSubscriberStatus notice:', error.message);
-      return false;
-    }
+    // Atualiza em assinantes
+    await supabase
+      .from('assinantes')
+      .update({ status: normalized })
+      .eq('id', validId);
+
+    // Atualiza em subscribers
+    await supabase
+      .from('subscribers')
+      .update({ status: normalized === 'ativa' ? 'Ativa' : normalized === 'cancelada' ? 'Cancelada' : 'Trial' })
+      .eq('id', validId);
+
     return true;
   } catch (err) {
     console.warn('Supabase updateCloudSubscriberStatus error:', err);
@@ -1388,18 +1512,29 @@ export async function updateCloudSubscriberStatus(id: string, status: string): P
   }
 }
 
-export async function updateCloudSubscriberPlan(id: string, planName: string): Promise<boolean> {
+export async function updateCloudSubscriberPlan(id: string, planNameOrKey: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
-      .from('subscribers')
-      .update({ plan_name: planName })
-      .eq('id', id);
+    const validId = toValidUUID(id);
+    const planKey = normalizeSubscriberPlanKey(planNameOrKey);
+    const valorMensal = getSubscriberPlanPrice(planKey);
+    const displayName = getSubscriberPlanDisplayName(planKey);
 
-    if (error) {
-      console.warn('Supabase updateCloudSubscriberPlan notice:', error.message);
-      return false;
-    }
+    // Atualiza em assinantes
+    await supabase
+      .from('assinantes')
+      .update({ 
+        plano_selecionado: planKey,
+        valor_mensal: valorMensal
+      })
+      .eq('id', validId);
+
+    // Atualiza em subscribers
+    await supabase
+      .from('subscribers')
+      .update({ plan_name: displayName })
+      .eq('id', validId);
+
     return true;
   } catch (err) {
     console.warn('Supabase updateCloudSubscriberPlan error:', err);
@@ -1410,15 +1545,20 @@ export async function updateCloudSubscriberPlan(id: string, planName: string): P
 export async function updateCloudSubscriberTrial(id: string, trialEndsAtIso: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
+    const validId = toValidUUID(id);
+
+    // Atualiza em assinantes
+    await supabase
+      .from('assinantes')
+      .update({ trial_ate: trialEndsAtIso })
+      .eq('id', validId);
+
+    // Atualiza em subscribers
+    await supabase
       .from('subscribers')
       .update({ trial_ends_at: trialEndsAtIso })
-      .eq('id', id);
+      .eq('id', validId);
 
-    if (error) {
-      console.warn('Supabase updateCloudSubscriberTrial notice:', error.message);
-      return false;
-    }
     return true;
   } catch (err) {
     console.warn('Supabase updateCloudSubscriberTrial error:', err);
@@ -1429,10 +1569,11 @@ export async function updateCloudSubscriberTrial(id: string, trialEndsAtIso: str
 export async function updateCloudSubscriberPassword(id: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
   if (!isSupabaseConfigured) return { success: false, message: 'Supabase não configurado' };
   try {
+    const validId = toValidUUID(id);
     // 1. Tenta atualizar senha de autenticação via Supabase Auth Admin se disponível
     try {
       if ((supabase.auth as any).admin?.updateUserById) {
-        const { error: adminError } = await (supabase.auth as any).admin.updateUserById(id, {
+        const { error: adminError } = await (supabase.auth as any).admin.updateUserById(validId, {
           password: newPassword
         });
         if (!adminError) {
@@ -1446,7 +1587,7 @@ export async function updateCloudSubscriberPassword(id: string, newPassword: str
     // 2. Tenta RPC admin_update_user_password caso exista no banco
     try {
       const { error: rpcError } = await supabase.rpc('admin_update_user_password', {
-        user_id: id,
+        user_id: validId,
         new_password: newPassword
       });
       if (!rpcError) {
@@ -1466,15 +1607,9 @@ export async function updateCloudSubscriberPassword(id: string, newPassword: str
 export async function deleteCloudSubscriber(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
-      .from('subscribers')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.warn('Supabase deleteCloudSubscriber notice:', error.message);
-      return false;
-    }
+    const validId = toValidUUID(id);
+    await supabase.from('assinantes').delete().eq('id', validId);
+    await supabase.from('subscribers').delete().eq('id', validId);
     return true;
   } catch (err) {
     console.warn('Supabase deleteCloudSubscriber error:', err);

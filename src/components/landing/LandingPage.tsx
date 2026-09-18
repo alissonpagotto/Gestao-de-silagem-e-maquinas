@@ -290,14 +290,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
-  const handleCheckoutClick = (plan: PlanDefinition) => {
-    if (plan.checkoutUrl && plan.checkoutUrl.startsWith('http') && !plan.checkoutUrl.includes('exemplo')) {
-      window.open(plan.checkoutUrl, '_blank', 'noopener,noreferrer');
-    } else if (onNavigateToAuth) {
-      onNavigateToAuth(plan.id, 'signup');
+  const getPlanParamKey = (p: PlanDefinition): 'essencial' | 'pro' | 'enterprise' => {
+    const text = (p.id + ' ' + p.name).toLowerCase();
+    if (text.includes('essen') || text.includes('starter')) return 'essencial';
+    if (text.includes('enter') || text.includes('business')) return 'enterprise';
+    return 'pro';
+  };
+
+  const handleStartPlan = (plan: PlanDefinition) => {
+    const planKey = getPlanParamKey(plan);
+    if (onNavigateToAuth) {
+      onNavigateToAuth(planKey, 'signup');
     } else {
-      handleAccessErp();
+      try {
+        window.history.pushState({}, '', `/auth?mode=signup&plan=${planKey}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      } catch (e) {
+        console.error(e);
+        handleAccessErp();
+      }
     }
+  };
+
+  const handleCheckoutClick = (plan: PlanDefinition) => {
+    handleStartPlan(plan);
   };
 
   const featureIcons = [
@@ -614,18 +630,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Botão Começar Agora com Injeção Direta da URL de Checkout */}
+                  {/* Botão COMEÇAR AGORA com passagem do plano respectivo */}
                   <div className="pt-4">
                     <button
                       type="button"
-                      onClick={() => handleCheckoutClick(plan)}
+                      onClick={() => handleStartPlan(plan)}
                       className={`w-full py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2 shadow-md ${
                         plan.isFeatured
                           ? 'bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-emerald-950/80'
                           : 'bg-stone-800 hover:bg-stone-700 text-white'
                       }`}
                     >
-                      <span>Começar Agora</span>
+                      <span>COMEÇAR AGORA</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
