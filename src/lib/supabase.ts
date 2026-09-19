@@ -13,12 +13,23 @@ const metaEnv = ((import.meta as any)?.env || {}) as Record<string, string | und
 const FALLBACK_SUPABASE_URL = 'https://dyemddjnqoxqyabbhixu.supabase.co';
 const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_SPzmag-Va8d6RH8lVY9Zow_th9ReW1c';
 
-const rawUrl = (
+let rawUrlCandidate = String(
   metaEnv.VITE_SUPABASE_URL ||
   metaEnv.SUPABASE_URL ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
   FALLBACK_SUPABASE_URL
-);
+).trim();
+
+// Se for URL genérica sem o subdomínio do projeto ou malformada, utiliza o endpoint real da aplicação
+if (
+  !rawUrlCandidate ||
+  rawUrlCandidate === 'https://supabase.co' ||
+  rawUrlCandidate === 'http://supabase.co' ||
+  rawUrlCandidate.includes('supabase.https:') ||
+  !rawUrlCandidate.includes('.supabase.co')
+) {
+  rawUrlCandidate = FALLBACK_SUPABASE_URL;
+}
 
 const rawKey = (
   metaEnv.VITE_SUPABASE_ANON_KEY ||
@@ -28,7 +39,7 @@ const rawKey = (
 );
 
 // Sanitização obrigatória para garantir que o cliente Supabase receba a URL base do projeto (sem /rest/v1 duplicado)
-export const SUPABASE_URL = String(rawUrl).trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+export const SUPABASE_URL = rawUrlCandidate.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
 export const SUPABASE_ANON_KEY = String(rawKey).trim();
 
 export const isSupabaseConfigured = Boolean(

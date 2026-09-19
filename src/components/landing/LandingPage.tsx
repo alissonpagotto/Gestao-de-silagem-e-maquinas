@@ -30,11 +30,75 @@ import {
   fetchPublicLandingData
 } from '../../lib/masterAdminStorage';
 import { 
-  fetchCloudPlans, 
   fetchCloudSiteConfig, 
   subscribeToCloudTable 
 } from '../../lib/supabaseService';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { formatCurrencyBRL } from '../../lib/formatters';
+
+/**
+ * Mapeamento resiliente de planos retornados diretamente do Supabase (.select('*'))
+ * Mapeia os campos: name, price, features e status (além de description, badge, is_featured, display_order)
+ */
+function mapSupabasePlan(row: any): PlanDefinition {
+  // 1. Mapeamento de Features (Array JSON, string quebra-de-linha ou texto)
+  let featuresText = '';
+  if (Array.isArray(row.features)) {
+    featuresText = row.features.join('\n');
+  } else if (typeof row.features === 'string') {
+    try {
+      const parsed = JSON.parse(row.features);
+      if (Array.isArray(parsed)) {
+        featuresText = parsed.join('\n');
+      } else {
+        featuresText = row.features;
+      }
+    } catch {
+      featuresText = row.features;
+    }
+  } else if (row.features_text) {
+    featuresText = String(row.features_text);
+  }
+
+  // 2. Mapeamento de Status / Ativo (campo 'status' = 'active'/'ativo' ou 'is_active' boolean)
+  let isActive = true;
+  if (row.status !== undefined && row.status !== null) {
+    const s = String(row.status).toLowerCase().trim();
+    isActive = s === 'active' || s === 'ativo' || s === 'true' || s === '1';
+  } else if (row.is_active !== undefined && row.is_active !== null) {
+    isActive = Boolean(row.is_active);
+  }
+
+  // 3. Mapeamento de Preço (price, valor, preco)
+  const price = Number(
+    row.price !== undefined && row.price !== null
+      ? row.price
+      : (row.valor !== undefined && row.valor !== null ? row.valor : (row.preco || 0))
+  ) || 0;
+
+  // 4. Mapeamento de Nome (name, nome, title)
+  const name = String(row.name || row.nome || row.title || 'Plano');
+
+  return {
+    id: String(row.id || name.toLowerCase().replace(/\s+/g, '-')),
+    name,
+    description: String(row.description || row.descricao || ''),
+    price,
+    billingCycle: (String(row.billing_cycle || row.billingCycle || 'mensal').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
+    badge: row.badge ? String(row.badge) : undefined,
+    isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
+    isActive,
+    displayOrder: Number(row.display_order ?? row.displayOrder ?? 1),
+    limits: typeof row.limits === 'object' && row.limits ? row.limits : {
+      maxUsers: 5,
+      maxMachineries: 10,
+      maxClients: 100,
+      storageLimitGb: 5,
+    },
+    featuresText: featuresText || 'Acesso completo ao sistema\nSuporte técnico dedicado\nAtualizações inclusas',
+    checkoutUrl: String(row.checkout_url || row.checkoutUrl || ''),
+  };
+}
 
 interface LandingPageProps {
   onEnterApp: () => void;
@@ -130,21 +194,60 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
     let isMounted = true;
 
-    // Sincronização direta pública com o banco de dados em nuvem (Supabase)
+    // 1. Busca Direta na tabela 'plans' do Supabase (.select('*')) com credenciais oficiais
+    const fetchDirectPlansFromSupabase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('plans')
+          .select('*')
+          .order('display_order', { ascending: true });
+
+        if (error) {
+          console.warn('Aviso na busca direta de planos do Supabase:', error.message);
+          return;
+        }
+
+        if (Array.isArray(data) && data.length > 0 && isMounted) {
+          const mapped = data.map(mapSupabasePlan);
+          setPlans(mapped);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              const serialized = JSON.stringify(mapped);
+              localStorage.setItem('agrocontrol_plans_data', serialized);
+              localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+            }
+          } catch (e) {
+            console.error('Erro ao armazenar planos em cache local:', e);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao consultar tabela plans diretamente:', err);
+      }
+    };
+
+    // Executa a busca direta imediata na tabela 'plans' do Supabase
+    fetchDirectPlansFromSupabase();
+
+    // Sincronização direta pública complementar para configurações gerais (site_settings)
     fetchPublicLandingData().then((cloudData) => {
       if (!isMounted) return;
       if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
-      if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
+      if (cloudData.plans && cloudData.plans.length > 0) {
+        setPlans((prev) => (prev && prev.length > 0 ? prev : cloudData.plans));
+      }
     });
 
-    // Assinaturas Realtime para atualização instantânea em qualquer aparelho ou aba
-    const unsubPlans = subscribeToCloudTable('plans', () => {
-      fetchCloudPlans().then((freshPlans) => {
-        if (freshPlans && freshPlans.length > 0 && isMounted) {
-          setPlans(freshPlans);
+    // Assinatura Realtime Direta no Supabase na tabela 'plans'
+    const plansChannel = supabase
+      .channel(`public:landing_plans_feed_${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'plans' },
+        () => {
+          fetchDirectPlansFromSupabase();
         }
-      });
-    });
+      )
+      .subscribe();
 
     const unsubSite = subscribeToCloudTable('site_settings', () => {
       fetchCloudSiteConfig().then((freshSite) => {
@@ -236,7 +339,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
     return () => {
       isMounted = false;
-      unsubPlans();
+      try {
+        supabase.removeChannel(plansChannel);
+      } catch {}
       unsubSite();
       window.removeEventListener('agrocontrol_site_settings_updated', handleSiteUpdated);
       window.removeEventListener('landing_page_settings_updated', handleSiteUpdated);
@@ -266,9 +371,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     feature4Desc: siteConfig?.feature4Desc || DEFAULT_SITE_CONFIG.feature4Desc,
   };
 
-  // Filtrar apenas planos ativos e ordenar por displayOrder
-  const activePlans = plans
-    .filter(p => p.isActive)
+  // Filtrar apenas planos ativos (status ativo) e ordenar por displayOrder
+  const candidatePlans = plans && plans.length > 0 ? plans : DEFAULT_PLANS;
+  const filteredActivePlans = candidatePlans.filter(p => p.isActive);
+  const activePlans = (filteredActivePlans.length > 0 ? filteredActivePlans : candidatePlans)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
   // Auth Guard: Acessar o ERP com proteção e barreira de segurança
