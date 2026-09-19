@@ -9,19 +9,22 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const metaEnv = ((import.meta as any)?.env || {}) as Record<string, string | undefined>;
 
-// Injetadas diretamente pelo sistema e vite.config.ts
+// Injetadas diretamente pelo sistema, vite.config.ts ou fallback estático de produção
+const FALLBACK_SUPABASE_URL = 'https://dyemddjnqoxqyabbhixu.supabase.co';
+const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_SPzmag-Va8d6RH8lVY9Zow_th9ReW1c';
+
 const rawUrl = (
   metaEnv.VITE_SUPABASE_URL ||
   metaEnv.SUPABASE_URL ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
-  ''
+  FALLBACK_SUPABASE_URL
 );
 
 const rawKey = (
   metaEnv.VITE_SUPABASE_ANON_KEY ||
   metaEnv.SUPABASE_ANON_KEY ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
-  ''
+  FALLBACK_SUPABASE_ANON_KEY
 );
 
 // Sanitização obrigatória para garantir que o cliente Supabase receba a URL base do projeto (sem /rest/v1 duplicado)
