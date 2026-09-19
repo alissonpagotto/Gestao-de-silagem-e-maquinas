@@ -372,129 +372,162 @@ export function saveStoredPlans(plans: PlanDefinition[]): void {
   }
 }
 
+let publicLandingInFlight: Promise<{ siteConfig: SiteConfig; plans: PlanDefinition[] }> | null = null;
+let lastPublicLandingFetch = 0;
+let lastPublicLandingResult: { siteConfig: SiteConfig; plans: PlanDefinition[] } | null = null;
+
 /**
  * Busca pública exclusiva para visitantes e landing page (planos e configurações de site),
  * garantindo acesso sem restrições ou bloqueios em qualquer dispositivo.
+ * Inclui deduplicação em voo e cooldown para evitar ERR_INSUFFICIENT_RESOURCES.
  */
 export async function fetchPublicLandingData(): Promise<{
   siteConfig: SiteConfig;
   plans: PlanDefinition[];
 }> {
-  try {
-    const [siteResult, plansResult] = await Promise.allSettled([
-      fetchCloudSiteConfig(),
-      fetchCloudPlans(),
-    ]);
-
-    let resolvedSite = getStoredSiteConfig();
-    if (siteResult.status === 'fulfilled' && siteResult.value) {
-      resolvedSite = siteResult.value;
-      if (typeof localStorage !== 'undefined') {
-        const serialized = JSON.stringify(resolvedSite);
-        localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
-        localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
-        localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
-      }
-    }
-
-    let resolvedPlans = getStoredPlans();
-    if (plansResult.status === 'fulfilled' && plansResult.value && plansResult.value.length > 0) {
-      resolvedPlans = plansResult.value;
-      if (typeof localStorage !== 'undefined') {
-        const serialized = JSON.stringify(resolvedPlans);
-        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
-        localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
-      }
-    }
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: resolvedPlans }));
-      window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: resolvedSite }));
-    }
-
-    return {
-      siteConfig: resolvedSite,
-      plans: resolvedPlans,
-    };
-  } catch (err) {
-    console.warn('Notice fetching public landing data:', err);
-    return {
-      siteConfig: getStoredSiteConfig(),
-      plans: getStoredPlans(),
-    };
+  const now = Date.now();
+  if (lastPublicLandingResult && now - lastPublicLandingFetch < 5000) {
+    return lastPublicLandingResult;
   }
+  if (publicLandingInFlight) {
+    return publicLandingInFlight;
+  }
+
+  publicLandingInFlight = (async () => {
+    try {
+      const [siteResult, plansResult] = await Promise.allSettled([
+        fetchCloudSiteConfig(),
+        fetchCloudPlans(),
+      ]);
+
+      let resolvedSite = getStoredSiteConfig();
+      if (siteResult.status === 'fulfilled' && siteResult.value) {
+        resolvedSite = siteResult.value;
+        if (typeof localStorage !== 'undefined') {
+          const serialized = JSON.stringify(resolvedSite);
+          localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
+          localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
+          localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
+        }
+      }
+
+      let resolvedPlans = getStoredPlans();
+      if (plansResult.status === 'fulfilled' && plansResult.value && plansResult.value.length > 0) {
+        resolvedPlans = plansResult.value;
+        if (typeof localStorage !== 'undefined') {
+          const serialized = JSON.stringify(resolvedPlans);
+          localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+          localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
+        }
+      }
+
+      const result = {
+        siteConfig: resolvedSite,
+        plans: resolvedPlans,
+      };
+      lastPublicLandingFetch = Date.now();
+      lastPublicLandingResult = result;
+      return result;
+    } catch (err) {
+      console.warn('Notice fetching public landing data:', err);
+      return {
+        siteConfig: getStoredSiteConfig(),
+        plans: getStoredPlans(),
+      };
+    } finally {
+      publicLandingInFlight = null;
+    }
+  })();
+
+  return publicLandingInFlight;
 }
+
+let syncMasterInFlight: Promise<{ siteConfig: SiteConfig; plans: PlanDefinition[]; subscribers: Subscriber[] }> | null = null;
+let lastSyncMasterFetch = 0;
+let lastSyncMasterResult: { siteConfig: SiteConfig; plans: PlanDefinition[]; subscribers: Subscriber[] } | null = null;
 
 /**
  * Sincroniza em segundo plano os dados mestres (SiteConfig, Planos e Assinantes)
  * com o banco de dados centralizado Supabase.
- * Usa Promise.allSettled para que a restrição de RLS em assinantes nunca impeça
- * o carregamento de configurações do site ou planos públicos.
+ * Usa Promise.allSettled, deduplicação em voo (in-flight) e cooldown para prevenir
+ * loops infinitos e exaustão de conexões HTTP (ERR_INSUFFICIENT_RESOURCES).
  */
 export async function syncMasterAdminFromCloud(): Promise<{
   siteConfig: SiteConfig;
   plans: PlanDefinition[];
   subscribers: Subscriber[];
 }> {
-  try {
-    const [siteResult, plansResult, subsResult] = await Promise.allSettled([
-      fetchCloudSiteConfig(),
-      fetchCloudPlans(),
-      fetchCloudSubscribers(),
-    ]);
-
-    const cloudSite = siteResult.status === 'fulfilled' ? siteResult.value : null;
-    const cloudPlans = plansResult.status === 'fulfilled' ? plansResult.value : null;
-    const cloudSubs = subsResult.status === 'fulfilled' ? subsResult.value : null;
-
-    let resolvedSite = getStoredSiteConfig();
-    if (cloudSite) {
-      resolvedSite = cloudSite;
-      if (typeof localStorage !== 'undefined') {
-        const serialized = JSON.stringify(cloudSite);
-        localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
-        localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
-        localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
-      }
-    }
-
-    let resolvedPlans = getStoredPlans();
-    if (cloudPlans && cloudPlans.length > 0) {
-      resolvedPlans = cloudPlans;
-      if (typeof localStorage !== 'undefined') {
-        const serialized = JSON.stringify(cloudPlans);
-        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
-        localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
-      }
-    }
-
-    let resolvedSubs = getStoredSubscribers();
-    if (cloudSubs && cloudSubs.length > 0) {
-      resolvedSubs = cloudSubs;
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cloudSubs));
-      }
-    }
-
-    notifyDataChanged();
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: resolvedPlans }));
-      window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: resolvedSite }));
-    }
-
-    return {
-      siteConfig: resolvedSite,
-      plans: resolvedPlans,
-      subscribers: resolvedSubs,
-    };
-  } catch (err) {
-    console.warn('Notice syncing master admin from cloud:', err);
-    return {
-      siteConfig: getStoredSiteConfig(),
-      plans: getStoredPlans(),
-      subscribers: getStoredSubscribers(),
-    };
+  const now = Date.now();
+  if (lastSyncMasterResult && now - lastSyncMasterFetch < 5000) {
+    return lastSyncMasterResult;
   }
+  if (syncMasterInFlight) {
+    return syncMasterInFlight;
+  }
+
+  syncMasterInFlight = (async () => {
+    try {
+      const [siteResult, plansResult, subsResult] = await Promise.allSettled([
+        fetchCloudSiteConfig(),
+        fetchCloudPlans(),
+        fetchCloudSubscribers(),
+      ]);
+
+      const cloudSite = siteResult.status === 'fulfilled' ? siteResult.value : null;
+      const cloudPlans = plansResult.status === 'fulfilled' ? plansResult.value : null;
+      const cloudSubs = subsResult.status === 'fulfilled' ? subsResult.value : null;
+
+      let resolvedSite = getStoredSiteConfig();
+      if (cloudSite) {
+        resolvedSite = cloudSite;
+        if (typeof localStorage !== 'undefined') {
+          const serialized = JSON.stringify(cloudSite);
+          localStorage.setItem(AGROCONTROL_SITE_SETTINGS_KEY, serialized);
+          localStorage.setItem(STORAGE_KEYS.LEGACY_LANDING_PAGE_SETTINGS, serialized);
+          localStorage.setItem(STORAGE_KEYS.LEGACY_SITE_CONFIG, serialized);
+        }
+      }
+
+      let resolvedPlans = getStoredPlans();
+      if (cloudPlans && cloudPlans.length > 0) {
+        resolvedPlans = cloudPlans;
+        if (typeof localStorage !== 'undefined') {
+          const serialized = JSON.stringify(cloudPlans);
+          localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+          localStorage.setItem(STORAGE_KEYS.LEGACY_PLANS, serialized);
+        }
+      }
+
+      let resolvedSubs = getStoredSubscribers();
+      if (cloudSubs && cloudSubs.length > 0) {
+        resolvedSubs = cloudSubs;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cloudSubs));
+        }
+      }
+
+      const result = {
+        siteConfig: resolvedSite,
+        plans: resolvedPlans,
+        subscribers: resolvedSubs,
+      };
+
+      lastSyncMasterFetch = Date.now();
+      lastSyncMasterResult = result;
+      return result;
+    } catch (err) {
+      console.warn('Notice syncing master admin from cloud:', err);
+      return {
+        siteConfig: getStoredSiteConfig(),
+        plans: getStoredPlans(),
+        subscribers: getStoredSubscribers(),
+      };
+    } finally {
+      syncMasterInFlight = null;
+    }
+  })();
+
+  return syncMasterInFlight;
 }
 
 export function getStoredAdminSettings(): AdminSettings {

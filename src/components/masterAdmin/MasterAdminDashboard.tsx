@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Users, 
   CheckCircle2, 
@@ -65,9 +65,6 @@ import {
   deleteCloudPlan,
   deleteCloudSubscriber,
   subscribeToCloudTable,
-  fetchCloudSubscribers,
-  fetchCloudPlans,
-  fetchCloudSiteConfig,
   updateCloudSubscriberStatus,
   upsertCloudSubscriber
 } from '../../lib/supabaseService';
@@ -162,97 +159,150 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
 
-  // Sincronização e Reatividade
-  useEffect(() => {
-    let isMounted = true;
+  // Comparador seguro para evitar loops de renderização desnecessários
+  const isDeepEqual = (a: any, b: any): boolean => {
+    if (a === b) return true;
+    try {
+      return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+      return false;
+    }
+  };
 
-    const handleSync = () => {
-      setSubscribers(getStoredSubscribers());
-      const freshConfig = getStoredSiteConfig();
-      setSiteConfig(freshConfig);
-      setPlans(getStoredPlans());
-      setSettings(getStoredAdminSettings());
-      syncMasterAdminFromCloud().then(cloudData => {
-        if (!isMounted) return;
-        if (cloudData.subscribers) setSubscribers(cloudData.subscribers);
-        if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
-        if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
-      }).catch(() => {});
+  // Setters protegidos contra re-renders idênticos
+  const updateSubscribersIfChanged = useCallback((newSubs: Subscriber[]) => {
+    if (!Array.isArray(newSubs)) return;
+    setSubscribers(prev => (isDeepEqual(prev, newSubs) ? prev : newSubs));
+  }, []);
+
+  const updateSiteConfigIfChanged = useCallback((newConfig: SiteConfig) => {
+    if (!newConfig) return;
+    setSiteConfig(prev => (isDeepEqual(prev, newConfig) ? prev : newConfig));
+  }, []);
+
+  const updatePlansIfChanged = useCallback((newPlans: PlanDefinition[]) => {
+    if (!Array.isArray(newPlans)) return;
+    setPlans(prev => (isDeepEqual(prev, newPlans) ? prev : newPlans));
+  }, []);
+
+  const updateSettingsIfChanged = useCallback((newSettings: AdminSettings) => {
+    if (!newSettings) return;
+    setSettings(prev => (isDeepEqual(prev, newSettings) ? prev : newSettings));
+  }, []);
+
+  // Refs para controle rigoroso de concorrência e cooldown de rede
+  const isSyncingRef = useRef(false);
+  const lastSyncTimeRef = useRef(0);
+  const syncDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Sincronização centralizada, debounced e com cooldown mínimo de 8s entre requisições
+  const triggerSafeCloudSync = useCallback(() => {
+    if (syncDebounceTimerRef.current) {
+      clearTimeout(syncDebounceTimerRef.current);
+    }
+    syncDebounceTimerRef.current = setTimeout(async () => {
+      const now = Date.now();
+      if (!isMountedRef.current || isSyncingRef.current || (now - lastSyncTimeRef.current < 8000)) {
+        return;
+      }
+      isSyncingRef.current = true;
+      try {
+        const cloudData = await syncMasterAdminFromCloud();
+        lastSyncTimeRef.current = Date.now();
+        if (!isMountedRef.current) return;
+        if (cloudData.subscribers && cloudData.subscribers.length > 0) {
+          updateSubscribersIfChanged(cloudData.subscribers);
+        }
+        if (cloudData.siteConfig) {
+          updateSiteConfigIfChanged(cloudData.siteConfig);
+        }
+        if (cloudData.plans && cloudData.plans.length > 0) {
+          updatePlansIfChanged(cloudData.plans);
+        }
+      } catch (err) {
+        console.warn('Aviso na sincronização do Supabase:', err);
+      } finally {
+        isSyncingRef.current = false;
+      }
+    }, 1200);
+  }, [updateSubscribersIfChanged, updateSiteConfigIfChanged, updatePlansIfChanged]);
+
+  // Sincronização e Reatividade Segura (Sem loop infinito / net::ERR_INSUFFICIENT_RESOURCES)
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    // Sincronização com dados locais do localStorage (sem requisições de rede)
+    const handleLocalSync = () => {
+      if (!isMountedRef.current) return;
+      updateSubscribersIfChanged(getStoredSubscribers());
+      updateSiteConfigIfChanged(getStoredSiteConfig());
+      updatePlansIfChanged(getStoredPlans());
+      updateSettingsIfChanged(getStoredAdminSettings());
     };
 
-    // Sincronização inicial com o Supabase Cloud
-    syncMasterAdminFromCloud().then(cloudData => {
-      if (!isMounted) return;
-      if (cloudData.subscribers) setSubscribers(cloudData.subscribers);
-      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
-      if (cloudData.plans && cloudData.plans.length > 0) setPlans(cloudData.plans);
-    });
+    // 1. Carga inicial única do Cloud com cooldown
+    triggerSafeCloudSync();
 
-    // Assinaturas Realtime para que novos cadastros na Landing Page ou alterações apareçam instantaneamente
+    // 2. Assinaturas Realtime consolidadas que alimentam a sincronização com debounce
     const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
-      fetchCloudSubscribers().then(freshSubs => {
-        if (freshSubs && isMounted) {
-          setSubscribers(freshSubs);
-        }
-      });
+      triggerSafeCloudSync();
     });
 
     const unsubSubs = subscribeToCloudTable('subscribers', () => {
-      fetchCloudSubscribers().then(freshSubs => {
-        if (freshSubs && isMounted) {
-          setSubscribers(freshSubs);
-        }
-      });
+      triggerSafeCloudSync();
     });
 
     const unsubPlans = subscribeToCloudTable('plans', () => {
-      fetchCloudPlans().then(freshPlans => {
-        if (freshPlans && freshPlans.length > 0 && isMounted) setPlans(freshPlans);
-      });
+      triggerSafeCloudSync();
     });
 
     const unsubSite = subscribeToCloudTable('site_settings', () => {
-      fetchCloudSiteConfig().then(freshSite => {
-        if (freshSite && isMounted) setSiteConfig(freshSite);
-      });
+      triggerSafeCloudSync();
     });
 
+    // 3. Gerenciamento de eventos de armazenamento entre abas
     const handleStorage = (e: StorageEvent) => {
       if (
         e.key === AGROCONTROL_PLANS_DATA_KEY ||
         e.key === 'silagem_master_plans_v1' ||
         e.key === AGROCONTROL_SITE_SETTINGS_KEY ||
         e.key === 'landingPageSettings' ||
-        e.key === 'silagem_master_site_config_v1'
+        e.key === 'silagem_master_site_config_v1' ||
+        e.key === 'silagem_master_subscribers_v1'
       ) {
-        handleSync();
+        handleLocalSync();
       }
     };
 
-    window.addEventListener('master_admin_data_changed', handleSync);
-    window.addEventListener('agrocontrol_site_settings_updated', handleSync);
-    window.addEventListener('landing_page_settings_updated', handleSync);
-    window.addEventListener('agrocontrol_plans_updated', handleSync);
+    window.addEventListener('master_admin_data_changed', handleLocalSync);
+    window.addEventListener('agrocontrol_site_settings_updated', handleLocalSync);
+    window.addEventListener('landing_page_settings_updated', handleLocalSync);
+    window.addEventListener('agrocontrol_plans_updated', handleLocalSync);
     window.addEventListener('storage', handleStorage);
+
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
+      if (syncDebounceTimerRef.current) {
+        clearTimeout(syncDebounceTimerRef.current);
+      }
       unsubAssinantes();
       unsubSubs();
       unsubPlans();
       unsubSite();
-      window.removeEventListener('master_admin_data_changed', handleSync);
-      window.removeEventListener('agrocontrol_site_settings_updated', handleSync);
-      window.removeEventListener('landing_page_settings_updated', handleSync);
-      window.removeEventListener('agrocontrol_plans_updated', handleSync);
+      window.removeEventListener('master_admin_data_changed', handleLocalSync);
+      window.removeEventListener('agrocontrol_site_settings_updated', handleLocalSync);
+      window.removeEventListener('landing_page_settings_updated', handleLocalSync);
+      window.removeEventListener('agrocontrol_plans_updated', handleLocalSync);
       window.removeEventListener('storage', handleStorage);
     };
-  }, []);
+  }, [triggerSafeCloudSync, updateSubscribersIfChanged, updateSiteConfigIfChanged, updatePlansIfChanged, updateSettingsIfChanged]);
 
-  // Sincroniza o formulário do site sempre que a aba 'site' for acessada
+  // Sincroniza o formulário do site apenas quando a aba 'site' for acessada e houver alteração real
   useEffect(() => {
     if (adminTab === 'site') {
       const freshConfig = getStoredSiteConfig();
-      setSiteForm(freshConfig);
+      setSiteForm(prev => (isDeepEqual(prev, freshConfig) ? prev : freshConfig));
     }
   }, [adminTab]);
 

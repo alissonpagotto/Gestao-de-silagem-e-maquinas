@@ -1767,13 +1767,21 @@ export function subscribeToCloudTable(
   }
 
   try {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedOnChange = (payload: any) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        onChange(payload);
+      }, 600);
+    };
+
     const channel = supabase
       .channel(`public:${tableName}_changes_${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: tableName },
         (payload) => {
-          onChange(payload);
+          debouncedOnChange(payload);
         }
       )
       .subscribe((status) => {
@@ -1786,6 +1794,7 @@ export function subscribeToCloudTable(
       });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       try {
         supabase.removeChannel(channel);
       } catch {}

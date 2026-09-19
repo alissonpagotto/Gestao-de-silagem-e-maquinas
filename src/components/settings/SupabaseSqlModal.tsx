@@ -69,12 +69,34 @@ CREATE TABLE IF NOT EXISTS public.contas_a_pagar (
     forma_pagamento TEXT,
     centro_custo TEXT, -- Vinculado à classificação obrigatória
     status_pago BOOLEAN NOT NULL DEFAULT false,
+    company_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_contas_a_pagar_nota_fiscal_id ON public.contas_a_pagar(nota_fiscal_id);
 CREATE INDEX IF NOT EXISTS idx_contas_a_pagar_vencimento ON public.contas_a_pagar(data_vencimento);
 CREATE INDEX IF NOT EXISTS idx_contas_a_pagar_status ON public.contas_a_pagar(status_pago);
+
+-- ==============================================================================
+-- 3.1. TABELA: contas_a_receber (Financeiro)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.contas_a_receber (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cliente_id UUID REFERENCES public.clientes(id) ON DELETE SET NULL,
+    cliente_nome TEXT NOT NULL,
+    descricao TEXT,
+    valor_total NUMERIC(15,2) NOT NULL,
+    data_emissao DATE DEFAULT CURRENT_DATE,
+    data_vencimento DATE NOT NULL,
+    forma_pagamento TEXT,
+    status_pago BOOLEAN NOT NULL DEFAULT false,
+    company_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_contas_a_receber_cliente ON public.contas_a_receber(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_contas_a_receber_vencimento ON public.contas_a_receber(data_vencimento);
+CREATE INDEX IF NOT EXISTS idx_contas_a_receber_status ON public.contas_a_receber(status_pago);
 
 -- ==============================================================================
 -- 4. TABELA: estoque
@@ -221,6 +243,7 @@ EXECUTE FUNCTION public.handle_updated_at();
 ALTER TABLE public.fornecedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notas_fiscais ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contas_a_pagar ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contas_a_receber ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.estoque ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_funcionarios ENABLE ROW LEVEL SECURITY;
@@ -242,6 +265,9 @@ BEGIN
 
     DROP POLICY IF EXISTS "Permissao Total Contas a Pagar" ON public.contas_a_pagar;
     CREATE POLICY "Permissao Total Contas a Pagar" ON public.contas_a_pagar FOR ALL USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Permissao Total Contas a Receber" ON public.contas_a_receber;
+    CREATE POLICY "Permissao Total Contas a Receber" ON public.contas_a_receber FOR ALL USING (true) WITH CHECK (true);
 
     DROP POLICY IF EXISTS "Permissao Total Estoque" ON public.estoque;
     CREATE POLICY "Permissao Total Estoque" ON public.estoque FOR ALL USING (true) WITH CHECK (true);
@@ -530,6 +556,9 @@ EXCEPTION
     WHEN OTHERS THEN
         NULL;
 END $$;
+
+-- Recarrega imediatamente o cache de rotas e tabelas da API REST do Supabase (evita erro 404)
+NOTIFY pgrst, 'reload schema';
 `;
 
 export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onClose }) => {
