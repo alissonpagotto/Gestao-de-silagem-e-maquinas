@@ -112,7 +112,8 @@ export const FleetDashboard: React.FC<FleetDashboardProps> = ({
         {/* Card 1: TOTAL DE VEÍCULOS */}
         <div 
           onClick={() => onNavigateSubtab('veiculos')}
-          className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-3.5 shadow-xs hover:border-blue-300 transition cursor-pointer group text-black dark:text-white"
+          className="crm-card bg-[#434141] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-3.5 shadow-xs hover:border-blue-300 transition cursor-pointer group text-black dark:text-white"
+          style={{ backgroundColor: '#434141' }}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black tracking-wider text-black dark:text-stone-300 uppercase">
