@@ -60,7 +60,7 @@ interface FleetModuleProps {
   onSaveInventory?: (inventory: InventoryItem[]) => void;
   onSaveServices?: (services: ServiceOrder[]) => void;
   onSaveOrders?: (orders: SilageOrder[]) => void;
-  onAddExpense?: (expense: Omit<Expense, 'id' | 'createdAt'>) => void;
+  onAddExpense?: (expense: any) => void;
 }
 
 export const FleetModule: React.FC<FleetModuleProps> = ({

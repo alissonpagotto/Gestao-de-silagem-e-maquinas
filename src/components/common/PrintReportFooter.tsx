@@ -1,5 +1,6 @@
 import React from 'react';
-import { formatDateBR } from '../../lib/storage';
+import { formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
+import { CompanyProfile } from '../../types';
 
 export interface PrintReportFooterProps {
   className?: string;
@@ -9,6 +10,11 @@ export interface PrintReportFooterProps {
   signatureLabels?: string[];
   companyName?: string;
   authCode?: string;
+  companyProfile?: CompanyProfile | null;
+  leftSignatureLabel?: string;
+  leftSignatureRole?: string;
+  rightSignatureLabel?: string;
+  rightSignatureRole?: string;
 }
 
 /**
@@ -24,26 +30,60 @@ export const PrintReportFooter: React.FC<PrintReportFooterProps> = ({
   pageText = 'Página 1 de 1',
   showSignatures = false,
   signatureLabels = ['Responsável Técnico / Mecânico', 'Gestor de Frota / Encarregado'],
-  companyName = 'Silagem Fácil ERP',
+  companyName,
   authCode,
+  companyProfile,
+  leftSignatureLabel,
+  leftSignatureRole,
+  rightSignatureLabel,
+  rightSignatureRole,
 }) => {
+  const profile = companyProfile || getStoredCompanyProfile();
+  const effectiveCompanyName =
+    companyName ||
+    profile?.tradeName ||
+    profile?.companyName ||
+    profile?.corporateName ||
+    'Silagem Fácil ERP';
+
   const now = new Date();
   const dateFormatted = formatDateBR(now.toISOString().split('T')[0]);
   const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const generatedAuth = authCode || `SF-${now.getTime().toString(36).toUpperCase()}`;
 
+  const hasSpecificDualSignatures = Boolean(leftSignatureLabel || rightSignatureLabel);
+
   return (
     <footer className={`print-corporate-footer w-full mt-6 pt-3 text-stone-600 print:text-black ${className}`}>
       {/* Assinaturas Opcionais */}
-      {showSignatures && signatureLabels && signatureLabels.length > 0 && (
-        <div className="mb-6 pt-4 grid grid-cols-2 gap-8 text-center text-xs page-break-inside-avoid break-inside-avoid">
-          {signatureLabels.map((label, idx) => (
-            <div key={idx} className="border-t-2 border-stone-800 pt-2">
-              <span className="font-bold text-stone-900 block text-xs">{label}</span>
-              <span className="text-[10px] text-stone-500 block mt-0.5">{companyName} • Data: ____/____/________</span>
+      {showSignatures && (
+        hasSpecificDualSignatures ? (
+          <div className="mb-6 pt-4 grid grid-cols-2 gap-8 text-center text-xs page-break-inside-avoid break-inside-avoid">
+            <div className="border-t-2 border-stone-800 pt-2">
+              <span className="font-bold text-stone-900 block text-xs">{leftSignatureLabel || 'Responsável'}</span>
+              {leftSignatureRole && (
+                <span className="text-[11px] text-stone-600 block mt-0.5">{leftSignatureRole}</span>
+              )}
+              <span className="text-[10px] text-stone-500 block mt-0.5">{effectiveCompanyName} • Data: ____/____/________</span>
             </div>
-          ))}
-        </div>
+            <div className="border-t-2 border-stone-800 pt-2">
+              <span className="font-bold text-stone-900 block text-xs">{rightSignatureLabel || 'Responsável'}</span>
+              {rightSignatureRole && (
+                <span className="text-[11px] text-stone-600 block mt-0.5">{rightSignatureRole}</span>
+              )}
+              <span className="text-[10px] text-stone-500 block mt-0.5">{effectiveCompanyName} • Data: ____/____/________</span>
+            </div>
+          </div>
+        ) : signatureLabels && signatureLabels.length > 0 ? (
+          <div className="mb-6 pt-4 grid grid-cols-2 gap-8 text-center text-xs page-break-inside-avoid break-inside-avoid">
+            {signatureLabels.map((label, idx) => (
+              <div key={idx} className="border-t-2 border-stone-800 pt-2">
+                <span className="font-bold text-stone-900 block text-xs">{label}</span>
+                <span className="text-[10px] text-stone-500 block mt-0.5">{effectiveCompanyName} • Data: ____/____/________</span>
+              </div>
+            ))}
+          </div>
+        ) : null
       )}
 
       {/* Linha Divisória Horizontal Sutil */}

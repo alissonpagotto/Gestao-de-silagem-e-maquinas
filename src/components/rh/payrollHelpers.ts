@@ -24,6 +24,9 @@ export interface EmployeeMonthCommissions {
   total: number;
   count: number;
   breakdown: CommissionItemBreakdown[];
+  totalCommission?: number;
+  servicesCount?: number;
+  referenceMonth?: string;
 }
 
 /**

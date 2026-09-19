@@ -1,18 +1,24 @@
 export interface CompanyProfile {
+  id?: string; // ID único (compatibilidade)
   companyId?: string; // ID da Empresa para sincronização multi-dispositivo
   corporateName: string; // Razão Social (ex: silagemteste02)
   tradeName: string; // Nome Fantasia (ex: Silagem Teste 02)
+  name?: string; // Nome / Razão Social (compatibilidade)
+  companyName?: string; // Nome da Empresa (compatibilidade)
+  cnpj?: string; // CNPJ (compatibilidade)
   cnpjCpf: string; // CNPJ / CPF (ex: 578.722.222-2)
   stateRegistration?: string; // Inscrição Estadual
   phone: string; // Telefone de Contato (ex: (22) 22222-2888)
   email: string; // E-mail Comercial (ex: silagemteste02@gmail.com)
   loginEmail?: string; // E-mail de Login
   zipCode: string; // CEP (ex: 85680-000)
+  cep?: string; // CEP (compatibilidade)
   address: string; // Endereço (ex: sem estrada)
   number: string; // Número (ex: sn)
   neighborhood: string; // Bairro (ex: sem bairro)
   city: string; // Cidade (ex: Boa Esperança do Iguaçu)
   state: string; // Estado UF (ex: PR)
+  planName?: string; // Nome do Plano (ex: Produtor Essencial)
   logoUrl?: string; // Logotipo da Empresa (data URL or image URL)
   activitySector?: string; // GESTÃO AGRÍCOLA
   representativeName?: string; // Nome do Representante Responsável
@@ -58,6 +64,7 @@ export interface Expense {
   categoryId: string;
   categoryName: string;
   categoryColor: string;
+  category?: string; // Categoria (compatibilidade)
   dueDate: string; // YYYY-MM-DD
   paymentDate?: string; // YYYY-MM-DD
   status: ExpenseStatus;
@@ -152,6 +159,8 @@ export interface SilageOrder {
   farmName: string;
   productType: 'Milho Grão Úmido' | 'Milho Planta Inteira' | 'Sorgo Forrageiro' | 'Capiaçu' | 'Aveia / Azevém';
   tons: number;
+  quantityTons?: number; // Qtd em toneladas (compatibilidade)
+  date?: string; // Data do pedido (compatibilidade)
   pricePerTon: number;
   totalAmount: number;
   deliveryDate: string;
@@ -176,14 +185,18 @@ export interface Machinery {
   year?: number;
   renavam?: string; // RENAVAM
   color?: string; // Cor do veículo
+  plate?: string; // Placa do veículo (compatibilidade)
+  type?: string; // Tipo do veículo/máquina (compatibilidade)
   fleetNumber?: string; // Nº da Frota / Prefixo / Código Interno
   ownership?: 'proprio' | 'terceirizado' | 'alugado' | 'arrendado' | string; // Propriedade / Regime
   capacityM3?: number; // Capacidade de Carga / Caçamba em m³
   hourMeter?: number; // Horímetro atual
+  currentHourMeter?: number; // Horímetro atual (compatibilidade)
   currentKm?: number; // Odômetro KM atual
   averageConsumptionLitersPerHour?: number; // Média de consumo calculada em Litros/Hora (L/h)
   averageConsumptionKmPerLiter?: number; // Média de consumo calculada em Km/Litro (km/L)
   licensePlateOrSerial?: string;
+  plateOrSerial?: string; // Placa ou Número de Série (compatibilidade)
   status: 'operacional' | 'em_manutencao' | 'parado' | 'disponivel';
   lastMaintenanceDate?: string;
   operatorOrDriver?: string; // Responsável / Motoristas (texto compilado para compatibilidade)
@@ -366,6 +379,7 @@ export interface FleetTeam {
   machineryId?: string; // Máquina vinculada (opcional)
   machineryName?: string;
   leaderId?: string; // Líder / Encarregado
+  leaderName?: string; // Nome do Líder (compatibilidade)
   notes?: string;
   order?: number;
   createdAt?: string;
@@ -431,6 +445,8 @@ export interface InventoryItem {
   promoMargin?: number; // % Promo. (Margem de lucro para Promoção)
   promoPrice?: number; // Preço Promocional (V. Promo)
   maxQuantity?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ServiceOrder {
@@ -439,17 +455,21 @@ export interface ServiceOrder {
   clientName: string;
   clientId?: string;
   farmName?: string;
+  farmLocation?: string; // Localização da fazenda (compatibilidade)
   serviceType: 'Ensilagem' | 'Colheita' | 'Plantio' | 'Pulverização' | 'Preparo de Solo' | 'Compactação de Silo' | 'Transporte / Frete' | string;
   serviceTab?: string;
   areaHectares?: number;
   tonsEstimated?: number;
+  tonsHarvested?: number; // Toneladas colhidas (compatibilidade)
+  hoursWorked?: number; // Horas trabalhadas (compatibilidade)
   densityKg?: number; // Peso por m³ (Kg) da silagem para cubagem
   weightPerM3Kg?: number; // Peso por m³ (Kg)
   ratePerUnit: number;
   totalAmount: number;
   startDate: string;
+  date?: string; // Data do serviço (compatibilidade)
   completionDate?: string;
-  status: 'agendado' | 'em_andamento' | 'concluido' | 'cancelado';
+  status: 'agendado' | 'em_andamento' | 'concluido' | 'cancelado' | 'finalizado';
   machineryId?: string;
   machineryAssigned?: string;
   operatorId?: string;
@@ -607,10 +627,13 @@ export interface CropSeason {
   id: string;
   name: string; // Ex: "Safra Verão 2025/2026"
   crop: string; // "Milho", "Sorgo"
+  cropType?: string; // Tipo de cultura (compatibilidade)
   plantedHectares: number;
+  totalAreaHectares?: number; // Área total em hectares (compatibilidade)
   estimatedTons: number;
+  totalProductionTons?: number; // Produção total em toneladas (compatibilidade)
   harvestedTons?: number;
-  status: 'planejamento' | 'plantio' | 'desenvolvimento' | 'colheita' | 'finalizada';
+  status: 'planejamento' | 'plantio' | 'desenvolvimento' | 'colheita' | 'finalizada' | 'em_andamento' | 'planejada';
   startDate: string;
   endDate?: string;
 }
@@ -620,10 +643,13 @@ export interface FuelLog {
   date: string; // YYYY-MM-DD
   machineryId: string;
   machineryPlateOrName: string;
+  vehicleName?: string; // Nome do veículo (compatibilidade)
+  vehiclePlate?: string; // Placa do veículo (compatibilidade)
   fuelType: 'Diesel S10' | 'Diesel Comum' | 'Arla 32' | 'Gasolina' | 'Etanol';
   liters: number;
   pricePerLiter: number;
   totalAmount: number;
+  totalCost?: number; // Custo total (compatibilidade)
   currentHourMeterOrKm: number;
   previousHourMeterOrKm?: number;
   currentKm?: number;
@@ -634,6 +660,7 @@ export interface FuelLog {
   averageKmPerLiter?: number; // Média calculada desta abastecida em km/L
   averageLitersPerHour?: number; // Média calculada desta abastecida em L/h
   driverOrOperator?: string;
+  driverName?: string; // Nome do motorista (compatibilidade)
   driverIds?: string[];
   supplierStation?: string; // Posto / Fazenda
   notes?: string;
@@ -755,6 +782,8 @@ export interface MaintenancePurchaseRequest {
 export interface MaintenanceLog {
   id: string;
   osNumber?: string; // Ex: OS-2026-0012
+  orderNumber?: string; // Número da OS / Pedido (compatibilidade)
+  title?: string; // Título da Manutenção (compatibilidade)
   date: string; // YYYY-MM-DD
   completionDate?: string; // Previsão de Término / Conclusão (Data)
   machineryId: string;
@@ -777,13 +806,16 @@ export interface MaintenanceLog {
   executorName?: string; // Nome do mecânico/operador/oficina
   description: string;
   workshopOrMechanic: string;
+  workshop?: string; // Oficina (compatibilidade)
   partsOriginSummary?: 'almoxarifado' | 'externo' | 'misto' | 'sem_pecas';
   partsItems?: MaintenancePartItem[];
+  partsList?: any[]; // Lista de peças (compatibilidade)
   laborItems?: MaintenanceLaborItem[];
   partsCost: number;
   laborCost: number;
   totalCost: number;
   currentHourMeterOrKm: number;
+  hourMeterOrKmAtService?: number; // Horímetro/KM no serviço (compatibilidade)
   nextServiceDueHourMeterOrKm?: number;
   status: 'concluida' | 'em_andamento' | 'agendada' | 'aguardando_pecas' | 'cancelada';
   nfeLink?: MaintenanceNfeLink;
@@ -813,6 +845,7 @@ export interface CorporateCard {
 export interface BankAccount {
   id: string;
   name: string;
+  accountName?: string; // Nome da conta (compatibilidade)
   bankName: string;
   bankCode?: string;
   accountType: 'corrente' | 'poupanca' | 'aplicacao' | 'caixa_fisico';
@@ -820,6 +853,7 @@ export interface BankAccount {
   accountNumber?: string;
   accountDigit?: string;
   balance: number;
+  currentBalance?: number; // Saldo atual (compatibilidade)
   overdraftLimit?: number;
   pixKey?: string;
   pixKeyType?: 'cpf' | 'cnpj' | 'phone' | 'email' | 'random';

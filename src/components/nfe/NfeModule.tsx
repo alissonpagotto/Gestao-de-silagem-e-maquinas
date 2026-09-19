@@ -96,7 +96,9 @@ interface ParsedNfeData {
   totalAmount: number;
   productsAmount?: number;
   issueDate: string;
+  entryDate?: string;
   dueDate?: string;
+  operationNature?: string;
   paymentMethod?: PaymentMethod;
   installments?: ParsedNfeInstallment[];
   itemsSummary: string;

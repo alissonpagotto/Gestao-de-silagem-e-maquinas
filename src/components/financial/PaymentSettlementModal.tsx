@@ -25,7 +25,7 @@ export interface PaymentSettlementData {
   paidByEmployeeName: string;
   bankAccountId: string;
   bankAccountName: string;
-  creditSupplier: string;
+  creditSupplier?: string;
   paymentMethod: PaymentMethod;
   authenticationCode?: string;
   notes?: string;

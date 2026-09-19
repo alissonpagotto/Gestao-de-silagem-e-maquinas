@@ -78,6 +78,7 @@ interface FinancialSummaryProps {
   onSaveBankAccounts?: (accounts: BankAccount[]) => void;
   onSaveBankTransactions?: (transactions: BankTransaction[]) => void;
   onSaveExpenses?: (expenses: Expense[]) => void;
+  onSettlePayment?: (expenseId: string, settlementData: any) => void;
   onSettleExpense?: (params: {
     expenseId: string;
     paymentDate: string;
@@ -427,10 +428,16 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
   const currentMonthRevenue = useMemo(() => {
     const ordersRev = orders
-      .filter((o) => o.date >= currentMonthStart && o.date <= currentMonthEnd)
+      .filter((o) => {
+        const d = o.date || o.deliveryDate || o.createdAt || '';
+        return d >= currentMonthStart && d <= currentMonthEnd;
+      })
       .reduce((acc, curr) => acc + curr.totalAmount, 0);
     const servicesRev = services
-      .filter((s) => s.date >= currentMonthStart && s.date <= currentMonthEnd)
+      .filter((s) => {
+        const d = s.date || s.startDate || (s as any).createdAt || '';
+        return d >= currentMonthStart && d <= currentMonthEnd;
+      })
       .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
     return ordersRev + servicesRev;
   }, [orders, services, currentMonthStart, currentMonthEnd]);
@@ -446,10 +453,16 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   // Filter Data for Filtered Period (Row 2)
   const periodRevenue = useMemo(() => {
     const ordersRev = orders
-      .filter((o) => (!startDate || o.date >= startDate) && (!endDate || o.date <= endDate))
+      .filter((o) => {
+        const d = o.date || o.deliveryDate || o.createdAt || '';
+        return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+      })
       .reduce((acc, curr) => acc + curr.totalAmount, 0);
     const servicesRev = services
-      .filter((s) => (!startDate || s.date >= startDate) && (!endDate || s.date <= endDate))
+      .filter((s) => {
+        const d = s.date || s.startDate || (s as any).createdAt || '';
+        return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+      })
       .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
     return ordersRev + servicesRev;
   }, [orders, services, startDate, endDate]);

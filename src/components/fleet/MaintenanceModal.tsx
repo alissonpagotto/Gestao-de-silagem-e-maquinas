@@ -41,6 +41,7 @@ import {
   InventoryItem, 
   Supplier, 
   Employee,
+  CompanyProfile,
   MaintenanceLocation,
   MaintenanceExecutorType,
   MaintenancePartItem,
@@ -136,6 +137,7 @@ interface MaintenanceModalProps {
   inventory?: InventoryItem[];
   suppliers?: Supplier[];
   employees?: Employee[];
+  companyProfile?: CompanyProfile;
 }
 
 export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
@@ -147,6 +149,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   inventory = [],
   suppliers = [],
   employees = [],
+  companyProfile,
 }) => {
   // Active subtab inside modal for clean navigation
   const [activeTab, setActiveTab] = useState<'geral' | 'pecas' | 'fiscal_financeiro'>('geral');

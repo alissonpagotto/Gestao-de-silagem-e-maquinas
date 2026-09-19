@@ -70,7 +70,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       }
       // Check structured assignedDrivers array if available
       if (m.assignedDrivers && Array.isArray(m.assignedDrivers)) {
-        if (m.assignedDrivers.some(d => d.id === driver.id || d.name?.trim().toLowerCase() === driverNameLower)) {
+        if (m.assignedDrivers.some((d: any) => (typeof d === 'object' ? d?.id === driver.id || d?.name?.trim().toLowerCase() === driverNameLower : String(d).trim().toLowerCase() === driverNameLower))) {
           return true;
         }
       }
@@ -92,9 +92,13 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
         });
       }
       if (m.assignedDrivers && Array.isArray(m.assignedDrivers)) {
-        m.assignedDrivers.forEach(d => {
-          if (d.id) linkedEmployeeIds.add(d.id);
-          if (d.name) linkedEmployeeNames.add(d.name.trim().toLowerCase());
+        m.assignedDrivers.forEach((d: any) => {
+          if (typeof d === 'object' && d !== null) {
+            if (d.id) linkedEmployeeIds.add(d.id);
+            if (d.name) linkedEmployeeNames.add(d.name.trim().toLowerCase());
+          } else if (typeof d === 'string') {
+            linkedEmployeeNames.add(d.trim().toLowerCase());
+          }
         });
       }
     });

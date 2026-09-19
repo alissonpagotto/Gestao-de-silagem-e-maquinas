@@ -68,8 +68,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     id: o.id,
     type: 'Venda de Silagem' as const,
     clientName: o.clientName,
-    date: o.date,
-    dueDate: o.date, // In silage operations usually settlement on delivery
+    date: o.date || o.deliveryDate || o.createdAt || '',
+    dueDate: o.date || o.deliveryDate || o.createdAt || '', // In silage operations usually settlement on delivery
     volume: `${o.tons} tons`,
     totalAmount: o.totalAmount,
     status: o.paymentStatus === 'pago' ? ('pago' as const) : ('pendente' as const),
@@ -80,11 +80,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     id: s.id,
     type: 'Prestação de Serviço' as const,
     clientName: s.clientName,
-    date: s.date,
-    dueDate: s.date,
+    date: s.date || s.startDate || (s as any).createdAt || '',
+    dueDate: s.date || s.startDate || (s as any).createdAt || '',
     volume: `${s.tonsHarvested || 0} tons / ${s.hoursWorked || 0} hrs`,
     totalAmount: s.totalAmount || 0,
-    status: s.status === 'finalizado' ? ('pago' as const) : ('pendente' as const),
+    status: s.status === 'finalizado' || s.status === 'concluido' ? ('pago' as const) : ('pendente' as const),
     notes: s.farmLocation || '',
   }));
 

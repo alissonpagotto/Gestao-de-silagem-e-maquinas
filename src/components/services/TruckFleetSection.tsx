@@ -992,7 +992,7 @@ export const TruckFleetSection: React.FC<TruckFleetSectionProps> = ({
                                 driverCommissionRate: rateVal === '' ? 0 : rateVal,
                               }, pesoPorM3);
                               onUpdateTruck(truck.id, {
-                                driverCommissionRate: rateVal,
+                                driverCommissionRate: rateVal === '' ? undefined : rateVal,
                                 driverCommission: comm.total,
                               });
                             }}

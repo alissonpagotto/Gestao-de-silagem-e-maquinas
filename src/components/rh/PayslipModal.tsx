@@ -121,7 +121,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
   // 1. Apuração detalhada das Ordens de Serviço / Comissões
   const resolvedCommissions = useMemo(() => {
-    if (!payroll) return { totalCommission: 0, servicesCount: 0, breakdown: [] };
+    if (!payroll) return { total: 0, count: 0, totalCommission: 0, servicesCount: 0, breakdown: [] };
     if (commissionsInfo) return commissionsInfo;
     const srvs = services || getStoredServices();
     const emps = allEmployees || (employee ? [employee] : []);

@@ -116,7 +116,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   >('preventiva');
   const [maintenanceMachineryId, setMaintenanceMachineryId] = useState('');
   const [maintenanceHourMeter, setMaintenanceHourMeter] = useState('');
-  const [status, setStatus] = useState<'agendado' | 'em_andamento' | 'concluido' | 'cancelado'>('agendado');
+  const [status, setStatus] = useState<'agendado' | 'em_andamento' | 'concluido' | 'cancelado' | 'finalizado'>('agendado');
 
   // Estados da Aba 1: Seleção de Equipamentos & Regras de Cobrança (Serviços e Aluguel de Máquinas/Caminhões/Fretes)
   const [equipmentCategory, setEquipmentCategory] = useState<'pesadas' | 'caminhoes'>('pesadas');
@@ -381,7 +381,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         ? editRecord.forageCommissionMode
         : 'tambor';
       setModoComissaoForrageira(fMode);
-      if (editRecord.forageCommissionBase !== undefined && editRecord.forageCommissionBase !== '') {
+      if (editRecord.forageCommissionBase !== undefined && (editRecord.forageCommissionBase as any) !== '') {
         setQtdBaseComissaoForrageira(editRecord.forageCommissionBase);
       } else {
         setQtdBaseComissaoForrageira(
@@ -1335,7 +1335,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         ? (truckServiceId || undefined)
         : activeTab === 'maquina'
         ? (equipmentCategory === 'caminhoes' ? (truckServiceId || undefined) : (machineries.find((m) => (m.name || m.model) === heavyMachineType)?.id || undefined))
-        : (activeTab === 'maquina' && maintenanceMachineryId ? maintenanceMachineryId : editRecord?.machineryId),
+        : editRecord?.machineryId,
       machineryAssigned: isFreight
         ? (truckServiceName || 'Caminhão')
         : activeTab === 'maquina'
@@ -3494,7 +3494,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
             )}
 
             {/* NOVO BLOCO: AGENCIADOR / INTERMEDIAÇÃO */}
-            {(activeTab === 'corte' || activeTab === 'colheita' || activeTab === 'plantio' || activeTab === 'pulverizacao') && (
+            {((activeTab as string) === 'corte' || (activeTab as string) === 'colheita' || (activeTab as string) === 'plantio' || (activeTab as string) === 'pulverizacao') && (
               <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
                   <div className="flex items-center gap-2">
@@ -4240,7 +4240,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           unidadeAreaLabel={unidadeArea === 'hectares' ? 'Hectares (ha)' : unidadeArea === 'alqueires' ? 'Alqueires (alq)' : 'Horas (h)'}
           quantidadeArea={quantidadeArea}
           valorBaseArea={valorBaseArea}
-          valorHectare={valorPorHectare}
+          valorHectare={typeof valorPorHectare === 'number' ? valorPorHectare : (Number(valorPorHectare) || '')}
           horasTambor={horasTambor}
           horasMotor={horasMotor}
           forageHarvesterName={forrageiraNome || machineries.find((m) => m.id === forrageiraId)?.name}

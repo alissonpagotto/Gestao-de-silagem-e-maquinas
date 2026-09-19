@@ -7,6 +7,8 @@ export interface PrintReportHeaderProps {
   companyProfile?: CompanyProfile | null;
   reportTitle?: string;
   reportSubtitle?: string;
+  title?: string;
+  subtitle?: string;
   documentTypeBadge?: string;
   className?: string;
   showDivider?: boolean;
@@ -23,10 +25,14 @@ export const PrintReportHeader: React.FC<PrintReportHeaderProps> = ({
   companyProfile,
   reportTitle,
   reportSubtitle,
+  title,
+  subtitle,
   documentTypeBadge,
   className = '',
   showDivider = true,
 }) => {
+  const finalTitle = reportTitle || title;
+  const finalSubtitle = reportSubtitle || subtitle;
   const company = companyProfile || getStoredCompanyProfile();
 
   const tradeName =
@@ -77,14 +83,14 @@ export const PrintReportHeader: React.FC<PrintReportHeaderProps> = ({
 
         {/* CENTRO: Título do Laudo / OS e Subtítulo (Col 4-8) */}
         <div className="md:col-span-5 text-left md:text-center flex flex-col justify-center">
-          {reportTitle && (
+          {finalTitle && (
             <div>
               <h2 className="text-base sm:text-lg font-black text-stone-900 uppercase tracking-tight font-['Outfit'] leading-snug">
-                {reportTitle}
+                {finalTitle}
               </h2>
-              {reportSubtitle && (
+              {finalSubtitle && (
                 <p className="text-xs text-stone-600 font-semibold mt-1 leading-relaxed">
-                  {reportSubtitle}
+                  {finalSubtitle}
                 </p>
               )}
             </div>

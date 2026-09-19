@@ -45,7 +45,7 @@ export const FinancialExportTab: React.FC<FinancialExportTabProps> = ({
     } else if (type === 'receitas') {
       csvContent += 'Data,Cliente,Toneladas,ValorTotal,StatusPagamento,Observacoes\n';
       orders.forEach((o) => {
-        csvContent += `"${o.date}","${o.clientName}",${o.tons},${o.totalAmount},"${o.paymentStatus}","${o.notes || ''}"\n`;
+        csvContent += `"${o.date || o.deliveryDate || o.createdAt}","${o.clientName}",${o.tons},${o.totalAmount},"${o.paymentStatus}","${o.notes || ''}"\n`;
       });
     } else if (type === 'terceiros') {
       csvContent += 'Data,Terceiro,Funcao,Descricao,Bruto,Deducoes,Liquido,Status\n';
