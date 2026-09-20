@@ -70,6 +70,7 @@ import {
   updateCloudSubscriberStatus,
   upsertCloudSubscriber,
   upsertCloudPlan,
+  upsertCloudSiteConfig,
   sanitizePlanId,
   normalizeSubscriberPlanKey,
   getSubscriberPlanDisplayName,
@@ -883,6 +884,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         localStorage.setItem('landingPageSettings', serialized);
       }
       saveStoredSiteConfig(siteForm);
+
+      // Sincronização em nuvem via Supabase (site_settings)
+      upsertCloudSiteConfig(siteForm).catch((cloudErr) => {
+        console.warn('Aviso ao sincronizar site_settings com a nuvem:', cloudErr);
+      });
 
       // 3. Notificação global de sincronização para a Landing Page
       if (typeof window !== 'undefined') {
@@ -1900,6 +1906,35 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <span>Configurações da Landing Page salvas com sucesso!</span>
               </div>
             )}
+
+            {/* BLOCO: PERÍODO DE TESTE GRÁTIS (TRIAL) */}
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <span>Período de Teste Grátis (Trial)</span>
+                  </h3>
+                  <p className="text-[11px] text-[#8a92a6] mt-0.5">
+                    Oferecer Período de Teste Grátis na Página de Vendas. Quando ativado, exibe botões com chamada para teste grátis (7d / 15d). Quando desativado, remove os testes grátis e orienta os botões diretamente para &quot;Começar Agora&quot; ou contratação direta.
+                  </p>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    id="toggle-allow-free-trial"
+                    checked={siteForm.allow_free_trial ?? true}
+                    onChange={(e) => setSiteForm({ ...siteForm, allow_free_trial: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-[#1a1d24] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 border border-[#2f3644]"></div>
+                  <span className="ml-3 text-xs font-bold text-white whitespace-nowrap">
+                    {siteForm.allow_free_trial ?? true ? 'Ativado (Com Teste Grátis)' : 'Desativado (Sem Teste Grátis)'}
+                  </span>
+                </label>
+              </div>
+            </div>
 
             {/* BLOCO HERO */}
             <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">

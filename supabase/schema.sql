@@ -334,9 +334,13 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
     feature3_desc TEXT,
     feature4_title TEXT,
     feature4_desc TEXT,
+    allow_free_trial BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migração para tabela site_settings existente
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS allow_free_trial BOOLEAN DEFAULT true;
 
 -- ==============================================================================
 -- 9. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa

@@ -29,6 +29,7 @@ export interface SiteConfig {
   companyName?: string;
   primaryColor?: string;
   maintenanceMode?: boolean;
+  allow_free_trial?: boolean; // PERÍODO DE TESTE GRÁTIS ATIVO NA LANDING PAGE
 
   // Bloco Hero
   heroTitle: string; // TÍTULO PRINCIPAL (H1)

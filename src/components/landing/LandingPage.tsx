@@ -363,10 +363,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   }, []);
 
   // Objeto de Configuração Dinâmica com Fallbacks Protegidos (valores originais do agro)
+  const allowFreeTrial = siteConfig?.allow_free_trial !== undefined 
+    ? Boolean(siteConfig.allow_free_trial) 
+    : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true);
+
   const currentSettings = {
+    allowFreeTrial,
     heroTitle: siteConfig?.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
     heroSubtitle: siteConfig?.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
-    heroPrimaryBtnText: siteConfig?.heroPrimaryBtnText || DEFAULT_SITE_CONFIG.heroPrimaryBtnText,
+    heroPrimaryBtnText: siteConfig?.heroPrimaryBtnText || (allowFreeTrial ? 'Começar Teste Grátis de 7 Dias' : 'Começar Agora'),
     heroSecondaryBtnText: siteConfig?.heroSecondaryBtnText || DEFAULT_SITE_CONFIG.heroSecondaryBtnText,
     heroBackgroundImage: siteConfig?.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png',
     featuresSectionTitle: siteConfig?.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
@@ -473,11 +478,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {onNavigateToAuth && (
               <button
                 type="button"
+                id="btn-nav-signup"
                 onClick={() => onNavigateToAuth(undefined, 'signup')}
                 className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5 min-h-[44px]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Criar Conta (15d Grátis)</span>
+                <span>{currentSettings.allowFreeTrial ? 'Criar Conta (15d Grátis)' : 'Começar Agora'}</span>
               </button>
             )}
             <button
@@ -535,6 +541,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {onNavigateToAuth && (
                 <button
                   type="button"
+                  id="btn-mobile-nav-signup"
                   onClick={() => {
                     setIsMobileNavOpen(false);
                     onNavigateToAuth(undefined, 'signup');
@@ -542,7 +549,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm flex items-center justify-center gap-2 min-h-[44px]"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>Criar Conta (15d Grátis)</span>
+                  <span>{currentSettings.allowFreeTrial ? 'Criar Conta (15d Grátis)' : 'Começar Agora'}</span>
                 </button>
               )}
               <button
@@ -760,7 +767,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Escolha o plano ideal para a sua operação
             </h2>
             <p className="text-xs sm:text-sm text-stone-400">
-              Comece com 7 dias grátis de teste. Cancele ou altere de plano a qualquer momento sem burocracia.
+              {currentSettings.allowFreeTrial
+                ? 'Comece com 7 dias grátis de teste. Cancele ou altere de plano a qualquer momento sem burocracia.'
+                : 'Contratação imediata sem burocracia. Altere ou cancele seu plano a qualquer momento.'}
             </p>
           </div>
 
@@ -867,10 +876,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {onNavigateToAuth && (
               <button
                 type="button"
+                id="btn-footer-signup"
                 onClick={() => onNavigateToAuth(undefined, 'signup')}
                 className="text-emerald-400 font-bold hover:underline transition cursor-pointer"
               >
-                Criar Conta (15 Dias Grátis)
+                {currentSettings.allowFreeTrial ? 'Criar Conta (15 Dias Grátis)' : 'Começar Agora'}
               </button>
             )}
             <button

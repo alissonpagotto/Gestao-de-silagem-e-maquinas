@@ -38,6 +38,7 @@ const STORAGE_KEYS = {
 // 1. DADOS INICIAIS DO SITE (LANDING PAGE)
 // ==========================================
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
+  allow_free_trial: true, // Por padrão, teste grátis ativo
   heroTitle: 'Gestão Inteligente para Prestadores de Silagem e Grãos',
   heroSubtitle: 'O ERP definitivo para controle de frotas agrícolas, ordens de serviço, pesagens, operadores e lucratividade safra a safra.',
   heroPrimaryBtnText: 'Começar Teste Grátis de 7 Dias',
@@ -238,6 +239,7 @@ export function getStoredSiteConfig(): SiteConfig {
     }
     const parsed = JSON.parse(raw);
     return {
+      allow_free_trial: parsed.allow_free_trial !== undefined ? Boolean(parsed.allow_free_trial) : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true),
       heroTitle: parsed.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
       heroSubtitle: parsed.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
       heroPrimaryBtnText: parsed.heroPrimaryBtnText || DEFAULT_SITE_CONFIG.heroPrimaryBtnText,

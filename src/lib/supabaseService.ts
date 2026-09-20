@@ -1158,6 +1158,7 @@ export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
       companyName: data.company_name || 'AgroControl Silagem',
       primaryColor: data.primary_color || '#16a34a',
       maintenanceMode: Boolean(data.maintenance_mode),
+      allow_free_trial: data.allow_free_trial !== undefined ? Boolean(data.allow_free_trial) : true,
       heroTitle: data.hero_title || '',
       heroSubtitle: data.hero_subtitle || '',
       heroPrimaryBtnText: data.hero_primary_btn_text || '',
@@ -1192,6 +1193,7 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.companyName !== undefined) payload.company_name = config.companyName;
     if (config.primaryColor !== undefined) payload.primary_color = config.primaryColor;
     if (config.maintenanceMode !== undefined) payload.maintenance_mode = config.maintenanceMode;
+    if (config.allow_free_trial !== undefined) payload.allow_free_trial = config.allow_free_trial;
     if (config.heroTitle !== undefined) payload.hero_title = config.heroTitle;
     if (config.heroSubtitle !== undefined) payload.hero_subtitle = config.heroSubtitle;
     if (config.heroPrimaryBtnText !== undefined) payload.hero_primary_btn_text = config.heroPrimaryBtnText;
@@ -1209,9 +1211,18 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.feature4Title !== undefined) payload.feature4_title = config.feature4Title;
     if (config.feature4Desc !== undefined) payload.feature4_desc = config.feature4Desc;
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('site_settings')
       .upsert(payload, { onConflict: 'id' });
+
+    // Fallback resiliente: se a coluna allow_free_trial ainda não tiver sido criada no Supabase via migração, remove-a do payload e salva o restante
+    if (error && (error.message?.includes('allow_free_trial') || error.details?.includes('allow_free_trial'))) {
+      delete payload.allow_free_trial;
+      const retry = await supabase
+        .from('site_settings')
+        .upsert(payload, { onConflict: 'id' });
+      error = retry.error;
+    }
 
     if (error) {
       if (isTableMissingError(error)) {

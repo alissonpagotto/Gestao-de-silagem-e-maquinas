@@ -259,6 +259,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
 
+  const allowFreeTrial = siteConfig.allow_free_trial !== undefined 
+    ? Boolean(siteConfig.allow_free_trial) 
+    : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true);
+
   // Parâmetros da URL: ?mode=signup &plan=plano-pro &paid=true
   const [mode, setMode] = useState<'signup' | 'login'>(() => {
     if (typeof window === 'undefined') return 'signup';
@@ -297,6 +301,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     // Busca direta dos planos oficiais atualizados no Supabase
     const fetchDirectPlansFromSupabase = async () => {
       try {
+        fetchCloudSiteConfig().then((cloudCfg) => {
+          if (!isMounted || !cloudCfg) return;
+          setSiteConfig(cloudCfg);
+        });
+
         let { data, error } = await supabase
           .from('plans')
           .select('*')
@@ -1027,7 +1036,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           <div className="text-center space-y-2 mb-8">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/70 border border-emerald-800/70 text-emerald-400 text-xs font-black backdrop-blur-sm shadow-md">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{mode === 'signup' ? 'Teste Grátis de 15 Dias • Sem Compromisso' : 'Acesso Seguro ao Painel'}</span>
+              <span>
+                {mode === 'signup' 
+                  ? (allowFreeTrial ? 'Teste Grátis de 15 Dias • Sem Compromisso' : 'Contratação Direta • Começar Agora') 
+                  : 'Acesso Seguro ao Painel'}
+              </span>
             </div>
             
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-sm">
@@ -1053,7 +1066,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       : 'text-stone-400 hover:text-white'
                   }`}
                 >
-                  Criar Nova Empresa (15d Grátis)
+                  {allowFreeTrial ? 'Criar Nova Empresa (15d Grátis)' : 'Criar Nova Empresa'}
                 </button>
                 <button
                   type="button"
@@ -1442,11 +1455,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Criando sua empresa e ativando teste...</span>
+                      <span>{allowFreeTrial ? 'Criando sua empresa e ativando teste...' : 'Criando sua empresa e inicializando...'}</span>
                     </>
                   ) : (
                     <>
-                      <span>Cadastrar e Iniciar Teste Grátis de 15 Dias</span>
+                      <span>{allowFreeTrial ? 'Cadastrar e Iniciar Teste Grátis de 15 Dias' : 'Cadastrar Empresa e Começar Agora'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
