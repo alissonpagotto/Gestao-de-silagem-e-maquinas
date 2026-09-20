@@ -60,6 +60,126 @@ const BRAZILIAN_STATES = [
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+/**
+ * Converte um registro vindo diretamente da tabela 'plans' do Supabase para o tipo PlanDefinition
+ */
+function mapSupabasePlanRow(row: any): PlanDefinition {
+  let featuresText = '';
+  if (Array.isArray(row.features)) {
+    featuresText = row.features.join('\n');
+  } else if (typeof row.features === 'string') {
+    try {
+      const parsed = JSON.parse(row.features);
+      if (Array.isArray(parsed)) {
+        featuresText = parsed.join('\n');
+      } else {
+        featuresText = row.features;
+      }
+    } catch {
+      featuresText = row.features;
+    }
+  } else if (row.features_text) {
+    featuresText = String(row.features_text);
+  }
+
+  let isActive = true;
+  if (row.status !== undefined && row.status !== null) {
+    const s = String(row.status).toLowerCase().trim();
+    isActive = s === 'active' || s === 'ativo' || s === 'true' || s === '1';
+  } else if (row.is_active !== undefined && row.is_active !== null) {
+    isActive = Boolean(row.is_active);
+  }
+
+  const price = Number(
+    row.price !== undefined && row.price !== null
+      ? row.price
+      : (row.valor !== undefined && row.valor !== null ? row.valor : (row.preco || 0))
+  ) || 0;
+
+  const name = String(row.name || row.nome || row.title || 'Plano');
+
+  return {
+    id: String(row.id || name.toLowerCase().replace(/\s+/g, '-')),
+    name,
+    description: String(row.description || row.descricao || ''),
+    price,
+    billingCycle: (String(row.billing_cycle || row.billingCycle || 'mensal').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
+    badge: row.badge ? String(row.badge) : undefined,
+    isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
+    isActive,
+    displayOrder: Number(row.display_order ?? row.displayOrder ?? 1),
+    limits: typeof row.limits === 'object' && row.limits ? row.limits : {
+      maxUsers: 5,
+      maxMachineries: 10,
+      maxClients: 100,
+      storageLimitGb: 5,
+    },
+    featuresText: featuresText || 'Acesso completo ao sistema\nSuporte técnico dedicado\nAtualizações inclusas',
+    checkoutUrl: String(row.checkout_url || row.checkoutUrl || ''),
+  };
+}
+
+/**
+ * Localiza dinamicamente o plano correspondente ao parâmetro da URL (ex: ?plan=plano-pro, ?plan=plano-intermediario, etc.)
+ */
+function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | null): PlanDefinition | undefined {
+  if (!plansList || plansList.length === 0) return undefined;
+  if (!planParam) {
+    return plansList.find(p => p.isFeatured && p.isActive) || plansList.find(p => p.isActive) || plansList[0];
+  }
+
+  const raw = planParam.trim();
+  const lower = raw.toLowerCase();
+  // Remove prefixos como 'plano-', 'plano_', 'plan-'
+  const clean = lower.replace(/^(plano|plan)[-_]+/, '');
+
+  // 1. Match exato pelo ID
+  const byExactId = plansList.find(p => p.id.toLowerCase() === lower);
+  if (byExactId) return byExactId;
+
+  // 2. Match pelo ID normalizado (sem prefixo plano-)
+  const byCleanId = plansList.find(p => {
+    const pIdClean = p.id.toLowerCase().replace(/^(plano|plan)[-_]+/, '');
+    return pIdClean === clean || pIdClean.includes(clean) || clean.includes(pIdClean);
+  });
+  if (byCleanId) return byCleanId;
+
+  // 3. Match por Nome do Plano
+  const byName = plansList.find(p => {
+    const pName = p.name.toLowerCase();
+    return pName === lower || pName.includes(clean) || clean.includes(pName);
+  });
+  if (byName) return byName;
+
+  // 4. Mapeamento semântico por palavras-chave (ex: 'pro' ou 'intermediario', 'master' ou 'enterprise', 'essencial' ou 'starter')
+  if (clean.includes('pro') || clean.includes('intermediar') || clean.includes('medio')) {
+    const match = plansList.find(p => {
+      const text = (p.id + ' ' + p.name).toLowerCase();
+      return text.includes('pro') || text.includes('intermediar') || text.includes('medio');
+    });
+    if (match) return match;
+  }
+
+  if (clean.includes('essen') || clean.includes('starter') || clean.includes('basic')) {
+    const match = plansList.find(p => {
+      const text = (p.id + ' ' + p.name).toLowerCase();
+      return text.includes('essen') || text.includes('starter') || text.includes('basic');
+    });
+    if (match) return match;
+  }
+
+  if (clean.includes('enter') || clean.includes('master') || clean.includes('business') || clean.includes('avanc')) {
+    const match = plansList.find(p => {
+      const text = (p.id + ' ' + p.name).toLowerCase();
+      return text.includes('enter') || text.includes('master') || text.includes('business') || text.includes('avanc');
+    });
+    if (match) return match;
+  }
+
+  // Fallback para o primeiro ativo
+  return plansList.find(p => p.isFeatured && p.isActive) || plansList.find(p => p.isActive) || plansList[0];
+}
+
 export const AuthPage: React.FC<AuthPageProps> = ({
   onEnterApp,
   onOpenLandingPage,
@@ -69,7 +189,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [plans, setPlans] = useState<PlanDefinition[]>(() => {
     try {
       if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || localStorage.getItem('silagem_master_plans_v1');
+        const raw = 
+          localStorage.getItem('agrocontrol_plans_data') || 
+          localStorage.getItem(AGROCONTROL_PLANS_DATA_KEY) || 
+          localStorage.getItem('silagem_master_plans_v1');
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -89,25 +212,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return params.get('mode') === 'login' ? 'login' : 'signup';
   });
 
-  // 3 Planos Comerciais Oficiais Mapeados da Landing Page
-  const COMMERCIAL_PLANS: { key: 'essencial' | 'pro' | 'enterprise'; name: string; price: number }[] = [
-    { key: 'essencial', name: 'Produtor Essencial', price: 195.00 },
-    { key: 'pro', name: 'Frota Pro', price: 295.00 },
-    { key: 'enterprise', name: 'Agro Enterprise', price: 495.00 },
-  ];
-
-  const resolvePlanParam = (param?: string | null): 'essencial' | 'pro' | 'enterprise' => {
-    if (!param) return 'pro';
-    const clean = param.toLowerCase().trim();
-    if (clean === 'essencial' || clean.includes('essen') || clean.includes('starter')) return 'essencial';
-    if (clean === 'enterprise' || clean.includes('enter') || clean.includes('business')) return 'enterprise';
-    return 'pro';
-  };
-
-  const [selectedPlanId, setSelectedPlanId] = useState<'essencial' | 'pro' | 'enterprise'>(() => {
-    if (typeof window === 'undefined') return 'pro';
+  // ID do plano selecionado dinâmico baseado na URL e na lista real de planos
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
-    return resolvePlanParam(params.get('plan'));
+    const param = params.get('plan');
+    const matched = matchPlanFromList(plans, param);
+    return matched?.id || param || '';
   });
 
   const [isPrePaid, setIsPrePaid] = useState<boolean>(() => {
@@ -116,8 +227,71 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return params.get('paid') === 'true' || params.get('status') === 'pago';
   });
 
-  // Atualiza parâmetros caso a URL mude e sincroniza alterações em tempo real do Master Admin
+  // 1. Busca da tabela 'plans' do Supabase em tempo real e sincronização de eventos
   useEffect(() => {
+    let isMounted = true;
+
+    // Busca direta dos planos oficiais atualizados no Supabase
+    const fetchDirectPlansFromSupabase = async () => {
+      try {
+        let { data, error } = await supabase
+          .from('plans')
+          .select('*')
+          .order('display_order', { ascending: true });
+
+        // Fallback se a coluna display_order não existir na tabela
+        if (error) {
+          const fallback = await supabase.from('plans').select('*');
+          if (!fallback.error && Array.isArray(fallback.data)) {
+            data = fallback.data;
+            error = null;
+          }
+        }
+
+        if (error) {
+          console.warn('Aviso ao consultar tabela plans do Supabase no cadastro:', error.message);
+          return;
+        }
+
+        if (Array.isArray(data) && data.length > 0 && isMounted) {
+          const mapped = data.map(mapSupabasePlanRow);
+          mapped.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+          setPlans(mapped);
+
+          // Salva no cache local para carregamento instantâneo
+          try {
+            if (typeof localStorage !== 'undefined') {
+              const serialized = JSON.stringify(mapped);
+              localStorage.setItem('agrocontrol_plans_data', serialized);
+              localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
+            }
+          } catch (e) {
+            console.error('Erro ao sincronizar planos no cache:', e);
+          }
+
+          // Atualiza a seleção com o plano correspondente ao parâmetro da URL
+          const params = new URLSearchParams(window.location.search);
+          const planParam = params.get('plan');
+          const matched = matchPlanFromList(mapped, planParam);
+          if (matched) {
+            setSelectedPlanId(matched.id);
+          }
+        }
+      } catch (err) {
+        console.warn('Exceção ao buscar planos do Supabase no cadastro:', err);
+      }
+    };
+
+    fetchDirectPlansFromSupabase();
+
+    // Inscrição Realtime no Supabase na tabela 'plans'
+    const plansChannel = supabase
+      .channel('auth_page_plans_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plans' }, () => {
+        fetchDirectPlansFromSupabase();
+      })
+      .subscribe();
+
     const handleUrlChange = () => {
       const params = new URLSearchParams(window.location.search);
       const newMode = params.get('mode');
@@ -126,7 +300,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
       const planParam = params.get('plan');
       if (planParam) {
-        setSelectedPlanId(resolvePlanParam(planParam));
+        const matched = matchPlanFromList(plans, planParam);
+        if (matched) {
+          setSelectedPlanId(matched.id);
+        } else {
+          setSelectedPlanId(planParam);
+        }
       }
       const paidParam = params.get('paid') === 'true' || params.get('status') === 'pago';
       setIsPrePaid(paidParam);
@@ -138,11 +317,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           setPlans(e.detail);
         } else {
           setSiteConfig((prev) => ({ ...prev, ...e.detail }));
-          setPlans(getStoredPlans());
+          fetchDirectPlansFromSupabase();
         }
       } else {
         setSiteConfig(getStoredLandingSettings());
-        setPlans(getStoredPlans());
+        fetchDirectPlansFromSupabase();
       }
     };
 
@@ -166,7 +345,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     window.addEventListener('landing_page_settings_updated', handleDataChange);
     window.addEventListener('agrocontrol_plans_updated', handleDataChange);
     window.addEventListener('storage', handleStorageChange);
+
     return () => {
+      isMounted = false;
+      try {
+        supabase.removeChannel(plansChannel);
+      } catch {
+        // cleanup silencioso
+      }
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('master_admin_data_changed', handleDataChange);
       window.removeEventListener('agrocontrol_site_settings_updated', handleDataChange);
@@ -175,6 +361,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
+
+  // Seleção e atualização da URL ao clicar em "Mudar plano"
+  const handleSelectPlan = (planId: string) => {
+    setSelectedPlanId(planId);
+    try {
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('plan', planId);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // Dados do formulário de Cadastro (Sign-up)
   const [formData, setFormData] = useState({
@@ -206,11 +406,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Plano Ativo Selecionado
-  const activePlan = plans.find(p => p.id === selectedPlanId) || 
-                     plans.find(p => p.isFeatured && p.isActive) || 
-                     plans.find(p => p.isActive) || 
-                     plans[0];
+  // Plano Ativo Selecionado Dinamicamente do Supabase
+  const activePlan: PlanDefinition = (() => {
+    if (selectedPlanId) {
+      const found = plans.find(p => p.id === selectedPlanId) || 
+                    plans.find(p => p.id.toLowerCase() === selectedPlanId.toLowerCase());
+      if (found) return found;
+    }
+    const matched = matchPlanFromList(plans, selectedPlanId);
+    if (matched) return matched;
+    return plans.find(p => p.isFeatured && p.isActive) || 
+           plans.find(p => p.isActive) || 
+           plans[0] ||
+           {
+             id: 'plano-padrao',
+             name: 'Plano AgroControl',
+             description: 'Gestão Completa de Silagem e Frotas',
+             price: 299.00,
+             billingCycle: 'mensal',
+             isFeatured: false,
+             isActive: true,
+             displayOrder: 1,
+             limits: { maxUsers: 5, maxMachineries: 10, maxClients: 100, storageLimitGb: 5 },
+             featuresText: 'Acesso completo ao sistema\nSuporte técnico dedicado',
+             checkoutUrl: '',
+           };
+  })();
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({
@@ -326,10 +547,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const phoneClean = formData.phone.trim();
       const documentClean = formData.cpfCnpj.trim();
 
-      // 1. Mapeamento preciso do plano selecionado e seus valores comerciais
-      const planKey: 'essencial' | 'pro' | 'enterprise' = resolvePlanParam(selectedPlanId);
-      const planPrice = planKey === 'essencial' ? 195.00 : planKey === 'enterprise' ? 495.00 : 295.00;
-      const planDisplayName = planKey === 'essencial' ? 'Produtor Essencial' : planKey === 'enterprise' ? 'Agro Enterprise' : 'Frota Pro';
+      // 1. Mapeamento dinâmico do plano selecionado e seus valores reais do banco de dados (Supabase)
+      const planKey = activePlan?.id || selectedPlanId || 'plano';
+      const planPrice = Number(activePlan?.price) || 0;
+      const planDisplayName = activePlan?.name || 'Plano Silagem Fácil';
 
       // 2. Calcula data de expiração do trial (+7 dias conforme especificação comercial)
       const trialDays = 7;
@@ -815,7 +1036,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         Plano Selecionado
                       </span>
                       <h3 className="text-base font-black text-white flex items-center gap-2">
-                        <span>{activePlan?.name || 'Frota Pro'}</span>
+                        <span>{activePlan?.name || 'Plano'}</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black uppercase">
                           {isPrePaid ? 'Assinatura Ativa' : '7 Dias Grátis'}
                         </span>
@@ -825,33 +1046,37 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                   <div className="text-right">
                     <span className="text-xl sm:text-2xl font-black text-emerald-400">
-                      {formatCurrencyBRL(
-                        selectedPlanId === 'essencial' ? 195.00 : selectedPlanId === 'enterprise' ? 495.00 : 295.00
-                      )}
+                      {formatCurrencyBRL(activePlan?.price || 0)}
                     </span>
                     <span className="text-xs text-stone-400 font-bold block">
-                      /mês após os 7 dias de teste
+                      /{activePlan?.billingCycle === 'anual' ? 'ano' : 'mês'} após os 7 dias de teste
                     </span>
                   </div>
                 </div>
 
-                {/* Opções de troca rápida de plano */}
+                {/* Opções de troca rápida e dinâmica de plano direto da tabela plans do Supabase */}
                 <div className="pt-3 border-t border-stone-800/80 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-stone-400 font-bold">Mudar plano:</span>
-                  {COMMERCIAL_PLANS.map(p => (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => setSelectedPlanId(p.key)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        selectedPlanId === p.key 
-                          ? 'bg-emerald-600 text-white font-black shadow-sm' 
-                          : 'bg-stone-800/80 text-stone-300 hover:bg-stone-700'
-                      }`}
-                    >
-                      {p.name} ({formatCurrencyBRL(p.price)}/mês)
-                    </button>
-                  ))}
+                  {(plans.filter(p => p.isActive !== false).length > 0 ? plans.filter(p => p.isActive !== false) : plans).map(p => {
+                    const isSelected = activePlan?.id === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelectPlan(p.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          isSelected 
+                            ? 'bg-emerald-600 text-white font-black shadow-sm ring-1 ring-emerald-400/50' 
+                            : 'bg-stone-800/80 text-stone-300 hover:bg-stone-700 hover:text-white'
+                        }`}
+                      >
+                        <span>{p.name}</span>
+                        <span className={`text-[11px] ${isSelected ? 'text-emerald-100 font-bold' : 'text-stone-400'}`}>
+                          ({formatCurrencyBRL(p.price)}/{p.billingCycle === 'anual' ? 'ano' : 'mês'})
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
