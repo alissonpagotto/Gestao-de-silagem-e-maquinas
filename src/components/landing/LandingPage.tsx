@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Tractor,
   Smartphone,
-  PhoneCall
+  PhoneCall,
+  Menu,
+  X
 } from 'lucide-react';
 import { SiteConfig, PlanDefinition } from '../../types/masterAdmin';
 import { 
@@ -431,6 +433,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     <Wrench className="w-6 h-6 text-amber-500" key="4" />,
   ];
 
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 font-['Plus_Jakarta_Sans',sans-serif] selection:bg-emerald-500 selection:text-stone-950">
       
@@ -451,6 +455,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
 
+          {/* Links Desktop */}
           <div className="hidden md:flex items-center gap-6 text-xs font-bold text-stone-300">
             <a href="#recursos" className="hover:text-emerald-400 transition">
               Recursos
@@ -463,12 +468,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </a>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          {/* Ações Desktop / Tablet */}
+          <div className="hidden sm:flex items-center gap-2.5">
             {onNavigateToAuth && (
               <button
                 type="button"
                 onClick={() => onNavigateToAuth(undefined, 'signup')}
-                className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5 min-h-[44px]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Criar Conta (15d Grátis)</span>
@@ -477,14 +483,82 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={handleAccessErp}
-              className="px-4 py-2 bg-stone-900 border border-stone-700 hover:bg-stone-800 text-white rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5"
+              className="px-4 py-2 bg-stone-900 border border-stone-700 hover:bg-stone-800 text-white rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5 min-h-[44px]"
               title="Acessar o ERP - Requer Login e Senha"
             >
               <span>Acessar o ERP</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {/* Botão Hambúrguer Mobile/Tablet */}
+          <div className="flex md:hidden items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              className="p-2.5 rounded-xl bg-stone-900 border border-stone-800 text-stone-300 hover:text-white hover:bg-stone-800 transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Abrir Menu de Navegação"
+            >
+              {isMobileNavOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-stone-300" />}
+            </button>
+          </div>
         </div>
+
+        {/* Menu Retrátil Mobile */}
+        {isMobileNavOpen && (
+          <div className="md:hidden border-t border-stone-800 bg-stone-950/95 backdrop-blur-xl px-4 py-4 space-y-3 animate-in slide-in-from-top duration-200 shadow-2xl">
+            <div className="flex flex-col space-y-1">
+              <a
+                href="#recursos"
+                onClick={() => setIsMobileNavOpen(false)}
+                className="px-3 py-2.5 rounded-xl text-sm font-bold text-stone-200 hover:bg-stone-900 hover:text-emerald-400 transition"
+              >
+                Recursos
+              </a>
+              <a
+                href="#planos"
+                onClick={() => setIsMobileNavOpen(false)}
+                className="px-3 py-2.5 rounded-xl text-sm font-bold text-stone-200 hover:bg-stone-900 hover:text-emerald-400 transition"
+              >
+                Planos & Preços
+              </a>
+              <a
+                href="#depoimentos"
+                onClick={() => setIsMobileNavOpen(false)}
+                className="px-3 py-2.5 rounded-xl text-sm font-bold text-stone-200 hover:bg-stone-900 hover:text-emerald-400 transition"
+              >
+                Diferenciais
+              </a>
+            </div>
+
+            <div className="pt-2 border-t border-stone-800/80 flex flex-col gap-2">
+              {onNavigateToAuth && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileNavOpen(false);
+                    onNavigateToAuth(undefined, 'signup');
+                  }}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Criar Conta (15d Grátis)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileNavOpen(false);
+                  handleAccessErp();
+                }}
+                className="w-full py-3 px-4 bg-stone-900 border border-stone-700 hover:bg-stone-800 text-white rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <span>Acessar o ERP</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* BLOCO HERO (COM IMAGEM DE GESTÃO DE SILAGEM TECNOLÓGICA E OVERLAY) */}
@@ -690,8 +764,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          {/* Cards dos Planos Ativos Ordenados */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+          {/* Cards dos Planos Ativos Ordenados (1 col mobile, 2 col tablet, 3 col desktop) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
             {activePlans.map((plan) => {
               // Quebra as features linha por linha
               const features = plan.featuresText.split('\n').filter(Boolean);

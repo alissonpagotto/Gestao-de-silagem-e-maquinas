@@ -182,9 +182,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const defaultPdfFilename = `${title.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-stone-950/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 animate-in fade-in duration-200">
       <div 
-        className={`bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full ${options.orientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'} shadow-2xl overflow-hidden flex flex-col max-h-[92vh]`}
+        className={`bg-stone-100 dark:bg-stone-900 border-t sm:border border-stone-200 dark:border-stone-800 rounded-t-3xl sm:rounded-2xl w-full ${options.orientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'} shadow-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh] animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Actions Bar */}

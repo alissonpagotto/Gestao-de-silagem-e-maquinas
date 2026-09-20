@@ -257,7 +257,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       {/* Linha 1 (Topo Máximo): Cards de Resumos e Indicadores Globais */}
       <div 
         id="top-summary-cards-row" 
-        className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 w-full"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 w-full"
       >
         {/* Card 1: DESPESAS DO MÊS */}
         <div 

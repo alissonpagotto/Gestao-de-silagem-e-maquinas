@@ -108,6 +108,7 @@ import { TrialInfoModal } from './components/quick/TrialInfoModal';
 import { LovableIntegrationModal } from './components/integration/LovableIntegrationModal';
 import { CustomizeShortcutsModal, DEFAULT_SHORTCUT_IDS } from './components/layout/CustomizeShortcutsModal';
 import { ReorderMenuModal, ALL_MENU_ITEMS, DEFAULT_MENU_ORDER } from './components/layout/ReorderMenuModal';
+import { BottomNavigation } from './components/layout/BottomNavigation';
 import { PublicClientForm } from './components/crm/PublicClientForm';
 import { PublicSupplierForm } from './components/suppliers/PublicSupplierForm';
 import { FieldFormsView } from './components/services/FieldFormsView';
@@ -1382,7 +1383,7 @@ export default function App() {
         {/* Dynamic Page Content (100% Full Width across all modules) */}
         <main 
           id="crm-main-content"
-          className="flex-1 p-2.5 sm:p-3 lg:p-3.5 w-full max-w-none bg-zinc-100 dark:bg-stone-950"
+          className="flex-1 p-2.5 sm:p-3 lg:p-3.5 pb-20 lg:pb-3.5 w-full max-w-none bg-zinc-100 dark:bg-stone-950"
         >
           
           {/* TAB 1: Main Dashboard (Matching Screenshot) */}
@@ -1665,6 +1666,17 @@ export default function App() {
 
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (RWD Mobile First) */}
+      <BottomNavigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+        onNewExpense={() => {
+          setEditingExpense(null);
+          setIsExpenseModalOpen(true);
+        }}
+      />
 
       {/* Global Modals */}
       

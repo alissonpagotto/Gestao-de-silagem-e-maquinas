@@ -1283,7 +1283,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         <main className="flex-1 w-full max-w-[95%] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           
           {/* CARDS DE CONTADORES SUPERIORES & MRR ESTIMADO EM TEMPO REAL */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
             
             {/* 1. Total de Assinantes */}
             <div className="bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
@@ -1351,7 +1351,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             </div>
 
             {/* 5. MRR Estimado (Soma dinâmica de clientes com status "ATIVA") */}
-            <div className="col-span-2 sm:col-span-1 bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
+            <div className="col-span-1 sm:col-span-2 md:col-span-1 xl:col-span-1 bg-[#252a34] border border-[#2f3644] p-4 rounded-2xl space-y-1">
               <div className="flex items-center justify-between text-[#8a92a6]">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -1757,7 +1757,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {plans.map((p) => (
                 <div 
                   key={p.id}

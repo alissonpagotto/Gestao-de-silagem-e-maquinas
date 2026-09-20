@@ -510,25 +510,25 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto">
-        <div className="bg-white border border-zinc-300 rounded-2xl max-w-2xl w-full my-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-xs overflow-y-auto">
+        <div className="bg-white border-t sm:border border-zinc-300 rounded-t-3xl sm:rounded-2xl max-w-2xl w-full my-0 sm:my-6 shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 max-h-[92vh] sm:max-h-none flex flex-col">
         
         {/* Header - Charcoal bg-zinc-800 with White Text */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 shrink-0">
           <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
             {editingExpense ? 'Editar Despesa' : 'Nova Despesa'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
+            className="p-2 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto bg-white">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto bg-white flex-1">
           
           {/* Row 1: Categoria & Data */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

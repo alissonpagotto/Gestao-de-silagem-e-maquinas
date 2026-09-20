@@ -442,11 +442,11 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto`}>
-      <div className="bg-white rounded-2xl w-[90vw] max-w-6xl shadow-2xl border border-zinc-400 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto`}>
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:w-[90vw] max-w-6xl shadow-2xl border-t sm:border border-zinc-400 overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 max-h-[95vh] sm:max-h-[92vh] flex flex-col my-0 sm:my-auto">
         
         {/* Header */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 relative">
+        <div className="px-5 py-3.5 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 relative shrink-0">
           <h3 className="text-base sm:text-lg font-bold tracking-tight text-white">
             Cadastro Cliente
           </h3>
@@ -563,7 +563,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-zinc-100 max-h-[92vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 bg-zinc-100 overflow-y-auto flex-1">
           
           {/* Card 1: Identificação & Contato Principal */}
           <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-zinc-300 shadow-2xs space-y-2.5">
