@@ -345,6 +345,8 @@ export function getStoredPlans(): PlanDefinition[] {
   }
 }
 
+export { sanitizePlanId } from './supabaseService';
+
 export function saveStoredPlans(plans: PlanDefinition[]): void {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -363,10 +365,16 @@ export function saveStoredPlans(plans: PlanDefinition[]): void {
         // Fallback silencioso
       }
     }
-    // Persistência em Nuvem (Supabase)
-    Promise.all(plans.map(p => upsertCloudPlan(p))).catch(err => {
-      console.warn('Notice saving plans to cloud:', err);
-    });
+    // Persistência em Nuvem resiliente (Supabase)
+    (async () => {
+      for (const p of plans) {
+        try {
+          await upsertCloudPlan(p);
+        } catch (planErr) {
+          console.warn(`Aviso ao persistir plano ${p.id} no Supabase:`, planErr);
+        }
+      }
+    })();
   } catch (e) {
     console.error('Failed to save plans:', e);
   }

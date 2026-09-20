@@ -1233,12 +1233,23 @@ export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
   if (!isSupabaseConfigured || isTableUnmigrated('plans')) return null;
   try {
     // Busca pública e irrestrita sem filtro de usuário
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('plans')
       .select('*')
       .order('display_order', { ascending: true });
 
+    // Se falhar devido a coluna display_order inexistente, tenta busca simples
     if (error) {
+      console.warn('Aviso ao consultar plans com order(display_order):', error.message);
+      const fallback = await supabase.from('plans').select('*');
+      if (!fallback.error && Array.isArray(fallback.data)) {
+        data = fallback.data;
+        error = null;
+      }
+    }
+
+    if (error) {
+      console.error('Erro final ao buscar plans do Supabase:', error.message, error.details);
       if (isTableMissingError(error)) {
         markTableUnmigrated('plans');
       }
@@ -1247,61 +1258,203 @@ export async function fetchCloudPlans(): Promise<PlanDefinition[] | null> {
 
     if (!data || data.length === 0) return null;
 
-    return data.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description || '',
-      price: Number(row.price) || 0,
-      billingCycle: row.billing_cycle || 'mensal',
-      badge: row.badge || undefined,
-      isFeatured: Boolean(row.is_featured),
-      isActive: row.is_active !== undefined ? Boolean(row.is_active) : true,
-      displayOrder: Number(row.display_order) || 1,
-      limits: typeof row.limits === 'object' && row.limits ? row.limits : {
-        maxUsers: 5,
-        maxMachineries: 10,
-        maxClients: 100,
-        storageLimitGb: 5,
-      },
-      featuresText: row.features_text || '',
-      checkoutUrl: row.checkout_url || '',
-    }));
+    return data.map((row: any) => {
+      // Extrair features seja array, json ou texto
+      let featuresText = '';
+      if (Array.isArray(row.features)) {
+        featuresText = row.features.join('\n');
+      } else if (typeof row.features === 'string') {
+        try {
+          const parsed = JSON.parse(row.features);
+          if (Array.isArray(parsed)) {
+            featuresText = parsed.join('\n');
+          } else {
+            featuresText = row.features;
+          }
+        } catch {
+          featuresText = row.features;
+        }
+      } else if (row.features_text) {
+        featuresText = String(row.features_text);
+      }
+
+      // Extrair status ativo
+      let isActive = true;
+      if (row.status !== undefined && row.status !== null) {
+        const s = String(row.status).toLowerCase().trim();
+        isActive = s === 'active' || s === 'ativo' || s === 'true' || s === '1';
+      } else if (row.is_active !== undefined && row.is_active !== null) {
+        isActive = Boolean(row.is_active);
+      }
+
+      return {
+        id: String(row.id),
+        name: String(row.name || row.nome || 'Plano'),
+        description: String(row.description || row.descricao || ''),
+        price: Number(row.price !== undefined ? row.price : (row.valor || row.preco || 0)) || 0,
+        billingCycle: (String(row.billing_cycle || row.billingCycle || 'mensal').toLowerCase() === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
+        badge: row.badge ? String(row.badge) : undefined,
+        isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
+        isActive,
+        displayOrder: Number(row.display_order ?? row.displayOrder ?? 1),
+        limits: typeof row.limits === 'object' && row.limits ? row.limits : {
+          maxUsers: 5,
+          maxMachineries: 10,
+          maxClients: 100,
+          storageLimitGb: 5,
+        },
+        featuresText: featuresText || 'Acesso completo ao sistema\nSuporte técnico dedicado',
+        checkoutUrl: String(row.checkout_url || row.checkoutUrl || ''),
+      };
+    });
   } catch (err) {
+    console.error('Exceção ao buscar planos do Supabase:', err);
     return null;
   }
+}
+
+/**
+ * Sanitiza e normaliza o ID do plano para garantir conformidade total com o Supabase/PostgREST.
+ * Impede IDs vazios, nulos, com espaços ou caracteres especiais que quebram queries.
+ */
+export function sanitizePlanId(id?: string | null, name?: string): string {
+  if (id && typeof id === 'string') {
+    const cleaned = id
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    if (cleaned.length > 0 && cleaned !== 'null' && cleaned !== 'undefined') {
+      return cleaned;
+    }
+  }
+  if (name && typeof name === 'string') {
+    const fromName = name
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    if (fromName.length > 0) {
+      return `plano-${fromName}`;
+    }
+  }
+  return `plano-${Date.now()}`;
 }
 
 export async function upsertCloudPlan(plan: PlanDefinition): Promise<boolean> {
   if (!isSupabaseConfigured || isTableUnmigrated('plans')) return false;
   try {
-    const payload = {
-      id: plan.id,
-      name: plan.name,
-      description: plan.description || '',
+    const cleanId = sanitizePlanId(plan.id, plan.name);
+    const featuresArray = (plan.featuresText || '')
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    // Payload completo e higienizado sem IDs vazios ou campos corrompidos
+    const payload: Record<string, any> = {
+      id: cleanId,
+      name: String(plan.name || 'Plano Comercial').trim(),
+      description: String(plan.description || '').trim(),
       price: Number(plan.price) || 0,
-      billing_cycle: plan.billingCycle || 'mensal',
-      badge: plan.badge || null,
+      billing_cycle: plan.billingCycle === 'anual' ? 'anual' : 'mensal',
+      badge: plan.badge ? String(plan.badge).trim() : null,
       is_featured: Boolean(plan.isFeatured),
       is_active: plan.isActive !== undefined ? Boolean(plan.isActive) : true,
+      status: (plan.isActive ?? true) ? 'active' : 'inactive',
       display_order: Number(plan.displayOrder) || 1,
-      limits: plan.limits || {},
+      limits: typeof plan.limits === 'object' && plan.limits ? plan.limits : {
+        maxUsers: 5,
+        maxMachineries: 10,
+        maxClients: 100,
+        storageLimitGb: 5,
+      },
+      features: featuresArray,
       features_text: plan.featuresText || '',
-      checkout_url: plan.checkoutUrl || '',
+      checkout_url: String(plan.checkoutUrl || '').trim(),
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
-      .from('plans')
-      .upsert(payload, { onConflict: 'id' });
+    // Helper resiliente que tenta executar a mutação e remove colunas não existentes caso o schema no Supabase seja diferente
+    const executeResilientMutation = async (
+      action: (currentPayload: Record<string, any>) => PromiseLike<{ error: any }>
+    ): Promise<boolean> => {
+      const workingPayload = { ...payload };
+      let attempts = 0;
 
-    if (error) {
-      if (isTableMissingError(error)) {
-        markTableUnmigrated('plans');
+      while (attempts < 5) {
+        attempts++;
+        const { error } = await action(workingPayload);
+        if (!error) return true;
+
+        if (isTableMissingError(error)) {
+          markTableUnmigrated('plans');
+          return false;
+        }
+
+        const msg = error.message || '';
+        const details = error.details || '';
+        console.warn(`Tentativa ${attempts} de sincronização do plano [${cleanId}]:`, msg, details);
+
+        // Detecta se uma coluna específica não existe no schema do Supabase (código PGRST204)
+        const colMatch = msg.match(/Could not find the '([^']+)' column/) ||
+                         details.match(/column "([^"]+)" of relation "plans" does not exist/);
+
+        if (colMatch && colMatch[1] && colMatch[1] in workingPayload) {
+          console.warn(`Coluna '${colMatch[1]}' não existe na tabela plans. Removendo do envio e tentando novamente.`);
+          delete workingPayload[colMatch[1]];
+          continue;
+        }
+
+        // Se for erro de restrição ou outro erro irrecuperável
+        return false;
       }
       return false;
+    };
+
+    // ESTRATÉGIA ANTI-400 (Sem ?on_conflict=id):
+    // 1. Verifica primeiro se o registro com o ID já existe
+    const { data: existing, error: checkError } = await supabase
+      .from('plans')
+      .select('id')
+      .eq('id', cleanId)
+      .maybeSingle();
+
+    if (checkError && isTableMissingError(checkError)) {
+      markTableUnmigrated('plans');
+      return false;
     }
-    return true;
+
+    if (existing?.id) {
+      // 2a. Registro já existe -> UPDATE com PATCH /rest/v1/plans?id=eq.ID (nunca dispara ?on_conflict=id)
+      const ok = await executeResilientMutation(async (p) =>
+        await supabase.from('plans').update(p).eq('id', cleanId)
+      );
+      if (ok) return true;
+    } else {
+      // 2b. Registro novo -> INSERT com POST /rest/v1/plans (sem ?on_conflict=id)
+      const ok = await executeResilientMutation(async (p) =>
+        await supabase.from('plans').insert(p)
+      );
+      if (ok) return true;
+
+      // Se falhou por chave duplicada (race condition), tenta UPDATE como fallback
+      const fallbackOk = await executeResilientMutation(async (p) =>
+        await supabase.from('plans').update(p).eq('id', cleanId)
+      );
+      if (fallbackOk) return true;
+    }
+
+    // 2c. Fallback final: tenta upsert sem forçar constraint caso a tabela tenha chave primária padrão
+    const finalUpsert = await supabase.from('plans').upsert(payload);
+    return !finalUpsert.error;
   } catch (err) {
+    console.error('Exceção ao fazer upsertCloudPlan:', err);
     return false;
   }
 }

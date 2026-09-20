@@ -197,10 +197,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     // 1. Busca Direta na tabela 'plans' do Supabase (.select('*')) com credenciais oficiais
     const fetchDirectPlansFromSupabase = async () => {
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('plans')
           .select('*')
           .order('display_order', { ascending: true });
+
+        // Se falhar por falta da coluna display_order, tenta select simples
+        if (error) {
+          const fallback = await supabase.from('plans').select('*');
+          if (!fallback.error && Array.isArray(fallback.data)) {
+            data = fallback.data;
+            error = null;
+          }
+        }
 
         if (error) {
           console.warn('Aviso na busca direta de planos do Supabase:', error.message);

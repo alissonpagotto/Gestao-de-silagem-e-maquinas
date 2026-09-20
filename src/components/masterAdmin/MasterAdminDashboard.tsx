@@ -66,7 +66,9 @@ import {
   deleteCloudSubscriber,
   subscribeToCloudTable,
   updateCloudSubscriberStatus,
-  upsertCloudSubscriber
+  upsertCloudSubscriber,
+  upsertCloudPlan,
+  sanitizePlanId
 } from '../../lib/supabaseService';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
@@ -445,26 +447,54 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
-  // Salvar Plano
-  const handleSavePlan = (savedPlan: PlanDefinition) => {
-    const exists = plans.some(p => p.id === savedPlan.id);
+  // Salvar Plano com sanitização estrita de ID e sincronização resiliente com Supabase
+  const handleSavePlan = async (savedPlan: PlanDefinition) => {
+    // 1. Sanitização estrita do ID e validação dos dados antes de qualquer persistência
+    const cleanId = sanitizePlanId(savedPlan.id, savedPlan.name);
+
+    const sanitizedPlan: PlanDefinition = {
+      ...savedPlan,
+      id: cleanId,
+      name: (savedPlan.name || 'Plano Comercial').trim(),
+      description: (savedPlan.description || '').trim(),
+      price: Number(savedPlan.price) || 0,
+      billingCycle: savedPlan.billingCycle === 'anual' ? 'anual' : 'mensal',
+      badge: savedPlan.badge ? savedPlan.badge.trim() : undefined,
+      isFeatured: Boolean(savedPlan.isFeatured),
+      isActive: savedPlan.isActive !== undefined ? Boolean(savedPlan.isActive) : true,
+      displayOrder: Number(savedPlan.displayOrder) || 1,
+      limits: typeof savedPlan.limits === 'object' && savedPlan.limits ? savedPlan.limits : {
+        maxUsers: 5,
+        maxMachineries: 10,
+        maxClients: 100,
+        storageLimitGb: 5,
+      },
+      featuresText: (savedPlan.featuresText || '').trim(),
+      checkoutUrl: (savedPlan.checkoutUrl || '').trim(),
+    };
+
+    // 2. Atualizar estado local garantindo ausência de duplicatas de ID
+    const existsIndex = plans.findIndex(p => p.id === cleanId || (savedPlan.id && p.id === savedPlan.id));
     let updated: PlanDefinition[];
-    if (exists) {
-      updated = plans.map(p => p.id === savedPlan.id ? savedPlan : p);
+    if (existsIndex >= 0) {
+      updated = [...plans];
+      updated[existsIndex] = sanitizedPlan;
     } else {
-      updated = [...plans, savedPlan];
+      updated = [...plans, sanitizedPlan];
     }
+
     // Ordenar por ordem de exibição
     updated.sort((a, b) => a.displayOrder - b.displayOrder);
     setPlans(updated);
 
-    // 1. Centralização do localStorage: salvar na chave global única padronizada 'agrocontrol_plans_data'
+    // 3. Centralização do localStorage: salvar na chave global única padronizada 'agrocontrol_plans_data'
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('agrocontrol_plans_data', JSON.stringify(updated));
+      const serialized = JSON.stringify(updated);
+      localStorage.setItem('agrocontrol_plans_data', serialized);
+      localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
     }
-    saveStoredPlans(updated);
 
-    // 2. Notificação em tempo real via CustomEvents e StorageEvent para a Landing Page
+    // 4. Notificação em tempo real via CustomEvents e StorageEvent para a Landing Page
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated', { detail: updated }));
       window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: updated }));
@@ -474,20 +504,34 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         // Fallback
       }
     }
+
+    // 5. Sincronização direta e segura com o Supabase (específica para o plano salvo)
+    try {
+      const success = await upsertCloudPlan(sanitizedPlan);
+      if (success) {
+        showToast(`Plano "${sanitizedPlan.name}" salvo e sincronizado com o Supabase com sucesso!`);
+      } else {
+        showToast(`Plano "${sanitizedPlan.name}" salvo localmente.`);
+      }
+    } catch (err) {
+      console.warn('Aviso ao sincronizar plano no Supabase:', err);
+      showToast(`Plano "${sanitizedPlan.name}" salvo localmente.`);
+    }
   };
 
   // Excluir Plano
-  const handleDeletePlan = (id: string, name: string) => {
+  const handleDeletePlan = async (id: string, name: string) => {
     if (window.confirm(`Deseja realmente excluir o plano "${name}"?`)) {
-      const updated = plans.filter(p => p.id !== id);
+      const cleanId = sanitizePlanId(id, name);
+      const updated = plans.filter(p => p.id !== id && p.id !== cleanId);
       setPlans(updated);
 
       // Centralização do localStorage: salvar na chave global padronizada
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('agrocontrol_plans_data', JSON.stringify(updated));
+        const serialized = JSON.stringify(updated);
+        localStorage.setItem('agrocontrol_plans_data', serialized);
+        localStorage.setItem(AGROCONTROL_PLANS_DATA_KEY, serialized);
       }
-      saveStoredPlans(updated);
-      deleteCloudPlan(id).catch(err => console.warn('Notice deleting plan from cloud:', err));
 
       // Notificação imediata para a Landing Page
       if (typeof window !== 'undefined') {
@@ -498,6 +542,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         } catch (e) {
           // Fallback
         }
+      }
+
+      try {
+        await deleteCloudPlan(cleanId);
+        showToast(`Plano "${name}" removido com sucesso.`);
+      } catch (err) {
+        console.warn('Notice deleting plan from cloud:', err);
       }
     }
   };

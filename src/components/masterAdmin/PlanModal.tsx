@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Layers, Sliders, CheckSquare, Sparkles, AlertCircle } from 'lucide-react';
 import { PlanDefinition } from '../../types/masterAdmin';
-import { AGROCONTROL_PLANS_DATA_KEY, getStoredPlans } from '../../lib/masterAdminStorage';
+import { AGROCONTROL_PLANS_DATA_KEY, getStoredPlans, sanitizePlanId } from '../../lib/masterAdminStorage';
 
 interface PlanModalProps {
   isOpen: boolean;
@@ -89,8 +89,9 @@ export const PlanModal: React.FC<PlanModalProps> = ({
       return;
     }
 
+    const cleanId = sanitizePlanId(plan?.id, name.trim());
     const updatedPlan: PlanDefinition = {
-      id: plan?.id || `plano-${Date.now()}`,
+      id: cleanId,
       name: name.trim(),
       description: description.trim(),
       price: Number(price) || 0,
