@@ -17,7 +17,7 @@ import {
   Copy,
   ExternalLink
 } from 'lucide-react';
-import { Subscriber } from '../../types/masterAdmin';
+import { Subscriber, PlanDefinition } from '../../types/masterAdmin';
 import { formatCurrencyBRL } from '../../lib/formatters';
 
 interface SubscriberDetailModalProps {
@@ -25,6 +25,7 @@ interface SubscriberDetailModalProps {
   onClose: () => void;
   subscriber: Subscriber | null;
   onEdit: (subscriber: Subscriber) => void;
+  plans?: PlanDefinition[];
 }
 
 export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
@@ -32,8 +33,44 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
   onClose,
   subscriber,
   onEdit,
+  plans,
 }) => {
   if (!isOpen || !subscriber) return null;
+
+  // Resolução dinâmica de plano e valor caso a lista de planos esteja disponível
+  let displayPlanName = subscriber.planName || 'Produtor Essencial';
+  let displayPlanValue = Number(subscriber.monthlyValue) || 0;
+
+  if (plans && plans.length > 0) {
+    const subPlanId = String(subscriber.planId || '').trim().toLowerCase();
+    const subPlanName = String(subscriber.planName || '').trim().toLowerCase();
+    const normalizeKey = (val: string) =>
+      val.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+
+    const normSubId = normalizeKey(subPlanId);
+    const normSubName = normalizeKey(subPlanName);
+
+    const found = plans.find((p) => {
+      if (!p) return false;
+      const pId = String(p.id || '').trim().toLowerCase();
+      const pName = String(p.name || '').trim().toLowerCase();
+      const normPId = normalizeKey(pId);
+      const normPName = normalizeKey(pName);
+
+      if (subPlanId && (pId === subPlanId || normPId === normSubId)) return true;
+      if (subPlanName && (pName === subPlanName || normPName === normSubName)) return true;
+      if (normSubId.includes('essencial') && (normPId.includes('essencial') || normPName.includes('essencial'))) return true;
+      if (normSubId.includes('pro') && !normSubId.includes('enterprise') && (normPId.includes('pro') || normPName.includes('pro')) && !normPId.includes('enterprise')) return true;
+      if (normSubId.includes('enterprise') && (normPId.includes('enterprise') || normPName.includes('enterprise'))) return true;
+      if (subPlanName && pName && (pName.includes(subPlanName) || subPlanName.includes(pName))) return true;
+      return false;
+    });
+
+    if (found) {
+      displayPlanName = found.name || displayPlanName;
+      displayPlanValue = typeof found.price === 'number' ? found.price : (Number(found.price) || 0);
+    }
+  }
 
   const getStatusBadge = (status: Subscriber['status']) => {
     switch (status) {
@@ -132,10 +169,10 @@ export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
           <div className="flex items-center gap-2 text-xs">
             <span className="text-[#8a92a6] font-bold uppercase tracking-wider">Plano:</span>
             <span className="px-2.5 py-0.5 rounded-md font-bold bg-[#252a34] text-white border border-[#2f3644]">
-              {subscriber?.planName || 'Produtor Essencial'}
+              {displayPlanName}
             </span>
             <span className="font-bold text-white">
-              {formatCurrencyBRL(subscriber?.monthlyValue || 0)}/mês
+              {formatCurrencyBRL(displayPlanValue)}/mês
             </span>
           </div>
         </div>

@@ -1891,18 +1891,34 @@ export async function updateCloudSubscriberPassword(id: string, newPassword: str
   }
 }
 
-export async function deleteCloudSubscriber(id: string): Promise<boolean> {
+export async function deleteCloudSubscriber(id: string, email?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const validId = toValidUUID(id);
-    if (!isTableUnmigrated('assinantes')) {
-      await supabase.from('assinantes').delete().eq('id', validId);
+    // 1. Exclusão direta na tabela oficial 'assinantes' pelo ID exato
+    await supabase.from('assinantes').delete().eq('id', id);
+
+    // Se o ID for formato UUID, tenta também em formato normalizado
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(id)) {
+      await supabase.from('assinantes').delete().eq('id', id.toLowerCase());
     }
-    if (!isTableUnmigrated('subscribers')) {
-      await supabase.from('subscribers').delete().eq('id', validId);
+
+    // Se houver email informado, garante exclusão por email na tabela oficial 'assinantes'
+    if (email && email.trim()) {
+      await supabase.from('assinantes').delete().eq('email', email.trim().toLowerCase());
     }
+
+    // 2. Exclusão de contingência na tabela legada 'subscribers'
+    try {
+      await supabase.from('subscribers').delete().eq('id', id);
+      if (email && email.trim()) {
+        await supabase.from('subscribers').delete().eq('email', email.trim().toLowerCase());
+      }
+    } catch {}
+
     return true;
   } catch (err) {
+    console.error('Erro ao deletar assinante da tabela assinantes:', err);
     return false;
   }
 }

@@ -61,6 +61,7 @@ import {
   AGROCONTROL_SITE_SETTINGS_KEY,
   syncMasterAdminFromCloud
 } from '../../lib/masterAdminStorage';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   deleteCloudPlan,
   deleteCloudSubscriber,
@@ -68,7 +69,11 @@ import {
   updateCloudSubscriberStatus,
   upsertCloudSubscriber,
   upsertCloudPlan,
-  sanitizePlanId
+  sanitizePlanId,
+  normalizeSubscriberPlanKey,
+  getSubscriberPlanDisplayName,
+  getSubscriberPlanPrice,
+  normalizeSubscriberStatus
 } from '../../lib/supabaseService';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
@@ -80,6 +85,70 @@ import { PauseSubscriberModal } from './PauseSubscriberModal';
 import { MasterAdminLogin } from './MasterAdminLogin';
 import { ImageUploadField } from './ImageUploadField';
 import { formatCurrencyBRL } from '../../lib/formatters';
+
+/**
+ * Realiza um JOIN dinâmico entre o assinante e a lista atualizada de planos ('plans').
+ * Garante que alterações de preço ou nomenclatura no módulo de planos reflitam imediatamente
+ * na visualização de todos os assinantes, em vez de exibir textos ou valores estáticos antigos.
+ */
+export function resolveSubscriberPlan(
+  sub: Subscriber,
+  plansList: PlanDefinition[]
+): { planName: string; monthlyValue: number; planId: string } {
+  if (!sub) {
+    return { planName: 'Produtor Essencial', monthlyValue: 195, planId: 'essencial' };
+  }
+
+  const subPlanId = String(sub.planId || '').trim().toLowerCase();
+  const subPlanName = String(sub.planName || '').trim().toLowerCase();
+
+  // Função para normalizar chaves: remove prefixos, traços e caracteres especiais
+  const normalizeKey = (val: string) =>
+    val.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+
+  const normSubId = normalizeKey(subPlanId);
+  const normSubName = normalizeKey(subPlanName);
+
+  // Procura correspondência na lista atualizada de planos
+  const found = (plansList || []).find((p) => {
+    if (!p) return false;
+    const pId = String(p.id || '').trim().toLowerCase();
+    const pName = String(p.name || '').trim().toLowerCase();
+    const normPId = normalizeKey(pId);
+    const normPName = normalizeKey(pName);
+
+    // 1. Correspondência exata por ID (com ou sem 'plano-')
+    if (subPlanId && (pId === subPlanId || normPId === normSubId)) return true;
+
+    // 2. Correspondência exata por nome
+    if (subPlanName && (pName === subPlanName || normPName === normSubName)) return true;
+
+    // 3. Correspondência semântica das categorias principais
+    if (normSubId.includes('essencial') && (normPId.includes('essencial') || normPName.includes('essencial'))) return true;
+    if (normSubId.includes('pro') && !normSubId.includes('enterprise') && (normPId.includes('pro') || normPName.includes('pro')) && !normPId.includes('enterprise')) return true;
+    if (normSubId.includes('enterprise') && (normPId.includes('enterprise') || normPName.includes('enterprise'))) return true;
+
+    // 4. Inclusão recíproca por nome
+    if (subPlanName && pName && (pName.includes(subPlanName) || subPlanName.includes(pName))) return true;
+
+    return false;
+  });
+
+  if (found) {
+    return {
+      planName: found.name || sub.planName || 'Produtor Essencial',
+      monthlyValue: typeof found.price === 'number' ? found.price : (Number(found.price) || 0),
+      planId: found.id || sub.planId || 'essencial',
+    };
+  }
+
+  // Fallback seguro caso seja um plano não encontrado
+  return {
+    planName: sub.planName || 'Produtor Essencial',
+    monthlyValue: Number(sub.monthlyValue) || 0,
+    planId: sub.planId || 'essencial',
+  };
+}
 
 interface MasterAdminDashboardProps {
   onBackToApp: () => void;
@@ -122,18 +191,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 4500);
-  };
-
-  const handleManualCloudSync = async () => {
-    setIsSyncingCloud(true);
-    try {
-      const cloudData = await syncMasterAdminFromCloud();
-      if (cloudData.subscribers) setSubscribers(cloudData.subscribers);
-      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
-      if (cloudData.plans) setPlans(cloudData.plans);
-    } finally {
-      setIsSyncingCloud(false);
-    }
   };
 
   // Aba ativa do Painel Mestre
@@ -192,6 +249,74 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     setSettings(prev => (isDeepEqual(prev, newSettings) ? prev : newSettings));
   }, []);
 
+  // Busca direta e prioritária na tabela oficial 'assinantes' do Supabase
+  const fetchSubscribersFromAssinantes = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data, error } = await supabase
+        .from('assinantes')
+        .select('*')
+        .order('criado_em', { ascending: false });
+
+      if (error) {
+        console.warn('Aviso ao consultar tabela assinantes:', error.message);
+        return;
+      }
+
+      if (Array.isArray(data)) {
+        const cloudSubs: Subscriber[] = data.map((row: any) => {
+          const planKey = normalizeSubscriberPlanKey(row.plano_nome || row.plano_selecionado);
+          const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
+          const idKey = String(row.id || emailKey);
+          return {
+            id: idKey,
+            name: row.nome || row.name || 'Assinante',
+            responsibleEmail: emailKey,
+            password: row.senha || row.password_hash || undefined,
+            trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || ''),
+            cpfCnpj: row.cpf_cnpj || row.document || '',
+            stateRegistration: row.state_registration || undefined,
+            phone: row.telefone || row.phone || '',
+            cep: row.cep || '',
+            street: row.logradouro || row.street || '',
+            number: row.numero || row.number || '',
+            neighborhood: row.bairro || row.neighborhood || '',
+            city: row.cidade || row.city || '',
+            state: row.estado || row.state || '',
+            planId: planKey,
+            planName: row.plano_nome || getSubscriberPlanDisplayName(planKey),
+            monthlyValue: Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+            status: normalizeSubscriberStatus(row.status),
+            createdAt: row.criado_em || row.created_at || new Date().toISOString(),
+            updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
+          };
+        });
+
+        if (cloudSubs.length > 0) {
+          updateSubscribersIfChanged(cloudSubs);
+          saveStoredSubscribers(cloudSubs);
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar assinantes em tempo real:', err);
+    }
+  }, [updateSubscribersIfChanged]);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingCloud(true);
+    try {
+      await fetchSubscribersFromAssinantes();
+      const cloudData = await syncMasterAdminFromCloud();
+      if (cloudData.subscribers && cloudData.subscribers.length > 0) {
+        updateSubscribersIfChanged(cloudData.subscribers);
+      }
+      if (cloudData.siteConfig) setSiteConfig(cloudData.siteConfig);
+      if (cloudData.plans) setPlans(cloudData.plans);
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
   // Refs para controle rigoroso de concorrência e cooldown de rede
   const isSyncingRef = useRef(false);
   const lastSyncTimeRef = useRef(0);
@@ -243,11 +368,29 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       updateSettingsIfChanged(getStoredAdminSettings());
     };
 
-    // 1. Carga inicial única do Cloud com cooldown
+    // 1. Carga inicial rápida direta da tabela oficial 'assinantes' e dados em nuvem
+    fetchSubscribersFromAssinantes();
     triggerSafeCloudSync();
 
-    // 2. Assinaturas Realtime consolidadas que alimentam a sincronização com debounce
+    // 2. Assinatura Realtime em tempo real dedicada à tabela 'assinantes' (onde novos usuários se cadastram)
+    let realtimeAssinantesChannel: any = null;
+    if (isSupabaseConfigured) {
+      realtimeAssinantesChannel = supabase
+        .channel(`realtime_master_assinantes_${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'assinantes' },
+          async (payload) => {
+            console.log('⚡ [Realtime] Alteração na tabela assinantes recebida:', payload.eventType);
+            await fetchSubscribersFromAssinantes();
+          }
+        )
+        .subscribe();
+    }
+
+    // 3. Assinaturas Realtime consolidadas para outras tabelas
     const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
+      fetchSubscribersFromAssinantes();
       triggerSafeCloudSync();
     });
 
@@ -263,7 +406,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       triggerSafeCloudSync();
     });
 
-    // 3. Gerenciamento de eventos de armazenamento entre abas
+    // 4. Gerenciamento de eventos de armazenamento entre abas
     const handleStorage = (e: StorageEvent) => {
       if (
         e.key === AGROCONTROL_PLANS_DATA_KEY ||
@@ -288,6 +431,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       if (syncDebounceTimerRef.current) {
         clearTimeout(syncDebounceTimerRef.current);
       }
+      if (realtimeAssinantesChannel) {
+        try {
+          supabase.removeChannel(realtimeAssinantesChannel);
+        } catch {}
+      }
       unsubAssinantes();
       unsubSubs();
       unsubPlans();
@@ -298,7 +446,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       window.removeEventListener('agrocontrol_plans_updated', handleLocalSync);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [triggerSafeCloudSync, updateSubscribersIfChanged, updateSiteConfigIfChanged, updatePlansIfChanged, updateSettingsIfChanged]);
+  }, [fetchSubscribersFromAssinantes, triggerSafeCloudSync, updateSubscribersIfChanged, updateSiteConfigIfChanged, updatePlansIfChanged, updateSettingsIfChanged]);
 
   // Sincroniza o formulário do site apenas quando a aba 'site' for acessada e houver alteração real
   useEffect(() => {
@@ -308,10 +456,23 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   }, [adminTab]);
 
-  // Recalcular métricas em tempo real
+  // Recalcular métricas em tempo real com JOIN dinâmico de valores dos planos
   const metrics = useMemo(() => {
-    return computeMasterMetrics(subscribers);
-  }, [subscribers]);
+    const list = Array.isArray(subscribers) ? subscribers.filter(Boolean) : [];
+    const baseMetrics = computeMasterMetrics(list);
+    // Calcula o MRR usando o valor dinâmico de cada plano ativo
+    const dynamicMrr = list
+      .filter(s => (s?.status || '').toLowerCase() === 'ativa')
+      .reduce((sum, s) => {
+        const resolved = resolveSubscriberPlan(s, plans);
+        return sum + resolved.monthlyValue;
+      }, 0);
+
+    return {
+      ...baseMetrics,
+      estimatedMrr: dynamicMrr,
+    };
+  }, [subscribers, plans]);
 
   // Filtrar assinantes instantaneamente por status e busca (100% à prova de valores nulos ou incompletos)
   const filteredSubscribers = useMemo(() => {
@@ -324,16 +485,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       }
       if (searchQuery && searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
+        const resolved = resolveSubscriberPlan(sub, plans);
         const matchesName = (sub?.name || '').toLowerCase().includes(q);
         const matchesEmail = (sub?.responsibleEmail || '').toLowerCase().includes(q);
         const matchesDoc = (sub?.cpfCnpj || '').toLowerCase().includes(q);
         const matchesCity = (sub?.city || '').toLowerCase().includes(q);
-        const matchesPlan = (sub?.planName || '').toLowerCase().includes(q);
+        const matchesPlan = (sub?.planName || '').toLowerCase().includes(q) || (resolved.planName || '').toLowerCase().includes(q);
         return matchesName || matchesEmail || matchesDoc || matchesCity || matchesPlan;
       }
       return true;
     });
-  }, [subscribers, statusFilter, searchQuery]);
+  }, [subscribers, statusFilter, searchQuery, plans]);
 
   // Estado para alteração de senha mestre
   const [newMasterPassword, setNewMasterPassword] = useState('');
@@ -414,15 +576,44 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
-  // Excluir Assinante
-  const handleDeleteSubscriber = (id: string, name: string) => {
+  // Excluir Assinante com remoção estrita e prioritária da tabela 'assinantes'
+  const handleDeleteSubscriber = async (id: string, name: string, email?: string) => {
     if (window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível.`)) {
+      // 1. Atualiza estado local imediatamente (otimista)
       const currentList = Array.isArray(subscribers) ? subscribers : [];
-      const updated = currentList.filter(s => s?.id !== id);
+      const updated = currentList.filter(s => s?.id !== id && (!email || s?.responsibleEmail?.toLowerCase() !== email.toLowerCase()));
       setSubscribers(updated);
       saveStoredSubscribers(updated);
-      deleteCloudSubscriber(id).catch(err => console.warn('Notice deleting subscriber from cloud:', err));
-      showToast(`Assinante "${name || 'Assinante'}" removido.`);
+
+      // 2. Exclusão direta na tabela oficial 'assinantes' do Supabase
+      try {
+        if (isSupabaseConfigured) {
+          // Deleta diretamente da tabela 'assinantes' por ID
+          const { error: delErr } = await supabase
+            .from('assinantes')
+            .delete()
+            .eq('id', id);
+
+          if (delErr) {
+            console.warn('Aviso ao deletar de assinantes por ID:', delErr.message);
+          }
+
+          // Se houver e-mail válido, remove também por email para garantir limpeza completa
+          if (email && email.trim()) {
+            await supabase
+              .from('assinantes')
+              .delete()
+              .eq('email', email.trim().toLowerCase());
+          }
+        }
+
+        // Executa exclusão unificada
+        await deleteCloudSubscriber(id, email);
+        showToast(`Assinante "${name || 'Assinante'}" excluído com sucesso da tabela de assinantes.`);
+      } catch (err) {
+        console.error('Erro ao excluir assinante da tabela assinantes:', err);
+        showToast(`Assinante "${name || 'Assinante'}" removido localmente.`);
+      }
     }
   };
 
@@ -1206,8 +1397,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         const subCity = sub?.city || '';
                         const subState = sub?.state || '';
                         const subLocation = (subCity || subState) ? `${subCity}${subCity && subState ? ' - ' : ''}${subState}` : '-';
-                        const subPlan = sub?.planName || 'Produtor Essencial';
-                        const subValue = Number(sub?.monthlyValue) || 0;
+                        
+                        // JOIN dinâmico com a lista de planos para obter nome e preço atualizados em tempo real
+                        const resolvedPlan = resolveSubscriberPlan(sub, plans);
+                        const subPlan = resolvedPlan.planName;
+                        const subValue = resolvedPlan.monthlyValue;
                         const subStatus = ((sub?.status || 'trial') as string).toLowerCase() as SubscriberStatus;
                         
                         let trialDateFormatted = '-';
@@ -1380,12 +1574,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                                   <Calendar className="w-4.5 h-4.5" />
                                 </button>
 
-                                {/* 7. Lixeira (Excluir - Vermelho Bem Destacado) */}
+                                {/* 7. Lixeira (Excluir da Tabela 'assinantes' - Vermelho Bem Destacado) */}
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteSubscriber(subId, subName)}
+                                  onClick={() => handleDeleteSubscriber(subId, subName, subEmail !== '-' ? subEmail : undefined)}
                                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a1d24] hover:bg-rose-500/20 text-rose-500 hover:text-rose-400 border border-rose-500/40 hover:border-rose-500/60 transition-colors cursor-pointer"
-                                  title="Remover Assinante"
+                                  title="Remover Assinante da Tabela de Assinantes"
                                 >
                                   <Trash2 className="w-4.5 h-4.5" />
                                 </button>
@@ -2122,6 +2316,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           setViewingSubscriber(null);
         }}
         subscriber={viewingSubscriber}
+        plans={plans}
         onEdit={(sub) => {
           setEditingSubscriber(sub);
           setIsEditSubscriberOpen(true);
