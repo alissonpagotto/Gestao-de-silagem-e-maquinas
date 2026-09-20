@@ -292,10 +292,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           };
         });
 
-        if (cloudSubs.length > 0) {
-          updateSubscribersIfChanged(cloudSubs);
-          saveStoredSubscribers(cloudSubs);
-        }
+        updateSubscribersIfChanged(cloudSubs);
+        saveStoredSubscribers(cloudSubs);
       }
     } catch (err) {
       console.warn('Erro ao carregar assinantes em tempo real:', err);
@@ -577,43 +575,60 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   };
 
   // Excluir Assinante com remoção estrita e prioritária da tabela 'assinantes'
-  const handleDeleteSubscriber = async (id: string, name: string, email?: string) => {
-    if (window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível.`)) {
-      // 1. Atualiza estado local imediatamente (otimista)
-      const currentList = Array.isArray(subscribers) ? subscribers : [];
-      const updated = currentList.filter(s => s?.id !== id && (!email || s?.responsibleEmail?.toLowerCase() !== email.toLowerCase()));
-      setSubscribers(updated);
-      saveStoredSubscribers(updated);
+  const handleDeleteSubscriber = async (idDeleted: string, name: string, email?: string) => {
+    if (!window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível.`)) {
+      return;
+    }
 
-      // 2. Exclusão direta na tabela oficial 'assinantes' do Supabase
-      try {
-        if (isSupabaseConfigured) {
-          // Deleta diretamente da tabela 'assinantes' por ID
-          const { error: delErr } = await supabase
-            .from('assinantes')
-            .delete()
-            .eq('id', id);
+    try {
+      // 1. Exclusão direta na tabela oficial 'assinantes' do Supabase
+      if (isSupabaseConfigured) {
+        // Deleta diretamente da tabela 'assinantes' por ID
+        const { error: delErr } = await supabase
+          .from('assinantes')
+          .delete()
+          .eq('id', idDeleted);
 
-          if (delErr) {
-            console.warn('Aviso ao deletar de assinantes por ID:', delErr.message);
-          }
-
-          // Se houver e-mail válido, remove também por email para garantir limpeza completa
-          if (email && email.trim()) {
-            await supabase
-              .from('assinantes')
-              .delete()
-              .eq('email', email.trim().toLowerCase());
-          }
+        if (delErr) {
+          console.warn('Aviso ao deletar de assinantes por ID:', delErr.message);
         }
 
-        // Executa exclusão unificada
-        await deleteCloudSubscriber(id, email);
-        showToast(`Assinante "${name || 'Assinante'}" excluído com sucesso da tabela de assinantes.`);
-      } catch (err) {
-        console.error('Erro ao excluir assinante da tabela assinantes:', err);
-        showToast(`Assinante "${name || 'Assinante'}" removido localmente.`);
+        // Se houver e-mail válido, remove também por email para garantir limpeza completa
+        if (email && email.trim()) {
+          await supabase
+            .from('assinantes')
+            .delete()
+            .eq('email', email.trim().toLowerCase());
+        }
       }
+
+      // Executa exclusão unificada no serviço de nuvem
+      await deleteCloudSubscriber(idDeleted, email);
+
+      // 2. LOGO APÓS O COMANDO DO SUPABASE RETORNAR SUCESSO:
+      // Atualiza o estado local do React filtrando o item removido da lista
+      // para que ele suma da tela instantaneamente sem precisar de F5
+      setSubscribers(prev => {
+        const nextList = (prev || []).filter(sub => {
+          if (!sub) return false;
+          const matchId = sub.id === idDeleted || String(sub.id) === String(idDeleted);
+          const matchEmail = email && sub.responsibleEmail && sub.responsibleEmail.toLowerCase() === email.toLowerCase();
+          return !matchId && !matchEmail;
+        });
+        saveStoredSubscribers(nextList);
+        return nextList;
+      });
+
+      showToast(`Assinante "${name || 'Assinante'}" excluído com sucesso da tabela de assinantes.`);
+    } catch (err) {
+      console.error('Erro ao excluir assinante da tabela assinantes:', err);
+      // Em caso de erro de rede, garante a remoção local para feedback imediato
+      setSubscribers(prev => {
+        const nextList = (prev || []).filter(sub => sub && sub.id !== idDeleted && String(sub.id) !== String(idDeleted));
+        saveStoredSubscribers(nextList);
+        return nextList;
+      });
+      showToast(`Assinante "${name || 'Assinante'}" removido localmente.`);
     }
   };
 
