@@ -1164,6 +1164,8 @@ export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
       heroPrimaryBtnText: data.hero_primary_btn_text || '',
       heroSecondaryBtnText: data.hero_secondary_btn_text || '',
       heroBackgroundImage: data.hero_background_image || '',
+      hero_video_url: data.hero_video_url || '',
+      hero_overlay_opacity: data.hero_overlay_opacity !== undefined && data.hero_overlay_opacity !== null ? Number(data.hero_overlay_opacity) : 75,
       featuresSectionTitle: data.features_section_title || '',
       featuresSectionSubtitle: data.features_section_subtitle || '',
       featuresHighlightImage: data.features_highlight_image || '',
@@ -1199,6 +1201,8 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.heroPrimaryBtnText !== undefined) payload.hero_primary_btn_text = config.heroPrimaryBtnText;
     if (config.heroSecondaryBtnText !== undefined) payload.hero_secondary_btn_text = config.heroSecondaryBtnText;
     if (config.heroBackgroundImage !== undefined) payload.hero_background_image = config.heroBackgroundImage;
+    if (config.hero_video_url !== undefined) payload.hero_video_url = config.hero_video_url;
+    if (config.hero_overlay_opacity !== undefined) payload.hero_overlay_opacity = config.hero_overlay_opacity;
     if (config.featuresSectionTitle !== undefined) payload.features_section_title = config.featuresSectionTitle;
     if (config.featuresSectionSubtitle !== undefined) payload.features_section_subtitle = config.featuresSectionSubtitle;
     if (config.featuresHighlightImage !== undefined) payload.features_highlight_image = config.featuresHighlightImage;
@@ -1215,9 +1219,11 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
       .from('site_settings')
       .upsert(payload, { onConflict: 'id' });
 
-    // Fallback resiliente: se a coluna allow_free_trial ainda não tiver sido criada no Supabase via migração, remove-a do payload e salva o restante
-    if (error && (error.message?.includes('allow_free_trial') || error.details?.includes('allow_free_trial'))) {
-      delete payload.allow_free_trial;
+    // Fallback resiliente: se colunas novas ainda não tiverem sido criadas no Supabase via migração, remove-as gradualmente do payload e salva o restante
+    if (error && (error.message?.includes('hero_video_url') || error.message?.includes('hero_overlay_opacity') || error.message?.includes('allow_free_trial'))) {
+      if (error.message?.includes('hero_video_url')) delete payload.hero_video_url;
+      if (error.message?.includes('hero_overlay_opacity')) delete payload.hero_overlay_opacity;
+      if (error.message?.includes('allow_free_trial')) delete payload.allow_free_trial;
       const retry = await supabase
         .from('site_settings')
         .upsert(payload, { onConflict: 'id' });

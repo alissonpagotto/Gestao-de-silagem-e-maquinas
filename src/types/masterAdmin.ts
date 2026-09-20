@@ -37,6 +37,8 @@ export interface SiteConfig {
   heroPrimaryBtnText: string; // TEXTO BOTÃO PRINCIPAL
   heroSecondaryBtnText: string; // TEXTO BOTÃO SECUNDÁRIO
   heroBackgroundImage?: string; // IMAGEM DE FUNDO DO HERO (URL OU /image.png)
+  hero_video_url?: string; // URL DO VÍDEO DEMONSTRATIVO
+  hero_overlay_opacity?: number; // INTENSIDADE DO FUNDO ESCURO (0 a 100%)
 
   // Bloco Cabeçalho de Recursos
   featuresSectionTitle: string; // TÍTULO DA SEÇÃO

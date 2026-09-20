@@ -323,6 +323,8 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
     hero_primary_btn_text TEXT,
     hero_secondary_btn_text TEXT,
     hero_background_image TEXT,
+    hero_video_url TEXT,
+    hero_overlay_opacity INTEGER DEFAULT 75,
     features_section_title TEXT,
     features_section_subtitle TEXT,
     features_highlight_image TEXT,
@@ -341,6 +343,8 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
 
 -- Migração para tabela site_settings existente
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS allow_free_trial BOOLEAN DEFAULT true;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS hero_video_url TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS hero_overlay_opacity INTEGER DEFAULT 75;
 
 -- ==============================================================================
 -- 9. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa

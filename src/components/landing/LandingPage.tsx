@@ -16,7 +16,9 @@ import {
   Smartphone,
   PhoneCall,
   Menu,
-  X
+  X,
+  Play,
+  Video
 } from 'lucide-react';
 import { SiteConfig, PlanDefinition } from '../../types/masterAdmin';
 import { 
@@ -367,6 +369,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     ? Boolean(siteConfig.allow_free_trial) 
     : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true);
 
+  const heroOverlayOpacity = siteConfig?.hero_overlay_opacity !== undefined && siteConfig?.hero_overlay_opacity !== null
+    ? Math.max(0, Math.min(100, Number(siteConfig.hero_overlay_opacity)))
+    : (DEFAULT_SITE_CONFIG.hero_overlay_opacity ?? 75);
+
   const currentSettings = {
     allowFreeTrial,
     heroTitle: siteConfig?.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
@@ -374,6 +380,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     heroPrimaryBtnText: siteConfig?.heroPrimaryBtnText || (allowFreeTrial ? 'Começar Teste Grátis de 7 Dias' : 'Começar Agora'),
     heroSecondaryBtnText: siteConfig?.heroSecondaryBtnText || DEFAULT_SITE_CONFIG.heroSecondaryBtnText,
     heroBackgroundImage: siteConfig?.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png',
+    heroVideoUrl: (siteConfig?.hero_video_url || DEFAULT_SITE_CONFIG.hero_video_url || '').trim(),
+    heroOverlayOpacity,
     featuresSectionTitle: siteConfig?.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
     featuresSectionSubtitle: siteConfig?.featuresSectionSubtitle || DEFAULT_SITE_CONFIG.featuresSectionSubtitle,
     featuresHighlightImage: siteConfig?.featuresHighlightImage || '',

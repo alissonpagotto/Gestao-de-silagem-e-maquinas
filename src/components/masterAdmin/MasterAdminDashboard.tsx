@@ -35,7 +35,9 @@ import {
   Tag,
   BarChart3,
   Menu,
-  X
+  X,
+  Video,
+  Sliders
 } from 'lucide-react';
 import { 
   Subscriber, 
@@ -2010,6 +2012,58 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     defaultFallback="/image.png"
                     aspectRatioLabel="Recomendado: 16:9 widescreen"
                   />
+                </div>
+
+                {/* 1. CAMPO PARA URL DO VÍDEO DEMONSTRATIVO */}
+                <div className="sm:col-span-2">
+                  <label htmlFor="input-hero-video-url" className="block text-xs font-bold text-[#8a92a6] mb-1 flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>URL DO VÍDEO DEMONSTRATIVO</span>
+                  </label>
+                  <input
+                    type="url"
+                    id="input-hero-video-url"
+                    name="hero_video_url"
+                    placeholder="Ex: https://www.youtube.com/watch?v=... ou link direto .mp4 / vimeo"
+                    value={siteForm.hero_video_url || ''}
+                    onChange={(e) => setSiteForm({ ...siteForm, hero_video_url: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                  <p className="text-[11px] text-[#8a92a6] mt-1">
+                    Cole o link do vídeo de demonstração do sistema (YouTube, Vimeo ou link de vídeo). Ao clicar em &quot;Conhecer Funcionalidades&quot; / &quot;Ver Demonstração ao Vivo&quot;, abrirá um modal pop-up reproduzindo este vídeo.
+                  </p>
+                </div>
+
+                {/* 2. CONTROLE DESLIZANTE DE OPACIDADE (OVERLAY) */}
+                <div className="sm:col-span-2 bg-[#1a1d24] border border-[#2f3644] p-3.5 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="range-hero-overlay-opacity" className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>INTENSIDADE DO FUNDO ESCURO (OVERLAY)</span>
+                    </label>
+                    <span className="text-xs font-black text-emerald-400 bg-[#252a34] px-2.5 py-1 rounded-lg border border-[#2f3644]">
+                      {siteForm.hero_overlay_opacity !== undefined && siteForm.hero_overlay_opacity !== null ? siteForm.hero_overlay_opacity : 75}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    id="range-hero-overlay-opacity"
+                    name="hero_overlay_opacity"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={siteForm.hero_overlay_opacity !== undefined && siteForm.hero_overlay_opacity !== null ? siteForm.hero_overlay_opacity : 75}
+                    onChange={(e) => setSiteForm({ ...siteForm, hero_overlay_opacity: Number(e.target.value) })}
+                    className="w-full h-2 bg-[#252a34] rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  />
+                  <div className="flex justify-between text-[10px] text-[#8a92a6]">
+                    <span>0% (Mais claro / Imagem pura)</span>
+                    <span>50% (Equilibrado)</span>
+                    <span>100% (Mais escuro / Máximo contraste)</span>
+                  </div>
+                  <p className="text-[11px] text-[#8a92a6]">
+                    Ajuste a intensidade da camada escura sobre a imagem de fundo da plantação na Landing Page, permitindo clarear ou escurecer o fundo em tempo real.
+                  </p>
                 </div>
               </div>
             </div>

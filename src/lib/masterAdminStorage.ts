@@ -44,6 +44,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   heroPrimaryBtnText: 'Começar Teste Grátis de 7 Dias',
   heroSecondaryBtnText: 'Ver Demonstração ao Vivo',
   heroBackgroundImage: '/image.png',
+  hero_video_url: '',
+  hero_overlay_opacity: 75, // Padrão equilibrado de 75%
 
   featuresSectionTitle: 'Recursos Projetados para o Campo',
   featuresSectionSubtitle: 'Controle total da sua operação agrícola na ponta dos dedos, online e no celular dos operadores.',
@@ -245,6 +247,8 @@ export function getStoredSiteConfig(): SiteConfig {
       heroPrimaryBtnText: parsed.heroPrimaryBtnText || DEFAULT_SITE_CONFIG.heroPrimaryBtnText,
       heroSecondaryBtnText: parsed.heroSecondaryBtnText || DEFAULT_SITE_CONFIG.heroSecondaryBtnText,
       heroBackgroundImage: parsed.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png',
+      hero_video_url: parsed.hero_video_url !== undefined ? parsed.hero_video_url : (DEFAULT_SITE_CONFIG.hero_video_url || ''),
+      hero_overlay_opacity: parsed.hero_overlay_opacity !== undefined && parsed.hero_overlay_opacity !== null ? Number(parsed.hero_overlay_opacity) : (DEFAULT_SITE_CONFIG.hero_overlay_opacity ?? 75),
       featuresSectionTitle: parsed.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
       featuresSectionSubtitle: parsed.featuresSectionSubtitle || DEFAULT_SITE_CONFIG.featuresSectionSubtitle,
       featuresHighlightImage: parsed.featuresHighlightImage || '',
