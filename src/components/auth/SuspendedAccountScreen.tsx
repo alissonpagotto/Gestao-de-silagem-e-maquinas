@@ -4,6 +4,8 @@ import { AlertTriangle, Lock, MessageCircle, Mail, ArrowLeft, ShieldAlert } from
 interface SuspendedAccountScreenProps {
   subscriberName?: string;
   subscriberEmail?: string;
+  blockMessage?: string;
+  reason?: 'expired' | 'suspended' | 'deleted';
   onBackToHome: () => void;
   onLogout: () => void;
 }
@@ -11,6 +13,8 @@ interface SuspendedAccountScreenProps {
 export const SuspendedAccountScreen: React.FC<SuspendedAccountScreenProps> = ({
   subscriberName,
   subscriberEmail,
+  blockMessage = 'Sua assinatura expirou. Entre em contato com o administrador',
+  reason = 'expired',
   onBackToHome,
   onLogout,
 }) => {
@@ -42,16 +46,16 @@ export const SuspendedAccountScreen: React.FC<SuspendedAccountScreenProps> = ({
         {/* Título & Mensagem */}
         <div className="space-y-2">
           <span className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider rounded-full inline-block">
-            Status: Suspenso
+            {reason === 'expired' ? 'Período Expirado' : reason === 'deleted' ? 'Acesso Revogado' : 'Status: Suspenso'}
           </span>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-            Acesso Suspenso
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white leading-tight">
+            {blockMessage}
           </h2>
           <p className="text-xs text-amber-400 font-bold uppercase tracking-wide">
-            Pendência Financeira
+            Assinatura Inativa ou Vencida
           </p>
           <p className="text-xs sm:text-sm text-stone-400 leading-relaxed pt-2">
-            A assinatura da conta <strong className="text-stone-200">{subscriberName || 'sua fazenda'}</strong> ({subscriberEmail || 'seu email'}) encontra-se temporariamente pausada ou com pendência financeira em aberto.
+            A conta associada a <strong className="text-stone-200">{subscriberName || 'sua fazenda'}</strong> {subscriberEmail ? `(${subscriberEmail})` : ''} não possui uma assinatura ativa ou o período de testes encerrou (0 dias restantes).
           </p>
         </div>
 

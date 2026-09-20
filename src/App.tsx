@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -122,7 +122,21 @@ import {
   upsertCliente,
   deleteCliente,
   fetchClientes,
-  subscribeToCloudTable
+  subscribeToCloudTable,
+  checkSubscriberAccessStatus,
+  saveCloudCompanyProfile,
+  fetchCloudCompanyProfile,
+  saveCloudServices,
+  fetchCloudServices,
+  saveCloudOrders,
+  fetchCloudOrders,
+  saveCloudInventory,
+  fetchCloudInventory,
+  saveCloudClients,
+  fetchCloudClients,
+  saveCloudMachineries,
+  saveCloudExpenses,
+  fetchAllClientModulesFromSupabase
 } from './lib/supabaseService';
 
 export default function App() {
@@ -243,14 +257,17 @@ export default function App() {
     }
   };
 
-  // When app boots or auth state is established, if Supabase cloud data exists, fetch it and populate
+  // Sincronização e Carga em Nuvem de Todos os Módulos do Cliente (Supabase)
+  const isInitialLoadDone = useRef(false);
+
   useEffect(() => {
     let isMounted = true;
-    const activeCompanyId = getActiveCompanyId(companyProfile);
+    const activeTenantId = getActiveCompanyId(companyProfile);
 
-    (async () => {
+    const loadCloudData = async () => {
       try {
-        const cloudData = await fetchAllDataFromSupabase(activeCompanyId);
+        // 1. Carrega dados relacionais legados (se existirem)
+        const cloudData = await fetchAllDataFromSupabase(activeTenantId);
         if (cloudData && isMounted) {
           if (cloudData.clientes && cloudData.clientes.length > 0) {
             setClients(prev => {
@@ -310,18 +327,73 @@ export default function App() {
               return [...prev, ...newItems];
             });
           }
-          setLastSyncedAt(new Date());
         }
+
+        // 2. Carrega todos os módulos operacionais dedicados (Serviços, Vendas, Estoque, Configurações)
+        const cloudModules = await fetchAllClientModulesFromSupabase(activeTenantId);
+        if (cloudModules && isMounted) {
+          if (cloudModules.companyProfile) {
+            setCompanyProfile(cloudModules.companyProfile);
+          }
+          if (cloudModules.services && cloudModules.services.length > 0) {
+            setServices(cloudModules.services);
+          }
+          if (cloudModules.orders && cloudModules.orders.length > 0) {
+            setOrders(cloudModules.orders);
+          }
+          if (cloudModules.inventory && cloudModules.inventory.length > 0) {
+            setInventory(cloudModules.inventory);
+          }
+          if (cloudModules.clients && cloudModules.clients.length > 0) {
+            setClients(cloudModules.clients);
+          }
+          if (cloudModules.machineries && cloudModules.machineries.length > 0) {
+            setMachineries(cloudModules.machineries);
+          }
+          if (cloudModules.expenses && cloudModules.expenses.length > 0) {
+            setExpenses(cloudModules.expenses);
+          }
+        }
+
+        setLastSyncedAt(new Date());
       } catch (e) {
         console.warn('Notice fetching cloud data from Supabase:', e);
+      } finally {
+        if (isMounted) {
+          isInitialLoadDone.current = true;
+        }
       }
-    })();
+    };
+
+    loadCloudData();
 
     // Assinaturas em tempo real para sincronização instantânea entre múltiplos dispositivos
     const unsubClientes = subscribeToCloudTable('clientes', () => {
-      fetchClientes(activeCompanyId).then(fresh => {
+      fetchClientes(activeTenantId).then(fresh => {
         if (fresh && fresh.length > 0 && isMounted) {
           setClients(fresh);
+        }
+      });
+    });
+
+    const unsubEstoque = subscribeToCloudTable('estoque', () => {
+      fetchCloudInventory(activeTenantId).then(fresh => {
+        if (fresh && fresh.length > 0 && isMounted) {
+          setInventory(fresh);
+        }
+      });
+    });
+
+    const unsubSettings = subscribeToCloudTable('site_settings', () => {
+      fetchAllClientModulesFromSupabase(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          if (fresh.companyProfile) setCompanyProfile(fresh.companyProfile);
+          if (fresh.services) setServices(fresh.services);
+          if (fresh.orders) setOrders(fresh.orders);
+          if (fresh.inventory) setInventory(fresh.inventory);
+          if (fresh.clients) setClients(fresh.clients);
+          if (fresh.machineries) setMachineries(fresh.machineries);
+          if (fresh.expenses) setExpenses(fresh.expenses);
         }
       });
     });
@@ -329,6 +401,8 @@ export default function App() {
     return () => { 
       isMounted = false; 
       unsubClientes();
+      unsubEstoque();
+      unsubSettings();
     };
   }, [currentUser?.uid, companyProfile?.cnpjCpf, companyProfile?.email]);
 
@@ -443,6 +517,65 @@ export default function App() {
   useEffect(() => { saveStoredFuelLogs(fuelLogs); }, [fuelLogs]);
   useEffect(() => { saveStoredMaintenanceLogs(maintenanceLogs); }, [maintenanceLogs]);
   useEffect(() => { saveStoredCompanyProfile(companyProfile); }, [companyProfile]);
+
+  // Persistência e Sincronização Automática em Nuvem (Supabase) dos Módulos Principais do Cliente
+  const activeTenantId = useMemo(() => getActiveCompanyId(companyProfile), [companyProfile]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudServices(services, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [services, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudInventory(inventory, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [inventory, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudOrders(orders, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [orders, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudCompanyProfile(companyProfile, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [companyProfile, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudClients(clients, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [clients, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudMachineries(machineries, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [machineries, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current) return;
+    const t = setTimeout(() => {
+      saveCloudExpenses(expenses, activeTenantId);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [expenses, activeTenantId]);
 
   // Keep third-party settlements state fresh across component interactions
   useEffect(() => {
@@ -976,20 +1109,89 @@ export default function App() {
     setCurrentRoute('master-admin');
   };
 
-  // Verifica se o assinante atual está com a assinatura suspensa no Supabase/banco
-  const isSuspendedAccount = useMemo(() => {
-    if (isAdminImpersonating) return false;
-    const currentSubEmail = (currentUser?.email || companyProfile?.email || '').toLowerCase().trim();
-    const storedSubs = getStoredSubscribers();
-    const matched = storedSubs.find(s => 
-      (currentSubEmail && s.responsibleEmail?.toLowerCase().trim() === currentSubEmail) ||
-      (companyProfile?.id && s.id === companyProfile.id)
-    );
-    if (matched) {
-      return matched.status?.toLowerCase() === 'suspensa' || matched.status?.toLowerCase() === 'suspenso';
+  // Validação de Acesso em Tempo Real com o Supabase (Bloqueio por Inadimplência, Trial Vencido ou Assinante Excluído)
+  const [subscriptionCheck, setSubscriptionCheck] = useState<{
+    isChecking: boolean;
+    hasAccess: boolean;
+    status: 'active' | 'trial' | 'expired' | 'suspended' | 'not_found';
+    daysRemaining: number;
+    blockMessage: string;
+    subscriberName?: string;
+    subscriberEmail?: string;
+    planName?: string;
+  }>({
+    isChecking: false,
+    hasAccess: true,
+    status: 'active',
+    daysRemaining: 7,
+    blockMessage: 'Sua assinatura expirou. Entre em contato com o administrador',
+  });
+
+  const performSubscriptionCheck = useCallback(async () => {
+    if (isAdminImpersonating) {
+      setSubscriptionCheck({
+        isChecking: false,
+        hasAccess: true,
+        status: 'active',
+        daysRemaining: 999,
+        blockMessage: '',
+        subscriberName: impersonatedSubscriber?.name,
+        subscriberEmail: impersonatedSubscriber?.email,
+        planName: 'Modo Suporte Mestre',
+      });
+      return;
     }
-    return false;
-  }, [currentUser, companyProfile, isAdminImpersonating]);
+
+    const userEmail = (
+      currentUser?.email ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_client_email') : '') ||
+      companyProfile?.email ||
+      ''
+    ).toLowerCase().trim();
+
+    const subId = typeof localStorage !== 'undefined' ? localStorage.getItem('silagem_active_subscriber_id') : undefined;
+
+    const result = await checkSubscriberAccessStatus({
+      email: userEmail,
+      id: subId || companyProfile?.id,
+      companyId: companyProfile?.id,
+    });
+
+    setSubscriptionCheck({
+      isChecking: false,
+      hasAccess: result.hasAccess,
+      status: result.status,
+      daysRemaining: result.daysRemaining,
+      blockMessage: result.errorMessage || 'Sua assinatura expirou. Entre em contato com o administrador',
+      subscriberName: result.subscriberName || companyProfile?.tradeName || companyProfile?.corporateName,
+      subscriberEmail: result.subscriberEmail || userEmail,
+      planName: result.planName || companyProfile?.planName,
+    });
+  }, [isAdminImpersonating, currentUser, companyProfile, impersonatedSubscriber]);
+
+  // Executa checagem de assinatura ao iniciar, ao mudar de rota ou ao retomar foco
+  useEffect(() => {
+    performSubscriptionCheck();
+
+    const handleFocus = () => {
+      performSubscriptionCheck();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Escuta em tempo real nas tabelas de assinantes do Supabase
+    const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
+      performSubscriptionCheck();
+    });
+    const unsubSubs = subscribeToCloudTable('subscribers', () => {
+      performSubscriptionCheck();
+    });
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      unsubAssinantes();
+      unsubSubs();
+    };
+  }, [performSubscriptionCheck, currentRoute]);
 
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {
@@ -1083,12 +1285,15 @@ export default function App() {
     );
   }
 
-  // Se a conta do assinante estiver com status 'Suspenso', bloqueia o ERP e exibe a tela de regularização
-  if (isSuspendedAccount) {
+  // Se o status for diferente de 'active' ou se os dias de trial forem menores ou iguais a 0 (ou assinante excluído),
+  // bloqueia o acesso e redireciona imediatamente para a tela de bloqueio
+  if (!subscriptionCheck.hasAccess && !isAdminImpersonating) {
     return (
       <SuspendedAccountScreen
-        subscriberName={companyProfile?.tradeName || companyProfile?.corporateName}
-        subscriberEmail={currentUser?.email || companyProfile?.email}
+        subscriberName={subscriptionCheck.subscriberName || companyProfile?.tradeName || companyProfile?.corporateName}
+        subscriberEmail={subscriptionCheck.subscriberEmail || currentUser?.email || companyProfile?.email}
+        blockMessage="Sua assinatura expirou. Entre em contato com o administrador"
+        reason={subscriptionCheck.status === 'expired' ? 'expired' : subscriptionCheck.status === 'not_found' ? 'deleted' : 'suspended'}
         onBackToHome={handleOpenLandingPage}
         onLogout={handleLogout}
       />
@@ -1164,6 +1369,9 @@ export default function App() {
           onOpenTrialInfo={() => setIsTrialInfoOpen(true)}
           selectedShortcuts={selectedShortcuts}
           onOpenCustomizeShortcuts={() => setIsCustomizeShortcutsOpen(true)}
+          trialDaysRemaining={subscriptionCheck.daysRemaining}
+          subscriptionStatus={subscriptionCheck.status}
+          subscriptionPlanName={subscriptionCheck.planName || companyProfile?.planName}
         />
 
         {/* Dynamic Page Content (100% Full Width across all modules) */}
@@ -1438,6 +1646,7 @@ export default function App() {
               onSaveCompanyProfile={(updated) => {
                 setCompanyProfile(updated);
                 saveStoredCompanyProfile(updated);
+                saveCloudCompanyProfile(updated, activeTenantId);
               }}
               categories={categories}
               costCenters={costCenters}

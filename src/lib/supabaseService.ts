@@ -2008,3 +2008,676 @@ export function getActiveTenantCompanyId(): string {
   return 'default';
 }
 
+// ==============================================================================
+// 13. VALIDAÇÃO DE ACESSO E STATUS DE ASSINATURA EM TEMPO REAL NO SUPABASE
+// ==============================================================================
+
+export interface SubscriberAccessCheckResult {
+  hasAccess: boolean;
+  status: 'active' | 'trial' | 'expired' | 'suspended' | 'not_found';
+  rawStatus?: string;
+  daysRemaining: number;
+  trialEndsAt?: string;
+  subscriberName?: string;
+  subscriberEmail?: string;
+  planName?: string;
+  errorMessage?: string;
+}
+
+/**
+ * Verifica o status da assinatura diretamente nas tabelas 'assinantes' e 'subscribers' do Supabase.
+ * Garante que:
+ * - Se o assinante foi excluído pelo Admin Mestre -> hasAccess: false ("Sua assinatura expirou. Entre em contato com o administrador")
+ * - Se o status for cancelado/inativo/suspenso -> hasAccess: false
+ * - Se o trial vencer (dias <= 0) -> hasAccess: false
+ * - Se estiver ativo ou trial com dias > 0 -> hasAccess: true
+ */
+export async function checkSubscriberAccessStatus(identifier: {
+  email?: string | null;
+  id?: string | null;
+  companyId?: string | null;
+}): Promise<SubscriberAccessCheckResult> {
+  const cleanEmail = (identifier.email || '').trim().toLowerCase();
+  const cleanId = (identifier.id || '').trim();
+
+  // Se não houver e-mail nem ID, tenta ler do localStorage da sessão ativa
+  let targetEmail = cleanEmail;
+  let targetId = cleanId;
+
+  if (!targetEmail && typeof localStorage !== 'undefined') {
+    targetEmail = (
+      localStorage.getItem('silagem_active_user_email') ||
+      localStorage.getItem('silagem_client_email') ||
+      ''
+    ).trim().toLowerCase();
+  }
+
+  if (!targetId && typeof localStorage !== 'undefined') {
+    targetId = (localStorage.getItem('silagem_active_subscriber_id') || '').trim();
+  }
+
+  // Se Supabase não estiver configurado, valida pelo armazenamento local
+  if (!isSupabaseConfigured) {
+    if (typeof localStorage !== 'undefined') {
+      const rawSubs = localStorage.getItem('agrocontrol_subscribers_data') || localStorage.getItem('silagem_master_subscribers_v1');
+      if (rawSubs) {
+        try {
+          const subs: any[] = JSON.parse(rawSubs);
+          const found = subs.find(s => 
+            (targetEmail && s.responsibleEmail?.toLowerCase() === targetEmail) ||
+            (targetId && s.id === targetId)
+          );
+          if (!found) {
+            return {
+              hasAccess: false,
+              status: 'not_found',
+              daysRemaining: 0,
+              errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+            };
+          }
+          const st = (found.status || '').toLowerCase();
+          if (['cancelada', 'cancelado', 'inativo', 'inativa', 'suspensa', 'suspenso'].includes(st)) {
+            return {
+              hasAccess: false,
+              status: 'suspended',
+              daysRemaining: 0,
+              subscriberName: found.name,
+              subscriberEmail: found.responsibleEmail,
+              errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+            };
+          }
+          const trialDate = found.trialUntil || found.trial_ends_at;
+          if (trialDate) {
+            const diffMs = new Date(trialDate).getTime() - Date.now();
+            const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (days <= 0 && st !== 'ativa' && st !== 'ativo') {
+              return {
+                hasAccess: false,
+                status: 'expired',
+                daysRemaining: 0,
+                subscriberName: found.name,
+                subscriberEmail: found.responsibleEmail,
+                errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+              };
+            }
+            return {
+              hasAccess: true,
+              status: st === 'ativa' || st === 'ativo' ? 'active' : 'trial',
+              daysRemaining: Math.max(0, days),
+              subscriberName: found.name,
+              subscriberEmail: found.responsibleEmail,
+              planName: found.planName
+            };
+          }
+        } catch (e) {}
+      }
+    }
+    return {
+      hasAccess: true,
+      status: 'active',
+      daysRemaining: 15,
+      errorMessage: undefined
+    };
+  }
+
+  try {
+    let row: any = null;
+
+    // 1. Busca prioritária na tabela oficial 'assinantes'
+    if (!isTableUnmigrated('assinantes')) {
+      try {
+        let query = supabase.from('assinantes').select('*');
+        if (targetEmail && targetId) {
+          query = query.or(`email.ilike.${targetEmail},id.eq.${toValidUUID(targetId)}`);
+        } else if (targetEmail) {
+          query = query.ilike('email', targetEmail);
+        } else if (targetId) {
+          query = query.eq('id', toValidUUID(targetId));
+        }
+
+        const { data: assinanteData, error: assErr } = await query.maybeSingle();
+        if (!assErr && assinanteData) {
+          row = assinanteData;
+        }
+      } catch (err) {
+        console.warn('Erro ao consultar tabela assinantes:', err);
+      }
+    }
+
+    // 2. Fallback na tabela 'subscribers'
+    if (!row && !isTableUnmigrated('subscribers')) {
+      try {
+        let query = supabase.from('subscribers').select('*');
+        if (targetEmail && targetId) {
+          query = query.or(`email.ilike.${targetEmail},id.eq.${toValidUUID(targetId)}`);
+        } else if (targetEmail) {
+          query = query.ilike('email', targetEmail);
+        } else if (targetId) {
+          query = query.eq('id', toValidUUID(targetId));
+        }
+
+        const { data: subData, error: subErr } = await query.maybeSingle();
+        if (!subErr && subData) {
+          row = subData;
+        }
+      } catch (err) {
+        console.warn('Erro ao consultar tabela subscribers:', err);
+      }
+    }
+
+    // Se NÃO encontrou o assinante em nenhuma das tabelas do Supabase, significa que foi EXCLUÍDO
+    if (!row) {
+      return {
+        hasAccess: false,
+        status: 'not_found',
+        daysRemaining: 0,
+        errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+      };
+    }
+
+    // Normaliza campos entre as duas tabelas
+    const rawStatus = (row.status || '').toLowerCase().trim();
+    const subName = row.nome || row.name || 'Assinante';
+    const subEmail = (row.email || row.responsible_email || targetEmail).toLowerCase().trim();
+    const planName = row.plano_nome || row.plano_selecionado || row.plan_name || 'Silagem Fácil Pro';
+    const trialDateStr = row.trial_ate || row.trial_ends_at || row.trial_until;
+
+    // Se o status for cancelado, suspenso, inadimplente ou inativo
+    if (
+      rawStatus === 'cancelada' ||
+      rawStatus === 'cancelado' ||
+      rawStatus === 'suspensa' ||
+      rawStatus === 'suspenso' ||
+      rawStatus === 'inativo' ||
+      rawStatus === 'inativa' ||
+      rawStatus === 'inadimplente'
+    ) {
+      return {
+        hasAccess: false,
+        status: 'suspended',
+        rawStatus,
+        daysRemaining: 0,
+        subscriberName: subName,
+        subscriberEmail: subEmail,
+        planName,
+        errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+      };
+    }
+
+    // Se o status for explicitamente 'ativa' ou 'ativo' ou 'active' ou 'pago'
+    const isExplicitlyActive = 
+      rawStatus === 'ativa' || 
+      rawStatus === 'ativo' || 
+      rawStatus === 'active' || 
+      rawStatus === 'pago' || 
+      rawStatus === 'regular';
+
+    // Cálculo dos dias restantes do trial
+    let daysRemaining = 0;
+    if (trialDateStr) {
+      const trialEndTime = new Date(trialDateStr.includes('T') ? trialDateStr : `${trialDateStr}T23:59:59Z`).getTime();
+      const nowTime = Date.now();
+      const diffMs = trialEndTime - nowTime;
+      daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    } else if (row.criado_em || row.created_at) {
+      const createdTime = new Date(row.criado_em || row.created_at).getTime();
+      const defaultTrialEnd = createdTime + 7 * 86400000;
+      const diffMs = defaultTrialEnd - Date.now();
+      daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    }
+
+    // Se NÃO for explicitamente ativo (ou seja, é status trial/teste) E os dias restantes forem <= 0
+    if (!isExplicitlyActive && daysRemaining <= 0) {
+      return {
+        hasAccess: false,
+        status: 'expired',
+        rawStatus,
+        daysRemaining: 0,
+        trialEndsAt: trialDateStr,
+        subscriberName: subName,
+        subscriberEmail: subEmail,
+        planName,
+        errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+      };
+    }
+
+    // Caso contrário, acesso liberado!
+    return {
+      hasAccess: true,
+      status: isExplicitlyActive ? 'active' : 'trial',
+      rawStatus,
+      daysRemaining: isExplicitlyActive ? 999 : daysRemaining,
+      trialEndsAt: trialDateStr,
+      subscriberName: subName,
+      subscriberEmail: subEmail,
+      planName
+    };
+
+  } catch (err: any) {
+    console.error('Falha ao verificar status de acesso no Supabase:', err);
+    // Em caso de erro transitório de rede, permite contingência mas com aviso
+    return {
+      hasAccess: true,
+      status: 'active',
+      daysRemaining: 7,
+      errorMessage: undefined
+    };
+  }
+}
+
+// ==============================================================================
+// 14. SINCRONIZAÇÃO EM NUVEM DOS MÓDULOS DO CLIENTE (SUPABASE)
+// Persistência direta em tempo real para Serviços, Estoque, Vendas, Configurações
+// ==============================================================================
+
+/**
+ * Salva e sincroniza as Configurações da Empresa na nuvem
+ */
+export async function saveCloudCompanyProfile(profile: CompanyProfile, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId(profile);
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_company_${cId}`,
+      hero_title: JSON.stringify(profile),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Erro ao salvar companyProfile no Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('Falha ao persistir companyProfile no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega as Configurações da Empresa da nuvem
+ */
+export async function fetchCloudCompanyProfile(companyId?: string): Promise<CompanyProfile | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_company_${cId}`)
+      .maybeSingle();
+
+    if (error || !data?.hero_title) return null;
+    return JSON.parse(data.hero_title) as CompanyProfile;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza os Serviços (Ordens de Serviço) na nuvem
+ */
+export async function saveCloudServices(services: ServiceOrder[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_services_${cId}`,
+      hero_title: JSON.stringify(services),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Erro ao salvar serviços no Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('Falha ao persistir serviços no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega os Serviços (Ordens de Serviço) da nuvem
+ */
+export async function fetchCloudServices(companyId?: string): Promise<ServiceOrder[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_services_${cId}`)
+      .maybeSingle();
+
+    if (error || !data?.hero_title) return null;
+    return JSON.parse(data.hero_title) as ServiceOrder[];
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza os Agendamentos Operacionais de Serviços na nuvem
+ */
+export async function saveCloudAppointments(appointments: ServiceAppointment[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_appointments_${cId}`,
+      hero_title: JSON.stringify(appointments),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    return !error;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Carrega os Agendamentos Operacionais da nuvem
+ */
+export async function fetchCloudAppointments(companyId?: string): Promise<ServiceAppointment[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_appointments_${cId}`)
+      .maybeSingle();
+
+    if (error || !data?.hero_title) return null;
+    return JSON.parse(data.hero_title) as ServiceAppointment[];
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza as Vendas / Pedidos de Silagem na nuvem
+ */
+export async function saveCloudOrders(orders: SilageOrder[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_orders_${cId}`,
+      hero_title: JSON.stringify(orders),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Erro ao salvar vendas no Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('Falha ao persistir vendas no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega as Vendas / Pedidos da nuvem
+ */
+export async function fetchCloudOrders(companyId?: string): Promise<SilageOrder[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_orders_${cId}`)
+      .maybeSingle();
+
+    if (error || !data?.hero_title) return null;
+    return JSON.parse(data.hero_title) as SilageOrder[];
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza o Estoque na nuvem (gravação dupla na tabela 'estoque' e no snapshot da nuvem)
+ */
+export async function saveCloudInventory(items: InventoryItem[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+
+    // 1. Grava o snapshot consolidado da empresa
+    await supabase.from('site_settings').upsert({
+      id: `cloud_inventory_${cId}`,
+      hero_title: JSON.stringify(items),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    // 2. Grava item a item na tabela relacional 'estoque' para compatibilidade total
+    for (const item of items) {
+      await upsertEstoqueItem(item);
+    }
+
+    return true;
+  } catch (e) {
+    console.error('Falha ao persistir estoque no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega o Estoque da nuvem (prioriza tabela relacional e snapshot)
+ */
+export async function fetchCloudInventory(companyId?: string): Promise<InventoryItem[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+
+    // 1. Tenta carregar o snapshot em site_settings
+    const { data: snapshotData } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_inventory_${cId}`)
+      .maybeSingle();
+
+    if (snapshotData?.hero_title) {
+      const parsed = JSON.parse(snapshotData.hero_title);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as InventoryItem[];
+      }
+    }
+
+    // 2. Fallback na tabela oficial 'estoque'
+    const fromEstoque = await fetchEstoque();
+    if (fromEstoque && fromEstoque.length > 0) {
+      return fromEstoque;
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza Clientes na nuvem
+ */
+export async function saveCloudClients(clients: Client[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    await supabase.from('site_settings').upsert({
+      id: `cloud_clients_${cId}`,
+      hero_title: JSON.stringify(clients),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Carrega Clientes da nuvem
+ */
+export async function fetchCloudClients(companyId?: string): Promise<Client[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_clients_${cId}`)
+      .maybeSingle();
+
+    if (data?.hero_title) {
+      return JSON.parse(data.hero_title) as Client[];
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza Frotas/Maquinários na nuvem
+ */
+export async function saveCloudMachineries(machines: Machinery[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    await supabase.from('site_settings').upsert({
+      id: `cloud_machineries_${cId}`,
+      hero_title: JSON.stringify(machines),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Carrega Frotas/Maquinários da nuvem
+ */
+export async function fetchCloudMachineries(companyId?: string): Promise<Machinery[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_machineries_${cId}`)
+      .maybeSingle();
+
+    if (data?.hero_title) {
+      return JSON.parse(data.hero_title) as Machinery[];
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza Despesas na nuvem
+ */
+export async function saveCloudExpenses(expenses: Expense[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    await supabase.from('site_settings').upsert({
+      id: `cloud_expenses_${cId}`,
+      hero_title: JSON.stringify(expenses),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Carrega Despesas da nuvem
+ */
+export async function fetchCloudExpenses(companyId?: string): Promise<Expense[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_expenses_${cId}`)
+      .maybeSingle();
+
+    if (data?.hero_title) {
+      return JSON.parse(data.hero_title) as Expense[];
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Carrega todos os módulos operacionais do cliente a partir do Supabase em uma única operação
+ */
+export async function fetchAllClientModulesFromSupabase(companyId?: string) {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const keys = [
+      `cloud_company_${cId}`,
+      `cloud_services_${cId}`,
+      `cloud_appointments_${cId}`,
+      `cloud_orders_${cId}`,
+      `cloud_inventory_${cId}`,
+      `cloud_clients_${cId}`,
+      `cloud_machineries_${cId}`,
+      `cloud_expenses_${cId}`,
+    ];
+
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('id, hero_title')
+      .in('id', keys);
+
+    if (error || !data) return null;
+
+    const map = new Map<string, string>();
+    data.forEach(row => {
+      if (row.id && row.hero_title) {
+        map.set(row.id, row.hero_title);
+      }
+    });
+
+    const parseJson = (key: string) => {
+      const raw = map.get(key);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    };
+
+    return {
+      companyProfile: parseJson(`cloud_company_${cId}`) as CompanyProfile | null,
+      services: parseJson(`cloud_services_${cId}`) as ServiceOrder[] | null,
+      appointments: parseJson(`cloud_appointments_${cId}`) as ServiceAppointment[] | null,
+      orders: parseJson(`cloud_orders_${cId}`) as SilageOrder[] | null,
+      inventory: parseJson(`cloud_inventory_${cId}`) as InventoryItem[] | null,
+      clients: parseJson(`cloud_clients_${cId}`) as Client[] | null,
+      machineries: parseJson(`cloud_machineries_${cId}`) as Machinery[] | null,
+      expenses: parseJson(`cloud_expenses_${cId}`) as Expense[] | null,
+    };
+  } catch (err) {
+    console.warn('Erro ao carregar módulos do cliente do Supabase:', err);
+    return null;
+  }
+}
+
+
