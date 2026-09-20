@@ -1633,38 +1633,6 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
 
     // Deduplica por ID único preservando ordenação decrescente por data
     const uniqueSubscribers = Array.from(new Set(Array.from(mergedMap.values())));
-
-    // Sincronização manual do cliente antigo 'COLACA SILAGEM LTDA'
-    const hasColaca = uniqueSubscribers.some(
-      s => s && (
-        String(s.name || '').toUpperCase().includes('COLACA') ||
-        String(s.responsibleEmail || '').toLowerCase().includes('colaca')
-      )
-    );
-    if (!hasColaca) {
-      const colacaSub: Subscriber = {
-        id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
-        name: 'COLACA SILAGEM LTDA',
-        responsibleEmail: 'colacasilagem@gmail.com',
-        phone: '(44) 99999-0000',
-        cpfCnpj: '',
-        cep: '',
-        street: '',
-        number: '',
-        neighborhood: '',
-        city: 'Maringá',
-        state: 'PR',
-        planId: 'essencial',
-        planName: 'Produtor Essencial',
-        monthlyValue: 195.00,
-        status: 'trial',
-        trialUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        createdAt: '2026-03-01T10:00:00.000Z',
-        updatedAt: new Date().toISOString(),
-      };
-      uniqueSubscribers.unshift(colacaSub);
-    }
-
     uniqueSubscribers.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     return uniqueSubscribers;
@@ -1901,6 +1869,13 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(id)) {
       await supabase.from('assinantes').delete().eq('id', id.toLowerCase());
+    } else {
+      try {
+        const derived = toValidUUID(id);
+        if (derived && derived !== id) {
+          await supabase.from('assinantes').delete().eq('id', derived);
+        }
+      } catch {}
     }
 
     // Se houver email informado, garante exclusão por email na tabela oficial 'assinantes'

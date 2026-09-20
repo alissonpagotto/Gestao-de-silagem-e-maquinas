@@ -73,7 +73,8 @@ import {
   normalizeSubscriberPlanKey,
   getSubscriberPlanDisplayName,
   getSubscriberPlanPrice,
-  normalizeSubscriberStatus
+  normalizeSubscriberStatus,
+  toValidUUID
 } from '../../lib/supabaseService';
 import { EditSubscriberModal } from './EditSubscriberModal';
 import { SubscriberDetailModal } from './SubscriberDetailModal';
@@ -575,35 +576,40 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   };
 
   // Excluir Assinante com remoção estrita e prioritária da tabela 'assinantes'
-  const handleDeleteSubscriber = async (idDeleted: string, name: string, email?: string) => {
+  const handleDeleteSubscriber = async (idDoAssinante: string, name: string, email?: string) => {
     if (!window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível.`)) {
       return;
     }
 
     try {
       // 1. Exclusão direta na tabela oficial 'assinantes' do Supabase
-      if (isSupabaseConfigured) {
-        // Deleta diretamente da tabela 'assinantes' por ID
-        const { error: delErr } = await supabase
-          .from('assinantes')
-          .delete()
-          .eq('id', idDeleted);
+      // Padrão solicitado: const { error } = await supabase.from('assinantes').delete().eq('id', idDoAssinante);
+      const { error } = await supabase
+        .from('assinantes')
+        .delete()
+        .eq('id', idDoAssinante);
 
-        if (delErr) {
-          console.warn('Aviso ao deletar de assinantes por ID:', delErr.message);
-        }
-
-        // Se houver e-mail válido, remove também por email para garantir limpeza completa
-        if (email && email.trim()) {
-          await supabase
-            .from('assinantes')
-            .delete()
-            .eq('email', email.trim().toLowerCase());
-        }
+      if (error) {
+        console.warn('Aviso ao deletar de assinantes por ID:', error.message);
+        // Se o banco Postgres esperar UUID e idDoAssinante for formato texto legado, tenta com UUID correspondente
+        try {
+          const derivedUuid = toValidUUID(idDoAssinante);
+          if (derivedUuid && derivedUuid !== idDoAssinante) {
+            await supabase.from('assinantes').delete().eq('id', derivedUuid);
+          }
+        } catch {}
       }
 
-      // Executa exclusão unificada no serviço de nuvem
-      await deleteCloudSubscriber(idDeleted, email);
+      // Se houver e-mail válido, remove também por email para garantir limpeza total no banco
+      if (email && email.trim() && email !== '-') {
+        await supabase
+          .from('assinantes')
+          .delete()
+          .eq('email', email.trim().toLowerCase());
+      }
+
+      // Executa exclusão complementar nas tabelas de nuvem
+      await deleteCloudSubscriber(idDoAssinante, email);
 
       // 2. LOGO APÓS O COMANDO DO SUPABASE RETORNAR SUCESSO:
       // Atualiza o estado local do React filtrando o item removido da lista
@@ -611,7 +617,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       setSubscribers(prev => {
         const nextList = (prev || []).filter(sub => {
           if (!sub) return false;
-          const matchId = sub.id === idDeleted || String(sub.id) === String(idDeleted);
+          const matchId = sub.id === idDoAssinante || String(sub.id) === String(idDoAssinante);
           const matchEmail = email && sub.responsibleEmail && sub.responsibleEmail.toLowerCase() === email.toLowerCase();
           return !matchId && !matchEmail;
         });
@@ -624,7 +630,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       console.error('Erro ao excluir assinante da tabela assinantes:', err);
       // Em caso de erro de rede, garante a remoção local para feedback imediato
       setSubscribers(prev => {
-        const nextList = (prev || []).filter(sub => sub && sub.id !== idDeleted && String(sub.id) !== String(idDeleted));
+        const nextList = (prev || []).filter(sub => sub && sub.id !== idDoAssinante && String(sub.id) !== String(idDoAssinante));
         saveStoredSubscribers(nextList);
         return nextList;
       });

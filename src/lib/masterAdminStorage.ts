@@ -177,13 +177,19 @@ export function getStoredSubscribers(): Subscriber[] {
     }
 
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.SUBSCRIBERS) : null;
-    let parsed: any[] = [];
-    if (raw) {
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = [];
+    if (raw === null) {
+      // Primeira inicialização absoluta (quando não há nada no storage)
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([COLACA_SILAGEM_SUBSCRIBER]));
       }
+      return [COLACA_SILAGEM_SUBSCRIBER];
+    }
+
+    let parsed: any[] = [];
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = [];
     }
 
     if (!Array.isArray(parsed)) {
@@ -198,26 +204,10 @@ export function getStoredSubscribers(): Subscriber[] {
         !['Agropecuária Santa Fé Ltda', 'Colheitas & Silagem do Cerrado', 'Fazenda Boa Esperança - João Pedro Silva', 'Cooperativa Agrícola Sul Catarinense', 'Tratores & Ensilagem Pioneiro', 'AgroServiços Vale do Paranapanema'].includes(sub.name)
     );
 
-    // Sincronização manual do cliente antigo 'COLACA SILAGEM LTDA'
-    const hasColaca = cleaned.some(
-      (sub: any) =>
-        sub &&
-        (String(sub.name || '').toUpperCase().includes('COLACA') ||
-         String(sub.responsibleEmail || '').toLowerCase().includes('colaca'))
-    );
-
-    if (!hasColaca) {
-      cleaned.unshift(COLACA_SILAGEM_SUBSCRIBER);
-    }
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cleaned));
-    }
-
     return cleaned;
   } catch (e) {
     console.error('Failed to load subscribers:', e);
-    return [COLACA_SILAGEM_SUBSCRIBER];
+    return [];
   }
 }
 
