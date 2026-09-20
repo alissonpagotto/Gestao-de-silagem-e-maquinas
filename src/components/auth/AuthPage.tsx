@@ -46,7 +46,7 @@ import { CompanyProfile } from '../../types';
 import { getStoredCompanyProfile } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { toValidUUID, upsertCloudSubscriber } from '../../lib/supabaseService';
+import { toValidUUID, upsertCloudSubscriber, fetchCloudSiteConfig } from '../../lib/supabaseService';
 
 interface AuthPageProps {
   onEnterApp: () => void;
