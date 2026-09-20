@@ -39,10 +39,11 @@ const STORAGE_KEYS = {
 // ==========================================
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
   allow_free_trial: true, // Por padrão, teste grátis ativo
+  hero_badge_text: 'A plataforma nº 1 em prestação de serviços de silagem e colheita',
   heroTitle: 'Gestão Inteligente para Prestadores de Silagem e Grãos',
   heroSubtitle: 'O ERP definitivo para controle de frotas agrícolas, ordens de serviço, pesagens, operadores e lucratividade safra a safra.',
   heroPrimaryBtnText: 'Começar Teste Grátis de 7 Dias',
-  heroSecondaryBtnText: 'Ver Demonstração ao Vivo',
+  heroSecondaryBtnText: 'Conhecer Funcionalidades',
   heroBackgroundImage: '/image.png',
   hero_video_url: '',
   hero_overlay_opacity: 75, // Padrão equilibrado de 75%
@@ -50,6 +51,45 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   featuresSectionTitle: 'Recursos Projetados para o Campo',
   featuresSectionSubtitle: 'Controle total da sua operação agrícola na ponta dos dedos, online e no celular dos operadores.',
   featuresHighlightImage: '',
+
+  features_tabs: [
+    {
+      id: 'tab-rotina-colheita',
+      title: 'Logística & Escala de Frotas',
+      iconName: 'Tractor',
+      description: 'Distribua ensiladeiras, caminhões e tratores por fazenda com cálculo de rendimento por hora e prevenção de ociosidade.',
+      bullets: [
+        'Planejamento de rotas e frentes de corte por fazenda e cliente',
+        'Controle de horímetro, consumo de diesel e tempo de deslocamento',
+        'Prevenção de conflitos de cronograma e previsão de término de corte'
+      ],
+      imageUrl: '/image.png'
+    },
+    {
+      id: 'tab-apontamento-campo',
+      title: 'Apontamentos no Campo (WhatsApp)',
+      iconName: 'PhoneCall',
+      description: 'Envie links exclusivos para os operadores registrarem cargas, pesagens e compactação sem exigir login ou senhas complexas.',
+      bullets: [
+        'Link direto no WhatsApp do motorista ou operador de máquina',
+        'Registro de pesagem com foto do ticket e identificação do talhão',
+        'Sincronização imediata com o painel central da fazenda'
+      ],
+      imageUrl: '/image.png'
+    },
+    {
+      id: 'tab-dre-lucro',
+      title: 'DRE & Lucratividade por Cliente',
+      iconName: 'TrendingUp',
+      description: 'Saiba o custo real por hectare, tonelada ou hora trabalhada, identificando as frotas e contratos mais rentáveis.',
+      bullets: [
+        'DRE automatizado por ordem de serviço e cliente atendido',
+        'Rateio preciso de manutenções, peças e combustível',
+        'Exportação de relatórios gerenciais e comprovantes em PDF'
+      ],
+      imageUrl: '/image.png'
+    }
+  ],
 
   feature1Title: 'Agenda & Escala de Frotas em Tempo Real',
   feature1Desc: 'Distribua ensiladeiras, caminhões e tratores por fazenda com cálculo de rendimento por hora e prevenção de conflitos de horário.',
@@ -62,6 +102,14 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
 
   feature4Title: 'Gestão Completa de Manutenção & Pneus',
   feature4Desc: 'Controle rigoroso de rodízio de eixos, reformas, OS de oficina, abastecimentos e revisões preventivas por horímetro e km.',
+
+  pricing_tag: 'Investimento Transparente',
+  pricing_title: 'Escolha o plano ideal para a sua operação',
+  pricing_subtitle: 'Cancele ou altere seu plano a qualquer momento com total liberdade.',
+
+  footer_copyright: 'AgroControl • Silagem Fácil Pro © 2026',
+  footer_signup_url: '',
+  footer_login_url: '',
 };
 
 // ==========================================
@@ -242,6 +290,7 @@ export function getStoredSiteConfig(): SiteConfig {
     const parsed = JSON.parse(raw);
     return {
       allow_free_trial: parsed.allow_free_trial !== undefined ? Boolean(parsed.allow_free_trial) : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true),
+      hero_badge_text: parsed.hero_badge_text !== undefined ? parsed.hero_badge_text : (DEFAULT_SITE_CONFIG.hero_badge_text || 'A plataforma nº 1 em prestação de serviços de silagem e colheita'),
       heroTitle: parsed.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
       heroSubtitle: parsed.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
       heroPrimaryBtnText: parsed.heroPrimaryBtnText || DEFAULT_SITE_CONFIG.heroPrimaryBtnText,
@@ -252,6 +301,7 @@ export function getStoredSiteConfig(): SiteConfig {
       featuresSectionTitle: parsed.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
       featuresSectionSubtitle: parsed.featuresSectionSubtitle || DEFAULT_SITE_CONFIG.featuresSectionSubtitle,
       featuresHighlightImage: parsed.featuresHighlightImage || '',
+      features_tabs: Array.isArray(parsed.features_tabs) && parsed.features_tabs.length > 0 ? parsed.features_tabs : DEFAULT_SITE_CONFIG.features_tabs,
       feature1Title: parsed.feature1Title || DEFAULT_SITE_CONFIG.feature1Title,
       feature1Desc: parsed.feature1Desc || DEFAULT_SITE_CONFIG.feature1Desc,
       feature2Title: parsed.feature2Title || DEFAULT_SITE_CONFIG.feature2Title,
@@ -260,6 +310,12 @@ export function getStoredSiteConfig(): SiteConfig {
       feature3Desc: parsed.feature3Desc || DEFAULT_SITE_CONFIG.feature3Desc,
       feature4Title: parsed.feature4Title || DEFAULT_SITE_CONFIG.feature4Title,
       feature4Desc: parsed.feature4Desc || DEFAULT_SITE_CONFIG.feature4Desc,
+      pricing_tag: parsed.pricing_tag || DEFAULT_SITE_CONFIG.pricing_tag || 'Investimento Transparente',
+      pricing_title: parsed.pricing_title || DEFAULT_SITE_CONFIG.pricing_title || 'Escolha o plano ideal para a sua operação',
+      pricing_subtitle: parsed.pricing_subtitle || DEFAULT_SITE_CONFIG.pricing_subtitle || 'Cancele ou altere seu plano a qualquer momento com total liberdade.',
+      footer_copyright: parsed.footer_copyright || DEFAULT_SITE_CONFIG.footer_copyright || 'AgroControl • Silagem Fácil Pro © 2026',
+      footer_signup_url: parsed.footer_signup_url || '',
+      footer_login_url: parsed.footer_login_url || '',
     };
   } catch (e) {
     console.error('Failed to load site config:', e);

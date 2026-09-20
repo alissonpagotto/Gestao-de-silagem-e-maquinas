@@ -1166,9 +1166,11 @@ export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
       heroBackgroundImage: data.hero_background_image || '',
       hero_video_url: data.hero_video_url || '',
       hero_overlay_opacity: data.hero_overlay_opacity !== undefined && data.hero_overlay_opacity !== null ? Number(data.hero_overlay_opacity) : 75,
+      hero_badge_text: data.hero_badge_text || '',
       featuresSectionTitle: data.features_section_title || '',
       featuresSectionSubtitle: data.features_section_subtitle || '',
       featuresHighlightImage: data.features_highlight_image || '',
+      features_tabs: Array.isArray(data.features_tabs) ? data.features_tabs : (typeof data.features_tabs === 'string' ? JSON.parse(data.features_tabs || '[]') : undefined),
       feature1Title: data.feature1_title || '',
       feature1Desc: data.feature1_desc || '',
       feature2Title: data.feature2_title || '',
@@ -1177,6 +1179,12 @@ export async function fetchCloudSiteConfig(): Promise<SiteConfig | null> {
       feature3Desc: data.feature3_desc || '',
       feature4Title: data.feature4_title || '',
       feature4Desc: data.feature4_desc || '',
+      pricing_tag: data.pricing_tag || '',
+      pricing_title: data.pricing_title || '',
+      pricing_subtitle: data.pricing_subtitle || '',
+      footer_copyright: data.footer_copyright || '',
+      footer_signup_url: data.footer_signup_url || '',
+      footer_login_url: data.footer_login_url || '',
     };
   } catch (err) {
     return null;
@@ -1196,6 +1204,7 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.primaryColor !== undefined) payload.primary_color = config.primaryColor;
     if (config.maintenanceMode !== undefined) payload.maintenance_mode = config.maintenanceMode;
     if (config.allow_free_trial !== undefined) payload.allow_free_trial = config.allow_free_trial;
+    if (config.hero_badge_text !== undefined) payload.hero_badge_text = config.hero_badge_text;
     if (config.heroTitle !== undefined) payload.hero_title = config.heroTitle;
     if (config.heroSubtitle !== undefined) payload.hero_subtitle = config.heroSubtitle;
     if (config.heroPrimaryBtnText !== undefined) payload.hero_primary_btn_text = config.heroPrimaryBtnText;
@@ -1206,6 +1215,7 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.featuresSectionTitle !== undefined) payload.features_section_title = config.featuresSectionTitle;
     if (config.featuresSectionSubtitle !== undefined) payload.features_section_subtitle = config.featuresSectionSubtitle;
     if (config.featuresHighlightImage !== undefined) payload.features_highlight_image = config.featuresHighlightImage;
+    if (config.features_tabs !== undefined) payload.features_tabs = config.features_tabs;
     if (config.feature1Title !== undefined) payload.feature1_title = config.feature1Title;
     if (config.feature1Desc !== undefined) payload.feature1_desc = config.feature1Desc;
     if (config.feature2Title !== undefined) payload.feature2_title = config.feature2Title;
@@ -1214,20 +1224,37 @@ export async function upsertCloudSiteConfig(config: Partial<SiteConfig>): Promis
     if (config.feature3Desc !== undefined) payload.feature3_desc = config.feature3Desc;
     if (config.feature4Title !== undefined) payload.feature4_title = config.feature4Title;
     if (config.feature4Desc !== undefined) payload.feature4_desc = config.feature4Desc;
+    if (config.pricing_tag !== undefined) payload.pricing_tag = config.pricing_tag;
+    if (config.pricing_title !== undefined) payload.pricing_title = config.pricing_title;
+    if (config.pricing_subtitle !== undefined) payload.pricing_subtitle = config.pricing_subtitle;
+    if (config.footer_copyright !== undefined) payload.footer_copyright = config.footer_copyright;
+    if (config.footer_signup_url !== undefined) payload.footer_signup_url = config.footer_signup_url;
+    if (config.footer_login_url !== undefined) payload.footer_login_url = config.footer_login_url;
 
     let { error } = await supabase
       .from('site_settings')
       .upsert(payload, { onConflict: 'id' });
 
     // Fallback resiliente: se colunas novas ainda não tiverem sido criadas no Supabase via migração, remove-as gradualmente do payload e salva o restante
-    if (error && (error.message?.includes('hero_video_url') || error.message?.includes('hero_overlay_opacity') || error.message?.includes('allow_free_trial'))) {
-      if (error.message?.includes('hero_video_url')) delete payload.hero_video_url;
-      if (error.message?.includes('hero_overlay_opacity')) delete payload.hero_overlay_opacity;
-      if (error.message?.includes('allow_free_trial')) delete payload.allow_free_trial;
-      const retry = await supabase
-        .from('site_settings')
-        .upsert(payload, { onConflict: 'id' });
-      error = retry.error;
+    if (error && error.message) {
+      const knownOptionalCols = [
+        'hero_badge_text', 'features_tabs', 'pricing_tag', 'pricing_title', 'pricing_subtitle',
+        'footer_copyright', 'footer_signup_url', 'footer_login_url',
+        'hero_video_url', 'hero_overlay_opacity', 'allow_free_trial', 'features_highlight_image'
+      ];
+      let stripped = false;
+      for (const col of knownOptionalCols) {
+        if (error.message.includes(col)) {
+          delete payload[col];
+          stripped = true;
+        }
+      }
+      if (stripped) {
+        const retry = await supabase
+          .from('site_settings')
+          .upsert(payload, { onConflict: 'id' });
+        error = retry.error;
+      }
     }
 
     if (error) {

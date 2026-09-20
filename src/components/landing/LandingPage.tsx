@@ -435,6 +435,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   }, [isVideoModalOpen]);
 
   // Objeto de Configuração Dinâmica com Fallbacks Protegidos (valores originais do agro)
+  const [selectedFeatureTabId, setSelectedFeatureTabId] = useState<string>('');
+
   const allowFreeTrial = siteConfig?.allow_free_trial !== undefined 
     ? Boolean(siteConfig.allow_free_trial) 
     : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true);
@@ -445,6 +447,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const currentSettings = {
     allowFreeTrial,
+    heroBadgeText: siteConfig?.hero_badge_text || DEFAULT_SITE_CONFIG.hero_badge_text || 'A plataforma nº 1 em prestação de serviços de silagem e colheita',
     heroTitle: siteConfig?.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
     heroSubtitle: siteConfig?.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
     heroPrimaryBtnText: siteConfig?.heroPrimaryBtnText || (allowFreeTrial ? 'Começar Teste Grátis de 7 Dias' : 'Começar Agora'),
@@ -455,6 +458,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     featuresSectionTitle: siteConfig?.featuresSectionTitle || DEFAULT_SITE_CONFIG.featuresSectionTitle,
     featuresSectionSubtitle: siteConfig?.featuresSectionSubtitle || DEFAULT_SITE_CONFIG.featuresSectionSubtitle,
     featuresHighlightImage: siteConfig?.featuresHighlightImage || '',
+    featuresTabs: (Array.isArray(siteConfig?.features_tabs) && siteConfig.features_tabs.length > 0)
+      ? siteConfig.features_tabs
+      : (DEFAULT_SITE_CONFIG.features_tabs || []),
     feature1Title: siteConfig?.feature1Title || DEFAULT_SITE_CONFIG.feature1Title,
     feature1Desc: siteConfig?.feature1Desc || DEFAULT_SITE_CONFIG.feature1Desc,
     feature2Title: siteConfig?.feature2Title || DEFAULT_SITE_CONFIG.feature2Title,
@@ -463,6 +469,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     feature3Desc: siteConfig?.feature3Desc || DEFAULT_SITE_CONFIG.feature3Desc,
     feature4Title: siteConfig?.feature4Title || DEFAULT_SITE_CONFIG.feature4Title,
     feature4Desc: siteConfig?.feature4Desc || DEFAULT_SITE_CONFIG.feature4Desc,
+    pricingTag: siteConfig?.pricing_tag || DEFAULT_SITE_CONFIG.pricing_tag || 'Investimento Transparente',
+    pricingTitle: siteConfig?.pricing_title || DEFAULT_SITE_CONFIG.pricing_title || 'Escolha o plano ideal para a sua operação',
+    pricingSubtitle: siteConfig?.pricing_subtitle || DEFAULT_SITE_CONFIG.pricing_subtitle || (allowFreeTrial 
+      ? 'Comece com 7 dias grátis de teste. Cancele ou altere de plano a qualquer momento sem burocracia.'
+      : 'Contratação imediata sem burocracia. Altere ou cancele seu plano a qualquer momento.'),
+    footerCopyright: siteConfig?.footer_copyright || DEFAULT_SITE_CONFIG.footer_copyright || 'AgroControl • Silagem Fácil Pro © 2026',
+    footerSignupUrl: (siteConfig?.footer_signup_url || '').trim(),
+    footerLoginUrl: (siteConfig?.footer_login_url || '').trim(),
   };
 
   // Filtrar apenas planos ativos (status ativo) e ordenar por displayOrder
@@ -688,7 +702,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10 pt-4 sm:pt-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-900/90 border border-emerald-500/40 text-emerald-300 text-xs font-bold shadow-lg shadow-black/40 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>A plataforma nº 1 em prestação de serviços de silagem e colheita</span>
+            <span>{currentSettings.heroBadgeText}</span>
           </div>
 
           {/* TÍTULO PRINCIPAL (H1) */}
@@ -843,6 +857,88 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Abas Interativas do Rodapé da Seção de Recursos (Configuráveis no Painel Mestre) */}
+          {currentSettings.featuresTabs && currentSettings.featuresTabs.length > 0 && (() => {
+            const activeTab = currentSettings.featuresTabs.find(t => t.id === selectedFeatureTabId) || currentSettings.featuresTabs[0];
+            return (
+              <div className="pt-8 border-t border-stone-800/80 space-y-6">
+                <div className="text-center max-w-xl mx-auto">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                    Navegação Interativa de Recursos
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-bold text-white mt-1">
+                    Conheça a tecnologia em detalhes
+                  </h3>
+                </div>
+
+                {/* Seletor de Abas */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {currentSettings.featuresTabs.map((tab) => {
+                    const isSelected = activeTab.id === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSelectedFeatureTabId(tab.id)}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-emerald-500 text-stone-950 border-emerald-400 shadow-md shadow-emerald-950/50 font-black'
+                            : 'bg-stone-900 text-stone-300 border-stone-800 hover:border-stone-700 hover:text-white'
+                        }`}
+                      >
+                        <Layers className={`w-3.5 h-3.5 ${isSelected ? 'text-stone-950' : 'text-emerald-400'}`} />
+                        <span>{tab.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Conteúdo da Aba Ativa */}
+                {activeTab && (
+                  <div className="bg-stone-900/90 border border-stone-800 rounded-2xl p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center shadow-xl animate-in fade-in duration-200">
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 text-xs font-bold">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{activeTab.title}</span>
+                      </div>
+                      <h4 className="text-xl sm:text-2xl font-black text-white">
+                        {activeTab.title}
+                      </h4>
+                      <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+                        {activeTab.description}
+                      </p>
+                      {activeTab.bullets && activeTab.bullets.length > 0 && (
+                        <ul className="space-y-2 pt-2">
+                          {activeTab.bullets.map((b, bIdx) => (
+                            <li key={bIdx} className="flex items-start gap-2.5 text-xs text-stone-200 leading-snug">
+                              <div className="w-4 h-4 rounded-full bg-emerald-950 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-800">
+                                <Check className="w-2.5 h-2.5 text-emerald-400" />
+                              </div>
+                              <span>{b}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="lg:col-span-5 rounded-xl overflow-hidden border border-stone-800 shadow-2xl bg-stone-950 aspect-video relative group flex items-center justify-center">
+                      <img
+                        src={activeTab.imageUrl || '/image.png'}
+                        alt={activeTab.title}
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.src = '/image.png';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 via-transparent to-transparent pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -852,15 +948,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <span className="text-xs font-black text-emerald-400 uppercase tracking-wider">
-              Investimento Transparente
+              {currentSettings.pricingTag}
             </span>
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Escolha o plano ideal para a sua operação
+              {currentSettings.pricingTitle}
             </h2>
             <p className="text-xs sm:text-sm text-stone-400">
-              {currentSettings.allowFreeTrial
-                ? 'Comece com 7 dias grátis de teste. Cancele ou altere de plano a qualquer momento sem burocracia.'
-                : 'Contratação imediata sem burocracia. Altere ou cancele seu plano a qualquer momento.'}
+              {currentSettings.pricingSubtitle}
             </p>
           </div>
 
@@ -959,24 +1053,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               AC
             </div>
             <span className="font-bold text-stone-300">
-              AgroControl • Silagem Fácil Pro © 2026
+              {currentSettings.footerCopyright}
             </span>
           </div>
 
           <div className="flex items-center gap-6">
-            {onNavigateToAuth && (
-              <button
-                type="button"
-                id="btn-footer-signup"
-                onClick={() => onNavigateToAuth(undefined, 'signup')}
-                className="text-emerald-400 font-bold hover:underline transition cursor-pointer"
-              >
-                {currentSettings.allowFreeTrial ? 'Criar Conta (15 Dias Grátis)' : 'Começar Agora'}
-              </button>
-            )}
             <button
               type="button"
-              onClick={handleAccessErp}
+              id="btn-footer-signup"
+              onClick={() => {
+                if (currentSettings.footerSignupUrl) {
+                  window.open(currentSettings.footerSignupUrl, '_blank', 'noopener,noreferrer');
+                } else if (onNavigateToAuth) {
+                  onNavigateToAuth(undefined, 'signup');
+                }
+              }}
+              className="text-emerald-400 font-bold hover:underline transition cursor-pointer"
+            >
+              {currentSettings.allowFreeTrial ? 'Criar Conta (15 Dias Grátis)' : 'Começar Agora'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (currentSettings.footerLoginUrl) {
+                  window.open(currentSettings.footerLoginUrl, '_blank', 'noopener,noreferrer');
+                } else {
+                  handleAccessErp();
+                }
+              }}
               className="hover:text-emerald-400 transition cursor-pointer"
             >
               Painel do Assinante (ERP)

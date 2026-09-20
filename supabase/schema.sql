@@ -318,6 +318,7 @@ CREATE TABLE IF NOT EXISTS public.plans (
 
 CREATE TABLE IF NOT EXISTS public.site_settings (
     id TEXT PRIMARY KEY DEFAULT 'global',
+    hero_badge_text TEXT,
     hero_title TEXT,
     hero_subtitle TEXT,
     hero_primary_btn_text TEXT,
@@ -328,6 +329,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
     features_section_title TEXT,
     features_section_subtitle TEXT,
     features_highlight_image TEXT,
+    features_tabs JSONB DEFAULT '[]'::jsonb,
     feature1_title TEXT,
     feature1_desc TEXT,
     feature2_title TEXT,
@@ -336,6 +338,12 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
     feature3_desc TEXT,
     feature4_title TEXT,
     feature4_desc TEXT,
+    pricing_tag TEXT,
+    pricing_title TEXT,
+    pricing_subtitle TEXT,
+    footer_copyright TEXT,
+    footer_signup_url TEXT,
+    footer_login_url TEXT,
     allow_free_trial BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -343,8 +351,16 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
 
 -- Migração para tabela site_settings existente
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS allow_free_trial BOOLEAN DEFAULT true;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS hero_badge_text TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS hero_video_url TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS hero_overlay_opacity INTEGER DEFAULT 75;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS features_tabs JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS pricing_tag TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS pricing_title TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS pricing_subtitle TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS footer_copyright TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS footer_signup_url TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS footer_login_url TEXT;
 
 -- ==============================================================================
 -- 9. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa

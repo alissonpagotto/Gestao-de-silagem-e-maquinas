@@ -37,12 +37,17 @@ import {
   Menu,
   X,
   Video,
-  Sliders
+  Sliders,
+  Smartphone,
+  TrendingUp,
+  Wrench,
+  Tractor
 } from 'lucide-react';
 import { 
   Subscriber, 
   SiteConfig, 
   PlanDefinition, 
+  FeatureTabItem,
   AdminSettings, 
   SubscriberStatus,
   MasterSession
@@ -910,6 +915,58 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     } catch (err) {
       console.error('Erro ao salvar configurações da Landing Page:', err);
     }
+  };
+
+  // Funções Auxiliares para Abas Interativas dos Recursos
+  const handleAddFeatureTab = () => {
+    const currentTabs = siteForm.features_tabs || [];
+    const newTab: FeatureTabItem = {
+      id: `tab-${Date.now()}`,
+      title: 'Nova Funcionalidade',
+      iconName: 'Tractor',
+      description: 'Descrição detalhada dos diferenciais e recursos tecnológicos desta funcionalidade.',
+      bullets: [
+        'Benefício prático e redução de custos no campo',
+        'Controle automatizado e integração com o sistema',
+      ],
+      imageUrl: '/image.png',
+    };
+    setSiteForm({ ...siteForm, features_tabs: [...currentTabs, newTab] });
+  };
+
+  const handleUpdateFeatureTab = (index: number, updatedTab: FeatureTabItem) => {
+    const currentTabs = [...(siteForm.features_tabs || [])];
+    currentTabs[index] = updatedTab;
+    setSiteForm({ ...siteForm, features_tabs: currentTabs });
+  };
+
+  const handleRemoveFeatureTab = (index: number) => {
+    const currentTabs = [...(siteForm.features_tabs || [])];
+    currentTabs.splice(index, 1);
+    setSiteForm({ ...siteForm, features_tabs: currentTabs });
+  };
+
+  // Funções Auxiliares para Checks Verdes dos Planos na Landing Page
+  const handleUpdatePlanBadge = (plan: PlanDefinition, badge: string) => {
+    handleSavePlan({ ...plan, badge });
+  };
+
+  const handleUpdatePlanFeature = (plan: PlanDefinition, featureIndex: number, newText: string) => {
+    const lines = (plan.featuresText || '').split('\n');
+    lines[featureIndex] = newText;
+    handleSavePlan({ ...plan, featuresText: lines.join('\n') });
+  };
+
+  const handleAddPlanFeature = (plan: PlanDefinition) => {
+    const lines = plan.featuresText ? plan.featuresText.split('\n').filter(Boolean) : [];
+    lines.push('Novo benefício operacional');
+    handleSavePlan({ ...plan, featuresText: lines.join('\n') });
+  };
+
+  const handleRemovePlanFeature = (plan: PlanDefinition, featureIndex: number) => {
+    const lines = (plan.featuresText || '').split('\n');
+    lines.splice(featureIndex, 1);
+    handleSavePlan({ ...plan, featuresText: lines.join('\n') });
   };
 
   // Salvar Configurações Gerais e Webhooks
@@ -1909,16 +1966,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </div>
             )}
 
-            {/* BLOCO: PERÍODO DE TESTE GRÁTIS (TRIAL) */}
+            {/* 1. BLOCO DE CONFIGURAÇÃO GLOBAL (TRIAL TOGGLE) */}
             <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-emerald-400" />
-                    <span>Período de Teste Grátis (Trial)</span>
+                    <span>Configuração Global: Período de Teste Grátis (Trial)</span>
                   </h3>
                   <p className="text-[11px] text-[#8a92a6] mt-0.5">
-                    Oferecer Período de Teste Grátis na Página de Vendas. Quando ativado, exibe botões com chamada para teste grátis (7d / 15d). Quando desativado, remove os testes grátis e orienta os botões diretamente para &quot;Começar Agora&quot; ou contratação direta.
+                    Quando desativado, a Landing Page oculta as menções a &quot;grátis&quot; e direciona o fluxo de botões para &quot;Começar Agora&quot; ou contratação direta.
                   </p>
                 </div>
 
@@ -1938,18 +1995,36 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* BLOCO HERO */}
+            {/* 2. BLOCO HERO (TOPO DA PÁGINA) & MÍDIA */}
             <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
               <div className="border-b border-[#2f3644] pb-2">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  1. Bloco Hero (Topo da Página)
+                  1. Bloco Hero (Topo da Página) & Mídia
                 </h3>
                 <p className="text-[11px] text-[#8a92a6]">
-                  Configuração do título principal, subtítulo e textos dos botões de conversão.
+                  Configuração dos textos de chamada, imagem de fundo, vídeo de demonstração e intensidade de opacidade do fundo escuro.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Frase Verde Superior (Badge) */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>FRASE VERDE SUPERIOR (BADGE DO HERO)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={siteForm.hero_badge_text || ''}
+                    placeholder="Ex: A plataforma nº 1 em prestação de serviços de silagem e colheita"
+                    onChange={(e) => setSiteForm({ ...siteForm, hero_badge_text: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                  <p className="text-[10px] text-[#8a92a6] mt-1">
+                    Exibida em destaque na tag arredondada no topo da seção Hero.
+                  </p>
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-[#8a92a6] mb-1">
                     TÍTULO PRINCIPAL (H1) *
@@ -2014,7 +2089,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   />
                 </div>
 
-                {/* 1. CAMPO PARA URL DO VÍDEO DEMONSTRATIVO */}
+                {/* CAMPO PARA URL DO VÍDEO DEMONSTRATIVO */}
                 <div className="sm:col-span-2">
                   <label htmlFor="hero_video_url" className="block text-xs font-bold text-[#8a92a6] mb-1 flex items-center gap-1.5">
                     <Video className="w-3.5 h-3.5 text-emerald-400" />
@@ -2037,16 +2112,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
                   />
                   <p className="text-[11px] text-[#8a92a6] mt-1">
-                    Cole o link de um vídeo demonstrativo do sistema (YouTube, Vimeo ou .mp4). Ao clicar no botão &quot;Conhecer Funcionalidades&quot; na Landing Page, abrirá um modal pop-up (lightbox) reproduzindo o vídeo configurado.
+                    Ao clicar no botão &quot;Conhecer Funcionalidades&quot; na Landing Page, abrirá um modal pop-up (lightbox) reproduzindo este vídeo.
                   </p>
                 </div>
 
-                {/* 2. CONTROLE DESLIZANTE DE OPACIDADE (OVERLAY) */}
+                {/* CONTROLE DESLIZANTE DE OPACIDADE (OVERLAY) */}
                 <div className="sm:col-span-2 bg-[#1a1d24] border border-[#2f3644] p-3.5 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
                     <label htmlFor="hero_overlay_opacity" className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Sliders className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Intensidade do Fundo Escuro</span>
+                      <span>Intensidade do Fundo Escuro (Overlay)</span>
                     </label>
                     <span className="text-xs font-black text-emerald-400 bg-[#252a34] px-2.5 py-1 rounded-lg border border-[#2f3644]">
                       {siteForm.hero_overlay_opacity !== undefined && siteForm.hero_overlay_opacity !== null ? siteForm.hero_overlay_opacity : 75}%
@@ -2075,42 +2150,39 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     <span>50% (Equilibrado)</span>
                     <span>100% (Mais escuro / Máximo contraste)</span>
                   </div>
-                  <p className="text-[11px] text-[#8a92a6]">
-                    Vincule diretamente à opacidade da camada escura (overlay) sobre a imagem de fundo da plantação na Landing Page, permitindo clarear ou escurecer o fundo do site diretamente pelo painel mestre.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* BLOCO IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR) */}
+            {/* 3. BLOCO IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR) */}
             <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
               <div className="border-b border-[#2f3644] pb-2">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   2. Imagem de Destaque dos Recursos (Seção Inferior)
                 </h3>
                 <p className="text-[11px] text-[#8a92a6]">
-                  Imagem ilustrativa das funcionalidades do sistema, exibida logo abaixo do bloco de cabeçalho de recursos na Landing Page.
+                  Imagem ilustrativa exibida abaixo do cabeçalho de recursos na Landing Page.
                 </p>
               </div>
 
               <ImageUploadField
                 id="features-highlight-upload"
                 label="IMAGEM DE DESTAQUE DOS RECURSOS (SEÇÃO INFERIOR)"
-                description="Carregue uma imagem ou captura de tela do sistema para exibir como destaque visual das funcionalidades na Landing Page."
+                description="Carregue uma imagem ou captura de tela do sistema para exibir como mockup de destaque."
                 value={siteForm.featuresHighlightImage || ''}
                 onChange={(val) => setSiteForm({ ...siteForm, featuresHighlightImage: val })}
                 aspectRatioLabel="Recomendado: 16:9 widescreen ou mockup de sistema"
               />
             </div>
 
-            {/* BLOCO CABEÇALHO DE RECURSOS */}
-            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+            {/* 4. BLOCO CABEÇALHO DE RECURSOS & ABAS INTERATIVAS */}
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-5">
               <div className="border-b border-[#2f3644] pb-2">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  3. Bloco Cabeçalho de Recursos
+                  3. Bloco Cabeçalho de Recursos & Abas Interativas
                 </h3>
                 <p className="text-[11px] text-[#8a92a6]">
-                  Cabeçalho da seção de diferenciais da página de vendas.
+                  Configure os títulos da seção e gerencie as abas interativas com descrições e capturas do sistema.
                 </p>
               </div>
 
@@ -2141,9 +2213,123 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Gerenciador das Abas Interativas */}
+              <div className="bg-[#1a1d24] p-4 rounded-xl border border-[#2f3644] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-emerald-400" />
+                      <span>Abas Interativas do Rodapé de Recursos</span>
+                    </h4>
+                    <p className="text-[11px] text-[#8a92a6]">
+                      Permite aos visitantes navegar por abas dinâmicas detalhadas na Landing Page.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddFeatureTab}
+                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Aba</span>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {(siteForm.features_tabs || []).map((tab, tIdx) => (
+                    <div key={tab.id || tIdx} className="p-4 bg-[#252a34] rounded-xl border border-[#2f3644] space-y-3">
+                      <div className="flex items-center justify-between border-b border-[#2f3644] pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center">
+                            {tIdx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-white">
+                            {tab.title || `Aba #${tIdx + 1}`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFeatureTab(tIdx)}
+                          className="p-1 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded transition cursor-pointer"
+                          title="Remover Aba"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">TÍTULO DA ABA</label>
+                          <input
+                            type="text"
+                            value={tab.title}
+                            onChange={(e) => handleUpdateFeatureTab(tIdx, { ...tab, title: e.target.value })}
+                            className="w-full p-2 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white outline-none focus:border-[#4d576a]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">ÍCONE</label>
+                          <select
+                            value={tab.iconName || 'Tractor'}
+                            onChange={(e) => handleUpdateFeatureTab(tIdx, { ...tab, iconName: e.target.value })}
+                            className="w-full p-2 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs font-bold text-white outline-none focus:border-[#4d576a]"
+                          >
+                            <option value="Tractor">Trator / Campo (Tractor)</option>
+                            <option value="Smartphone">App Celular / Offline (Smartphone)</option>
+                            <option value="TrendingUp">Gráficos & Custos (TrendingUp)</option>
+                            <option value="Wrench">Manutenção Mecânica (Wrench)</option>
+                            <option value="ShieldCheck">Segurança e Backup (ShieldCheck)</option>
+                            <option value="Clock">Horímetro e Escala (Clock)</option>
+                            <option value="Layers">Múltiplos Módulos (Layers)</option>
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">URL DA IMAGEM / MOCKUP</label>
+                          <input
+                            type="text"
+                            value={tab.imageUrl || ''}
+                            placeholder="Ex: /image.png ou URL externa de captura"
+                            onChange={(e) => handleUpdateFeatureTab(tIdx, { ...tab, imageUrl: e.target.value })}
+                            className="w-full p-2 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs text-white outline-none focus:border-[#4d576a]"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">DESCRIÇÃO DA FUNCIONALIDADE</label>
+                          <textarea
+                            rows={2}
+                            value={tab.description || ''}
+                            onChange={(e) => handleUpdateFeatureTab(tIdx, { ...tab, description: e.target.value })}
+                            className="w-full p-2 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs text-[#d1d5db] outline-none focus:border-[#4d576a]"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-[#8a92a6] mb-1">
+                            PONTOS-CHAVE / BULLETS (UM POR LINHA)
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={(tab.bullets || []).join('\n')}
+                            onChange={(e) => {
+                              const bullets = e.target.value.split('\n').filter(Boolean);
+                              handleUpdateFeatureTab(tIdx, { ...tab, bullets });
+                            }}
+                            placeholder="Benefício 1&#10;Benefício 2&#10;Benefício 3"
+                            className="w-full p-2 bg-[#1a1d24] border border-[#2f3644] rounded-lg text-xs text-[#d1d5db] outline-none focus:border-[#4d576a]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* BLOCO RECURSOS (BENEFÍCIOS) - 4 CARTÕES CONECTADOS */}
+            {/* 5. BLOCO RECURSOS (BENEFÍCIOS - 4 CARTÕES DA LANDING PAGE) */}
             <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
               <div className="border-b border-[#2f3644] pb-2">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
@@ -2155,7 +2341,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
                 {/* Recurso #1 */}
                 <div className="p-4 bg-[#1a1d24] rounded-xl border border-[#2f3644] space-y-3">
                   <span className="text-xs font-bold text-white uppercase tracking-wider block">
@@ -2266,7 +2451,207 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Botão Salvar Flutuante ou no final */}
+            {/* 6. BLOCO SEÇÃO DE PLANOS E PREÇOS & CHECKS VERDES */}
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-5">
+              <div className="border-b border-[#2f3644] pb-2">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  5. Seção de Planos e Preços & Checks Verdes Dinâmicos
+                </h3>
+                <p className="text-[11px] text-[#8a92a6]">
+                  Configure os títulos da seção de preços e edite em tempo real as tags e a lista de itens/checks verdes de cada plano.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
+                    TAG DE CHAMADA SUPERIOR
+                  </label>
+                  <input
+                    type="text"
+                    value={siteForm.pricing_tag || ''}
+                    placeholder="Ex: INVESTIMENTO TRANSPARENTE"
+                    onChange={(e) => setSiteForm({ ...siteForm, pricing_tag: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
+                    TÍTULO DA SEÇÃO *
+                  </label>
+                  <input
+                    type="text"
+                    value={siteForm.pricing_title || ''}
+                    placeholder="Ex: Escolha o plano ideal para a sua operação"
+                    onChange={(e) => setSiteForm({ ...siteForm, pricing_title: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
+                    SUBTÍTULO DA SEÇÃO
+                  </label>
+                  <input
+                    type="text"
+                    value={siteForm.pricing_subtitle || ''}
+                    placeholder="Ex: Comece com 7 dias grátis de teste..."
+                    onChange={(e) => setSiteForm({ ...siteForm, pricing_subtitle: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-medium text-[#d1d5db] focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                </div>
+              </div>
+
+              {/* Gerenciador Dinâmico de Itens / Checks Verdes por Plano */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Controle Rápido dos Checks Verdes dos Planos</span>
+                  </h4>
+                  <span className="text-[11px] text-[#8a92a6]">
+                    Edição sincronizada com o banco e a Landing Page
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {plans.map((plan) => {
+                    const features = (plan.featuresText || '').split('\n').filter(Boolean);
+                    return (
+                      <div key={plan.id} className="bg-[#1a1d24] border border-[#2f3644] rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between gap-2 border-b border-[#2f3644] pb-2">
+                            <div>
+                              <span className="text-xs font-black text-white">{plan.name}</span>
+                              <p className="text-[11px] text-emerald-400 font-bold">
+                                {formatCurrencyBRL(plan.price)} / {plan.billingCycle}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPlan(plan);
+                                setIsPlanModalOpen(true);
+                              }}
+                              className="text-[10px] text-stone-300 hover:text-white px-2 py-1 bg-[#252a34] rounded border border-[#2f3644] transition cursor-pointer"
+                            >
+                              Editar Plano
+                            </button>
+                          </div>
+
+                          {/* Tag / Badge de Destaque */}
+                          <div className="pt-2">
+                            <label className="block text-[10px] font-bold text-[#8a92a6] mb-1">
+                              TAG DE DESTAQUE (OPCIONAL)
+                            </label>
+                            <input
+                              type="text"
+                              value={plan.badge || ''}
+                              placeholder="Ex: COMECE AQUI, MAIS ESCOLHIDO"
+                              onChange={(e) => handleUpdatePlanBadge(plan, e.target.value)}
+                              className="w-full p-1.5 bg-[#252a34] border border-[#2f3644] rounded text-xs text-white outline-none focus:border-[#4d576a]"
+                            />
+                          </div>
+
+                          {/* Lista dos Checks Verdes */}
+                          <div className="pt-2 space-y-2">
+                            <label className="block text-[10px] font-bold text-[#8a92a6]">
+                              BENEFÍCIOS / CHECKS VERDES
+                            </label>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                              {features.map((feat, fIdx) => (
+                                <div key={fIdx} className="flex items-center gap-1.5 bg-[#252a34] p-1.5 rounded border border-[#2f3644]">
+                                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <input
+                                    type="text"
+                                    value={feat}
+                                    onChange={(e) => handleUpdatePlanFeature(plan, fIdx, e.target.value)}
+                                    className="flex-1 bg-transparent text-[11px] text-[#d1d5db] outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePlanFeature(plan, fIdx)}
+                                    className="text-stone-500 hover:text-red-400 transition cursor-pointer p-0.5"
+                                    title="Remover Item"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleAddPlanFeature(plan)}
+                          className="w-full py-1.5 bg-[#252a34] hover:bg-[#2f3644] text-emerald-400 rounded text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer border border-[#2f3644]"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Adicionar Check Verde</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 7. BLOCO CONFIGURAÇÕES DO RODAPÉ (FOOTER) */}
+            <div className="bg-[#252a34] border border-[#2f3644] rounded-2xl p-5 space-y-4">
+              <div className="border-b border-[#2f3644] pb-2">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  6. Configurações do Rodapé (Footer)
+                </h3>
+                <p className="text-[11px] text-[#8a92a6]">
+                  Personalize o copyright da empresa e os destinos dos links rápidos públicos do rodapé.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
+                    COPYRIGHT & NOME DA EMPRESA
+                  </label>
+                  <input
+                    type="text"
+                    value={siteForm.footer_copyright || ''}
+                    placeholder="Ex: AgroControl • Silagem Fácil Pro © 2026"
+                    onChange={(e) => setSiteForm({ ...siteForm, footer_copyright: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs font-bold text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
+                    URL LINK &quot;CRIAR CONTA&quot; (OPCIONAL)
+                  </label>
+                  <input
+                    type="url"
+                    value={siteForm.footer_signup_url || ''}
+                    placeholder="Vazio = formulário interno de cadastro"
+                    onChange={(e) => setSiteForm({ ...siteForm, footer_signup_url: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#8a92a6] mb-1">
+                    URL LINK &quot;PAINEL DO ASSINANTE ERP&quot; (OPCIONAL)
+                  </label>
+                  <input
+                    type="url"
+                    value={siteForm.footer_login_url || ''}
+                    placeholder="Vazio = login seguro interno"
+                    onChange={(e) => setSiteForm({ ...siteForm, footer_login_url: e.target.value })}
+                    className="w-full p-2.5 bg-[#1a1d24] border border-[#2f3644] rounded-xl text-xs text-white focus:border-[#4d576a] focus:ring-1 focus:ring-[#4d576a] outline-none transition"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botão Salvar Flutuante / Final */}
             <div className="flex justify-end">
               <button
                 type="button"
