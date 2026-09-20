@@ -281,6 +281,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return params.get('paid') === 'true' || params.get('status') === 'pago';
   });
 
+  // Garante que a página sempre abra no topo ao ser montada
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
   // 1. Busca da tabela 'plans' do Supabase em tempo real e sincronização de eventos
   useEffect(() => {
     let isMounted = true;
@@ -1469,7 +1478,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder="seu.email@empresa.com.br"
                     className="w-full px-3.5 py-2.5 bg-stone-950/80 border border-stone-700/80 rounded-xl text-xs sm:text-sm text-white placeholder:text-stone-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition pl-10"
-                    autoFocus
                   />
                   <Mail className="w-4 h-4 text-stone-500 absolute left-3.5 top-3 pointer-events-none" />
                 </div>

@@ -973,6 +973,11 @@ export default function App() {
       console.error(e);
     }
     setCurrentRoute('auth');
+    try {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch {
+      window.scrollTo(0, 0);
+    }
   };
 
   const handleOpenMasterAdmin = () => {
