@@ -605,7 +605,60 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         return;
       }
 
-      // 3. Ativa a sessão segura no localStorage
+      // 3. Validação de Acesso: Garante que o assinante ainda existe no banco e não está cancelado ou inativo
+      if (isSupabaseConfigured) {
+        try {
+          const { data: assinanteRow } = await supabase
+            .from('assinantes')
+            .select('id, status, email')
+            .eq('email', emailClean)
+            .maybeSingle();
+
+          if (!assinanteRow) {
+            const { data: subRow } = await supabase
+              .from('subscribers')
+              .select('id, status, email')
+              .eq('email', emailClean)
+              .maybeSingle();
+
+            if (!subRow) {
+              setFormError('Acesso revogado: este assinante não foi encontrado no sistema ou foi excluído pelo administrador.');
+              setIsLoading(false);
+              return;
+            }
+
+            const subSt = (subRow.status || '').toLowerCase();
+            if (['cancelado', 'cancelada', 'inativo', 'inativa', 'suspensa', 'suspenso'].includes(subSt)) {
+              setFormError('Acesso bloqueado: sua assinatura está inativa ou cancelada.');
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            const assSt = (assinanteRow.status || '').toLowerCase();
+            if (['cancelado', 'cancelada', 'inativo', 'inativa', 'suspensa', 'suspenso'].includes(assSt)) {
+              setFormError('Acesso bloqueado: sua assinatura foi cancelada ou suspensa pelo administrador.');
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Aviso ao checar permissão de acesso do assinante:', dbErr);
+        }
+      } else {
+        if (!existingSub) {
+          setFormError('Assinante não encontrado ou excluído do sistema.');
+          setIsLoading(false);
+          return;
+        }
+        const st = (existingSub.status || '').toLowerCase();
+        if (['cancelada', 'cancelado', 'inativo', 'inativa', 'suspensa'].includes(st)) {
+          setFormError('Acesso bloqueado: sua assinatura está inativa ou cancelada.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 4. Ativa a sessão segura no localStorage
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('silagem_client_session', 'active');
         localStorage.setItem('silagem_active_user_email', emailClean);

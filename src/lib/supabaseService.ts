@@ -1862,38 +1862,83 @@ export async function updateCloudSubscriberPassword(id: string, newPassword: str
 export async function deleteCloudSubscriber(id: string, email?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const derived = toValidUUID(id);
+    const cleanEmail = email && email.trim() !== '-' ? email.trim().toLowerCase() : undefined;
+
     // 1. Exclusão direta na tabela oficial 'assinantes' pelo ID exato
     await supabase.from('assinantes').delete().eq('id', id);
 
-    // Se o ID for formato UUID, tenta também em formato normalizado
+    // Se o ID for formato UUID ou puder ser normalizado
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(id)) {
       await supabase.from('assinantes').delete().eq('id', id.toLowerCase());
-    } else {
+    } else if (derived && derived !== id) {
       try {
-        const derived = toValidUUID(id);
-        if (derived && derived !== id) {
-          await supabase.from('assinantes').delete().eq('id', derived);
-        }
+        await supabase.from('assinantes').delete().eq('id', derived);
       } catch {}
     }
 
     // Se houver email informado, garante exclusão por email na tabela oficial 'assinantes'
-    if (email && email.trim()) {
-      await supabase.from('assinantes').delete().eq('email', email.trim().toLowerCase());
+    if (cleanEmail) {
+      await supabase.from('assinantes').delete().eq('email', cleanEmail);
     }
 
-    // 2. Exclusão de contingência na tabela legada 'subscribers'
+    // 2. Chamar supabase.auth.admin.deleteUser para remover o login do Supabase Auth
     try {
-      await supabase.from('subscribers').delete().eq('id', id);
-      if (email && email.trim()) {
-        await supabase.from('subscribers').delete().eq('email', email.trim().toLowerCase());
+      if ((supabase.auth as any)?.admin?.deleteUser) {
+        const { error: authErr } = await (supabase.auth as any).admin.deleteUser(id);
+        if (authErr && derived && derived !== id) {
+          await (supabase.auth as any).admin.deleteUser(derived);
+        }
       }
+    } catch {}
+
+    // 3. Atualizar/limpar tabela de contingência 'subscribers'
+    try {
+      await supabase.from('subscribers').update({ status: 'cancelado' }).eq('id', id);
+      await supabase.from('subscribers').delete().eq('id', id);
+      if (derived && derived !== id) {
+        await supabase.from('subscribers').update({ status: 'cancelado' }).eq('id', derived);
+        await supabase.from('subscribers').delete().eq('id', derived);
+      }
+      if (cleanEmail) {
+        await supabase.from('subscribers').update({ status: 'cancelado' }).eq('email', cleanEmail);
+        await supabase.from('subscribers').delete().eq('email', cleanEmail);
+      }
+    } catch {}
+
+    // 4. Atualizar/limpar tabelas de usuários e empresas associadas
+    try {
+      await supabase.from('usuarios').update({ status: 'inativo' }).eq('id', id);
+      await supabase.from('usuarios').delete().eq('id', id);
+      if (cleanEmail) {
+        await supabase.from('usuarios').update({ status: 'inativo' }).eq('email', cleanEmail);
+        await supabase.from('usuarios').delete().eq('email', cleanEmail);
+      }
+    } catch {}
+
+    try {
+      await supabase.from('users').update({ status: 'inativo' }).eq('id', id);
+      await supabase.from('users').delete().eq('id', id);
+      if (cleanEmail) {
+        await supabase.from('users').update({ status: 'inativo' }).eq('email', cleanEmail);
+        await supabase.from('users').delete().eq('email', cleanEmail);
+      }
+    } catch {}
+
+    try {
+      await supabase.from('empresas').update({ status: 'cancelado' }).eq('id', id);
+      await supabase.from('empresas').delete().eq('id', id);
+    } catch {}
+
+    try {
+      await supabase.from('companies').update({ status: 'cancelado' }).eq('id', id);
+      await supabase.from('companies').delete().eq('id', id);
     } catch {}
 
     return true;
   } catch (err) {
-    console.error('Erro ao deletar assinante da tabela assinantes:', err);
+    console.error('Erro ao deletar assinante da tabela assinantes e serviços de autenticação:', err);
     return false;
   }
 }

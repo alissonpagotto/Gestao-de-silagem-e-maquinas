@@ -61,6 +61,7 @@ import {
   AGROCONTROL_SITE_SETTINGS_KEY,
   syncMasterAdminFromCloud
 } from '../../lib/masterAdminStorage';
+import { getStoredCompanyProfile, saveStoredCompanyProfile } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   deleteCloudPlan,
@@ -575,11 +576,14 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
-  // Excluir Assinante com remoção estrita e prioritária da tabela 'assinantes'
+  // Excluir Assinante com remoção estrita da tabela 'assinantes', Supabase Auth e tabelas de acesso
   const handleDeleteSubscriber = async (idDoAssinante: string, name: string, email?: string) => {
-    if (!window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível.`)) {
+    if (!window.confirm(`Tem certeza que deseja remover o assinante "${name || 'Assinante'}"? Esta ação é irreversível e revogará todos os acessos.`)) {
       return;
     }
+
+    const cleanEmail = email && email.trim() !== '-' ? email.trim().toLowerCase() : undefined;
+    const derivedUuid = toValidUUID(idDoAssinante);
 
     try {
       // 1. Exclusão direta na tabela oficial 'assinantes' do Supabase
@@ -593,7 +597,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         console.warn('Aviso ao deletar de assinantes por ID:', error.message);
         // Se o banco Postgres esperar UUID e idDoAssinante for formato texto legado, tenta com UUID correspondente
         try {
-          const derivedUuid = toValidUUID(idDoAssinante);
           if (derivedUuid && derivedUuid !== idDoAssinante) {
             await supabase.from('assinantes').delete().eq('id', derivedUuid);
           }
@@ -601,34 +604,133 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       }
 
       // Se houver e-mail válido, remove também por email para garantir limpeza total no banco
-      if (email && email.trim() && email !== '-') {
+      if (cleanEmail) {
         await supabase
           .from('assinantes')
           .delete()
-          .eq('email', email.trim().toLowerCase());
+          .eq('email', cleanEmail);
       }
 
-      // Executa exclusão complementar nas tabelas de nuvem
-      await deleteCloudSubscriber(idDoAssinante, email);
+      // 2. Chamar a API de gerenciamento de usuários do Supabase (supabase.auth.admin.deleteUser)
+      // passando o ID de autenticação do usuário correspondente para remover completamente o login dele do sistema
+      try {
+        if ((supabase.auth as any)?.admin?.deleteUser) {
+          const { error: authError } = await (supabase.auth as any).admin.deleteUser(idDoAssinante);
+          if (authError) {
+            console.warn('Aviso ao executar supabase.auth.admin.deleteUser:', authError.message);
+            if (derivedUuid && derivedUuid !== idDoAssinante) {
+              await (supabase.auth as any).admin.deleteUser(derivedUuid);
+            }
+          }
+        }
+      } catch (authDelErr) {
+        console.warn('Erro ao chamar supabase.auth.admin.deleteUser:', authDelErr);
+      }
 
-      // 2. LOGO APÓS O COMANDO DO SUPABASE RETORNAR SUCESSO:
+      // 3. Atualizar/limpar tabelas de usuários, empresas e acessos associados (coluna status como 'cancelado'/'inativo' e exclusão)
+      // Tabela de espelho/contingência 'subscribers'
+      try {
+        await supabase.from('subscribers').update({ status: 'cancelado' }).eq('id', idDoAssinante);
+        await supabase.from('subscribers').delete().eq('id', idDoAssinante);
+        if (derivedUuid && derivedUuid !== idDoAssinante) {
+          await supabase.from('subscribers').update({ status: 'cancelado' }).eq('id', derivedUuid);
+          await supabase.from('subscribers').delete().eq('id', derivedUuid);
+        }
+        if (cleanEmail) {
+          await supabase.from('subscribers').update({ status: 'cancelado' }).eq('email', cleanEmail);
+          await supabase.from('subscribers').delete().eq('email', cleanEmail);
+        }
+      } catch {}
+
+      // Tabela de usuários do sistema ('usuarios' e 'users')
+      try {
+        await supabase.from('usuarios').update({ status: 'inativo' }).eq('id', idDoAssinante);
+        await supabase.from('usuarios').delete().eq('id', idDoAssinante);
+        if (cleanEmail) {
+          await supabase.from('usuarios').update({ status: 'inativo' }).eq('email', cleanEmail);
+          await supabase.from('usuarios').delete().eq('email', cleanEmail);
+        }
+      } catch {}
+
+      try {
+        await supabase.from('users').update({ status: 'inativo' }).eq('id', idDoAssinante);
+        await supabase.from('users').delete().eq('id', idDoAssinante);
+        if (cleanEmail) {
+          await supabase.from('users').update({ status: 'inativo' }).eq('email', cleanEmail);
+          await supabase.from('users').delete().eq('email', cleanEmail);
+        }
+      } catch {}
+
+      // Tabela de empresas associadas ('empresas' e 'companies')
+      try {
+        await supabase.from('empresas').update({ status: 'cancelado' }).eq('id', idDoAssinante);
+        await supabase.from('empresas').delete().eq('id', idDoAssinante);
+      } catch {}
+
+      try {
+        await supabase.from('companies').update({ status: 'cancelado' }).eq('id', idDoAssinante);
+        await supabase.from('companies').delete().eq('id', idDoAssinante);
+      } catch {}
+
+      // Executa exclusão complementar nas tabelas de nuvem
+      await deleteCloudSubscriber(idDoAssinante, cleanEmail);
+
+      // 4. Limpeza de sessões e perfil da empresa no navegador se pertencerem a esta conta
+      if (typeof localStorage !== 'undefined') {
+        const activeSubId = localStorage.getItem('silagem_active_subscriber_id');
+        const activeUserEmail = localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email');
+        const impersonatedSubId = localStorage.getItem('impersonated_subscriber_id');
+        const currentCompanyId = localStorage.getItem('current_company_id');
+
+        const isSameAccount =
+          activeSubId === idDoAssinante ||
+          impersonatedSubId === idDoAssinante ||
+          currentCompanyId === idDoAssinante ||
+          (cleanEmail && activeUserEmail && activeUserEmail.toLowerCase() === cleanEmail);
+
+        if (isSameAccount) {
+          localStorage.removeItem('silagem_client_session');
+          localStorage.removeItem('silagem_active_user_email');
+          localStorage.removeItem('silagem_active_subscriber_email');
+          localStorage.removeItem('silagem_active_subscriber_id');
+          localStorage.removeItem('is_admin_impersonating');
+          localStorage.removeItem('impersonated_subscriber_id');
+          localStorage.removeItem('impersonated_subscriber_name');
+          localStorage.removeItem('impersonated_subscriber_email');
+          localStorage.removeItem('current_company_id');
+        }
+
+        try {
+          const comp = getStoredCompanyProfile();
+          const compEmail = (comp.loginEmail || comp.email || '').toLowerCase();
+          if (comp.id === idDoAssinante || (cleanEmail && compEmail === cleanEmail)) {
+            saveStoredCompanyProfile({
+              ...comp,
+              loginEmail: '',
+              activitySector: 'CANCELADO / INATIVO',
+            });
+          }
+        } catch {}
+      }
+
+      // 5. LOGO APÓS O RETORNO DA OPERAÇÃO:
       // Atualiza o estado local do React filtrando o item removido da lista
       // para que ele suma da tela instantaneamente sem precisar de F5
       setSubscribers(prev => {
         const nextList = (prev || []).filter(sub => {
           if (!sub) return false;
           const matchId = sub.id === idDoAssinante || String(sub.id) === String(idDoAssinante);
-          const matchEmail = email && sub.responsibleEmail && sub.responsibleEmail.toLowerCase() === email.toLowerCase();
+          const matchEmail = cleanEmail && sub.responsibleEmail && sub.responsibleEmail.toLowerCase() === cleanEmail;
           return !matchId && !matchEmail;
         });
         saveStoredSubscribers(nextList);
         return nextList;
       });
 
-      showToast(`Assinante "${name || 'Assinante'}" excluído com sucesso da tabela de assinantes.`);
+      showToast(`Assinante "${name || 'Assinante'}" e logins associados excluídos com sucesso.`);
     } catch (err) {
-      console.error('Erro ao excluir assinante da tabela assinantes:', err);
-      // Em caso de erro de rede, garante a remoção local para feedback imediato
+      console.error('Erro ao excluir assinante da tabela assinantes e serviços de autenticação:', err);
+      // Em caso de falha de rede, garante a remoção local para feedback imediato
       setSubscribers(prev => {
         const nextList = (prev || []).filter(sub => sub && sub.id !== idDoAssinante && String(sub.id) !== String(idDoAssinante));
         saveStoredSubscribers(nextList);
