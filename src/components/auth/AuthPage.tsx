@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
   Mail, 
@@ -120,7 +120,8 @@ function mapSupabasePlanRow(row: any): PlanDefinition {
 }
 
 /**
- * Localiza dinamicamente o plano correspondente ao parâmetro da URL (ex: ?plan=plano-pro, ?plan=plano-intermediario, etc.)
+ * Localiza dinamicamente o plano correspondente ao parâmetro da URL (ex: ?plan=plano-plano-intermediario, ?plan=pro, etc.)
+ * Dá prioridade absoluta à busca exata por ID vindo do Supabase.
  */
 function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | null): PlanDefinition | undefined {
   if (!plansList || plansList.length === 0) return undefined;
@@ -131,49 +132,99 @@ function matchPlanFromList(plansList: PlanDefinition[], planParam?: string | nul
   const raw = planParam.trim();
   const lower = raw.toLowerCase();
   // Remove prefixos como 'plano-', 'plano_', 'plan-'
-  const clean = lower.replace(/^(plano|plan)[-_]+/, '');
+  const clean = lower.replace(/^(plano|plan)[-_]+/g, '').trim();
 
-  // 1. Match exato pelo ID
-  const byExactId = plansList.find(p => p.id.toLowerCase() === lower);
+  // 1. PRIORIDADE MÁXIMA: Match EXATO pelo ID (Ex: ?plan=plano-plano-intermediario ou ?plan=essencial)
+  const byExactId = plansList.find(p => p.id === raw || p.id.toLowerCase() === lower);
   if (byExactId) return byExactId;
 
-  // 2. Match pelo ID normalizado (sem prefixo plano-)
+  // 2. Match pelo ID normalizado (sem prefixo plano- / plan-)
   const byCleanId = plansList.find(p => {
-    const pIdClean = p.id.toLowerCase().replace(/^(plano|plan)[-_]+/, '');
-    return pIdClean === clean || pIdClean.includes(clean) || clean.includes(pIdClean);
+    const pIdClean = p.id.toLowerCase().replace(/^(plano|plan)[-_]+/g, '').trim();
+    return pIdClean === clean;
   });
   if (byCleanId) return byCleanId;
 
-  // 3. Match por Nome do Plano
-  const byName = plansList.find(p => {
-    const pName = p.name.toLowerCase();
-    return pName === lower || pName.includes(clean) || clean.includes(pName);
+  // 3. Match por partes do slug do ID (tokens separados por traço ou underline)
+  const byTokenId = plansList.find(p => {
+    const tokens = p.id.toLowerCase().split(/[-_\s]+/);
+    return tokens.includes(clean) || tokens.includes(lower);
   });
-  if (byName) return byName;
+  if (byTokenId) return byTokenId;
 
-  // 4. Mapeamento semântico por palavras-chave (ex: 'pro' ou 'intermediario', 'master' ou 'enterprise', 'essencial' ou 'starter')
-  if (clean.includes('pro') || clean.includes('intermediar') || clean.includes('medio')) {
-    const match = plansList.find(p => {
-      const text = (p.id + ' ' + p.name).toLowerCase();
-      return text.includes('pro') || text.includes('intermediar') || text.includes('medio');
+  // 4. Match EXATO pelo Nome do Plano (case-insensitive)
+  const byExactName = plansList.find(p => p.name.toLowerCase().trim() === lower.trim());
+  if (byExactName) return byExactName;
+
+  // 5. Match por Nome normalizado (sem "Plano")
+  const byCleanName = plansList.find(p => {
+    const cleanName = p.name.toLowerCase().replace(/^(plano|plan)[-\s_]+/g, '').trim();
+    return cleanName === clean;
+  });
+  if (byCleanName) return byCleanName;
+
+  // 6. Mapeamento semântico por palavras-chave com REGEX DE PALAVRA COMPLETA (\b...\b)
+  // CASO PRO / INTERMEDIÁRIO
+  // ATENÇÃO: NUNCA usar includes('pro') puro para evitar colisão com "PROdutor"!
+  const isProKeyword = 
+    clean === 'pro' || 
+    clean === 'intermediario' || 
+    clean === 'intermediaria' || 
+    clean === 'medio' || 
+    /\b(pro|profissional|intermediario|intermediaria)\b/i.test(clean);
+
+  if (isProKeyword) {
+    const proMatch = plansList.find(p => {
+      const idLower = p.id.toLowerCase();
+      const nameLower = p.name.toLowerCase();
+      return idLower.includes('intermediar') || 
+             nameLower.includes('intermediar') ||
+             /\bpro\b/i.test(idLower) ||
+             /\bpro\b/i.test(nameLower);
     });
-    if (match) return match;
+    if (proMatch) return proMatch;
+
+    // Plano intermediário comercial (segundo plano, display_order === 2 ou segundo item ativo)
+    const secondPlan = plansList.find(p => p.displayOrder === 2 && p.isActive) || plansList[1];
+    if (secondPlan) return secondPlan;
   }
 
-  if (clean.includes('essen') || clean.includes('starter') || clean.includes('basic')) {
-    const match = plansList.find(p => {
+  // CASO ENTERPRISE / MASTER / AVANÇADO
+  const isEnterpriseKeyword = 
+    clean === 'enterprise' || 
+    clean === 'master' || 
+    clean === 'business' || 
+    clean === 'avancado' || 
+    /\b(enterprise|master|business|avancado|avancada)\b/i.test(clean);
+
+  if (isEnterpriseKeyword) {
+    const enterpriseMatch = plansList.find(p => {
       const text = (p.id + ' ' + p.name).toLowerCase();
-      return text.includes('essen') || text.includes('starter') || text.includes('basic');
+      return text.includes('master') || text.includes('enterprise') || text.includes('business') || text.includes('avanc');
     });
-    if (match) return match;
+    if (enterpriseMatch) return enterpriseMatch;
+
+    const highestPlan = plansList.find(p => p.displayOrder === 3 && p.isActive) || plansList[plansList.length - 1];
+    if (highestPlan) return highestPlan;
   }
 
-  if (clean.includes('enter') || clean.includes('master') || clean.includes('business') || clean.includes('avanc')) {
-    const match = plansList.find(p => {
+  // CASO ESSENCIAL / BÁSICO / STARTER
+  const isEssencialKeyword = 
+    clean === 'essencial' || 
+    clean === 'starter' || 
+    clean === 'basic' || 
+    clean === 'basico' || 
+    /\b(essencial|starter|basic|basico)\b/i.test(clean);
+
+  if (isEssencialKeyword) {
+    const essencialMatch = plansList.find(p => {
       const text = (p.id + ' ' + p.name).toLowerCase();
-      return text.includes('enter') || text.includes('master') || text.includes('business') || text.includes('avanc');
+      return text.includes('essen') || text.includes('starter') || text.includes('basic') || text.includes('iniciante');
     });
-    if (match) return match;
+    if (essencialMatch) return essencialMatch;
+
+    const firstPlan = plansList.find(p => p.displayOrder === 1 && p.isActive) || plansList[0];
+    if (firstPlan) return firstPlan;
   }
 
   // Fallback para o primeiro ativo
@@ -203,6 +254,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
     return getStoredPlans();
   });
+  const plansRef = useRef<PlanDefinition[]>(plans);
+  plansRef.current = plans;
+
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
 
   // Parâmetros da URL: ?mode=signup &plan=plano-pro &paid=true
@@ -256,6 +310,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         if (Array.isArray(data) && data.length > 0 && isMounted) {
           const mapped = data.map(mapSupabasePlanRow);
           mapped.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+          plansRef.current = mapped;
           setPlans(mapped);
 
           // Salva no cache local para carregamento instantâneo
@@ -300,7 +355,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
       const planParam = params.get('plan');
       if (planParam) {
-        const matched = matchPlanFromList(plans, planParam);
+        const currentList = plansRef.current.length > 0 ? plansRef.current : plans;
+        const matched = matchPlanFromList(currentList, planParam);
         if (matched) {
           setSelectedPlanId(matched.id);
         } else {

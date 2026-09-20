@@ -405,20 +405,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
-  const getPlanParamKey = (p: PlanDefinition): 'essencial' | 'pro' | 'enterprise' => {
-    const text = (p.id + ' ' + p.name).toLowerCase();
-    if (text.includes('essen') || text.includes('starter')) return 'essencial';
-    if (text.includes('enter') || text.includes('business')) return 'enterprise';
-    return 'pro';
-  };
-
   const handleStartPlan = (plan: PlanDefinition) => {
-    const planKey = getPlanParamKey(plan);
+    const planId = plan.id;
     if (onNavigateToAuth) {
-      onNavigateToAuth(planKey, 'signup');
+      onNavigateToAuth(planId, 'signup');
     } else {
       try {
-        window.history.pushState({}, '', `/auth?mode=signup&plan=${planKey}`);
+        window.history.pushState({}, '', `/auth?mode=signup&plan=${encodeURIComponent(planId)}`);
         window.dispatchEvent(new PopStateEvent('popstate'));
       } catch (e) {
         console.error(e);
@@ -547,7 +540,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <button
               type="button"
-              onClick={() => onNavigateToAuth ? onNavigateToAuth('plano-pro', 'signup') : handleAccessErp()}
+              onClick={() => {
+                const target = plans.find(p => p.isFeatured && p.isActive) ||
+                               plans.find(p => p.isActive && p.displayOrder === 2) ||
+                               plans.find(p => p.isActive) ||
+                               plans[0];
+                const targetId = target?.id;
+                if (onNavigateToAuth) {
+                  onNavigateToAuth(targetId, 'signup');
+                } else {
+                  try {
+                    window.history.pushState({}, '', targetId ? `/auth?mode=signup&plan=${encodeURIComponent(targetId)}` : '/auth?mode=signup');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  } catch (e) {
+                    console.error(e);
+                    handleAccessErp();
+                  }
+                }
+              }}
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-black text-sm rounded-xl transition shadow-xl shadow-emerald-950/60 flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
             >
               <span>{currentSettings.heroPrimaryBtnText}</span>
