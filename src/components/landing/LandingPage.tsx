@@ -104,6 +104,54 @@ function mapSupabasePlan(row: any): PlanDefinition {
   };
 }
 
+/**
+ * Converte URLs de vídeo (YouTube, Vimeo, MP4 direto) em formato compatível para modal lightbox
+ */
+function parseEmbedVideoUrl(url?: string): { type: 'youtube' | 'vimeo' | 'html5' | 'iframe' | 'empty'; url: string } {
+  if (!url || !url.trim()) {
+    return { type: 'empty', url: '' };
+  }
+  const clean = url.trim();
+
+  // YouTube: watch?v=..., youtu.be/..., shorts/..., embed/...
+  const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/i;
+  const ytMatch = clean.match(ytRegex);
+  if (ytMatch && ytMatch[1]) {
+    return {
+      type: 'youtube',
+      url: `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&rel=0&modestbranding=1`,
+    };
+  }
+
+  // Vimeo: vimeo.com/123456789
+  const vimeoRegex = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|video\/|)(\d+)/i;
+  const vimeoMatch = clean.match(vimeoRegex);
+  if (vimeoMatch && vimeoMatch[3]) {
+    return {
+      type: 'vimeo',
+      url: `https://player.vimeo.com/video/${vimeoMatch[3]}?autoplay=1`,
+    };
+  }
+
+  // Vídeo direto (.mp4, .webm, .ogg, .mov)
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(clean)) {
+    return {
+      type: 'html5',
+      url: clean,
+    };
+  }
+
+  // Link genérico com protocolo
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    return {
+      type: 'iframe',
+      url: clean,
+    };
+  }
+
+  return { type: 'empty', url: '' };
+}
+
 interface LandingPageProps {
   onEnterApp: () => void;
   onOpenMasterAdmin: () => void;
@@ -115,6 +163,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenMasterAdmin,
   onNavigateToAuth,
 }) => {
+  // Estado para controle do modal pop-up (lightbox) de vídeo demonstrativo
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
   // Leitura dinâmica inicial buscando prioritariamente de agrocontrol_site_settings e agrocontrol_plans_data
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     try {
@@ -364,6 +415,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     };
   }, []);
 
+  // Controle de tecla Escape e bloqueio de scroll para o modal de vídeo lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isVideoModalOpen) {
+        setIsVideoModalOpen(false);
+      }
+    };
+    if (isVideoModalOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isVideoModalOpen]);
+
   // Objeto de Configuração Dinâmica com Fallbacks Protegidos (valores originais do agro)
   const allowFreeTrial = siteConfig?.allow_free_trial !== undefined 
     ? Boolean(siteConfig.allow_free_trial) 
@@ -592,17 +662,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             }}
           />
 
-          {/* 1. Camada de degradê escuro (do topo para o fundo) para máxima legibilidade dos textos e botões */}
-          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/85 via-stone-950/60 to-stone-950" />
+          {/* 1. Camada Dinâmica de Escurecimento (Overlay) controlada diretamente pelo Painel Mestre (0% a 100%) */}
+          <div 
+            className="absolute inset-0 bg-stone-950 transition-opacity duration-300"
+            style={{ opacity: (currentSettings.heroOverlayOpacity ?? 75) / 100 }}
+          />
 
-          {/* 2. Suave atenuação para manter visíveis o produtor, o tablet e as telas de telemetria sem ofuscar */}
-          <div className="absolute inset-0 bg-stone-950/30 backdrop-blur-[0.5px]" />
+          {/* 2. Suave atenuação com gradiente para máxima legibilidade dos textos e botões */}
+          <div 
+            className="absolute inset-0 bg-gradient-to-b from-stone-950/75 via-transparent to-stone-950 transition-opacity duration-300 pointer-events-none"
+            style={{ opacity: Math.max(0.15, (currentSettings.heroOverlayOpacity ?? 75) / 100) }}
+          />
 
           {/* 3. Gradiente inferior espesso: oculta e corta 100% de qualquer texto IA artificial ou rodapés da imagem */}
-          <div className="absolute inset-x-0 bottom-0 h-44 sm:h-52 md:h-64 bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-44 sm:h-52 md:h-64 bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent pointer-events-none" />
 
           {/* 4. Transição sutil com a barra de navegação no topo */}
-          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-stone-950/90 via-stone-950/40 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-stone-950/90 via-stone-950/40 to-transparent pointer-events-none" />
 
           {/* 5. Efeito glow temático esmeralda no centro */}
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-emerald-500/10 rounded-full blur-[90px] pointer-events-none" />
@@ -629,6 +705,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <button
               type="button"
+              id="btn-hero-primary"
               onClick={() => {
                 const target = plans.find(p => p.isFeatured && p.isActive) ||
                                plans.find(p => p.isActive && p.displayOrder === 2) ||
@@ -653,12 +730,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ArrowRight className="w-4 h-4" />
             </button>
 
-            <a
-              href="#planos"
-              className="w-full sm:w-auto px-8 py-4 bg-stone-900/90 hover:bg-stone-800 text-stone-100 border border-stone-700/80 font-bold text-sm rounded-xl transition backdrop-blur-md shadow-lg shadow-black/30 flex items-center justify-center gap-2"
+            {/* BOTÃO CONHECER FUNCIONALIDADES (ABRE O LIGHTBOX DO VÍDEO DEMONSTRATIVO) */}
+            <button
+              type="button"
+              id="btn-hero-conhecer-funcionalidades"
+              onClick={() => setIsVideoModalOpen(true)}
+              className="w-full sm:w-auto px-8 py-4 bg-stone-900/90 hover:bg-stone-800 text-stone-100 border border-stone-700/80 hover:border-emerald-500/50 font-bold text-sm rounded-xl transition backdrop-blur-md shadow-lg shadow-black/30 flex items-center justify-center gap-2.5 cursor-pointer group"
             >
-              <span>{currentSettings.heroSecondaryBtnText}</span>
-            </a>
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-stone-950 transition">
+                <Play className="w-3 h-3 fill-current ml-0.5" />
+              </div>
+              <span>{currentSettings.heroSecondaryBtnText || 'Conhecer Funcionalidades'}</span>
+            </button>
           </div>
 
           {/* Badges de Confiança */}
@@ -910,6 +993,99 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* MODAL POP-UP (LIGHTBOX) DO VÍDEO DEMONSTRATIVO */}
+      {isVideoModalOpen && (
+        <div
+          id="modal-video-lightbox"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsVideoModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-4xl bg-stone-900 border border-stone-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho do Lightbox */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-stone-800 bg-stone-950/80">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Video className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">
+                    Demonstração do Sistema AgroControl
+                  </h3>
+                  <p className="text-[10px] text-stone-400">
+                    Apresentação completa das rotinas operacionais e telemetria
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                id="btn-close-video-modal"
+                onClick={() => setIsVideoModalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-stone-800/80 hover:bg-stone-700 text-stone-300 hover:text-white flex items-center justify-center transition cursor-pointer"
+                title="Fechar (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Conteúdo do Vídeo */}
+            <div className="relative aspect-video w-full bg-black flex items-center justify-center">
+              {(() => {
+                const parsedVideo = parseEmbedVideoUrl(currentSettings.heroVideoUrl);
+                if (parsedVideo.type === 'youtube' || parsedVideo.type === 'vimeo' || parsedVideo.type === 'iframe') {
+                  return (
+                    <iframe
+                      src={parsedVideo.url}
+                      title="Vídeo Demonstrativo do AgroControl"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  );
+                }
+                if (parsedVideo.type === 'html5') {
+                  return (
+                    <video
+                      src={parsedVideo.url}
+                      controls
+                      autoPlay
+                      className="w-full h-full object-contain"
+                    />
+                  );
+                }
+                return (
+                  <div className="p-8 text-center max-w-md space-y-4">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-stone-800 flex items-center justify-center text-stone-400">
+                      <Play className="w-6 h-6 ml-1 text-emerald-400" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-white">
+                        Nenhum Vídeo Demonstrativo Configurado
+                      </h4>
+                      <p className="text-xs text-stone-400">
+                        O administrador do sistema pode colar o link do YouTube, Vimeo ou arquivo de vídeo em <span className="text-emerald-400 font-semibold">Configurações do Site &gt; 1. Bloco Hero &gt; URL do Vídeo Demonstrativo</span>.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsVideoModalOpen(false)}
+                      className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                    >
+                      Voltar para a Página
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
