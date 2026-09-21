@@ -257,11 +257,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const plansRef = useRef<PlanDefinition[]>(plans);
   plansRef.current = plans;
 
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => getStoredLandingSettings());
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = 
+          localStorage.getItem('agrocontrol_site_settings') || 
+          localStorage.getItem(AGROCONTROL_SITE_SETTINGS_KEY) || 
+          localStorage.getItem(LANDING_PAGE_SETTINGS_KEY);
+        if (raw) {
+          return { ...DEFAULT_SITE_CONFIG, ...JSON.parse(raw) };
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return getStoredLandingSettings();
+  });
 
-  const allowFreeTrial = siteConfig.allow_free_trial !== undefined 
+  const [trialQueryParam, setTrialQueryParam] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('trial');
+  });
+
+  const allowFreeTrial = (siteConfig.allow_free_trial !== undefined 
     ? Boolean(siteConfig.allow_free_trial) 
-    : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true);
+    : (DEFAULT_SITE_CONFIG.allow_free_trial ?? true)) && trialQueryParam !== 'false';
 
   // Parâmetros da URL: ?mode=signup &plan=plano-pro &paid=true
   const [mode, setMode] = useState<'signup' | 'login'>(() => {
@@ -365,6 +385,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       })
       .subscribe();
 
+    // Inscrição Realtime no Supabase na tabela 'site_settings'
+    const siteSettingsChannel = supabase
+      .channel('auth_page_site_settings_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => {
+        fetchCloudSiteConfig().then((cloudCfg) => {
+          if (!isMounted || !cloudCfg) return;
+          setSiteConfig(cloudCfg);
+        });
+      })
+      .subscribe();
+
     const handleUrlChange = () => {
       const params = new URLSearchParams(window.location.search);
       const newMode = params.get('mode');
@@ -383,6 +414,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
       const paidParam = params.get('paid') === 'true' || params.get('status') === 'pago';
       setIsPrePaid(paidParam);
+      const tParam = params.get('trial');
+      setTrialQueryParam(tParam);
     };
 
     const handleDataChange = (e?: any) => {
@@ -424,6 +457,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       isMounted = false;
       try {
         supabase.removeChannel(plansChannel);
+        supabase.removeChannel(siteSettingsChannel);
       } catch {
         // cleanup silencioso
       }
@@ -633,8 +667,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const trialEndsAtIso = trialDate.toISOString();
       const criadoEmIso = new Date().toISOString();
 
-      // Determina status inicial ('trial' ou 'ativa' se pré-pago)
-      const initialStatus: SubscriberStatus = isPrePaid ? 'ativa' : 'trial';
+      // Determina status inicial ('ativa' se pré-pago ou sem trial, senão 'trial')
+      const initialStatus: SubscriberStatus = (isPrePaid || !allowFreeTrial) ? 'ativa' : 'trial';
 
       // =========================================================================
       // 1. CRIAÇÃO OU IDENTIFICAÇÃO DE USUÁRIO NO SUPABASE AUTH (auth.users)
@@ -742,8 +776,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           email: emailClean,
           plano_selecionado: planKey,
           valor_mensal: planPrice,
-          status: 'trial',
-          trial_ate: trialEndsAtIso,
+          status: (isPrePaid || !allowFreeTrial) ? 'ativa' : 'trial',
+          trial_ate: (allowFreeTrial && !isPrePaid) ? trialEndsAtIso : null,
           criado_em: criadoEmIso,
         };
 
@@ -772,8 +806,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             phone: phoneClean,
             document: documentClean,
             plan_name: planDisplayName,
-            status: 'Trial',
-            trial_ends_at: trialEndsAtIso,
+            status: (isPrePaid || !allowFreeTrial) ? 'Ativa' : 'Trial',
+            trial_ends_at: (allowFreeTrial && !isPrePaid) ? trialEndsAtIso : null,
             created_at: criadoEmIso,
           };
 
@@ -807,7 +841,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         planId: planKey,
         monthlyValue: planPrice,
         status: initialStatus,
-        trialDays: 7,
+        trialDays: (allowFreeTrial && !isPrePaid) ? 7 : 0,
       });
 
       // Dispara persistência na nuvem via serviço centralizado
@@ -1038,7 +1072,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>
                 {mode === 'signup' 
-                  ? (allowFreeTrial ? 'Teste Grátis de 15 Dias • Sem Compromisso' : 'Contratação Direta • Começar Agora') 
+                  ? (allowFreeTrial ? 'Teste Grátis de 15 Dias • Sem Compromisso' : 'Crie sua conta e comece agora') 
                   : 'Acesso Seguro ao Painel'}
               </span>
             </div>
@@ -1066,7 +1100,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       : 'text-stone-400 hover:text-white'
                   }`}
                 >
-                  {allowFreeTrial ? 'Criar Nova Empresa (15d Grátis)' : 'Criar Nova Empresa'}
+                  {allowFreeTrial ? 'Criar Nova Empresa (15d Grátis)' : 'Concluir Cadastro e Acessar ERP'}
                 </button>
                 <button
                   type="button"
@@ -1115,9 +1149,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       </span>
                       <h3 className="text-base font-black text-white flex items-center gap-2">
                         <span>{activePlan?.name || 'Plano'}</span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black uppercase">
-                          {isPrePaid ? 'Assinatura Ativa' : '7 Dias Grátis'}
-                        </span>
+                        {isPrePaid ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black uppercase">
+                            Assinatura Ativa
+                          </span>
+                        ) : allowFreeTrial ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black uppercase">
+                            7 Dias Grátis
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full bg-stone-800 border border-stone-700 text-stone-300 text-[10px] font-black uppercase">
+                            Plano Ativo
+                          </span>
+                        )}
                       </h3>
                     </div>
                   </div>
@@ -1127,7 +1171,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       {formatCurrencyBRL(activePlan?.price || 0)}
                     </span>
                     <span className="text-xs text-stone-400 font-bold block">
-                      /{activePlan?.billingCycle === 'anual' ? 'ano' : 'mês'} após os 7 dias de teste
+                      /{activePlan?.billingCycle === 'anual' ? 'ano' : 'mês'}{allowFreeTrial ? ' após os 7 dias de teste' : ''}
                     </span>
                   </div>
                 </div>
@@ -1455,11 +1499,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{allowFreeTrial ? 'Criando sua empresa e ativando teste...' : 'Criando sua empresa e inicializando...'}</span>
+                      <span>{allowFreeTrial ? 'Criando sua empresa e ativando teste...' : 'Criando sua empresa e ativando plano...'}</span>
                     </>
                   ) : (
                     <>
-                      <span>{allowFreeTrial ? 'Cadastrar e Iniciar Teste Grátis de 15 Dias' : 'Cadastrar Empresa e Começar Agora'}</span>
+                      <span>{allowFreeTrial ? 'Cadastrar e Iniciar Teste Grátis de 15 Dias' : 'CADASTRAR E CONTRATAR PLANO'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -1546,7 +1590,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   onClick={() => { setMode('signup'); setFormError(null); }}
                   className="text-xs text-stone-300 hover:text-emerald-400 transition cursor-pointer"
                 >
-                  Não tem uma conta ainda? <span className="text-emerald-400 font-bold underline">Cadastre-se com 15 dias grátis</span>
+                  Não tem uma conta ainda?{' '}
+                  <span className="text-emerald-400 font-bold underline">
+                    {allowFreeTrial ? 'Cadastre-se com 15 dias grátis' : 'Cadastre-se e comece agora'}
+                  </span>
                 </button>
               </div>
             </form>

@@ -962,12 +962,15 @@ export default function App() {
     }
   };
 
-  const handleOpenAuth = (planId?: string, authMode: 'signup' | 'login' = 'signup') => {
+  const handleOpenAuth = (planId?: string, authMode: 'signup' | 'login' = 'signup', trialParam?: boolean) => {
     try {
       const params = new URLSearchParams();
       params.set('mode', authMode);
       if (planId) {
         params.set('plan', planId);
+      }
+      if (trialParam !== undefined) {
+        params.set('trial', trialParam ? 'true' : 'false');
       }
       window.history.pushState({}, '', `/auth?${params.toString()}`);
     } catch (e) {

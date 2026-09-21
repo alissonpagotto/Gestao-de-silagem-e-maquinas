@@ -155,7 +155,7 @@ function parseEmbedVideoUrl(url?: string): { type: 'youtube' | 'vimeo' | 'html5'
 interface LandingPageProps {
   onEnterApp: () => void;
   onOpenMasterAdmin: () => void;
-  onNavigateToAuth?: (planId?: string, mode?: 'signup' | 'login') => void;
+  onNavigateToAuth?: (planId?: string, mode?: 'signup' | 'login', trialParam?: boolean) => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -445,12 +445,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     ? Math.max(0, Math.min(100, Number(siteConfig.hero_overlay_opacity)))
     : (DEFAULT_SITE_CONFIG.hero_overlay_opacity ?? 75);
 
+  // Lógica dinâmica rigorosa para o texto do botão primário do Hero
+  const rawHeroPrimary = (siteConfig?.heroPrimaryBtnText || '').trim();
+  let computedHeroPrimaryBtnText = rawHeroPrimary;
+  if (!allowFreeTrial) {
+    if (!computedHeroPrimaryBtnText || /gr[áa]tis|teste/i.test(computedHeroPrimaryBtnText)) {
+      computedHeroPrimaryBtnText = 'Começar Agora';
+    }
+  } else if (!computedHeroPrimaryBtnText) {
+    computedHeroPrimaryBtnText = 'Começar Teste Grátis de 7 Dias';
+  }
+
+  // Lógica dinâmica para o subtítulo da tabela de preços
+  let computedPricingSubtitle = siteConfig?.pricing_subtitle || DEFAULT_SITE_CONFIG.pricing_subtitle || '';
+  if (!allowFreeTrial) {
+    if (!computedPricingSubtitle || /gr[áa]tis|teste/i.test(computedPricingSubtitle)) {
+      computedPricingSubtitle = 'Contratação imediata sem burocracia. Altere ou cancele seu plano a qualquer momento.';
+    }
+  } else if (!computedPricingSubtitle) {
+    computedPricingSubtitle = 'Comece com 7 dias grátis de teste. Cancele ou altere de plano a qualquer momento sem burocracia.';
+  }
+
   const currentSettings = {
     allowFreeTrial,
     heroBadgeText: siteConfig?.hero_badge_text || DEFAULT_SITE_CONFIG.hero_badge_text || 'A plataforma nº 1 em prestação de serviços de silagem e colheita',
     heroTitle: siteConfig?.heroTitle || DEFAULT_SITE_CONFIG.heroTitle,
     heroSubtitle: siteConfig?.heroSubtitle || DEFAULT_SITE_CONFIG.heroSubtitle,
-    heroPrimaryBtnText: siteConfig?.heroPrimaryBtnText || (allowFreeTrial ? 'Começar Teste Grátis de 7 Dias' : 'Começar Agora'),
+    heroPrimaryBtnText: computedHeroPrimaryBtnText,
     heroSecondaryBtnText: siteConfig?.heroSecondaryBtnText || DEFAULT_SITE_CONFIG.heroSecondaryBtnText,
     heroBackgroundImage: siteConfig?.heroBackgroundImage || DEFAULT_SITE_CONFIG.heroBackgroundImage || '/image.png',
     heroVideoUrl: (siteConfig?.hero_video_url || DEFAULT_SITE_CONFIG.hero_video_url || '').trim(),
@@ -471,9 +492,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     feature4Desc: siteConfig?.feature4Desc || DEFAULT_SITE_CONFIG.feature4Desc,
     pricingTag: siteConfig?.pricing_tag || DEFAULT_SITE_CONFIG.pricing_tag || 'Investimento Transparente',
     pricingTitle: siteConfig?.pricing_title || DEFAULT_SITE_CONFIG.pricing_title || 'Escolha o plano ideal para a sua operação',
-    pricingSubtitle: siteConfig?.pricing_subtitle || DEFAULT_SITE_CONFIG.pricing_subtitle || (allowFreeTrial 
-      ? 'Comece com 7 dias grátis de teste. Cancele ou altere de plano a qualquer momento sem burocracia.'
-      : 'Contratação imediata sem burocracia. Altere ou cancele seu plano a qualquer momento.'),
+    pricingSubtitle: computedPricingSubtitle,
     footerCopyright: siteConfig?.footer_copyright || DEFAULT_SITE_CONFIG.footer_copyright || 'AgroControl • Silagem Fácil Pro © 2026',
     footerSignupUrl: (siteConfig?.footer_signup_url || '').trim(),
     footerLoginUrl: (siteConfig?.footer_login_url || '').trim(),
@@ -507,10 +526,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const handleStartPlan = (plan: PlanDefinition) => {
     const planId = plan.id;
     if (onNavigateToAuth) {
-      onNavigateToAuth(planId, 'signup');
+      onNavigateToAuth(planId, 'signup', allowFreeTrial);
     } else {
       try {
-        window.history.pushState({}, '', `/auth?mode=signup&plan=${encodeURIComponent(planId)}`);
+        const trialQuery = !allowFreeTrial ? '&trial=false' : '';
+        window.history.pushState({}, '', `/auth?mode=signup&plan=${encodeURIComponent(planId)}${trialQuery}`);
         window.dispatchEvent(new PopStateEvent('popstate'));
       } catch (e) {
         console.error(e);
@@ -571,7 +591,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 id="btn-nav-signup"
-                onClick={() => onNavigateToAuth(undefined, 'signup')}
+                onClick={() => onNavigateToAuth(undefined, 'signup', allowFreeTrial)}
                 className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5 min-h-[44px]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -636,7 +656,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   id="btn-mobile-nav-signup"
                   onClick={() => {
                     setIsMobileNavOpen(false);
-                    onNavigateToAuth(undefined, 'signup');
+                    onNavigateToAuth(undefined, 'signup', allowFreeTrial);
                   }}
                   className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm flex items-center justify-center gap-2 min-h-[44px]"
                 >
@@ -727,10 +747,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                                plans[0];
                 const targetId = target?.id;
                 if (onNavigateToAuth) {
-                  onNavigateToAuth(targetId, 'signup');
+                  onNavigateToAuth(targetId, 'signup', allowFreeTrial);
                 } else {
                   try {
-                    window.history.pushState({}, '', targetId ? `/auth?mode=signup&plan=${encodeURIComponent(targetId)}` : '/auth?mode=signup');
+                    const trialQuery = !allowFreeTrial ? '&trial=false' : '';
+                    window.history.pushState({}, '', targetId ? `/auth?mode=signup&plan=${encodeURIComponent(targetId)}${trialQuery}` : `/auth?mode=signup${trialQuery}`);
                     window.dispatchEvent(new PopStateEvent('popstate'));
                   } catch (e) {
                     console.error(e);
@@ -1065,7 +1086,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 if (currentSettings.footerSignupUrl) {
                   window.open(currentSettings.footerSignupUrl, '_blank', 'noopener,noreferrer');
                 } else if (onNavigateToAuth) {
-                  onNavigateToAuth(undefined, 'signup');
+                  onNavigateToAuth(undefined, 'signup', allowFreeTrial);
                 }
               }}
               className="text-emerald-400 font-bold hover:underline transition cursor-pointer"
