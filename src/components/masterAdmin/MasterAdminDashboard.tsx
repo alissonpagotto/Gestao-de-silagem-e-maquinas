@@ -66,6 +66,7 @@ import {
   clearStoredMasterSession,
   AGROCONTROL_PLANS_DATA_KEY,
   AGROCONTROL_SITE_SETTINGS_KEY,
+  STORAGE_KEYS,
   syncMasterAdminFromCloud
 } from '../../lib/masterAdminStorage';
 import { getStoredCompanyProfile, saveStoredCompanyProfile } from '../../lib/storage';
@@ -73,15 +74,11 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   deleteCloudPlan,
   deleteCloudSubscriber,
-  subscribeToCloudTable,
   updateCloudSubscriberStatus,
   upsertCloudSubscriber,
   upsertCloudPlan,
   upsertCloudSiteConfig,
   sanitizePlanId,
-  normalizeSubscriberPlanKey,
-  getSubscriberPlanDisplayName,
-  getSubscriberPlanPrice,
   normalizeSubscriberStatus,
   toValidUUID
 } from '../../lib/supabaseService';
@@ -102,7 +99,7 @@ import { formatCurrencyBRL } from '../../lib/formatters';
  * na visualização de todos os assinantes, em vez de exibir textos ou valores estáticos antigos.
  */
 export function resolveSubscriberPlan(
-  sub: Subscriber,
+  sub: Partial<Subscriber> | null | undefined,
   plansList: PlanDefinition[]
 ): { planName: string; monthlyValue: number; planId: string } {
   if (!sub) {
@@ -245,6 +242,26 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
+  // Refs de espelho síncrono para validação imediata em eventos assíncronos do Realtime
+  const subscribersRef = useRef<Subscriber[]>(subscribers);
+  useEffect(() => {
+    subscribersRef.current = subscribers;
+  }, [subscribers]);
+
+  const plansRef = useRef<PlanDefinition[]>(plans);
+  useEffect(() => {
+    plansRef.current = plans;
+  }, [plans]);
+
+  // Registro de alterações manuais recentes do usuário para bloquear loops de eco (janela de 5s)
+  const recentManualActionsRef = useRef<Map<string, { timestamp: number; payload?: any }>>(new Map());
+
+  // Refs para controle rigoroso de concorrência e cooldown de rede
+  const isSyncingRef = useRef(false);
+  const lastSyncTimeRef = useRef(0);
+  const syncDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
   // Setters protegidos contra re-renders idênticos
   const updateSubscribersIfChanged = useCallback((newSubs: Subscriber[]) => {
     if (!Array.isArray(newSubs)) return;
@@ -266,25 +283,87 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     setSettings(prev => (isDeepEqual(prev, newSettings) ? prev : newSettings));
   }, []);
 
-  // Busca direta e prioritária na tabela oficial 'assinantes' do Supabase
-  const fetchSubscribersFromAssinantes = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
+  // Consulta direta dos planos comerciais da tabela 'plans' para integridade absoluta
+  const fetchCloudPlansDirectly = useCallback(async (): Promise<PlanDefinition[]> => {
+    if (!isSupabaseConfigured) return [];
     try {
       const { data, error } = await supabase
-        .from('assinantes')
+        .from('plans')
         .select('*')
-        .order('criado_em', { ascending: false });
+        .order('display_order', { ascending: true });
 
-      if (error) {
-        console.warn('Aviso ao consultar tabela assinantes:', error.message);
+      if (error || !Array.isArray(data) || data.length === 0) {
+        return [];
+      }
+
+      return data
+        .filter((r: any) => r.is_active !== false)
+        .map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || '',
+          price: Number(r.price) || 0,
+          billingCycle: r.billing_cycle || 'mensal',
+          badge: r.badge,
+          isFeatured: Boolean(r.is_featured),
+          isActive: r.is_active !== false,
+          displayOrder: r.display_order || 1,
+          limits: r.limits || { maxUsers: 1, maxMachineries: 2, maxClients: 2, storageLimitGb: 5 },
+          featuresText: r.features_text || '',
+          checkoutUrl: r.checkout_url || '',
+        }));
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Busca direta e prioritária na tabela oficial 'assinantes' do Supabase integrada aos planos dinâmicos
+  const fetchSubscribersFromAssinantes = useCallback(async () => {
+    if (!isSupabaseConfigured || !isMountedRef.current) return;
+    try {
+      // Consulta planos dinâmicos e assinantes em paralelo
+      const [plansResult, assinantesResult] = await Promise.allSettled([
+        fetchCloudPlansDirectly(),
+        supabase.from('assinantes').select('*').order('criado_em', { ascending: false }),
+      ]);
+
+      let activePlans = plansRef.current;
+      if (plansResult.status === 'fulfilled' && plansResult.value.length > 0) {
+        activePlans = plansResult.value;
+        updatePlansIfChanged(activePlans);
+        plansRef.current = activePlans;
+      }
+
+      if (assinantesResult.status !== 'fulfilled' || assinantesResult.value.error) {
+        if (assinantesResult.status === 'fulfilled' && assinantesResult.value.error) {
+          console.warn('Aviso ao consultar tabela assinantes:', assinantesResult.value.error.message);
+        }
         return;
       }
 
-      if (Array.isArray(data)) {
+      const data = assinantesResult.value.data;
+      if (Array.isArray(data) && isMountedRef.current) {
         const cloudSubs: Subscriber[] = data.map((row: any) => {
-          const planKey = normalizeSubscriberPlanKey(row.plano_nome || row.plano_selecionado);
           const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
           const idKey = String(row.id || emailKey);
+          
+          // Conexão dinâmica estrita com os planos da tabela 'plans'
+          const resolvedPlan = resolveSubscriberPlan(
+            {
+              id: idKey,
+              name: row.nome || row.name || 'Assinante',
+              responsibleEmail: emailKey,
+              planId: row.plano_selecionado || row.plano_nome,
+              planName: row.plano_nome || row.plano_selecionado,
+              monthlyValue: Number(row.valor_mensal) || 0,
+              status: normalizeSubscriberStatus(row.status),
+              trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || ''),
+              createdAt: row.criado_em || row.created_at || new Date().toISOString(),
+              updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
+            },
+            activePlans
+          );
+
           return {
             id: idKey,
             name: row.nome || row.name || 'Assinante',
@@ -300,9 +379,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             neighborhood: row.bairro || row.neighborhood || '',
             city: row.cidade || row.city || '',
             state: row.estado || row.state || '',
-            planId: planKey,
-            planName: row.plano_nome || getSubscriberPlanDisplayName(planKey),
-            monthlyValue: Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+            planId: resolvedPlan.planId,
+            planName: resolvedPlan.planName,
+            monthlyValue: resolvedPlan.monthlyValue,
             status: normalizeSubscriberStatus(row.status),
             createdAt: row.criado_em || row.created_at || new Date().toISOString(),
             updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
@@ -310,12 +389,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         });
 
         updateSubscribersIfChanged(cloudSubs);
-        saveStoredSubscribers(cloudSubs);
+        subscribersRef.current = cloudSubs;
+        try {
+          localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(cloudSubs));
+        } catch {}
       }
     } catch (err) {
       console.warn('Erro ao carregar assinantes em tempo real:', err);
     }
-  }, [updateSubscribersIfChanged]);
+  }, [fetchCloudPlansDirectly, updatePlansIfChanged, updateSubscribersIfChanged]);
 
   const handleManualCloudSync = async () => {
     setIsSyncingCloud(true);
@@ -331,12 +413,6 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       setIsSyncingCloud(false);
     }
   };
-
-  // Refs para controle rigoroso de concorrência e cooldown de rede
-  const isSyncingRef = useRef(false);
-  const lastSyncTimeRef = useRef(0);
-  const syncDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(true);
 
   // Sincronização centralizada, debounced e com cooldown mínimo de 8s entre requisições
   const triggerSafeCloudSync = useCallback(() => {
@@ -370,66 +446,174 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }, 1200);
   }, [updateSubscribersIfChanged, updateSiteConfigIfChanged, updatePlansIfChanged]);
 
-  // Sincronização e Reatividade Segura (Sem loop infinito / net::ERR_INSUFFICIENT_RESOURCES)
+  // Listener dedicado e seguro para eventos em tempo real da tabela 'assinantes'
+  // Implementa deduplicação rigorosa, bloqueio de updates circulares e integridade de planos dinâmicos
+  const handleAssinantesRealtimeEvent = useCallback(async (payload: any) => {
+    if (!isMountedRef.current) return;
+    const eventType = payload.eventType;
+
+    if (eventType === 'DELETE') {
+      const deletedId = String(payload.old?.id || '');
+      if (deletedId) {
+        setSubscribers(prev => {
+          const next = prev.filter(s => s.id !== deletedId);
+          subscribersRef.current = next;
+          try {
+            localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
+      return;
+    }
+
+    if (eventType === 'INSERT') {
+      // Novo cadastro recebido na plataforma
+      await fetchSubscribersFromAssinantes();
+      return;
+    }
+
+    if (eventType === 'UPDATE') {
+      const newRow = payload.new;
+      if (!newRow || !newRow.id) return;
+      const subId = String(newRow.id);
+      const cleanEmail = (newRow.email || '').trim().toLowerCase();
+
+      // REGRA 1: Bloqueio de updates circulares e eco de gatilho manual interno recente (janela de 5s)
+      const recentAction = recentManualActionsRef.current.get(subId);
+      if (recentAction && Date.now() - recentAction.timestamp < 5000) {
+        console.log('🛡️ [Realtime Eco] Ignorando eco de alteração manual recente para o assinante:', subId);
+        return;
+      }
+
+      // Localiza o assinante atual em memória via ref sem disparar re-render
+      const currentSub = subscribersRef.current.find(
+        s => s.id === subId || s.responsibleEmail.trim().toLowerCase() === cleanEmail
+      );
+
+      if (currentSub) {
+        // REGRA 2: Verificação de Integridade de Planos Dinâmicos consultando diretamente os planos oficiais
+        const activePlans = plansRef.current.length > 0 ? plansRef.current : getStoredPlans();
+        const incomingPlanRaw = newRow.plano_nome || newRow.plano_selecionado || '';
+        const resolved = resolveSubscriberPlan(
+          {
+            ...currentSub,
+            planId: incomingPlanRaw,
+            planName: incomingPlanRaw,
+            monthlyValue: Number(newRow.valor_mensal) || 0,
+          },
+          activePlans
+        );
+
+        const incomingStatus = normalizeSubscriberStatus(newRow.status);
+        const incomingTrial = newRow.trial_ate 
+          ? new Date(newRow.trial_ate).toISOString().split('T')[0] 
+          : (newRow.trial_until || '');
+        const incomingName = (newRow.nome || newRow.name || '').trim();
+        const incomingPhone = (newRow.telefone || newRow.phone || '').trim();
+        const incomingCpfCnpj = (newRow.cpf_cnpj || newRow.document || '').trim();
+
+        // Deduplicação estrita: se os dados reativos recebidos forem idênticos ao estado atual, aborta imediatamente!
+        const isSamePlan = currentSub.planName.trim().toLowerCase() === resolved.planName.trim().toLowerCase();
+        const isSameValue = Math.abs((Number(currentSub.monthlyValue) || 0) - resolved.monthlyValue) < 0.01;
+        const isSameStatus = currentSub.status === incomingStatus;
+        const isSameName = currentSub.name.trim() === incomingName;
+        const isSameTrial = (currentSub.trialUntil || '') === incomingTrial;
+        const isSamePhone = (currentSub.phone || '').trim() === incomingPhone;
+        const isSameDoc = (currentSub.cpfCnpj || '').trim() === incomingCpfCnpj;
+
+        if (isSamePlan && isSameValue && isSameStatus && isSameName && isSameTrial && isSamePhone && isSameDoc) {
+          console.log('🛡️ [Realtime Deduplicação] Update idêntico aos dados atuais em memória. Abortando atualização circular:', subId);
+          return;
+        }
+
+        // Se houve alteração legítima externa, atualiza apenas em memória local sem disparar gravações no banco
+        const updatedSubscriber: Subscriber = {
+          ...currentSub,
+          name: incomingName || currentSub.name,
+          status: incomingStatus,
+          planId: resolved.planId,
+          planName: resolved.planName,
+          monthlyValue: resolved.monthlyValue,
+          trialUntil: incomingTrial || currentSub.trialUntil,
+          phone: incomingPhone || currentSub.phone,
+          cpfCnpj: incomingCpfCnpj || currentSub.cpfCnpj,
+          updatedAt: newRow.atualizado_em || newRow.updated_at || new Date().toISOString(),
+        };
+
+        setSubscribers(prev => {
+          const next = prev.map(s => (s.id === subId || s.responsibleEmail.trim().toLowerCase() === cleanEmail) ? updatedSubscriber : s);
+          subscribersRef.current = next;
+          try {
+            localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+        return;
+      }
+
+      // Se o assinante não estava em memória, sincroniza com integridade
+      await fetchSubscribersFromAssinantes();
+    }
+  }, [fetchSubscribersFromAssinantes]);
+
+  // REGRA 3: Limpeza Geral de Ouvintes Automáticos e Ciclo de Vida Seguro
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Sincronização com dados locais do localStorage (sem requisições de rede)
+    // Sincronização segura com dados locais do localStorage sem permitir rollback de planos da nuvem
     const handleLocalSync = () => {
       if (!isMountedRef.current) return;
-      updateSubscribersIfChanged(getStoredSubscribers());
       updateSiteConfigIfChanged(getStoredSiteConfig());
-      updatePlansIfChanged(getStoredPlans());
+      if (plansRef.current.length === 0) {
+        updatePlansIfChanged(getStoredPlans());
+      }
       updateSettingsIfChanged(getStoredAdminSettings());
     };
 
-    // 1. Carga inicial rápida direta da tabela oficial 'assinantes' e dados em nuvem
+    // 1. Carga inicial com verificação de integridade de planos dinâmicos
     fetchSubscribersFromAssinantes();
     triggerSafeCloudSync();
 
-    // 2. Assinatura Realtime em tempo real dedicada à tabela 'assinantes' (onde novos usuários se cadastram)
-    let realtimeAssinantesChannel: any = null;
+    // 2. Canal Realtime unificado e gerenciado (Elimina concorrência e duplicidade de listeners)
+    let masterRealtimeChannel: any = null;
     if (isSupabaseConfigured) {
-      realtimeAssinantesChannel = supabase
-        .channel(`realtime_master_assinantes_${Date.now()}`)
+      masterRealtimeChannel = supabase
+        .channel(`master_admin_stream_${Date.now()}`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'assinantes' },
-          async (payload) => {
-            console.log('⚡ [Realtime] Alteração na tabela assinantes recebida:', payload.eventType);
-            await fetchSubscribersFromAssinantes();
+          handleAssinantesRealtimeEvent
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'plans' },
+          async () => {
+            console.log('⚡ [Realtime] Planos comerciais alterados na nuvem');
+            const freshPlans = await fetchCloudPlansDirectly();
+            if (freshPlans.length > 0 && isMountedRef.current) {
+              updatePlansIfChanged(freshPlans);
+              plansRef.current = freshPlans;
+              await fetchSubscribersFromAssinantes();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'site_settings' },
+          () => {
+            triggerSafeCloudSync();
           }
         )
         .subscribe();
     }
 
-    // 3. Assinaturas Realtime consolidadas para outras tabelas
-    const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
-      fetchSubscribersFromAssinantes();
-      triggerSafeCloudSync();
-    });
-
-    const unsubSubs = subscribeToCloudTable('subscribers', () => {
-      triggerSafeCloudSync();
-    });
-
-    const unsubPlans = subscribeToCloudTable('plans', () => {
-      triggerSafeCloudSync();
-    });
-
-    const unsubSite = subscribeToCloudTable('site_settings', () => {
-      triggerSafeCloudSync();
-    });
-
-    // 4. Gerenciamento de eventos de armazenamento entre abas
+    // 3. Ouvintes de eventos do navegador entre abas
     const handleStorage = (e: StorageEvent) => {
       if (
-        e.key === AGROCONTROL_PLANS_DATA_KEY ||
-        e.key === 'silagem_master_plans_v1' ||
         e.key === AGROCONTROL_SITE_SETTINGS_KEY ||
         e.key === 'landingPageSettings' ||
-        e.key === 'silagem_master_site_config_v1' ||
-        e.key === 'silagem_master_subscribers_v1'
+        e.key === 'silagem_master_site_config_v1'
       ) {
         handleLocalSync();
       }
@@ -438,30 +622,28 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     window.addEventListener('master_admin_data_changed', handleLocalSync);
     window.addEventListener('agrocontrol_site_settings_updated', handleLocalSync);
     window.addEventListener('landing_page_settings_updated', handleLocalSync);
-    window.addEventListener('agrocontrol_plans_updated', handleLocalSync);
     window.addEventListener('storage', handleStorage);
 
+    // 4. Limpeza rigorosa no desmonte: cancela todos os canais e timers ativos
     return () => {
       isMountedRef.current = false;
       if (syncDebounceTimerRef.current) {
         clearTimeout(syncDebounceTimerRef.current);
+        syncDebounceTimerRef.current = null;
       }
-      if (realtimeAssinantesChannel) {
+      if (masterRealtimeChannel) {
         try {
-          supabase.removeChannel(realtimeAssinantesChannel);
-        } catch {}
+          supabase.removeChannel(masterRealtimeChannel);
+        } catch (err) {
+          console.warn('Aviso ao remover canal Realtime:', err);
+        }
       }
-      unsubAssinantes();
-      unsubSubs();
-      unsubPlans();
-      unsubSite();
       window.removeEventListener('master_admin_data_changed', handleLocalSync);
       window.removeEventListener('agrocontrol_site_settings_updated', handleLocalSync);
       window.removeEventListener('landing_page_settings_updated', handleLocalSync);
-      window.removeEventListener('agrocontrol_plans_updated', handleLocalSync);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [fetchSubscribersFromAssinantes, triggerSafeCloudSync, updateSubscribersIfChanged, updateSiteConfigIfChanged, updatePlansIfChanged, updateSettingsIfChanged]);
+  }, [fetchCloudPlansDirectly, fetchSubscribersFromAssinantes, handleAssinantesRealtimeEvent, triggerSafeCloudSync, updatePlansIfChanged, updateSettingsIfChanged, updateSiteConfigIfChanged]);
 
   // Sincroniza o formulário do site apenas quando a aba 'site' for acessada e houver alteração real
   useEffect(() => {
@@ -569,9 +751,29 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
-  // 2. Salvar Assinante com UPDATE real no banco de dados Supabase
+  // Atualização atômica de assinantes vinda de modais especializados (Planos, Trial, Status)
+  // Evita re-executar upsertCloudSubscriber que causava o loop de eco reativo
+  const handleSpecializedModalSuccess = (updatedSub: Subscriber) => {
+    if (!updatedSub || !updatedSub.id) return;
+    // Registra alteração manual recente para bloquear eco do Realtime nos próximos 5 segundos
+    recentManualActionsRef.current.set(updatedSub.id, { timestamp: Date.now(), payload: updatedSub });
+
+    setSubscribers(prev => {
+      const next = prev.map(s => s.id === updatedSub.id ? updatedSub : s);
+      subscribersRef.current = next;
+      try {
+        localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // 2. Salvar Assinante com UPDATE real no banco de dados Supabase (usado pelo modal de edição completa)
   const handleSaveSubscriber = async (saved: Subscriber) => {
     if (!saved || !saved.id) return;
+    // Registra alteração manual recente para bloquear eco
+    recentManualActionsRef.current.set(saved.id, { timestamp: Date.now(), payload: saved });
+
     const currentList = Array.isArray(subscribers) ? subscribers : [];
     const exists = currentList.some(s => s?.id === saved.id);
     let updatedList: Subscriber[];
@@ -581,6 +783,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       updatedList = [saved, ...currentList];
     }
     setSubscribers(updatedList);
+    subscribersRef.current = updatedList;
     saveStoredSubscribers(updatedList);
 
     try {
@@ -757,6 +960,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // 3. Alternar Status Rápido do Assinante com sincronização direta no Supabase
   const handleQuickStatusChange = async (id: string, newStatus: SubscriberStatus) => {
+    // Registra alteração manual recente para bloquear eco
+    recentManualActionsRef.current.set(id, { timestamp: Date.now(), payload: { status: newStatus } });
+
     const currentList = Array.isArray(subscribers) ? subscribers : [];
     const updated = currentList.map(s => {
       if (s?.id === id) {
@@ -765,6 +971,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       return s;
     });
     setSubscribers(updated);
+    subscribersRef.current = updated;
     saveStoredSubscribers(updated);
 
     try {
@@ -3035,9 +3242,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         isOpen={Boolean(changePlanSubscriber)}
         onClose={() => setChangePlanSubscriber(null)}
         subscriber={changePlanSubscriber}
-        onSuccess={(updatedSub) => {
-          handleSaveSubscriber(updatedSub);
-        }}
+        onSuccess={handleSpecializedModalSuccess}
         onSuccessToast={showToast}
       />
 
@@ -3046,9 +3251,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         isOpen={Boolean(extendTrialSubscriber)}
         onClose={() => setExtendTrialSubscriber(null)}
         subscriber={extendTrialSubscriber}
-        onSuccess={(updatedSub) => {
-          handleSaveSubscriber(updatedSub);
-        }}
+        onSuccess={handleSpecializedModalSuccess}
         onSuccessToast={showToast}
       />
 
@@ -3057,9 +3260,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         isOpen={Boolean(pauseModalSubscriber)}
         onClose={() => setPauseModalSubscriber(null)}
         subscriber={pauseModalSubscriber}
-        onSuccess={(updatedSub) => {
-          handleSaveSubscriber(updatedSub);
-        }}
+        onSuccess={handleSpecializedModalSuccess}
         onSuccessToast={showToast}
       />
 

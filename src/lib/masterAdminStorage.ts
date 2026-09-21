@@ -23,7 +23,7 @@ export const AGROCONTROL_SITE_SETTINGS_KEY = 'agrocontrol_site_settings';
 export const AGROCONTROL_PLANS_DATA_KEY = 'agrocontrol_plans_data';
 export const LANDING_PAGE_SETTINGS_KEY = 'landingPageSettings';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   SUBSCRIBERS: 'silagem_master_subscribers_v2',
   SITE_SETTINGS: 'agrocontrol_site_settings',
   LEGACY_SITE_CONFIG: 'silagem_master_site_config_v1',

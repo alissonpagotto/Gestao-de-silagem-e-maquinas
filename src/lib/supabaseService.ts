@@ -1710,7 +1710,9 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   try {
     const validId = toValidUUID(sub.id);
     const planKey = normalizeSubscriberPlanKey(sub.planId || sub.planName);
-    const planDisplayName = getSubscriberPlanDisplayName(planKey);
+    const planDisplayName = (sub.planName && sub.planName.trim().length > 0 && sub.planName !== 'Silagem Fácil Pro')
+      ? sub.planName.trim()
+      : getSubscriberPlanDisplayName(planKey);
     const valorMensal = Number(sub.monthlyValue) > 0 ? Number(sub.monthlyValue) : getSubscriberPlanPrice(planKey);
     const statusVal = normalizeSubscriberStatus(sub.status);
 
