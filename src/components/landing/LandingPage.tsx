@@ -449,11 +449,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const rawHeroPrimary = (siteConfig?.heroPrimaryBtnText || '').trim();
   let computedHeroPrimaryBtnText = rawHeroPrimary;
   if (!allowFreeTrial) {
-    if (!computedHeroPrimaryBtnText || /gr[áa]tis|teste/i.test(computedHeroPrimaryBtnText)) {
+    if (!computedHeroPrimaryBtnText || /gr[áa]tis|teste|trial/i.test(computedHeroPrimaryBtnText)) {
       computedHeroPrimaryBtnText = 'Começar Agora';
     }
   } else if (!computedHeroPrimaryBtnText) {
-    computedHeroPrimaryBtnText = 'Começar Teste Grátis de 7 Dias';
+    computedHeroPrimaryBtnText = 'Testar Gratuitamente por 7 Dias';
   }
 
   // Lógica dinâmica para o subtítulo da tabela de preços
@@ -587,17 +587,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* Ações Desktop / Tablet */}
           <div className="hidden sm:flex items-center gap-2.5">
-            {onNavigateToAuth && (
-              <button
-                type="button"
-                id="btn-nav-signup"
-                onClick={() => onNavigateToAuth(undefined, 'signup', allowFreeTrial)}
-                className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm shadow-emerald-950 flex items-center gap-1.5 min-h-[44px]"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{currentSettings.allowFreeTrial ? 'Criar Conta (15d Grátis)' : 'Começar Agora'}</span>
-              </button>
-            )}
             <button
               type="button"
               onClick={handleAccessErp}
@@ -650,20 +639,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <div className="pt-2 border-t border-stone-800/80 flex flex-col gap-2">
-              {onNavigateToAuth && (
-                <button
-                  type="button"
-                  id="btn-mobile-nav-signup"
-                  onClick={() => {
-                    setIsMobileNavOpen(false);
-                    onNavigateToAuth(undefined, 'signup', allowFreeTrial);
-                  }}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-stone-950 rounded-xl text-xs font-black transition cursor-pointer shadow-sm flex items-center justify-center gap-2 min-h-[44px]"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>{currentSettings.allowFreeTrial ? 'Criar Conta (15d Grátis)' : 'Começar Agora'}</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => {
@@ -735,8 +710,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {currentSettings.heroSubtitle}
           </p>
 
-          {/* BOTÕES DO HERO */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
+          {/* BOTÃO PRINCIPAL DO HERO */}
+          <div className="flex items-center justify-center pt-4">
             <button
               type="button"
               id="btn-hero-primary"
@@ -763,19 +738,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               <span>{currentSettings.heroPrimaryBtnText}</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
-
-            {/* BOTÃO CONHECER FUNCIONALIDADES (ABRE O LIGHTBOX DO VÍDEO DEMONSTRATIVO) */}
-            <button
-              type="button"
-              id="btn-hero-conhecer-funcionalidades"
-              onClick={() => setIsVideoModalOpen(true)}
-              className="w-full sm:w-auto px-8 py-4 bg-stone-900/90 hover:bg-stone-800 text-stone-100 border border-stone-700/80 hover:border-emerald-500/50 font-bold text-sm rounded-xl transition backdrop-blur-md shadow-lg shadow-black/30 flex items-center justify-center gap-2.5 cursor-pointer group"
-            >
-              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-stone-950 transition">
-                <Play className="w-3 h-3 fill-current ml-0.5" />
-              </div>
-              <span>{currentSettings.heroSecondaryBtnText || 'Conhecer Funcionalidades'}</span>
             </button>
           </div>
 
@@ -1079,20 +1041,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="flex items-center gap-6">
-            <button
-              type="button"
-              id="btn-footer-signup"
-              onClick={() => {
-                if (currentSettings.footerSignupUrl) {
-                  window.open(currentSettings.footerSignupUrl, '_blank', 'noopener,noreferrer');
-                } else if (onNavigateToAuth) {
-                  onNavigateToAuth(undefined, 'signup', allowFreeTrial);
-                }
-              }}
-              className="text-emerald-400 font-bold hover:underline transition cursor-pointer"
-            >
-              {currentSettings.allowFreeTrial ? 'Criar Conta (15 Dias Grátis)' : 'Começar Agora'}
-            </button>
             <button
               type="button"
               onClick={() => {
