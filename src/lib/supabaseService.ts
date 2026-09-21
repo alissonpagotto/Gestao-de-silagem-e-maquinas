@@ -12,6 +12,7 @@ import {
   CompanyProfile,
   ServiceAppointment
 } from '../types';
+export type { CompanyProfile };
 import {
   SiteConfig,
   PlanDefinition,
@@ -1787,6 +1788,30 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
       }
     }
 
+    // 3. Persistência unificada do endereço e dados cadastrais no site_settings
+    try {
+      const profilePayload: CompanyProfile = {
+        id: validId,
+        corporateName: sub.name.trim(),
+        tradeName: sub.name.trim(),
+        name: sub.name.trim(),
+        cnpjCpf: sub.cpfCnpj || '',
+        stateRegistration: sub.stateRegistration || '',
+        phone: sub.phone || '',
+        email: sub.responsibleEmail.trim().toLowerCase(),
+        loginEmail: sub.responsibleEmail.trim().toLowerCase(),
+        zipCode: sub.cep || '',
+        address: sub.street || '',
+        number: sub.number || '',
+        neighborhood: sub.neighborhood || '',
+        city: sub.city || '',
+        state: sub.state || '',
+      };
+      await saveCloudCompanyProfile(profilePayload, validId);
+    } catch (profErr) {
+      console.warn('Aviso ao sincronizar perfil cadastral e endereço na nuvem:', profErr);
+    }
+
     return assinantesSuccess;
   } catch (err) {
     return false;
@@ -2518,13 +2543,18 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
 
   // 1. Consulta em tempo real na tabela site_settings para dados cadastrais e fiscais
   try {
-    const candidateIds = [
+    const candidateIds = Array.from(new Set([
       cleanId ? `cloud_company_${cleanId}` : '',
       cleanId ? `company_profile_${cleanId}` : '',
       cleanDoc ? `cloud_company_company_${cleanDoc}` : '',
+      cleanDoc ? `company_profile_company_${cleanDoc}` : '',
+      cleanDoc ? `cloud_company_${cleanDoc}` : '',
+      cleanDoc ? `company_profile_${cleanDoc}` : '',
       cleanEmail ? `cloud_company_company_${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : '',
+      cleanEmail ? `company_profile_company_${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : '',
       cleanEmail ? `cloud_company_${cleanEmail}` : '',
-    ].filter(Boolean);
+      cleanEmail ? `company_profile_${cleanEmail}` : '',
+    ].filter(Boolean)));
 
     if (candidateIds.length > 0) {
       const { data: settingsRows } = await supabase
@@ -2536,22 +2566,44 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
         for (const row of settingsRows) {
           if (!row.hero_title) continue;
           try {
-            const profile = JSON.parse(row.hero_title) as CompanyProfile;
+            const profile = JSON.parse(row.hero_title) as any;
             if (profile && typeof profile === 'object') {
               if (profile.tradeName || profile.corporateName || profile.name) {
                 enriched.name = profile.tradeName || profile.corporateName || profile.name || enriched.name;
               }
-              if (profile.cnpjCpf || profile.cnpj) enriched.cpfCnpj = profile.cnpjCpf || profile.cnpj || enriched.cpfCnpj;
-              if (profile.stateRegistration) enriched.stateRegistration = profile.stateRegistration;
-              if (profile.phone) enriched.phone = profile.phone;
-              if (profile.zipCode || profile.cep) enriched.cep = profile.zipCode || profile.cep || enriched.cep;
-              if (profile.address) enriched.street = profile.address;
-              if (profile.number) enriched.number = profile.number;
-              if (profile.neighborhood) enriched.neighborhood = profile.neighborhood;
-              if (profile.city) enriched.city = profile.city;
-              if (profile.state) enriched.state = profile.state;
-              if (profile.email || profile.loginEmail) enriched.responsibleEmail = profile.email || profile.loginEmail || enriched.responsibleEmail;
-              break;
+              if (profile.cnpjCpf || profile.cnpj || profile.cpf_cnpj || profile.document) {
+                enriched.cpfCnpj = profile.cnpjCpf || profile.cnpj || profile.cpf_cnpj || profile.document || enriched.cpfCnpj;
+              }
+              if (profile.stateRegistration || profile.state_registration || profile.inscricaoEstadual || profile.inscricao_estadual) {
+                enriched.stateRegistration = profile.stateRegistration || profile.state_registration || profile.inscricaoEstadual || profile.inscricao_estadual || enriched.stateRegistration;
+              }
+              if (profile.phone || profile.telefone || profile.whatsapp) {
+                enriched.phone = profile.phone || profile.telefone || profile.whatsapp || enriched.phone;
+              }
+              if (profile.zipCode || profile.cep || profile.zip_code || profile.codigo_postal) {
+                enriched.cep = profile.zipCode || profile.cep || profile.zip_code || profile.codigo_postal || enriched.cep;
+              }
+              if (profile.address || profile.street || profile.logradouro || profile.rua || profile.endereco) {
+                enriched.street = profile.address || profile.street || profile.logradouro || profile.rua || profile.endereco || enriched.street;
+              }
+              if (profile.number || profile.numero || profile.num) {
+                enriched.number = profile.number || profile.numero || profile.num || enriched.number;
+              }
+              if (profile.neighborhood || profile.bairro || profile.district) {
+                enriched.neighborhood = profile.neighborhood || profile.bairro || profile.district || enriched.neighborhood;
+              }
+              if (profile.city || profile.cidade || profile.municipio) {
+                enriched.city = profile.city || profile.cidade || profile.municipio || enriched.city;
+              }
+              if (profile.state || profile.estado || profile.uf) {
+                enriched.state = profile.state || profile.estado || profile.uf || enriched.state;
+              }
+              if (profile.email || profile.loginEmail) {
+                enriched.responsibleEmail = profile.email || profile.loginEmail || enriched.responsibleEmail;
+              }
+              if (enriched.cep && enriched.street && enriched.city) {
+                break;
+              }
             }
           } catch {}
         }
@@ -2581,14 +2633,20 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
         enriched.monthlyValue = Number(assData.valor_mensal);
       }
       if (assData.trial_ate) enriched.trialUntil = assData.trial_ate.split('T')[0];
-      if (assData.cpf_cnpj && !enriched.cpfCnpj) enriched.cpfCnpj = assData.cpf_cnpj;
-      if (assData.telefone && !enriched.phone) enriched.phone = assData.telefone;
-      if (assData.cidade && !enriched.city) enriched.city = assData.cidade;
-      if (assData.estado && !enriched.state) enriched.state = assData.estado;
-      if (assData.logradouro && !enriched.street) enriched.street = assData.logradouro;
-      if (assData.numero && !enriched.number) enriched.number = assData.numero;
-      if (assData.bairro && !enriched.neighborhood) enriched.neighborhood = assData.bairro;
-      if (assData.cep && !enriched.cep) enriched.cep = assData.cep;
+      if ((assData.cpf_cnpj || assData.document) && !enriched.cpfCnpj) enriched.cpfCnpj = assData.cpf_cnpj || assData.document;
+      if ((assData.telefone || assData.phone) && !enriched.phone) enriched.phone = assData.telefone || assData.phone;
+      if ((assData.cidade || assData.city || assData.municipio) && !enriched.city) enriched.city = assData.cidade || assData.city || assData.municipio;
+      if ((assData.estado || assData.state || assData.uf) && !enriched.state) enriched.state = assData.estado || assData.state || assData.uf;
+      if ((assData.logradouro || assData.street || assData.rua || assData.address || assData.endereco) && !enriched.street) {
+        enriched.street = assData.logradouro || assData.street || assData.rua || assData.address || assData.endereco;
+      }
+      if ((assData.numero || assData.number || assData.num) && !enriched.number) enriched.number = assData.numero || assData.number || assData.num;
+      if ((assData.bairro || assData.neighborhood || assData.district) && !enriched.neighborhood) {
+        enriched.neighborhood = assData.bairro || assData.neighborhood || assData.district;
+      }
+      if ((assData.cep || assData.zip_code || assData.zipCode || assData.codigo_postal) && !enriched.cep) {
+        enriched.cep = assData.cep || assData.zip_code || assData.zipCode || assData.codigo_postal;
+      }
     }
   } catch (err) {
     console.warn('Notice fetching subscriber from assinantes:', err);
@@ -2606,14 +2664,39 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
     }
     const { data: subRow } = await querySub.maybeSingle();
     if (subRow) {
+      const anyRow = subRow as any;
       if (subRow.name && !enriched.name) enriched.name = subRow.name;
-      if (subRow.document && !enriched.cpfCnpj) enriched.cpfCnpj = subRow.document;
-      if (subRow.phone && !enriched.phone) enriched.phone = subRow.phone;
+      if ((subRow.document || anyRow.cpf_cnpj) && !enriched.cpfCnpj) enriched.cpfCnpj = subRow.document || anyRow.cpf_cnpj;
+      if ((subRow.phone || anyRow.telefone) && !enriched.phone) enriched.phone = subRow.phone || anyRow.telefone;
       if (subRow.plan_name && !enriched.planName) enriched.planName = subRow.plan_name;
       if (subRow.trial_ends_at && !enriched.trialUntil) enriched.trialUntil = subRow.trial_ends_at.split('T')[0];
+      if ((anyRow.cep || anyRow.zip_code || anyRow.zipCode) && !enriched.cep) enriched.cep = anyRow.cep || anyRow.zip_code || anyRow.zipCode;
+      if ((anyRow.street || anyRow.logradouro || anyRow.address || anyRow.rua) && !enriched.street) enriched.street = anyRow.street || anyRow.logradouro || anyRow.address || anyRow.rua;
+      if ((anyRow.number || anyRow.numero) && !enriched.number) enriched.number = anyRow.number || anyRow.numero;
+      if ((anyRow.neighborhood || anyRow.bairro) && !enriched.neighborhood) enriched.neighborhood = anyRow.neighborhood || anyRow.bairro;
+      if ((anyRow.city || anyRow.cidade) && !enriched.city) enriched.city = anyRow.city || anyRow.cidade;
+      if ((anyRow.state || anyRow.estado || anyRow.uf) && !enriched.state) enriched.state = anyRow.state || anyRow.estado || anyRow.uf;
     }
   } catch (err) {
     console.warn('Notice fetching subscriber from subscribers table:', err);
+  }
+
+  // 4. Contingência local se disponível no navegador
+  if (typeof localStorage !== 'undefined' && (!enriched.cep || !enriched.street || !enriched.city)) {
+    try {
+      const localStr = localStorage.getItem(`company_profile_${cleanId}`) || localStorage.getItem('company_profile');
+      if (localStr) {
+        const localProf = JSON.parse(localStr);
+        if (localProf && typeof localProf === 'object') {
+          if (!enriched.cep) enriched.cep = localProf.zipCode || localProf.cep || localProf.zip_code || '';
+          if (!enriched.street) enriched.street = localProf.address || localProf.street || localProf.logradouro || localProf.rua || '';
+          if (!enriched.number) enriched.number = localProf.number || localProf.numero || '';
+          if (!enriched.neighborhood) enriched.neighborhood = localProf.neighborhood || localProf.bairro || '';
+          if (!enriched.city) enriched.city = localProf.city || localProf.cidade || '';
+          if (!enriched.state) enriched.state = localProf.state || localProf.estado || localProf.uf || '';
+        }
+      }
+    } catch {}
   }
 
   return enriched;

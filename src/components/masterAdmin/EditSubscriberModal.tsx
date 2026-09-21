@@ -3,7 +3,7 @@ import { X, Save, Search, AlertCircle, Building2, User, Key, MapPin, CreditCard,
 import { Subscriber, PlanDefinition } from '../../types/masterAdmin';
 import { formatCpfCnpj, formatPhone, formatCep, formatIE, fetchAddressByCep, formatCurrencyBRL } from '../../lib/formatters';
 import { supabase } from '../../lib/supabase';
-import { fetchCloudPlans } from '../../lib/supabaseService';
+import { fetchCloudPlans, fetchSubscriberFullDetails } from '../../lib/supabaseService';
 
 interface EditSubscriberModalProps {
   isOpen: boolean;
@@ -101,20 +101,62 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
 
   // Carrega os dados do assinante e pré-seleciona reativamente o plano atual
   useEffect(() => {
+    let isMountedSub = true;
+
     if (subscriber) {
-      setName(subscriber.name || '');
-      setResponsibleEmail(subscriber.responsibleEmail || '');
-      setPassword(subscriber.password || '');
-      setTrialUntil(subscriber.trialUntil || '');
-      setCpfCnpj(subscriber.cpfCnpj || '');
-      setStateRegistration(subscriber.stateRegistration || '');
-      setPhone(subscriber.phone || '');
-      setCep(subscriber.cep || '');
-      setStreet(subscriber.street || '');
-      setNumber(subscriber.number || '');
-      setNeighborhood(subscriber.neighborhood || '');
-      setCity(subscriber.city || '');
-      setState(subscriber.state || '');
+      const anySub = subscriber as any;
+      const initName = subscriber.name || anySub.nome || anySub.corporateName || anySub.tradeName || '';
+      const initEmail = subscriber.responsibleEmail || anySub.email || anySub.loginEmail || '';
+      const initPass = subscriber.password || anySub.senha || '';
+      const initTrial = subscriber.trialUntil || (anySub.trial_ate ? String(anySub.trial_ate).split('T')[0] : '') || '';
+      const initCpfCnpj = subscriber.cpfCnpj || anySub.cpf_cnpj || anySub.cnpjCpf || anySub.cnpj || anySub.document || '';
+      const initIE = subscriber.stateRegistration || anySub.state_registration || anySub.inscricaoEstadual || '';
+      const initPhone = subscriber.phone || anySub.telefone || anySub.whatsapp || '';
+      const initCep = subscriber.cep || anySub.zip_code || anySub.zipCode || anySub.codigo_postal || '';
+      const initStreet = subscriber.street || anySub.logradouro || anySub.rua || anySub.address || anySub.endereco || '';
+      const initNumber = subscriber.number || anySub.numero || anySub.num || '';
+      const initNeighborhood = subscriber.neighborhood || anySub.bairro || anySub.district || '';
+      const initCity = subscriber.city || anySub.cidade || anySub.municipio || '';
+      const initState = subscriber.state || anySub.estado || anySub.uf || '';
+
+      setName(initName);
+      setResponsibleEmail(initEmail);
+      setPassword(initPass);
+      setTrialUntil(initTrial);
+      setCpfCnpj(initCpfCnpj);
+      setStateRegistration(initIE);
+      setPhone(initPhone);
+      setCep(initCep);
+      setStreet(initStreet);
+      setNumber(initNumber);
+      setNeighborhood(initNeighborhood);
+      setCity(initCity);
+      setState(initState);
+
+      // Busca e enriquecimento assíncrono em tempo real do endereço e dados cadastrais no Supabase (site_settings / assinantes / subscribers)
+      fetchSubscriberFullDetails(subscriber).then((enriched) => {
+        if (!isMountedSub || !enriched) return;
+        const anyEnr = enriched as any;
+        const enrCep = enriched.cep || anyEnr.zipCode || anyEnr.zip_code || anyEnr.codigo_postal || '';
+        const enrStreet = enriched.street || anyEnr.logradouro || anyEnr.address || anyEnr.rua || anyEnr.endereco || '';
+        const enrNumber = enriched.number || anyEnr.numero || anyEnr.num || '';
+        const enrNeighborhood = enriched.neighborhood || anyEnr.bairro || anyEnr.district || '';
+        const enrCity = enriched.city || anyEnr.cidade || anyEnr.municipio || '';
+        const enrState = enriched.state || anyEnr.estado || anyEnr.uf || '';
+        const enrCpfCnpj = enriched.cpfCnpj || anyEnr.cnpjCpf || anyEnr.cnpj || anyEnr.document || '';
+        const enrIE = enriched.stateRegistration || anyEnr.inscricaoEstadual || anyEnr.state_registration || '';
+        const enrPhone = enriched.phone || anyEnr.telefone || anyEnr.whatsapp || '';
+
+        setCep((prev) => (prev ? prev : enrCep));
+        setStreet((prev) => (prev ? prev : enrStreet));
+        setNumber((prev) => (prev ? prev : enrNumber));
+        setNeighborhood((prev) => (prev ? prev : enrNeighborhood));
+        setCity((prev) => (prev ? prev : enrCity));
+        setState((prev) => (prev ? prev : enrState));
+        if (enrCpfCnpj) setCpfCnpj((prev) => (prev ? prev : enrCpfCnpj));
+        if (enrIE) setStateRegistration((prev) => (prev ? prev : enrIE));
+        if (enrPhone) setPhone((prev) => (prev ? prev : enrPhone));
+      });
 
       // Resolução e pré-seleção reativa do plano atual do assinante
       const subPlanKey = (subscriber.planId || subscriber.planName || '').toLowerCase();
@@ -174,6 +216,10 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
     }
     setCepError('');
     setValidationError('');
+
+    return () => {
+      isMountedSub = false;
+    };
   }, [subscriber, isOpen, dynamicPlans]);
 
   if (!isOpen) return null;

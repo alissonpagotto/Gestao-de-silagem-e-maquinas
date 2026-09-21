@@ -78,6 +78,8 @@ import {
   upsertCloudSubscriber,
   upsertCloudPlan,
   upsertCloudSiteConfig,
+  saveCloudCompanyProfile,
+  CompanyProfile,
   sanitizePlanId,
   normalizeSubscriberStatus,
   toValidUUID
@@ -317,14 +319,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   }, []);
 
-  // Busca direta e prioritária na tabela oficial 'assinantes' do Supabase integrada aos planos dinâmicos
+  // Busca direta e prioritária na tabela oficial 'assinantes' do Supabase integrada aos planos dinâmicos e dados de endereço
   const fetchSubscribersFromAssinantes = useCallback(async () => {
     if (!isSupabaseConfigured || !isMountedRef.current) return;
     try {
-      // Consulta planos dinâmicos e assinantes em paralelo
-      const [plansResult, assinantesResult] = await Promise.allSettled([
+      // Consulta planos dinâmicos, assinantes e configurações fiscais/endereço em paralelo
+      const [plansResult, assinantesResult, settingsResult] = await Promise.allSettled([
         fetchCloudPlansDirectly(),
         supabase.from('assinantes').select('*').order('criado_em', { ascending: false }),
+        supabase.from('site_settings').select('id, hero_title').or('id.like.company_profile_%,id.like.cloud_company_%'),
       ]);
 
       let activePlans = plansRef.current;
@@ -341,17 +344,58 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         return;
       }
 
+      // Mapeamento em memória dos dados de perfil/endereço do site_settings
+      const profileMap = new Map<string, any>();
+      if (settingsResult.status === 'fulfilled' && Array.isArray(settingsResult.value.data)) {
+        for (const setRow of settingsResult.value.data) {
+          if (!setRow.hero_title) continue;
+          try {
+            const p = JSON.parse(setRow.hero_title);
+            if (p && typeof p === 'object') {
+              const cleanRowId = String(setRow.id || '').replace(/^(company_profile_|cloud_company_|cloud_company_company_)/, '').toLowerCase();
+              if (cleanRowId) profileMap.set(cleanRowId, p);
+              if (p.id) profileMap.set(String(p.id).toLowerCase(), p);
+              if (p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document) {
+                const docClean = String(p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document).replace(/\D/g, '');
+                if (docClean) profileMap.set(docClean, p);
+              }
+              if (p.email || p.loginEmail) {
+                const emClean = String(p.email || p.loginEmail).trim().toLowerCase();
+                if (emClean) profileMap.set(emClean, p);
+              }
+            }
+          } catch {}
+        }
+      }
+
       const data = assinantesResult.value.data;
       if (Array.isArray(data) && isMountedRef.current) {
         const cloudSubs: Subscriber[] = data.map((row: any) => {
           const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
           const idKey = String(row.id || emailKey);
+          const docKey = String(row.cpf_cnpj || row.document || '').replace(/\D/g, '');
           
+          // Localiza dados de endereço e perfil correspondentes
+          const prof = profileMap.get(idKey.toLowerCase()) ||
+                       (docKey ? profileMap.get(docKey) : null) ||
+                       profileMap.get(emailKey) ||
+                       null;
+
+          const resolvedCep = row.cep || row.zip_code || row.zipCode || row.codigo_postal || prof?.zipCode || prof?.cep || prof?.zip_code || '';
+          const resolvedStreet = row.logradouro || row.street || row.rua || row.address || row.endereco || prof?.address || prof?.street || prof?.logradouro || prof?.rua || '';
+          const resolvedNumber = row.numero || row.number || row.num || prof?.number || prof?.numero || '';
+          const resolvedNeighborhood = row.bairro || row.neighborhood || row.district || prof?.neighborhood || prof?.bairro || '';
+          const resolvedCity = row.cidade || row.city || row.municipio || prof?.city || prof?.cidade || '';
+          const resolvedState = row.estado || row.state || row.uf || prof?.state || prof?.estado || prof?.uf || '';
+          const resolvedCpfCnpj = row.cpf_cnpj || row.document || prof?.cnpjCpf || prof?.cnpj || prof?.cpf_cnpj || '';
+          const resolvedPhone = row.telefone || row.phone || prof?.phone || prof?.telefone || '';
+          const resolvedStateReg = row.state_registration || row.inscricao_estadual || prof?.stateRegistration || prof?.inscricaoEstadual || undefined;
+
           // Conexão dinâmica estrita com os planos da tabela 'plans'
           const resolvedPlan = resolveSubscriberPlan(
             {
               id: idKey,
-              name: row.nome || row.name || 'Assinante',
+              name: row.nome || row.name || prof?.tradeName || prof?.corporateName || prof?.name || 'Assinante',
               responsibleEmail: emailKey,
               planId: row.plano_selecionado || row.plano_nome,
               planName: row.plano_nome || row.plano_selecionado,
@@ -366,19 +410,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
           return {
             id: idKey,
-            name: row.nome || row.name || 'Assinante',
+            name: row.nome || row.name || prof?.tradeName || prof?.corporateName || prof?.name || 'Assinante',
             responsibleEmail: emailKey,
             password: row.senha || row.password_hash || undefined,
             trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || ''),
-            cpfCnpj: row.cpf_cnpj || row.document || '',
-            stateRegistration: row.state_registration || undefined,
-            phone: row.telefone || row.phone || '',
-            cep: row.cep || '',
-            street: row.logradouro || row.street || '',
-            number: row.numero || row.number || '',
-            neighborhood: row.bairro || row.neighborhood || '',
-            city: row.cidade || row.city || '',
-            state: row.estado || row.state || '',
+            cpfCnpj: resolvedCpfCnpj,
+            stateRegistration: resolvedStateReg,
+            phone: resolvedPhone,
+            cep: resolvedCep,
+            street: resolvedStreet,
+            number: resolvedNumber,
+            neighborhood: resolvedNeighborhood,
+            city: resolvedCity,
+            state: resolvedState,
             planId: resolvedPlan.planId,
             planName: resolvedPlan.planName,
             monthlyValue: resolvedPlan.monthlyValue,
@@ -788,6 +832,24 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
     try {
       await upsertCloudSubscriber(saved);
+      const profilePayload: CompanyProfile = {
+        id: saved.id,
+        corporateName: saved.name.trim(),
+        tradeName: saved.name.trim(),
+        name: saved.name.trim(),
+        cnpjCpf: saved.cpfCnpj || '',
+        stateRegistration: saved.stateRegistration || '',
+        phone: saved.phone || '',
+        email: saved.responsibleEmail.trim().toLowerCase(),
+        loginEmail: saved.responsibleEmail.trim().toLowerCase(),
+        zipCode: saved.cep || '',
+        address: saved.street || '',
+        number: saved.number || '',
+        neighborhood: saved.neighborhood || '',
+        city: saved.city || '',
+        state: saved.state || '',
+      };
+      await saveCloudCompanyProfile(profilePayload, saved.id);
       showToast(`Assinante "${saved.name || 'Assinante'}" atualizado no Supabase com sucesso!`);
     } catch (err) {
       console.warn('Aviso ao salvar assinante na nuvem:', err);
