@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Building2, 
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Subscriber, PlanDefinition } from '../../types/masterAdmin';
 import { formatCurrencyBRL } from '../../lib/formatters';
+import { fetchSubscriberFullDetails } from '../../lib/supabaseService';
 
 interface SubscriberDetailModalProps {
   isOpen: boolean;
@@ -31,10 +32,27 @@ interface SubscriberDetailModalProps {
 export const SubscriberDetailModal: React.FC<SubscriberDetailModalProps> = ({
   isOpen,
   onClose,
-  subscriber,
+  subscriber: initialSubscriber,
   onEdit,
   plans,
 }) => {
+  const [subscriber, setSubscriber] = useState<Subscriber | null>(initialSubscriber);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen && initialSubscriber) {
+      setSubscriber(initialSubscriber);
+      fetchSubscriberFullDetails(initialSubscriber).then((enriched) => {
+        if (isMounted && enriched) {
+          setSubscriber(enriched);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, initialSubscriber]);
+
   if (!isOpen || !subscriber) return null;
 
   // Resolução dinâmica de plano e valor caso a lista de planos esteja disponível

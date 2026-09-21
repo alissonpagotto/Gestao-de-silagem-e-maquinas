@@ -267,6 +267,12 @@ export default function App() {
 
     const loadCloudData = async () => {
       try {
+        // 0. Carrega perfil fiscal e cadastral da nuvem
+        const cloudCompany = await fetchCloudCompanyProfile(activeTenantId);
+        if (cloudCompany && isMounted) {
+          setCompanyProfile(prev => ({ ...prev, ...cloudCompany }));
+        }
+
         // 1. Carrega dados relacionais legados (se existirem)
         const cloudData = await fetchAllDataFromSupabase(activeTenantId);
         if (cloudData && isMounted) {
@@ -1023,12 +1029,13 @@ export default function App() {
   const [isAdminImpersonating, setIsAdminImpersonating] = useState<boolean>(() => {
     return typeof localStorage !== 'undefined' && localStorage.getItem('is_admin_impersonating') === 'true';
   });
-  const [impersonatedSubscriber, setImpersonatedSubscriber] = useState<{ id: string; name: string; email: string } | null>(() => {
+  const [impersonatedSubscriber, setImpersonatedSubscriber] = useState<{ id: string; name: string; email: string; planName?: string } | null>(() => {
     if (typeof localStorage !== 'undefined' && localStorage.getItem('is_admin_impersonating') === 'true') {
       return {
         id: localStorage.getItem('impersonated_subscriber_id') || '',
         name: localStorage.getItem('impersonated_subscriber_name') || 'Assinante',
         email: localStorage.getItem('impersonated_subscriber_email') || '',
+        planName: localStorage.getItem('impersonated_subscriber_plan') || 'Produtor Essencial',
       };
     }
     return null;
@@ -1041,6 +1048,7 @@ export default function App() {
       localStorage.setItem('impersonated_subscriber_id', sub.id);
       localStorage.setItem('impersonated_subscriber_name', sub.name);
       localStorage.setItem('impersonated_subscriber_email', sub.responsibleEmail || '');
+      localStorage.setItem('impersonated_subscriber_plan', sub.planName || 'Produtor Essencial');
       localStorage.setItem('current_company_id', sub.id);
       localStorage.setItem('user_role', 'admin');
       localStorage.setItem('silagem_client_session', 'active');
@@ -1053,6 +1061,7 @@ export default function App() {
       id: sub.id,
       name: sub.name,
       email: sub.responsibleEmail || '',
+      planName: sub.planName || 'Produtor Essencial',
     });
 
     const impersonatedProfile: CompanyProfile = {
@@ -1146,7 +1155,7 @@ export default function App() {
         blockMessage: '',
         subscriberName: impersonatedSubscriber?.name,
         subscriberEmail: impersonatedSubscriber?.email,
-        planName: 'Modo Suporte Mestre',
+        planName: impersonatedSubscriber?.planName || 'Produtor Essencial',
       });
       return;
     }
@@ -1174,7 +1183,7 @@ export default function App() {
       blockMessage: result.errorMessage || 'Sua assinatura expirou. Entre em contato com o administrador',
       subscriberName: result.subscriberName || companyProfile?.tradeName || companyProfile?.corporateName,
       subscriberEmail: result.subscriberEmail || userEmail,
-      planName: result.planName || companyProfile?.planName,
+      planName: result.planName || companyProfile?.planName || 'Produtor Essencial',
     });
   }, [isAdminImpersonating, currentUser, companyProfile, impersonatedSubscriber]);
 
@@ -1187,6 +1196,14 @@ export default function App() {
     };
     window.addEventListener('focus', handleFocus);
 
+    // Escuta eventos em tempo real para sincronização imediata sem F5
+    const handleImmediateSync = () => {
+      performSubscriptionCheck();
+    };
+    window.addEventListener('master_admin_data_changed', handleImmediateSync);
+    window.addEventListener('company_profile_updated', handleImmediateSync);
+    window.addEventListener('storage', handleImmediateSync);
+
     // Escuta em tempo real nas tabelas de assinantes do Supabase
     const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
       performSubscriptionCheck();
@@ -1197,6 +1214,9 @@ export default function App() {
 
     return () => {
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('master_admin_data_changed', handleImmediateSync);
+      window.removeEventListener('company_profile_updated', handleImmediateSync);
+      window.removeEventListener('storage', handleImmediateSync);
       unsubAssinantes();
       unsubSubs();
     };

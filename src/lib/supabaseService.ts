@@ -1525,17 +1525,17 @@ export function normalizeSubscriberPlanKey(plan?: string): PlanSelectedKey {
 
 export function getSubscriberPlanPrice(plan: PlanSelectedKey): number {
   switch (plan) {
-    case 'essencial': return 195.00;
-    case 'pro': return 295.00;
-    case 'enterprise': return 495.00;
+    case 'essencial': return 59.90;
+    case 'pro': return 299.00;
+    case 'enterprise': return 499.00;
   }
 }
 
 export function getSubscriberPlanDisplayName(plan: PlanSelectedKey): string {
   switch (plan) {
     case 'essencial': return 'Produtor Essencial';
-    case 'pro': return 'Frota Pro';
-    case 'enterprise': return 'Agro Enterprise';
+    case 'pro': return 'Plano Intermediário';
+    case 'enterprise': return 'Plano Master';
   }
 }
 
@@ -1587,14 +1587,49 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
       return null;
     }
 
+    // Busca em tempo real da tabela de planos para associar os preços e nomes reais
+    let livePlansMap: any[] = [];
+    try {
+      const { data: plansData } = await supabase.from('plans').select('*');
+      if (plansData && plansData.length > 0) livePlansMap = plansData;
+    } catch {}
+
+    const resolvePlanDetails = (rawPlanNameOrKey: string, existingValue?: number) => {
+      const norm = (s: string) => String(s || '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+      const targetNorm = norm(rawPlanNameOrKey);
+      const planKey = normalizeSubscriberPlanKey(rawPlanNameOrKey);
+
+      let found = livePlansMap.find((p: any) => {
+        const pIdNorm = norm(p.id);
+        const pNameNorm = norm(p.name);
+        return (targetNorm && (pNameNorm === targetNorm || pIdNorm === targetNorm)) ||
+               (targetNorm.includes('essencial') && (pNameNorm.includes('essencial') || pIdNorm.includes('essencial'))) ||
+               (targetNorm.includes('intermediario') && (pNameNorm.includes('intermediario') || pIdNorm.includes('intermediario'))) ||
+               (targetNorm.includes('pro') && !targetNorm.includes('enterprise') && (pNameNorm.includes('pro') || pIdNorm.includes('pro') || pNameNorm.includes('intermediario'))) ||
+               (targetNorm.includes('master') && (pNameNorm.includes('master') || pIdNorm.includes('master'))) ||
+               (targetNorm.includes('enterprise') && (pNameNorm.includes('enterprise') || pIdNorm.includes('enterprise') || pNameNorm.includes('master')));
+      });
+
+      const resolvedName = found?.name || rawPlanNameOrKey || getSubscriberPlanDisplayName(planKey);
+      let resolvedPrice = existingValue !== undefined && existingValue !== null && existingValue > 0
+        ? existingValue
+        : (found?.price !== undefined ? Number(found.price) : getSubscriberPlanPrice(planKey));
+
+      return { planKey: (found?.id || planKey) as any, planName: resolvedName, monthlyValue: resolvedPrice };
+    };
+
     const mergedMap = new Map<string, Subscriber>();
 
     // 1. Processa tabela legada 'subscribers' primeiro (base)
     if (Array.isArray(subsData)) {
       for (const row of subsData) {
-        const planKey = normalizeSubscriberPlanKey(row.plan_name || row.plan_id || row.plano_selecionado);
         const emailKey = (row.responsible_email || row.email || '').trim().toLowerCase();
         const idKey = row.id || toValidUUID(emailKey);
+        const planDetails = resolvePlanDetails(
+          row.plan_name || row.plan_id || row.plano_selecionado || 'Produtor Essencial',
+          Number(row.monthly_value) || Number(row.valor_mensal)
+        );
+
         const subItem: Subscriber = {
           id: idKey,
           name: row.name || row.nome || 'Assinante',
@@ -1610,9 +1645,9 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
           neighborhood: row.neighborhood || '',
           city: row.city || '',
           state: row.state || '',
-          planId: planKey,
-          planName: getSubscriberPlanDisplayName(planKey),
-          monthlyValue: Number(row.monthly_value) || Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+          planId: planDetails.planKey,
+          planName: planDetails.planName,
+          monthlyValue: planDetails.monthlyValue,
           status: normalizeSubscriberStatus(row.status),
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.updated_at || new Date().toISOString(),
@@ -1625,9 +1660,13 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
     // 2. Processa tabela oficial 'assinantes' com prioridade máxima
     if (Array.isArray(assinantesData)) {
       for (const row of assinantesData) {
-        const planKey = normalizeSubscriberPlanKey(row.plano_nome || row.plano_selecionado || row.plan_id || row.plan_name);
         const emailKey = (row.email || row.responsible_email || '').trim().toLowerCase();
         const idKey = row.id || toValidUUID(emailKey);
+        const planDetails = resolvePlanDetails(
+          row.plano_nome || row.plano_selecionado || row.plan_id || row.plan_name || 'Produtor Essencial',
+          Number(row.valor_mensal)
+        );
+
         const subItem: Subscriber = {
           id: idKey,
           name: row.nome || row.name || 'Assinante',
@@ -1643,9 +1682,9 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
           neighborhood: row.bairro || row.neighborhood || '',
           city: row.cidade || row.city || '',
           state: row.estado || row.state || '',
-          planId: planKey,
-          planName: row.plano_nome || getSubscriberPlanDisplayName(planKey),
-          monthlyValue: Number(row.valor_mensal) || getSubscriberPlanPrice(planKey),
+          planId: planDetails.planKey,
+          planName: planDetails.planName,
+          monthlyValue: planDetails.monthlyValue,
           status: normalizeSubscriberStatus(row.status),
           createdAt: row.criado_em || row.created_at || new Date().toISOString(),
           updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
@@ -1782,13 +1821,45 @@ export async function updateCloudSubscriberStatus(id: string, status: string): P
   }
 }
 
-export async function updateCloudSubscriberPlan(id: string, planNameOrKey: string): Promise<boolean> {
+export async function updateCloudSubscriberPlan(id: string, planNameOrKey: string, customPrice?: number): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const validId = toValidUUID(id);
-    const planKey = normalizeSubscriberPlanKey(planNameOrKey);
-    const valorMensal = getSubscriberPlanPrice(planKey);
-    const displayName = getSubscriberPlanDisplayName(planKey);
+    let displayName = planNameOrKey;
+    let planKey = normalizeSubscriberPlanKey(planNameOrKey);
+    let valorMensal = customPrice;
+
+    // Consulta em tempo real na tabela 'plans' para associar o nome exato e preço configurado
+    try {
+      const { data: plansData } = await supabase.from('plans').select('*');
+      if (plansData && plansData.length > 0) {
+        const norm = (s: string) => String(s || '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+        const targetNorm = norm(planNameOrKey);
+
+        const found = plansData.find((p: any) => {
+          const pIdNorm = norm(p.id);
+          const pNameNorm = norm(p.name);
+          return (targetNorm && (pNameNorm === targetNorm || pIdNorm === targetNorm)) ||
+                 (targetNorm.includes('essencial') && (pNameNorm.includes('essencial') || pIdNorm.includes('essencial'))) ||
+                 (targetNorm.includes('intermediario') && (pNameNorm.includes('intermediario') || pIdNorm.includes('intermediario'))) ||
+                 (targetNorm.includes('pro') && !targetNorm.includes('enterprise') && (pNameNorm.includes('pro') || pIdNorm.includes('pro') || pNameNorm.includes('intermediario'))) ||
+                 (targetNorm.includes('master') && (pNameNorm.includes('master') || pIdNorm.includes('master'))) ||
+                 (targetNorm.includes('enterprise') && (pNameNorm.includes('enterprise') || pIdNorm.includes('enterprise') || pNameNorm.includes('master')));
+        });
+
+        if (found) {
+          displayName = found.name;
+          planKey = found.id as any;
+          if (valorMensal === undefined || valorMensal === null || valorMensal <= 0) {
+            valorMensal = Number(found.price);
+          }
+        }
+      }
+    } catch {}
+
+    if (valorMensal === undefined || valorMensal === null || valorMensal <= 0) {
+      valorMensal = getSubscriberPlanPrice(planKey);
+    }
 
     // Atualiza em assinantes
     if (!isTableUnmigrated('assinantes')) {
@@ -2046,6 +2117,8 @@ export interface SubscriberAccessCheckResult {
   subscriberName?: string;
   subscriberEmail?: string;
   planName?: string;
+  planPrice?: number;
+  monthlyValue?: number;
   errorMessage?: string;
 }
 
@@ -2204,8 +2277,43 @@ export async function checkSubscriberAccessStatus(identifier: {
     const rawStatus = (row.status || '').toLowerCase().trim();
     const subName = row.nome || row.name || 'Assinante';
     const subEmail = (row.email || row.responsible_email || targetEmail).toLowerCase().trim();
-    const planName = row.plano_nome || row.plano_selecionado || row.plan_name || 'Silagem Fácil Pro';
+    let planName = row.plano_nome || row.plano_selecionado || row.plan_name || 'Produtor Essencial';
+    let planPrice = row.valor_mensal !== undefined && row.valor_mensal !== null ? Number(row.valor_mensal) : undefined;
     const trialDateStr = row.trial_ate || row.trial_ends_at || row.trial_until;
+
+    // Consulta dinâmica em tempo real na tabela 'plans' para obter o nome exato e preço configurado
+    try {
+      const { data: plansData } = await supabase.from('plans').select('*');
+      if (plansData && plansData.length > 0) {
+        const norm = (s: string) => String(s || '').toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+        const targetNorm = norm(planName);
+        const selNorm = norm(row.plano_selecionado || '');
+
+        const matched = plansData.find((p: any) => {
+          const pIdNorm = norm(p.id);
+          const pNameNorm = norm(p.name);
+          if (targetNorm && (pNameNorm === targetNorm || pIdNorm === targetNorm)) return true;
+          if (selNorm && (pIdNorm === selNorm || pNameNorm === selNorm)) return true;
+          if (targetNorm.includes('essencial') && (pNameNorm.includes('essencial') || pIdNorm.includes('essencial'))) return true;
+          if (targetNorm.includes('intermediario') && (pNameNorm.includes('intermediario') || pIdNorm.includes('intermediario'))) return true;
+          if (targetNorm.includes('pro') && !targetNorm.includes('enterprise') && (pNameNorm.includes('pro') || pIdNorm.includes('pro') || pNameNorm.includes('intermediario'))) return true;
+          if (targetNorm.includes('master') && (pNameNorm.includes('master') || pIdNorm.includes('master'))) return true;
+          if (targetNorm.includes('enterprise') && (pNameNorm.includes('enterprise') || pIdNorm.includes('enterprise') || pNameNorm.includes('master'))) return true;
+          return false;
+        });
+
+        if (matched) {
+          planName = matched.name || planName;
+          if (typeof matched.price === 'number') {
+            planPrice = matched.price;
+          } else if (matched.price) {
+            planPrice = Number(matched.price);
+          }
+        }
+      }
+    } catch (e) {
+      // Continua com valores locais
+    }
 
     // Se o status for cancelado, suspenso, inadimplente ou inativo
     if (
@@ -2225,6 +2333,8 @@ export async function checkSubscriberAccessStatus(identifier: {
         subscriberName: subName,
         subscriberEmail: subEmail,
         planName,
+        planPrice,
+        monthlyValue: planPrice,
         errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
       };
     }
@@ -2262,6 +2372,8 @@ export async function checkSubscriberAccessStatus(identifier: {
         subscriberName: subName,
         subscriberEmail: subEmail,
         planName,
+        planPrice,
+        monthlyValue: planPrice,
         errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
       };
     }
@@ -2275,7 +2387,9 @@ export async function checkSubscriberAccessStatus(identifier: {
       trialEndsAt: trialDateStr,
       subscriberName: subName,
       subscriberEmail: subEmail,
-      planName
+      planName,
+      planPrice,
+      monthlyValue: planPrice
     };
 
   } catch (err: any) {
@@ -2296,27 +2410,211 @@ export async function checkSubscriberAccessStatus(identifier: {
 // ==============================================================================
 
 /**
- * Salva e sincroniza as Configurações da Empresa na nuvem
+ * Salva e sincroniza as Configurações Cadastrais e Fiscais da Empresa na nuvem (Supabase)
+ * Unifica a persistência entre o painel do cliente e o Admin Mestre.
  */
 export async function saveCloudCompanyProfile(profile: CompanyProfile, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId(profile);
-    const { error } = await supabase.from('site_settings').upsert({
-      id: `cloud_company_${cId}`,
-      hero_title: JSON.stringify(profile),
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'id' });
+    const activeSubId = profile.id || (typeof localStorage !== 'undefined' ? (localStorage.getItem('silagem_active_subscriber_id') || localStorage.getItem('impersonated_subscriber_id')) : undefined);
+    const cleanCnpj = (profile.cnpjCpf || profile.cnpj || '').replace(/\D/g, '');
+    const cleanEmail = (profile.email || profile.loginEmail || '').trim().toLowerCase();
+    const companyDisplayName = profile.tradeName || profile.corporateName || profile.name || '';
+    const serialized = JSON.stringify(profile);
 
-    if (error) {
-      console.warn('Erro ao salvar companyProfile no Supabase:', error.message);
-      return false;
+    // 1. Persistência completa no site_settings para todos os identificadores correspondentes
+    const keysToUpsert = Array.from(new Set([
+      `cloud_company_${cId}`,
+      activeSubId ? `cloud_company_${activeSubId}` : '',
+      activeSubId ? `company_profile_${activeSubId}` : '',
+      cleanCnpj ? `cloud_company_company_${cleanCnpj}` : '',
+      cleanEmail ? `cloud_company_company_${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : '',
+    ].filter(Boolean)));
+
+    for (const key of keysToUpsert) {
+      await supabase.from('site_settings').upsert({
+        id: key,
+        hero_title: serialized,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
     }
+
+    // 2. Atualização das tabelas de assinantes na nuvem (subscribers e assinantes)
+    if (cleanEmail || activeSubId) {
+      try {
+        const subUpdatePayload: any = {
+          updated_at: new Date().toISOString()
+        };
+        if (companyDisplayName) subUpdatePayload.name = companyDisplayName;
+        if (profile.cnpjCpf) subUpdatePayload.document = profile.cnpjCpf;
+        if (profile.phone) subUpdatePayload.phone = profile.phone;
+
+        let subUpdate = supabase.from('subscribers').update(subUpdatePayload);
+        if (activeSubId) {
+          subUpdate = subUpdate.or(`id.eq.${toValidUUID(activeSubId)},email.ilike.${cleanEmail}`);
+        } else {
+          subUpdate = subUpdate.ilike('email', cleanEmail);
+        }
+        await subUpdate;
+      } catch (err) {
+        console.warn('Notice updating subscribers table:', err);
+      }
+
+      try {
+        const assUpdatePayload: any = {};
+        if (companyDisplayName) assUpdatePayload.nome = companyDisplayName;
+        if (profile.phone) assUpdatePayload.telefone = profile.phone;
+        if (profile.cnpjCpf) assUpdatePayload.cpf_cnpj = profile.cnpjCpf;
+        if (profile.city) assUpdatePayload.cidade = profile.city;
+        if (profile.state) assUpdatePayload.estado = profile.state;
+        if (profile.address) assUpdatePayload.logradouro = profile.address;
+        if (profile.number) assUpdatePayload.numero = profile.number;
+        if (profile.neighborhood) assUpdatePayload.bairro = profile.neighborhood;
+        if (profile.zipCode) assUpdatePayload.cep = profile.zipCode;
+
+        let assUpdate = supabase.from('assinantes').update(assUpdatePayload);
+        if (activeSubId) {
+          assUpdate = assUpdate.or(`id.eq.${toValidUUID(activeSubId)},email.ilike.${cleanEmail}`);
+        } else {
+          assUpdate = assUpdate.ilike('email', cleanEmail);
+        }
+        await assUpdate;
+      } catch (err) {
+        console.warn('Notice updating assinantes table:', err);
+      }
+    }
+
+    // 3. Dispara eventos de reatividade global imediata no navegador
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('company_profile_updated', { detail: profile }));
+      window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: profile }));
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch {}
+    }
+
     return true;
   } catch (e) {
     console.error('Falha ao persistir companyProfile no Supabase:', e);
     return false;
   }
+}
+
+/**
+ * Busca os dados fiscais e cadastrais completos de um assinante em tempo real no Supabase
+ * Relaciona o ID do assinante com as tabelas assinantes, subscribers e site_settings
+ */
+export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subscriber> {
+  if (!sub) return sub;
+  const enriched: Subscriber = { ...sub };
+  if (!isSupabaseConfigured) return enriched;
+
+  const cleanId = String(sub.id || '').trim();
+  const cleanEmail = (sub.responsibleEmail || '').trim().toLowerCase();
+  const cleanDoc = (sub.cpfCnpj || '').replace(/\D/g, '');
+
+  // 1. Consulta em tempo real na tabela site_settings para dados cadastrais e fiscais
+  try {
+    const candidateIds = [
+      cleanId ? `cloud_company_${cleanId}` : '',
+      cleanId ? `company_profile_${cleanId}` : '',
+      cleanDoc ? `cloud_company_company_${cleanDoc}` : '',
+      cleanEmail ? `cloud_company_company_${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : '',
+      cleanEmail ? `cloud_company_${cleanEmail}` : '',
+    ].filter(Boolean);
+
+    if (candidateIds.length > 0) {
+      const { data: settingsRows } = await supabase
+        .from('site_settings')
+        .select('id, hero_title')
+        .in('id', candidateIds);
+
+      if (settingsRows && settingsRows.length > 0) {
+        for (const row of settingsRows) {
+          if (!row.hero_title) continue;
+          try {
+            const profile = JSON.parse(row.hero_title) as CompanyProfile;
+            if (profile && typeof profile === 'object') {
+              if (profile.tradeName || profile.corporateName || profile.name) {
+                enriched.name = profile.tradeName || profile.corporateName || profile.name || enriched.name;
+              }
+              if (profile.cnpjCpf || profile.cnpj) enriched.cpfCnpj = profile.cnpjCpf || profile.cnpj || enriched.cpfCnpj;
+              if (profile.stateRegistration) enriched.stateRegistration = profile.stateRegistration;
+              if (profile.phone) enriched.phone = profile.phone;
+              if (profile.zipCode || profile.cep) enriched.cep = profile.zipCode || profile.cep || enriched.cep;
+              if (profile.address) enriched.street = profile.address;
+              if (profile.number) enriched.number = profile.number;
+              if (profile.neighborhood) enriched.neighborhood = profile.neighborhood;
+              if (profile.city) enriched.city = profile.city;
+              if (profile.state) enriched.state = profile.state;
+              if (profile.email || profile.loginEmail) enriched.responsibleEmail = profile.email || profile.loginEmail || enriched.responsibleEmail;
+              break;
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Notice fetching company fiscal settings from cloud:', err);
+  }
+
+  // 2. Consulta em tempo real na tabela assinantes
+  try {
+    let query = supabase.from('assinantes').select('*');
+    if (cleanEmail && cleanId) {
+      query = query.or(`email.ilike.${cleanEmail},id.eq.${toValidUUID(cleanId)}`);
+    } else if (cleanId) {
+      query = query.eq('id', toValidUUID(cleanId));
+    } else if (cleanEmail) {
+      query = query.ilike('email', cleanEmail);
+    }
+    const { data: assData } = await query.maybeSingle();
+    if (assData) {
+      if (assData.nome && !enriched.name) enriched.name = assData.nome;
+      if (assData.email) enriched.responsibleEmail = assData.email;
+      if (assData.plano_nome) enriched.planName = assData.plano_nome;
+      if (assData.plano_selecionado) enriched.planId = assData.plano_selecionado;
+      if (assData.valor_mensal !== undefined && assData.valor_mensal !== null) {
+        enriched.monthlyValue = Number(assData.valor_mensal);
+      }
+      if (assData.trial_ate) enriched.trialUntil = assData.trial_ate.split('T')[0];
+      if (assData.cpf_cnpj && !enriched.cpfCnpj) enriched.cpfCnpj = assData.cpf_cnpj;
+      if (assData.telefone && !enriched.phone) enriched.phone = assData.telefone;
+      if (assData.cidade && !enriched.city) enriched.city = assData.cidade;
+      if (assData.estado && !enriched.state) enriched.state = assData.estado;
+      if (assData.logradouro && !enriched.street) enriched.street = assData.logradouro;
+      if (assData.numero && !enriched.number) enriched.number = assData.numero;
+      if (assData.bairro && !enriched.neighborhood) enriched.neighborhood = assData.bairro;
+      if (assData.cep && !enriched.cep) enriched.cep = assData.cep;
+    }
+  } catch (err) {
+    console.warn('Notice fetching subscriber from assinantes:', err);
+  }
+
+  // 3. Consulta em tempo real na tabela subscribers
+  try {
+    let querySub = supabase.from('subscribers').select('*');
+    if (cleanEmail && cleanId) {
+      querySub = querySub.or(`email.ilike.${cleanEmail},id.eq.${toValidUUID(cleanId)}`);
+    } else if (cleanId) {
+      querySub = querySub.eq('id', toValidUUID(cleanId));
+    } else if (cleanEmail) {
+      querySub = querySub.ilike('email', cleanEmail);
+    }
+    const { data: subRow } = await querySub.maybeSingle();
+    if (subRow) {
+      if (subRow.name && !enriched.name) enriched.name = subRow.name;
+      if (subRow.document && !enriched.cpfCnpj) enriched.cpfCnpj = subRow.document;
+      if (subRow.phone && !enriched.phone) enriched.phone = subRow.phone;
+      if (subRow.plan_name && !enriched.planName) enriched.planName = subRow.plan_name;
+      if (subRow.trial_ends_at && !enriched.trialUntil) enriched.trialUntil = subRow.trial_ends_at.split('T')[0];
+    }
+  } catch (err) {
+    console.warn('Notice fetching subscriber from subscribers table:', err);
+  }
+
+  return enriched;
 }
 
 /**

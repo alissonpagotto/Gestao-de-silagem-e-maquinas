@@ -3,6 +3,7 @@ import { X, Layers, Check, Save, AlertCircle, RefreshCw, Sparkles, CheckCircle2 
 import { Subscriber, PlanDefinition } from '../../types/masterAdmin';
 import { fetchCloudPlans, updateCloudSubscriberPlan } from '../../lib/supabaseService';
 import { formatCurrencyBRL } from '../../lib/formatters';
+import { supabase } from '../../lib/supabase';
 
 interface ChangePlanModalProps {
   isOpen: boolean;
@@ -36,69 +37,62 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
     setIsLoading(true);
     setErrorMessage('');
     try {
-      // 1. Fetch dinâmico direto da nuvem do Supabase
-      const cloudPlans = await fetchCloudPlans();
+      // 1. Fetch dinâmico direto em tempo real da tabela 'plans' do Supabase
+      const { data: cloudData, error } = await supabase
+        .from('plans')
+        .select('*')
+        .order('display_order', { ascending: true });
+
       let activeList: PlanDefinition[] = [];
 
-      if (cloudPlans && cloudPlans.length > 0) {
-        // Filtra estritamente planos comerciais ativos e remove planos de teste (ex: tes01)
-        activeList = cloudPlans.filter(p => {
-          const isNotTest = !p.id.toLowerCase().includes('tes') && !p.name.toLowerCase().includes('tes');
-          return p.isActive !== false && isNotTest;
-        });
-      }
-
-      // Se a tabela cloud não tiver planos cadastrados, usa os planos comerciais oficiais padrão
-      if (activeList.length === 0) {
-        activeList = [
-          {
-            id: 'starter',
-            name: 'Produtor Essencial',
-            description: 'Ideal para produtores individuais e pequenas propriedades rurais.',
-            price: 195,
-            billingCycle: 'mensal',
-            isFeatured: false,
-            isActive: true,
-            displayOrder: 1,
-            checkoutUrl: '',
-            limits: { maxUsers: 2, maxMachineries: 5, maxClients: 20, storageLimitGb: 2 },
-            featuresText: 'Gestão de Frotas e Tratores\nApontamento de Silagem\nRelatórios Básicos\nSuporte por WhatsApp',
-          },
-          {
-            id: 'pro',
-            name: 'Frota Pro',
-            description: 'Para propriedades médias com alta demanda de colheita e múltiplos tratores.',
-            price: 395,
-            billingCycle: 'mensal',
-            isFeatured: true,
-            badge: 'Mais Escolhido',
-            isActive: true,
-            displayOrder: 2,
-            checkoutUrl: '',
-            limits: { maxUsers: 5, maxMachineries: 15, maxClients: 100, storageLimitGb: 10 },
-            featuresText: 'Múltiplos Operadores\nApontamentos em Tempo Real\nControle de Combustível\nRelatórios Avançados e Gráficos\nSuporte Prioritário',
-          },
-          {
-            id: 'business',
-            name: 'Agro Enterprise',
-            description: 'Para grandes cooperativas e prestadores de serviços agrícolas.',
-            price: 795,
-            billingCycle: 'mensal',
-            isFeatured: false,
-            isActive: true,
-            displayOrder: 3,
-            checkoutUrl: '',
-            limits: { maxUsers: 20, maxMachineries: 50, maxClients: 500, storageLimitGb: 50 },
-            featuresText: 'Usuários Ilimitados\nTelemetria e Exportação em Excel\nDashboard Executivo Multiusuário\nGerente de Contas Dedicado',
-          },
-        ];
+      if (!error && cloudData && cloudData.length > 0) {
+        activeList = cloudData
+          .filter((row: any) => row.is_active !== false)
+          .map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            description: row.description || '',
+            price: Number(row.price) || 0,
+            billingCycle: row.billing_cycle || 'mensal',
+            badge: row.badge,
+            isFeatured: Boolean(row.is_featured),
+            isActive: row.is_active !== false,
+            displayOrder: row.display_order || 1,
+            limits: row.limits || { maxUsers: 1, maxMachineries: 2, maxClients: 2, storageLimitGb: 5 },
+            featuresText: row.features_text || '',
+            checkoutUrl: row.checkout_url || ''
+          }));
+      } else {
+        const fallback = await fetchCloudPlans();
+        if (fallback && fallback.length > 0) {
+          activeList = fallback.filter(p => p.isActive !== false);
+        }
       }
 
       setPlans(activeList);
 
-      // Se o plano atual do assinante não estiver selecionado, seleciona o primeiro
-      if (!selectedPlanName && activeList.length > 0) {
-        setSelectedPlanName(activeList[0].name);
+      // Pré-seleciona o plano atual do assinante
+      if (subscriber) {
+        const subPlanKey = (subscriber.planName || subscriber.planId || '').toLowerCase();
+        const normalize = (v: string) => v.toLowerCase().replace(/^plano[-_]/, '').replace(/[^a-z0-9]/g, '');
+        const subNorm = normalize(subPlanKey);
+
+        const matched = activeList.find(p => {
+          const pIdNorm = normalize(p.id);
+          const pNameNorm = normalize(p.name);
+          return (subNorm && (pIdNorm === subNorm || pNameNorm === subNorm)) ||
+                 (subNorm.includes('essencial') && (pNameNorm.includes('essencial') || pIdNorm.includes('essencial'))) ||
+                 (subNorm.includes('intermediario') && (pNameNorm.includes('intermediario') || pIdNorm.includes('intermediario'))) ||
+                 (subNorm.includes('pro') && !subNorm.includes('enterprise') && (pNameNorm.includes('pro') || pIdNorm.includes('pro') || pNameNorm.includes('intermediario'))) ||
+                 (subNorm.includes('master') && (pNameNorm.includes('master') || pIdNorm.includes('master'))) ||
+                 (subNorm.includes('enterprise') && (pNameNorm.includes('enterprise') || pIdNorm.includes('enterprise') || pNameNorm.includes('master')));
+        });
+
+        if (matched) {
+          setSelectedPlanName(matched.name);
+        } else if (activeList.length > 0 && !selectedPlanName) {
+          setSelectedPlanName(activeList[0].name);
+        }
       }
     } catch (err: any) {
       console.warn('Erro ao carregar planos da nuvem:', err);
@@ -120,14 +114,15 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
     setErrorMessage('');
 
     try {
+      // Encontra dados do plano escolhido
+      const chosenPlan = plans.find(p => p.name === selectedPlanName);
+      const chosenPrice = chosenPlan ? chosenPlan.price : undefined;
+
       // 1. Atualiza na nuvem do Supabase
-      const success = await updateCloudSubscriberPlan(subscriber.id, selectedPlanName);
+      const success = await updateCloudSubscriberPlan(subscriber.id, selectedPlanName, chosenPrice);
       if (!success) {
         console.warn('Supabase update plan warning, procedendo com atualização local.');
       }
-
-      // Encontra dados do plano escolhido
-      const chosenPlan = plans.find(p => p.name === selectedPlanName);
 
       const updatedSub: Subscriber = {
         ...subscriber,

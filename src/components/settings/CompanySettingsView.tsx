@@ -38,6 +38,7 @@ import {
   fetchAddressByCep, 
   fetchCompanyByCnpj 
 } from '../../lib/formatters';
+import { saveCloudCompanyProfile, fetchCloudCompanyProfile } from '../../lib/supabaseService';
 
 interface CompanySettingsViewProps {
   companyProfile: CompanyProfile;
@@ -105,6 +106,27 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       pixKey: companyProfile.pixKey || '',
     });
   }, [companyProfile]);
+
+  // Carga direta da nuvem (Supabase) ao carregar o componente para garantir dados fiscais atualizados
+  useEffect(() => {
+    let isMounted = true;
+    fetchCloudCompanyProfile().then((cloudProfile) => {
+      if (cloudProfile && isMounted) {
+        setFormData(prev => ({
+          ...prev,
+          ...cloudProfile,
+          logoUrl: cleanLogoUrl(cloudProfile.logoUrl || prev.logoUrl),
+          cnpjCpf: formatCpfCnpj(cloudProfile.cnpjCpf || prev.cnpjCpf || ''),
+          stateRegistration: formatIE(cloudProfile.stateRegistration || prev.stateRegistration || ''),
+          phone: formatPhone(cloudProfile.phone || prev.phone || ''),
+          zipCode: formatCep(cloudProfile.zipCode || prev.zipCode || ''),
+        }));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -253,13 +275,25 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     }));
   };
 
-  const handleSave = (e?: React.FormEvent) => {
+  const [isSavingCloud, setIsSavingCloud] = useState(false);
+
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    onSaveCompanyProfile(formData);
-    setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
-    }, 4000);
+    setIsSavingCloud(true);
+    try {
+      await saveCloudCompanyProfile(formData);
+      onSaveCompanyProfile(formData);
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setSavedSuccess(false);
+      }, 4000);
+    } catch (err) {
+      console.error('Erro ao salvar configurações fiscais na nuvem:', err);
+      onSaveCompanyProfile(formData);
+      setSavedSuccess(true);
+    } finally {
+      setIsSavingCloud(false);
+    }
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {

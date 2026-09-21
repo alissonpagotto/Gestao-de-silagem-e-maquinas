@@ -25,10 +25,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenTrialInfo,
   trialDaysRemaining = 7,
   subscriptionStatus = 'trial',
-  subscriptionPlanName = 'Silagem Fácil Pro',
+  subscriptionPlanName = 'Produtor Essencial',
 }) => {
   const isTrial = subscriptionStatus === 'trial';
   const days = trialDaysRemaining !== null && trialDaysRemaining !== undefined ? trialDaysRemaining : 7;
+  const planDisplay = subscriptionPlanName && subscriptionPlanName !== 'Silagem Fácil Pro'
+    ? subscriptionPlanName
+    : 'Produtor Essencial';
 
   return (
     <div id="top-bar-container" className="no-print sticky top-0 z-30 shadow-xs">
@@ -57,7 +60,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <>
               <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
               <span className="font-semibold truncate">
-                Período de teste — restam {days} {days === 1 ? 'dia' : 'dias'}.
+                Período de teste ({planDisplay}) — restam {days} {days === 1 ? 'dia' : 'dias'}.
               </span>
               <button 
                 onClick={onOpenTrialInfo}
@@ -70,7 +73,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <>
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
               <span className="font-semibold truncate">
-                Assinatura Ativa — {subscriptionPlanName}
+                Assinatura Ativa — {planDisplay}
               </span>
             </>
           )}
