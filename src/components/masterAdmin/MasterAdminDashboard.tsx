@@ -224,6 +224,13 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const [siteForm, setSiteForm] = useState<SiteConfig>(siteConfig);
   const [siteSaveSuccess, setSiteSaveSuccess] = useState(false);
 
+  // Sincroniza siteForm caso siteConfig seja atualizado externamente ou via nuvem
+  useEffect(() => {
+    if (siteConfig) {
+      setSiteForm(prev => (isDeepEqual(prev, siteConfig) ? prev : { ...prev, ...siteConfig }));
+    }
+  }, [siteConfig]);
+
   const [settingsForm, setSettingsForm] = useState<AdminSettings>(settings);
   const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
@@ -875,8 +882,63 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     }
   };
 
+  // Manipulador reativo e imediato para o interruptor (Toggle) de Período de Teste Grátis (Trial)
+  const handleToggleFreeTrial = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 3. Captura o estado booleano do clique (onChange) antes de disparar o Supabase
+    const newValue = Boolean(e.target.checked);
+
+    // Atualização imediata do estado local do React
+    const updatedForm = { ...siteForm, allow_free_trial: newValue };
+    setSiteForm(updatedForm);
+    setSiteConfig((prev) => ({ ...prev, allow_free_trial: newValue }));
+
+    // Persistência local imediata
+    if (typeof localStorage !== 'undefined') {
+      const serialized = JSON.stringify(updatedForm);
+      localStorage.setItem('agrocontrol_site_settings', serialized);
+      localStorage.setItem('landingPageSettings', serialized);
+    }
+    saveStoredSiteConfig(updatedForm);
+
+    // Dispara eventos globais para atualização instantânea da Landing Page e AuthPage
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agrocontrol_site_settings_updated', { detail: updatedForm }));
+      window.dispatchEvent(new CustomEvent('landing_page_settings_updated', { detail: updatedForm }));
+      window.dispatchEvent(new CustomEvent('master_admin_data_changed', { detail: updatedForm }));
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch {}
+    }
+
+    // 1 & 2. Envio explícito para o Supabase com id: "default_settings" e campo allow_free_trial
+    try {
+      const payload = {
+        id: 'default_settings',
+        allow_free_trial: newValue,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) {
+        console.error('Erro ao gravar allow_free_trial no Supabase:', error);
+        showToast('Aviso: Falha ao salvar no Supabase (' + error.message + ')');
+      } else {
+        showToast(
+          newValue
+            ? 'Período de Teste Grátis ATIVADO no Supabase!'
+            : 'Período de Teste Grátis DESATIVADO no Supabase!'
+        );
+      }
+    } catch (err) {
+      console.error('Falha ao disparar upsert em site_settings:', err);
+    }
+  };
+
   // Salvar Configurações do Site (Landing Page Pública)
-  const handleSaveSiteConfig = (e?: React.FormEvent) => {
+  const handleSaveSiteConfig = async (e?: React.FormEvent) => {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
@@ -892,10 +954,24 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       }
       saveStoredSiteConfig(siteForm);
 
-      // Sincronização em nuvem via Supabase (site_settings)
-      upsertCloudSiteConfig(siteForm).catch((cloudErr) => {
-        console.warn('Aviso ao sincronizar site_settings com a nuvem:', cloudErr);
-      });
+      // 1 & 2. Objeto de Envio (Payload) explícito com id: "default_settings" e campo allow_free_trial
+      const payload = {
+        id: 'default_settings',
+        allow_free_trial: Boolean(siteForm.allow_free_trial),
+        updated_at: new Date().toISOString()
+      };
+
+      // Dispara o upsert direto no Supabase para anular o erro de on_conflict
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) {
+        console.error('Erro ao salvar site_settings no Supabase:', error);
+      }
+
+      // Sincronização em nuvem de outros campos via serviço com payload tratado
+      await upsertCloudSiteConfig(siteForm);
 
       // 3. Notificação global de sincronização para a Landing Page
       if (typeof window !== 'undefined') {
@@ -911,9 +987,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
       // 4. Exibição do Alerta Visual / Toast
       setSiteSaveSuccess(true);
+      showToast('Configurações da Landing Page salvas com sucesso no Supabase!');
       setTimeout(() => setSiteSaveSuccess(false), 4500);
     } catch (err) {
       console.error('Erro ao salvar configurações da Landing Page:', err);
+      showToast('Erro ao salvar configurações.');
     }
   };
 
@@ -1983,8 +2061,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   <input
                     type="checkbox"
                     id="toggle-allow-free-trial"
-                    checked={siteForm.allow_free_trial ?? true}
-                    onChange={(e) => setSiteForm({ ...siteForm, allow_free_trial: e.target.checked })}
+                    checked={Boolean(siteForm.allow_free_trial ?? true)}
+                    onChange={handleToggleFreeTrial}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-[#1a1d24] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 border border-[#2f3644]"></div>

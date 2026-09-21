@@ -326,12 +326,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           setSiteConfig(cloudCfg);
         });
 
-        // Consulta direta na tabela pública site_settings para garantia de leitura imediata do allow_free_trial
-        const { data: directSettings } = await supabase
+        // Consulta direta na linha 'default_settings' da tabela pública site_settings para garantia de leitura imediata do allow_free_trial
+        let { data: directSettings } = await supabase
           .from('site_settings')
           .select('*')
-          .limit(1)
+          .eq('id', 'default_settings')
           .maybeSingle();
+
+        if (!directSettings) {
+          const fallback = await supabase
+            .from('site_settings')
+            .select('*')
+            .limit(1)
+            .maybeSingle();
+          directSettings = fallback.data;
+        }
 
         if (directSettings && isMounted) {
           setSiteConfig(prev => ({
