@@ -318,13 +318,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   useEffect(() => {
     let isMounted = true;
 
-    // Busca direta dos planos oficiais atualizados no Supabase
+    // Busca direta dos planos e configurações oficiais atualizados no Supabase
     const fetchDirectPlansFromSupabase = async () => {
       try {
         fetchCloudSiteConfig().then((cloudCfg) => {
           if (!isMounted || !cloudCfg) return;
           setSiteConfig(cloudCfg);
         });
+
+        // Consulta direta na tabela pública site_settings para garantia de leitura imediata do allow_free_trial
+        const { data: directSettings } = await supabase
+          .from('site_settings')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+
+        if (directSettings && isMounted) {
+          setSiteConfig(prev => ({
+            ...prev,
+            ...directSettings,
+            allow_free_trial: directSettings.allow_free_trial !== undefined 
+              ? (directSettings.allow_free_trial === true || directSettings.allow_free_trial === 'true' || directSettings.allow_free_trial === 1)
+              : prev.allow_free_trial,
+          }));
+        }
 
         let { data, error } = await supabase
           .from('plans')
@@ -388,11 +405,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     // Inscrição Realtime no Supabase na tabela 'site_settings'
     const siteSettingsChannel = supabase
       .channel('auth_page_site_settings_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => {
-        fetchCloudSiteConfig().then((cloudCfg) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, async (payload) => {
+        try {
+          if (payload?.new && typeof payload.new === 'object') {
+            const row: any = payload.new;
+            if (row.allow_free_trial !== undefined) {
+              setSiteConfig((prev) => ({
+                ...prev,
+                allow_free_trial: row.allow_free_trial === true || row.allow_free_trial === 'true' || row.allow_free_trial === 1,
+              }));
+            }
+          }
+          const cloudCfg = await fetchCloudSiteConfig();
           if (!isMounted || !cloudCfg) return;
           setSiteConfig(cloudCfg);
-        });
+        } catch (e) {
+          console.warn('Erro ao atualizar site_settings via realtime:', e);
+        }
       })
       .subscribe();
 
@@ -477,6 +506,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         url.searchParams.set('plan', planId);
+        if (!allowFreeTrial) {
+          url.searchParams.set('trial', 'false');
+        }
         window.history.replaceState({}, '', url.toString());
       }
     } catch {
@@ -1072,13 +1104,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>
                 {mode === 'signup' 
-                  ? (allowFreeTrial ? 'Teste Grátis de 15 Dias • Sem Compromisso' : 'Crie sua conta e comece agora') 
+                  ? (allowFreeTrial ? 'Teste Grátis de 15 Dias • Sem Compromisso' : 'Crie sua conta corporativa para começar agora') 
                   : 'Acesso Seguro ao Painel'}
               </span>
             </div>
             
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-sm">
-              {mode === 'signup' ? 'Crie sua conta e comece agora' : 'Entre no seu painel de silagem'}
+              {mode === 'signup' ? 'Crie sua conta corporativa e comece agora' : 'Entre no seu painel de silagem'}
             </h1>
             
             <p className="text-xs sm:text-sm text-stone-300 max-w-lg mx-auto drop-shadow-sm">
@@ -1157,11 +1189,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                           <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black uppercase">
                             7 Dias Grátis
                           </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-stone-800 border border-stone-700 text-stone-300 text-[10px] font-black uppercase">
-                            Plano Ativo
-                          </span>
-                        )}
+                        ) : null}
                       </h3>
                     </div>
                   </div>
@@ -1193,6 +1221,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         }`}
                       >
                         <span>{p.name}</span>
+                        {allowFreeTrial && p.badge && !/gr[áa]tis|teste|trial/i.test(p.badge) && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 text-[10px]">
+                            {p.badge}
+                          </span>
+                        )}
                         <span className={`text-[11px] ${isSelected ? 'text-emerald-100 font-bold' : 'text-stone-400'}`}>
                           ({formatCurrencyBRL(p.price)}/{p.billingCycle === 'anual' ? 'ano' : 'mês'})
                         </span>
@@ -1503,20 +1536,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </>
                   ) : (
                     <>
-                      <span>{allowFreeTrial ? 'Cadastrar e Iniciar Teste Grátis de 15 Dias' : 'CADASTRAR E CONTRATAR PLANO'}</span>
+                      <span>{allowFreeTrial ? 'CADASTRAR E INICIAR TESTE GRÁTIS DE 15 DIAS' : 'CADASTRAR E CONTRATAR PLANO'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
 
-                <div className="pt-4 flex items-center justify-center gap-4 text-[11px] text-stone-300">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Seus dados estão seguros
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-emerald-400" /> Sem fidelidade contratual
-                  </span>
+                <div className="pt-4 text-center space-y-2 text-[11px] text-stone-400">
+                  <div className="flex flex-wrap items-center justify-center gap-3 text-stone-300">
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Conexão segura protegida por SSL
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" /> Seus dados estão protegidos
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" /> Sem fidelidade contratual
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-stone-400">
+                    Ao se cadastrar, você concorda com os Termos de Uso e Políticas de Privacidade da plataforma.
+                  </p>
                 </div>
               </div>
             </form>
@@ -1600,9 +1642,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           )}
         </div>
 
-        {/* RODAPÉ SIMPLES */}
-        <div className="max-w-4xl w-full mx-auto text-center pt-6 border-t border-stone-800/80 text-xs text-stone-400">
-          AgroControl • Silagem Fácil Pro © 2026 — Plataforma de Gestão Agrícola
+        {/* RODAPÉ */}
+        <div className="max-w-4xl w-full mx-auto text-center pt-6 border-t border-stone-800/80 space-y-1.5 text-xs text-stone-400">
+          <p className="text-stone-300 font-medium">
+            Conexão segura protegida por SSL • Ambiente Criptografado de Ponta a Ponta
+          </p>
+          <p className="text-[11px] text-stone-400">
+            Ao se cadastrar, você concorda com os Termos de Uso e Políticas de Privacidade da plataforma.
+          </p>
+          <p className="text-[10px] text-stone-500 pt-0.5">
+            AgroControl • Silagem Fácil Pro © 2026 — Plataforma de Gestão Agrícola
+          </p>
         </div>
       </div>
     </div>
