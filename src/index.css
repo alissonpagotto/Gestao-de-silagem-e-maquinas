@@ -832,4 +832,71 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
   border-color: #f4f4f5 !important;     /* zinc-100 */
 }
 
+/* ==========================================================================
+   ISOLAMENTO DE IMPRESSÃO DO TERMO DE RESCISÃO CONTRATUAL (TRCT)
+   ========================================================================== */
+@media print {
+  /* Oculta absolutamente tudo do sistema por padrão */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Torna visível unicamente o container do documento do termo de rescisão */
+  .trct-print-document,
+  .trct-print-document * {
+    visibility: visible !important;
+  }
+
+  /* Posiciona o TRCT no topo absoluto da página impressa ocupando 100% */
+  .trct-print-document {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 99999 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Oculta controles, modais e fundos de overlay */
+  .no-print,
+  .no-print-bg {
+    display: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Evita quebras de página em tabelas e seções vitais */
+  .trct-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Garante legibilidade alta das bordas e textos */
+  .trct-print-document table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .trct-print-document th,
+  .trct-print-document td {
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  @page {
+    margin: 8mm 10mm;
+    size: A4 portrait;
+  }
+}
+
+
 
