@@ -803,7 +803,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     <div className="w-full space-y-4 antialiased">
       
       {/* 1. Grade Superior: Formulário de Cálculo & Resumo de Destaque */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* Formulário Principal (8 colunas) */}
         <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
@@ -1327,7 +1327,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* 2. Histórico de Rescisões Salvas */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+      <div className="no-print bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-800 pb-2.5">
           <div className="flex items-center gap-2 flex-wrap">
             <FileText className="w-4 h-4 text-slate-700 dark:text-stone-300" />
@@ -1464,16 +1464,16 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             </div>
 
             {/* Documento Imprimível A4 */}
-            <div className="trct-print-document p-6 sm:p-8 space-y-4 text-xs font-sans bg-white print:p-0">
+            <div className="trct-print-document p-6 sm:p-8 space-y-3.5 text-xs font-sans bg-white print:p-0 print:space-y-2.5">
               
               {/* Cabeçalho da Empresa */}
-              <div className="trct-avoid-break flex items-start justify-between border-b-2 border-black pb-3 gap-3">
+              <div className="trct-avoid-break flex items-start justify-between border-b-2 border-black pb-2.5 gap-3">
                 <div className="flex items-center gap-3">
                   {companyProfile?.logoUrl ? (
                     <img 
                       src={companyProfile.logoUrl} 
                       alt="Logo" 
-                      className="h-14 w-auto max-w-[120px] object-contain" 
+                      className="h-12 w-auto max-w-[110px] object-contain" 
                       referrerPolicy="no-referrer"
                     />
                   ) : (
@@ -1482,19 +1482,19 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     </div>
                   )}
                   <div>
-                    <h1 className="font-black text-sm sm:text-base uppercase tracking-tight text-black">
+                    <h1 className="font-black text-sm sm:text-base uppercase tracking-tight text-black print:text-sm">
                       {companyProfile?.corporateName || companyProfile?.tradeName || 'Razão Social da Empresa'}
                     </h1>
-                    <p className="text-[11px] font-semibold text-slate-700 print:text-black">
+                    <p className="text-[11px] font-semibold text-slate-700 print:text-black print:text-[10px]">
                       CNPJ/CPF: {companyProfile?.cnpjCpf || companyProfile?.cnpj || 'Não informado'}
                     </p>
-                    <p className="text-[10px] text-slate-600 print:text-black">
+                    <p className="text-[10px] text-slate-600 print:text-black print:text-[9px]">
                       {[companyProfile?.address, companyProfile?.number, companyProfile?.neighborhood, companyProfile?.city, companyProfile?.state]
                         .filter(Boolean)
                         .join(', ')}
                     </p>
                     {companyProfile?.phone && (
-                      <p className="text-[10px] font-bold text-slate-800 print:text-black flex items-center gap-1">
+                      <p className="text-[10px] font-bold text-slate-800 print:text-black print:text-[9px] flex items-center gap-1">
                         <Phone className="w-2.5 h-2.5" />
                         {companyProfile.phone}
                       </p>
@@ -1503,127 +1503,127 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="font-black text-sm uppercase tracking-tight block border border-black px-2 py-1 bg-slate-100 print:bg-white text-black">
+                  <span className="font-black text-xs sm:text-sm uppercase tracking-tight block border border-black px-2 py-1 bg-slate-100 print:bg-white text-black">
                     TRCT - TERMO RESCISÓRIO
                   </span>
-                  <span className="text-[10px] text-slate-600 print:text-black font-mono mt-0.5 block">
+                  <span className="text-[10px] text-slate-600 print:text-black print:text-[9px] font-mono mt-0.5 block">
                     Emissão: {new Date().toLocaleDateString('pt-BR')}
                   </span>
                 </div>
               </div>
 
               {/* Dados do Contrato e Empregado */}
-              <div className="trct-avoid-break border border-black p-3 rounded-md space-y-2 bg-slate-50/50 print:bg-white">
-                <div className="font-bold text-[11px] uppercase border-b border-black pb-1 text-black">
+              <div className="trct-avoid-break border border-black p-2.5 rounded-md space-y-1.5 bg-slate-50/50 print:bg-white print:p-2">
+                <div className="font-bold text-[11px] uppercase border-b border-black pb-1 text-black print:text-[10px]">
                   Identificação do Empregado e do Contrato de Trabalho
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 print:gap-1.5">
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Nome do Empregado:</span>
-                    <span className="font-bold text-xs text-black">{viewingTRCT.employeeName}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Nome do Empregado:</span>
+                    <span className="font-bold text-xs text-black print:text-[10.5px]">{viewingTRCT.employeeName}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">CPF:</span>
-                    <span className="font-semibold text-black">{formatCPF(viewingTRCT.employeeCpf)}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">CPF:</span>
+                    <span className="font-semibold text-black print:text-[10px]">{formatCPF(viewingTRCT.employeeCpf)}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Cargo / Função:</span>
-                    <span className="font-semibold text-black">{viewingTRCT.employeeRole || 'Geral'}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Cargo / Função:</span>
+                    <span className="font-semibold text-black print:text-[10px]">{viewingTRCT.employeeRole || 'Geral'}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Salário Base:</span>
-                    <span className="font-bold text-emerald-700 print:text-black">{formatMoneyBRL(viewingTRCT.baseSalary)}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Salário Base:</span>
+                    <span className="font-bold text-emerald-700 print:text-black print:text-[10.5px]">{formatMoneyBRL(viewingTRCT.baseSalary)}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-black">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-black print:gap-1.5">
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Data Admissão:</span>
-                    <span className="font-semibold text-black">{formatEmployeeAdmissionDate(viewingTRCT.admissionDate)}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Data Admissão:</span>
+                    <span className="font-semibold text-black print:text-[10px]">{formatEmployeeAdmissionDate(viewingTRCT.admissionDate)}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Data Afastamento:</span>
-                    <span className="font-semibold text-black">{formatDateBR(viewingTRCT.terminationDate)}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Data Afastamento:</span>
+                    <span className="font-semibold text-black print:text-[10px]">{formatDateBR(viewingTRCT.terminationDate)}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Aviso Prévio:</span>
-                    <span className="font-semibold capitalize text-black">{viewingTRCT.noticeType} ({viewingTRCT.calculation.noticeDays} dias)</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Aviso Prévio:</span>
+                    <span className="font-semibold capitalize text-black print:text-[10px]">{viewingTRCT.noticeType} ({viewingTRCT.calculation.noticeDays} dias)</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-600 print:text-black">Causa do Afastamento:</span>
-                    <span className="font-semibold text-black">{getReasonLabel(viewingTRCT.reason)}</span>
+                    <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Causa do Afastamento:</span>
+                    <span className="font-semibold text-black print:text-[10px]">{getReasonLabel(viewingTRCT.reason)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Tabela de Verbas Rescisórias (Proventos) */}
               <div className="trct-avoid-break border border-black rounded-md overflow-hidden">
-                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black">
+                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black print:text-[10px] print:py-1">
                   Discriminação das Verbas Rescisórias (Proventos)
                 </div>
-                <table className="w-full text-left text-[11px] border-collapse">
+                <table className="w-full text-left text-[11px] border-collapse print:text-[10px]">
                   <thead>
                     <tr className="border-b border-black bg-slate-50 print:bg-white font-bold text-black">
-                      <th className="py-1 px-2 w-16 border-r border-black/30">Rubrica</th>
-                      <th className="py-1 px-2 border-r border-black/30">Descrição</th>
-                      <th className="py-1 px-2 w-28 text-center border-r border-black/30">Referência</th>
-                      <th className="py-1 px-2 text-right w-28">Valor (R$)</th>
+                      <th className="py-1 px-2 w-16 border-r border-black/30 print:py-0.5">Rubrica</th>
+                      <th className="py-1 px-2 border-r border-black/30 print:py-0.5">Descrição</th>
+                      <th className="py-1 px-2 w-28 text-center border-r border-black/30 print:py-0.5">Referência</th>
+                      <th className="py-1 px-2 text-right w-28 print:py-0.5">Valor (R$)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/20 text-black">
                     <tr>
-                      <td className="py-1 px-2 font-mono border-r border-black/20">01</td>
-                      <td className="py-1 px-2 border-r border-black/20">Saldo de Salário</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20">{viewingTRCT.calculation.workedDaysCurrentMonth} dias</td>
-                      <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.salaryBalance)}</td>
+                      <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">01</td>
+                      <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Saldo de Salário</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.workedDaysCurrentMonth} dias</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.salaryBalance)}</td>
                     </tr>
                     {viewingTRCT.calculation.noticeAmount > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">02</td>
-                        <td className="py-1 px-2 border-r border-black/20">Aviso Prévio Indenizado</td>
-                        <td className="py-1 px-2 text-center border-r border-black/20">{viewingTRCT.calculation.noticeDays} dias</td>
-                        <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.noticeAmount)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">02</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Aviso Prévio Indenizado</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.noticeDays} dias</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.noticeAmount)}</td>
                       </tr>
                     )}
                     <tr>
-                      <td className="py-1 px-2 font-mono border-r border-black/20">03</td>
-                      <td className="py-1 px-2 border-r border-black/20">13º Salário Proporcional</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20">{viewingTRCT.calculation.thirteenthProportionalMonths}/12 avos</td>
-                      <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.thirteenthProportionalAmount)}</td>
+                      <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">03</td>
+                      <td className="py-1 px-2 border-r border-black/20 print:py-0.5">13º Salário Proporcional</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.thirteenthProportionalMonths}/12 avos</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.thirteenthProportionalAmount)}</td>
                     </tr>
                     {viewingTRCT.calculation.vacationExpiredAmount > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">04</td>
-                        <td className="py-1 px-2 border-r border-black/20">Férias Vencidas</td>
-                        <td className="py-1 px-2 text-center border-r border-black/20">{viewingTRCT.calculation.vacationExpiredCount.toString().replace('.', ',')} período(s)</td>
-                        <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.vacationExpiredAmount)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">04</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Férias Vencidas</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.vacationExpiredCount.toString().replace('.', ',')} período(s)</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.vacationExpiredAmount)}</td>
                       </tr>
                     )}
                     <tr>
-                      <td className="py-1 px-2 font-mono border-r border-black/20">05</td>
-                      <td className="py-1 px-2 border-r border-black/20">Férias Proporcionais</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20">{viewingTRCT.calculation.vacationProportionalMonths}/12 avos</td>
-                      <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.vacationProportionalAmount)}</td>
+                      <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">05</td>
+                      <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Férias Proporcionais</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.vacationProportionalMonths}/12 avos</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.vacationProportionalAmount)}</td>
                     </tr>
                     <tr>
-                      <td className="py-1 px-2 font-mono border-r border-black/20">06</td>
-                      <td className="py-1 px-2 border-r border-black/20">1/3 Constitucional sobre Férias</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20">Art. 7º CF</td>
-                      <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.vacationOneThirdBonus)}</td>
+                      <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">06</td>
+                      <td className="py-1 px-2 border-r border-black/20 print:py-0.5">1/3 Constitucional sobre Férias</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Art. 7º CF</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.vacationOneThirdBonus)}</td>
                     </tr>
                     {viewingTRCT.calculation.includeFgtsFine && viewingTRCT.calculation.fgtsFineAmount > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">07</td>
-                        <td className="py-1 px-2 border-r border-black/20">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%)</td>
-                        <td className="py-1 px-2 text-center border-r border-black/20">Art. 18 Lei 8.036</td>
-                        <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">07</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%)</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Art. 18 Lei 8.036</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}</td>
                       </tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 print:bg-white font-black border-t-2 border-black">
-                      <td colSpan={3} className="py-1 px-2 text-right text-black">TOTAL BRUTO DOS PROVENTOS:</td>
-                      <td className="py-1 px-2 text-right text-emerald-800 print:text-black font-black">{formatMoneyBRL(viewingTRCT.calculation.grossTotal)}</td>
+                      <td colSpan={3} className="py-1 px-2 text-right text-black print:py-0.5">TOTAL BRUTO DOS PROVENTOS:</td>
+                      <td className="py-1 px-2 text-right text-emerald-800 print:text-black font-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.grossTotal)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1631,113 +1631,127 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
               {/* Tabela de Deduções */}
               <div className="trct-avoid-break border border-black rounded-md overflow-hidden">
-                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black">
+                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black print:text-[10px] print:py-1">
                   Deduções e Descontos Rescisórios
                 </div>
-                <table className="w-full text-left text-[11px] border-collapse">
+                <table className="w-full text-left text-[11px] border-collapse print:text-[10px]">
                   <thead>
                     <tr className="border-b border-black bg-slate-50 print:bg-white font-bold text-black">
-                      <th className="py-1 px-2 w-16 border-r border-black/30">Rubrica</th>
-                      <th className="py-1 px-2 border-r border-black/30">Descrição</th>
-                      <th className="py-1 px-2 text-right w-28">Valor (R$)</th>
+                      <th className="py-1 px-2 w-16 border-r border-black/30 print:py-0.5">Rubrica</th>
+                      <th className="py-1 px-2 border-r border-black/30 print:py-0.5">Descrição</th>
+                      <th className="py-1 px-2 text-right w-28 print:py-0.5">Valor (R$)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/20 text-black">
                     {viewingTRCT.calculation.includeInssDiscount !== false ? (
                       <>
                         <tr>
-                          <td className="py-1 px-2 font-mono border-r border-black/20">101</td>
-                          <td className="py-1 px-2 border-r border-black/20">Previdência Social (INSS Saldo de Salário)</td>
-                          <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black">{formatMoneyBRL(viewingTRCT.calculation.inssSalaryBalance)}</td>
+                          <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">101</td>
+                          <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Previdência Social (INSS Saldo de Salário)</td>
+                          <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.inssSalaryBalance)}</td>
                         </tr>
                         {viewingTRCT.calculation.inssThirteenth > 0 && (
                           <tr>
-                            <td className="py-1 px-2 font-mono border-r border-black/20">102</td>
-                            <td className="py-1 px-2 border-r border-black/20">Previdência Social (INSS sobre 13º Salário)</td>
-                            <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black">{formatMoneyBRL(viewingTRCT.calculation.inssThirteenth)}</td>
+                            <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">102</td>
+                            <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Previdência Social (INSS sobre 13º Salário)</td>
+                            <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.inssThirteenth)}</td>
                           </tr>
                         )}
                       </>
                     ) : (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">101</td>
-                        <td className="py-1 px-2 text-slate-500 print:text-black italic border-r border-black/20">Previdência Social (INSS) - Desconto Desativado / Isento</td>
-                        <td className="py-1 px-2 text-right font-bold text-slate-500 print:text-black">R$ 0,00</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">101</td>
+                        <td className="py-1 px-2 text-slate-500 print:text-black italic border-r border-black/20 print:py-0.5">Previdência Social (INSS) - Desconto Desativado / Isento</td>
+                        <td className="py-1 px-2 text-right font-bold text-slate-500 print:text-black print:py-0.5">R$ 0,00</td>
                       </tr>
                     )}
                     {viewingTRCT.calculation.advancesDiscount > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">103</td>
-                        <td className="py-1 px-2 border-r border-black/20">Vales e Adiantamentos Salariais em Aberto</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black">{formatMoneyBRL(viewingTRCT.calculation.advancesDiscount)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">103</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Vales e Adiantamentos Salariais em Aberto</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.advancesDiscount)}</td>
                       </tr>
                     )}
                     {viewingTRCT.calculation.absenceDiscount > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">104</td>
-                        <td className="py-1 px-2 border-r border-black/20">Faltas e Atrasos Injustificados</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black">{formatMoneyBRL(viewingTRCT.calculation.absenceDiscount)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">104</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Faltas e Atrasos Injustificados</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.absenceDiscount)}</td>
                       </tr>
                     )}
                     {viewingTRCT.calculation.noticeDeduction > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">105</td>
-                        <td className="py-1 px-2 border-r border-black/20">Aviso Prévio Não Cumprido (Desconto Art. 487 CLT)</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black">{formatMoneyBRL(viewingTRCT.calculation.noticeDeduction)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">105</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Aviso Prévio Não Cumprido (Desconto Art. 487 CLT)</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.noticeDeduction)}</td>
                       </tr>
                     )}
                     {viewingTRCT.calculation.otherDeductions > 0 && (
                       <tr>
-                        <td className="py-1 px-2 font-mono border-r border-black/20">106</td>
-                        <td className="py-1 px-2 border-r border-black/20">Outras Deduções Autorizadas</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black">{formatMoneyBRL(viewingTRCT.calculation.otherDeductions)}</td>
+                        <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">106</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Outras Deduções Autorizadas</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.otherDeductions)}</td>
                       </tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 print:bg-white font-black border-t-2 border-black">
-                      <td colSpan={2} className="py-1 px-2 text-right text-black">TOTAL GERAL DAS DEDUÇÕES:</td>
-                      <td className="py-1 px-2 text-right text-rose-800 print:text-black font-black">{formatMoneyBRL(viewingTRCT.calculation.totalDeductions)}</td>
+                      <td colSpan={2} className="py-1 px-2 text-right text-black print:py-0.5">TOTAL GERAL DAS DEDUÇÕES:</td>
+                      <td className="py-1 px-2 text-right text-rose-800 print:text-black font-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.totalDeductions)}</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
 
               {/* Quadro Resumo com Líquido e Multa FGTS */}
-              <div className="trct-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-3 border-2 border-black p-3 rounded-md bg-slate-50 print:bg-white">
+              <div className="trct-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-2.5 border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-2">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%):</span>
-                  <span className="text-sm font-bold text-black">
+                  <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%):</span>
+                  <span className="text-sm font-bold text-black print:text-xs">
                     {formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}
                   </span>
-                  <span className="text-[10px] text-slate-500 print:text-black block">
+                  <span className="text-[10px] text-slate-500 print:text-black block print:text-[8.5px]">
                     (Base informada/estimada: {formatMoneyBRL(viewingTRCT.calculation.fgtsEstimatedBalance)})
                   </span>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase">VALOR LÍQUIDO A RECEBER:</span>
-                  <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black">
+                  <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase print:text-[9px]">VALOR LÍQUIDO A RECEBER:</span>
+                  <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black print:text-lg">
                     {formatMoneyBRL(viewingTRCT.calculation.netTotal)}
                   </span>
                 </div>
               </div>
 
-              {/* Termo de Quitação e Assinaturas */}
-              <div className="trct-avoid-break pt-2 text-[10px] text-slate-700 print:text-black text-justify leading-relaxed">
-                Foi prestada, sem ônus para o empregado, a assistência e conferência da presente rescisão contratual, tendo o colaborador recebido os valores líquidos discriminados acima, dando plena e geral quitação das parcelas expressamente consignadas neste termo.
-              </div>
+              {/* Container Exclusivo e Indivisível de Quitação e Assinaturas (Sem quebras de página) */}
+              <div className="trct-signature-block trct-avoid-break pt-2 space-y-3 print:pt-1.5 print:space-y-2">
+                
+                {/* Termo de Quitação */}
+                <p className="text-[9.5px] text-slate-700 print:text-black text-justify leading-relaxed print:text-[9px] print:leading-tight m-0">
+                  Foi prestada, sem ônus para o empregado, a assistência e conferência da presente rescisão contratual, tendo o colaborador recebido os valores líquidos discriminados acima, dando plena e geral quitação das parcelas expressamente consignadas neste termo.
+                </p>
 
-              <div className="trct-avoid-break pt-6 grid grid-cols-2 gap-8 text-center text-xs">
-                <div className="border-t-2 border-black pt-1.5">
-                  <span className="font-bold block uppercase text-black">{companyProfile?.tradeName || companyProfile?.corporateName || 'Empregador'}</span>
-                  <span className="text-[10px] text-slate-600 print:text-black">Assinatura do Empregador / Responsável</span>
+                {/* Linhas de Assinatura com textos centralizados e margem correta */}
+                <div className="pt-4 pb-2 grid grid-cols-2 gap-8 text-center text-xs print:pt-5 print:gap-6 print:pb-1">
+                  <div className="trct-signature-box border-t-2 border-black pt-2 flex flex-col items-center justify-center text-center">
+                    <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[10px] max-w-[90%] truncate">
+                      {companyProfile?.tradeName || companyProfile?.corporateName || 'Empregador'}
+                    </span>
+                    <span className="text-[9.5px] text-slate-600 print:text-black mt-1 block font-medium print:text-[8.5px]">
+                      Assinatura do Empregador / Responsável
+                    </span>
+                  </div>
+
+                  <div className="trct-signature-box border-t-2 border-black pt-2 flex flex-col items-center justify-center text-center">
+                    <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[10px] max-w-[90%] truncate">
+                      {viewingTRCT.employeeName}
+                    </span>
+                    <span className="text-[9.5px] text-slate-600 print:text-black mt-1 block font-medium print:text-[8.5px]">
+                      Assinatura do Empregado / Colaborador
+                    </span>
+                  </div>
                 </div>
 
-                <div className="border-t-2 border-black pt-1.5">
-                  <span className="font-bold block uppercase text-black">{viewingTRCT.employeeName}</span>
-                  <span className="text-[10px] text-slate-600 print:text-black">Assinatura do Empregado / Colaborador</span>
-                </div>
               </div>
 
             </div>

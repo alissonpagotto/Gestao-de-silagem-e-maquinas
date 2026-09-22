@@ -915,26 +915,49 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     opacity: 1 !important;
   }
 
-  /* 5. Prevenção de quebra de página em blocos vitais */
+  /* 5. Prevenção rigorosa de quebra de página em blocos vitais e assinaturas */
   .trct-avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
-  /* 6. Alta legibilidade para tabelas e bordas */
+  /* Bloco indivisível de assinaturas e quitação: NUNCA corta ao meio */
+  .trct-signature-block {
+    display: block !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-before: auto !important;
+    break-before: auto !important;
+    width: 100% !important;
+    clear: both !important;
+  }
+
+  .trct-signature-box {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    text-align: center !important;
+  }
+
+  /* 6. Alta legibilidade e compactação para tabelas e bordas */
   .trct-print-document table {
     width: 100% !important;
     border-collapse: collapse !important;
+    page-break-inside: auto !important;
   }
 
   .trct-print-document th,
   .trct-print-document td {
     color: #000000 !important;
     border-color: #000000 !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+    line-height: 1.25 !important;
   }
 
   @page {
-    margin: 8mm 10mm;
+    margin: 6mm 8mm;
     size: A4 portrait;
   }
 }
