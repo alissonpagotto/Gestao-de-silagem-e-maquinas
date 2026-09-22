@@ -96,7 +96,7 @@ export const DispatchFieldModal: React.FC<DispatchFieldModalProps> = ({
     ...(appointment.assignedVehicles || []).map(v => v.plateOrSerial ? `${v.plateOrSerial} (${v.prefix})` : v.prefix)
   ].filter(Boolean).join(', ') || 'Não informadas';
 
-  const companyName = companyProfile?.tradeName || companyProfile?.corporateName || 'COLAÇA SILAGEM';
+  const companyName = companyProfile?.tradeName || companyProfile?.corporateName || 'Nossa Empresa';
   const locationText = appointment.locationCityState || appointment.farmName || 'Campo / Fazenda do Cliente';
 
   // Obter telefone do funcionário cadastrado no sistema

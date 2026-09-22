@@ -40,7 +40,7 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
-  const [daysCount, setDaysCount] = useState<number>(1);
+  const [daysCount, setDaysCount] = useState<number>(0);
   const [cid, setCid] = useState('');
   const [doctorName, setDoctorName] = useState('');
   const [status, setStatus] = useState<'ativo' | 'finalizado'>('ativo');
@@ -79,8 +79,8 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
       setType('Atestado Médico');
       setStartDate(new Date().toISOString().split('T')[0]);
       setEndDate('');
-      setExpectedReturnDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-      setDaysCount(3);
+      setExpectedReturnDate('');
+      setDaysCount(0);
       setCid('');
       setDoctorName('');
       setStatus('ativo');

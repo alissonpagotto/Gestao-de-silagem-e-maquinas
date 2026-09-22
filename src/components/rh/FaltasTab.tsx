@@ -69,8 +69,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     }
     const emp = employees.find(e => e.id === empId);
     if (emp) {
-      const salary = emp.salary || emp.baseSalary || 3500;
-      const dailyRate = salary / 30;
+      const salary = emp.salary || emp.baseSalary || 0;
+      const dailyRate = salary > 0 ? salary / 30 : 0;
       const calculated = Math.round(dailyRate * days * 100) / 100;
       setDiscountAmount(calculated);
     }
@@ -156,8 +156,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       // Auto estimate
       if (firstId) {
         const emp = employees.find(e => e.id === firstId);
-        const salary = emp?.salary || emp?.baseSalary || 3500;
-        setDiscountAmount(Math.round((salary / 30) * 100) / 100);
+        const salary = emp?.salary || emp?.baseSalary || 0;
+        setDiscountAmount(salary > 0 ? Math.round((salary / 30) * 100) / 100 : 0);
       } else {
         setDiscountAmount(0);
       }

@@ -417,30 +417,6 @@ ON CONFLICT (email) DO UPDATE SET
     nome = COALESCE(EXCLUDED.nome, public.assinantes.nome),
     status = 'trial';
 
--- GARANTIA EXPLÍCITA: CLIENTE 'COLACA SILAGEM LTDA' (Status Trial, MRR R$ 0,00)
-INSERT INTO public.assinantes (
-    id,
-    nome,
-    email,
-    plano_selecionado,
-    valor_mensal,
-    status,
-    trial_ate,
-    criado_em
-) VALUES (
-    'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
-    'COLACA SILAGEM LTDA',
-    'colacasilagem@gmail.com',
-    'essencial',
-    195.00,
-    'trial',
-    now() + interval '7 days',
-    now()
-)
-ON CONFLICT (email) DO UPDATE SET
-    nome = 'COLACA SILAGEM LTDA',
-    status = 'trial';
-
 CREATE TABLE IF NOT EXISTS public.plans (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

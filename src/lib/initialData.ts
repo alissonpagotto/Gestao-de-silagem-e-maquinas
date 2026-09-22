@@ -139,18 +139,7 @@ export const INITIAL_COST_CENTERS: CostCenter[] = [
   },
 ];
 
-export const INITIAL_SEASONS: CropSeason[] = [
-  {
-    id: 'season_2026_2027',
-    name: 'Safra 2026/2027',
-    crop: 'Milho Silagem',
-    plantedHectares: 0,
-    estimatedTons: 0,
-    status: 'colheita',
-    startDate: '2026-08-01',
-    endDate: '2027-07-31',
-  }
-];
+export const INITIAL_SEASONS: CropSeason[] = [];
 
 // Clean Zeroed Arrays for Manual Entry
 export const INITIAL_MACHINERIES: Machinery[] = [];

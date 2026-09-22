@@ -116,12 +116,12 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
 
   // Cabeçalho da Empresa Reativo
   const companyLogo = companyProfile?.logoUrl;
-  const companyCnpj = companyProfile?.cnpjCpf || '46.097.636/0001-02';
-  const companyTradeName = companyProfile?.tradeName || companyProfile?.corporateName || 'COLAÇA SILAGEM';
+  const companyCnpj = companyProfile?.cnpjCpf || '';
+  const companyTradeName = companyProfile?.tradeName || companyProfile?.corporateName || '';
   const companyAddress = companyProfile?.address 
     ? `${companyProfile.address}${companyProfile.city ? ` - ${companyProfile.city}` : ''}${companyProfile.state ? ` - ${companyProfile.state}` : ''}`
-    : 'Linha Santa Maria - Dois Vizinhos - PR';
-  const companyPhone = companyProfile?.phone || '46. 99904-8279';
+    : (companyProfile?.city ? `${companyProfile.city}${companyProfile.state ? ` - ${companyProfile.state}` : ''}` : '');
+  const companyPhone = companyProfile?.phone || '';
 
   // -------------------------------------------------------------
   // ESTADO FORMULÁRIO 1: PEDIDO DE CORTE (Operador da Forrageira)
@@ -443,7 +443,7 @@ export const FieldFormsView: React.FC<FieldFormsViewProps> = ({
   // -------------------------------------------------------------
   const handleEnviarDeVolta = () => {
     // Telefone da empresa configurado no perfil ou padrão
-    const rawCompanyPhone = companyProfile?.phone || companyPhone || '46. 99904-8279';
+    const rawCompanyPhone = companyProfile?.phone || companyPhone || '';
     const cleanCompanyPhone = rawCompanyPhone.replace(/\D/g, '');
     let targetPhone = cleanCompanyPhone;
     if (cleanCompanyPhone.length >= 10 && !cleanCompanyPhone.startsWith('55')) {
@@ -932,7 +932,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                       value={c.placa} 
                       onChange={e => handleTruckChange(idx, 'placa', e.target.value)}
                       className="bg-white border border-stone-300 px-1.5 py-0.5 rounded text-xs w-full text-stone-900" 
-                      placeholder="ABC-1234"
+                      placeholder="Placa"
                     />
                   </div>
                   <div className="sm:col-span-5 flex items-center gap-1">
@@ -1456,7 +1456,7 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                   value={f3Data.placa} 
                   onChange={e => setF3Data({...f3Data, placa: e.target.value})}
                   className="w-full bg-transparent border-none p-0 text-xs font-semibold focus:ring-0 uppercase" 
-                  placeholder="ABC-1234"
+                  placeholder="Placa"
                 />
               </div>
               <div className="sm:col-span-7 flex items-center gap-1">

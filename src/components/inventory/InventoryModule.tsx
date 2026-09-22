@@ -51,17 +51,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   // Form state (compartilhado entre cadastro e edição)
   const [name, setName] = useState('');
   const [category, setCategory] = useState<InventoryItem['category']>('combustivel');
-  const [quantity, setQuantity] = useState<number | ''>(100);
-  const [unit, setUnit] = useState('litros');
-  const [minQuantity, setMinQuantity] = useState<number | ''>(50);
-  const [unitCost, setUnitCost] = useState<number | ''>(6.20);
-  const [location, setLocation] = useState('Barracão Principal');
-  const [profitMargin, setProfitMargin] = useState<number | ''>(30);
-  const [salePrice, setSalePrice] = useState<number | ''>(8.06);
-  const [wholesaleMargin, setWholesaleMargin] = useState<number | ''>(15);
-  const [wholesalePrice, setWholesalePrice] = useState<number | ''>(7.13);
-  const [promoMargin, setPromoMargin] = useState<number | ''>(10);
-  const [promoPrice, setPromoPrice] = useState<number | ''>(6.82);
+  const [quantity, setQuantity] = useState<number | ''>('');
+  const [unit, setUnit] = useState('un');
+  const [minQuantity, setMinQuantity] = useState<number | ''>('');
+  const [unitCost, setUnitCost] = useState<number | ''>('');
+  const [location, setLocation] = useState('');
+  const [profitMargin, setProfitMargin] = useState<number | ''>('');
+  const [salePrice, setSalePrice] = useState<number | ''>('');
+  const [wholesaleMargin, setWholesaleMargin] = useState<number | ''>('');
+  const [wholesalePrice, setWholesalePrice] = useState<number | ''>('');
+  const [promoMargin, setPromoMargin] = useState<number | ''>('');
+  const [promoPrice, setPromoPrice] = useState<number | ''>('');
 
   // Logs para histórico
   const maintenanceLogs = useMemo<MaintenanceLog[]>(() => {
@@ -144,17 +144,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const handleOpenCreateModal = () => {
     setName('');
     setCategory('combustivel');
-    setQuantity(100);
-    setUnit('litros');
-    setMinQuantity(50);
-    setUnitCost(6.20);
-    setLocation('Barracão Principal');
-    setProfitMargin(30);
-    setSalePrice(8.06);
-    setWholesaleMargin(15);
-    setWholesalePrice(7.13);
-    setPromoMargin(10);
-    setPromoPrice(6.82);
+    setQuantity('');
+    setUnit('un');
+    setMinQuantity('');
+    setUnitCost('');
+    setLocation('');
+    setProfitMargin('');
+    setSalePrice('');
+    setWholesaleMargin('');
+    setWholesalePrice('');
+    setPromoMargin('');
+    setPromoPrice('');
     setIsCreateModalOpen(true);
   };
 

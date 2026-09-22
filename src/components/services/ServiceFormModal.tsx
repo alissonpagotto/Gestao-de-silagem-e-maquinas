@@ -150,7 +150,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   const [unidadeArea, setUnidadeArea] = useState<'hectares' | 'alqueires' | 'hora'>('hectares');
   const [quantidadeArea, setQuantidadeArea] = useState<number | ''>('');
   const [valorPorHectare, setValorPorHectare] = useState<string | number>('');
-  const [pesoPorM3, setPesoPorM3] = useState<number | ''>(650);
+  const [pesoPorM3, setPesoPorM3] = useState<number | ''>(400);
 
   // 3. Bloco Forrageira / Ensiladeira (Borda Amarela)
   const [forrageiraId, setForrageiraId] = useState('');
@@ -3472,7 +3472,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
                       value={pesoPorM3}
                       onWheel={(e) => (e.target as HTMLInputElement).blur()}
                       onChange={(e) => setPesoPorM3(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="Ex: 650"
+                      placeholder="Ex: 400"
                       className="w-full px-3 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border border-slate-400 dark:border-slate-500 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 shadow-2xs transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>

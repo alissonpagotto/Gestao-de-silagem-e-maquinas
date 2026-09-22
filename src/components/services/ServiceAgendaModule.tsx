@@ -67,187 +67,11 @@ const FRONT_COLOR_PALETTES = [
   { headerBgColor: '#dcfce7', columnBgColor: '#f0fdf4', borderColor: '#22c55e' }, // Verde Claro
 ];
 
-// Colunas padrão de Máquinas Principais correspondentes às frentes ativas
-const DEFAULT_MACHINE_COLUMNS = [
-  {
-    id: 'team_maq_02',
-    name: '[ION JER MAQ 10]',
-    headerBgColor: '#fef08a',
-    columnBgColor: '#fefce8',
-    borderColor: '#ca8a04',
-    machineryId: 'veh_forr_05_2023',
-    machineryName: '[ION JER MAQ 10]',
-    frontNumber: 1,
-  },
-  {
-    id: 'team_maq_03',
-    name: '[JF MAQ1] JF MAQ1',
-    headerBgColor: '#fed7aa',
-    columnBgColor: '#fff7ed',
-    borderColor: '#ea580c',
-    machineryId: 'veh_colh_02_2022',
-    machineryName: '[JF MAQ1] JF MAQ1',
-    frontNumber: 2,
-  },
-  {
-    id: 'team_maq_04',
-    name: '[MF 1000 MAQ] MF 1000 MAQ1',
-    headerBgColor: '#bbf7d0',
-    columnBgColor: '#f0fdf4',
-    borderColor: '#16a34a',
-    machineryId: 'veh_trator_jd_6110',
-    machineryName: '[MF 1000 MAQ] MF 1000 MAQ1',
-    frontNumber: 3,
-  },
-  {
-    id: 'team_maq_05',
-    name: '[NEW HOLLAND MAQ 14] NEW HOLLAND MAQ14',
-    headerBgColor: '#fde047',
-    columnBgColor: '#fef9c3',
-    borderColor: '#eab308',
-    machineryId: 'veh_evd_2j61',
-    machineryName: '[NEW HOLLAND MAQ 14] NEW HOLLAND MAQ14',
-    frontNumber: 4,
-  },
-];
+// Colunas padrão de Máquinas Principais correspondentes às frentes ativas (inicialmente limpas)
+const DEFAULT_MACHINE_COLUMNS: any[] = [];
 
-// Exemplos iniciais realistas caso o banco esteja vazio
-const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [
-  {
-    id: 'appt-initial-01',
-    appointmentNumber: 'AG-2026-001',
-    clientId: 'cli-01',
-    clientName: 'Fazenda Santa Maria (Agrícola Silveira)',
-    farmName: 'Sede Principal - Talhão 04',
-    locationCityState: 'Toledo - PR',
-    contactPhone: '(45) 99812-4433',
-    serviceType: 'Corte / Ensilagem',
-    serviceTab: 'corte',
-    startDate: '2026-09-18',
-    startTime: '07:00',
-    travelTimeMinutes: 45,
-    trailerLoadingTimeMinutes: 30,
-    areaUnit: 'hectares',
-    estimatedQuantity: 15,
-    productivityRatePerHour: 1.6,
-    executionTimeMinutes: 562, 
-    totalTimeMinutes: 664, 
-    endDate: '2026-09-18',
-    endTime: '16:10',
-    primaryMachineryId: 'mach-01',
-    primaryMachineryPrefix: 'MAQ-01 - John Deere 8500i',
-    primaryMachineryPlate: 'MAQ-01',
-    primaryMachineryModel: 'John Deere 8500i',
-    assignedVehicles: [
-      {
-        machineryId: 'truck-01',
-        prefix: 'Caminhão 02 - CAM-02',
-        plateOrSerial: 'MTU-8920',
-        model: 'VW Constellation 24.280',
-        category: 'caminhao',
-        driverOrOperatorName: 'Carlos Eduardo Silveira'
-      },
-      {
-        machineryId: 'truck-02',
-        prefix: 'Caminhão 04 - CAM-04',
-        plateOrSerial: 'BCX-4E12',
-        model: 'Volvo VM 330',
-        category: 'caminhao',
-        driverOrOperatorName: 'Roberto Mendes'
-      },
-      {
-        machineryId: 'trac-01',
-        prefix: 'Trator 01 - TR-01',
-        plateOrSerial: 'JD-7225J',
-        model: 'John Deere 7225J',
-        category: 'trator',
-        driverOrOperatorName: 'Valdir Fontana'
-      }
-    ],
-    assignedTeam: [
-      {
-        employeeId: 'emp-01',
-        employeeName: 'Marcos Aurélio Silveira',
-        role: 'Operador de Forrageira Principal',
-        assignedVehiclePrefix: 'FOR-01'
-      },
-      {
-        employeeId: 'emp-02',
-        employeeName: 'Carlos Eduardo Silveira',
-        role: 'Motorista de Caminhão Silagem',
-        assignedVehiclePrefix: 'CAM-02'
-      },
-      {
-        employeeId: 'emp-03',
-        employeeName: 'Roberto Mendes',
-        role: 'Motorista de Caminhão Silagem',
-        assignedVehiclePrefix: 'CAM-04'
-      },
-      {
-        employeeId: 'emp-04',
-        employeeName: 'Valdir Fontana',
-        role: 'Operador de Trator Compactador',
-        assignedVehiclePrefix: 'TR-01'
-      }
-    ],
-    status: 'agendado',
-    fieldNotes: 'Entrada pelo trevo sul. Área com milho ponto dente 34% MS. Silo tipo trincheira 40x12m.',
-    createdAt: '2026-09-15T10:00:00.000Z'
-  },
-  {
-    id: 'appt-initial-02',
-    appointmentNumber: 'AG-2026-002',
-    clientId: 'cli-02',
-    clientName: 'Agropecuária Bela Vista',
-    farmName: 'Fazenda Bela Vista - Piquete 02',
-    locationCityState: 'Cascavel - PR',
-    contactPhone: '(45) 99765-2110',
-    serviceType: 'Corte / Ensilagem',
-    serviceTab: 'corte',
-    startDate: '2026-09-20',
-    startTime: '08:00',
-    travelTimeMinutes: 60,
-    trailerLoadingTimeMinutes: 40,
-    areaUnit: 'alqueires',
-    estimatedQuantity: 10,
-    productivityRatePerHour: 1.5,
-    executionTimeMinutes: 462, 
-    totalTimeMinutes: 562, // 9h22min
-    endDate: '2026-09-20',
-    endTime: '17:22',
-    primaryMachineryId: 'mach-02',
-    primaryMachineryPrefix: 'MAQ-02 - CLAAS JAGUAR 860',
-    primaryMachineryPlate: 'MAQ-02',
-    primaryMachineryModel: 'CLAAS JAGUAR 860',
-    assignedVehicles: [
-      {
-        machineryId: 'truck-03',
-        prefix: 'Caminhão 01 - CAM-01',
-        plateOrSerial: 'BRA-2E19',
-        model: 'Mercedes-Benz Axor 2544',
-        category: 'caminhao',
-        driverOrOperatorName: 'Gilberto Lima'
-      }
-    ],
-    assignedTeam: [
-      {
-        employeeId: 'emp-05',
-        employeeName: 'Rogério Batista',
-        role: 'Operador de Forrageira Principal',
-        assignedVehiclePrefix: 'FOR-02'
-      },
-      {
-        employeeId: 'emp-06',
-        employeeName: 'Gilberto Lima',
-        role: 'Motorista de Caminhão Silagem',
-        assignedVehiclePrefix: 'CAM-01'
-      }
-    ],
-    status: 'agendado',
-    fieldNotes: 'Acesso asfaltado até a sede. Silo superfície compactação com lâmina.',
-    createdAt: '2026-09-16T14:30:00.000Z'
-  }
-];
+// Lista inicial limpa de agendamentos
+const DEFAULT_INITIAL_APPOINTMENTS: ServiceAppointment[] = [];
 
 export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   machineries = [],
@@ -428,75 +252,6 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
     } catch (e) {
       // ignore
     }
-
-    const defaultSuggestions: Machinery[] = [
-      {
-        id: 'mach-01',
-        name: 'John Deere 8500i',
-        fleetNumber: 'MAQ-01',
-        model: 'John Deere 8500i',
-        brand: 'John Deere',
-        licensePlateOrSerial: 'MAQ-01',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'mach-02',
-        name: 'CLAAS JAGUAR 860',
-        fleetNumber: 'MAQ-02',
-        model: 'CLAAS JAGUAR 860',
-        brand: 'Claas',
-        licensePlateOrSerial: 'MAQ-02',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_forr_05_2023',
-        name: 'Claas Jaguar 870 (Maq 02)',
-        fleetNumber: 'Maq 02',
-        model: 'Claas Jaguar 870',
-        brand: 'Claas',
-        licensePlateOrSerial: 'CLAAS-870-05',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_colh_02_2022',
-        name: 'Claas Jaguar 860 (Maq 03)',
-        fleetNumber: 'Maq 03',
-        model: 'Claas Jaguar 860',
-        brand: 'Claas',
-        licensePlateOrSerial: 'CLAAS-860-02',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_trator_jd_6110',
-        name: 'Trator JD 6110J + JF C120 (Maq 04)',
-        fleetNumber: 'Maq 04',
-        model: 'JD 6110J + JF C120',
-        brand: 'John Deere',
-        licensePlateOrSerial: 'TRAT-6110-01',
-        categoryType: 'Trator',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_evd_2j61',
-        name: 'Mercedes-Benz 2726 + Suporte (Maq 05)',
-        fleetNumber: 'Maq 05',
-        model: 'MB 2726 6x4 Silagem',
-        brand: 'Mercedes-Benz',
-        licensePlateOrSerial: 'EVD-2J61',
-        categoryType: 'Caminhão',
-        status: 'disponivel',
-      },
-    ];
-
-    defaultSuggestions.forEach(sug => {
-      if (!list.some(m => m.id === sug.id)) {
-        list.push(sug);
-      }
-    });
 
     return list;
   }, [machineries]);
@@ -1327,6 +1082,27 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
             </div>
 
             {/* 2. GRID DE COLUNAS LADO A LADO POR MÁQUINA PRINCIPAL */}
+            {machineColumns.length === 0 ? (
+              <div className="p-12 text-center flex flex-col items-center justify-center space-y-3 bg-stone-50/50 dark:bg-stone-900/50">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600">
+                  <Calendar className="w-7 h-7" />
+                </div>
+                <div className="max-w-md">
+                  <h3 className="text-sm font-black text-stone-800 dark:text-stone-200 uppercase tracking-tight">Nenhuma Frente de Colheita Configurada</h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                    Cadastre suas máquinas ou clique em "+ Nova Frente" para criar as colunas de agendamento por equipe/forrageira.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddFront}
+                  className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Criar Primeira Frente</span>
+                </button>
+              </div>
+            ) : (
             <div 
               className="grid divide-x-3 divide-black dark:divide-stone-700 items-stretch"
               style={{
@@ -1627,6 +1403,7 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
                 );
               })}
             </div>
+            )}
           </div>
         </div>
       )}

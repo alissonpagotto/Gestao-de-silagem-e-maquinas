@@ -231,9 +231,9 @@ export function getStoredSubscribers(): Subscriber[] {
     if (raw === null) {
       // Primeira inicialização absoluta (quando não há nada no storage)
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([COLACA_SILAGEM_SUBSCRIBER]));
+        localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify([]));
       }
-      return [COLACA_SILAGEM_SUBSCRIBER];
+      return [];
     }
 
     let parsed: any[] = [];
@@ -247,12 +247,12 @@ export function getStoredSubscribers(): Subscriber[] {
       parsed = [];
     }
 
-    // Filtrar quaisquer resquícios das 6 empresas simuladas
+    // Filtrar quaisquer resquícios de empresas simuladas de teste
     const cleaned: Subscriber[] = parsed.filter(
       (sub: any) =>
         sub &&
-        !['sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006'].includes(sub.id) &&
-        !['Agropecuária Santa Fé Ltda', 'Colheitas & Silagem do Cerrado', 'Fazenda Boa Esperança - João Pedro Silva', 'Cooperativa Agrícola Sul Catarinense', 'Tratores & Ensilagem Pioneiro', 'AgroServiços Vale do Paranapanema'].includes(sub.name)
+        !['sub-001', 'sub-002', 'sub-003', 'sub-004', 'sub-005', 'sub-006', 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d'].includes(sub.id) &&
+        !['Agropecuária Santa Fé Ltda', 'Colheitas & Silagem do Cerrado', 'Fazenda Boa Esperança - João Pedro Silva', 'Cooperativa Agrícola Sul Catarinense', 'Tratores & Ensilagem Pioneiro', 'AgroServiços Vale do Paranapanema', 'COLACA SILAGEM LTDA'].includes(sub.name)
     );
 
     return cleaned;

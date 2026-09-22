@@ -33,87 +33,9 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'todas' | 'forrageira' | 'trator' | 'caminhao'>('todas');
 
-  // Garante que há uma lista de opções de frota mesmo se machineries estiver com poucos dados cadastrados
+  // Lista real de veículos cadastrados na frota do assinante
   const allAvailableVehicles = useMemo(() => {
-    const list: Machinery[] = [...machineries];
-
-    // Se a frota estiver vazia ou não tiver os modelos padrão, mescla sugestões conhecidas do CRM
-    const defaultSuggestions: Machinery[] = [
-      {
-        id: 'veh_forr_05_2023',
-        name: 'Claas Jaguar 870',
-        fleetNumber: 'FORR 05',
-        model: 'Claas Jaguar 870',
-        brand: 'Claas',
-        year: 2023,
-        licensePlateOrSerial: 'CLAAS-870-05',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_colh_02_2022',
-        name: 'Claas Jaguar 860',
-        fleetNumber: 'COLH 02',
-        model: 'Claas Jaguar 860',
-        brand: 'Claas',
-        year: 2022,
-        licensePlateOrSerial: 'CLAAS-860-02',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_trator_jd_6110',
-        name: 'John Deere 6110J + JF C120',
-        fleetNumber: 'TRAT 01',
-        model: 'JD 6110J + Ensiladeira JF C120',
-        brand: 'John Deere',
-        year: 2021,
-        licensePlateOrSerial: 'TRAT-6110-01',
-        categoryType: 'Trator',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_evd_2j61',
-        name: 'Mercedes-Benz 2726 Basculante',
-        fleetNumber: 'CAM 04',
-        model: 'MB 2726 6x4 Silagem',
-        brand: 'Mercedes-Benz',
-        year: 2020,
-        licensePlateOrSerial: 'EVD-2J61',
-        categoryType: 'Caminhão',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_forr_krone_8500',
-        name: 'Krone Big X 850',
-        fleetNumber: 'FORR 03',
-        model: 'Big X 850 High Performance',
-        brand: 'Krone',
-        year: 2024,
-        licensePlateOrSerial: 'KRN-8500-03',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_trator_nh_t7',
-        name: 'New Holland T7.240',
-        fleetNumber: 'TRAT 02',
-        model: 'T7.240 Heavy Duty',
-        brand: 'New Holland',
-        year: 2022,
-        licensePlateOrSerial: 'NHT-7240-02',
-        categoryType: 'Trator',
-        status: 'disponivel',
-      }
-    ];
-
-    defaultSuggestions.forEach(sug => {
-      if (!list.some(m => m.id === sug.id || (m.licensePlateOrSerial && m.licensePlateOrSerial === sug.licensePlateOrSerial))) {
-        list.push(sug);
-      }
-    });
-
-    return list;
+    return [...machineries];
   }, [machineries]);
 
   // Filtragem por busca e categoria

@@ -138,7 +138,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
       const firstActive = employees.find(e => e.status === 'ativo');
       setSelectedEmployeeId(firstActive ? firstActive.id : '');
       setDate(new Date().toISOString().split('T')[0]);
-      setAmount(300);
+      setAmount(0);
       setPaymentMethod('pix');
       setReferenceMonth(currentMonthRef);
       setStatus('pendente');

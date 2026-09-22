@@ -342,7 +342,7 @@ export function getStoredAppointments(): ServiceAppointment[] {
     const raw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
     if (!raw) return DEFAULT_INITIAL_APPOINTMENTS;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    if (Array.isArray(parsed)) return parsed;
     return DEFAULT_INITIAL_APPOINTMENTS;
   } catch (e) {
     return DEFAULT_INITIAL_APPOINTMENTS;
@@ -1017,7 +1017,7 @@ export function getStoredTireInventory(): TireItem[] {
     const raw = localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
     if (!raw) return INITIAL_TIRE_INVENTORY;
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_TIRE_INVENTORY;
+    if (!Array.isArray(parsed)) return INITIAL_TIRE_INVENTORY;
     return parsed;
   } catch (e) {
     console.error('Failed to load tire inventory', e);

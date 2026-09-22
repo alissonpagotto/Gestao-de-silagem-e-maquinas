@@ -452,7 +452,7 @@ export const PrintFieldOrderModal: React.FC<PrintFieldOrderModalProps> = ({
               <div>
                 <div className="border-b border-stone-400 pb-1 mb-1"></div>
                 <span className="font-bold text-stone-900 block">Encarregado / Líder de Campo</span>
-                <span className="text-stone-500">Colaça Silagem & Frotas Agrícolas</span>
+                <span className="text-stone-500">{companyProfile?.tradeName || companyProfile?.corporateName || 'Equipe de Operações'}</span>
               </div>
               <div>
                 <div className="border-b border-stone-400 pb-1 mb-1"></div>
