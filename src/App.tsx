@@ -123,6 +123,22 @@ import {
   upsertCliente,
   deleteCliente,
   fetchClientes,
+  upsertFornecedor,
+  deleteFornecedor,
+  fetchFornecedores,
+  upsertEstoqueItem,
+  deleteEstoqueItem,
+  fetchEstoque,
+  upsertRhFuncionario,
+  deleteRhFuncionario,
+  fetchRhFuncionarios,
+  upsertGestaoFrota,
+  deleteGestaoFrota,
+  fetchGestaoFrotas,
+  upsertContaAPagar,
+  deleteContaAPagar,
+  fetchContasAPagar,
+  toValidUUID,
   subscribeToCloudTable,
   checkSubscriberAccessStatus,
   saveCloudCompanyProfile,
@@ -236,7 +252,7 @@ export default function App() {
   };
 
   const { confirm } = useConfirm();
-  const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt } = useAuth();
+  const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt, startImpersonation, stopImpersonation } = useAuth();
 
   const handleSyncSupabase = async () => {
     setIsSyncing(true);
@@ -258,12 +274,14 @@ export default function App() {
     }
   };
 
-  // Sincronização e Carga em Nuvem de Todos os Módulos do Cliente (Supabase)
+  // Identificação e isolamento rigoroso de Tenant (Multi-Tenant)
+  const activeTenantId = useMemo(() => getActiveCompanyId(companyProfile), [companyProfile]);
+
+  // Sincronização e Carga em Nuvem de Todos os Módulos do Assinante Logado (Supabase)
   const isInitialLoadDone = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
-    const activeTenantId = getActiveCompanyId(companyProfile);
 
     const loadCloudData = async () => {
       try {
@@ -273,66 +291,40 @@ export default function App() {
           setCompanyProfile(prev => ({ ...prev, ...cloudCompany }));
         }
 
-        // 1. Carrega dados relacionais legados (se existirem)
+        // 1. Carrega dados relacionais com isolamento estrito por company_id
         const cloudData = await fetchAllDataFromSupabase(activeTenantId);
         if (cloudData && isMounted) {
-          if (cloudData.clientes && cloudData.clientes.length > 0) {
-            setClients(prev => {
-              const existingIds = new Set(prev.map(c => c.id));
-              const newItems = cloudData.clientes.filter((c: any) => !existingIds.has(c.id));
-              return [...prev, ...newItems];
-            });
+          if (cloudData.clientes) {
+            setClients(cloudData.clientes);
           }
-          if (cloudData.fornecedores && cloudData.fornecedores.length > 0) {
-            setSuppliers(prev => {
-              const existingIds = new Set(prev.map(s => s.id));
-              const newItems = cloudData.fornecedores.filter((s: any) => !existingIds.has(s.id));
-              return [...prev, ...newItems];
-            });
+          if (cloudData.fornecedores) {
+            setSuppliers(cloudData.fornecedores);
           }
-          if (cloudData.estoque && cloudData.estoque.length > 0) {
-            setInventory(prev => {
-              const existingIds = new Set(prev.map(i => i.id));
-              const newItems = cloudData.estoque.filter((i: any) => !existingIds.has(i.id));
-              return [...prev, ...newItems];
-            });
+          if (cloudData.estoque) {
+            setInventory(cloudData.estoque);
           }
-          if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
-            setEmployees(prev => {
-              const existingIds = new Set(prev.map(e => e.id));
-              const newItems = cloudData.rh_funcionarios.filter((e: any) => !existingIds.has(e.id));
-              return [...prev, ...newItems];
-            });
+          if (cloudData.rh_funcionarios) {
+            setEmployees(cloudData.rh_funcionarios);
           }
-          if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
-            setMachineries(prev => {
-              const existingIds = new Set(prev.map(m => m.id));
-              const newItems = cloudData.gestao_frotas.filter((m: any) => !existingIds.has(m.id));
-              return [...prev, ...newItems];
-            });
+          if (cloudData.gestao_frotas) {
+            setMachineries(cloudData.gestao_frotas);
           }
-          if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
-            setExpenses(prev => {
-              const existingIds = new Set(prev.map(d => d.id));
-              const newItems = cloudData.contas_a_pagar
-                .filter((d: any) => !existingIds.has(d.id))
-                .map((d: any) => ({
-                  id: d.id,
-                  title: d.centro_custo || 'Parcela Fornecedor',
-                  description: d.centro_custo || 'Parcela Fornecedor',
-                  amount: Number(d.valor_parcela) || 0,
-                  dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-                  status: d.status_pago ? 'pago' : 'pendente',
-                  categoryId: 'despesa_geral',
-                  categoryColor: '#10b981',
-                  category: 'despesa_geral',
-                  categoryName: d.centro_custo || 'Geral',
-                  paymentMethod: d.forma_pagamento || 'Boleto',
-                  supplier: 'Fornecedor',
-                  createdAt: d.created_at || new Date().toISOString()
-                } as unknown as Expense));
-              return [...prev, ...newItems];
-            });
+          if (cloudData.contas_a_pagar) {
+            setExpenses(cloudData.contas_a_pagar.map((d: any) => ({
+              id: d.id,
+              title: d.centro_custo || 'Parcela Fornecedor',
+              description: d.centro_custo || 'Parcela Fornecedor',
+              amount: Number(d.valor_parcela) || 0,
+              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+              status: d.status_pago ? 'pago' : 'pendente',
+              categoryId: 'despesa_geral',
+              categoryColor: '#10b981',
+              category: 'despesa_geral',
+              categoryName: d.centro_custo || 'Geral',
+              paymentMethod: d.forma_pagamento || 'Boleto',
+              supplier: 'Fornecedor',
+              createdAt: d.created_at || new Date().toISOString()
+            } as unknown as Expense)));
           }
         }
 
@@ -377,16 +369,62 @@ export default function App() {
     // Assinaturas em tempo real para sincronização instantânea entre múltiplos dispositivos
     const unsubClientes = subscribeToCloudTable('clientes', () => {
       fetchClientes(activeTenantId).then(fresh => {
-        if (fresh && fresh.length > 0 && isMounted) {
+        if (fresh && isMounted) {
           setClients(fresh);
         }
       });
     });
 
+    const unsubFornecedores = subscribeToCloudTable('fornecedores', () => {
+      fetchFornecedores(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          setSuppliers(fresh);
+        }
+      });
+    });
+
     const unsubEstoque = subscribeToCloudTable('estoque', () => {
-      fetchCloudInventory(activeTenantId).then(fresh => {
-        if (fresh && fresh.length > 0 && isMounted) {
+      fetchEstoque(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
           setInventory(fresh);
+        }
+      });
+    });
+
+    const unsubRH = subscribeToCloudTable('rh_funcionarios', () => {
+      fetchRhFuncionarios(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          setEmployees(fresh);
+        }
+      });
+    });
+
+    const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
+      fetchGestaoFrotas(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          setMachineries(fresh);
+        }
+      });
+    });
+
+    const unsubContas = subscribeToCloudTable('contas_a_pagar', () => {
+      fetchContasAPagar(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          setExpenses(fresh.map((d: any) => ({
+            id: d.id,
+            title: d.centro_custo || 'Parcela Fornecedor',
+            description: d.centro_custo || 'Parcela Fornecedor',
+            amount: Number(d.valor_parcela) || 0,
+            dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+            status: d.status_pago ? 'pago' : 'pendente',
+            categoryId: 'despesa_geral',
+            categoryColor: '#10b981',
+            category: 'despesa_geral',
+            categoryName: d.centro_custo || 'Geral',
+            paymentMethod: d.forma_pagamento || 'Boleto',
+            supplier: 'Fornecedor',
+            createdAt: d.created_at || new Date().toISOString()
+          } as unknown as Expense)));
         }
       });
     });
@@ -408,10 +446,14 @@ export default function App() {
     return () => { 
       isMounted = false; 
       unsubClientes();
+      unsubFornecedores();
       unsubEstoque();
+      unsubRH();
+      unsubFrotas();
+      unsubContas();
       unsubSettings();
     };
-  }, [currentUser?.uid, companyProfile?.cnpjCpf, companyProfile?.email]);
+  }, [activeTenantId, currentUser?.uid, companyProfile?.cnpjCpf, companyProfile?.email]);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
 
@@ -526,7 +568,6 @@ export default function App() {
   useEffect(() => { saveStoredCompanyProfile(companyProfile); }, [companyProfile]);
 
   // Persistência e Sincronização Automática em Nuvem (Supabase) dos Módulos Principais do Cliente
-  const activeTenantId = useMemo(() => getActiveCompanyId(companyProfile), [companyProfile]);
 
   useEffect(() => {
     if (!isInitialLoadDone.current) return;
@@ -616,8 +657,22 @@ export default function App() {
     setCompanyProfile(getStoredCompanyProfile());
   };
 
-  // Expense Handlers
+  // Expense Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveExpense = (newOrUpdated: Expense | Expense[]) => {
+    const items = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
+    items.forEach(exp => {
+      upsertContaAPagar({
+        id: exp.id,
+        nota_fiscal_id: exp.invoiceNumber ? toValidUUID(exp.invoiceNumber) : null,
+        numero_parcela: '01/01',
+        valor_parcela: Number(exp.amount) || 0,
+        data_vencimento: exp.dueDate || new Date().toISOString().split('T')[0],
+        forma_pagamento: exp.paymentMethod || 'Boleto',
+        centro_custo: exp.costCenterName || exp.description || 'Geral',
+        status_pago: exp.status === 'pago'
+      }, activeTenantId).catch(err => console.warn('Supabase upsertContaAPagar notice:', err));
+    });
+
     if (Array.isArray(newOrUpdated)) {
       setExpenses((prev) => {
         const newIds = new Set(newOrUpdated.map((n) => n.id));
@@ -666,6 +721,7 @@ export default function App() {
       variant: 'danger',
     });
     if (isConfirmed) {
+      deleteContaAPagar(id, activeTenantId).catch(err => console.warn('Supabase deleteContaAPagar notice:', err));
       setExpenses((prev) => prev.filter((e) => e.id !== id));
     }
   };
@@ -676,11 +732,20 @@ export default function App() {
       prev.map((e) => {
         if (e.id === id) {
           const nextStatus = newStatus || (e.status === 'pago' ? 'pendente' : 'pago');
-          return {
+          const updated = {
             ...e,
             status: nextStatus,
             paymentDate: nextStatus === 'pago' ? (e.paymentDate || today) : undefined,
           };
+          upsertContaAPagar({
+            id: updated.id,
+            valor_parcela: Number(updated.amount) || 0,
+            data_vencimento: updated.dueDate || today,
+            status_pago: updated.status === 'pago',
+            centro_custo: updated.costCenterName || updated.description || 'Geral',
+            forma_pagamento: updated.paymentMethod || 'Boleto'
+          }, activeTenantId).catch(err => console.warn('Supabase toggle status notice:', err));
+          return updated;
         }
         return e;
       })
@@ -728,10 +793,10 @@ export default function App() {
       description: `${expense.description} (Cópia)`,
       createdAt: new Date().toISOString(),
     };
-    setExpenses((prev) => [duplicated, ...prev]);
+    handleSaveExpense(duplicated);
   };
 
-  // Client Handlers
+  // Client Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveClient = (client: Client) => {
     setClients((prev) => {
       const idx = prev.findIndex((c) => c.id === client.id);
@@ -742,7 +807,7 @@ export default function App() {
       }
       return [client, ...prev];
     });
-    upsertCliente(client).catch(err => {
+    upsertCliente(client, activeTenantId).catch(err => {
       console.warn('Notice syncing client to Supabase:', err);
     });
   };
@@ -757,7 +822,7 @@ export default function App() {
     });
     if (isConfirmed) {
       setClients((prev) => prev.filter((c) => c.id !== id));
-      deleteCliente(id).catch(err => {
+      deleteCliente(id, activeTenantId).catch(err => {
         console.warn('Notice deleting client from Supabase:', err);
       });
     }
@@ -768,10 +833,84 @@ export default function App() {
       const updated = prev.map((c) => (c.id === clientId ? { ...c, status } : c));
       const target = updated.find(c => c.id === clientId);
       if (target) {
-        upsertCliente(target).catch(err => console.warn('Notice syncing status to Supabase:', err));
+        upsertCliente(target, activeTenantId).catch(err => console.warn('Notice syncing status to Supabase:', err));
       }
       return updated;
     });
+  };
+
+  // Gestão de Frotas Handlers (Multi-Tenant Persistência no Supabase)
+  const handleSaveMachineries = (newMachineries: Machinery[]) => {
+    const oldIds = new Set(machineries.map(m => m.id));
+    const newIds = new Set(newMachineries.map(m => m.id));
+
+    // Exclusões no Supabase
+    for (const oldId of oldIds) {
+      if (!newIds.has(oldId)) {
+        deleteGestaoFrota(oldId, activeTenantId).catch(err => console.warn('Supabase deleteGestaoFrota notice:', err));
+      }
+    }
+
+    // Inserções / Atualizações no Supabase
+    for (const m of newMachineries) {
+      upsertGestaoFrota(m, activeTenantId).catch(err => console.warn('Supabase upsertGestaoFrota notice:', err));
+    }
+
+    setMachineries(newMachineries);
+  };
+
+  // RH Funcionários Handlers (Multi-Tenant Persistência no Supabase)
+  const handleSaveEmployees = (newEmployees: Employee[]) => {
+    const oldIds = new Set(employees.map(e => e.id));
+    const newIds = new Set(newEmployees.map(e => e.id));
+
+    for (const oldId of oldIds) {
+      if (!newIds.has(oldId)) {
+        deleteRhFuncionario(oldId, activeTenantId).catch(err => console.warn('Supabase deleteRhFuncionario notice:', err));
+      }
+    }
+
+    for (const emp of newEmployees) {
+      upsertRhFuncionario(emp, activeTenantId).catch(err => console.warn('Supabase upsertRhFuncionario notice:', err));
+    }
+
+    setEmployees(newEmployees);
+  };
+
+  // Fornecedores Handlers (Multi-Tenant Persistência no Supabase)
+  const handleSaveSuppliers = (newSuppliers: Supplier[]) => {
+    const oldIds = new Set(suppliers.map(s => s.id));
+    const newIds = new Set(newSuppliers.map(s => s.id));
+
+    for (const oldId of oldIds) {
+      if (!newIds.has(oldId)) {
+        deleteFornecedor(oldId, activeTenantId).catch(err => console.warn('Supabase deleteFornecedor notice:', err));
+      }
+    }
+
+    for (const sup of newSuppliers) {
+      upsertFornecedor(sup, activeTenantId).catch(err => console.warn('Supabase upsertFornecedor notice:', err));
+    }
+
+    setSuppliers(newSuppliers);
+  };
+
+  // Estoque Handlers (Multi-Tenant Persistência no Supabase)
+  const handleSaveInventory = (newInventory: InventoryItem[]) => {
+    const oldIds = new Set(inventory.map(i => i.id));
+    const newIds = new Set(newInventory.map(i => i.id));
+
+    for (const oldId of oldIds) {
+      if (!newIds.has(oldId)) {
+        deleteEstoqueItem(oldId, activeTenantId).catch(err => console.warn('Supabase deleteEstoqueItem notice:', err));
+      }
+    }
+
+    for (const item of newInventory) {
+      upsertEstoqueItem(item, activeTenantId).catch(err => console.warn('Supabase upsertEstoqueItem notice:', err));
+    }
+
+    setInventory(newInventory);
   };
 
   // Order Handlers
@@ -992,6 +1131,24 @@ export default function App() {
 
   const handleOpenMasterAdmin = () => {
     try {
+      localStorage.removeItem('admin_impersonated_company_id');
+      localStorage.removeItem('is_admin_impersonating');
+      localStorage.removeItem('impersonated_subscriber_id');
+      localStorage.removeItem('impersonated_subscriber_name');
+      localStorage.removeItem('impersonated_subscriber_email');
+      localStorage.removeItem('impersonated_subscriber_plan');
+      localStorage.removeItem('current_company_id');
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      stopImpersonation();
+    } catch (e) {
+      console.error(e);
+    }
+    setIsAdminImpersonating(false);
+    setImpersonatedSubscriber(null);
+    try {
       window.history.pushState({}, '', '/master-admin');
     } catch (e) {
       console.error(e);
@@ -1010,6 +1167,14 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('admin_impersonated_company_id');
+      localStorage.removeItem('is_admin_impersonating');
+      localStorage.removeItem('impersonated_subscriber_id');
+      localStorage.removeItem('impersonated_subscriber_name');
+      localStorage.removeItem('impersonated_subscriber_email');
+      localStorage.removeItem('impersonated_subscriber_plan');
+      localStorage.removeItem('current_company_id');
+      stopImpersonation();
       if (currentUser) {
         await signOutUser();
       }
@@ -1027,38 +1192,57 @@ export default function App() {
 
   // Estado de Personificação (Impersonate) pelo Admin Mestre
   const [isAdminImpersonating, setIsAdminImpersonating] = useState<boolean>(() => {
-    return typeof localStorage !== 'undefined' && localStorage.getItem('is_admin_impersonating') === 'true';
+    return typeof localStorage !== 'undefined' && (
+      Boolean(localStorage.getItem('admin_impersonated_company_id')) ||
+      localStorage.getItem('is_admin_impersonating') === 'true'
+    );
   });
   const [impersonatedSubscriber, setImpersonatedSubscriber] = useState<{ id: string; name: string; email: string; planName?: string } | null>(() => {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('is_admin_impersonating') === 'true') {
-      return {
-        id: localStorage.getItem('impersonated_subscriber_id') || '',
-        name: localStorage.getItem('impersonated_subscriber_name') || 'Assinante',
-        email: localStorage.getItem('impersonated_subscriber_email') || '',
-        planName: localStorage.getItem('impersonated_subscriber_plan') || 'Produtor Essencial',
-      };
+    if (typeof localStorage !== 'undefined') {
+      const targetId = localStorage.getItem('admin_impersonated_company_id') || localStorage.getItem('impersonated_subscriber_id');
+      if (targetId && (localStorage.getItem('is_admin_impersonating') === 'true' || localStorage.getItem('admin_impersonated_company_id'))) {
+        return {
+          id: targetId,
+          name: localStorage.getItem('impersonated_subscriber_name') || 'Assinante',
+          email: localStorage.getItem('impersonated_subscriber_email') || '',
+          planName: localStorage.getItem('impersonated_subscriber_plan') || 'Produtor Essencial',
+        };
+      }
     }
     return null;
   });
 
-  // Função para Personificar o Assinante
+  // Função para Personificar o Assinante (Botão Verde "→ Entrar")
   const handleImpersonateSubscriber = async (sub: Subscriber) => {
+    const targetCompanyId = (sub as any).companyId || sub.id;
+
     try {
+      localStorage.setItem('admin_impersonated_company_id', targetCompanyId);
       localStorage.setItem('is_admin_impersonating', 'true');
-      localStorage.setItem('impersonated_subscriber_id', sub.id);
+      localStorage.setItem('impersonated_subscriber_id', targetCompanyId);
       localStorage.setItem('impersonated_subscriber_name', sub.name);
       localStorage.setItem('impersonated_subscriber_email', sub.responsibleEmail || '');
       localStorage.setItem('impersonated_subscriber_plan', sub.planName || 'Produtor Essencial');
-      localStorage.setItem('current_company_id', sub.id);
+      localStorage.setItem('current_company_id', targetCompanyId);
       localStorage.setItem('user_role', 'admin');
       localStorage.setItem('silagem_client_session', 'active');
     } catch (e) {
       console.error(e);
     }
 
+    try {
+      startImpersonation(targetCompanyId, {
+        name: sub.name,
+        email: sub.responsibleEmail,
+        planName: sub.planName,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
     setIsAdminImpersonating(true);
     setImpersonatedSubscriber({
-      id: sub.id,
+      id: targetCompanyId,
       name: sub.name,
       email: sub.responsibleEmail || '',
       planName: sub.planName || 'Produtor Essencial',
@@ -1066,7 +1250,8 @@ export default function App() {
 
     const impersonatedProfile: CompanyProfile = {
       ...companyProfile,
-      id: sub.id,
+      id: targetCompanyId,
+      companyId: targetCompanyId,
       corporateName: sub.name,
       tradeName: sub.name,
       email: sub.responsibleEmail || '',
@@ -1082,16 +1267,62 @@ export default function App() {
     };
     setCompanyProfile(impersonatedProfile);
 
-    // Carrega estritamente os tratores, frotas e dados reais da fazenda personificada
+    // Carrega estritamente os tratores, frotas, RH, clientes e dados reais da fazenda personificada
     try {
-      const cloudData = await fetchAllDataFromSupabase(sub.id);
+      const [cloudData, cloudModules] = await Promise.all([
+        fetchAllDataFromSupabase(targetCompanyId),
+        fetchAllClientModulesFromSupabase(targetCompanyId)
+      ]);
+
       if (cloudData) {
-        if (cloudData.clientes) setClients(cloudData.clientes);
-        if (cloudData.fornecedores) setSuppliers(cloudData.fornecedores);
-        if (cloudData.estoque) setInventory(cloudData.estoque);
-        if (cloudData.rh_funcionarios) setEmployees(cloudData.rh_funcionarios);
-        if (cloudData.gestao_frotas) setMachineries(cloudData.gestao_frotas);
-        if (cloudData.contas_a_pagar) setExpenses(cloudData.contas_a_pagar);
+        if (cloudData.clientes && cloudData.clientes.length > 0) {
+          setClients(cloudData.clientes);
+        } else if (cloudModules?.clients && cloudModules.clients.length > 0) {
+          setClients(cloudModules.clients);
+        } else {
+          setClients([]);
+        }
+
+        if (cloudData.fornecedores && cloudData.fornecedores.length > 0) {
+          setSuppliers(cloudData.fornecedores);
+        } else {
+          setSuppliers([]);
+        }
+
+        if (cloudData.estoque && cloudData.estoque.length > 0) {
+          setInventory(cloudData.estoque);
+        } else if (cloudModules?.inventory && cloudModules.inventory.length > 0) {
+          setInventory(cloudModules.inventory);
+        } else {
+          setInventory([]);
+        }
+
+        if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
+          setEmployees(cloudData.rh_funcionarios);
+        } else {
+          setEmployees([]);
+        }
+
+        if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
+          setMachineries(cloudData.gestao_frotas);
+        } else if (cloudModules?.machineries && cloudModules.machineries.length > 0) {
+          setMachineries(cloudModules.machineries);
+        } else {
+          setMachineries([]);
+        }
+
+        if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
+          setExpenses(cloudData.contas_a_pagar as Expense[]);
+        } else if (cloudModules?.expenses && cloudModules.expenses.length > 0) {
+          setExpenses(cloudModules.expenses);
+        } else {
+          setExpenses([]);
+        }
+      } else if (cloudModules) {
+        if (cloudModules.clients) setClients(cloudModules.clients);
+        if (cloudModules.inventory) setInventory(cloudModules.inventory);
+        if (cloudModules.machineries) setMachineries(cloudModules.machineries);
+        if (cloudModules.expenses) setExpenses(cloudModules.expenses);
       }
     } catch (e) {
       console.warn('Erro ao carregar dados da empresa personificada:', e);
@@ -1108,16 +1339,26 @@ export default function App() {
   // Função para Encerrar a Personificação e Retornar ao Master Admin
   const handleExitImpersonation = () => {
     try {
+      localStorage.removeItem('admin_impersonated_company_id');
       localStorage.removeItem('is_admin_impersonating');
       localStorage.removeItem('impersonated_subscriber_id');
       localStorage.removeItem('impersonated_subscriber_name');
       localStorage.removeItem('impersonated_subscriber_email');
+      localStorage.removeItem('impersonated_subscriber_plan');
+      localStorage.removeItem('current_company_id');
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      stopImpersonation();
     } catch (e) {
       console.error(e);
     }
 
     setIsAdminImpersonating(false);
     setImpersonatedSubscriber(null);
+    setCompanyProfile(getStoredCompanyProfile());
 
     try {
       window.history.pushState({}, '', '/master-admin');
@@ -1461,7 +1702,7 @@ export default function App() {
           {activeTab === 'estoque' && (
             <InventoryModule
               inventory={inventory}
-              onSaveInventory={setInventory}
+              onSaveInventory={handleSaveInventory}
             />
           )}
 
@@ -1482,7 +1723,7 @@ export default function App() {
               companyProfile={companyProfile}
               initialSubTab={activeTab === 'despesas' ? 'despesas' : undefined}
               onSaveBankAccounts={handleSaveBankAccounts}
-              onSaveExpenses={setExpenses}
+              onSaveExpenses={handleSaveExpense}
               onSaveSettlements={handleSaveSettlements}
               onToggleExpenseStatus={handleToggleExpenseStatus}
               onSettlePayment={handleSettlePayment}
@@ -1510,9 +1751,9 @@ export default function App() {
                 companyProfile={companyProfile}
                 viewMode="import"
                 inventory={inventory}
-                onSaveInventory={(updatedInv) => setInventory(updatedInv)}
+                onSaveInventory={handleSaveInventory}
                 suppliers={suppliers}
-                onSaveSuppliers={(updatedSuppliers) => setSuppliers(updatedSuppliers)}
+                onSaveSuppliers={handleSaveSuppliers}
                 costCenters={costCenters}
                 onSaveCostCenters={(updatedCostCenters) => setCostCenters(updatedCostCenters)}
                 categories={categories}
@@ -1561,7 +1802,7 @@ export default function App() {
               services={services}
               companyProfile={companyProfile}
               initialSubTab={activeTab === 'funcionarios' ? 'funcionarios' : undefined}
-              onSaveEmployees={setEmployees}
+              onSaveEmployees={handleSaveEmployees}
               onSavePayrolls={handleSavePayrolls}
               onSaveVacations={handleSaveVacations}
               onSaveLeaves={handleSaveLeaves}
@@ -1608,7 +1849,7 @@ export default function App() {
           {activeTab === 'fornecedores' && (
             <SuppliersModule
               suppliers={suppliers}
-              onSaveSuppliers={setSuppliers}
+              onSaveSuppliers={handleSaveSuppliers}
             />
           )}
 
@@ -1634,12 +1875,12 @@ export default function App() {
                 activeTab === 'manutencoes' ? 'manutencoes' :
                 (activeTab === 'rodizio' || activeTab === 'rodizio_pneus') ? 'rodizio' : undefined
               }
-              onSaveMachineries={setMachineries}
-              onSaveEmployees={setEmployees}
+              onSaveMachineries={handleSaveMachineries}
+              onSaveEmployees={handleSaveEmployees}
               onSaveTeams={setFleetTeams}
               onSaveFuelLogs={setFuelLogs}
               onSaveMaintenanceLogs={setMaintenanceLogs}
-              onSaveInventory={setInventory}
+              onSaveInventory={handleSaveInventory}
               onSaveServices={setServices}
               onSaveOrders={setOrders}
               onAddExpense={(newExpOrList: any) => {

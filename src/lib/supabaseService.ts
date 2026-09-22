@@ -5,6 +5,8 @@ import {
   Supplier,
   InventoryItem,
   Expense,
+  ExpenseStatus,
+  PaymentMethod,
   Machinery,
   Employee,
   SilageOrder,
@@ -101,22 +103,41 @@ export interface SyncStats {
 // Colunas: id, cnpj_cpf, razao_social, nome_fantasia, inscricao_estadual,
 //          inscricao_municipal, telefone_whatsapp, created_at, updated_at
 // ===========================================================================
-export async function fetchFornecedores(): Promise<Supplier[] | null> {
+export async function fetchFornecedores(companyId?: string): Promise<Supplier[] | null> {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('fornecedores')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('razao_social', { ascending: true });
+
+    if ((!data || data.length === 0) && activeCompanyId) {
+      const altUuid = toValidUUID(activeCompanyId);
+      if (altUuid && altUuid !== activeCompanyId) {
+        const retry = await supabase
+          .from('fornecedores')
+          .select('*')
+          .eq('company_id', altUuid)
+          .order('razao_social', { ascending: true });
+        if (retry.data && retry.data.length > 0) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
       console.warn('Supabase fetchFornecedores notice:', error.message);
-      return null;
+      return [];
     }
     if (!data) return [];
 
     return data.map(row => ({
       id: row.id,
+      companyId: row.company_id || undefined,
       name: row.razao_social || row.nome_fantasia || '',
       tradeName: row.nome_fantasia || row.razao_social || '',
       cnpjOrCpf: row.cnpj_cpf || '',
@@ -132,16 +153,17 @@ export async function fetchFornecedores(): Promise<Supplier[] | null> {
     }));
   } catch (err) {
     console.warn('Supabase fetchFornecedores err:', err);
-    return null;
+    return [];
   }
 }
 
-export async function upsertFornecedor(supplier: Supplier): Promise<boolean> {
+export async function upsertFornecedor(supplier: Supplier, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = (supplier as any).companyId || companyId || getActiveCompanyId();
     const payload: Record<string, any> = {
       id: toValidUUID(supplier.id),
-      company_id: getActiveCompanyId(),
+      company_id: activeCompanyId,
       cnpj_cpf: supplier.cnpjOrCpf?.trim() || `00.000.000/0000-${toValidUUID(supplier.id).slice(0, 2)}`,
       razao_social: supplier.name || supplier.tradeName || 'Fornecedor sem Razão Social',
       nome_fantasia: supplier.tradeName || supplier.name || '',
@@ -167,6 +189,26 @@ export async function upsertFornecedor(supplier: Supplier): Promise<boolean> {
     return true;
   } catch (err) {
     console.warn('Supabase upsertFornecedor err:', err);
+    return false;
+  }
+}
+
+export async function deleteFornecedor(id: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const uuid = toValidUUID(id);
+    let query = supabase.from('fornecedores').delete().eq('id', uuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    const { error } = await query;
+    if (error && id !== uuid) {
+      let retry = supabase.from('fornecedores').delete().eq('id', id);
+      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      await retry;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteFornecedor err:', err);
     return false;
   }
 }
@@ -301,22 +343,40 @@ export interface ContaAPagarRecord {
   created_at?: string;
 }
 
-export async function fetchContasAPagar(): Promise<ContaAPagarRecord[] | null> {
+export async function fetchContasAPagar(companyId?: string): Promise<ContaAPagarRecord[] | null> {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('contas_a_pagar')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('data_vencimento', { ascending: true });
+
+    if ((!data || data.length === 0) && activeCompanyId) {
+      const altUuid = toValidUUID(activeCompanyId);
+      if (altUuid && altUuid !== activeCompanyId) {
+        const retry = await supabase
+          .from('contas_a_pagar')
+          .select('*')
+          .eq('company_id', altUuid)
+          .order('data_vencimento', { ascending: true });
+        if (retry.data && retry.data.length > 0) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
       console.warn('Supabase fetchContasAPagar notice:', error.message);
-      return null;
+      return [];
     }
-    return data as ContaAPagarRecord[];
+    return (data || []) as ContaAPagarRecord[];
   } catch (err) {
     console.warn('Supabase fetchContasAPagar err:', err);
-    return null;
+    return [];
   }
 }
 
@@ -329,12 +389,13 @@ export async function upsertContaAPagar(parcela: {
   forma_pagamento?: string;
   centro_custo?: string;
   status_pago?: boolean;
-}): Promise<boolean> {
+}, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = companyId || getActiveCompanyId();
     const payload: Record<string, any> = {
       id: toValidUUID(parcela.id),
-      company_id: getActiveCompanyId(),
+      company_id: activeCompanyId,
       nota_fiscal_id: parcela.nota_fiscal_id ? toValidUUID(parcela.nota_fiscal_id) : null,
       numero_parcela: parcela.numero_parcela || '01/01',
       valor_parcela: Number(parcela.valor_parcela) || 0,
@@ -364,13 +425,14 @@ export async function upsertContaAPagar(parcela: {
   }
 }
 
-export async function deleteContaAPagar(parcelaId: string): Promise<boolean> {
+export async function deleteContaAPagar(parcelaId: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase
-      .from('contas_a_pagar')
-      .delete()
-      .eq('id', toValidUUID(parcelaId));
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const uuid = toValidUUID(parcelaId);
+    let query = supabase.from('contas_a_pagar').delete().eq('id', uuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    const { error } = await query;
 
     if (error) {
       console.warn('Supabase deleteContaAPagar notice:', error.message);
@@ -411,22 +473,41 @@ export const upsertParcelaFinanceira = async (parcela: {
 // Colunas: id, codigo_produto, descricao, quantidade_atual, preco_venda_final,
 //          preco_venda_atacado, preco_venda_promo, fim_promocao, created_at
 // ===========================================================================
-export async function fetchEstoque(): Promise<InventoryItem[] | null> {
+export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] | null> {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('estoque')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('descricao', { ascending: true });
+
+    if ((!data || data.length === 0) && activeCompanyId) {
+      const altUuid = toValidUUID(activeCompanyId);
+      if (altUuid && altUuid !== activeCompanyId) {
+        const retry = await supabase
+          .from('estoque')
+          .select('*')
+          .eq('company_id', altUuid)
+          .order('descricao', { ascending: true });
+        if (retry.data && retry.data.length > 0) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
       console.warn('Supabase fetchEstoque notice:', error.message);
-      return null;
+      return [];
     }
     if (!data) return [];
 
     return data.map(row => ({
       id: row.id,
+      companyId: row.company_id || undefined,
       code: row.codigo_produto || '',
       name: row.descricao || '',
       category: 'outro',
@@ -441,16 +522,17 @@ export async function fetchEstoque(): Promise<InventoryItem[] | null> {
     } as InventoryItem));
   } catch (err) {
     console.warn('Supabase fetchEstoque err:', err);
-    return null;
+    return [];
   }
 }
 
-export async function upsertEstoqueItem(item: InventoryItem): Promise<boolean> {
+export async function upsertEstoqueItem(item: InventoryItem, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = item.companyId || companyId || getActiveCompanyId();
     const payload: Record<string, any> = {
       id: toValidUUID(item.id),
-      company_id: item.companyId || getActiveCompanyId(),
+      company_id: activeCompanyId,
       codigo_produto: item.code || `PRD-${toValidUUID(item.id).slice(0, 8)}`,
       descricao: item.name || 'Produto sem descrição',
       quantidade_atual: Number(item.quantity) || 0.000,
@@ -480,27 +562,58 @@ export async function upsertEstoqueItem(item: InventoryItem): Promise<boolean> {
   }
 }
 
+export async function deleteEstoqueItem(id: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const uuid = toValidUUID(id);
+    let query = supabase.from('estoque').delete().eq('id', uuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    const { error } = await query;
+    if (error && id !== uuid) {
+      let retry = supabase.from('estoque').delete().eq('id', id);
+      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      await retry;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteEstoqueItem err:', err);
+    return false;
+  }
+}
+
 // ===========================================================================
 // 5. Clientes (Tabela: public.clientes)
 // ===========================================================================
 export async function fetchClientes(companyId?: string): Promise<Client[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
   try {
     let { data, error } = await supabase
       .from('clientes')
       .select('*')
-      .or(`company_id.eq.${activeCompanyId},company_id.eq.company_default_fazenda,company_id.is.null`);
+      .eq('company_id', activeCompanyId)
+      .order('name', { ascending: true });
+
+    if ((!data || data.length === 0) && activeCompanyId) {
+      const altUuid = toValidUUID(activeCompanyId);
+      if (altUuid && altUuid !== activeCompanyId) {
+        const retry = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('company_id', altUuid)
+          .order('name', { ascending: true });
+        if (retry.data && retry.data.length > 0) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
-      const fallback = await supabase.from('clientes').select('*');
-      if (!fallback.error) {
-        data = fallback.data;
-        error = null;
-      } else {
-        console.warn('Supabase fetchClientes notice:', error.message);
-        return null;
-      }
+      console.warn('Supabase fetchClientes notice:', error.message);
+      return [];
     }
     if (!data || data.length === 0) return [];
 
@@ -538,13 +651,14 @@ export async function fetchClientes(companyId?: string): Promise<Client[] | null
     });
   } catch (err) {
     console.warn('Supabase fetchClientes err:', err);
-    return null;
+    return [];
   }
 }
 
-export async function upsertCliente(client: Client): Promise<boolean> {
+export async function upsertCliente(client: Client, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = client.companyId || companyId || getActiveCompanyId();
     const hasValidId = isValidUUID(client.id);
     const clientName = (client.name || client.nome || '').trim() || 'Cliente';
 
@@ -561,14 +675,10 @@ export async function upsertCliente(client: Client): Promise<boolean> {
       total_area: Number(client.areaHectares) || 0,
       cultivated_area: Number(client.areaHectares) || 0,
       notes: (client.notes || client.observacoes || '').trim() || null,
+      company_id: activeCompanyId,
       updated_at: new Date().toISOString()
     };
 
-    if (client.companyId || getActiveCompanyId()) {
-      payload.company_id = client.companyId || getActiveCompanyId();
-    }
-
-    // Se o cliente possui um UUID válido: realiza UPSERT preservando ou atualizando a linha existente
     if (hasValidId) {
       payload.id = client.id.trim().toLowerCase();
       const { error } = await supabase
@@ -576,40 +686,22 @@ export async function upsertCliente(client: Client): Promise<boolean> {
         .upsert(payload, { onConflict: 'id' });
 
       if (error) {
-        console.error('[Supabase upsertCliente 400/Rejection]:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          payloadSent: payload
-        });
+        console.error('[Supabase upsertCliente 400/Rejection]:', error);
         return false;
       }
 
       return true;
     }
 
-    // Se for um NOVO cliente (sem UUID válido prévio):
-    // O campo 'id' NÃO é enviado, deixando o PostgreSQL gerar o UUID oficial via DEFAULT uuid_generate_v4()
-    const { data, error } = await supabase
+    // Se for um novo cliente ou ID não UUID, usa UUID determinístico
+    payload.id = toValidUUID(client.id);
+    const { error } = await supabase
       .from('clientes')
-      .insert(payload)
-      .select('id')
-      .single();
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      console.error('[Supabase insertCliente (Novo) 400/Rejection]:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        payloadSent: payload
-      });
+      console.error('[Supabase upsertCliente (Deterministic UUID) Error]:', error);
       return false;
-    }
-
-    if (data && data.id) {
-      client.id = data.id;
     }
 
     return true;
@@ -619,27 +711,19 @@ export async function upsertCliente(client: Client): Promise<boolean> {
   }
 }
 
-export async function deleteCliente(id: string): Promise<boolean> {
+export async function deleteCliente(id: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    if (!isValidUUID(id)) {
-      console.warn('[Supabase deleteCliente] ID ignorado (não é um UUID válido):', id);
-      return false;
-    }
-    const { error } = await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', id.trim().toLowerCase());
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const targetUuid = isValidUUID(id) ? id.trim().toLowerCase() : toValidUUID(id);
+    let query = supabase.from('clientes').delete().eq('id', targetUuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    const { error } = await query;
 
-    if (error) {
-      console.error('[Supabase deleteCliente Error]:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        id
-      });
-      return false;
+    if (error && id !== targetUuid) {
+      let retry = supabase.from('clientes').delete().eq('id', id);
+      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      await retry;
     }
     return true;
   } catch (err) {
@@ -651,31 +735,50 @@ export async function deleteCliente(id: string): Promise<boolean> {
 // ===========================================================================
 // 6. RH Funcionários (Tabela: public.rh_funcionarios)
 // ===========================================================================
-export async function fetchRhFuncionarios(): Promise<Employee[] | null> {
+export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('rh_funcionarios')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('name', { ascending: true });
+
+    if ((!data || data.length === 0) && activeCompanyId) {
+      const altUuid = toValidUUID(activeCompanyId);
+      if (altUuid && altUuid !== activeCompanyId) {
+        const retry = await supabase
+          .from('rh_funcionarios')
+          .select('*')
+          .eq('company_id', altUuid)
+          .order('name', { ascending: true });
+        if (retry.data && retry.data.length > 0) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
       console.warn('Supabase fetchRhFuncionarios notice:', error.message);
-      return null;
+      return [];
     }
-    return data as Employee[];
+    return (data || []) as Employee[];
   } catch (err) {
     console.warn('Supabase fetchRhFuncionarios err:', err);
-    return null;
+    return [];
   }
 }
 
-export async function upsertRhFuncionario(employee: Employee): Promise<boolean> {
+export async function upsertRhFuncionario(employee: Employee, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
     const payload: Record<string, any> = {
       id: toValidUUID(employee.id),
-      company_id: employee.companyId || getActiveCompanyId(),
+      company_id: activeCompanyId,
       name: employee.name,
       role: employee.role,
       cpf: employee.cpf || '',
@@ -711,22 +814,60 @@ export async function upsertRhFuncionario(employee: Employee): Promise<boolean> 
   }
 }
 
+export async function deleteRhFuncionario(id: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const uuid = toValidUUID(id);
+    let query = supabase.from('rh_funcionarios').delete().eq('id', uuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    const { error } = await query;
+    if (error && id !== uuid) {
+      let retry = supabase.from('rh_funcionarios').delete().eq('id', id);
+      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      await retry;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteRhFuncionario err:', err);
+    return false;
+  }
+}
+
 // ===========================================================================
 // 7. Gestão de Frotas (Tabela: public.gestao_frotas)
 // ===========================================================================
-export async function fetchGestaoFrotas(): Promise<Machinery[] | null> {
+export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
   if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('gestao_frotas')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('name', { ascending: true });
+
+    if ((!data || data.length === 0) && activeCompanyId) {
+      const altUuid = toValidUUID(activeCompanyId);
+      if (altUuid && altUuid !== activeCompanyId) {
+        const retry = await supabase
+          .from('gestao_frotas')
+          .select('*')
+          .eq('company_id', altUuid)
+          .order('name', { ascending: true });
+        if (retry.data && retry.data.length > 0) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
       console.warn('Supabase fetchGestaoFrotas notice:', error.message);
-      return null;
+      return [];
     }
-    return (data as any[]).map(row => ({
+    return (data as any[] || []).map(row => ({
       ...row,
       fleetNumber: row.fleet_number || row.fleetNumber || undefined,
       licensePlateOrSerial: row.plate_or_serial || row.licensePlateOrSerial,
@@ -737,16 +878,17 @@ export async function fetchGestaoFrotas(): Promise<Machinery[] | null> {
     })) as Machinery[];
   } catch (err) {
     console.warn('Supabase fetchGestaoFrotas err:', err);
-    return null;
+    return [];
   }
 }
 
-export async function upsertGestaoFrota(vehicle: Machinery): Promise<boolean> {
+export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = vehicle.companyId || companyId || getActiveCompanyId();
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
-      company_id: vehicle.companyId || getActiveCompanyId(),
+      company_id: activeCompanyId,
       name: vehicle.name,
       type: vehicle.categoryType || 'maquina',
       model: vehicle.model,
@@ -777,6 +919,26 @@ export async function upsertGestaoFrota(vehicle: Machinery): Promise<boolean> {
     return true;
   } catch (err) {
     console.warn('Supabase upsertGestaoFrota err:', err);
+    return false;
+  }
+}
+
+export async function deleteGestaoFrota(id: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const uuid = toValidUUID(id);
+    let query = supabase.from('gestao_frotas').delete().eq('id', uuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    const { error } = await query;
+    if (error && id !== uuid) {
+      let retry = supabase.from('gestao_frotas').delete().eq('id', id);
+      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      await retry;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteGestaoFrota err:', err);
     return false;
   }
 }
@@ -875,52 +1037,60 @@ export async function syncAllDataToSupabase(payload: {
 export async function fetchAllDataFromSupabase(companyId?: string) {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
-  try {
-    const queryTable = async (tableName: string) => {
-      if (!tableName || tableName === 'null' || tableName === 'undefined') return [];
-      try {
-        const { data, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .or(`company_id.eq.${activeCompanyId},company_id.eq.company_default_fazenda,company_id.is.null`)
-          .limit(500);
-
-        if (!error && data) return data;
-
-        // Fallback caso a coluna company_id ainda não exista na tabela do Supabase
-        const fallback = await supabase.from(tableName).select('*').limit(500);
-        return fallback.data || [];
-      } catch {
-        return [];
-      }
+  if (!activeCompanyId) {
+    return {
+      clientes: [],
+      fornecedores: [],
+      estoque: [],
+      notas_fiscais: [],
+      contas_a_pagar: [],
+      rh_funcionarios: [],
+      gestao_frotas: []
     };
-
+  }
+  try {
     const [
       clientes,
       fornecedores,
       estoque,
-      notas_fiscais,
-      contas_a_pagar,
       rh_funcionarios,
-      gestao_frotas
+      gestao_frotas,
+      contas_a_pagar
     ] = await Promise.all([
-      queryTable('clientes'),
-      queryTable('fornecedores'),
-      queryTable('estoque'),
-      queryTable('notas_fiscais'),
-      queryTable('contas_a_pagar'),
-      queryTable('rh_funcionarios'),
-      queryTable('gestao_frotas')
+      fetchClientes(activeCompanyId),
+      fetchFornecedores(activeCompanyId),
+      fetchEstoque(activeCompanyId),
+      fetchRhFuncionarios(activeCompanyId),
+      fetchGestaoFrotas(activeCompanyId),
+      fetchContasAPagar(activeCompanyId)
     ]);
 
+    const formattedExpenses: Expense[] = (contas_a_pagar || []).map((d: any) => ({
+      id: d.id,
+      title: d.centro_custo || d.title || 'Despesa Fornecedor',
+      description: d.centro_custo || d.description || 'Despesa Fornecedor',
+      amount: Number(d.valor_parcela ?? d.amount ?? 0),
+      dueDate: d.data_vencimento || d.dueDate || new Date().toISOString().split('T')[0],
+      status: ((d.status_pago || d.status === 'pago') ? 'pago' : 'pendente') as ExpenseStatus,
+      categoryId: d.categoryId || 'despesa_geral',
+      categoryColor: d.categoryColor || '#10b981',
+      category: d.category || 'despesa_geral',
+      categoryName: d.centro_custo || d.categoryName || 'Geral',
+      paymentMethod: (d.forma_pagamento || d.paymentMethod || 'boleto') as PaymentMethod,
+      supplier: d.supplier || 'Fornecedor',
+      recurrence: d.recurrence || 'none',
+      createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+      updatedAt: d.updated_at || d.updatedAt || new Date().toISOString(),
+    }));
+
     return {
-      clientes,
-      fornecedores,
-      estoque,
-      notas_fiscais,
-      contas_a_pagar,
-      rh_funcionarios,
-      gestao_frotas
+      clientes: clientes || [],
+      fornecedores: fornecedores || [],
+      estoque: estoque || [],
+      notas_fiscais: [],
+      contas_a_pagar: formattedExpenses,
+      rh_funcionarios: rh_funcionarios || [],
+      gestao_frotas: gestao_frotas || []
     };
   } catch (err) {
     console.warn('Supabase fetchAllDataFromSupabase notice:', err);
@@ -940,42 +1110,94 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
 //          status, field_notes, created_at, updated_at
 // ===========================================================================
 
-export async function deleteAgendamento(appointmentId: string): Promise<boolean> {
+export async function fetchAgendamentos(companyId?: string): Promise<ServiceAppointment[] | null> {
+  if (!isSupabaseConfigured) return null;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  if (!activeCompanyId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .eq('company_id', activeCompanyId)
+      .order('start_date', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase fetchAgendamentos notice:', error.message);
+      return [];
+    }
+    if (!data) return [];
+
+    return data.map((row: any): ServiceAppointment => ({
+      id: row.id,
+      companyId: row.company_id || undefined,
+      appointmentNumber: row.appointment_number || '',
+      clientId: row.client_id || '',
+      clientName: row.client_name || '',
+      farmName: row.farm_name || '',
+      locationCityState: row.location_city_state || '',
+      contactPhone: row.contact_phone || '',
+      serviceType: row.service_type || 'Corte / Ensilagem',
+      serviceTab: row.service_tab || 'corte',
+      startDate: row.start_date || '',
+      startTime: row.start_time || '',
+      travelTimeMinutes: Number(row.travel_time_minutes) || 0,
+      trailerLoadingTimeMinutes: Number(row.trailer_loading_time_minutes) || 0,
+      areaUnit: row.area_unit || 'hectares',
+      estimatedQuantity: Number(row.estimated_quantity) || 0,
+      productivityRatePerHour: Number(row.productivity_rate) || 0,
+      executionTimeMinutes: Number(row.execution_time_minutes) || 0,
+      totalTimeMinutes: Number(row.total_time_minutes) || 0,
+      endDate: row.end_date || '',
+      endTime: row.end_time || '',
+      primaryMachineryId: row.primary_machinery_id || '',
+      primaryMachineryPrefix: row.primary_machinery_prefix || '',
+      primaryMachineryPlate: row.primary_machinery_plate || '',
+      primaryMachineryModel: row.primary_machinery_model || '',
+      assignedVehicles: Array.isArray(row.assigned_vehicles) ? row.assigned_vehicles : [],
+      assignedTeam: Array.isArray(row.assigned_team) ? row.assigned_team : [],
+      status: row.status || 'agendado',
+      fieldNotes: row.field_notes || '',
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || new Date().toISOString()
+    }));
+  } catch (err) {
+    console.warn('Supabase fetchAgendamentos err:', err);
+    return [];
+  }
+}
+
+export async function deleteAgendamento(appointmentId: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) {
     return true;
   }
   try {
+    const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(appointmentId);
 
     // Tenta deletar pelo UUID na tabela agendamentos
-    let { error } = await supabase
-      .from('agendamentos')
-      .delete()
-      .eq('id', uuid);
+    let query = supabase.from('agendamentos').delete().eq('id', uuid);
+    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+    let { error } = await query;
 
     // Caso o ID seja texto e a coluna id seja texto ou para cobrir IDs customizados
     if (error && appointmentId !== uuid) {
-      const retry = await supabase
-        .from('agendamentos')
-        .delete()
-        .eq('id', appointmentId);
-      if (!retry.error) {
+      let retry = supabase.from('agendamentos').delete().eq('id', appointmentId);
+      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      const res = await retry;
+      if (!res.error) {
         return true;
       }
     }
 
     if (error) {
       console.warn('Supabase deleteAgendamento notice (tabela agendamentos):', error.message);
-      // Fallback para service_appointments caso configurado com esse nome
-      const fallback = await supabase
-        .from('service_appointments')
-        .delete()
-        .eq('id', uuid);
-      if (fallback.error && appointmentId !== uuid) {
-        await supabase
-          .from('service_appointments')
-          .delete()
-          .eq('id', appointmentId);
+      let fallback = supabase.from('service_appointments').delete().eq('id', uuid);
+      if (activeCompanyId) fallback = fallback.eq('company_id', activeCompanyId);
+      const res = await fallback;
+      if (res.error && appointmentId !== uuid) {
+        let retryFb = supabase.from('service_appointments').delete().eq('id', appointmentId);
+        if (activeCompanyId) retryFb = retryFb.eq('company_id', activeCompanyId);
+        await retryFb;
       }
     }
 
@@ -986,15 +1208,16 @@ export async function deleteAgendamento(appointmentId: string): Promise<boolean>
   }
 }
 
-export async function upsertAgendamento(app: ServiceAppointment): Promise<boolean> {
+export async function upsertAgendamento(app: ServiceAppointment, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    const activeCompanyId = app.companyId || companyId || getActiveCompanyId();
     const uuid = toValidUUID(app.id);
     const clientUuid = app.clientId ? toValidUUID(app.clientId) : null;
 
     const payload: Record<string, any> = {
       id: uuid,
-      company_id: app.companyId || getActiveCompanyId(),
+      company_id: activeCompanyId,
       appointment_number: app.appointmentNumber || null,
       client_id: clientUuid,
       client_name: app.clientName,
@@ -1741,32 +1964,75 @@ export async function fetchCloudSubscribers(): Promise<Subscriber[] | null> {
           Number(row.valor_mensal)
         );
 
+        const prevSub = mergedMap.get(idKey) || (emailKey ? mergedMap.get(emailKey) : undefined);
         const subItem: Subscriber = {
           id: idKey,
-          name: row.nome || row.name || 'Assinante',
-          responsibleEmail: emailKey,
-          password: row.password_hash || row.senha || undefined,
-          trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || ''),
-          cpfCnpj: row.cpf_cnpj || row.document || '',
-          stateRegistration: row.state_registration || undefined,
-          phone: row.telefone || row.phone || '',
-          cep: row.cep || '',
-          street: row.logradouro || row.street || '',
-          number: row.numero || row.number || '',
-          neighborhood: row.bairro || row.neighborhood || '',
-          city: row.cidade || row.city || '',
-          state: row.estado || row.state || '',
+          name: row.nome || row.name || prevSub?.name || 'Assinante',
+          responsibleEmail: emailKey || prevSub?.responsibleEmail || '',
+          password: row.password_hash || row.senha || prevSub?.password || undefined,
+          trialUntil: row.trial_ate ? new Date(row.trial_ate).toISOString().split('T')[0] : (row.trial_until || prevSub?.trialUntil || ''),
+          cpfCnpj: row.cpf_cnpj || row.document || prevSub?.cpfCnpj || '',
+          stateRegistration: row.state_registration || prevSub?.stateRegistration || undefined,
+          phone: row.telefone || row.phone || prevSub?.phone || '',
+          cep: row.cep || row.zip_code || row.zipCode || row.codigo_postal || prevSub?.cep || '',
+          street: row.logradouro || row.street || row.rua || row.address || row.endereco || prevSub?.street || '',
+          number: row.numero || row.number || row.num || prevSub?.number || '',
+          neighborhood: row.bairro || row.neighborhood || row.district || prevSub?.neighborhood || '',
+          city: row.cidade || row.city || row.municipio || prevSub?.city || '',
+          state: row.estado || row.state || row.uf || prevSub?.state || '',
           planId: planDetails.planKey,
           planName: planDetails.planName,
           monthlyValue: planDetails.monthlyValue,
-          status: normalizeSubscriberStatus(row.status),
-          createdAt: row.criado_em || row.created_at || new Date().toISOString(),
-          updatedAt: row.criado_em || row.updated_at || new Date().toISOString(),
+          status: normalizeSubscriberStatus(row.status || prevSub?.status),
+          createdAt: row.criado_em || row.created_at || prevSub?.createdAt || new Date().toISOString(),
+          updatedAt: row.criado_em || row.updated_at || prevSub?.updatedAt || new Date().toISOString(),
         };
-        // Sobrescreve dados legados com dados mais recentes e prioritários de 'assinantes'
+        // Sobrescreve dados legados com dados mais recentes e prioritários de 'assinantes', preservando dados de endereço
         mergedMap.set(idKey, subItem);
         if (emailKey) mergedMap.set(emailKey, subItem);
       }
+    }
+
+    // 3. Enriquecimento de endereços via site_settings (cloud_company_* e company_profile_*)
+    try {
+      const { data: settingsRows } = await supabase
+        .from('site_settings')
+        .select('id, hero_title')
+        .or('id.like.cloud_company_%,id.like.company_profile_%');
+
+      if (settingsRows && settingsRows.length > 0) {
+        for (const sRow of settingsRows) {
+          if (!sRow.hero_title) continue;
+          try {
+            const p = JSON.parse(sRow.hero_title);
+            if (p && typeof p === 'object') {
+              const pId = p.id || sRow.id.replace('cloud_company_', '').replace('company_profile_', '');
+              const pEmail = (p.email || p.loginEmail || '').trim().toLowerCase();
+              const pDoc = (p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document || '').replace(/\D/g, '');
+
+              const targets = Array.from(mergedMap.values()).filter(s => 
+                (s.id && s.id === pId) || 
+                (pEmail && s.responsibleEmail && s.responsibleEmail.toLowerCase() === pEmail) ||
+                (pDoc && (s.cpfCnpj || '').replace(/\D/g, '') === pDoc)
+              );
+
+              for (const target of targets) {
+                if (!target.cep) target.cep = p.zipCode || p.cep || p.zip_code || p.codigo_postal || '';
+                if (!target.street) target.street = p.address || p.street || p.logradouro || p.rua || p.endereco || '';
+                if (!target.number) target.number = p.number || p.numero || p.num || '';
+                if (!target.neighborhood) target.neighborhood = p.neighborhood || p.bairro || p.district || '';
+                if (!target.city) target.city = p.city || p.cidade || p.municipio || '';
+                if (!target.state) target.state = p.state || p.estado || p.uf || '';
+                if (!target.cpfCnpj) target.cpfCnpj = p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document || '';
+                if (!target.stateRegistration) target.stateRegistration = p.stateRegistration || p.state_registration || p.inscricaoEstadual || '';
+                if (!target.phone) target.phone = p.phone || p.telefone || p.whatsapp || '';
+              }
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      // Ignora falha de enriquecimento
     }
 
     // Deduplica por ID único preservando ordenação decrescente por data
@@ -1891,19 +2157,164 @@ export async function upsertCloudSubscriber(sub: Subscriber): Promise<boolean> {
   }
 }
 
+export async function updateCloudSubscriber(assinante: Partial<Subscriber> & Record<string, any>): Promise<boolean> {
+  if (!isSupabaseConfigured || !assinante) return false;
+  try {
+    // 1. Expurgo manual obrigatório: remove 'id' e 'created_at' (e 'criado_em') do corpo do payload (PATCH)
+    // Em requisições PATCH do Supabase, o ID deve ir apenas na URL do filtro (?id=eq.X) e NUNCA dentro do corpo do objeto enviado
+    const { id, created_at, criado_em, ...rawUpdateData } = assinante;
+    const targetId = toValidUUID(id || assinante.id);
+
+    if (!targetId) {
+      console.warn('updateCloudSubscriber: ID do assinante não fornecido ou inválido para PATCH na tabela assinantes');
+      return false;
+    }
+
+    // 2. Colunas oficiais válidas da tabela 'assinantes' para evitar erro 400 (PGRST204)
+    const validAssinantesColumns = new Set([
+      'nome',
+      'email',
+      'plano_nome',
+      'plano_selecionado',
+      'valor_mensal',
+      'status',
+      'trial_ate'
+    ]);
+
+    const updateData: Record<string, any> = {};
+
+    // Mapeamento normalizado de propriedades
+    if (rawUpdateData.nome !== undefined || rawUpdateData.name !== undefined) {
+      const v = (rawUpdateData.nome || rawUpdateData.name || '').trim();
+      if (v) updateData.nome = v;
+    }
+    if (rawUpdateData.email !== undefined || rawUpdateData.responsibleEmail !== undefined) {
+      const v = (rawUpdateData.email || rawUpdateData.responsibleEmail || '').trim().toLowerCase();
+      if (v) updateData.email = v;
+    }
+    if (rawUpdateData.plano_nome !== undefined || rawUpdateData.planName !== undefined) {
+      const v = (rawUpdateData.plano_nome || rawUpdateData.planName || '').trim();
+      if (v) updateData.plano_nome = v;
+    }
+    if (rawUpdateData.plano_selecionado !== undefined || rawUpdateData.planId !== undefined) {
+      updateData.plano_selecionado = normalizeSubscriberPlanKey(rawUpdateData.plano_selecionado || rawUpdateData.planId || rawUpdateData.planName);
+    }
+    if (rawUpdateData.valor_mensal !== undefined || rawUpdateData.monthlyValue !== undefined) {
+      const v = Number(rawUpdateData.valor_mensal ?? rawUpdateData.monthlyValue);
+      if (!isNaN(v) && v > 0) updateData.valor_mensal = v;
+    }
+    if (rawUpdateData.status !== undefined) {
+      updateData.status = normalizeSubscriberStatus(rawUpdateData.status);
+    }
+    if (rawUpdateData.trial_ate !== undefined || rawUpdateData.trialUntil !== undefined) {
+      const t = rawUpdateData.trial_ate || rawUpdateData.trialUntil;
+      if (t) {
+        updateData.trial_ate = new Date(String(t).includes('T') ? String(t) : `${t}T23:59:59Z`).toISOString();
+      }
+    }
+
+    // Copia qualquer outra coluna permitida que foi enviada diretamente
+    for (const [key, val] of Object.entries(rawUpdateData)) {
+      if (validAssinantesColumns.has(key) && !(key in updateData) && val !== undefined) {
+        updateData[key] = val;
+      }
+    }
+
+    let assinantesOk = true;
+
+    if (Object.keys(updateData).length > 0 && !isTableUnmigrated('assinantes')) {
+      // Realiza o update utilizando o padrão especificado: .update(updateData).eq('id', id)
+      const { error } = await supabase
+        .from('assinantes')
+        .update(updateData)
+        .eq('id', targetId);
+
+      if (error) {
+        assinantesOk = false;
+        if (isTableMissingError(error)) {
+          markTableUnmigrated('assinantes');
+        } else {
+          console.error('Erro ao atualizar tabela assinantes no Supabase (PATCH):', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            targetId,
+            payload: updateData
+          });
+        }
+      }
+    }
+
+    // 3. Atualização de contingência na tabela legada 'subscribers'
+    if (!isTableUnmigrated('subscribers')) {
+      try {
+        const subData: Record<string, any> = {
+          updated_at: new Date().toISOString()
+        };
+        if (updateData.nome) subData.name = updateData.nome;
+        if (updateData.email) subData.email = updateData.email;
+        if (updateData.plano_nome) subData.plan_name = updateData.plano_nome;
+        if (updateData.status) subData.status = updateData.status === 'ativa' ? 'Ativa' : updateData.status === 'cancelada' ? 'Cancelada' : 'Trial';
+        if (updateData.trial_ate) subData.trial_ends_at = updateData.trial_ate;
+        if (rawUpdateData.phone || rawUpdateData.telefone) subData.phone = rawUpdateData.phone || rawUpdateData.telefone;
+        if (rawUpdateData.cpfCnpj || rawUpdateData.cpf_cnpj || rawUpdateData.document) subData.document = rawUpdateData.cpfCnpj || rawUpdateData.cpf_cnpj || rawUpdateData.document;
+        if (rawUpdateData.street || rawUpdateData.logradouro) subData.street = rawUpdateData.street || rawUpdateData.logradouro;
+        if (rawUpdateData.number || rawUpdateData.numero) subData.number = rawUpdateData.number || rawUpdateData.numero;
+        if (rawUpdateData.neighborhood || rawUpdateData.bairro) subData.neighborhood = rawUpdateData.neighborhood || rawUpdateData.bairro;
+        if (rawUpdateData.city || rawUpdateData.cidade) subData.city = rawUpdateData.city || rawUpdateData.cidade;
+        if (rawUpdateData.state || rawUpdateData.estado) subData.state = rawUpdateData.state || rawUpdateData.estado;
+        if (rawUpdateData.cep) subData.cep = rawUpdateData.cep;
+
+        const { error: subErr } = await supabase
+          .from('subscribers')
+          .update(subData)
+          .eq('id', targetId);
+
+        if (subErr && isTableMissingError(subErr)) {
+          markTableUnmigrated('subscribers');
+        }
+      } catch (err) {
+        // Ignora falha na tabela legada
+      }
+    }
+
+    return assinantesOk;
+  } catch (err: any) {
+    console.error('Exceção ao atualizar assinante no Supabase:', {
+      message: err?.message || String(err),
+      details: err?.details || ''
+    });
+    return false;
+  }
+}
+
 export async function updateCloudSubscriberStatus(id: string, status: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const validId = toValidUUID(id);
     const normalized = normalizeSubscriberStatus(status);
 
-    // Atualiza em assinantes
+    // Atualiza em assinantes com tratamento de erro e logs detalhados
     if (!isTableUnmigrated('assinantes')) {
       const { error: err1 } = await supabase
         .from('assinantes')
         .update({ status: normalized })
         .eq('id', validId);
-      if (err1 && isTableMissingError(err1)) markTableUnmigrated('assinantes');
+
+      if (err1) {
+        if (isTableMissingError(err1)) {
+          markTableUnmigrated('assinantes');
+        } else {
+          console.error('Erro ao atualizar status na tabela assinantes (PATCH):', {
+            message: err1.message,
+            details: err1.details,
+            hint: err1.hint,
+            code: err1.code,
+            id: validId
+          });
+        }
+      }
     }
 
     // Atualiza em subscribers
@@ -1916,7 +2327,11 @@ export async function updateCloudSubscriberStatus(id: string, status: string): P
     }
 
     return true;
-  } catch (err) {
+  } catch (err: any) {
+    console.error('Exceção em updateCloudSubscriberStatus:', {
+      message: err?.message || String(err),
+      details: err?.details || ''
+    });
     return false;
   }
 }
@@ -1961,7 +2376,7 @@ export async function updateCloudSubscriberPlan(id: string, planNameOrKey: strin
       valorMensal = getSubscriberPlanPrice(planKey);
     }
 
-    // Atualiza em assinantes
+    // Atualiza em assinantes com tratamento de erro e logs detalhados
     if (!isTableUnmigrated('assinantes')) {
       const { error: err1 } = await supabase
         .from('assinantes')
@@ -1971,7 +2386,20 @@ export async function updateCloudSubscriberPlan(id: string, planNameOrKey: strin
           valor_mensal: valorMensal
         })
         .eq('id', validId);
-      if (err1 && isTableMissingError(err1)) markTableUnmigrated('assinantes');
+
+      if (err1) {
+        if (isTableMissingError(err1)) {
+          markTableUnmigrated('assinantes');
+        } else {
+          console.error('Erro ao atualizar plano na tabela assinantes (PATCH):', {
+            message: err1.message,
+            details: err1.details,
+            hint: err1.hint,
+            code: err1.code,
+            id: validId
+          });
+        }
+      }
     }
 
     // Atualiza em subscribers
@@ -1984,7 +2412,11 @@ export async function updateCloudSubscriberPlan(id: string, planNameOrKey: strin
     }
 
     return true;
-  } catch (err) {
+  } catch (err: any) {
+    console.error('Exceção em updateCloudSubscriberPlan:', {
+      message: err?.message || String(err),
+      details: err?.details || ''
+    });
     return false;
   }
 }
@@ -1994,13 +2426,26 @@ export async function updateCloudSubscriberTrial(id: string, trialEndsAtIso: str
   try {
     const validId = toValidUUID(id);
 
-    // Atualiza em assinantes
+    // Atualiza em assinantes com tratamento de erro e logs detalhados
     if (!isTableUnmigrated('assinantes')) {
       const { error: err1 } = await supabase
         .from('assinantes')
         .update({ trial_ate: trialEndsAtIso })
         .eq('id', validId);
-      if (err1 && isTableMissingError(err1)) markTableUnmigrated('assinantes');
+
+      if (err1) {
+        if (isTableMissingError(err1)) {
+          markTableUnmigrated('assinantes');
+        } else {
+          console.error('Erro ao atualizar trial na tabela assinantes (PATCH):', {
+            message: err1.message,
+            details: err1.details,
+            hint: err1.hint,
+            code: err1.code,
+            id: validId
+          });
+        }
+      }
     }
 
     // Atualiza em subscribers
@@ -2013,7 +2458,11 @@ export async function updateCloudSubscriberTrial(id: string, trialEndsAtIso: str
     }
 
     return true;
-  } catch (err) {
+  } catch (err: any) {
+    console.error('Exceção em updateCloudSubscriberTrial:', {
+      message: err?.message || String(err),
+      details: err?.details || ''
+    });
     return false;
   }
 }
@@ -2562,26 +3011,42 @@ export async function saveCloudCompanyProfile(profile: CompanyProfile, companyId
       }
 
       try {
-        const assUpdatePayload: any = {};
-        if (companyDisplayName) assUpdatePayload.nome = companyDisplayName;
-        if (profile.phone) assUpdatePayload.telefone = profile.phone;
-        if (profile.cnpjCpf) assUpdatePayload.cpf_cnpj = profile.cnpjCpf;
-        if (profile.city) assUpdatePayload.cidade = profile.city;
-        if (profile.state) assUpdatePayload.estado = profile.state;
-        if (profile.address) assUpdatePayload.logradouro = profile.address;
-        if (profile.number) assUpdatePayload.numero = profile.number;
-        if (profile.neighborhood) assUpdatePayload.bairro = profile.neighborhood;
-        if (profile.zipCode) assUpdatePayload.cep = profile.zipCode;
+        const assinantePayload: Record<string, any> = {};
+        if (companyDisplayName) assinantePayload.nome = companyDisplayName;
 
-        let assUpdate = supabase.from('assinantes').update(assUpdatePayload);
-        if (activeSubId) {
-          assUpdate = assUpdate.or(`id.eq.${toValidUUID(activeSubId)},email.ilike.${cleanEmail}`);
-        } else {
-          assUpdate = assUpdate.ilike('email', cleanEmail);
+        // Expurgo manual: remove 'id' e 'created_at' do corpo do objeto enviado
+        const { id, created_at, criado_em, ...updateData } = assinantePayload;
+        const targetId = activeSubId ? toValidUUID(activeSubId) : undefined;
+
+        if (Object.keys(updateData).length > 0 && !isTableUnmigrated('assinantes')) {
+          let query = supabase.from('assinantes').update(updateData);
+          if (targetId) {
+            query = query.eq('id', targetId);
+          } else if (cleanEmail) {
+            query = query.ilike('email', cleanEmail);
+          }
+
+          const { error: assError } = await query;
+          if (assError) {
+            if (isTableMissingError(assError)) {
+              markTableUnmigrated('assinantes');
+            } else {
+              console.error('Erro ao atualizar tabela assinantes no Supabase (PATCH):', {
+                message: assError.message,
+                details: assError.details,
+                hint: assError.hint,
+                code: assError.code,
+                targetId,
+                payload: updateData
+              });
+            }
+          }
         }
-        await assUpdate;
-      } catch (err) {
-        console.warn('Notice updating assinantes table:', err);
+      } catch (err: any) {
+        console.error('Exceção ao atualizar tabela assinantes em saveCloudCompanyProfile:', {
+          message: err?.message || String(err),
+          details: err?.details || ''
+        });
       }
     }
 
@@ -2610,9 +3075,10 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
   const enriched: Subscriber = { ...sub };
   if (!isSupabaseConfigured) return enriched;
 
-  const cleanId = String(sub.id || '').trim();
-  const cleanEmail = (sub.responsibleEmail || '').trim().toLowerCase();
-  const cleanDoc = (sub.cpfCnpj || '').replace(/\D/g, '');
+  const anySub = sub as any;
+  const cleanId = String(sub.id || anySub.uuid || '').trim();
+  const cleanEmail = (sub.responsibleEmail || anySub.email || anySub.loginEmail || anySub.responsible_email || '').trim().toLowerCase();
+  const cleanDoc = (sub.cpfCnpj || anySub.cpf_cnpj || anySub.cnpjCpf || anySub.cnpj || anySub.document || '').replace(/\D/g, '');
 
   // 1. Consulta em tempo real na tabela site_settings para dados cadastrais e fiscais
   try {
@@ -2627,6 +3093,10 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
       cleanEmail ? `company_profile_company_${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : '',
       cleanEmail ? `cloud_company_${cleanEmail}` : '',
       cleanEmail ? `company_profile_${cleanEmail}` : '',
+      'company_profile_default',
+      'cloud_company_default',
+      'company_profile',
+      'cloud_company_profile',
     ].filter(Boolean)));
 
     if (candidateIds.length > 0) {
@@ -2682,6 +3152,43 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
         }
       }
     }
+
+    // Busca mais ampla em site_settings se ainda faltar endereço
+    if (!enriched.cep || !enriched.street || !enriched.city) {
+      const { data: allProfiles } = await supabase
+        .from('site_settings')
+        .select('id, hero_title')
+        .or('id.like.cloud_company_%,id.like.company_profile_%')
+        .limit(20);
+
+      if (allProfiles && allProfiles.length > 0) {
+        for (const aRow of allProfiles) {
+          if (!aRow.hero_title) continue;
+          try {
+            const p = JSON.parse(aRow.hero_title);
+            if (p && typeof p === 'object') {
+              const pEmail = (p.email || p.loginEmail || '').trim().toLowerCase();
+              const pDoc = (p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document || '').replace(/\D/g, '');
+              const isMatch = (cleanEmail && pEmail === cleanEmail) || 
+                              (cleanDoc && pDoc === cleanDoc) || 
+                              (cleanId && (aRow.id.includes(cleanId) || p.id === cleanId));
+              if (isMatch || allProfiles.length === 1) {
+                if (!enriched.cep) enriched.cep = p.zipCode || p.cep || p.zip_code || p.codigo_postal || '';
+                if (!enriched.street) enriched.street = p.address || p.street || p.logradouro || p.rua || p.endereco || '';
+                if (!enriched.number) enriched.number = p.number || p.numero || p.num || '';
+                if (!enriched.neighborhood) enriched.neighborhood = p.neighborhood || p.bairro || p.district || '';
+                if (!enriched.city) enriched.city = p.city || p.cidade || p.municipio || '';
+                if (!enriched.state) enriched.state = p.state || p.estado || p.uf || '';
+                if (!enriched.cpfCnpj) enriched.cpfCnpj = p.cnpjCpf || p.cnpj || p.cpf_cnpj || p.document || '';
+                if (!enriched.stateRegistration) enriched.stateRegistration = p.stateRegistration || p.state_registration || p.inscricaoEstadual || '';
+                if (!enriched.phone) enriched.phone = p.phone || p.telefone || p.whatsapp || '';
+                if (enriched.cep && enriched.street) break;
+              }
+            }
+          } catch {}
+        }
+      }
+    }
   } catch (err) {
     console.warn('Notice fetching company fiscal settings from cloud:', err);
   }
@@ -2729,9 +3236,9 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
   try {
     let querySub = supabase.from('subscribers').select('*');
     if (cleanEmail && cleanId) {
-      querySub = querySub.or(`email.ilike.${cleanEmail},id.eq.${toValidUUID(cleanId)}`);
+      querySub = querySub.or(`email.ilike.${cleanEmail},id.eq.${cleanId},id.eq.${toValidUUID(cleanId)}`);
     } else if (cleanId) {
-      querySub = querySub.eq('id', toValidUUID(cleanId));
+      querySub = querySub.or(`id.eq.${cleanId},id.eq.${toValidUUID(cleanId)}`);
     } else if (cleanEmail) {
       querySub = querySub.ilike('email', cleanEmail);
     }
@@ -2743,12 +3250,24 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
       if ((subRow.phone || anyRow.telefone) && !enriched.phone) enriched.phone = subRow.phone || anyRow.telefone;
       if (subRow.plan_name && !enriched.planName) enriched.planName = subRow.plan_name;
       if (subRow.trial_ends_at && !enriched.trialUntil) enriched.trialUntil = subRow.trial_ends_at.split('T')[0];
-      if ((anyRow.cep || anyRow.zip_code || anyRow.zipCode) && !enriched.cep) enriched.cep = anyRow.cep || anyRow.zip_code || anyRow.zipCode;
-      if ((anyRow.street || anyRow.logradouro || anyRow.address || anyRow.rua) && !enriched.street) enriched.street = anyRow.street || anyRow.logradouro || anyRow.address || anyRow.rua;
-      if ((anyRow.number || anyRow.numero) && !enriched.number) enriched.number = anyRow.number || anyRow.numero;
-      if ((anyRow.neighborhood || anyRow.bairro) && !enriched.neighborhood) enriched.neighborhood = anyRow.neighborhood || anyRow.bairro;
-      if ((anyRow.city || anyRow.cidade) && !enriched.city) enriched.city = anyRow.city || anyRow.cidade;
-      if ((anyRow.state || anyRow.estado || anyRow.uf) && !enriched.state) enriched.state = anyRow.state || anyRow.estado || anyRow.uf;
+      if ((anyRow.cep || anyRow.zip_code || anyRow.zipCode || anyRow.codigo_postal) && !enriched.cep) {
+        enriched.cep = anyRow.cep || anyRow.zip_code || anyRow.zipCode || anyRow.codigo_postal;
+      }
+      if ((anyRow.street || anyRow.logradouro || anyRow.address || anyRow.rua || anyRow.endereco) && !enriched.street) {
+        enriched.street = anyRow.street || anyRow.logradouro || anyRow.address || anyRow.rua || anyRow.endereco;
+      }
+      if ((anyRow.number || anyRow.numero || anyRow.num) && !enriched.number) {
+        enriched.number = anyRow.number || anyRow.numero || anyRow.num;
+      }
+      if ((anyRow.neighborhood || anyRow.bairro || anyRow.district) && !enriched.neighborhood) {
+        enriched.neighborhood = anyRow.neighborhood || anyRow.bairro || anyRow.district;
+      }
+      if ((anyRow.city || anyRow.cidade || anyRow.municipio) && !enriched.city) {
+        enriched.city = anyRow.city || anyRow.cidade || anyRow.municipio;
+      }
+      if ((anyRow.state || anyRow.estado || anyRow.uf) && !enriched.state) {
+        enriched.state = anyRow.state || anyRow.estado || anyRow.uf;
+      }
     }
   } catch (err) {
     console.warn('Notice fetching subscriber from subscribers table:', err);
@@ -2757,16 +3276,29 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
   // 4. Contingência local se disponível no navegador
   if (typeof localStorage !== 'undefined' && (!enriched.cep || !enriched.street || !enriched.city)) {
     try {
-      const localStr = localStorage.getItem(`company_profile_${cleanId}`) || localStorage.getItem('company_profile');
-      if (localStr) {
-        const localProf = JSON.parse(localStr);
-        if (localProf && typeof localProf === 'object') {
-          if (!enriched.cep) enriched.cep = localProf.zipCode || localProf.cep || localProf.zip_code || '';
-          if (!enriched.street) enriched.street = localProf.address || localProf.street || localProf.logradouro || localProf.rua || '';
-          if (!enriched.number) enriched.number = localProf.number || localProf.numero || '';
-          if (!enriched.neighborhood) enriched.neighborhood = localProf.neighborhood || localProf.bairro || '';
-          if (!enriched.city) enriched.city = localProf.city || localProf.cidade || '';
-          if (!enriched.state) enriched.state = localProf.state || localProf.estado || localProf.uf || '';
+      const keysToTry = [
+        `company_profile_${cleanId}`,
+        `cloud_company_${cleanId}`,
+        `company_profile_${cleanEmail}`,
+        'silagem_company_profile',
+        'company_profile'
+      ];
+      for (const k of keysToTry) {
+        const localStr = localStorage.getItem(k);
+        if (localStr) {
+          const localProf = JSON.parse(localStr);
+          if (localProf && typeof localProf === 'object') {
+            if (!enriched.cep) enriched.cep = localProf.zipCode || localProf.cep || localProf.zip_code || localProf.codigo_postal || '';
+            if (!enriched.street) enriched.street = localProf.address || localProf.street || localProf.logradouro || localProf.rua || localProf.endereco || '';
+            if (!enriched.number) enriched.number = localProf.number || localProf.numero || localProf.num || '';
+            if (!enriched.neighborhood) enriched.neighborhood = localProf.neighborhood || localProf.bairro || localProf.district || '';
+            if (!enriched.city) enriched.city = localProf.city || localProf.cidade || localProf.municipio || '';
+            if (!enriched.state) enriched.state = localProf.state || localProf.estado || localProf.uf || '';
+            if (!enriched.phone) enriched.phone = localProf.phone || localProf.telefone || localProf.whatsapp || '';
+            if (!enriched.cpfCnpj) enriched.cpfCnpj = localProf.cnpjCpf || localProf.cnpj || localProf.cpf_cnpj || localProf.document || '';
+            if (!enriched.stateRegistration) enriched.stateRegistration = localProf.stateRegistration || localProf.state_registration || localProf.inscricaoEstadual || '';
+            if (enriched.cep && enriched.street) break;
+          }
         }
       }
     } catch {}

@@ -41,7 +41,15 @@ import {
   getStoredMachineries,
   formatDateBR 
 } from '../../lib/storage';
-import { deleteAgendamento, deleteFrente, upsertFrente, updateAgendamentoFrente, upsertAgendamento } from '../../lib/supabaseService';
+import { 
+  deleteAgendamento, 
+  deleteFrente, 
+  upsertFrente, 
+  updateAgendamentoFrente, 
+  upsertAgendamento,
+  fetchAgendamentos,
+  subscribeToCloudTable
+} from '../../lib/supabaseService';
 import { AppointmentFormModal } from './AppointmentFormModal';
 import { PrintFieldOrderModal } from './PrintFieldOrderModal';
 import { DispatchFieldModal } from './DispatchFieldModal';
@@ -129,6 +137,31 @@ export const ServiceAgendaModule: React.FC<ServiceAgendaModuleProps> = ({
   useEffect(() => {
     saveStoredAppointments(appointments);
   }, [appointments]);
+
+  // Carregamento primário do banco de dados remoto e escuta em tempo real (Multi-Tenant)
+  useEffect(() => {
+    let isMounted = true;
+    const loadFromCloud = async () => {
+      const cloudAppointments = await fetchAgendamentos();
+      if (cloudAppointments && isMounted) {
+        setAppointments(cloudAppointments);
+      }
+    };
+    loadFromCloud();
+
+    const unsubscribe = subscribeToCloudTable('agendamentos', () => {
+      fetchAgendamentos().then(fresh => {
+        if (fresh && isMounted) {
+          setAppointments(fresh);
+        }
+      });
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   // Próximo número de agendamento sequencial
   const nextAppointmentNumber = useMemo(() => {

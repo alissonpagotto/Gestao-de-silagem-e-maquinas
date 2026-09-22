@@ -21,6 +21,11 @@ interface AuthContextType {
   setIsSyncing: (val: boolean) => void;
   lastSyncedAt: Date | null;
   setLastSyncedAt: (val: Date | null) => void;
+  // Gestão de Personificação Multi-Tenant (Admin Mestre → Assinante)
+  impersonatedCompanyId: string | null;
+  isImpersonating: boolean;
+  startImpersonation: (companyId: string, extraData?: { name?: string; email?: string; planName?: string }) => void;
+  stopImpersonation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +36,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isConnectedToSupabase, setIsConnectedToSupabase] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+
+  // Estado de Personificação do Admin Mestre
+  const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const explicit = (localStorage.getItem('admin_impersonated_company_id') || '').trim();
+      if (explicit) return explicit;
+      const isAdmin = localStorage.getItem('is_admin_impersonating') === 'true';
+      const subId = (localStorage.getItem('impersonated_subscriber_id') || '').trim();
+      if (isAdmin && subId) return subId;
+    }
+    return null;
+  });
+
+  const isImpersonating = Boolean(impersonatedCompanyId);
+
+  const startImpersonation = (companyId: string, extraData?: { name?: string; email?: string; planName?: string }) => {
+    const cleanId = (companyId || '').trim();
+    if (!cleanId) return;
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('admin_impersonated_company_id', cleanId);
+      localStorage.setItem('is_admin_impersonating', 'true');
+      localStorage.setItem('impersonated_subscriber_id', cleanId);
+      if (extraData?.name) localStorage.setItem('impersonated_subscriber_name', extraData.name);
+      if (extraData?.email) localStorage.setItem('impersonated_subscriber_email', extraData.email);
+      if (extraData?.planName) localStorage.setItem('impersonated_subscriber_plan', extraData.planName);
+      localStorage.setItem('current_company_id', cleanId);
+      localStorage.setItem('user_role', 'admin');
+      localStorage.setItem('silagem_client_session', 'active');
+    }
+
+    setImpersonatedCompanyId(cleanId);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('admin_impersonation_changed', { detail: { companyId: cleanId } }));
+    }
+  };
+
+  const stopImpersonation = () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('admin_impersonated_company_id');
+      localStorage.removeItem('is_admin_impersonating');
+      localStorage.removeItem('impersonated_subscriber_id');
+      localStorage.removeItem('impersonated_subscriber_name');
+      localStorage.removeItem('impersonated_subscriber_email');
+      localStorage.removeItem('impersonated_subscriber_plan');
+      localStorage.removeItem('current_company_id');
+    }
+
+    setImpersonatedCompanyId(null);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('admin_impersonation_changed', { detail: { companyId: null } }));
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleImpersonationEvent = (e: any) => {
+      const cId = e.detail?.companyId || null;
+      setImpersonatedCompanyId(cId);
+    };
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'admin_impersonated_company_id' || e.key === 'is_admin_impersonating') {
+        const current = localStorage.getItem('admin_impersonated_company_id');
+        setImpersonatedCompanyId(current || null);
+      }
+    };
+
+    window.addEventListener('admin_impersonation_changed', handleImpersonationEvent);
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      window.removeEventListener('admin_impersonation_changed', handleImpersonationEvent);
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -187,6 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOutUser = async () => {
     try {
+      stopImpersonation();
       await supabase.auth.signOut();
       setCurrentUser(null);
     } catch (err) {
@@ -209,6 +294,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsSyncing,
         lastSyncedAt,
         setLastSyncedAt,
+        impersonatedCompanyId,
+        isImpersonating,
+        startImpersonation,
+        stopImpersonation,
       }}
     >
       {children}

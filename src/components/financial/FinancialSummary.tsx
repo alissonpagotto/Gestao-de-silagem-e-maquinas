@@ -476,27 +476,27 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   const periodAccumulatedBalance = periodRevenue - periodExpenses;
 
   // Global / DRE Metrics
-  const currentSeason = seasons[0];
-  const totalRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0) +
-                       services.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+  const currentSeason = Array.isArray(seasons) && seasons.length > 0 ? seasons[0] : null;
+  const totalRevenue = (orders || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0) +
+                       (services || []).reduce((acc, curr) => acc + (curr?.totalAmount || 0), 0);
 
-  const directCosts = expenses
+  const directCosts = (expenses || [])
     .filter((e) => ['cat_combustivel', 'cat_insumos', 'cat_mao_de_obra', 'cat_lona_embalagem'].includes(e.categoryId))
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .reduce((acc, curr) => acc + (curr?.amount || 0), 0);
 
-  const machineryCosts = expenses
+  const machineryCosts = (expenses || [])
     .filter((e) => e.categoryId === 'cat_manutencao')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .reduce((acc, curr) => acc + (curr?.amount || 0), 0);
 
-  const overheadCosts = expenses
+  const overheadCosts = (expenses || [])
     .filter((e) => ['cat_frete', 'cat_alimentacao', 'cat_arrendamento', 'cat_administrativo', 'cat_outros'].includes(e.categoryId))
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .reduce((acc, curr) => acc + (curr?.amount || 0), 0);
 
   const totalCosts = directCosts + machineryCosts + overheadCosts;
   const grossMargin = totalRevenue - directCosts;
   const netProfit = totalRevenue - totalCosts;
 
-  const totalTonsEstimated = currentSeason?.estimatedTons || 2250;
+  const totalTonsEstimated = (currentSeason?.estimatedTons && currentSeason.estimatedTons > 0) ? currentSeason.estimatedTons : 0;
   const revenuePerTon = totalTonsEstimated > 0 ? totalRevenue / totalTonsEstimated : 0;
   const costPerTon = totalTonsEstimated > 0 ? totalCosts / totalTonsEstimated : 0;
   const profitPerTon = revenuePerTon - costPerTon;

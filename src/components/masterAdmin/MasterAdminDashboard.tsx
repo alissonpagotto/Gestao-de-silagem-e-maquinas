@@ -75,6 +75,7 @@ import {
   deleteCloudPlan,
   deleteCloudSubscriber,
   updateCloudSubscriberStatus,
+  updateCloudSubscriber,
   upsertCloudSubscriber,
   upsertCloudPlan,
   upsertCloudSiteConfig,
@@ -94,6 +95,7 @@ import { PauseSubscriberModal } from './PauseSubscriberModal';
 import { MasterAdminLogin } from './MasterAdminLogin';
 import { ImageUploadField } from './ImageUploadField';
 import { formatCurrencyBRL } from '../../lib/formatters';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Realiza um JOIN dinâmico entre o assinante e a lista atualizada de planos ('plans').
@@ -170,6 +172,23 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   onOpenLandingPage,
   onImpersonate,
 }) => {
+  const { startImpersonation, stopImpersonation } = useAuth();
+
+  // Ao entrar no Painel Master, remove qualquer personificação residual ativa
+  useEffect(() => {
+    try {
+      localStorage.removeItem('admin_impersonated_company_id');
+      localStorage.removeItem('is_admin_impersonating');
+      localStorage.removeItem('impersonated_subscriber_id');
+      localStorage.removeItem('impersonated_subscriber_name');
+      localStorage.removeItem('impersonated_subscriber_email');
+      localStorage.removeItem('impersonated_subscriber_plan');
+    } catch {}
+    try {
+      stopImpersonation();
+    } catch {}
+  }, [stopImpersonation]);
+
   // Estado de Sessão Autenticada de Super Admin
   const [session, setSession] = useState<MasterSession | null>(() => {
     const s = getStoredMasterSession();
@@ -775,22 +794,55 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   const handleLogoutMaster = () => {
     clearStoredMasterSession();
+    try {
+      localStorage.removeItem('admin_impersonated_company_id');
+      localStorage.removeItem('is_admin_impersonating');
+      localStorage.removeItem('impersonated_subscriber_id');
+      localStorage.removeItem('impersonated_subscriber_name');
+      localStorage.removeItem('impersonated_subscriber_email');
+      localStorage.removeItem('impersonated_subscriber_plan');
+      localStorage.removeItem('current_company_id');
+    } catch {}
+    try {
+      stopImpersonation();
+    } catch {}
     setSession(null);
   };
 
   // 1. Função de Personificação (Impersonate - Botão Verde "→ Entrar")
   const handleImpersonate = (sub: Subscriber) => {
     if (!sub) return;
+    const targetCompanyId = (sub as any).companyId || sub.id;
+
+    // Força a gravação imediata no localStorage da chave de personificação e metadados
+    try {
+      localStorage.setItem('admin_impersonated_company_id', targetCompanyId);
+      localStorage.setItem('is_admin_impersonating', 'true');
+      localStorage.setItem('impersonated_subscriber_id', targetCompanyId);
+      localStorage.setItem('impersonated_subscriber_name', sub.name || 'Assinante');
+      localStorage.setItem('impersonated_subscriber_email', sub.responsibleEmail || '');
+      localStorage.setItem('impersonated_subscriber_plan', sub.planName || 'Produtor Essencial');
+      localStorage.setItem('current_company_id', targetCompanyId);
+      localStorage.setItem('user_role', 'admin');
+      localStorage.setItem('silagem_client_session', 'active');
+    } catch (e) {
+      console.error('Erro ao salvar personificação no localStorage:', e);
+    }
+
+    // Atualiza o contexto global de autenticação
+    try {
+      startImpersonation(targetCompanyId, {
+        name: sub.name,
+        email: sub.responsibleEmail,
+        planName: sub.planName,
+      });
+    } catch (e) {
+      console.error('Erro ao acionar startImpersonation:', e);
+    }
+
     if (onImpersonate) {
       onImpersonate(sub);
     } else {
-      localStorage.setItem('is_admin_impersonating', 'true');
-      localStorage.setItem('impersonated_subscriber_id', sub?.id || '');
-      localStorage.setItem('impersonated_subscriber_name', sub?.name || 'Assinante');
-      localStorage.setItem('impersonated_subscriber_email', sub?.responsibleEmail || '');
-      localStorage.setItem('current_company_id', sub?.id || '');
-      localStorage.setItem('user_role', 'admin');
-      localStorage.setItem('silagem_client_session', 'active');
       window.location.href = '/dashboard';
     }
   };
@@ -831,7 +883,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     saveStoredSubscribers(updatedList);
 
     try {
-      await upsertCloudSubscriber(saved);
+      if (exists) {
+        await updateCloudSubscriber(saved);
+      } else {
+        await upsertCloudSubscriber(saved);
+      }
       const profilePayload: CompanyProfile = {
         id: saved.id,
         corporateName: saved.name.trim(),

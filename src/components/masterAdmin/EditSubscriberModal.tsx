@@ -105,19 +105,44 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
 
     if (subscriber) {
       const anySub = subscriber as any;
-      const initName = subscriber.name || anySub.nome || anySub.corporateName || anySub.tradeName || '';
-      const initEmail = subscriber.responsibleEmail || anySub.email || anySub.loginEmail || '';
+
+      // Consulta síncrona imediata no localStorage para garantir que a seção de endereço nunca inicie vazia
+      let localProf: any = null;
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const keys = [
+            `company_profile_${subscriber.id}`,
+            `cloud_company_${subscriber.id}`,
+            `company_profile_${anySub.email || subscriber.responsibleEmail}`,
+            'silagem_company_profile',
+            'company_profile'
+          ];
+          for (const k of keys) {
+            const val = localStorage.getItem(k);
+            if (val) {
+              const p = JSON.parse(val);
+              if (p && typeof p === 'object') {
+                localProf = p;
+                break;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      const initName = subscriber.name || anySub.nome || anySub.corporateName || anySub.tradeName || localProf?.tradeName || localProf?.corporateName || '';
+      const initEmail = subscriber.responsibleEmail || anySub.email || anySub.loginEmail || localProf?.email || localProf?.loginEmail || '';
       const initPass = subscriber.password || anySub.senha || '';
       const initTrial = subscriber.trialUntil || (anySub.trial_ate ? String(anySub.trial_ate).split('T')[0] : '') || '';
-      const initCpfCnpj = subscriber.cpfCnpj || anySub.cpf_cnpj || anySub.cnpjCpf || anySub.cnpj || anySub.document || '';
-      const initIE = subscriber.stateRegistration || anySub.state_registration || anySub.inscricaoEstadual || '';
-      const initPhone = subscriber.phone || anySub.telefone || anySub.whatsapp || '';
-      const initCep = subscriber.cep || anySub.zip_code || anySub.zipCode || anySub.codigo_postal || '';
-      const initStreet = subscriber.street || anySub.logradouro || anySub.rua || anySub.address || anySub.endereco || '';
-      const initNumber = subscriber.number || anySub.numero || anySub.num || '';
-      const initNeighborhood = subscriber.neighborhood || anySub.bairro || anySub.district || '';
-      const initCity = subscriber.city || anySub.cidade || anySub.municipio || '';
-      const initState = subscriber.state || anySub.estado || anySub.uf || '';
+      const initCpfCnpj = subscriber.cpfCnpj || anySub.cpf_cnpj || anySub.cnpjCpf || anySub.cnpj || anySub.document || localProf?.cnpjCpf || localProf?.cnpj || '';
+      const initIE = subscriber.stateRegistration || anySub.state_registration || anySub.inscricaoEstadual || localProf?.stateRegistration || '';
+      const initPhone = subscriber.phone || anySub.telefone || anySub.whatsapp || localProf?.phone || '';
+      const initCep = subscriber.cep || anySub.zip_code || anySub.zipCode || anySub.codigo_postal || localProf?.zipCode || localProf?.cep || localProf?.zip_code || '';
+      const initStreet = subscriber.street || anySub.logradouro || anySub.rua || anySub.address || anySub.endereco || localProf?.address || localProf?.street || localProf?.logradouro || '';
+      const initNumber = subscriber.number || anySub.numero || anySub.num || localProf?.number || localProf?.numero || '';
+      const initNeighborhood = subscriber.neighborhood || anySub.bairro || anySub.district || localProf?.neighborhood || localProf?.bairro || '';
+      const initCity = subscriber.city || anySub.cidade || anySub.municipio || localProf?.city || localProf?.cidade || '';
+      const initState = subscriber.state || anySub.estado || anySub.uf || localProf?.state || localProf?.estado || '';
 
       setName(initName);
       setResponsibleEmail(initEmail);
@@ -147,15 +172,15 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
         const enrIE = enriched.stateRegistration || anyEnr.inscricaoEstadual || anyEnr.state_registration || '';
         const enrPhone = enriched.phone || anyEnr.telefone || anyEnr.whatsapp || '';
 
-        setCep((prev) => (prev ? prev : enrCep));
-        setStreet((prev) => (prev ? prev : enrStreet));
-        setNumber((prev) => (prev ? prev : enrNumber));
-        setNeighborhood((prev) => (prev ? prev : enrNeighborhood));
-        setCity((prev) => (prev ? prev : enrCity));
-        setState((prev) => (prev ? prev : enrState));
-        if (enrCpfCnpj) setCpfCnpj((prev) => (prev ? prev : enrCpfCnpj));
-        if (enrIE) setStateRegistration((prev) => (prev ? prev : enrIE));
-        if (enrPhone) setPhone((prev) => (prev ? prev : enrPhone));
+        if (enrCep) setCep(enrCep);
+        if (enrStreet) setStreet(enrStreet);
+        if (enrNumber) setNumber(enrNumber);
+        if (enrNeighborhood) setNeighborhood(enrNeighborhood);
+        if (enrCity) setCity(enrCity);
+        if (enrState) setState(enrState);
+        if (enrCpfCnpj) setCpfCnpj(enrCpfCnpj);
+        if (enrIE) setStateRegistration(enrIE);
+        if (enrPhone) setPhone(enrPhone);
       });
 
       // Resolução e pré-seleção reativa do plano atual do assinante
@@ -300,6 +325,28 @@ export const EditSubscriberModal: React.FC<EditSubscriberModalProps> = ({
       createdAt: subscriber?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
+    try {
+      const companyProf = {
+        id: updatedSubscriber.id,
+        tradeName: updatedSubscriber.name,
+        corporateName: updatedSubscriber.name,
+        name: updatedSubscriber.name,
+        cnpjCpf: updatedSubscriber.cpfCnpj,
+        stateRegistration: updatedSubscriber.stateRegistration,
+        phone: updatedSubscriber.phone,
+        email: updatedSubscriber.responsibleEmail,
+        loginEmail: updatedSubscriber.responsibleEmail,
+        zipCode: updatedSubscriber.cep,
+        address: updatedSubscriber.street,
+        number: updatedSubscriber.number,
+        neighborhood: updatedSubscriber.neighborhood,
+        city: updatedSubscriber.city,
+        state: updatedSubscriber.state,
+      };
+      localStorage.setItem(`company_profile_${updatedSubscriber.id}`, JSON.stringify(companyProf));
+      localStorage.setItem(`cloud_company_${updatedSubscriber.id}`, JSON.stringify(companyProf));
+    } catch {}
 
     onSave(updatedSubscriber);
     onClose();

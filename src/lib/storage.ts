@@ -502,18 +502,45 @@ export function getStoredCompanyProfile(): CompanyProfile {
  */
 export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): string {
   try {
+    // 0. VISUALIZAÇÃO DO PAINEL ADMIN (IMPERSONAÇÃO / PERSONIFICAÇÃO):
+    // PRIORIDADE ABSOLUTA 1: Verifica PRIMEIRO se existe um ID de personificação ativo gravado
+    // pelo clique do botão "→ Entrar" no Painel Admin Mestre ('admin_impersonated_company_id').
+    if (typeof localStorage !== 'undefined') {
+      const adminImpersonatedId = (localStorage.getItem('admin_impersonated_company_id') || '').trim();
+      if (adminImpersonatedId) {
+        return adminImpersonatedId;
+      }
+      const isAdminImpersonating = localStorage.getItem('is_admin_impersonating') === 'true';
+      const impersonatedId = (localStorage.getItem('impersonated_subscriber_id') || '').trim();
+      if (isAdminImpersonating && impersonatedId) {
+        return impersonatedId;
+      }
+      const currentCompanyId = (localStorage.getItem('current_company_id') || '').trim();
+      if (isAdminImpersonating && currentCompanyId) {
+        return currentCompanyId;
+      }
+      const impersonatedEmail = (localStorage.getItem('impersonated_subscriber_email') || '').trim().toLowerCase();
+      if (isAdminImpersonating && impersonatedEmail && impersonatedEmail.includes('@')) {
+        return `company_${impersonatedEmail.replace(/[^a-z0-9]/g, '_')}`;
+      }
+    }
+
     const profile = overrideProfile || getStoredCompanyProfile();
 
-    // 1. Se houver companyId explícito
+    // 1. Se houver companyId explícito no perfil
     if (profile?.companyId && profile.companyId.trim()) {
       return profile.companyId.trim();
     }
+    // Se houver id do assinante no perfil
+    if (profile?.id && profile.id.trim() && profile.id !== 'default_company') {
+      return profile.id.trim();
+    }
 
-    // 2. Prioridade Nacional: CNPJ ou CPF da empresa (único para toda a fazenda)
-    if (profile?.cnpjCpf) {
-      const clean = profile.cnpjCpf.replace(/\D/g, '');
-      if (clean.length >= 8) {
-        return `company_${clean}`;
+    // 2. Sessão ativa salva do Assinante logado no dispositivo atual
+    if (typeof localStorage !== 'undefined') {
+      const activeSubId = (localStorage.getItem('silagem_active_subscriber_id') || '').trim();
+      if (activeSubId && activeSubId !== 'default' && activeSubId !== 'usr_local') {
+        return activeSubId;
       }
     }
 
@@ -523,15 +550,19 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
       return `company_${email.replace(/[^a-z0-9]/g, '_')}`;
     }
 
-    // 4. Sessão ativa salva do Assinante ou Usuário logado
-    if (typeof localStorage !== 'undefined') {
-      const activeSubId = localStorage.getItem('silagem_active_subscriber_id');
-      if (activeSubId && activeSubId.trim()) {
-        return `company_${activeSubId.trim().replace(/[^a-z0-9_-]/gi, '_')}`;
+    // 4. CNPJ ou CPF da empresa (único para toda a fazenda)
+    if (profile?.cnpjCpf) {
+      const clean = profile.cnpjCpf.replace(/\D/g, '');
+      if (clean.length >= 8) {
+        return `company_${clean}`;
       }
-      const activeUserEmail = localStorage.getItem('silagem_active_user_email');
+    }
+
+    // 5. E-mail ativo em localStorage
+    if (typeof localStorage !== 'undefined') {
+      const activeUserEmail = (localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || '').trim().toLowerCase();
       if (activeUserEmail && activeUserEmail.includes('@')) {
-        return `company_${activeUserEmail.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;
       }
     }
   } catch (e) {

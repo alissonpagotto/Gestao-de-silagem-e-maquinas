@@ -43,11 +43,16 @@ export const ExpenseStats: React.FC<ExpenseStatsProps> = ({
     .filter((e) => e.categoryId === 'cat_manutencao')
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Silage specific metric: Cost per Estimated Ton
-  const currentSeason = seasons[0];
-  const totalTons = currentSeason?.estimatedTons || 2000;
+  // Silage specific metric: Cost per Estimated Ton & Cost per Hectare
+  const currentSeason = Array.isArray(seasons) && seasons.length > 0 ? seasons[0] : null;
+  const totalTons = (currentSeason?.estimatedTons && currentSeason.estimatedTons > 0) ? currentSeason.estimatedTons : 0;
   const costPerTon = totalTons > 0 ? totalExpenses / totalTons : 0;
-  const costPerHectare = (currentSeason?.plantedHectares || 45) > 0 ? totalExpenses / (currentSeason.plantedHectares || 45) : 0;
+  const plantedHectares = (currentSeason?.plantedHectares && currentSeason.plantedHectares > 0)
+    ? currentSeason.plantedHectares
+    : (currentSeason?.totalAreaHectares && currentSeason.totalAreaHectares > 0)
+      ? currentSeason.totalAreaHectares
+      : 0;
+  const costPerHectare = plantedHectares > 0 ? totalExpenses / plantedHectares : 0;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3.5">
