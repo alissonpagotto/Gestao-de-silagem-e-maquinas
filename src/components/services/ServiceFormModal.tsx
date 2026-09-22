@@ -150,7 +150,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   const [unidadeArea, setUnidadeArea] = useState<'hectares' | 'alqueires' | 'hora'>('hectares');
   const [quantidadeArea, setQuantidadeArea] = useState<number | ''>('');
   const [valorPorHectare, setValorPorHectare] = useState<string | number>('');
-  const [pesoPorM3, setPesoPorM3] = useState<number | ''>(400);
+  const [pesoPorM3, setPesoPorM3] = useState<number | ''>('');
 
   // 3. Bloco Forrageira / Ensiladeira (Borda Amarela)
   const [forrageiraId, setForrageiraId] = useState('');
@@ -558,7 +558,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setUnidadeArea('hectares');
       setQuantidadeArea('');
       setValorPorHectare('');
-      setPesoPorM3(400);
+      setPesoPorM3('');
 
       // Forrageira
       setForrageiraId('');

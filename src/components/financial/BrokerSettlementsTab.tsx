@@ -114,9 +114,9 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
   const [formClientName, setFormClientName] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formCommissionType, setFormCommissionType] = useState<string>('Porcentagem (%) sobre o valor do pedido');
-  const [formCommissionRate, setFormCommissionRate] = useState<string>('5,00');
-  const [formBaseValue, setFormBaseValue] = useState<string>('0,00');
-  const [formDeductions, setFormDeductions] = useState<string>('0,00');
+  const [formCommissionRate, setFormCommissionRate] = useState<string>('');
+  const [formBaseValue, setFormBaseValue] = useState<string>('');
+  const [formDeductions, setFormDeductions] = useState<string>('');
   const [formStatus, setFormStatus] = useState<'pendente' | 'pago'>('pendente');
   const [formBankAccountId, setFormBankAccountId] = useState('');
   const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('pix');
@@ -165,15 +165,15 @@ export const BrokerSettlementsTab: React.FC<BrokerSettlementsTabProps> = ({
       setFormCommissionRate(
         broker.brokerCommissionValue !== undefined
           ? formatCurrencyInputDisplay(broker.brokerCommissionValue)
-          : '5,00'
+          : ''
       );
     } else {
       setFormCommissionType('Porcentagem (%) sobre o valor do pedido');
-      setFormCommissionRate('5,00');
+      setFormCommissionRate('');
     }
 
-    setFormBaseValue('0,00');
-    setFormDeductions('0,00');
+    setFormBaseValue('');
+    setFormDeductions('');
     setFormStatus('pendente');
     setFormBankAccountId('');
     setFormPaymentMethod('pix');

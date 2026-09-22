@@ -711,23 +711,25 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 {companyLogo ? (
                   <img 
                     src={companyLogo} 
-                    alt={companyTradeName} 
+                    alt={companyTradeName || 'Logomarca'} 
                     className="h-16 w-auto max-w-[150px] object-contain"
                     referrerPolicy="no-referrer"
                   />
-                ) : (
+                ) : companyTradeName ? (
                   <div className="border-2 border-stone-900 rounded-md px-3 py-1 font-black text-xl tracking-tighter bg-stone-100 text-stone-900">
                     {companyTradeName}
                   </div>
-                )}
+                ) : null}
                 <div>
-                  <h2 className="text-base font-black tracking-tight uppercase">{companyTradeName}</h2>
-                  <p className="text-[11px] font-semibold text-stone-600">CNPJ: {companyCnpj}</p>
-                  <p className="text-[10px] text-stone-500">{companyAddress}</p>
-                  <p className="text-[11px] font-bold text-stone-800 flex items-center gap-1 mt-0.5">
-                    <Phone className="w-3 h-3 text-[#188038]" />
-                    {companyPhone}
-                  </p>
+                  {companyTradeName && <h2 className="text-base font-black tracking-tight uppercase">{companyTradeName}</h2>}
+                  {companyCnpj && <p className="text-[11px] font-semibold text-stone-600">CNPJ: {companyCnpj}</p>}
+                  {companyAddress && <p className="text-[10px] text-stone-500">{companyAddress}</p>}
+                  {companyPhone && (
+                    <p className="text-[11px] font-bold text-stone-800 flex items-center gap-1 mt-0.5">
+                      <Phone className="w-3 h-3 text-[#188038]" />
+                      {companyPhone}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1083,23 +1085,25 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 {companyLogo ? (
                   <img 
                     src={companyLogo} 
-                    alt={companyTradeName} 
+                    alt={companyTradeName || 'Logomarca'} 
                     className="h-14 w-auto max-w-[130px] object-contain"
                     referrerPolicy="no-referrer"
                   />
-                ) : (
+                ) : companyTradeName ? (
                   <div className="border-2 border-stone-900 rounded-md px-2.5 py-1 font-black text-base bg-stone-100">
                     {companyTradeName}
                   </div>
-                )}
+                ) : null}
                 <div>
-                  <h2 className="text-sm font-black uppercase">{companyTradeName}</h2>
-                  <p className="text-[10px] font-bold text-stone-600">CNPJ: {companyCnpj}</p>
-                  <p className="text-[10px] text-stone-500">{companyAddress}</p>
-                  <p className="text-[10px] font-bold text-stone-800 flex items-center gap-1 mt-0.5">
-                    <Phone className="w-2.5 h-2.5 text-[#188038]" />
-                    {companyPhone}
-                  </p>
+                  {companyTradeName && <h2 className="text-sm font-black uppercase">{companyTradeName}</h2>}
+                  {companyCnpj && <p className="text-[10px] font-bold text-stone-600">CNPJ: {companyCnpj}</p>}
+                  {companyAddress && <p className="text-[10px] text-stone-500">{companyAddress}</p>}
+                  {companyPhone && (
+                    <p className="text-[10px] font-bold text-stone-800 flex items-center gap-1 mt-0.5">
+                      <Phone className="w-2.5 h-2.5 text-[#188038]" />
+                      {companyPhone}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1346,23 +1350,25 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
                 {companyLogo ? (
                   <img 
                     src={companyLogo} 
-                    alt={companyTradeName} 
+                    alt={companyTradeName || 'Logomarca'} 
                     className="h-14 w-auto max-w-[130px] object-contain"
                     referrerPolicy="no-referrer"
                   />
-                ) : (
+                ) : companyTradeName ? (
                   <div className="border-2 border-stone-900 rounded-md px-2.5 py-1 font-black text-base bg-stone-100">
                     {companyTradeName}
                   </div>
-                )}
+                ) : null}
                 <div>
-                  <h2 className="text-sm font-black uppercase">{companyTradeName}</h2>
-                  <p className="text-[10px] font-bold text-stone-600">CNPJ: {companyCnpj}</p>
-                  <p className="text-[10px] text-stone-500">{companyAddress}</p>
-                  <p className="text-[10px] font-bold text-stone-800 flex items-center gap-1 mt-0.5">
-                    <Phone className="w-2.5 h-2.5 text-[#188038]" />
-                    {companyPhone}
-                  </p>
+                  {companyTradeName && <h2 className="text-sm font-black uppercase">{companyTradeName}</h2>}
+                  {companyCnpj && <p className="text-[10px] font-bold text-stone-600">CNPJ: {companyCnpj}</p>}
+                  {companyAddress && <p className="text-[10px] text-stone-500">{companyAddress}</p>}
+                  {companyPhone && (
+                    <p className="text-[10px] font-bold text-stone-800 flex items-center gap-1 mt-0.5">
+                      <Phone className="w-2.5 h-2.5 text-[#188038]" />
+                      {companyPhone}
+                    </p>
+                  )}
                 </div>
               </div>
 

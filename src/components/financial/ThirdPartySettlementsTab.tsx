@@ -82,7 +82,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
   const [trips, setTrips] = useState('');
   const [hours, setHours] = useState('');
   const [rate, setRate] = useState('');
-  const [deductions, setDeductions] = useState('0');
+  const [deductions, setDeductions] = useState('');
   const [machineryPlateOrName, setMachineryPlateOrName] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -107,7 +107,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       setTrips(item.trips ? item.trips.toString() : '');
       setHours(item.hours ? item.hours.toString() : '');
       setRate(item.rate.toString());
-      setDeductions(item.deductions ? item.deductions.toString() : '0');
+      setDeductions(item.deductions ? item.deductions.toString() : '');
       setMachineryPlateOrName(item.machineryPlateOrName || '');
       setPhone(item.phone || '');
       setNotes(item.notes || '');
@@ -122,7 +122,7 @@ export const ThirdPartySettlementsTab: React.FC<ThirdPartySettlementsTabProps> =
       setTrips('');
       setHours('');
       setRate('');
-      setDeductions('0');
+      setDeductions('');
       setMachineryPlateOrName('');
       setPhone('');
       setNotes('');

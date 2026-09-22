@@ -1964,13 +1964,17 @@ export const ServiceDocumentPreview: React.FC<ServiceDocumentPreviewProps> = ({
                 {/* RODAPÉ INSTITUCIONAL DO SISTEMA PARA IMPRESSÃO A4 */}
                 <div className="footer-sistema border-t border-slate-300 pt-1 text-center text-[8.5px] text-slate-500 leading-tight break-avoid">
                   <p className="font-bold text-slate-700">
-                    {company.tradeName || 'Silagem Fácil'} — Sistema de Gestão e Operações Agrícolas
+                    {company.tradeName || company.corporateName || 'Silagem Fácil'} — Sistema de Gestão e Operações Agrícolas
                   </p>
-                  <p>
-                    {company.cnpjCpf ? `CNPJ/CPF: ${company.cnpjCpf}` : 'CNPJ: 00.000.000/0001-00'}
-                    {company.phone ? ` • Contato: ${company.phone}` : ' • Contato: (00) 00000-0000'}
-                    {company.email ? ` • E-mail: ${company.email}` : ' • suporte@silagemfacil.com.br'}
-                  </p>
+                  {(company.cnpjCpf || company.phone || company.email) && (
+                    <p>
+                      {[
+                        company.cnpjCpf ? `CNPJ/CPF: ${company.cnpjCpf}` : null,
+                        company.phone ? `Contato: ${company.phone}` : null,
+                        company.email ? `E-mail: ${company.email}` : null,
+                      ].filter(Boolean).join(' • ')}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

@@ -646,7 +646,7 @@ export const AdvancesTab: React.FC<AdvancesTabProps> = ({
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={amount > 0 ? formatMoneyBRL(amount) : 'R$ 0,00'}
+                    value={amount > 0 ? formatMoneyBRL(amount) : ''}
                     onChange={handleAmountChange}
                     onFocus={(e) => e.target.select()}
                     placeholder="R$ 0,00"
