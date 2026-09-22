@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured } from './supabase';
-export { isSupabaseConfigured };
+import { supabase, isSupabaseConfigured, logPostgresError } from './supabase';
+export { isSupabaseConfigured, logPostgresError };
 import {
   Client,
   Supplier,
@@ -179,12 +179,12 @@ export async function upsertFornecedor(supplier: Supplier, companyId?: string): 
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+      logPostgresError('upsertFornecedor', error, { table: 'fornecedores', action: 'UPSERT', payload });
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
         delete payload.company_id;
         const retry = await supabase.from('fornecedores').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
-      console.warn('Supabase upsertFornecedor notice:', error.message);
       return false;
     }
     return true;
@@ -411,12 +411,19 @@ export async function upsertContaAPagar(parcela: {
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+      logPostgresError('upsertContaAPagar', error, { table: 'contas_a_pagar', action: 'UPSERT', payload });
+      // Se for violação de FK 23503 em nota_fiscal_id, anula e retenta
+      if (error.code === '23503' && payload.nota_fiscal_id) {
+        payload.nota_fiscal_id = null;
+        const retryNF = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
+        if (!retryNF.error) return true;
+      }
+      // Se for violação em company_id ou coluna inexistente
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
         delete payload.company_id;
         const retry = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
-      console.warn('Supabase upsertContaAPagar notice:', error.message);
       return false;
     }
     return true;
@@ -548,12 +555,12 @@ export async function upsertEstoqueItem(item: InventoryItem, companyId?: string)
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+      logPostgresError('upsertEstoqueItem', error, { table: 'estoque', action: 'UPSERT', payload });
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
         delete payload.company_id;
         const retry = await supabase.from('estoque').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
-      console.warn('Supabase upsertEstoqueItem notice:', error.message);
       return false;
     }
     return true;
@@ -682,12 +689,17 @@ export async function upsertCliente(client: Client, companyId?: string): Promise
 
     if (hasValidId) {
       payload.id = client.id.trim().toLowerCase();
-      const { error } = await supabase
+      let { error } = await supabase
         .from('clientes')
         .upsert(payload, { onConflict: 'id' });
 
       if (error) {
-        console.error('[Supabase upsertCliente 400/Rejection]:', error);
+        logPostgresError('upsertCliente:hasValidId', error, { table: 'clientes', action: 'UPSERT', payload });
+        if (error.code === '23503' || error.code === '42703' || (error.message && error.message.includes('company_id'))) {
+          delete payload.company_id;
+          const retry = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
+          if (!retry.error) return true;
+        }
         return false;
       }
 
@@ -696,18 +708,23 @@ export async function upsertCliente(client: Client, companyId?: string): Promise
 
     // Se for um novo cliente ou ID não UUID, usa UUID determinístico
     payload.id = toValidUUID(client.id);
-    const { error } = await supabase
+    let { error } = await supabase
       .from('clientes')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      console.error('[Supabase upsertCliente (Deterministic UUID) Error]:', error);
+      logPostgresError('upsertCliente:deterministicUUID', error, { table: 'clientes', action: 'UPSERT', payload });
+      if (error.code === '23503' || error.code === '42703' || (error.message && error.message.includes('company_id'))) {
+        delete payload.company_id;
+        const retry = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
+        if (!retry.error) return true;
+      }
       return false;
     }
 
     return true;
   } catch (err: any) {
-    console.error('[Supabase upsertCliente Exception]:', err);
+    logPostgresError('upsertCliente:exception', err, { table: 'clientes', action: 'UPSERT' });
     return false;
   }
 }
@@ -800,12 +817,12 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+      logPostgresError('upsertRhFuncionario', error, { table: 'rh_funcionarios', action: 'UPSERT', payload });
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
         delete payload.company_id;
         const retry = await supabase.from('rh_funcionarios').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
-      console.warn('Supabase upsertRhFuncionario notice:', error.message);
       return false;
     }
     return true;
@@ -908,13 +925,13 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('fleet_number') || error.message.includes('column'))) {
+      logPostgresError('upsertGestaoFrota', error, { table: 'gestao_frotas', action: 'UPSERT', payload });
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('fleet_number') || error.message.includes('column')))) {
         delete payload.company_id;
         delete payload.fleet_number;
         const retry = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
-      console.warn('Supabase upsertGestaoFrota notice:', error.message);
       return false;
     }
     return true;
@@ -1191,15 +1208,8 @@ export async function deleteAgendamento(appointmentId: string, companyId?: strin
     }
 
     if (error) {
-      console.warn('Supabase deleteAgendamento notice (tabela agendamentos):', error.message);
-      let fallback = supabase.from('service_appointments').delete().eq('id', uuid);
-      if (activeCompanyId) fallback = fallback.eq('company_id', activeCompanyId);
-      const res = await fallback;
-      if (res.error && appointmentId !== uuid) {
-        let retryFb = supabase.from('service_appointments').delete().eq('id', appointmentId);
-        if (activeCompanyId) retryFb = retryFb.eq('company_id', activeCompanyId);
-        await retryFb;
-      }
+      logPostgresError('deleteAgendamento', error, { table: 'agendamentos', action: 'DELETE', companyId: activeCompanyId });
+      return false;
     }
 
     return true;
@@ -1253,12 +1263,12 @@ export async function upsertAgendamento(app: ServiceAppointment, companyId?: str
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+      logPostgresError('upsertAgendamento', error, { table: 'agendamentos', action: 'UPSERT', payload });
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
         delete payload.company_id;
         const retry = await supabase.from('agendamentos').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
-      console.warn('Supabase upsertAgendamento notice:', error.message);
       return false;
     }
     return true;
@@ -1382,9 +1392,17 @@ export async function upsertFrente(front: {
 }
 
 // ==============================================================================
-// CONTROLE DE TABELAS AUSENTES NO SCHEMA CACHE (Elimina erros 404 no console)
+// CONTROLE DE TABELAS AUSENTES NO SCHEMA CACHE (Elimina erros 404 e 42P01 no console)
 // ==============================================================================
-const unmigratedTables = new Set<string>();
+const unmigratedTables = new Set<string>([
+  'users',
+  'usuarios',
+  'profiles',
+  'user_companies',
+  'empresas',
+  'companies',
+  'service_appointments'
+]);
 
 export function markTableUnmigrated(table: string) {
   unmigratedTables.add(table);
@@ -1396,6 +1414,10 @@ export function isTableUnmigrated(table: string): boolean {
 
 export function clearUnmigratedTables() {
   unmigratedTables.clear();
+  // Restaura tabelas estruturalmente inexistentes
+  ['users', 'usuarios', 'profiles', 'user_companies', 'empresas', 'companies', 'service_appointments'].forEach(t => {
+    unmigratedTables.add(t);
+  });
 }
 
 function isTableMissingError(err: any): boolean {
@@ -2551,36 +2573,9 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
         await supabase.from('subscribers').update({ status: 'cancelado' }).eq('email', cleanEmail);
         await supabase.from('subscribers').delete().eq('email', cleanEmail);
       }
-    } catch {}
-
-    // 4. Atualizar/limpar tabelas de usuários e empresas associadas
-    try {
-      await supabase.from('usuarios').update({ status: 'inativo' }).eq('id', id);
-      await supabase.from('usuarios').delete().eq('id', id);
-      if (cleanEmail) {
-        await supabase.from('usuarios').update({ status: 'inativo' }).eq('email', cleanEmail);
-        await supabase.from('usuarios').delete().eq('email', cleanEmail);
-      }
-    } catch {}
-
-    try {
-      await supabase.from('users').update({ status: 'inativo' }).eq('id', id);
-      await supabase.from('users').delete().eq('id', id);
-      if (cleanEmail) {
-        await supabase.from('users').update({ status: 'inativo' }).eq('email', cleanEmail);
-        await supabase.from('users').delete().eq('email', cleanEmail);
-      }
-    } catch {}
-
-    try {
-      await supabase.from('empresas').update({ status: 'cancelado' }).eq('id', id);
-      await supabase.from('empresas').delete().eq('id', id);
-    } catch {}
-
-    try {
-      await supabase.from('companies').update({ status: 'cancelado' }).eq('id', id);
-      await supabase.from('companies').delete().eq('id', id);
-    } catch {}
+    } catch (subErr) {
+      logPostgresError('deleteCloudSubscriber:subscribers', subErr, { table: 'subscribers', action: 'DELETE' });
+    }
 
     return true;
   } catch (err) {
@@ -2590,8 +2585,13 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
 }
 
 // ==============================================================================
-// SINCRONIZAÇÃO EM TEMPO REAL (REALTIME CHANNELS)
+// SINCRONIZAÇÃO EM TEMPO REAL (REALTIME CHANNELS COM POOLING DEFENSIVO)
 // ==============================================================================
+
+// Gerenciador de canais compartilhados (Singleton por tabela) para evitar churn de conexões no API Gateway
+const activeChannels = new Map<string, { channel: any; listeners: Set<(payload: any) => void>; debounceTimer: any }>();
+let realtimeTransportDisabledUntil = 0;
+let consecutiveTransportFailures = 0;
 
 export function subscribeToCloudTable(
   tableName: string,
@@ -2601,43 +2601,77 @@ export function subscribeToCloudTable(
     return () => {};
   }
 
-  try {
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const debouncedOnChange = (payload: any) => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        onChange(payload);
-      }, 600);
-    };
-
-    const channel = supabase
-      .channel(`public:${tableName}_changes_${Date.now()}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: tableName },
-        (payload) => {
-          debouncedOnChange(payload);
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          markTableUnmigrated(tableName);
-          try {
-            supabase.removeChannel(channel);
-          } catch {}
-        }
-      });
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      try {
-        supabase.removeChannel(channel);
-      } catch {}
-    };
-  } catch (e) {
-    markTableUnmigrated(tableName);
+  // Se o transporte WebSocket estiver temporariamente suspenso no ambiente (sandbox/iFrame)
+  if (Date.now() < realtimeTransportDisabledUntil) {
     return () => {};
   }
+
+  const cleanTable = tableName.trim();
+  const channelKey = `realtime:${cleanTable}`;
+  let entry = activeChannels.get(channelKey);
+
+  if (!entry) {
+    const listeners = new Set<(payload: any) => void>();
+    listeners.add(onChange);
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const notifyListeners = (payload: any) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        listeners.forEach(fn => {
+          try { fn(payload); } catch (err) { console.error('Realtime listener error:', err); }
+        });
+      }, 500);
+    };
+
+    try {
+      const channel = supabase
+        .channel(channelKey)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: cleanTable },
+          (payload) => {
+            consecutiveTransportFailures = 0;
+            notifyListeners(payload);
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            consecutiveTransportFailures++;
+            // Se houver falhas consecutivas de WebSocket (ex: ambiente sem suporte a wss://), suspende tentativas por 2 minutos
+            if (consecutiveTransportFailures >= 2) {
+              realtimeTransportDisabledUntil = Date.now() + 120000;
+            }
+            try {
+              supabase.removeChannel(channel);
+            } catch {}
+            activeChannels.delete(channelKey);
+          } else if (status === 'SUBSCRIBED') {
+            consecutiveTransportFailures = 0;
+          }
+        });
+
+      entry = { channel, listeners, debounceTimer };
+      activeChannels.set(channelKey, entry);
+    } catch (e) {
+      return () => {};
+    }
+  } else {
+    entry.listeners.add(onChange);
+  }
+
+  return () => {
+    const current = activeChannels.get(channelKey);
+    if (!current) return;
+    current.listeners.delete(onChange);
+    if (current.listeners.size === 0) {
+      if (current.debounceTimer) clearTimeout(current.debounceTimer);
+      try {
+        supabase.removeChannel(current.channel);
+      } catch {}
+      activeChannels.delete(channelKey);
+    }
+  };
 }
 
 // ==============================================================================
@@ -3326,54 +3360,60 @@ export async function resolveUserCompanyIdFromSupabase(userId: string, email?: s
   const cleanEmail = (email || '').trim().toLowerCase();
 
   // 1. Consulta em public.profiles (busca por id = auth.uid() ou user_id = auth.uid())
-  try {
-    const { data: profileRow, error: pErr } = await supabase
-      .from('profiles')
-      .select('company_id, id')
-      .or(`id.eq.${cleanUserId},user_id.eq.${cleanUserId}`)
-      .maybeSingle();
+  if (!isTableUnmigrated('profiles')) {
+    try {
+      const { data: profileRow, error: pErr } = await supabase
+        .from('profiles')
+        .select('company_id, id')
+        .or(`id.eq.${cleanUserId},user_id.eq.${cleanUserId}`)
+        .maybeSingle();
 
-    if (!pErr && profileRow?.company_id && String(profileRow.company_id).trim()) {
-      const resolved = String(profileRow.company_id).trim();
-      setDbAuthCompanyId(resolved);
-      return resolved;
+      if (!pErr && profileRow?.company_id && String(profileRow.company_id).trim()) {
+        const resolved = String(profileRow.company_id).trim();
+        setDbAuthCompanyId(resolved);
+        return resolved;
+      }
+    } catch (e) {
+      // Tabela profiles pode não existir no schema atual, continua
     }
-  } catch (e) {
-    // Tabela profiles pode não existir no schema atual, continua
   }
 
   // 2. Consulta em public.user_companies (busca por user_id = auth.uid())
-  try {
-    const { data: userCompRow, error: ucErr } = await supabase
-      .from('user_companies')
-      .select('company_id, user_id')
-      .eq('user_id', cleanUserId)
-      .maybeSingle();
+  if (!isTableUnmigrated('user_companies')) {
+    try {
+      const { data: userCompRow, error: ucErr } = await supabase
+        .from('user_companies')
+        .select('company_id, user_id')
+        .eq('user_id', cleanUserId)
+        .maybeSingle();
 
-    if (!ucErr && userCompRow?.company_id && String(userCompRow.company_id).trim()) {
-      const resolved = String(userCompRow.company_id).trim();
-      setDbAuthCompanyId(resolved);
-      return resolved;
+      if (!ucErr && userCompRow?.company_id && String(userCompRow.company_id).trim()) {
+        const resolved = String(userCompRow.company_id).trim();
+        setDbAuthCompanyId(resolved);
+        return resolved;
+      }
+    } catch (e) {
+      // continua
     }
-  } catch (e) {
-    // continua
   }
 
   // 3. Consulta em public.users (tabela customizada de usuários se houver)
-  try {
-    const { data: userRow, error: uErr } = await supabase
-      .from('users')
-      .select('company_id, id')
-      .eq('id', cleanUserId)
-      .maybeSingle();
+  if (!isTableUnmigrated('users')) {
+    try {
+      const { data: userRow, error: uErr } = await supabase
+        .from('users')
+        .select('company_id, id')
+        .eq('id', cleanUserId)
+        .maybeSingle();
 
-    if (!uErr && userRow?.company_id && String(userRow.company_id).trim()) {
-      const resolved = String(userRow.company_id).trim();
-      setDbAuthCompanyId(resolved);
-      return resolved;
+      if (!uErr && userRow?.company_id && String(userRow.company_id).trim()) {
+        const resolved = String(userRow.company_id).trim();
+        setDbAuthCompanyId(resolved);
+        return resolved;
+      }
+    } catch (e) {
+      // continua
     }
-  } catch (e) {
-    // continua
   }
 
   // 4. Consulta na tabela oficial public.assinantes

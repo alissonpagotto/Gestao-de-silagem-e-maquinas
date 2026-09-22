@@ -278,11 +278,28 @@ export default function App() {
   // Identificação e isolamento rigoroso de Tenant (Multi-Tenant)
   // Consome prioritariamente activeCompanyId resolvido pelo AuthContext/Supabase
   const activeTenantId = useMemo(() => {
-    return activeCompanyId || getActiveCompanyId(companyProfile);
-  }, [activeCompanyId, companyProfile]);
+    return activeCompanyId || (companyProfile?.id ? String(companyProfile.id).trim() : 'default');
+  }, [activeCompanyId, companyProfile?.id]);
 
   // Sincronização e Carga em Nuvem de Todos os Módulos do Assinante Logado (Supabase)
   const isInitialLoadDone = useRef(false);
+
+  // Hash/Serialização defensiva para quebrar qualquer ciclo de re-render ou eco de sincronização
+  const lastSyncedState = useRef<{
+    services?: string;
+    inventory?: string;
+    orders?: string;
+    companyProfile?: string;
+    clients?: string;
+    machineries?: string;
+    expenses?: string;
+    rel_clients?: string;
+    rel_suppliers?: string;
+    rel_inventory?: string;
+    rel_employees?: string;
+    rel_machineries?: string;
+    rel_expenses?: string;
+  }>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -293,6 +310,8 @@ export default function App() {
         // 0. Carrega perfil fiscal e cadastral da nuvem
         const cloudCompany = await fetchCloudCompanyProfile(activeTenantId);
         if (cloudCompany && isMounted) {
+          const serProfile = JSON.stringify(cloudCompany);
+          lastSyncedState.current.companyProfile = serProfile;
           setCompanyProfile(prev => ({ ...prev, ...cloudCompany }));
         }
 
@@ -300,22 +319,27 @@ export default function App() {
         const cloudData = await fetchAllDataFromSupabase(activeTenantId);
         if (cloudData && isMounted) {
           if (cloudData.clientes && cloudData.clientes.length > 0) {
+            lastSyncedState.current.rel_clients = JSON.stringify(cloudData.clientes);
             setClients(cloudData.clientes);
           }
           if (cloudData.fornecedores && cloudData.fornecedores.length > 0) {
+            lastSyncedState.current.rel_suppliers = JSON.stringify(cloudData.fornecedores);
             setSuppliers(cloudData.fornecedores);
           }
           if (cloudData.estoque && cloudData.estoque.length > 0) {
+            lastSyncedState.current.rel_inventory = JSON.stringify(cloudData.estoque);
             setInventory(cloudData.estoque);
           }
           if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
+            lastSyncedState.current.rel_employees = JSON.stringify(cloudData.rh_funcionarios);
             setEmployees(cloudData.rh_funcionarios);
           }
           if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
+            lastSyncedState.current.rel_machineries = JSON.stringify(cloudData.gestao_frotas);
             setMachineries(cloudData.gestao_frotas);
           }
           if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
-            setExpenses(cloudData.contas_a_pagar.map((d: any) => ({
+            const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => ({
               id: d.id,
               title: d.centro_custo || 'Parcela Fornecedor',
               description: d.centro_custo || 'Parcela Fornecedor',
@@ -329,7 +353,9 @@ export default function App() {
               paymentMethod: d.forma_pagamento || 'Boleto',
               supplier: 'Fornecedor',
               createdAt: d.created_at || new Date().toISOString()
-            } as unknown as Expense)));
+            } as unknown as Expense));
+            lastSyncedState.current.rel_expenses = JSON.stringify(mappedExpenses);
+            setExpenses(mappedExpenses);
           }
         }
 
@@ -337,24 +363,31 @@ export default function App() {
         const cloudModules = await fetchAllClientModulesFromSupabase(activeTenantId);
         if (cloudModules && isMounted) {
           if (cloudModules.companyProfile) {
+            lastSyncedState.current.companyProfile = JSON.stringify(cloudModules.companyProfile);
             setCompanyProfile(cloudModules.companyProfile);
           }
           if (Array.isArray(cloudModules.services) && cloudModules.services.length > 0) {
+            lastSyncedState.current.services = JSON.stringify(cloudModules.services);
             setServices(cloudModules.services);
           }
           if (Array.isArray(cloudModules.orders) && cloudModules.orders.length > 0) {
+            lastSyncedState.current.orders = JSON.stringify(cloudModules.orders);
             setOrders(cloudModules.orders);
           }
           if (Array.isArray(cloudModules.inventory) && cloudModules.inventory.length > 0) {
+            lastSyncedState.current.inventory = JSON.stringify(cloudModules.inventory);
             setInventory(cloudModules.inventory);
           }
           if (Array.isArray(cloudModules.clients) && cloudModules.clients.length > 0) {
+            lastSyncedState.current.clients = JSON.stringify(cloudModules.clients);
             setClients(cloudModules.clients);
           }
           if (Array.isArray(cloudModules.machineries) && cloudModules.machineries.length > 0) {
+            lastSyncedState.current.machineries = JSON.stringify(cloudModules.machineries);
             setMachineries(cloudModules.machineries);
           }
           if (Array.isArray(cloudModules.expenses) && cloudModules.expenses.length > 0) {
+            lastSyncedState.current.expenses = JSON.stringify(cloudModules.expenses);
             setExpenses(cloudModules.expenses);
           }
           if (Array.isArray(cloudModules.terminations) && cloudModules.terminations.length > 0) {
@@ -374,11 +407,15 @@ export default function App() {
 
     loadCloudData();
 
-    // Assinaturas em tempo real para sincronização instantânea entre múltiplos dispositivos
+    // Assinaturas em tempo real com checagem de integridade (elimina loops de eco)
     const unsubClientes = subscribeToCloudTable('clientes', () => {
       fetchClientes(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          setClients(fresh);
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_clients) {
+            lastSyncedState.current.rel_clients = ser;
+            setClients(fresh);
+          }
         }
       });
     });
@@ -386,7 +423,11 @@ export default function App() {
     const unsubFornecedores = subscribeToCloudTable('fornecedores', () => {
       fetchFornecedores(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          setSuppliers(fresh);
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_suppliers) {
+            lastSyncedState.current.rel_suppliers = ser;
+            setSuppliers(fresh);
+          }
         }
       });
     });
@@ -394,7 +435,11 @@ export default function App() {
     const unsubEstoque = subscribeToCloudTable('estoque', () => {
       fetchEstoque(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          setInventory(fresh);
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_inventory) {
+            lastSyncedState.current.rel_inventory = ser;
+            setInventory(fresh);
+          }
         }
       });
     });
@@ -402,7 +447,11 @@ export default function App() {
     const unsubRH = subscribeToCloudTable('rh_funcionarios', () => {
       fetchRhFuncionarios(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          setEmployees(fresh);
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_employees) {
+            lastSyncedState.current.rel_employees = ser;
+            setEmployees(fresh);
+          }
         }
       });
     });
@@ -410,7 +459,11 @@ export default function App() {
     const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
       fetchGestaoFrotas(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          setMachineries(fresh);
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_machineries) {
+            lastSyncedState.current.rel_machineries = ser;
+            setMachineries(fresh);
+          }
         }
       });
     });
@@ -418,21 +471,25 @@ export default function App() {
     const unsubContas = subscribeToCloudTable('contas_a_pagar', () => {
       fetchContasAPagar(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          setExpenses(fresh.map((d: any) => ({
-            id: d.id,
-            title: d.centro_custo || 'Parcela Fornecedor',
-            description: d.centro_custo || 'Parcela Fornecedor',
-            amount: Number(d.valor_parcela) || 0,
-            dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-            status: d.status_pago ? 'pago' : 'pendente',
-            categoryId: 'despesa_geral',
-            categoryColor: '#10b981',
-            category: 'despesa_geral',
-            categoryName: d.centro_custo || 'Geral',
-            paymentMethod: d.forma_pagamento || 'Boleto',
-            supplier: 'Fornecedor',
-            createdAt: d.created_at || new Date().toISOString()
-          } as unknown as Expense)));
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_expenses) {
+            lastSyncedState.current.rel_expenses = ser;
+            setExpenses(fresh.map((d: any) => ({
+              id: d.id,
+              title: d.centro_custo || 'Parcela Fornecedor',
+              description: d.centro_custo || 'Parcela Fornecedor',
+              amount: Number(d.valor_parcela) || 0,
+              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+              status: d.status_pago ? 'pago' : 'pendente',
+              categoryId: 'despesa_geral',
+              categoryColor: '#10b981',
+              category: 'despesa_geral',
+              categoryName: d.centro_custo || 'Geral',
+              paymentMethod: d.forma_pagamento || 'Boleto',
+              supplier: 'Fornecedor',
+              createdAt: d.created_at || new Date().toISOString()
+            } as unknown as Expense)));
+          }
         }
       });
     });
@@ -440,13 +497,55 @@ export default function App() {
     const unsubSettings = subscribeToCloudTable('site_settings', () => {
       fetchAllClientModulesFromSupabase(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          if (fresh.companyProfile) setCompanyProfile(fresh.companyProfile);
-          if (fresh.services) setServices(fresh.services);
-          if (fresh.orders) setOrders(fresh.orders);
-          if (fresh.inventory) setInventory(fresh.inventory);
-          if (fresh.clients) setClients(fresh.clients);
-          if (fresh.machineries) setMachineries(fresh.machineries);
-          if (fresh.expenses) setExpenses(fresh.expenses);
+          if (fresh.companyProfile) {
+            const ser = JSON.stringify(fresh.companyProfile);
+            if (ser !== lastSyncedState.current.companyProfile) {
+              lastSyncedState.current.companyProfile = ser;
+              setCompanyProfile(fresh.companyProfile);
+            }
+          }
+          if (Array.isArray(fresh.services) && fresh.services.length > 0) {
+            const ser = JSON.stringify(fresh.services);
+            if (ser !== lastSyncedState.current.services) {
+              lastSyncedState.current.services = ser;
+              setServices(fresh.services);
+            }
+          }
+          if (Array.isArray(fresh.orders) && fresh.orders.length > 0) {
+            const ser = JSON.stringify(fresh.orders);
+            if (ser !== lastSyncedState.current.orders) {
+              lastSyncedState.current.orders = ser;
+              setOrders(fresh.orders);
+            }
+          }
+          if (Array.isArray(fresh.inventory) && fresh.inventory.length > 0) {
+            const ser = JSON.stringify(fresh.inventory);
+            if (ser !== lastSyncedState.current.inventory) {
+              lastSyncedState.current.inventory = ser;
+              setInventory(fresh.inventory);
+            }
+          }
+          if (Array.isArray(fresh.clients) && fresh.clients.length > 0) {
+            const ser = JSON.stringify(fresh.clients);
+            if (ser !== lastSyncedState.current.clients) {
+              lastSyncedState.current.clients = ser;
+              setClients(fresh.clients);
+            }
+          }
+          if (Array.isArray(fresh.machineries) && fresh.machineries.length > 0) {
+            const ser = JSON.stringify(fresh.machineries);
+            if (ser !== lastSyncedState.current.machineries) {
+              lastSyncedState.current.machineries = ser;
+              setMachineries(fresh.machineries);
+            }
+          }
+          if (Array.isArray(fresh.expenses) && fresh.expenses.length > 0) {
+            const ser = JSON.stringify(fresh.expenses);
+            if (ser !== lastSyncedState.current.expenses) {
+              lastSyncedState.current.expenses = ser;
+              setExpenses(fresh.expenses);
+            }
+          }
         }
       });
     });
@@ -461,7 +560,7 @@ export default function App() {
       unsubContas();
       unsubSettings();
     };
-  }, [activeTenantId, currentUser?.uid, companyProfile?.cnpjCpf, companyProfile?.email]);
+  }, [activeTenantId, currentUser?.uid]);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
 
@@ -576,60 +675,89 @@ export default function App() {
   useEffect(() => { saveStoredCompanyProfile(companyProfile); }, [companyProfile]);
 
   // Persistência e Sincronização Automática em Nuvem (Supabase) dos Módulos Principais do Cliente
+  // Protegido por hash defensivo para evitar loops de salvamento e consumo desnecessário de API
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(services);
+    if (currentSerialized === lastSyncedState.current.services) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.services = currentSerialized;
       saveCloudServices(services, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [services, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(inventory);
+    if (currentSerialized === lastSyncedState.current.inventory) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.inventory = currentSerialized;
       saveCloudInventory(inventory, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [inventory, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(orders);
+    if (currentSerialized === lastSyncedState.current.orders) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.orders = currentSerialized;
       saveCloudOrders(orders, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [orders, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(companyProfile);
+    if (currentSerialized === lastSyncedState.current.companyProfile) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.companyProfile = currentSerialized;
       saveCloudCompanyProfile(companyProfile, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [companyProfile, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(clients);
+    if (currentSerialized === lastSyncedState.current.clients) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.clients = currentSerialized;
       saveCloudClients(clients, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [clients, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(machineries);
+    if (currentSerialized === lastSyncedState.current.machineries) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.machineries = currentSerialized;
       saveCloudMachineries(machineries, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [machineries, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(expenses);
+    if (currentSerialized === lastSyncedState.current.expenses) return;
+
     const t = setTimeout(() => {
+      lastSyncedState.current.expenses = currentSerialized;
       saveCloudExpenses(expenses, activeTenantId);
-    }, 700);
+    }, 1200);
     return () => clearTimeout(t);
   }, [expenses, activeTenantId]);
 
@@ -1394,7 +1522,15 @@ export default function App() {
     blockMessage: 'Sua assinatura expirou. Entre em contato com o administrador',
   });
 
-  const performSubscriptionCheck = useCallback(async () => {
+  const lastCheckTimeRef = useRef<number>(0);
+
+  const performSubscriptionCheck = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastCheckTimeRef.current < 30000) {
+      return; // Evita requisições redundantes se checado há menos de 30 segundos
+    }
+    lastCheckTimeRef.current = now;
+
     if (isAdminImpersonating) {
       setSubscriptionCheck({
         isChecking: false,
@@ -1434,11 +1570,11 @@ export default function App() {
       subscriberEmail: result.subscriberEmail || userEmail,
       planName: result.planName || companyProfile?.planName || 'Produtor Essencial',
     });
-  }, [isAdminImpersonating, currentUser, companyProfile, impersonatedSubscriber]);
+  }, [isAdminImpersonating, currentUser?.email, companyProfile?.id, companyProfile?.email, impersonatedSubscriber]);
 
-  // Executa checagem de assinatura ao iniciar, ao mudar de rota ou ao retomar foco
+  // Executa checagem de assinatura ao iniciar ou ao retomar foco (com throttle e canal persistente)
   useEffect(() => {
-    performSubscriptionCheck();
+    performSubscriptionCheck(true);
 
     const handleFocus = () => {
       performSubscriptionCheck();
@@ -1447,7 +1583,7 @@ export default function App() {
 
     // Escuta eventos em tempo real para sincronização imediata sem F5
     const handleImmediateSync = () => {
-      performSubscriptionCheck();
+      performSubscriptionCheck(true);
     };
     window.addEventListener('master_admin_data_changed', handleImmediateSync);
     window.addEventListener('company_profile_updated', handleImmediateSync);
@@ -1455,10 +1591,10 @@ export default function App() {
 
     // Escuta em tempo real nas tabelas de assinantes do Supabase
     const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
-      performSubscriptionCheck();
+      performSubscriptionCheck(true);
     });
     const unsubSubs = subscribeToCloudTable('subscribers', () => {
-      performSubscriptionCheck();
+      performSubscriptionCheck(true);
     });
 
     return () => {
@@ -1469,7 +1605,7 @@ export default function App() {
       unsubAssinantes();
       unsubSubs();
     };
-  }, [performSubscriptionCheck, currentRoute]);
+  }, [performSubscriptionCheck]);
 
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {

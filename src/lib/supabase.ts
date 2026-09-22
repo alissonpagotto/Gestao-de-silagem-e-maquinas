@@ -76,6 +76,74 @@ export const supabase: SupabaseClient = createClient(
 );
 
 /**
+ * Dicionário especializado de Códigos de Erro do PostgreSQL / PostgREST (DBA Diagnostic)
+ */
+export const POSTGRES_ERROR_DICTIONARY: Record<string, string> = {
+  '23503': 'FOREIGN KEY VIOLATION (Violação de Chave Estrangeira): A coluna aponta para um registro que não existe ou a restrição de FK em company_id/user_id está rejeitando o valor fornecido.',
+  '23505': 'UNIQUE VIOLATION (Violação de Unicidade): Tentativa de inserir registro duplicado em campo com restrição UNIQUE (ex: CPF/CNPJ, e-mail ou chave primária).',
+  '23502': 'NOT NULL VIOLATION (Coluna Obrigatória Nula): Uma coluna com restrição NOT NULL não recebeu valor válido.',
+  '42703': 'UNDEFINED COLUMN (Coluna Inexistente no Schema): O frontend solicitou ou tentou gravar em uma coluna que não existe fisicamente na tabela.',
+  '42P01': 'UNDEFINED TABLE (Tabela Inexistente no Schema): A tabela consultada não existe no esquema público do PostgreSQL.',
+  '22P02': 'INVALID TEXT REPRESENTATION (Tipo de Dado Inválido): Falha na conversão de tipo (ex: string não-UUID fornecida para coluna do tipo UUID).',
+  '42501': 'INSUFFICIENT PRIVILEGE (Permissão Negada / RLS): Política de Row-Level Security impediu a operação.',
+  'PGRST116': 'POSTGREST NOT FOUND: Nenhum registro encontrado para single() ou maybeSingle().',
+  'PGRST204': 'POSTGREST SCHEMA CACHE MISMATCH: Coluna ou campo não mapeado no cache do PostgREST. Necessário NOTIFY pgrst, \'reload schema\'.',
+  'PGRST205': 'POSTGREST TABLE NOT IN SCHEMA: Tabela não exposta no schema público do PostgREST.',
+  'PGRST301': 'POSTGREST JWT EXPIRED: Token de autorização expirado.',
+  '40001': 'SERIALIZATION FAILURE: Conflito de concorrência na transação.',
+  '57014': 'QUERY CANCELED: Query cancelada por exceder o tempo limite (timeout).'
+};
+
+export interface PostgresErrorLogOptions {
+  table?: string;
+  action?: 'SELECT' | 'INSERT' | 'UPDATE' | 'UPSERT' | 'DELETE' | 'SUBSCRIBE' | 'RPC';
+  payload?: any;
+  companyId?: string;
+}
+
+/**
+ * Função defensiva centralizada de logging de erros do PostgreSQL / Supabase
+ * Exibe relatório completo com código SQLSTATE, explicação amigável, tabela e payload.
+ */
+export function logPostgresError(
+  context: string,
+  error: any,
+  options?: PostgresErrorLogOptions
+): void {
+  if (!error) return;
+
+  const message = error.message || String(error);
+
+  // Falhas de transporte de WebSocket (Realtime) não são erros de SQL/Postgres DBA
+  if (
+    options?.action === 'SUBSCRIBE' ||
+    message.includes('transport failure') ||
+    message.includes('CHANNEL_ERROR') ||
+    message.includes('WebSocket')
+  ) {
+    console.warn(`⚠️ [Realtime Transport Notice] Falha no canal em tempo real '${context}': ${message}`);
+    return;
+  }
+
+  const code = String(error.code || error.statusCode || '').trim();
+  const description = POSTGRES_ERROR_DICTIONARY[code] || 'Código de erro do PostgreSQL/PostgREST não mapeado';
+  const details = error.details || error.detail || '';
+  const hint = error.hint || '';
+
+  console.error(`🚨 [POSTGRES DBA ERROR] [${options?.action || 'QUERY'}] no contexto '${context}':`, {
+    tabela: options?.table || 'N/A',
+    codigoPostgres: code || 'SEM_CODIGO',
+    diagnosticoDBA: description,
+    mensagem: message,
+    detalhes: details || undefined,
+    dicaPostgres: hint || undefined,
+    companyId: options?.companyId || undefined,
+    payloadEnviado: options?.payload !== undefined ? options.payload : undefined,
+    rawError: error
+  });
+}
+
+/**
  * Realiza teste de integridade da conexão direta com o Supabase
  */
 export async function testSupabaseConnection(): Promise<boolean> {
@@ -85,7 +153,7 @@ export async function testSupabaseConnection(): Promise<boolean> {
     if (!error) return true;
     // PGRST116 ou violação de RLS comprovam que o banco remoto respondeu com sucesso
     if (error.code === 'PGRST116' || error.message?.includes('row-level security')) return true;
-    console.warn('Supabase query notice:', error.message);
+    logPostgresError('testSupabaseConnection', error, { table: 'clientes', action: 'SELECT' });
     return false;
   } catch (err) {
     console.warn('Supabase ping notice:', err);
