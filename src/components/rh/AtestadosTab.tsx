@@ -138,10 +138,9 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
       setType('Atestado Médico');
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
-      setEndDate(today);
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      setExpectedReturnDate(tomorrow);
-      setDaysCount(1);
+      setEndDate('');
+      setExpectedReturnDate('');
+      setDaysCount(0);
       setHoursCount(0);
       setCid('');
       setDoctorName('');
@@ -605,8 +604,9 @@ export const AtestadosTab: React.FC<AtestadosTabProps> = ({
                       <input
                         type="number"
                         min="1"
-                        value={daysCount || ''}
-                        onChange={(e) => handleDaysChange(parseInt(e.target.value) || 1)}
+                        value={daysCount > 0 ? daysCount : ''}
+                        placeholder="Qtd. dias"
+                        onChange={(e) => handleDaysChange(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
                         className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
                         required
                       />

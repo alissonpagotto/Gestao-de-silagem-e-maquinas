@@ -231,7 +231,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       return {
         id: s.id,
         nome: s.name,
-        cultura: s.cropType || 'Silagem de Milho',
+        cultura: s.cropType || 'Não informada',
         area: s.totalAreaHectares ? `${s.totalAreaHectares.toFixed(1)} ha` : (totalAreaHectares > 0 ? `${totalAreaHectares.toFixed(1)} ha` : '0.0 ha'),
         producao: s.totalProductionTons ? `${s.totalProductionTons.toLocaleString('pt-BR')} ton` : (totalTons > 0 ? `${totalTons.toLocaleString('pt-BR')} ton` : '0 ton'),
         custoDiesel: dieselExpenses,

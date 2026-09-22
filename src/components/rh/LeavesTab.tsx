@@ -442,8 +442,9 @@ export const LeavesTab: React.FC<LeavesTabProps> = ({
                   <input
                     type="number"
                     min="1"
-                    value={daysCount}
-                    onChange={(e) => setDaysCount(parseInt(e.target.value) || 1)}
+                    value={daysCount > 0 ? daysCount : ''}
+                    placeholder="Qtd. dias"
+                    onChange={(e) => setDaysCount(e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
                     className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
                   />
                 </div>

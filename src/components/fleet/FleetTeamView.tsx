@@ -62,58 +62,9 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
   onSaveTeams,
 }) => {
   // Local fallback if no teams provided
-  const defaultInitialTeams: FleetTeam[] = [
-    {
-      id: 'team_maq_02',
-      name: 'Maq 02',
-      headerBgColor: '#fef08a',
-      columnBgColor: '#fefce8',
-      borderColor: '#ca8a04',
-      machineryId: 'veh_forr_05_2023',
-      machineryName: 'FORR 05 2023 (Claas 870)',
-      notes: 'Equipe de corte colheita alta performance',
-      order: 1,
-      createdAt: '2026-08-01T08:00:00Z',
-    },
-    {
-      id: 'team_maq_03',
-      name: 'Maq 03',
-      headerBgColor: '#fed7aa',
-      columnBgColor: '#fff7ed',
-      borderColor: '#ea580c',
-      machineryId: 'veh_colh_02_2022',
-      machineryName: 'COLH 02 2022 (Claas 860)',
-      notes: 'Frente colheita 2 - Vale do Iguaçu',
-      order: 2,
-      createdAt: '2026-08-01T08:00:00Z',
-    },
-    {
-      id: 'team_maq_04',
-      name: 'Maq 04',
-      headerBgColor: '#bbf7d0',
-      columnBgColor: '#f0fdf4',
-      borderColor: '#16a34a',
-      machineryId: 'veh_trator_jd_6110',
-      machineryName: 'Trator JD 6110J + JF C120',
-      notes: 'Frente colheita 3 & compactação pesada',
-      order: 3,
-      createdAt: '2026-08-01T08:00:00Z',
-    },
-    {
-      id: 'team_maq_05',
-      name: 'Maq 05',
-      headerBgColor: '#fde047',
-      columnBgColor: '#fef9c3',
-      borderColor: '#eab308',
-      machineryId: 'veh_evd_2j61',
-      machineryName: 'Frota MB 2726 + Suporte',
-      notes: 'Frente transporte, transbordo e lona',
-      order: 4,
-      createdAt: '2026-08-01T08:00:00Z',
-    },
-  ];
+  const defaultInitialTeams: FleetTeam[] = [];
 
-  const teams = externalTeams && externalTeams.length > 0 ? externalTeams : defaultInitialTeams;
+  const teams = (externalTeams && externalTeams.length > 0) ? externalTeams : defaultInitialTeams;
 
   // View mode: 'table' (like the uploaded spreadsheet print) or 'cards' (rich Kanban cards)
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -722,12 +673,30 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
           </div>
 
           {/* 2. TEAMS COLUMNS HEADER & GRID */}
-          <div 
-            className="grid divide-x-3 divide-black dark:divide-stone-700"
-            style={{
-              gridTemplateColumns: `repeat(${teams.length}, minmax(180px, 1fr))`
-            }}
-          >
+          {teams.length === 0 ? (
+            <div className="py-12 px-4 text-center flex flex-col items-center justify-center space-y-3 bg-stone-50/50 dark:bg-stone-900/50">
+              <Users className="w-10 h-10 text-stone-400 dark:text-stone-600" />
+              <div className="text-sm font-bold text-stone-800 dark:text-stone-200">
+                Nenhuma equipe ou frente cadastrada
+              </div>
+              <p className="text-xs text-stone-500 dark:text-stone-400 max-w-sm">
+                Crie as frentes de colheita da sua empresa para alocar operadores, motoristas e maquinários.
+              </p>
+              <button
+                onClick={openNewTeamModal}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Criar Primeira Equipe</span>
+              </button>
+            </div>
+          ) : (
+            <div 
+              className="grid divide-x-3 divide-black dark:divide-stone-700"
+              style={{
+                gridTemplateColumns: `repeat(${teams.length}, minmax(180px, 1fr))`
+              }}
+            >
             {teams.map((team, idx) => {
               const teamMembers = teamEmployeesMap[team.id] || [];
               const isDragOver = dragOverTeamId === team.id;
@@ -950,6 +919,7 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
               );
             })}
           </div>
+          )}
         </div>
       </div>
 

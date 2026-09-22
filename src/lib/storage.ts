@@ -165,10 +165,26 @@ export function saveStoredCostCenters(centers: CostCenter[]): void {
 export function getStoredClients(): Client[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
-    if (!raw) return INITIAL_CLIENTS;
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Higienização de clientes de teste/mock legados
+    const cleaned = parsed.filter(c => {
+      if (!c || typeof c !== 'object') return false;
+      const name = (c.name || '').toLowerCase();
+      const farm = (c.farmName || '').toLowerCase();
+      const isMock = ['agrícola silveira', 'agricola silveira', 'fazenda santa maria', 'agropecuária santa fé', 'agropecuaria santa fe'].some(fake =>
+        name.includes(fake) || farm.includes(fake)
+      );
+      const isMockId = c.id && String(c.id).startsWith('mock_');
+      return !isMock && !isMockId;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
-    return INITIAL_CLIENTS;
+    return [];
   }
 }
 
@@ -205,10 +221,28 @@ export function saveStoredOrders(orders: SilageOrder[]): void {
 export function getStoredMachineries(): Machinery[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.MACHINERIES);
-    if (!raw) return INITIAL_MACHINERIES;
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Higienização de veículos de teste/mock legados
+    const cleaned = parsed.filter(m => {
+      if (!m || typeof m !== 'object') return false;
+      const name = (m.name || '').toLowerCase();
+      const model = (m.model || '').toLowerCase();
+      const num = (m.fleetNumber || '').toLowerCase();
+      const plate = (m.licensePlateOrSerial || m.serialNumber || '').toLowerCase();
+      const isMock = ['claas jaguar', 'trator jd 6110', 'mercedes-benz 2726', 'evd-2j61', 'forr 05', 'colh 02', 'maq 10', 'jf maq1', 'john deere maq'].some(fake => 
+        name.includes(fake) || model.includes(fake) || num.includes(fake) || plate.includes(fake)
+      );
+      const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61', 'veh_forrageira', 'veh_trator', 'veh_heavy_machine'].includes(m.id);
+      return !isMock && !isMockId;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
-    return INITIAL_MACHINERIES;
+    return [];
   }
 }
 
@@ -223,10 +257,26 @@ export function saveStoredMachineries(machines: Machinery[]): void {
 export function getStoredSeasons(): CropSeason[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SEASONS);
-    if (!raw) return INITIAL_SEASONS;
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Higienização de safras de teste/mock legadas
+    const cleaned = parsed.filter(s => {
+      if (!s || typeof s !== 'object') return false;
+      const name = (s.name || '').toLowerCase();
+      const crop = (s.cropType || '').toLowerCase();
+      const isMock = ['safra 2026/2027', 'silagem de milho', 'c chácara + oton', '2026/2027'].some(fake => 
+        name.includes(fake) || crop.includes(fake)
+      );
+      const isMockId = ['season-001', 'season-002', 'safra-001'].includes(s.id);
+      return !isMock && !isMockId;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.SEASONS, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
-    return INITIAL_SEASONS;
+    return [];
   }
 }
 
@@ -259,11 +309,26 @@ export function saveStoredEmployees(employees: Employee[]): void {
 export function getStoredFleetTeams(): FleetTeam[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.FLEET_TEAMS);
-    if (!raw) return INITIAL_FLEET_TEAMS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_FLEET_TEAMS;
+    if (!Array.isArray(parsed)) return [];
+    // Higienização de frentes/equipes de teste legadas
+    const cleaned = parsed.filter(t => {
+      if (!t || typeof t !== 'object') return false;
+      const name = (t.name || '').toLowerCase();
+      const mName = (t.machineryName || '').toLowerCase();
+      const isMock = ['maq 10', 'jf maq1', 'john deere maq 10', 'maq 02', 'maq 03', 'maq 04', 'maq 05', 'claas 870', 'claas 860', 'jf c120'].some(fake =>
+        name.includes(fake) || mName.includes(fake)
+      );
+      const isMockId = ['team-01', 'team-02', 'team_maq_02', 'team_maq_03', 'team_maq_04', 'team_maq_05'].includes(t.id);
+      return !isMock && !isMockId;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.FLEET_TEAMS, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
-    return INITIAL_FLEET_TEAMS;
+    return [];
   }
 }
 
@@ -340,12 +405,27 @@ export function saveStoredServices(services: ServiceOrder[]): void {
 export function getStoredAppointments(): ServiceAppointment[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-    if (!raw) return DEFAULT_INITIAL_APPOINTMENTS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
-    return DEFAULT_INITIAL_APPOINTMENTS;
+    if (!Array.isArray(parsed)) return [];
+    // Higienização de agendamentos de teste/mock legados
+    const cleaned = parsed.filter(a => {
+      if (!a || typeof a !== 'object') return false;
+      const cName = (a.clientName || '').toLowerCase();
+      const fName = (a.farmName || '').toLowerCase();
+      const machName = (a.primaryMachineryPrefix || a.primaryMachineryModel || '').toLowerCase();
+      const isMock = ['santa maria', 'agrícola silveira', 'agricola silveira', 'chácara + oton', 'chacara + oton'].some(fake =>
+        cName.includes(fake) || fName.includes(fake) || machName.includes(fake)
+      );
+      const isMockId = ['appt-initial-01', 'appt-initial-02', 'appt-001', 'appt-002'].includes(a.id);
+      return !isMock && !isMockId;
+    });
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
-    return DEFAULT_INITIAL_APPOINTMENTS;
+    return [];
   }
 }
 
