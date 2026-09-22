@@ -3798,7 +3798,7 @@ export async function saveCloudTerminations(terminations: TerminationRecord[], c
         updated_at: new Date().toISOString()
       }));
       if (recordsToUpsert.length > 0) {
-        await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' }).catch(() => {});
+        await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
       }
     } catch {
       // Ignora silenciosamente caso tabela relacional ainda não exista
