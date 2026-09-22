@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calculator, 
   Printer, 
@@ -168,6 +168,25 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     };
   };
 
+  // Referência para evitar re-carregamento desnecessário enquanto o usuário edita campos
+  const lastLoadedEmployeeIdRef = useRef<string | null>(null);
+
+  // Manipulador para férias vencidas aceitando frações e decimais (ex: 1.4, 1.5, etc.)
+  const handleVacationExpiredChange = (valStr: string) => {
+    setVacationExpiredInput(valStr);
+    const normalized = valStr.replace(',', '.').trim();
+    if (!normalized) {
+      setVacationExpiredPeriods(0);
+      return;
+    }
+    const num = parseFloat(normalized);
+    if (!isNaN(num) && num >= 0) {
+      setVacationExpiredPeriods(Number(num.toFixed(2)));
+    } else {
+      setVacationExpiredPeriods(0);
+    }
+  };
+
   // Colaborador Selecionado
   const selectedEmployee = useMemo(() => {
     return employees.find((e) => e.id === selectedEmployeeId) || null;
@@ -176,6 +195,12 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   // Ao selecionar funcionário, verifica se há rascunho salvo para restaurar ou preenche com dados cadastrais
   useEffect(() => {
     if (selectedEmployee) {
+      // Se este funcionário já foi carregado ativamente, não sobrescreve os campos que o usuário está digitando
+      if (lastLoadedEmployeeIdRef.current === selectedEmployee.id) {
+        return;
+      }
+      lastLoadedEmployeeIdRef.current = selectedEmployee.id;
+
       // Verifica se já existe um rascunho 'Em Andamento' para este colaborador
       const existingDraft = terminations.find(
         (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
@@ -204,7 +229,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         setCustomAdvancesDiscount(existingDraft.customAdvancesDiscount || '0,00');
         setOtherDeductionsInput(existingDraft.otherDeductionsInput || '0,00');
         setNotes(existingDraft.notes || '');
-        setDraftBannerMessage(`Rascunho recuperado: Carregamos as informações salvas anteriormente para ${selectedEmployee.name}.`);
+        setDraftBannerMessage(`Rascunho em andamento carregado para ${selectedEmployee.name}. Altere o que precisar e salve ou homologue.`);
       } else {
         setDraftBannerMessage(null);
         const rawSal = selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0;
@@ -243,6 +268,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         setNotes('');
       }
     } else {
+      lastLoadedEmployeeIdRef.current = null;
       setBaseSalary(0);
       setBaseSalaryDisplay('0,00');
       setAdmissionDate('');
@@ -709,6 +735,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
   // Retoma o preenchimento de um rascunho
   const handleResumeDraft = (draft: TerminationRecord) => {
+    lastLoadedEmployeeIdRef.current = draft.employeeId;
     setSelectedEmployeeId(draft.employeeId);
     setReason(draft.reason || 'sem_justa_causa');
     setNoticeType(draft.noticeType || 'indenizado');
@@ -802,6 +829,24 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </span>
             )}
           </div>
+
+          {/* Banner de Feedback / Rascunho Recuperado */}
+          {draftBannerMessage && (
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/70 rounded-xl text-xs text-amber-900 dark:text-amber-200 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="font-semibold">{draftBannerMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDraftBannerMessage(null)}
+                className="text-amber-600 hover:text-amber-900 dark:hover:text-white p-1 cursor-pointer"
+                title="Fechar aviso"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Seção 1: Seleção de Funcionário e Motivo */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -902,18 +947,42 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           {/* Seção 3: Parâmetros Férias e Saldo FGTS */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-stone-800/40 rounded-xl border border-slate-200/80 dark:border-stone-800">
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                Férias Vencidas (Períodos Integrais)
-              </label>
-              <select
-                value={vacationExpiredPeriods}
-                onChange={(e) => setVacationExpiredPeriods(Number(e.target.value))}
-                className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white"
-              >
-                <option value={0}>0 períodos vencidos</option>
-                <option value={1}>1 período (1 ano vencido)</option>
-                <option value={2}>2 períodos (2 anos vencidos)</option>
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300">
+                  Férias Vencidas (Períodos / Anos)
+                </label>
+                <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                  Fração (ex: 1,4 ou 1,5)
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="15"
+                  value={vacationExpiredInput}
+                  onChange={(e) => handleVacationExpiredChange(e.target.value)}
+                  placeholder="0,0"
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <div className="flex items-center gap-1 flex-wrap">
+                  {[0, 1, 1.4, 1.5, 2].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleVacationExpiredChange(String(preset))}
+                      className={`px-2 py-0.5 text-[10px] rounded-md font-bold transition border cursor-pointer ${
+                        vacationExpiredPeriods === preset
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          : 'bg-white dark:bg-stone-800 text-slate-600 dark:text-stone-300 border-slate-200 dark:border-stone-700 hover:bg-slate-100 dark:hover:bg-stone-700'
+                      }`}
+                    >
+                      {preset === 0 ? '0' : `${String(preset).replace('.', ',')} ano${preset > 1 ? 's' : ''}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="sm:col-span-2 space-y-2">
@@ -945,7 +1014,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 <div className="px-2.5 py-1.5 bg-slate-200/70 dark:bg-stone-700/60 rounded-lg text-xs text-slate-800 dark:text-stone-200 font-bold flex items-center justify-between">
                   <span>Estimado: {formatMoneyBRL(calculation.fgtsEstimatedBalance)}</span>
                   <span className="text-[10px] text-slate-500 dark:text-stone-400 font-normal">
-                    (Multa: {formatMoneyBRL(calculation.fgtsFineAmount)})
+                    {includeFgtsFine
+                      ? `(Multa: ${formatMoneyBRL(calculation.fgtsFineAmount)})`
+                      : '(Multa: R$ 0,00 - desmarcada)'}
                   </span>
                 </div>
               )}
@@ -1045,11 +1116,27 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               <span>Atualizar status do colaborador para "Inativo / Desligado" no sistema</span>
             </label>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft || !selectedEmployee}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Salvar rascunho em andamento sem alterar o colaborador para inativo"
+              >
+                {isSavingDraft ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <BookmarkCheck className="w-4 h-4" />
+                )}
+                <span>{isSavingDraft ? 'Salvando Rascunho...' : 'Salvar Rascunho'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleSaveTermination}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer"
+                disabled={!selectedEmployee}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
                 <span>Homologar Rescisão</span>
@@ -1084,23 +1171,21 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 <span>Total Deduções:</span>
                 <span className="font-bold text-rose-400">- {formatMoneyBRL(calculation.totalDeductions)}</span>
               </div>
-              {calculation.fgtsFineAmount > 0 && (
-                <div className="flex items-center justify-between text-slate-300 pt-1 border-t border-slate-700/50">
-                  <span>Multa FGTS ({calculation.fgtsFineRate}%):</span>
-                  <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                    {formatMoneyBRL(calculation.fgtsFineAmount)}
-                    {includeFgtsFine ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
-                        Inclusa
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 font-normal">
-                        Não inclusa
-                      </span>
-                    )}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between text-slate-300 pt-1 border-t border-slate-700/50">
+                <span>Multa FGTS ({calculation.fgtsFineRate}%):</span>
+                <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                  {includeFgtsFine ? formatMoneyBRL(calculation.fgtsFineAmount) : 'R$ 0,00'}
+                  {includeFgtsFine ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                      Inclusa
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-400 font-normal">
+                      Não inclusa
+                    </span>
+                  )}
+                </span>
+              </div>
             </div>
 
             {selectedEmployee && (
@@ -1160,7 +1245,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
               {calculation.vacationExpiredAmount > 0 && (
                 <div className="flex justify-between">
-                  <span>Férias Vencidas ({calculation.vacationExpiredCount} per.):</span>
+                  <span>Férias Vencidas ({calculation.vacationExpiredCount.toString().replace('.', ',')} per.):</span>
                   <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationExpiredAmount)}</span>
                 </div>
               )}
@@ -1175,10 +1260,17 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationOneThirdBonus)}</span>
               </div>
 
-              {includeFgtsFine && calculation.fgtsFineAmount > 0 && (
-                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
+              {includeFgtsFine ? (
+                calculation.fgtsFineAmount > 0 && (
+                  <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
+                    <span>Multa Rescisória FGTS ({calculation.fgtsFineRate}%):</span>
+                    <span>{formatMoneyBRL(calculation.fgtsFineAmount)}</span>
+                  </div>
+                )
+              ) : (
+                <div className="flex justify-between text-slate-400 dark:text-stone-500 italic text-[11px]">
                   <span>Multa Rescisória FGTS ({calculation.fgtsFineRate}%):</span>
-                  <span>{formatMoneyBRL(calculation.fgtsFineAmount)}</span>
+                  <span>R$ 0,00 (Desmarcada)</span>
                 </div>
               )}
 
@@ -1237,20 +1329,25 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       {/* 2. Histórico de Rescisões Salvas */}
       <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-800 pb-2.5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <FileText className="w-4 h-4 text-slate-700 dark:text-stone-300" />
             <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              Histórico de Rescisões Homologadas
+              Histórico de Rescisões & Rascunhos
             </h3>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300">
               {terminations.length} registro(s)
             </span>
+            {terminations.some((t) => t.status === 'rascunho') && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                {terminations.filter((t) => t.status === 'rascunho').length} em andamento
+              </span>
+            )}
           </div>
         </div>
 
         {terminations.length === 0 ? (
           <div className="py-8 text-center text-slate-400 dark:text-stone-500 text-xs">
-            Nenhuma rescisão homologada até o momento. Utilize o formulário acima para calcular e salvar.
+            Nenhuma rescisão ou rascunho salvo até o momento. Utilize o simulador acima para calcular e salvar.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1285,11 +1382,28 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                       {formatMoneyBRL(t.calculation.netTotal)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                        Homologado
-                      </span>
+                      {t.status === 'rascunho' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Em Andamento
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                          Homologado
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                      {t.status === 'rascunho' && (
+                        <button
+                          type="button"
+                          onClick={() => handleResumeDraft(t)}
+                          className="p-1.5 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 rounded-lg transition cursor-pointer"
+                          title="Continuar preenchimento deste rascunho"
+                        >
+                          <FileEdit className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setViewingTRCT(t)}
@@ -1302,7 +1416,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                         type="button"
                         onClick={() => handleDeleteTermination(t.id, t.employeeName)}
                         className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                        title="Excluir do histórico"
+                        title={t.status === 'rascunho' ? "Excluir rascunho" : "Excluir do histórico"}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
