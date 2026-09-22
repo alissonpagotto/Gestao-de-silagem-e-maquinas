@@ -377,21 +377,65 @@ export function saveStoredInventory(items: InventoryItem[]): void {
   }
 }
 
+/**
+ * Higienização estrita de ordens de serviço:
+ * Localiza e remove por completo qualquer registro de teste/mock legado,
+ * em especial o registro nº '4001' vinculado ao cliente 'JUCA (JUCA SILVA)',
+ * equipamento 'TRATOR ESTEIRA - KIKI TRATOR ESTEIRA', '10 h' e 'R$ 3.500,00'.
+ */
+export function sanitizeServiceOrders(services: ServiceOrder[]): ServiceOrder[] {
+  if (!Array.isArray(services)) return [];
+  return services.filter((s) => {
+    if (!s || typeof s !== 'object') return false;
+    const client = (s.clientName || '').toLowerCase();
+    const farm = (s.farmName || '').toLowerCase();
+    const tractor = (s.tractorName || '').toLowerCase();
+    const machinery = (s.machineryAssigned || '').toLowerCase();
+    const orderNum = String(s.orderNumber || '').trim();
+    const sId = String(s.id || '').trim();
+    const notes = String(s.notes || '').toLowerCase();
+
+    const isMock =
+      client.includes('juca') ||
+      farm.includes('juca') ||
+      tractor.includes('kiki') ||
+      tractor.includes('trotor esteira') ||
+      tractor.includes('trator esteira') ||
+      machinery.includes('kiki') ||
+      notes.includes('juca') ||
+      notes.includes('kiki') ||
+      sId.includes('1790021832494') ||
+      orderNum === '4001' ||
+      orderNum === '#4001' ||
+      orderNum.includes('4001') ||
+      (orderNum === '#001' && (client.includes('juca') || tractor.includes('kiki') || s.tractorHours === 10 || s.totalAmount === 3500));
+
+    return !isMock;
+  });
+}
+
 export function getStoredServices(): ServiceOrder[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SERVICES);
-    if (!raw) return INITIAL_SERVICES;
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const cleaned = sanitizeServiceOrders(parsed);
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
-    return INITIAL_SERVICES;
+    return [];
   }
 }
 
 export function saveStoredServices(services: ServiceOrder[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
+    const cleaned = sanitizeServiceOrders(services);
+    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(cleaned));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: services }));
+      window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: cleaned }));
       window.dispatchEvent(new Event('storage'));
     }
   } catch (e) {
@@ -496,15 +540,80 @@ export function getStoredCompanyProfile(): CompanyProfile {
   }
 }
 
+// Gerenciamento e Cache do company_id resolvido do banco de dados remoto
+let memoryDbAuthCompanyId: string | null = null;
+
+export function setDbAuthCompanyId(companyId: string | null): void {
+  memoryDbAuthCompanyId = companyId && companyId.trim() ? companyId.trim() : null;
+  if (typeof localStorage !== 'undefined') {
+    if (companyId && companyId.trim()) {
+      localStorage.setItem('supabase_auth_company_id', companyId.trim());
+      localStorage.setItem('authenticated_user_company_id', companyId.trim());
+    } else {
+      localStorage.removeItem('supabase_auth_company_id');
+      localStorage.removeItem('authenticated_user_company_id');
+    }
+  }
+}
+
+export function getDbAuthCompanyId(): string | null {
+  if (memoryDbAuthCompanyId && memoryDbAuthCompanyId.trim()) {
+    return memoryDbAuthCompanyId.trim();
+  }
+  if (typeof localStorage !== 'undefined') {
+    const stored = (localStorage.getItem('supabase_auth_company_id') || localStorage.getItem('authenticated_user_company_id') || '').trim();
+    if (stored) return stored;
+  }
+  return null;
+}
+
+/**
+ * Limpa completamente o cache de autenticação, impersonação e company_id antigo.
+ * Deve ser chamada no Logout e antes de qualquer novo Login para evitar contaminação cruzada.
+ */
+export function clearAllAuthSessionCache(): void {
+  setDbAuthCompanyId(null);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('supabase_auth_company_id');
+    localStorage.removeItem('authenticated_user_company_id');
+    localStorage.removeItem('admin_impersonated_company_id');
+    localStorage.removeItem('is_admin_impersonating');
+    localStorage.removeItem('impersonated_subscriber_id');
+    localStorage.removeItem('impersonated_subscriber_name');
+    localStorage.removeItem('impersonated_subscriber_email');
+    localStorage.removeItem('impersonated_subscriber_plan');
+    localStorage.removeItem('silagem_active_subscriber_id');
+    localStorage.removeItem('silagem_active_user_email');
+    localStorage.removeItem('silagem_active_subscriber_email');
+    localStorage.removeItem('silagem_client_session');
+    localStorage.removeItem('current_company_id');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem(STORAGE_KEYS.SERVICES);
+    localStorage.removeItem(STORAGE_KEYS.APPOINTMENTS);
+    localStorage.removeItem(STORAGE_KEYS.ORDERS);
+    localStorage.removeItem(STORAGE_KEYS.CLIENTS);
+    localStorage.removeItem(STORAGE_KEYS.MACHINERIES);
+    localStorage.removeItem(STORAGE_KEYS.EXPENSES);
+    localStorage.removeItem(STORAGE_KEYS.INVENTORY);
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth_session_cleared'));
+    window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: null } }));
+  }
+}
+
 /**
  * Retorna o identificador único da empresa (company_id) para sincronização multi-dispositivo.
  * Permite que múltiplos aparelhos e funcionários da mesma fazenda compartilhem os mesmos dados na nuvem.
+ * 
+ * ORDEM DE PRIORIDADE ESTREITA:
+ * 1º: ID de personificação do Admin Master (se aplicável).
+ * 2º: O 'company_id' retornado pela consulta do perfil do usuário logado diretamente do banco de dados (Supabase).
+ * 3º: Fallbacks estáticos/offline (apenas quando não autenticado).
  */
 export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): string {
   try {
-    // 0. VISUALIZAÇÃO DO PAINEL ADMIN (IMPERSONAÇÃO / PERSONIFICAÇÃO):
-    // PRIORIDADE ABSOLUTA 1: Verifica PRIMEIRO se existe um ID de personificação ativo gravado
-    // pelo clique do botão "→ Entrar" no Painel Admin Mestre ('admin_impersonated_company_id').
+    // 1º PRIORIDADE: ID de personificação do Admin Master (se aplicável)
     if (typeof localStorage !== 'undefined') {
       const adminImpersonatedId = (localStorage.getItem('admin_impersonated_company_id') || '').trim();
       if (adminImpersonatedId) {
@@ -525,44 +634,53 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
       }
     }
 
-    const profile = overrideProfile || getStoredCompanyProfile();
-
-    // 1. Se houver companyId explícito no perfil
-    if (profile?.companyId && profile.companyId.trim()) {
-      return profile.companyId.trim();
-    }
-    // Se houver id do assinante no perfil
-    if (profile?.id && profile.id.trim() && profile.id !== 'default_company') {
-      return profile.id.trim();
+    // 2º PRIORIDADE: O 'company_id' retornado pela consulta do perfil do usuário logado diretamente do banco de dados (Supabase)
+    const dbAuthCompanyId = getDbAuthCompanyId();
+    if (dbAuthCompanyId && dbAuthCompanyId.trim()) {
+      return dbAuthCompanyId.trim();
     }
 
-    // 2. Sessão ativa salva do Assinante logado no dispositivo atual
+    // Se houver sessão de cliente ativa no navegador e identificador persistido da sessão
     if (typeof localStorage !== 'undefined') {
+      const isClientSessionActive = localStorage.getItem('silagem_client_session') === 'active';
       const activeSubId = (localStorage.getItem('silagem_active_subscriber_id') || '').trim();
-      if (activeSubId && activeSubId !== 'default' && activeSubId !== 'usr_local') {
+      if (isClientSessionActive && activeSubId && activeSubId !== 'default' && activeSubId !== 'usr_local') {
         return activeSubId;
       }
     }
 
-    // 3. E-mail de login da empresa ou e-mail comercial da fazenda
-    const email = (profile?.loginEmail || profile?.email || '').trim().toLowerCase();
-    if (email && email.includes('@')) {
-      return `company_${email.replace(/[^a-z0-9]/g, '_')}`;
+    // Se houver companyId explícito no perfil fornecido como override (se não for default)
+    if (overrideProfile?.companyId && overrideProfile.companyId.trim() && overrideProfile.companyId !== 'default' && overrideProfile.companyId !== 'default_company') {
+      return overrideProfile.companyId.trim();
+    }
+    if (overrideProfile?.id && overrideProfile.id.trim() && overrideProfile.id !== 'default' && overrideProfile.id !== 'default_company') {
+      return overrideProfile.id.trim();
     }
 
-    // 4. CNPJ ou CPF da empresa (único para toda a fazenda)
-    if (profile?.cnpjCpf) {
-      const clean = profile.cnpjCpf.replace(/\D/g, '');
-      if (clean.length >= 8) {
-        return `company_${clean}`;
+    // Se houver e-mail de usuário logado (permanece idêntico em qualquer aparelho para a mesma conta)
+    if (typeof localStorage !== 'undefined') {
+      const activeUserEmail = (localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || '').trim().toLowerCase();
+      if (activeUserEmail && activeUserEmail.includes('@') && activeUserEmail !== 'usuario@silagem.com') {
+        return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;
       }
     }
 
-    // 5. E-mail ativo em localStorage
-    if (typeof localStorage !== 'undefined') {
-      const activeUserEmail = (localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || '').trim().toLowerCase();
-      if (activeUserEmail && activeUserEmail.includes('@')) {
-        return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;
+    // Fallbacks para modo não-autenticado / demonstração local
+    const profile = overrideProfile || getStoredCompanyProfile();
+    if (profile?.companyId && profile.companyId.trim() && profile.companyId !== 'default' && profile.companyId !== 'default_company') {
+      return profile.companyId.trim();
+    }
+    if (profile?.id && profile.id.trim() && profile.id !== 'default' && profile.id !== 'default_company') {
+      return profile.id.trim();
+    }
+    const email = (profile?.loginEmail || profile?.email || '').trim().toLowerCase();
+    if (email && email.includes('@') && email !== 'silagemteste02@gmail.com') {
+      return `company_${email.replace(/[^a-z0-9]/g, '_')}`;
+    }
+    if (profile?.cnpjCpf) {
+      const clean = profile.cnpjCpf.replace(/\D/g, '');
+      if (clean.length >= 8 && clean !== '5787222222') {
+        return `company_${clean}`;
       }
     }
   } catch (e) {

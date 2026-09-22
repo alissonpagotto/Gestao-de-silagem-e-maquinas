@@ -473,7 +473,19 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
                 <tr className="bg-white dark:bg-stone-900">
                   <td colSpan={7} className="px-4 py-12 text-center bg-white dark:bg-stone-900">
                     <p className="text-sm font-semibold text-zinc-500 dark:text-stone-400">
-                      Nenhum registro encontrado
+                      {activeTab === 'trator' 
+                        ? 'Nenhum serviço de trator encontrado' 
+                        : activeTab === 'corte'
+                        ? 'Nenhum serviço de corte de silagem encontrado'
+                        : activeTab === 'colheita'
+                        ? 'Nenhum serviço de colheita de grãos encontrado'
+                        : activeTab === 'maquina'
+                        ? 'Nenhum serviço de máquina encontrado'
+                        : activeTab === 'frete'
+                        ? 'Nenhum serviço de frete encontrado'
+                        : activeTab === 'orcamento'
+                        ? 'Nenhum orçamento encontrado'
+                        : 'Nenhum serviço encontrado'}
                     </p>
                   </td>
                 </tr>

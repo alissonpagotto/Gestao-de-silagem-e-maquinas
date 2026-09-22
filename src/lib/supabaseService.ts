@@ -20,7 +20,7 @@ import {
   PlanDefinition,
   Subscriber
 } from '../types/masterAdmin';
-import { getActiveCompanyId } from './storage';
+import { getActiveCompanyId, setDbAuthCompanyId, getDbAuthCompanyId, clearAllAuthSessionCache, sanitizeServiceOrders } from './storage';
 
 /**
  * Converte qualquer ID de string para um UUID v4 determinístico válido,
@@ -3308,20 +3308,152 @@ export async function fetchSubscriberFullDetails(sub: Subscriber): Promise<Subsc
 }
 
 /**
+ * Resolve o 'company_id' real diretamente a partir do banco de dados remoto do Supabase
+ * buscando a linha correspondente ao usuário autenticado (auth.uid() ou e-mail).
+ * 
+ * ORDEM DE PRIORIDADE E VERIFICAÇÃO:
+ * 1. public.profiles (id = auth.uid() ou user_id = auth.uid()) -> coluna company_id
+ * 2. public.user_companies (user_id = auth.uid() ou id = auth.uid()) -> coluna company_id
+ * 3. public.users (id = auth.uid()) -> coluna company_id
+ * 4. public.assinantes (id = auth.uid() ou email = user.email) -> coluna company_id ou id
+ * 5. public.subscribers (id = auth.uid() ou responsible_email/email = user.email) -> coluna company_id ou id
+ * 6. Fallback final consistente: auth.uid() canônico (mesmo identificador global compartilhado entre celular e computador)
+ */
+export async function resolveUserCompanyIdFromSupabase(userId: string, email?: string): Promise<string | null> {
+  if (!isSupabaseConfigured || !userId) return null;
+  const cleanUserId = userId.trim();
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  // 1. Consulta em public.profiles (busca por id = auth.uid() ou user_id = auth.uid())
+  try {
+    const { data: profileRow, error: pErr } = await supabase
+      .from('profiles')
+      .select('company_id, id')
+      .or(`id.eq.${cleanUserId},user_id.eq.${cleanUserId}`)
+      .maybeSingle();
+
+    if (!pErr && profileRow?.company_id && String(profileRow.company_id).trim()) {
+      const resolved = String(profileRow.company_id).trim();
+      setDbAuthCompanyId(resolved);
+      return resolved;
+    }
+  } catch (e) {
+    // Tabela profiles pode não existir no schema atual, continua
+  }
+
+  // 2. Consulta em public.user_companies (busca por user_id = auth.uid())
+  try {
+    const { data: userCompRow, error: ucErr } = await supabase
+      .from('user_companies')
+      .select('company_id, user_id')
+      .eq('user_id', cleanUserId)
+      .maybeSingle();
+
+    if (!ucErr && userCompRow?.company_id && String(userCompRow.company_id).trim()) {
+      const resolved = String(userCompRow.company_id).trim();
+      setDbAuthCompanyId(resolved);
+      return resolved;
+    }
+  } catch (e) {
+    // continua
+  }
+
+  // 3. Consulta em public.users (tabela customizada de usuários se houver)
+  try {
+    const { data: userRow, error: uErr } = await supabase
+      .from('users')
+      .select('company_id, id')
+      .eq('id', cleanUserId)
+      .maybeSingle();
+
+    if (!uErr && userRow?.company_id && String(userRow.company_id).trim()) {
+      const resolved = String(userRow.company_id).trim();
+      setDbAuthCompanyId(resolved);
+      return resolved;
+    }
+  } catch (e) {
+    // continua
+  }
+
+  // 4. Consulta na tabela oficial public.assinantes
+  if (!isTableUnmigrated('assinantes')) {
+    try {
+      let query = supabase.from('assinantes').select('*');
+      if (cleanEmail && cleanUserId) {
+        query = query.or(`id.eq.${toValidUUID(cleanUserId)},email.ilike.${cleanEmail}`);
+      } else if (cleanUserId) {
+        query = query.eq('id', toValidUUID(cleanUserId));
+      } else if (cleanEmail) {
+        query = query.ilike('email', cleanEmail);
+      }
+
+      const { data: assRow, error: aErr } = await query.maybeSingle();
+      if (!aErr && assRow) {
+        const resolved = (assRow.company_id && String(assRow.company_id).trim()) || (assRow.id && String(assRow.id).trim());
+        if (resolved) {
+          setDbAuthCompanyId(resolved);
+          return resolved;
+        }
+      }
+    } catch (e) {
+      // continua
+    }
+  }
+
+  // 5. Consulta na tabela public.subscribers
+  if (!isTableUnmigrated('subscribers')) {
+    try {
+      let querySub = supabase.from('subscribers').select('*');
+      if (cleanEmail && cleanUserId) {
+        querySub = querySub.or(`id.eq.${cleanUserId},id.eq.${toValidUUID(cleanUserId)},responsible_email.ilike.${cleanEmail},email.ilike.${cleanEmail}`);
+      } else if (cleanUserId) {
+        querySub = querySub.or(`id.eq.${cleanUserId},id.eq.${toValidUUID(cleanUserId)}`);
+      } else if (cleanEmail) {
+        querySub = querySub.or(`responsible_email.ilike.${cleanEmail},email.ilike.${cleanEmail}`);
+      }
+
+      const { data: subRow, error: sErr } = await querySub.maybeSingle();
+      if (!sErr && subRow) {
+        const resolved = (subRow.company_id && String(subRow.company_id).trim()) || (subRow.id && String(subRow.id).trim());
+        if (resolved) {
+          setDbAuthCompanyId(resolved);
+          return resolved;
+        }
+      }
+    } catch (e) {
+      // continua
+    }
+  }
+
+  // 6. Fallback final consistente: o próprio auth.uid() do Supabase Auth
+  // Garante que qualquer aparelho autenticando com as mesmas credenciais opere no MESMO company_id
+  setDbAuthCompanyId(cleanUserId);
+  return cleanUserId;
+}
+
+/**
  * Carrega as Configurações da Empresa da nuvem
  */
 export async function fetchCloudCompanyProfile(companyId?: string): Promise<CompanyProfile | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
+    const candidateIds = [
+      `cloud_company_${cId}`,
+      `company_profile_${cId}`,
+      `cloud_company_company_${cId}`,
+      `company_profile_company_${cId}`
+    ];
+
     const { data, error } = await supabase
       .from('site_settings')
       .select('hero_title')
-      .eq('id', `cloud_company_${cId}`)
-      .maybeSingle();
+      .in('id', candidateIds);
 
-    if (error || !data?.hero_title) return null;
-    return JSON.parse(data.hero_title) as CompanyProfile;
+    if (error || !data || data.length === 0) return null;
+    const found = data.find(d => d.hero_title);
+    if (!found?.hero_title) return null;
+    return JSON.parse(found.hero_title) as CompanyProfile;
   } catch (e) {
     return null;
   }
@@ -3334,9 +3466,10 @@ export async function saveCloudServices(services: ServiceOrder[], companyId?: st
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
+    const cleaned = sanitizeServiceOrders(services);
     const { error } = await supabase.from('site_settings').upsert({
       id: `cloud_services_${cId}`,
-      hero_title: JSON.stringify(services),
+      hero_title: JSON.stringify(cleaned),
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' });
 
@@ -3365,7 +3498,8 @@ export async function fetchCloudServices(companyId?: string): Promise<ServiceOrd
       .maybeSingle();
 
     if (error || !data?.hero_title) return null;
-    return JSON.parse(data.hero_title) as ServiceOrder[];
+    const parsed = JSON.parse(data.hero_title) as ServiceOrder[];
+    return sanitizeServiceOrders(parsed);
   } catch (e) {
     return null;
   }
@@ -3677,9 +3811,12 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       }
     };
 
+    const rawServices = parseJson(`cloud_services_${cId}`) as ServiceOrder[] | null;
+    const cleanServices = rawServices ? sanitizeServiceOrders(rawServices) : null;
+
     return {
       companyProfile: parseJson(`cloud_company_${cId}`) as CompanyProfile | null,
-      services: parseJson(`cloud_services_${cId}`) as ServiceOrder[] | null,
+      services: cleanServices,
       appointments: parseJson(`cloud_appointments_${cId}`) as ServiceAppointment[] | null,
       orders: parseJson(`cloud_orders_${cId}`) as SilageOrder[] | null,
       inventory: parseJson(`cloud_inventory_${cId}`) as InventoryItem[] | null,

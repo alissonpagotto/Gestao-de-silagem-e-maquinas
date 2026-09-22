@@ -252,7 +252,7 @@ export default function App() {
   };
 
   const { confirm } = useConfirm();
-  const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt, startImpersonation, stopImpersonation } = useAuth();
+  const { currentUser, signOutUser, setIsSyncing, setLastSyncedAt, startImpersonation, stopImpersonation, activeCompanyId } = useAuth();
 
   const handleSyncSupabase = async () => {
     setIsSyncing(true);
@@ -275,13 +275,17 @@ export default function App() {
   };
 
   // Identificação e isolamento rigoroso de Tenant (Multi-Tenant)
-  const activeTenantId = useMemo(() => getActiveCompanyId(companyProfile), [companyProfile]);
+  // Consome prioritariamente activeCompanyId resolvido pelo AuthContext/Supabase
+  const activeTenantId = useMemo(() => {
+    return activeCompanyId || getActiveCompanyId(companyProfile);
+  }, [activeCompanyId, companyProfile]);
 
   // Sincronização e Carga em Nuvem de Todos os Módulos do Assinante Logado (Supabase)
   const isInitialLoadDone = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
+    isInitialLoadDone.current = false;
 
     const loadCloudData = async () => {
       try {
@@ -334,22 +338,22 @@ export default function App() {
           if (cloudModules.companyProfile) {
             setCompanyProfile(cloudModules.companyProfile);
           }
-          if (cloudModules.services && cloudModules.services.length > 0) {
+          if (cloudModules.services !== null && cloudModules.services !== undefined) {
             setServices(cloudModules.services);
           }
-          if (cloudModules.orders && cloudModules.orders.length > 0) {
+          if (cloudModules.orders !== null && cloudModules.orders !== undefined) {
             setOrders(cloudModules.orders);
           }
-          if (cloudModules.inventory && cloudModules.inventory.length > 0) {
+          if (cloudModules.inventory !== null && cloudModules.inventory !== undefined) {
             setInventory(cloudModules.inventory);
           }
-          if (cloudModules.clients && cloudModules.clients.length > 0) {
+          if (cloudModules.clients !== null && cloudModules.clients !== undefined) {
             setClients(cloudModules.clients);
           }
-          if (cloudModules.machineries && cloudModules.machineries.length > 0) {
+          if (cloudModules.machineries !== null && cloudModules.machineries !== undefined) {
             setMachineries(cloudModules.machineries);
           }
-          if (cloudModules.expenses && cloudModules.expenses.length > 0) {
+          if (cloudModules.expenses !== null && cloudModules.expenses !== undefined) {
             setExpenses(cloudModules.expenses);
           }
         }

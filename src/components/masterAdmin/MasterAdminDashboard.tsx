@@ -69,7 +69,7 @@ import {
   STORAGE_KEYS,
   syncMasterAdminFromCloud
 } from '../../lib/masterAdminStorage';
-import { getStoredCompanyProfile, saveStoredCompanyProfile } from '../../lib/storage';
+import { getStoredCompanyProfile, saveStoredCompanyProfile, setDbAuthCompanyId, clearAllAuthSessionCache } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   deleteCloudPlan,
@@ -795,13 +795,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
   const handleLogoutMaster = () => {
     clearStoredMasterSession();
     try {
-      localStorage.removeItem('admin_impersonated_company_id');
-      localStorage.removeItem('is_admin_impersonating');
-      localStorage.removeItem('impersonated_subscriber_id');
-      localStorage.removeItem('impersonated_subscriber_name');
-      localStorage.removeItem('impersonated_subscriber_email');
-      localStorage.removeItem('impersonated_subscriber_plan');
-      localStorage.removeItem('current_company_id');
+      clearAllAuthSessionCache();
     } catch {}
     try {
       stopImpersonation();
@@ -816,6 +810,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
     // Força a gravação imediata no localStorage da chave de personificação e metadados
     try {
+      setDbAuthCompanyId(targetCompanyId);
       localStorage.setItem('admin_impersonated_company_id', targetCompanyId);
       localStorage.setItem('is_admin_impersonating', 'true');
       localStorage.setItem('impersonated_subscriber_id', targetCompanyId);

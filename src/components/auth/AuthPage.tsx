@@ -43,10 +43,10 @@ import {
 } from '../../lib/masterAdminStorage';
 import { PlanDefinition, SubscriberStatus, SiteConfig } from '../../types/masterAdmin';
 import { CompanyProfile } from '../../types';
-import { getStoredCompanyProfile } from '../../lib/storage';
+import { getStoredCompanyProfile, clearAllAuthSessionCache, setDbAuthCompanyId } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { toValidUUID, upsertCloudSubscriber, fetchCloudSiteConfig } from '../../lib/supabaseService';
+import { toValidUUID, upsertCloudSubscriber, fetchCloudSiteConfig, resolveUserCompanyIdFromSupabase } from '../../lib/supabaseService';
 
 interface AuthPageProps {
   onEnterApp: () => void;
@@ -938,6 +938,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setIsLoading(true);
 
     try {
+      // 0. Limpeza total de credenciais e caches anteriores para evitar contaminação cruzada
+      clearAllAuthSessionCache();
+
       const subscribers = getStoredSubscribers();
       const existingSub = subscribers.find(s => s.responsibleEmail.toLowerCase() === emailClean);
       const company = getStoredCompanyProfile();
@@ -976,18 +979,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
 
       // 3. Validação de Acesso: Garante que o assinante ainda existe no banco e não está cancelado ou inativo
+      let resolvedCompanyId: string | null = null;
       if (isSupabaseConfigured) {
         try {
           const { data: assinanteRow } = await supabase
             .from('assinantes')
-            .select('id, status, email')
+            .select('id, status, email, company_id')
             .eq('email', emailClean)
             .maybeSingle();
 
           if (!assinanteRow) {
             const { data: subRow } = await supabase
               .from('subscribers')
-              .select('id, status, email')
+              .select('id, status, email, company_id')
               .eq('email', emailClean)
               .maybeSingle();
 
@@ -1003,6 +1007,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               setIsLoading(false);
               return;
             }
+            resolvedCompanyId = (subRow.company_id && String(subRow.company_id).trim()) || subRow.id;
           } else {
             const assSt = (assinanteRow.status || '').toLowerCase();
             if (['cancelado', 'cancelada', 'inativo', 'inativa', 'suspensa', 'suspenso'].includes(assSt)) {
@@ -1010,9 +1015,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               setIsLoading(false);
               return;
             }
+            resolvedCompanyId = (assinanteRow.company_id && String(assinanteRow.company_id).trim()) || assinanteRow.id;
           }
         } catch (dbErr) {
           console.warn('Aviso ao checar permissão de acesso do assinante:', dbErr);
+        }
+
+        // Se ainda não resolveu company_id, busca pelas tabelas remotas (profiles, user_companies, users, subscribers)
+        if (!resolvedCompanyId) {
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            const uid = userData?.user?.id || '';
+            resolvedCompanyId = await resolveUserCompanyIdFromSupabase(uid, emailClean);
+          } catch (resErr) {
+            console.warn('Aviso ao resolver company_id do usuário autenticado:', resErr);
+          }
         }
       } else {
         if (!existingSub) {
@@ -1026,15 +1043,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           setIsLoading(false);
           return;
         }
+        resolvedCompanyId = existingSub.id;
       }
 
-      // 4. Ativa a sessão segura no localStorage
+      // 4. Injeta o company_id no storage e ativa a sessão segura
+      if (resolvedCompanyId) {
+        setDbAuthCompanyId(resolvedCompanyId);
+      }
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('silagem_client_session', 'active');
         localStorage.setItem('silagem_active_user_email', emailClean);
-        if (existingSub) {
+        if (resolvedCompanyId) {
+          localStorage.setItem('silagem_active_subscriber_id', resolvedCompanyId);
+          localStorage.setItem('current_company_id', resolvedCompanyId);
+        } else if (existingSub) {
           localStorage.setItem('silagem_active_subscriber_id', existingSub.id);
+          localStorage.setItem('current_company_id', existingSub.id);
         }
+      }
+
+      if (typeof window !== 'undefined' && resolvedCompanyId) {
+        window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: resolvedCompanyId } }));
       }
 
       setSuccessMessage('Login efetuado com sucesso! Redirecionando para o ERP...');

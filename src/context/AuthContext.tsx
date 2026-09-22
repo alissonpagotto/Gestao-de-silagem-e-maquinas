@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured, testSupabaseConnection } from '../lib/supabase';
+import { setDbAuthCompanyId, getDbAuthCompanyId, clearAllAuthSessionCache } from '../lib/storage';
+import { resolveUserCompanyIdFromSupabase } from '../lib/supabaseService';
 
 export interface AppUser {
   uid: string;
@@ -14,6 +16,9 @@ interface AuthContextType {
   loading: boolean;
   isConnectedToSupabase: boolean;
   isConfigured: boolean;
+  activeCompanyId: string | null;
+  companyId: string | null;
+  resolveAndSetActiveCompanyId: (userId: string, email?: string) => Promise<string | null>;
   signIn: (email?: string, password?: string) => Promise<void>;
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
@@ -37,6 +42,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
+  // company_id resolvido e sincronizado diretamente com o banco de dados remoto
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() => {
+    return getDbAuthCompanyId();
+  });
+
   // Estado de Personificação do Admin Mestre
   const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(() => {
     if (typeof localStorage !== 'undefined') {
@@ -50,6 +60,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const isImpersonating = Boolean(impersonatedCompanyId);
+
+  /**
+   * Resolução do company_id a partir do banco de dados remoto do Supabase
+   * Busca em public.profiles, public.user_companies, public.users, public.assinantes ou public.subscribers
+   */
+  const resolveAndSetActiveCompanyId = async (userId: string, email?: string): Promise<string | null> => {
+    if (!userId) return null;
+    try {
+      const resolved = await resolveUserCompanyIdFromSupabase(userId, email);
+      if (resolved) {
+        setDbAuthCompanyId(resolved);
+        setActiveCompanyId(resolved);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('silagem_client_session', 'active');
+          localStorage.setItem('silagem_active_subscriber_id', resolved);
+          localStorage.setItem('current_company_id', resolved);
+          if (email) {
+            localStorage.setItem('silagem_active_user_email', email);
+          }
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: resolved } }));
+        }
+        return resolved;
+      }
+    } catch (err) {
+      console.warn('Erro ao resolver company_id no Supabase:', err);
+    }
+    return null;
+  };
 
   const startImpersonation = (companyId: string, extraData?: { name?: string; email?: string; planName?: string }) => {
     const cleanId = (companyId || '').trim();
@@ -71,6 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('admin_impersonation_changed', { detail: { companyId: cleanId } }));
+      window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: cleanId } }));
     }
   };
 
@@ -89,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('admin_impersonation_changed', { detail: { companyId: null } }));
+      window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: activeCompanyId } }));
     }
   };
 
@@ -100,21 +142,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setImpersonatedCompanyId(cId);
     };
 
+    const handleCompanyIdChanged = (e: any) => {
+      const cId = e.detail?.companyId || getDbAuthCompanyId();
+      setActiveCompanyId(cId || null);
+    };
+
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'admin_impersonated_company_id' || e.key === 'is_admin_impersonating') {
         const current = localStorage.getItem('admin_impersonated_company_id');
         setImpersonatedCompanyId(current || null);
       }
+      if (e.key === 'supabase_auth_company_id' || e.key === 'authenticated_user_company_id') {
+        setActiveCompanyId(getDbAuthCompanyId());
+      }
     };
 
     window.addEventListener('admin_impersonation_changed', handleImpersonationEvent);
+    window.addEventListener('active_company_id_changed', handleCompanyIdChanged);
     window.addEventListener('storage', handleStorageEvent);
 
     return () => {
       window.removeEventListener('admin_impersonation_changed', handleImpersonationEvent);
+      window.removeEventListener('active_company_id_changed', handleCompanyIdChanged);
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, []);
+  }, [activeCompanyId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -127,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 2. Check active Supabase Session or stored active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (isMounted) {
         if (session?.user) {
           const u = session.user;
@@ -138,9 +190,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Usuário Supabase',
             photoURL: u.user_metadata?.avatar_url || ''
           });
+          // Resolução imediata de company_id no banco de dados remoto
+          await resolveAndSetActiveCompanyId(u.id, u.email);
         } else if (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') {
           const storedEmail = localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || 'usuario@silagem.com';
-          const storedId = localStorage.getItem('silagem_active_subscriber_id') || 'usr_local';
+          const storedId = getDbAuthCompanyId() || localStorage.getItem('silagem_active_subscriber_id') || 'usr_local';
           setCurrentUser({
             uid: storedId,
             id: storedId,
@@ -148,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: storedEmail.split('@')[0] || 'Produtor',
             photoURL: ''
           });
+          setActiveCompanyId(getDbAuthCompanyId());
         }
         setLoading(false);
       }
@@ -155,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isMounted) {
         if (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') {
           const storedEmail = localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || 'usuario@silagem.com';
-          const storedId = localStorage.getItem('silagem_active_subscriber_id') || 'usr_local';
+          const storedId = getDbAuthCompanyId() || localStorage.getItem('silagem_active_subscriber_id') || 'usr_local';
           setCurrentUser({
             uid: storedId,
             id: storedId,
@@ -163,13 +218,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: storedEmail.split('@')[0] || 'Produtor',
             photoURL: ''
           });
+          setActiveCompanyId(getDbAuthCompanyId());
         }
         setLoading(false);
       }
     });
 
     // 3. Listen to auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!isMounted) return;
       if (session?.user) {
         const u = session.user;
@@ -180,8 +236,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           displayName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Usuário Supabase',
           photoURL: u.user_metadata?.avatar_url || ''
         });
+        await resolveAndSetActiveCompanyId(u.id, u.email);
       } else {
         setCurrentUser(null);
+        setActiveCompanyId(null);
       }
       setLoading(false);
     });
@@ -194,10 +252,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email?: string, password?: string) => {
     try {
+      // 3. LIMPEZA DE CACHE DE LOGIN ANTERIOR:
+      // Garante que o company_id antigo seja completamente limpo do estado antes do novo login
+      clearAllAuthSessionCache();
+      setActiveCompanyId(null);
+
       if (email && password) {
         if (isSupabaseConfigured) {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
+          if (data?.user) {
+            const u = data.user;
+            setCurrentUser({
+              uid: u.id,
+              id: u.id,
+              email: u.email,
+              displayName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Usuário Supabase',
+              photoURL: u.user_metadata?.avatar_url || ''
+            });
+            // 1. RESOLUÇÃO IMEDIATA DO COMPANY_ID A PARTIR DO BANCO REMOTO
+            await resolveAndSetActiveCompanyId(u.id, u.email);
+          }
         } else {
           // Fallback local/offline
           const localUid = `usr_${Date.now()}`;
@@ -229,6 +304,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, displayName?: string) => {
     try {
+      clearAllAuthSessionCache();
+      setActiveCompanyId(null);
+
       if (isSupabaseConfigured) {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -252,6 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: displayName || u.email?.split('@')[0] || 'Usuário Supabase',
             photoURL: ''
           });
+          await resolveAndSetActiveCompanyId(u.id, u.email);
         }
       } else {
         // Fallback local session
@@ -272,8 +351,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOutUser = async () => {
     try {
       stopImpersonation();
-      await supabase.auth.signOut();
+      clearAllAuthSessionCache();
+      setActiveCompanyId(null);
       setCurrentUser(null);
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
     } catch (err) {
       console.error('Supabase sign out failed:', err);
       throw err;
@@ -287,6 +370,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isConnectedToSupabase,
         isConfigured: isSupabaseConfigured,
+        activeCompanyId,
+        companyId: activeCompanyId,
+        resolveAndSetActiveCompanyId,
         signIn,
         signUp,
         signOutUser,
