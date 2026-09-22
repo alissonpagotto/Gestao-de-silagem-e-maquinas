@@ -836,51 +836,92 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
    ISOLAMENTO DE IMPRESSÃO DO TERMO DE RESCISÃO CONTRATUAL (TRCT)
    ========================================================================== */
 @media print {
-  /* Oculta absolutamente tudo do sistema por padrão */
-  body * {
-    visibility: hidden !important;
+  /* 1. Ocultação seletiva de elementos de navegação e controles do sistema */
+  aside, 
+  nav, 
+  header, 
+  footer, 
+  .sidebar, 
+  .navbar, 
+  button, 
+  .no-print,
+  .no-print-bg {
+    display: none !important;
   }
 
-  /* Torna visível unicamente o container do documento do termo de rescisão */
-  .trct-print-document,
-  .trct-print-document * {
+  /* 2. Reset global do documento para impressão em preto e branco nítida */
+  html, 
+  body {
     visibility: visible !important;
-  }
-
-  /* Posiciona o TRCT no topo absoluto da página impressa ocupando 100% */
-  .trct-print-document {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
-    box-shadow: none !important;
-    border: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    z-index: 99999 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 3. Desativa o modal overlay (backdrop escuro, blur, overflow fixo) */
+  .trct-modal-container {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .trct-modal-wrapper {
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  /* 4. Estilo do documento TRCT impresso */
+  .trct-print-document {
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10px 15px !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    box-sizing: border-box !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Oculta controles, modais e fundos de overlay */
-  .no-print,
-  .no-print-bg {
-    display: none !important;
-    background: transparent !important;
-    backdrop-filter: none !important;
+  .trct-print-document,
+  .trct-print-document * {
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
-  /* Evita quebras de página em tabelas e seções vitais */
+  /* 5. Prevenção de quebra de página em blocos vitais */
   .trct-avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  /* Garante legibilidade alta das bordas e textos */
+  /* 6. Alta legibilidade para tabelas e bordas */
   .trct-print-document table {
     width: 100% !important;
     border-collapse: collapse !important;

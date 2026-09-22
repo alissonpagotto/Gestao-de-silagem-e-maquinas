@@ -1433,8 +1433,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       {/* 3. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL)                 */}
       {/* ========================================================================= */}
       {viewingTRCT && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto no-print-bg">
-          <div className="bg-white text-black w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 trct-modal-wrapper">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible trct-modal-container">
+          <div className="bg-white text-black w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 trct-modal-wrapper print:shadow-none print:border-none print:m-0 print:rounded-none">
             
             {/* Barra Superior com Controles */}
             <div className="no-print bg-slate-900 text-white p-3 sm:p-4 flex items-center justify-between">
