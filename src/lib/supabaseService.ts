@@ -507,16 +507,16 @@ export async function fetchClientes(companyId?: string): Promise<Client[] | null
 export async function upsertCliente(client: Client): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const standardPayload: any = {
+    // OPÇÃO B: Removido completamente o mapeamento da propriedade 'city' para evitar erro PGRST204 de schema cache
+    const standardPayload: Record<string, any> = {
       id: toValidUUID(client.id),
       company_id: client.companyId || getActiveCompanyId(),
-      name: client.name,
+      name: client.name || 'Cliente',
       farm_name: client.farmName || '',
       cpf_cnpj: client.cpfCnpj || '',
       state_registration: client.stateRegistration || '',
       phone: client.phone || '',
       email: client.email || '',
-      city: client.city || '',
       state: client.state || '',
       total_area: Number(client.areaHectares) || 0,
       cultivated_area: Number(client.areaHectares) || 0,
@@ -524,34 +524,56 @@ export async function upsertCliente(client: Client): Promise<boolean> {
       updated_at: new Date().toISOString()
     };
 
-    let { error } = await supabase
-      .from('clientes')
-      .upsert(standardPayload, { onConflict: 'id' });
-
-    if (error) {
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
-        delete standardPayload.company_id;
-        const retry = await supabase.from('clientes').upsert(standardPayload, { onConflict: 'id' });
-        if (!retry.error) return true;
-      }
-      // Fallback para esquemas com nomes em português ou colunas simplificadas
-      const fallbackPayload: any = {
-        email: client.email || undefined,
-        telefone: client.phone || undefined,
-        cpf_cnpj: client.cpfCnpj || undefined,
-      };
-      const { error: fallbackError } = await supabase
+    let attempts = 0;
+    while (attempts < 5) {
+      const { error } = await supabase
         .from('clientes')
-        .insert([fallbackPayload]);
+        .upsert(standardPayload, { onConflict: 'id' });
 
-      if (fallbackError) {
-        console.warn('Supabase upsertCliente notice:', error.message || fallbackError.message);
-        return false;
+      if (!error) {
+        return true;
       }
+
+      // Detecção dinâmica de colunas ausentes no cache de esquema do PostgREST (PGRST204)
+      const missingColMatch = error.message?.match(/Could not find the '([^']+)' column/i);
+      if (missingColMatch && missingColMatch[1] && standardPayload[missingColMatch[1]] !== undefined) {
+        delete standardPayload[missingColMatch[1]];
+        attempts++;
+        continue;
+      }
+
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        if (standardPayload.company_id !== undefined) {
+          delete standardPayload.company_id;
+          attempts++;
+          continue;
+        }
+      }
+
+      // Se falhou por outro motivo, encerra tentativas com standardPayload
+      break;
     }
-    return true;
-  } catch (err) {
-    console.warn('Supabase upsertCliente err:', err);
+
+    // Fallback resiliente com colunas mínimas essenciais
+    const minimalPayload: Record<string, any> = {
+      id: toValidUUID(client.id),
+      name: client.name || 'Cliente',
+      cpf_cnpj: client.cpfCnpj || undefined,
+      phone: client.phone || undefined,
+      email: client.email || undefined,
+    };
+    const { error: minError } = await supabase
+      .from('clientes')
+      .upsert(minimalPayload, { onConflict: 'id' });
+
+    if (!minError) {
+      return true;
+    }
+
+    console.warn('Supabase upsertCliente notice:', minError.message);
+    return false;
+  } catch (err: any) {
+    console.warn('Supabase upsertCliente notice:', err?.message || err);
     return false;
   }
 }

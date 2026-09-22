@@ -464,6 +464,8 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
 -- 10. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa
 -- ==============================================================================
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS state TEXT;
 ALTER TABLE public.fornecedores ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.notas_fiscais ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
@@ -472,6 +474,9 @@ ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;
+
+-- Recarrega o cache do PostgREST para reconhecer novas colunas imediatamente
+NOTIFY pgrst, 'reload schema';
 
 -- Compatibilidade de colunas da tabela de assinantes (subscribers)
 ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS email TEXT;
