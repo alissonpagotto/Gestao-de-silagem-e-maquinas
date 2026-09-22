@@ -61,6 +61,30 @@ export function toValidUUID(input?: string): string {
   return `${p1}-${p2}-${p3}-${p4}-${p5}`;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Valida se uma string é um UUID válido segundo a especificação RFC 4122.
+ */
+export function isValidUUID(input?: string | null): boolean {
+  if (!input || typeof input !== 'string') return false;
+  return UUID_REGEX.test(input.trim());
+}
+
+/**
+ * Gera um UUID v4 no frontend em conformidade com o padrão RFC 4122.
+ */
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export interface SyncStats {
   clientes: number;
   fornecedores: number;
@@ -518,174 +542,79 @@ export async function fetchClientes(companyId?: string): Promise<Client[] | null
   }
 }
 
-// Rastreadores dinâmicos de compatibilidade da tabela 'clientes' no Supabase
-let clientNameCol: 'nome' | 'name' = 'nome';
-let clientPhoneCol: 'telefone' | 'phone' = 'telefone';
-let clientFarmCol: 'fazenda' | 'farm_name' = 'fazenda';
-let clientNotesCol: 'observacoes' | 'notes' = 'observacoes';
-
 export async function upsertCliente(client: Client): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const clientName = client.nome || client.name || 'Cliente';
+    const hasValidId = isValidUUID(client.id);
+    const clientName = (client.name || client.nome || '').trim() || 'Cliente';
+
+    // Monta o payload estritamente compatível com a tabela public.clientes (supabase_schema.sql)
     const payload: Record<string, any> = {
-      id: toValidUUID(client.id),
-      company_id: client.companyId || getActiveCompanyId(),
-      cpf_cnpj: client.cpfCnpj || '',
-      email: client.email || '',
+      name: clientName,
+      farm_name: (client.farmName || client.fazenda || '').trim() || null,
+      cpf_cnpj: (client.cpfCnpj || '').trim() || null,
+      state_registration: (client.stateRegistration || '').trim() || null,
+      phone: (client.phone || client.telefone || '').trim() || null,
+      email: (client.email || '').trim() || null,
+      city: (client.city || client.cidade || '').trim() || null,
+      state: (client.state || client.estado || '').trim() || null,
+      total_area: Number(client.areaHectares) || 0,
+      cultivated_area: Number(client.areaHectares) || 0,
+      notes: (client.notes || client.observacoes || '').trim() || null,
       updated_at: new Date().toISOString()
     };
 
-    // Mapeamento dinâmico (prioriza 'nome' em português)
-    if (clientNameCol === 'nome') {
-      payload.nome = clientName;
-    } else {
-      payload.name = clientName;
+    if (client.companyId || getActiveCompanyId()) {
+      payload.company_id = client.companyId || getActiveCompanyId();
     }
 
-    if (client.phone || client.telefone) {
-      const p = client.phone || client.telefone;
-      if (clientPhoneCol === 'telefone') payload.telefone = p;
-      else payload.phone = p;
-    }
-
-    if (client.farmName || client.fazenda) {
-      const f = client.farmName || client.fazenda;
-      if (clientFarmCol === 'fazenda') payload.fazenda = f;
-      else payload.farm_name = f;
-    }
-
-    if (client.notes || client.observacoes) {
-      const n = client.notes || client.observacoes;
-      if (clientNotesCol === 'observacoes') payload.observacoes = n;
-      else payload.notes = n;
-    }
-
-    let attempts = 0;
-    while (attempts < 6) {
+    // Se o cliente possui um UUID válido: realiza UPSERT preservando ou atualizando a linha existente
+    if (hasValidId) {
+      payload.id = client.id.trim().toLowerCase();
       const { error } = await supabase
         .from('clientes')
         .upsert(payload, { onConflict: 'id' });
 
-      if (!error) {
-        return true;
+      if (error) {
+        console.error('[Supabase upsertCliente 400/Rejection]:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          payloadSent: payload
+        });
+        return false;
       }
 
-      // Detecção dinâmica de colunas ausentes no cache do PostgREST (PGRST204)
-      const missingColMatch = error.message?.match(/Could not find the '([^']+)' column/i);
-      if (missingColMatch && missingColMatch[1]) {
-        const missing = missingColMatch[1];
-
-        // 1. Trata alternância de nome <-> name
-        if (missing === 'name') {
-          delete payload.name;
-          clientNameCol = 'nome';
-          payload.nome = clientName;
-          attempts++;
-          continue;
-        } else if (missing === 'nome') {
-          delete payload.nome;
-          clientNameCol = 'name';
-          payload.name = clientName;
-          attempts++;
-          continue;
-        }
-
-        // 2. Trata alternância de telefone <-> phone
-        if (missing === 'phone') {
-          delete payload.phone;
-          clientPhoneCol = 'telefone';
-          if (client.phone || client.telefone) payload.telefone = client.phone || client.telefone;
-          attempts++;
-          continue;
-        } else if (missing === 'telefone') {
-          delete payload.telefone;
-          clientPhoneCol = 'phone';
-          if (client.phone || client.telefone) payload.phone = client.phone || client.telefone;
-          attempts++;
-          continue;
-        }
-
-        // 3. Trata alternância de fazenda <-> farm_name
-        if (missing === 'farm_name') {
-          delete payload.farm_name;
-          clientFarmCol = 'fazenda';
-          if (client.farmName || client.fazenda) payload.fazenda = client.farmName || client.fazenda;
-          attempts++;
-          continue;
-        } else if (missing === 'fazenda') {
-          delete payload.fazenda;
-          clientFarmCol = 'farm_name';
-          if (client.farmName || client.fazenda) payload.farm_name = client.farmName || client.fazenda;
-          attempts++;
-          continue;
-        }
-
-        // 4. Trata alternância de observacoes <-> notes
-        if (missing === 'notes') {
-          delete payload.notes;
-          clientNotesCol = 'observacoes';
-          if (client.notes || client.observacoes) payload.observacoes = client.notes || client.observacoes;
-          attempts++;
-          continue;
-        } else if (missing === 'observacoes') {
-          delete payload.observacoes;
-          clientNotesCol = 'notes';
-          if (client.notes || client.observacoes) payload.notes = client.notes || client.observacoes;
-          attempts++;
-          continue;
-        }
-
-        // 5. Remove qualquer outra coluna que o cache do PostgREST não encontre
-        if (payload[missing] !== undefined) {
-          delete payload[missing];
-          attempts++;
-          continue;
-        }
-      }
-
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
-        if (payload.company_id !== undefined) {
-          delete payload.company_id;
-          attempts++;
-          continue;
-        }
-      }
-
-      // Se falhou por outro motivo de constraint ou validação
-      break;
-    }
-
-    // Fallback defensivo ultra-mínimo com apenas ID e o nome na coluna detectada
-    const minimal: Record<string, any> = {
-      id: toValidUUID(client.id)
-    };
-    if (clientNameCol === 'nome') minimal.nome = clientName;
-    else minimal.name = clientName;
-
-    const { error: minError } = await supabase
-      .from('clientes')
-      .upsert(minimal, { onConflict: 'id' });
-
-    if (!minError) {
       return true;
     }
 
-    // Se o minimal falhar na coluna de nome, inverte e tenta com a outra
-    if (minError.message?.match(/Could not find the '(name|nome)' column/i)) {
-      if (minimal.nome !== undefined) {
-        delete minimal.nome;
-        minimal.name = clientName;
-      } else {
-        delete minimal.name;
-        minimal.nome = clientName;
-      }
-      const retryMin = await supabase.from('clientes').upsert(minimal, { onConflict: 'id' });
-      if (!retryMin.error) return true;
+    // Se for um NOVO cliente (sem UUID válido prévio):
+    // O campo 'id' NÃO é enviado, deixando o PostgreSQL gerar o UUID oficial via DEFAULT uuid_generate_v4()
+    const { data, error } = await supabase
+      .from('clientes')
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('[Supabase insertCliente (Novo) 400/Rejection]:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        payloadSent: payload
+      });
+      return false;
     }
 
-    return false;
+    if (data && data.id) {
+      client.id = data.id;
+    }
+
+    return true;
   } catch (err: any) {
+    console.error('[Supabase upsertCliente Exception]:', err);
     return false;
   }
 }
@@ -693,18 +622,28 @@ export async function upsertCliente(client: Client): Promise<boolean> {
 export async function deleteCliente(id: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
+    if (!isValidUUID(id)) {
+      console.warn('[Supabase deleteCliente] ID ignorado (não é um UUID válido):', id);
+      return false;
+    }
     const { error } = await supabase
       .from('clientes')
       .delete()
-      .or(`id.eq.${toValidUUID(id)},id.eq.${id}`);
+      .eq('id', id.trim().toLowerCase());
 
     if (error) {
-      console.warn('Supabase deleteCliente notice:', error.message);
+      console.error('[Supabase deleteCliente Error]:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        id
+      });
       return false;
     }
     return true;
   } catch (err) {
-    console.warn('Supabase deleteCliente err:', err);
+    console.error('[Supabase deleteCliente Exception]:', err);
     return false;
   }
 }

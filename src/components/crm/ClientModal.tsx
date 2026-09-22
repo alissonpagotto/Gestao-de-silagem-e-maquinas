@@ -26,6 +26,7 @@ import {
   findSubmissionByDocument, 
   markSubmissionImported 
 } from '../../lib/clientSubmissions';
+import { isValidUUID, generateUUID } from '../../lib/supabaseService';
 
 export interface ClientModalProps {
   isOpen: boolean;
@@ -378,9 +379,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
     const nowIso = new Date().toISOString();
     const isUpdating = Boolean(activeClient);
+    const clientId = (activeClient && isValidUUID(activeClient.id))
+      ? activeClient.id
+      : generateUUID();
 
     const client: Client = {
-      id: activeClient ? activeClient.id : `cli_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: clientId,
       name: name.trim(),
       nome: name.trim(),
       farmName: farmName.trim(),

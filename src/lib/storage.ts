@@ -57,7 +57,6 @@ import {
   INITIAL_BANK_ACCOUNTS,
   INITIAL_SETTLEMENTS
 } from './initialData';
-import { upsertCliente } from './supabaseService';
 import { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber } from './defaultAppointments';
 export { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber };
 
@@ -193,10 +192,6 @@ export function getStoredClients(): Client[] {
 export function saveStoredClients(clients: Client[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
-    // Sincronização direta na nuvem (Supabase)
-    Promise.all(clients.map(c => upsertCliente(c))).catch(err => {
-      console.warn('Notice saving clients to cloud:', err);
-    });
   } catch (e) {
     console.error('Failed to save clients', e);
   }
