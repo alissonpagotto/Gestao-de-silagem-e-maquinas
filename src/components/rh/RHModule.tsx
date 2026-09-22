@@ -185,10 +185,10 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {/* Top Header com Título, Subtítulo e Botões de Ação */}
       <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/20 pb-2 sm:pb-2.5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-[#000000] tracking-tight">
             Recursos Humanos
           </h1>
-          <p className="text-xs text-white/90 font-medium">
+          <p className="text-xs text-[#000000] font-medium">
             Quadro de funcionários, folha de pagamento, férias e afastamentos
           </p>
         </div>
