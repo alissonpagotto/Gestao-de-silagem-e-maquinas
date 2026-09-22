@@ -14,14 +14,14 @@ export const NewInventoryTireModal: React.FC<NewInventoryTireModalProps> = ({
   onSave,
 }) => {
   const [fireNumber, setFireNumber] = useState('');
-  const [brand, setBrand] = useState('Michelin');
+  const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
-  const [size, setSize] = useState('295/80 R22.5');
-  const [treadDepthMm, setTreadDepthMm] = useState('14.0');
-  const [originalTreadDepthMm, setOriginalTreadDepthMm] = useState('18.0');
-  const [pressurePsi, setPressurePsi] = useState('110');
+  const [size, setSize] = useState('');
+  const [treadDepthMm, setTreadDepthMm] = useState('');
+  const [originalTreadDepthMm, setOriginalTreadDepthMm] = useState('');
+  const [pressurePsi, setPressurePsi] = useState('');
   const [retreadCount, setRetreadCount] = useState<number>(0);
-  const [currentKm, setCurrentKm] = useState<string>('0');
+  const [currentKm, setCurrentKm] = useState<string>('');
   const [notes, setNotes] = useState('');
 
   const brandOptions = [
@@ -116,8 +116,10 @@ export const NewInventoryTireModal: React.FC<NewInventoryTireModalProps> = ({
               <select
                 value={brand}
                 onChange={(e) => setBrand(e.target.value)}
+                required
                 className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-sky-500"
               >
+                <option value="">Selecione a Marca...</option>
                 {brandOptions.map((b) => (
                   <option key={b} value={b}>
                     {b}

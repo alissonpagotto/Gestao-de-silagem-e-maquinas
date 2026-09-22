@@ -152,55 +152,6 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       console.error('Erro ao ler frotas do storage', e);
     }
 
-    const defaultSuggestions: Machinery[] = [
-      {
-        id: 'veh_forr_05_2023',
-        name: 'Claas Jaguar 870 (Maq 02)',
-        fleetNumber: 'Maq 02',
-        model: 'Claas Jaguar 870',
-        brand: 'Claas',
-        licensePlateOrSerial: 'CLAAS-870-05',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_colh_02_2022',
-        name: 'Claas Jaguar 860 (Maq 03)',
-        fleetNumber: 'Maq 03',
-        model: 'Claas Jaguar 860',
-        brand: 'Claas',
-        licensePlateOrSerial: 'CLAAS-860-02',
-        categoryType: 'Forrageira',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_trator_jd_6110',
-        name: 'Trator JD 6110J + JF C120 (Maq 04)',
-        fleetNumber: 'Maq 04',
-        model: 'JD 6110J + JF C120',
-        brand: 'John Deere',
-        licensePlateOrSerial: 'TRAT-6110-01',
-        categoryType: 'Trator',
-        status: 'disponivel',
-      },
-      {
-        id: 'veh_evd_2j61',
-        name: 'Mercedes-Benz 2726 + Suporte (Maq 05)',
-        fleetNumber: 'Maq 05',
-        model: 'MB 2726 6x4 Silagem',
-        brand: 'Mercedes-Benz',
-        licensePlateOrSerial: 'EVD-2J61',
-        categoryType: 'Caminhão',
-        status: 'disponivel',
-      },
-    ];
-
-    defaultSuggestions.forEach(sug => {
-      if (!list.some(m => m.id === sug.id || (m.fleetNumber && m.fleetNumber.toLowerCase() === sug.fleetNumber.toLowerCase()))) {
-        list.push(sug);
-      }
-    });
-
     return list;
   }, [machineries]);
 
@@ -310,25 +261,9 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setEstimatedQuantity('');
       setProductivityRatePerHour('');
 
-      // Pré-seleciona a primeira forrageira disponível se houver e busca o operador vinculado
-      const firstForr = availableMachineries.find(isForrageira) || availableMachineries[0];
-      if (firstForr) {
-        setPrimaryMachineryId(firstForr.id);
-        const linkedOp = findLinkedOperator(firstForr, employees);
-        if (linkedOp.id) {
-          setPrimaryOperatorId(linkedOp.id);
-        } else if (linkedOp.name) {
-          const matchedEmp = employees.find(e => 
-            e.name.trim().toLowerCase() === linkedOp.name.trim().toLowerCase()
-          );
-          setPrimaryOperatorId(matchedEmp ? matchedEmp.id : (employees[0]?.id || ''));
-        } else {
-          setPrimaryOperatorId(employees[0]?.id || '');
-        }
-      } else {
-        setPrimaryMachineryId('');
-        setPrimaryOperatorId('');
-      }
+      // Inicializa sem máquina principal pré-selecionada para escolha explícita do operador
+      setPrimaryMachineryId('');
+      setPrimaryOperatorId('');
 
       setAssignedVehicles([]);
       setAssignedTeam([]);
@@ -1058,7 +993,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
                   type="text"
                   value={farmName}
                   onChange={(e) => setFarmName(e.target.value)}
-                  placeholder="Ex: Fazenda Santa Maria"
+                  placeholder="Ex: Nome da Fazenda / Propriedade"
                   className="w-full p-2 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900"
                 />
               </div>

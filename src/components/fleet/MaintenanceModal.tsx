@@ -1579,7 +1579,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                       onChange={(e) => setLocationDetails(e.target.value)}
                       placeholder={
                         location === 'roca' 
-                          ? 'Ponto de referência: Ex: Fazenda Santa Maria - Talhão 08'
+                          ? 'Ponto de referência: Ex: Talhão ou coordenadas da propriedade'
                           : location === 'estrada'
                           ? 'Ponto de referência: Ex: BR-163 KM 210 sentido Toledo'
                           : location === 'oficina_interna'

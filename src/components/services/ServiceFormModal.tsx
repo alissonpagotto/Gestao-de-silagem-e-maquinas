@@ -365,7 +365,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           ? maskCurrencyBRLInput(editRecord.ratePerUnit) 
           : ''
       );
-      setPesoPorM3(editRecord.densityKg ?? editRecord.weightPerM3Kg ?? 650);
+      setPesoPorM3(editRecord.densityKg ?? editRecord.weightPerM3Kg ?? 400);
 
       // Forrageira
       setForrageiraId(editRecord.forageHarvesterId ?? '');
@@ -558,7 +558,7 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       setUnidadeArea('hectares');
       setQuantidadeArea('');
       setValorPorHectare('');
-      setPesoPorM3(650);
+      setPesoPorM3(400);
 
       // Forrageira
       setForrageiraId('');

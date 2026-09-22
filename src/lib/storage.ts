@@ -1015,13 +1015,18 @@ export function saveStoredTireRotationLogs(logs: TireRotationLog[]): void {
 export function getStoredTireInventory(): TireItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
-    if (!raw) return INITIAL_TIRE_INVENTORY;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return INITIAL_TIRE_INVENTORY;
-    return parsed;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(t => 
+      t && 
+      !['#0329', '#0294', '0329', '0294'].includes(t.fireNumber) &&
+      !(t.model && ['X Multi Z', 'G:81', 'KMAX'].some(m => (t.model || '').toLowerCase().includes(m.toLowerCase()))) &&
+      !t.id?.includes('mock')
+    );
   } catch (e) {
     console.error('Failed to load tire inventory', e);
-    return INITIAL_TIRE_INVENTORY;
+    return [];
   }
 }
 
@@ -1036,13 +1041,17 @@ export function saveStoredTireInventory(items: TireItem[]): void {
 export function getStoredTiresInReform(): TireItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TIRES_IN_REFORM);
-    if (!raw) return INITIAL_TIRES_IN_REFORM;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return INITIAL_TIRES_IN_REFORM;
-    return parsed;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(t => 
+      t && 
+      !['#0329', '#0294', '0329', '0294'].includes(t.fireNumber) &&
+      !t.id?.includes('mock')
+    );
   } catch (e) {
     console.error('Failed to load tires in reform', e);
-    return INITIAL_TIRES_IN_REFORM;
+    return [];
   }
 }
 

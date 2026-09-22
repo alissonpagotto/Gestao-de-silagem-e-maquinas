@@ -187,11 +187,8 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     if (selectedVehicle.installedTires && selectedVehicle.installedTires.length > 0) {
       return selectedVehicle.installedTires;
     }
-    return generateDefaultTiresForAxleConfig(
-      axleConfig,
-      selectedVehicle.licensePlateOrSerial || selectedVehicle.name
-    );
-  }, [selectedVehicle, axleConfig]);
+    return [];
+  }, [selectedVehicle]);
 
   // Mapa de posições ocupadas no veículo
   const tiresByPosition = useMemo(() => {
