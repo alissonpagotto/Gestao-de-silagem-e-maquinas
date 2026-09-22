@@ -43,10 +43,12 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
 
   const filteredClients = clients.filter((c) => {
+    const clientName = c.nome || c.name || '';
+    const farmName = c.fazenda || c.farmName || '';
     const matchSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.farmName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.city.toLowerCase().includes(searchTerm.toLowerCase());
+      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      farmName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.city || c.cidade || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchSearch) return false;
     if (selectedCattleType !== 'todos' && c.cattleType !== selectedCattleType) {
@@ -69,10 +71,13 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   };
 
   const getWhatsAppLink = (client: Client) => {
-    const cleanPhone = client.phone.replace(/\D/g, '');
+    const rawPhone = client.phone || client.telefone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
     const phoneWithCountry = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    const clientName = client.nome || client.name || 'Produtor';
+    const farmName = client.fazenda || client.farmName || 'sua propriedade';
     const text = encodeURIComponent(
-      `Olá ${client.name}! Sou da equipe da Silagem Fácil. Gostaria de verificar como estão os estoques de silagem na ${client.farmName} e alinhar o próximo fornecimento.`
+      `Olá ${clientName}! Sou da equipe da Silagem Fácil. Gostaria de verificar como estão os estoques de silagem na ${farmName} e alinhar o próximo fornecimento.`
     );
     return `https://wa.me/${phoneWithCountry}?text=${text}`;
   };
@@ -200,8 +205,8 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <span className="block font-black text-black dark:text-white text-xs">{client.name}</span>
-                            <span className="text-[11px] text-black/90 dark:text-stone-300 font-bold">{client.farmName}</span>
+                            <span className="block font-black text-black dark:text-white text-xs">{client.nome || client.name}</span>
+                            <span className="text-[11px] text-black/90 dark:text-stone-300 font-bold">{client.fazenda || client.farmName}</span>
                             {client.stateRegistration && (
                               <span className="block text-[9px] text-black/80 dark:text-stone-300 font-semibold">
                                 IE/CADPRO: {client.stateRegistration}
@@ -314,9 +319,9 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                 filteredClients.map((client) => (
                   <tr key={client.id} className="hover:bg-stone-50">
                     <td className="py-1.5 px-3">
-                      <div className="font-bold text-stone-900 leading-snug">{client.name}</div>
+                      <div className="font-bold text-stone-900 leading-snug">{client.nome || client.name}</div>
                       <div className="text-[10px] text-stone-500">
-                        {client.farmName}
+                        {client.fazenda || client.farmName}
                         {client.stateRegistration ? ` • IE: ${client.stateRegistration}` : ''}
                       </div>
                     </td>

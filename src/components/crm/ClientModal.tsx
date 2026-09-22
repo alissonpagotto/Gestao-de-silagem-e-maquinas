@@ -144,8 +144,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   };
 
   const applySubmission = (submission: ClientFormSubmission) => {
-    if (submission.name) setName(submission.name);
-    if (submission.farmName) setFarmName(submission.farmName);
+    if (submission.nome || submission.name) setName(submission.nome || submission.name);
+    if (submission.fazenda || submission.farmName) setFarmName(submission.fazenda || submission.farmName);
     if (submission.cpfCnpj) setCpfCnpj(formatCpfCnpj(submission.cpfCnpj));
     if (submission.stateRegistration) setStateRegistration(submission.stateRegistration);
     if (submission.phone) setPhone(formatPhone(submission.phone));
@@ -174,8 +174,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   useEffect(() => {
     if (editingClient) {
       setCurrentClient(editingClient);
-      setName(editingClient.name);
-      setFarmName(editingClient.farmName);
+      setName(editingClient.nome || editingClient.name);
+      setFarmName(editingClient.fazenda || editingClient.farmName);
       setCpfCnpj(formatCpfCnpj(editingClient.cpfCnpj || ''));
       setStateRegistration(editingClient.stateRegistration || '');
       setZipCode(formatCep(editingClient.zipCode || ''));
@@ -330,8 +330,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
   const handleCancel = () => {
     if (activeClient) {
-      setName(activeClient.name);
-      setFarmName(activeClient.farmName);
+      setName(activeClient.nome || activeClient.name);
+      setFarmName(activeClient.fazenda || activeClient.farmName);
       setCpfCnpj(formatCpfCnpj(activeClient.cpfCnpj || ''));
       setStateRegistration(activeClient.stateRegistration || '');
       setZipCode(formatCep(activeClient.zipCode || ''));
@@ -382,7 +382,9 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     const client: Client = {
       id: activeClient ? activeClient.id : `cli_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
+      nome: name.trim(),
       farmName: farmName.trim(),
+      fazenda: farmName.trim(),
       cpfCnpj: cpfCnpj.trim() || undefined,
       stateRegistration: stateRegistration.trim() || undefined,
       zipCode: zipCode.trim() || undefined,

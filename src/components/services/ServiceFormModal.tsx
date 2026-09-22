@@ -619,8 +619,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
     setClientId(selectedId);
     const client = clients.find((c) => c.id === selectedId);
     if (client) {
-      setClientName(client.name);
-      setFarmName(client.farmName || '');
+      setClientName(client.nome || client.name);
+      setFarmName(client.fazenda || client.farmName || '');
       if (client.areaHectares && !quantidadeArea) {
         setQuantidadeArea(client.areaHectares);
       }
@@ -633,8 +633,8 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
       onSaveClient(newClient);
     }
     setClientId(newClient.id);
-    setClientName(newClient.name);
-    setFarmName(newClient.farmName || '');
+    setClientName(newClient.nome || newClient.name);
+    setFarmName(newClient.fazenda || newClient.farmName || '');
     if (newClient.areaHectares) {
       setQuantidadeArea(newClient.areaHectares);
     }

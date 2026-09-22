@@ -107,15 +107,20 @@ export interface Client {
   id: string;
   companyId?: string; // ID da Empresa
   name: string;
+  nome?: string; // Compatibilidade com schema Supabase em português
   farmName: string;
+  fazenda?: string;
   cpfCnpj?: string;
   stateRegistration?: string;
   zipCode?: string;
   address?: string;
   neighborhood?: string;
   city: string;
+  cidade?: string;
   state: string;
+  estado?: string;
   phone: string;
+  telefone?: string;
   email?: string;
   areaHectares?: number;
   accessRoute?: string;
@@ -124,6 +129,7 @@ export interface Client {
   monthlyDemandTons?: number;
   status: 'lead' | 'contatado' | 'proposta' | 'cliente_ativo' | 'inativo';
   notes?: string;
+  observacoes?: string;
   totalPurchasedTons?: number;
   totalSpent?: number;
   createdAt: string;
@@ -133,7 +139,9 @@ export interface Client {
 export interface ClientFormSubmission {
   id: string;
   name: string;
+  nome?: string;
   farmName: string;
+  fazenda?: string;
   cpfCnpj?: string;
   stateRegistration?: string;
   phone: string;

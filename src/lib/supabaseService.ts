@@ -480,100 +480,212 @@ export async function fetchClientes(companyId?: string): Promise<Client[] | null
     }
     if (!data || data.length === 0) return [];
 
-    return data.map((row: any): Client => ({
-      id: String(row.id),
-      companyId: row.company_id || undefined,
-      name: row.name || row.nome || row.razao_social || row.nome_fantasia || 'Cliente',
-      farmName: row.farm_name || row.fazenda || '',
-      cpfCnpj: row.cpf_cnpj || row.cpf || row.cnpj || '',
-      stateRegistration: row.state_registration || row.inscricao_estadual || '',
-      phone: row.phone || row.telefone || row.celular || '',
-      email: row.email || '',
-      city: row.city || row.cidade || '',
-      state: row.state || row.estado || row.uf || '',
-      areaHectares: Number(row.total_area || row.area || row.area_total || 0),
-      cattleType: (row.cattle_type || row.tipo_gado || 'misto') as any,
-      notes: row.notes || row.observacoes || '',
-      status: (row.status || 'cliente_ativo') as any,
-      createdAt: row.created_at || new Date().toISOString(),
-      updatedAt: row.updated_at || new Date().toISOString()
-    }));
+    return data.map((row: any): Client => {
+      const clientName = row.nome || row.name || row.razao_social || row.nome_fantasia || 'Cliente';
+      const farmName = row.fazenda || row.farm_name || '';
+      const phone = row.telefone || row.phone || row.celular || '';
+      const city = row.cidade || row.city || '';
+      const state = row.estado || row.uf || row.state || '';
+      const notes = row.observacoes || row.notes || '';
+      return {
+        id: String(row.id),
+        companyId: row.company_id || undefined,
+        name: clientName,
+        nome: clientName,
+        farmName,
+        fazenda: farmName,
+        cpfCnpj: row.cpf_cnpj || row.cpf || row.cnpj || '',
+        stateRegistration: row.inscricao_estadual || row.state_registration || '',
+        phone,
+        telefone: phone,
+        email: row.email || '',
+        city,
+        cidade: city,
+        state,
+        estado: state,
+        areaHectares: Number(row.area_total || row.total_area || row.area || 0),
+        cattleType: (row.cattle_type || row.tipo_gado || 'misto') as any,
+        notes,
+        observacoes: notes,
+        status: (row.status || 'cliente_ativo') as any,
+        createdAt: row.created_at || new Date().toISOString(),
+        updatedAt: row.updated_at || new Date().toISOString()
+      };
+    });
   } catch (err) {
     console.warn('Supabase fetchClientes err:', err);
     return null;
   }
 }
 
+// Rastreadores dinâmicos de compatibilidade da tabela 'clientes' no Supabase
+let clientNameCol: 'nome' | 'name' = 'nome';
+let clientPhoneCol: 'telefone' | 'phone' = 'telefone';
+let clientFarmCol: 'fazenda' | 'farm_name' = 'fazenda';
+let clientNotesCol: 'observacoes' | 'notes' = 'observacoes';
+
 export async function upsertCliente(client: Client): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    // OPÇÃO B: Removido completamente o mapeamento da propriedade 'city' para evitar erro PGRST204 de schema cache
-    const standardPayload: Record<string, any> = {
+    const clientName = client.nome || client.name || 'Cliente';
+    const payload: Record<string, any> = {
       id: toValidUUID(client.id),
       company_id: client.companyId || getActiveCompanyId(),
-      name: client.name || 'Cliente',
-      farm_name: client.farmName || '',
       cpf_cnpj: client.cpfCnpj || '',
-      state_registration: client.stateRegistration || '',
-      phone: client.phone || '',
       email: client.email || '',
-      state: client.state || '',
-      total_area: Number(client.areaHectares) || 0,
-      cultivated_area: Number(client.areaHectares) || 0,
-      notes: client.notes || '',
       updated_at: new Date().toISOString()
     };
 
+    // Mapeamento dinâmico (prioriza 'nome' em português)
+    if (clientNameCol === 'nome') {
+      payload.nome = clientName;
+    } else {
+      payload.name = clientName;
+    }
+
+    if (client.phone || client.telefone) {
+      const p = client.phone || client.telefone;
+      if (clientPhoneCol === 'telefone') payload.telefone = p;
+      else payload.phone = p;
+    }
+
+    if (client.farmName || client.fazenda) {
+      const f = client.farmName || client.fazenda;
+      if (clientFarmCol === 'fazenda') payload.fazenda = f;
+      else payload.farm_name = f;
+    }
+
+    if (client.notes || client.observacoes) {
+      const n = client.notes || client.observacoes;
+      if (clientNotesCol === 'observacoes') payload.observacoes = n;
+      else payload.notes = n;
+    }
+
     let attempts = 0;
-    while (attempts < 5) {
+    while (attempts < 6) {
       const { error } = await supabase
         .from('clientes')
-        .upsert(standardPayload, { onConflict: 'id' });
+        .upsert(payload, { onConflict: 'id' });
 
       if (!error) {
         return true;
       }
 
-      // Detecção dinâmica de colunas ausentes no cache de esquema do PostgREST (PGRST204)
+      // Detecção dinâmica de colunas ausentes no cache do PostgREST (PGRST204)
       const missingColMatch = error.message?.match(/Could not find the '([^']+)' column/i);
-      if (missingColMatch && missingColMatch[1] && standardPayload[missingColMatch[1]] !== undefined) {
-        delete standardPayload[missingColMatch[1]];
-        attempts++;
-        continue;
-      }
+      if (missingColMatch && missingColMatch[1]) {
+        const missing = missingColMatch[1];
 
-      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
-        if (standardPayload.company_id !== undefined) {
-          delete standardPayload.company_id;
+        // 1. Trata alternância de nome <-> name
+        if (missing === 'name') {
+          delete payload.name;
+          clientNameCol = 'nome';
+          payload.nome = clientName;
+          attempts++;
+          continue;
+        } else if (missing === 'nome') {
+          delete payload.nome;
+          clientNameCol = 'name';
+          payload.name = clientName;
+          attempts++;
+          continue;
+        }
+
+        // 2. Trata alternância de telefone <-> phone
+        if (missing === 'phone') {
+          delete payload.phone;
+          clientPhoneCol = 'telefone';
+          if (client.phone || client.telefone) payload.telefone = client.phone || client.telefone;
+          attempts++;
+          continue;
+        } else if (missing === 'telefone') {
+          delete payload.telefone;
+          clientPhoneCol = 'phone';
+          if (client.phone || client.telefone) payload.phone = client.phone || client.telefone;
+          attempts++;
+          continue;
+        }
+
+        // 3. Trata alternância de fazenda <-> farm_name
+        if (missing === 'farm_name') {
+          delete payload.farm_name;
+          clientFarmCol = 'fazenda';
+          if (client.farmName || client.fazenda) payload.fazenda = client.farmName || client.fazenda;
+          attempts++;
+          continue;
+        } else if (missing === 'fazenda') {
+          delete payload.fazenda;
+          clientFarmCol = 'farm_name';
+          if (client.farmName || client.fazenda) payload.farm_name = client.farmName || client.fazenda;
+          attempts++;
+          continue;
+        }
+
+        // 4. Trata alternância de observacoes <-> notes
+        if (missing === 'notes') {
+          delete payload.notes;
+          clientNotesCol = 'observacoes';
+          if (client.notes || client.observacoes) payload.observacoes = client.notes || client.observacoes;
+          attempts++;
+          continue;
+        } else if (missing === 'observacoes') {
+          delete payload.observacoes;
+          clientNotesCol = 'notes';
+          if (client.notes || client.observacoes) payload.notes = client.notes || client.observacoes;
+          attempts++;
+          continue;
+        }
+
+        // 5. Remove qualquer outra coluna que o cache do PostgREST não encontre
+        if (payload[missing] !== undefined) {
+          delete payload[missing];
           attempts++;
           continue;
         }
       }
 
-      // Se falhou por outro motivo, encerra tentativas com standardPayload
+      if (error.message && (error.message.includes('company_id') || error.message.includes('column'))) {
+        if (payload.company_id !== undefined) {
+          delete payload.company_id;
+          attempts++;
+          continue;
+        }
+      }
+
+      // Se falhou por outro motivo de constraint ou validação
       break;
     }
 
-    // Fallback resiliente com colunas mínimas essenciais
-    const minimalPayload: Record<string, any> = {
-      id: toValidUUID(client.id),
-      name: client.name || 'Cliente',
-      cpf_cnpj: client.cpfCnpj || undefined,
-      phone: client.phone || undefined,
-      email: client.email || undefined,
+    // Fallback defensivo ultra-mínimo com apenas ID e o nome na coluna detectada
+    const minimal: Record<string, any> = {
+      id: toValidUUID(client.id)
     };
+    if (clientNameCol === 'nome') minimal.nome = clientName;
+    else minimal.name = clientName;
+
     const { error: minError } = await supabase
       .from('clientes')
-      .upsert(minimalPayload, { onConflict: 'id' });
+      .upsert(minimal, { onConflict: 'id' });
 
     if (!minError) {
       return true;
     }
 
-    console.warn('Supabase upsertCliente notice:', minError.message);
+    // Se o minimal falhar na coluna de nome, inverte e tenta com a outra
+    if (minError.message?.match(/Could not find the '(name|nome)' column/i)) {
+      if (minimal.nome !== undefined) {
+        delete minimal.nome;
+        minimal.name = clientName;
+      } else {
+        delete minimal.name;
+        minimal.nome = clientName;
+      }
+      const retryMin = await supabase.from('clientes').upsert(minimal, { onConflict: 'id' });
+      if (!retryMin.error) return true;
+    }
+
     return false;
   } catch (err: any) {
-    console.warn('Supabase upsertCliente notice:', err?.message || err);
     return false;
   }
 }

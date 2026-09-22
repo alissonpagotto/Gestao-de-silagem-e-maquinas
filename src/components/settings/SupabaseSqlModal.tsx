@@ -461,8 +461,12 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
 );
 
 -- ==============================================================================
--- 10. MIGRAÇÃO: company_id para sincronização multi-dispositivo por empresa
+-- 10. MIGRAÇÃO: Compatibilidade de colunas da tabela clientes e company_id
 -- ==============================================================================
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS nome TEXT;
+UPDATE public.clientes SET name = nome WHERE name IS NULL AND nome IS NOT NULL;
+UPDATE public.clientes SET nome = name WHERE nome IS NULL AND name IS NOT NULL;
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS state TEXT;
