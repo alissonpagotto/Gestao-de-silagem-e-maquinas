@@ -68,6 +68,7 @@ import {
   saveStoredLeaves,
   getStoredSalaryAdvances,
   saveStoredSalaryAdvances,
+  saveStoredTerminations,
   formatCurrencyBRL,
   getActiveCompanyId
 } from './lib/storage';
@@ -355,6 +356,9 @@ export default function App() {
           }
           if (cloudModules.expenses !== null && cloudModules.expenses !== undefined) {
             setExpenses(cloudModules.expenses);
+          }
+          if (cloudModules.terminations !== null && cloudModules.terminations !== undefined) {
+            saveStoredTerminations(cloudModules.terminations);
           }
         }
 

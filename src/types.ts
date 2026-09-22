@@ -1125,7 +1125,14 @@ export interface TerminationRecord {
   includeInssDiscount?: boolean;
   status: 'rascunho' | 'homologado' | 'pago' | 'cancelado';
   markEmployeeInactive?: boolean;
+  vacationExpiredPeriods?: number;
+  customFgtsBalance?: string;
+  isManualFgts?: boolean;
+  customAbsencesDiscount?: string;
+  customAdvancesDiscount?: string;
+  otherDeductionsInput?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // ==========================================

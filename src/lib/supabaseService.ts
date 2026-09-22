@@ -12,7 +12,8 @@ import {
   SilageOrder,
   ServiceOrder,
   CompanyProfile,
-  ServiceAppointment
+  ServiceAppointment,
+  TerminationRecord
 } from '../types';
 export type { CompanyProfile };
 import {
@@ -3770,6 +3771,69 @@ export async function fetchCloudExpenses(companyId?: string): Promise<Expense[] 
 }
 
 /**
+ * Salva e sincroniza as Rescisões Contratuais e Rascunhos no Supabase
+ */
+export async function saveCloudTerminations(terminations: TerminationRecord[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_terminations_${cId}`,
+      hero_title: JSON.stringify(terminations),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    // Sincroniza também na tabela relacional rh_rescisoes se disponível
+    try {
+      const recordsToUpsert = terminations.map(t => ({
+        id: t.id,
+        company_id: cId,
+        employee_id: t.employeeId,
+        employee_name: t.employeeName,
+        termination_date: t.terminationDate,
+        reason: t.reason,
+        net_total: t.calculation?.netTotal || 0,
+        status: t.status,
+        payload: JSON.stringify(t),
+        updated_at: new Date().toISOString()
+      }));
+      if (recordsToUpsert.length > 0) {
+        await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' }).catch(() => {});
+      }
+    } catch {
+      // Ignora silenciosamente caso tabela relacional ainda não exista
+    }
+
+    return !error;
+  } catch (e) {
+    console.error('Falha ao persistir rescisões no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega as Rescisões Contratuais e Rascunhos da nuvem (Supabase)
+ */
+export async function fetchCloudTerminations(companyId?: string): Promise<TerminationRecord[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_terminations_${cId}`)
+      .maybeSingle();
+
+    if (!error && data?.hero_title) {
+      return JSON.parse(data.hero_title) as TerminationRecord[];
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Carrega todos os módulos operacionais do cliente a partir do Supabase em uma única operação
  */
 export async function fetchAllClientModulesFromSupabase(companyId?: string) {
@@ -3785,6 +3849,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       `cloud_clients_${cId}`,
       `cloud_machineries_${cId}`,
       `cloud_expenses_${cId}`,
+      `cloud_terminations_${cId}`,
     ];
 
     const { data, error } = await supabase
@@ -3823,6 +3888,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       clients: parseJson(`cloud_clients_${cId}`) as Client[] | null,
       machineries: parseJson(`cloud_machineries_${cId}`) as Machinery[] | null,
       expenses: parseJson(`cloud_expenses_${cId}`) as Expense[] | null,
+      terminations: parseJson(`cloud_terminations_${cId}`) as TerminationRecord[] | null,
     };
   } catch (err) {
     console.warn('Erro ao carregar módulos do cliente do Supabase:', err);

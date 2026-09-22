@@ -18,7 +18,9 @@ import {
   Building2,
   Phone,
   RefreshCw,
-  Scale
+  Scale,
+  BookmarkCheck,
+  FileEdit
 } from 'lucide-react';
 import { 
   Employee, 
@@ -36,6 +38,10 @@ import {
   getStoredTerminations, 
   saveStoredTerminations 
 } from '../../lib/storage';
+import {
+  saveCloudTerminations,
+  fetchCloudTerminations
+} from '../../lib/supabaseService';
 import { 
   formatMoneyBRL, 
   parseMoneyToFloat, 
@@ -77,6 +83,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   
   // Parâmetros de Férias e FGTS
   const [vacationExpiredPeriods, setVacationExpiredPeriods] = useState<number>(0);
+  const [vacationExpiredInput, setVacationExpiredInput] = useState<string>('0');
   const [customFgtsBalance, setCustomFgtsBalance] = useState<string>('');
   const [isManualFgts, setIsManualFgts] = useState<boolean>(false);
   const [markInactive, setMarkInactive] = useState<boolean>(true);
@@ -85,6 +92,28 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   // Controles de Inclusão e Cálculo
   const [includeFgtsFine, setIncludeFgtsFine] = useState<boolean>(false);
   const [includeInssDiscount, setIncludeInssDiscount] = useState<boolean>(true);
+
+  // Controle de Rascunhos e Persistência
+  const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
+  const [draftBannerMessage, setDraftBannerMessage] = useState<string | null>(null);
+
+  // Sincronização inicial com o Supabase
+  useEffect(() => {
+    fetchCloudTerminations().then((cloudList) => {
+      if (cloudList && Array.isArray(cloudList) && cloudList.length > 0) {
+        setTerminations((prev) => {
+          const map = new Map<string, TerminationRecord>();
+          prev.forEach((t) => map.set(t.id, t));
+          cloudList.forEach((t) => map.set(t.id, t));
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          saveStoredTerminations(merged);
+          return merged;
+        });
+      }
+    }).catch((err) => console.warn('Aviso ao sincronizar rescisões com o Supabase:', err));
+  }, []);
 
   // Deduções adicionais ajustáveis
   const [customAbsencesDiscount, setCustomAbsencesDiscount] = useState<string>('0,00');
@@ -144,44 +173,88 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     return employees.find((e) => e.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
 
-  // Ao selecionar funcionário, preenche automaticamente os dados cadastrais
+  // Ao selecionar funcionário, verifica se há rascunho salvo para restaurar ou preenche com dados cadastrais
   useEffect(() => {
     if (selectedEmployee) {
-      const rawSal = selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0;
-      const sal = typeof rawSal === 'number' ? rawSal : parseRawOrFormattedToFloat(rawSal);
-      setBaseSalary(sal);
-      setBaseSalaryDisplay(formatNumberBRL(sal));
-      
-      if (selectedEmployee.admissionDate) {
-        const cleanDate = selectedEmployee.admissionDate.split('T')[0];
-        setAdmissionDate(cleanDate);
+      // Verifica se já existe um rascunho 'Em Andamento' para este colaborador
+      const existingDraft = terminations.find(
+        (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
+      );
+
+      if (existingDraft) {
+        // Carrega com fidelidade todos os campos salvos no rascunho
+        setReason(existingDraft.reason || 'sem_justa_causa');
+        setNoticeType(existingDraft.noticeType || 'indenizado');
+        setAdmissionDate(existingDraft.admissionDate || selectedEmployee.admissionDate?.split('T')[0] || '');
+        setTerminationDate(existingDraft.terminationDate || new Date().toISOString().split('T')[0]);
+
+        const sal = existingDraft.baseSalary ?? (selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0);
+        setBaseSalary(sal);
+        setBaseSalaryDisplay(formatNumberBRL(sal));
+
+        const vacCount = existingDraft.vacationExpiredPeriods ?? existingDraft.calculation?.vacationExpiredCount ?? 0;
+        setVacationExpiredPeriods(vacCount);
+        setVacationExpiredInput(vacCount > 0 ? String(vacCount) : '0');
+
+        setCustomFgtsBalance(existingDraft.customFgtsBalance || '');
+        setIsManualFgts(Boolean(existingDraft.isManualFgts || (existingDraft.customFgtsBalance && existingDraft.customFgtsBalance !== '0,00')));
+        setIncludeFgtsFine(Boolean(existingDraft.includeFgtsFine));
+        setIncludeInssDiscount(existingDraft.includeInssDiscount !== undefined ? existingDraft.includeInssDiscount : true);
+        setCustomAbsencesDiscount(existingDraft.customAbsencesDiscount || '0,00');
+        setCustomAdvancesDiscount(existingDraft.customAdvancesDiscount || '0,00');
+        setOtherDeductionsInput(existingDraft.otherDeductionsInput || '0,00');
+        setNotes(existingDraft.notes || '');
+        setDraftBannerMessage(`Rascunho recuperado: Carregamos as informações salvas anteriormente para ${selectedEmployee.name}.`);
       } else {
-        setAdmissionDate('');
+        setDraftBannerMessage(null);
+        const rawSal = selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0;
+        const sal = typeof rawSal === 'number' ? rawSal : parseRawOrFormattedToFloat(rawSal);
+        setBaseSalary(sal);
+        setBaseSalaryDisplay(formatNumberBRL(sal));
+        
+        if (selectedEmployee.admissionDate) {
+          const cleanDate = selectedEmployee.admissionDate.split('T')[0];
+          setAdmissionDate(cleanDate);
+        } else {
+          setAdmissionDate('');
+        }
+
+        setTerminationDate(new Date().toISOString().split('T')[0]);
+        setVacationExpiredPeriods(0);
+        setVacationExpiredInput('0');
+
+        // Buscar adiantamentos pendentes em aberto deste colaborador
+        const pendingAdvances = advances
+          .filter((a) => a.employeeId === selectedEmployee.id && a.status === 'pendente')
+          .reduce((sum, a) => sum + (a.amount || 0), 0);
+        setCustomAdvancesDiscount(pendingAdvances > 0 ? formatNumberBRL(pendingAdvances) : '0,00');
+
+        // Buscar faltas injustificadas pendentes de desconto
+        const pendingAbsences = absences
+          .filter((ab) => ab.employeeId === selectedEmployee.id && ab.type === 'injustificada' && ab.status === 'pendente')
+          .reduce((sum, ab) => sum + (ab.discountAmount || (sal > 0 ? (sal / 30) * ab.daysCount : 0)), 0);
+        setCustomAbsencesDiscount(pendingAbsences > 0 ? formatNumberBRL(pendingAbsences) : '0,00');
+
+        setIsManualFgts(false);
+        setCustomFgtsBalance('');
+        setIncludeFgtsFine(false);
+        setIncludeInssDiscount(true);
+        setOtherDeductionsInput('0,00');
+        setNotes('');
       }
-
-      // Buscar adiantamentos pendentes em aberto deste colaborador
-      const pendingAdvances = advances
-        .filter((a) => a.employeeId === selectedEmployee.id && a.status === 'pendente')
-        .reduce((sum, a) => sum + (a.amount || 0), 0);
-      setCustomAdvancesDiscount(pendingAdvances > 0 ? formatNumberBRL(pendingAdvances) : '0,00');
-
-      // Buscar faltas injustificadas pendentes de desconto
-      const pendingAbsences = absences
-        .filter((ab) => ab.employeeId === selectedEmployee.id && ab.type === 'injustificada' && ab.status === 'pendente')
-        .reduce((sum, ab) => sum + (ab.discountAmount || (sal > 0 ? (sal / 30) * ab.daysCount : 0)), 0);
-      setCustomAbsencesDiscount(pendingAbsences > 0 ? formatNumberBRL(pendingAbsences) : '0,00');
-
-      setIsManualFgts(false);
-      setCustomFgtsBalance('');
     } else {
       setBaseSalary(0);
       setBaseSalaryDisplay('0,00');
       setAdmissionDate('');
       setCustomAdvancesDiscount('0,00');
       setCustomAbsencesDiscount('0,00');
+      setOtherDeductionsInput('0,00');
       setCustomFgtsBalance('');
+      setVacationExpiredPeriods(0);
+      setVacationExpiredInput('0');
+      setDraftBannerMessage(null);
     }
-  }, [selectedEmployeeId, selectedEmployee, advances, absences]);
+  }, [selectedEmployeeId, selectedEmployee, advances, absences, terminations]);
 
   // Cálculo de datas e proporções
   const dateAnalysis = useMemo(() => {
@@ -401,8 +474,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     } else if (reason === 'acordo_mutuo') {
       fgtsFineRate = 20;
     }
-    const fgtsFineAmount = Number(((fgtsBase * fgtsFineRate) / 100).toFixed(2));
-    const fgtsFineInGross = includeFgtsFine ? fgtsFineAmount : 0;
+    const calculatedFgtsFine = Number(((fgtsBase * fgtsFineRate) / 100).toFixed(2));
+    // Se a opção "Calcular Multa do FGTS (40%)" estiver desmarcada, a multa é estritamente ZERADA
+    const fgtsFineAmount = includeFgtsFine ? calculatedFgtsFine : 0;
 
     // Total Bruto dos Proventos
     const grossTotal = Number((
@@ -412,7 +486,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       vacationExpiredAmount +
       vacationProportionalAmount +
       vacationOneThirdBonus +
-      fgtsFineInGross
+      fgtsFineAmount
     ).toFixed(2));
 
     // Descontos / Deduções
@@ -528,15 +602,27 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       calculation,
       includeFgtsFine,
       includeInssDiscount,
+      vacationExpiredPeriods,
+      customFgtsBalance,
+      isManualFgts,
+      customAbsencesDiscount,
+      customAdvancesDiscount,
+      otherDeductionsInput,
       notes,
       status: 'homologado',
       markEmployeeInactive: markInactive,
       createdAt: new Date().toISOString(),
     };
 
-    const updated = [newRecord, ...terminations];
+    // Remove eventual rascunho anterior deste funcionário
+    const otherTerminations = terminations.filter(
+      (t) => !(t.employeeId === selectedEmployee.id && t.status === 'rascunho') && t.id !== newRecord.id
+    );
+    const updated = [newRecord, ...otherTerminations];
     setTerminations(updated);
     saveStoredTerminations(updated);
+    saveCloudTerminations(updated).catch(() => {});
+    setDraftBannerMessage(null);
 
     // Atualizar status do funcionário se solicitado
     if (markInactive && onSaveEmployees) {
@@ -557,11 +643,104 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     setViewingTRCT(newRecord);
   };
 
-  // Excluir registro do histórico
+  // Salvar Rascunho (Em Andamento) sem alterar o status do colaborador para inativo
+  const handleSaveDraft = async () => {
+    if (!selectedEmployee) {
+      await confirm({
+        title: 'Selecione um Funcionário',
+        message: 'Por favor, selecione um colaborador antes de salvar o rascunho da rescisão.',
+        confirmLabel: 'Entendido',
+        cancelLabel: '',
+        variant: 'primary',
+      });
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const existingDraft = terminations.find(
+        (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
+      );
+
+      const draftRecord: TerminationRecord = {
+        id: existingDraft?.id || `draft_${Date.now()}`,
+        employeeId: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        employeeRole: selectedEmployee.role || 'Colaborador',
+        employeeCpf: selectedEmployee.cpf,
+        admissionDate: admissionDate || selectedEmployee.admissionDate || '',
+        terminationDate: terminationDate,
+        reason,
+        noticeType,
+        baseSalary,
+        calculation,
+        includeFgtsFine,
+        includeInssDiscount,
+        vacationExpiredPeriods,
+        customFgtsBalance,
+        isManualFgts,
+        customAbsencesDiscount,
+        customAdvancesDiscount,
+        otherDeductionsInput,
+        notes,
+        status: 'rascunho',
+        markEmployeeInactive: false, // JAMAIS altera status para inativo em rascunho
+        createdAt: existingDraft?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const otherTerminations = terminations.filter((t) => t.id !== draftRecord.id);
+      const updated = [draftRecord, ...otherTerminations];
+
+      setTerminations(updated);
+      saveStoredTerminations(updated);
+
+      // Persistência na nuvem (Supabase)
+      await saveCloudTerminations(updated);
+
+      setDraftBannerMessage(`Rascunho de "${selectedEmployee.name}" salvo com sucesso! O colaborador continua ATIVO.`);
+    } catch (e) {
+      console.error('Erro ao salvar rascunho no Supabase:', e);
+      setDraftBannerMessage(`Rascunho de "${selectedEmployee.name}" salvo localmente.`);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Retoma o preenchimento de um rascunho
+  const handleResumeDraft = (draft: TerminationRecord) => {
+    setSelectedEmployeeId(draft.employeeId);
+    setReason(draft.reason || 'sem_justa_causa');
+    setNoticeType(draft.noticeType || 'indenizado');
+    setAdmissionDate(draft.admissionDate || '');
+    setTerminationDate(draft.terminationDate || new Date().toISOString().split('T')[0]);
+    setBaseSalary(draft.baseSalary || 0);
+    setBaseSalaryDisplay(formatNumberBRL(draft.baseSalary || 0));
+
+    const vac = draft.vacationExpiredPeriods ?? draft.calculation?.vacationExpiredCount ?? 0;
+    setVacationExpiredPeriods(vac);
+    setVacationExpiredInput(vac > 0 ? String(vac) : '0');
+
+    setCustomFgtsBalance(draft.customFgtsBalance || '');
+    setIsManualFgts(Boolean(draft.isManualFgts || (draft.customFgtsBalance && draft.customFgtsBalance !== '0,00')));
+    setIncludeFgtsFine(Boolean(draft.includeFgtsFine));
+    setIncludeInssDiscount(draft.includeInssDiscount !== undefined ? draft.includeInssDiscount : true);
+    setCustomAbsencesDiscount(draft.customAbsencesDiscount || '0,00');
+    setCustomAdvancesDiscount(draft.customAdvancesDiscount || '0,00');
+    setOtherDeductionsInput(draft.otherDeductionsInput || '0,00');
+    setNotes(draft.notes || '');
+    setDraftBannerMessage(`Rascunho de "${draft.employeeName}" carregado nos campos com sucesso. Continue o preenchimento!`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Excluir registro ou rascunho do histórico
   const handleDeleteTermination = async (id: string, empName: string) => {
+    const targetItem = terminations.find((t) => t.id === id);
+    const isDraft = targetItem?.status === 'rascunho';
+
     const isConfirmed = await confirm({
-      title: 'Excluir Rescisão',
-      message: `Deseja realmente remover o registro de rescisão de "${empName}"?`,
+      title: isDraft ? 'Excluir Rascunho' : 'Excluir Rescisão',
+      message: `Deseja realmente remover o ${isDraft ? 'rascunho em andamento' : 'registro de rescisão'} de "${empName}"?`,
       confirmLabel: 'Excluir',
       cancelLabel: 'Cancelar',
       variant: 'danger',
@@ -571,6 +750,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const updated = terminations.filter((t) => t.id !== id);
       setTerminations(updated);
       saveStoredTerminations(updated);
+      saveCloudTerminations(updated).catch(() => {});
     }
   };
 
