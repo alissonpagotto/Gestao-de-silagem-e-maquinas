@@ -503,6 +503,61 @@ export const getEmployeeMonthCommissions = (
 };
 
 /**
+ * Converte valor bruto do banco, string com máscara ou número para float numérico válido.
+ * Trata tanto inteiros puros (ex: 1512 -> 1512.00, '1512' -> 1512.00)
+ * quanto decimais ('1512.50' -> 1512.50, '1.512,00' -> 1512.00, 'R$ 1.512,00' -> 1512.00).
+ */
+export const parseRawOrFormattedToFloat = (value: string | number | undefined | null): number => {
+  if (typeof value === 'number') return isNaN(value) ? 0 : Number(value.toFixed(2));
+  if (value === undefined || value === null) return 0;
+  const str = String(value).trim();
+  if (!str) return 0;
+
+  // Se tem ponto e vírgula (ex: "1.512,00" ou "R$ 1.512,00")
+  if (str.includes(',') && str.includes('.')) {
+    const normalized = str.replace(/[^\d,-]/g, '').replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : Number(num.toFixed(2));
+  }
+
+  // Se tem vírgula decimal (ex: "1512,00" ou "1512,5")
+  if (str.includes(',')) {
+    const normalized = str.replace(/[^\d,-]/g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : Number(num.toFixed(2));
+  }
+
+  // Se é float/inteiro padrão (ex: "1512" ou "1512.00")
+  if (/^-?\d+(\.\d+)?$/.test(str)) {
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : Number(num.toFixed(2));
+  }
+
+  // Fallback: extrai números mantendo sinal
+  const digits = str.replace(/[^\d-]/g, '');
+  if (!digits) return 0;
+  const num = parseFloat(digits);
+  return isNaN(num) ? 0 : Number(num.toFixed(2));
+};
+
+/**
+ * Formata valor numérico para a exibição de moeda brasileira sem o prefixo R$ (ex: 1512 -> "1.512,00")
+ */
+export const formatNumberBRL = (value: number | string | undefined | null): string => {
+  if (value === undefined || value === null || value === '') return '0,00';
+  let num: number;
+  if (typeof value === 'number') {
+    num = isNaN(value) ? 0 : value;
+  } else {
+    num = parseRawOrFormattedToFloat(value);
+  }
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+/**
  * Formata qualquer valor numérico ou string para a moeda brasileira (Real Brasileiro - BRL):
  * Ex: 3500 -> "R$ 3.500,00"
  */
@@ -512,9 +567,7 @@ export const formatMoneyBRL = (value: number | string | undefined | null): strin
   if (typeof value === 'number') {
     num = isNaN(value) ? 0 : value;
   } else {
-    const cleanDigits = String(value).replace(/\D/g, '');
-    if (!cleanDigits) return 'R$ 0,00';
-    num = parseInt(cleanDigits, 10) / 100;
+    num = parseRawOrFormattedToFloat(value);
   }
   return `R$ ${num.toLocaleString('pt-BR', {
     minimumFractionDigits: 2,

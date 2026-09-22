@@ -392,8 +392,9 @@ export function sanitizeServiceOrders(services: ServiceOrder[]): ServiceOrder[] 
     const tractor = (s.tractorName || '').toLowerCase();
     const machinery = (s.machineryAssigned || '').toLowerCase();
     const orderNum = String(s.orderNumber || '').trim();
-    const sId = String(s.id || '').trim();
+    const sId = String(s.id || '').trim().toLowerCase();
     const notes = String(s.notes || '').toLowerCase();
+    const dateStr = String(s.date || '').trim();
 
     const isMock =
       client.includes('juca') ||
@@ -402,12 +403,17 @@ export function sanitizeServiceOrders(services: ServiceOrder[]): ServiceOrder[] 
       tractor.includes('trotor esteira') ||
       tractor.includes('trator esteira') ||
       machinery.includes('kiki') ||
+      machinery.includes('trator esteira') ||
       notes.includes('juca') ||
       notes.includes('kiki') ||
       sId.includes('1790021832494') ||
+      sId.includes('4001') ||
       orderNum === '4001' ||
       orderNum === '#4001' ||
       orderNum.includes('4001') ||
+      ((dateStr.includes('2026-09-21') || dateStr.includes('21/09/2026')) && 
+        (client.includes('juca') || tractor.includes('kiki') || s.tractorHours === 10 || s.totalAmount === 3500)) ||
+      ((s.tractorHours === 10 || s.areaQuantity === 10) && (s.totalAmount === 3500 || s.ratePerUnit === 350)) ||
       (orderNum === '#001' && (client.includes('juca') || tractor.includes('kiki') || s.tractorHours === 10 || s.totalAmount === 3500));
 
     return !isMock;

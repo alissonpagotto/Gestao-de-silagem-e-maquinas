@@ -1092,6 +1092,8 @@ export interface TerminationCalculation {
   fgtsFineRate: number; // 40%, 20% ou 0%
   fgtsFineAmount: number; // Multa rescisória do FGTS (R$)
   grossTotal: number; // Total Bruto dos Proventos
+  includeFgtsFine?: boolean; // Se a multa do FGTS está somada aos proventos totais
+  includeInssDiscount?: boolean; // Se os descontos de INSS estão ativos
   
   // Deduções / Descontos
   inssSalaryBalance: number; // INSS sobre saldo de salário
@@ -1119,6 +1121,8 @@ export interface TerminationRecord {
   baseSalary: number;
   calculation: TerminationCalculation;
   notes?: string;
+  includeFgtsFine?: boolean;
+  includeInssDiscount?: boolean;
   status: 'rascunho' | 'homologado' | 'pago' | 'cancelado';
   markEmployeeInactive?: boolean;
   createdAt: string;

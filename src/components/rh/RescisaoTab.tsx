@@ -39,6 +39,8 @@ import {
 import { 
   formatMoneyBRL, 
   parseMoneyToFloat, 
+  parseRawOrFormattedToFloat,
+  formatNumberBRL,
   formatCPF, 
   formatEmployeeAdmissionDate 
 } from './payrollHelpers';
@@ -70,7 +72,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const [noticeType, setNoticeType] = useState<NoticeType>('indenizado');
   const [admissionDate, setAdmissionDate] = useState<string>('');
   const [terminationDate, setTerminationDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [baseSalaryInput, setBaseSalaryInput] = useState<string>('0');
+  const [baseSalary, setBaseSalary] = useState<number>(0);
+  const [baseSalaryDisplay, setBaseSalaryDisplay] = useState<string>('0,00');
   
   // Parâmetros de Férias e FGTS
   const [vacationExpiredPeriods, setVacationExpiredPeriods] = useState<number>(0);
@@ -79,13 +82,62 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const [markInactive, setMarkInactive] = useState<boolean>(true);
   const [notes, setNotes] = useState<string>('');
 
+  // Controles de Inclusão e Cálculo
+  const [includeFgtsFine, setIncludeFgtsFine] = useState<boolean>(false);
+  const [includeInssDiscount, setIncludeInssDiscount] = useState<boolean>(true);
+
   // Deduções adicionais ajustáveis
-  const [customAbsencesDiscount, setCustomAbsencesDiscount] = useState<string>('0');
-  const [customAdvancesDiscount, setCustomAdvancesDiscount] = useState<string>('0');
-  const [otherDeductionsInput, setOtherDeductionsInput] = useState<string>('0');
+  const [customAbsencesDiscount, setCustomAbsencesDiscount] = useState<string>('0,00');
+  const [customAdvancesDiscount, setCustomAdvancesDiscount] = useState<string>('0,00');
+  const [otherDeductionsInput, setOtherDeductionsInput] = useState<string>('0,00');
 
   // Modal de Impressão / TRCT
   const [viewingTRCT, setViewingTRCT] = useState<TerminationRecord | null>(null);
+
+  // Handlers para formatação monetária segura
+  const handleBaseSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const digits = val.replace(/\D/g, '');
+    if (!digits) {
+      setBaseSalary(0);
+      setBaseSalaryDisplay('0,00');
+      return;
+    }
+    const num = parseInt(digits, 10) / 100;
+    setBaseSalary(num);
+    setBaseSalaryDisplay(formatNumberBRL(num));
+  };
+
+  const handleBaseSalaryPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').trim();
+    if (!pasted) return;
+    const num = parseRawOrFormattedToFloat(pasted);
+    setBaseSalary(num);
+    setBaseSalaryDisplay(formatNumberBRL(num));
+  };
+
+  const handleMoneyChange = (setter: (val: string) => void) => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const digits = e.target.value.replace(/\D/g, '');
+      if (!digits) {
+        setter('0,00');
+        return;
+      }
+      const num = parseInt(digits, 10) / 100;
+      setter(formatNumberBRL(num));
+    };
+  };
+
+  const handleMoneyPaste = (setter: (val: string) => void) => {
+    return (e: React.ClipboardEvent<HTMLInputElement>) => {
+      e.preventDefault();
+      const pasted = e.clipboardData.getData('text').trim();
+      if (!pasted) return;
+      const num = parseRawOrFormattedToFloat(pasted);
+      setter(formatNumberBRL(num));
+    };
+  };
 
   // Colaborador Selecionado
   const selectedEmployee = useMemo(() => {
@@ -95,8 +147,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   // Ao selecionar funcionário, preenche automaticamente os dados cadastrais
   useEffect(() => {
     if (selectedEmployee) {
-      const sal = selectedEmployee.baseSalary || selectedEmployee.salary || 0;
-      setBaseSalaryInput(sal.toString());
+      const rawSal = selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0;
+      const sal = typeof rawSal === 'number' ? rawSal : parseRawOrFormattedToFloat(rawSal);
+      setBaseSalary(sal);
+      setBaseSalaryDisplay(formatNumberBRL(sal));
       
       if (selectedEmployee.admissionDate) {
         const cleanDate = selectedEmployee.admissionDate.split('T')[0];
@@ -109,21 +163,22 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const pendingAdvances = advances
         .filter((a) => a.employeeId === selectedEmployee.id && a.status === 'pendente')
         .reduce((sum, a) => sum + (a.amount || 0), 0);
-      setCustomAdvancesDiscount(pendingAdvances.toString());
+      setCustomAdvancesDiscount(pendingAdvances > 0 ? formatNumberBRL(pendingAdvances) : '0,00');
 
       // Buscar faltas injustificadas pendentes de desconto
       const pendingAbsences = absences
         .filter((ab) => ab.employeeId === selectedEmployee.id && ab.type === 'injustificada' && ab.status === 'pendente')
         .reduce((sum, ab) => sum + (ab.discountAmount || (sal > 0 ? (sal / 30) * ab.daysCount : 0)), 0);
-      setCustomAbsencesDiscount(pendingAbsences.toString());
+      setCustomAbsencesDiscount(pendingAbsences > 0 ? formatNumberBRL(pendingAbsences) : '0,00');
 
       setIsManualFgts(false);
       setCustomFgtsBalance('');
     } else {
-      setBaseSalaryInput('0');
+      setBaseSalary(0);
+      setBaseSalaryDisplay('0,00');
       setAdmissionDate('');
-      setCustomAdvancesDiscount('0');
-      setCustomAbsencesDiscount('0');
+      setCustomAdvancesDiscount('0,00');
+      setCustomAbsencesDiscount('0,00');
       setCustomFgtsBalance('');
     }
   }, [selectedEmployeeId, selectedEmployee, advances, absences]);
@@ -246,7 +301,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
   // Motor de Cálculo da Rescisão
   const calculation: TerminationCalculation = useMemo(() => {
-    const salary = parseMoneyToFloat(baseSalaryInput);
+    const salary = typeof baseSalary === 'number' ? baseSalary : parseRawOrFormattedToFloat(baseSalaryDisplay);
     if (salary <= 0 || !selectedEmployee) {
       return {
         workedDaysCurrentMonth: 0,
@@ -264,6 +319,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         fgtsFineRate: 0,
         fgtsFineAmount: 0,
         grossTotal: 0,
+        includeFgtsFine,
+        includeInssDiscount,
         inssSalaryBalance: 0,
         inssThirteenth: 0,
         irrfDiscount: 0,
@@ -332,7 +389,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     // 7. Estimativa do FGTS e Multa Rescisória
     let fgtsBase = 0;
     if (isManualFgts && customFgtsBalance !== '') {
-      fgtsBase = parseMoneyToFloat(customFgtsBalance);
+      fgtsBase = parseRawOrFormattedToFloat(customFgtsBalance);
     } else {
       // 8% do salário por mês trabalhado
       fgtsBase = Number((salary * 0.08 * dateAnalysis.totalMonths).toFixed(2));
@@ -345,6 +402,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       fgtsFineRate = 20;
     }
     const fgtsFineAmount = Number(((fgtsBase * fgtsFineRate) / 100).toFixed(2));
+    const fgtsFineInGross = includeFgtsFine ? fgtsFineAmount : 0;
 
     // Total Bruto dos Proventos
     const grossTotal = Number((
@@ -353,12 +411,16 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       thirteenthProportionalAmount +
       vacationExpiredAmount +
       vacationProportionalAmount +
-      vacationOneThirdBonus
+      vacationOneThirdBonus +
+      fgtsFineInGross
     ).toFixed(2));
 
     // Descontos / Deduções
-    const inssSalaryBalance = Number(calculateINSS(salaryBalance).toFixed(2));
-    const inssThirteenth = Number(calculateINSS(thirteenthProportionalAmount).toFixed(2));
+    const rawInssSalary = Number(calculateINSS(salaryBalance).toFixed(2));
+    const rawInssThirteenth = Number(calculateINSS(thirteenthProportionalAmount).toFixed(2));
+
+    const inssSalaryBalance = includeInssDiscount ? rawInssSalary : 0;
+    const inssThirteenth = includeInssDiscount ? rawInssThirteenth : 0;
     
     // IRRF Simplificado (se aplicável após dedução INSS)
     const irrfBase = Math.max(0, salaryBalance - inssSalaryBalance);
@@ -367,9 +429,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       irrfDiscount = Number(((irrfBase * 0.075) - 169.44).toFixed(2));
     }
 
-    const absenceDiscount = parseMoneyToFloat(customAbsencesDiscount);
-    const advancesDiscount = parseMoneyToFloat(customAdvancesDiscount);
-    const otherDeductions = parseMoneyToFloat(otherDeductionsInput);
+    const absenceDiscount = parseRawOrFormattedToFloat(customAbsencesDiscount);
+    const advancesDiscount = parseRawOrFormattedToFloat(customAdvancesDiscount);
+    const otherDeductions = parseRawOrFormattedToFloat(otherDeductionsInput);
 
     const totalDeductions = Number((
       inssSalaryBalance +
@@ -399,6 +461,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       fgtsFineRate,
       fgtsFineAmount,
       grossTotal,
+      includeFgtsFine,
+      includeInssDiscount,
       inssSalaryBalance,
       inssThirteenth,
       irrfDiscount,
@@ -410,7 +474,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       netTotal,
     };
   }, [
-    baseSalaryInput,
+    baseSalary,
+    baseSalaryDisplay,
     selectedEmployee,
     reason,
     noticeType,
@@ -421,6 +486,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     customAbsencesDiscount,
     customAdvancesDiscount,
     otherDeductionsInput,
+    includeFgtsFine,
+    includeInssDiscount,
   ]);
 
   // Salvar Rescisão no Histórico
@@ -457,8 +524,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       terminationDate: terminationDate,
       reason,
       noticeType,
-      baseSalary: parseMoneyToFloat(baseSalaryInput),
+      baseSalary,
       calculation,
+      includeFgtsFine,
+      includeInssDiscount,
       notes,
       status: 'homologado',
       markEmployeeInactive: markInactive,
@@ -623,11 +692,13 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 Salário Base (R$) <span className="text-rose-500">*</span>
               </label>
               <input
-                type="number"
-                step="0.01"
-                value={baseSalaryInput}
-                onChange={(e) => setBaseSalaryInput(e.target.value)}
-                placeholder="0.00"
+                type="text"
+                inputMode="numeric"
+                value={baseSalaryDisplay}
+                onChange={handleBaseSalaryChange}
+                onPaste={handleBaseSalaryPaste}
+                onFocus={(e) => e.target.select()}
+                placeholder="0,00"
                 className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -665,7 +736,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </select>
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 space-y-2">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-bold text-slate-700 dark:text-stone-300">
                   Saldo FGTS para Multa ({calculation.fgtsFineRate}%)
@@ -681,11 +752,13 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
               {isManualFgts ? (
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="numeric"
                   value={customFgtsBalance}
-                  onChange={(e) => setCustomFgtsBalance(e.target.value)}
-                  placeholder="Ex: 5400.00"
+                  onChange={handleMoneyChange(setCustomFgtsBalance)}
+                  onPaste={handleMoneyPaste(setCustomFgtsBalance)}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0,00"
                   className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
                 />
               ) : (
@@ -696,24 +769,52 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   </span>
                 </div>
               )}
+
+              {/* Checkbox Multa FGTS */}
+              <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer pt-0.5">
+                <input
+                  type="checkbox"
+                  checked={includeFgtsFine}
+                  onChange={(e) => setIncludeFgtsFine(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Calcular Multa do FGTS (40%)</span>
+              </label>
             </div>
           </div>
 
           {/* Seção 4: Deduções e Ajustes Financeiros */}
-          <div>
-            <span className="block text-xs font-black text-slate-800 dark:text-stone-200 mb-2">
-              Ajuste de Deduções Rescisórias
-            </span>
+          <div className="p-3 bg-slate-50 dark:bg-stone-800/40 rounded-xl border border-slate-200/80 dark:border-stone-800 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="block text-xs font-black text-slate-800 dark:text-stone-200">
+                Ajuste de Deduções Rescisórias
+              </span>
+
+              {/* Checkbox Desconto de INSS */}
+              <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer bg-white dark:bg-stone-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-stone-700 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={includeInssDiscount}
+                  onChange={(e) => setIncludeInssDiscount(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Calcular Desconto de INSS</span>
+              </label>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
                   Vales / Adiantamentos em Aberto (R$)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="numeric"
                   value={customAdvancesDiscount}
-                  onChange={(e) => setCustomAdvancesDiscount(e.target.value)}
+                  onChange={handleMoneyChange(setCustomAdvancesDiscount)}
+                  onPaste={handleMoneyPaste(setCustomAdvancesDiscount)}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0,00"
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
                 />
               </div>
@@ -723,23 +824,29 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   Faltas e Atrasos Injustificados (R$)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="numeric"
                   value={customAbsencesDiscount}
-                  onChange={(e) => setCustomAbsencesDiscount(e.target.value)}
+                  onChange={handleMoneyChange(setCustomAbsencesDiscount)}
+                  onPaste={handleMoneyPaste(setCustomAbsencesDiscount)}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0,00"
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
-                  Outras Deduções / Convenios (R$)
+                  Outras Deduções / Convênios (R$)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="numeric"
                   value={otherDeductionsInput}
-                  onChange={(e) => setOtherDeductionsInput(e.target.value)}
+                  onChange={handleMoneyChange(setOtherDeductionsInput)}
+                  onPaste={handleMoneyPaste(setOtherDeductionsInput)}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0,00"
                   className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
                 />
               </div>
@@ -800,7 +907,18 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               {calculation.fgtsFineAmount > 0 && (
                 <div className="flex items-center justify-between text-slate-300 pt-1 border-t border-slate-700/50">
                   <span>Multa FGTS ({calculation.fgtsFineRate}%):</span>
-                  <span className="font-bold text-amber-300">{formatMoneyBRL(calculation.fgtsFineAmount)}</span>
+                  <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                    {formatMoneyBRL(calculation.fgtsFineAmount)}
+                    {includeFgtsFine ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                        Inclusa
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 font-normal">
+                        Não inclusa
+                      </span>
+                    )}
+                  </span>
                 </div>
               )}
             </div>
@@ -819,8 +937,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     terminationDate,
                     reason,
                     noticeType,
-                    baseSalary: parseMoneyToFloat(baseSalaryInput),
+                    baseSalary,
                     calculation,
+                    includeFgtsFine,
+                    includeInssDiscount,
                     status: 'rascunho',
                     createdAt: new Date().toISOString(),
                   });
@@ -875,15 +995,31 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationOneThirdBonus)}</span>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-stone-800 space-y-1 text-rose-600 dark:text-rose-400">
-                <div className="flex justify-between">
-                  <span>INSS Saldo de Salário:</span>
-                  <span className="font-bold">- {formatMoneyBRL(calculation.inssSalaryBalance)}</span>
+              {includeFgtsFine && calculation.fgtsFineAmount > 0 && (
+                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
+                  <span>Multa Rescisória FGTS ({calculation.fgtsFineRate}%):</span>
+                  <span>{formatMoneyBRL(calculation.fgtsFineAmount)}</span>
                 </div>
-                {calculation.inssThirteenth > 0 && (
-                  <div className="flex justify-between">
-                    <span>INSS 13º Salário:</span>
-                    <span className="font-bold">- {formatMoneyBRL(calculation.inssThirteenth)}</span>
+              )}
+
+              <div className="pt-2 border-t border-slate-100 dark:border-stone-800 space-y-1 text-rose-600 dark:text-rose-400">
+                {includeInssDiscount ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span>INSS Saldo de Salário:</span>
+                      <span className="font-bold">- {formatMoneyBRL(calculation.inssSalaryBalance)}</span>
+                    </div>
+                    {calculation.inssThirteenth > 0 && (
+                      <div className="flex justify-between">
+                        <span>INSS 13º Salário:</span>
+                        <span className="font-bold">- {formatMoneyBRL(calculation.inssThirteenth)}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex justify-between text-slate-400 dark:text-stone-500 italic text-[11px]">
+                    <span>Desconto de INSS:</span>
+                    <span>Não aplicado (Isento)</span>
                   </div>
                 )}
                 {calculation.advancesDiscount > 0 && (
@@ -902,6 +1038,12 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   <div className="flex justify-between">
                     <span>Aviso Prévio Não Cumprido:</span>
                     <span className="font-bold">- {formatMoneyBRL(calculation.noticeDeduction)}</span>
+                  </div>
+                )}
+                {calculation.otherDeductions > 0 && (
+                  <div className="flex justify-between">
+                    <span>Outras Deduções:</span>
+                    <span className="font-bold">- {formatMoneyBRL(calculation.otherDeductions)}</span>
                   </div>
                 )}
               </div>
@@ -1175,6 +1317,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                       <td className="py-1 px-2 text-center">Art. 7º CF</td>
                       <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.vacationOneThirdBonus)}</td>
                     </tr>
+                    {viewingTRCT.calculation.includeFgtsFine && viewingTRCT.calculation.fgtsFineAmount > 0 && (
+                      <tr>
+                        <td className="py-1 px-2 font-mono">07</td>
+                        <td className="py-1 px-2">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%)</td>
+                        <td className="py-1 px-2 text-center">Art. 18 Lei 8.036</td>
+                        <td className="py-1 px-2 text-right font-bold">{formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}</td>
+                      </tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 font-black border-t border-black">
@@ -1199,16 +1349,26 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    <tr>
-                      <td className="py-1 px-2 font-mono">101</td>
-                      <td className="py-1 px-2">Previdência Social (INSS Saldo de Salário)</td>
-                      <td className="py-1 px-2 text-right font-bold text-rose-700">{formatMoneyBRL(viewingTRCT.calculation.inssSalaryBalance)}</td>
-                    </tr>
-                    {viewingTRCT.calculation.inssThirteenth > 0 && (
+                    {viewingTRCT.calculation.includeInssDiscount !== false ? (
+                      <>
+                        <tr>
+                          <td className="py-1 px-2 font-mono">101</td>
+                          <td className="py-1 px-2">Previdência Social (INSS Saldo de Salário)</td>
+                          <td className="py-1 px-2 text-right font-bold text-rose-700">{formatMoneyBRL(viewingTRCT.calculation.inssSalaryBalance)}</td>
+                        </tr>
+                        {viewingTRCT.calculation.inssThirteenth > 0 && (
+                          <tr>
+                            <td className="py-1 px-2 font-mono">102</td>
+                            <td className="py-1 px-2">Previdência Social (INSS sobre 13º Salário)</td>
+                            <td className="py-1 px-2 text-right font-bold text-rose-700">{formatMoneyBRL(viewingTRCT.calculation.inssThirteenth)}</td>
+                          </tr>
+                        )}
+                      </>
+                    ) : (
                       <tr>
-                        <td className="py-1 px-2 font-mono">102</td>
-                        <td className="py-1 px-2">Previdência Social (INSS sobre 13º Salário)</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700">{formatMoneyBRL(viewingTRCT.calculation.inssThirteenth)}</td>
+                        <td className="py-1 px-2 font-mono">101</td>
+                        <td className="py-1 px-2 text-slate-500 italic">Previdência Social (INSS) - Desconto Desativado / Isento</td>
+                        <td className="py-1 px-2 text-right font-bold text-slate-500">R$ 0,00</td>
                       </tr>
                     )}
                     {viewingTRCT.calculation.advancesDiscount > 0 && (
