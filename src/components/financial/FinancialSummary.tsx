@@ -512,13 +512,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   return (
     <div id="financial-module" className="w-full max-w-none space-y-4 sm:space-y-5">
       
-      {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      {/* 1. Header Padronizado (Clean / Light) */}
+      <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-stone-200/80 dark:border-stone-800 pb-2 sm:pb-2.5">
         <div>
-          <h1 className="text-xl font-black text-[#070707] tracking-tight font-['Outfit']">
+          <h1 className="text-xl sm:text-2xl font-black text-[#000000] dark:text-white tracking-tight">
             Financeiro
           </h1>
-          <p className="text-xs text-[#000000] font-medium">
+          <p className="text-xs text-[#000000] dark:text-stone-300 font-medium">
             Contas a pagar, a receber e fluxo de caixa
           </p>
         </div>

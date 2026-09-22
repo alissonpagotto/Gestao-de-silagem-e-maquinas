@@ -156,22 +156,17 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   return (
     <div 
       id="venda-module-root"
-      className="w-full max-w-none min-h-screen bg-zinc-100 dark:bg-stone-950 text-zinc-900 dark:text-zinc-100 antialiased p-3 sm:p-4 lg:p-5 space-y-3.5 rounded-2xl"
+      className="w-full max-w-none space-y-3.5 antialiased"
     >
-      {/* 1. CABEÇALHO (Card Superior Charcoal) */}
-      <header className="bg-zinc-800 dark:bg-stone-900 border border-zinc-700 dark:border-stone-800 rounded-xl p-4 sm:p-5 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-zinc-700/90 dark:bg-stone-800 rounded-lg text-white border border-zinc-600/70">
-            <ShoppingCart className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
-              Venda
-            </h1>
-            <p className="text-xs text-zinc-300 font-medium">
-              Gestão e controle de vendas agrícolas, fornecimento de silagem e contratos.
-            </p>
-          </div>
+      {/* 1. CABEÇALHO PADRONIZADO (Clean / Light) */}
+      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-stone-200/80 dark:border-stone-800 pb-2 sm:pb-2.5">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-[#000000] dark:text-white tracking-tight">
+            Venda
+          </h1>
+          <p className="text-xs text-[#000000] dark:text-stone-300 font-medium">
+            Gestão e controle de vendas agrícolas, fornecimento de silagem e contratos
+          </p>
         </div>
 
         {/* Botão Nova Venda */}
@@ -180,13 +175,13 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
             id="btn-nova-venda"
             type="button"
             onClick={handleOpenNew}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-900 active:bg-zinc-950 text-white text-xs font-bold rounded-lg shadow-sm border border-zinc-900 transition-colors duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:ring-offset-2"
+            className="inline-flex items-center space-x-2 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Plus className="w-4 h-4" />
             <span>+ Nova Venda</span>
           </button>
         </div>
-      </header>
+      </div>
 
       {/* 2. CARDS DE INDICADORES (KPIS) */}
       <section aria-label="Indicadores de Vendas" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

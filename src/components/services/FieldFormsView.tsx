@@ -640,15 +640,15 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
         </div>
       ) : (
         /* Modo Administrativo Interno da Empresa (quando acessado pelo menu normal) */
-        <div className="no-print bg-[#204e87] dark:bg-stone-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm border border-blue-400/30">
+        <div className="no-print bg-white dark:bg-stone-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-xs border border-stone-200 dark:border-stone-800">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveFormTab('corte')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 activeFormTab === 'corte'
-                  ? 'bg-[#188038] text-white shadow-xs'
-                  : 'bg-white/10 text-white hover:bg-white/20'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
               <Scissors className="w-3.5 h-3.5" />
@@ -660,8 +660,8 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               onClick={() => setActiveFormTab('compactacao')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 activeFormTab === 'compactacao'
-                  ? 'bg-[#188038] text-white shadow-xs'
-                  : 'bg-white/10 text-white hover:bg-white/20'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
               <Tractor className="w-3.5 h-3.5" />
@@ -673,8 +673,8 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
               onClick={() => setActiveFormTab('cargas')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 activeFormTab === 'cargas'
-                  ? 'bg-[#188038] text-white shadow-xs'
-                  : 'bg-white/10 text-white hover:bg-white/20'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
               <Truck className="w-3.5 h-3.5" />
@@ -686,10 +686,10 @@ ${f3Data.abastObs ? `📝 *Observações:* ${f3Data.abastObs}\n` : ''}
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3 py-1.5 bg-white text-stone-900 hover:bg-stone-100 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
               title="Imprimir Formulário / Salvar PDF"
             >
-              <Printer className="w-3.5 h-3.5 text-stone-700" />
+              <Printer className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300" />
               <span>Imprimir Bloco</span>
             </button>
           </div>

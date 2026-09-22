@@ -1058,6 +1058,64 @@ export interface AbsenceRecord {
   createdAt: string;
 }
 
+// RH: Rescisão Contratual e Termo de Rescisão (TRCT)
+export type TerminationReason = 
+  | 'sem_justa_causa' // Demissão sem Justa Causa
+  | 'com_justa_causa' // Demissão com Justa Causa
+  | 'pedido_demissao' // Pedido de Demissão
+  | 'acordo_mutuo'    // Acordo entre as partes (Art. 484-A CLT)
+  | 'termino_contrato'; // Término de Contrato de Experiência / Prazo Determinado
+
+export type NoticeType = 'trabalhado' | 'indenizado' | 'dispensado';
+
+export interface TerminationCalculation {
+  workedDaysCurrentMonth: number;
+  salaryBalance: number; // Saldo de Salário
+  thirteenthProportionalMonths: number;
+  thirteenthProportionalAmount: number; // 13º Salário Proporcional
+  vacationExpiredCount: number; // Quantidade de períodos de férias vencidas
+  vacationExpiredAmount: number; // Férias Vencidas (R$)
+  vacationProportionalMonths: number;
+  vacationProportionalAmount: number; // Férias Proporcionais (R$)
+  vacationOneThirdBonus: number; // 1/3 Constitucional sobre Férias Vencidas e Proporcionais
+  noticeDays: number; // Dias de aviso prévio
+  noticeAmount: number; // Aviso Prévio Indenizado (se aplicável)
+  fgtsEstimatedBalance: number; // Saldo base para cálculo da multa rescisória
+  fgtsFineRate: number; // 40%, 20% ou 0%
+  fgtsFineAmount: number; // Multa rescisória do FGTS (R$)
+  grossTotal: number; // Total Bruto dos Proventos
+  
+  // Deduções / Descontos
+  inssSalaryBalance: number; // INSS sobre saldo de salário
+  inssThirteenth: number; // INSS sobre 13º rescisório
+  irrfDiscount: number; // IRRF
+  absenceDiscount: number; // Desconto de faltas / atrasos
+  advancesDiscount: number; // Vales e adiantamentos em aberto
+  noticeDeduction: number; // Desconto de Aviso Prévio não cumprido
+  otherDeductions: number; // Outros descontos / deduções
+  totalDeductions: number; // Total Geral dos Descontos
+  
+  netTotal: number; // Total Líquido da Rescisão
+}
+
+export interface TerminationRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeRole: string;
+  employeeCpf?: string;
+  admissionDate: string;
+  terminationDate: string;
+  reason: TerminationReason;
+  noticeType: NoticeType;
+  baseSalary: number;
+  calculation: TerminationCalculation;
+  notes?: string;
+  status: 'rascunho' | 'homologado' | 'pago' | 'cancelado';
+  markEmployeeInactive?: boolean;
+  createdAt: string;
+}
+
 // ==========================================
 // MÓDULO DE PNEUS E RODÍZIO DA FROTA
 // ==========================================

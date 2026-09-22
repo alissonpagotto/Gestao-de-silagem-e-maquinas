@@ -11,6 +11,7 @@ import {
   UserPlus,
   FileHeart,
   CalendarX2,
+  UserX,
   Printer,
   Plus
 } from 'lucide-react';
@@ -38,6 +39,7 @@ import { LeavesTab } from './LeavesTab';
 import { AdvancesTab } from './AdvancesTab';
 import { AtestadosTab } from './AtestadosTab';
 import { FaltasTab } from './FaltasTab';
+import { RescisaoTab } from './RescisaoTab';
 import { PayslipModal } from './PayslipModal';
 import { EmployeesModule } from '../employees/EmployeesModule';
 
@@ -70,7 +72,8 @@ export type RHTabType =
   | 'afastamentos' 
   | 'adiantamentos' 
   | 'atestados' 
-  | 'faltas';
+  | 'faltas'
+  | 'rescisao';
 
 export const RHModule: React.FC<RHModuleProps> = ({
   employees,
@@ -343,6 +346,20 @@ export const RHModule: React.FC<RHModuleProps> = ({
           <span>Faltas</span>
         </button>
 
+        {/* Aba 9: Rescisão (Nova Aba RH) */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('rescisao')}
+          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            activeTab === 'rescisao'
+              ? 'bg-sky-600 text-white shadow-xs'
+              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+          }`}
+        >
+          <UserX className="w-3.5 h-3.5" />
+          <span>Rescisão</span>
+        </button>
+
       </div>
 
       {/* Renderização do Conteúdo de Cada Aba */}
@@ -429,6 +446,16 @@ export const RHModule: React.FC<RHModuleProps> = ({
           currentMonthRef={currentMonthRef}
           onSaveAbsences={handleSaveAbsences}
           onApplyDiscountToPayroll={handleApplyDiscountToPayroll}
+        />
+      )}
+
+      {activeTab === 'rescisao' && (
+        <RescisaoTab
+          employees={sortedEmployees}
+          companyProfile={companyProfile}
+          advances={advances}
+          absences={absences}
+          onSaveEmployees={onSaveEmployees}
         />
       )}
 

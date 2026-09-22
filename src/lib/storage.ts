@@ -24,6 +24,7 @@ import {
   SalaryAdvance,
   MedicalCertificateRecord,
   AbsenceRecord,
+  TerminationRecord,
   VehicleTypeDefinition,
   TireRotationLog,
   TireItem,
@@ -94,6 +95,7 @@ const STORAGE_KEYS = {
   SALARY_ADVANCES: 'silagem_facil_clean_v1_salary_advances',
   MEDICAL_CERTIFICATES: 'silagem_facil_clean_v1_medical_certificates',
   ABSENCES: 'silagem_facil_clean_v1_absences',
+  TERMINATIONS: 'silagem_facil_clean_v1_terminations',
   VEHICLE_TYPES: 'silagem_facil_clean_v1_vehicle_types',
   TIRE_ROTATION_LOGS: 'silagem_facil_clean_v1_tire_rotation_logs',
   TIRE_INVENTORY: 'silagem_facil_clean_v1_tire_inventory',
@@ -1045,6 +1047,29 @@ export function saveStoredAbsences(absences: AbsenceRecord[]): void {
     localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(absences));
   } catch (e) {
     console.error('Failed to save absences', e);
+  }
+}
+
+// RH: Terminations (Rescisões)
+export function getStoredTerminations(): TerminationRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.TERMINATIONS);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveStoredTerminations(terminations: TerminationRecord[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.TERMINATIONS, JSON.stringify(terminations));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: terminations }));
+      window.dispatchEvent(new Event('storage'));
+    }
+  } catch (e) {
+    console.error('Failed to save terminations', e);
   }
 }
 
