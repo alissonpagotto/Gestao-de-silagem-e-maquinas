@@ -574,8 +574,9 @@ export function getDbAuthCompanyId(): string | null {
 }
 
 /**
- * Limpa completamente o cache de autenticação, impersonação e company_id antigo.
- * Deve ser chamada no Logout e antes de qualquer novo Login para evitar contaminação cruzada.
+ * Limpa o cache estrito de autenticação e impersonação de sessão.
+ * NUNCA apaga dados de negócios (clientes, ordens, máquinas, despesas, estoque, serviços).
+ * Os dados operacionais pertencem ao assinante e permanecem preservados em disco/localStorage e na nuvem.
  */
 export function clearAllAuthSessionCache(): void {
   setDbAuthCompanyId(null);
@@ -594,13 +595,6 @@ export function clearAllAuthSessionCache(): void {
     localStorage.removeItem('silagem_client_session');
     localStorage.removeItem('current_company_id');
     localStorage.removeItem('user_role');
-    localStorage.removeItem(STORAGE_KEYS.SERVICES);
-    localStorage.removeItem(STORAGE_KEYS.APPOINTMENTS);
-    localStorage.removeItem(STORAGE_KEYS.ORDERS);
-    localStorage.removeItem(STORAGE_KEYS.CLIENTS);
-    localStorage.removeItem(STORAGE_KEYS.MACHINERIES);
-    localStorage.removeItem(STORAGE_KEYS.EXPENSES);
-    localStorage.removeItem(STORAGE_KEYS.INVENTORY);
   }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('auth_session_cleared'));

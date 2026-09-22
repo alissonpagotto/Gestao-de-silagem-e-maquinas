@@ -299,22 +299,22 @@ export default function App() {
         // 1. Carrega dados relacionais com isolamento estrito por company_id
         const cloudData = await fetchAllDataFromSupabase(activeTenantId);
         if (cloudData && isMounted) {
-          if (cloudData.clientes) {
+          if (cloudData.clientes && cloudData.clientes.length > 0) {
             setClients(cloudData.clientes);
           }
-          if (cloudData.fornecedores) {
+          if (cloudData.fornecedores && cloudData.fornecedores.length > 0) {
             setSuppliers(cloudData.fornecedores);
           }
-          if (cloudData.estoque) {
+          if (cloudData.estoque && cloudData.estoque.length > 0) {
             setInventory(cloudData.estoque);
           }
-          if (cloudData.rh_funcionarios) {
+          if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
             setEmployees(cloudData.rh_funcionarios);
           }
-          if (cloudData.gestao_frotas) {
+          if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
             setMachineries(cloudData.gestao_frotas);
           }
-          if (cloudData.contas_a_pagar) {
+          if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
             setExpenses(cloudData.contas_a_pagar.map((d: any) => ({
               id: d.id,
               title: d.centro_custo || 'Parcela Fornecedor',
@@ -339,25 +339,25 @@ export default function App() {
           if (cloudModules.companyProfile) {
             setCompanyProfile(cloudModules.companyProfile);
           }
-          if (cloudModules.services !== null && cloudModules.services !== undefined) {
+          if (Array.isArray(cloudModules.services) && cloudModules.services.length > 0) {
             setServices(cloudModules.services);
           }
-          if (cloudModules.orders !== null && cloudModules.orders !== undefined) {
+          if (Array.isArray(cloudModules.orders) && cloudModules.orders.length > 0) {
             setOrders(cloudModules.orders);
           }
-          if (cloudModules.inventory !== null && cloudModules.inventory !== undefined) {
+          if (Array.isArray(cloudModules.inventory) && cloudModules.inventory.length > 0) {
             setInventory(cloudModules.inventory);
           }
-          if (cloudModules.clients !== null && cloudModules.clients !== undefined) {
+          if (Array.isArray(cloudModules.clients) && cloudModules.clients.length > 0) {
             setClients(cloudModules.clients);
           }
-          if (cloudModules.machineries !== null && cloudModules.machineries !== undefined) {
+          if (Array.isArray(cloudModules.machineries) && cloudModules.machineries.length > 0) {
             setMachineries(cloudModules.machineries);
           }
-          if (cloudModules.expenses !== null && cloudModules.expenses !== undefined) {
+          if (Array.isArray(cloudModules.expenses) && cloudModules.expenses.length > 0) {
             setExpenses(cloudModules.expenses);
           }
-          if (cloudModules.terminations !== null && cloudModules.terminations !== undefined) {
+          if (Array.isArray(cloudModules.terminations) && cloudModules.terminations.length > 0) {
             saveStoredTerminations(cloudModules.terminations);
           }
         }
