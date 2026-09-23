@@ -13,30 +13,44 @@ const metaEnv = ((import.meta as any)?.env || {}) as Record<string, string | und
 const FALLBACK_SUPABASE_URL = 'https://dyemddjnqoxqyabbhixu.supabase.co';
 const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_SPzmag-Va8d6RH8lVY9Zow_th9ReW1c';
 
+function isValidKey(key: unknown): boolean {
+  if (typeof key !== 'string') return false;
+  const trimmed = key.trim();
+  if (trimmed.length < 30) return false;
+  if (trimmed.includes('@')) return false; // Evita que emails digitados por engano sejam usados como chave
+  if (trimmed.includes(' ') || trimmed.startsWith('http')) return false;
+  if (/^(undefined|null|your-.*|dummy|placeholder)$/i.test(trimmed)) return false;
+  return trimmed.startsWith('sb_') || trimmed.startsWith('eyJ');
+}
+
+function isValidUrl(url: unknown): boolean {
+  if (typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
+  if (!trimmed.includes('.supabase.co')) return false;
+  if (trimmed.includes('supabase.https:')) return false;
+  return true;
+}
+
 let rawUrlCandidate = String(
   metaEnv.VITE_SUPABASE_URL ||
   metaEnv.SUPABASE_URL ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
-  FALLBACK_SUPABASE_URL
+  ''
 ).trim();
 
-// Se for URL genérica sem o subdomínio do projeto ou malformada, utiliza o endpoint real da aplicação
-if (
-  !rawUrlCandidate ||
-  rawUrlCandidate === 'https://supabase.co' ||
-  rawUrlCandidate === 'http://supabase.co' ||
-  rawUrlCandidate.includes('supabase.https:') ||
-  !rawUrlCandidate.includes('.supabase.co')
-) {
+if (!isValidUrl(rawUrlCandidate)) {
   rawUrlCandidate = FALLBACK_SUPABASE_URL;
 }
 
-const rawKey = (
+const keyCandidate = (
   metaEnv.VITE_SUPABASE_ANON_KEY ||
   metaEnv.SUPABASE_ANON_KEY ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
-  FALLBACK_SUPABASE_ANON_KEY
+  ''
 );
+
+const rawKey = isValidKey(keyCandidate) ? String(keyCandidate).trim() : FALLBACK_SUPABASE_ANON_KEY;
 
 // Sanitização obrigatória para garantir que o cliente Supabase receba a URL base do projeto (sem /rest/v1 duplicado)
 export const SUPABASE_URL = rawUrlCandidate.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
@@ -49,9 +63,9 @@ export const isSupabaseConfigured = Boolean(
 );
 
 if (isSupabaseConfigured) {
-  console.log('✅ Supabase conectado diretamente via variáveis de ambiente da nuvem:', SUPABASE_URL);
+  console.log('✅ Supabase conectado diretamente via credenciais validadas:', SUPABASE_URL);
 } else {
-  console.warn('⚠️ Credenciais do Supabase não encontradas no ambiente.');
+  console.warn('⚠️ Credenciais do Supabase não encontradas ou inválidas.');
 }
 
 // Inicialização direta do cliente oficial com as credenciais reais de produção e schema público estático

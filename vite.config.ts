@@ -4,9 +4,24 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
-  const rawUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const supabaseUrl = rawUrl.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
-  const supabaseKey = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+  const FALLBACK_SUPABASE_URL = 'https://dyemddjnqoxqyabbhixu.supabase.co';
+  const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_SPzmag-Va8d6RH8lVY9Zow_th9ReW1c';
+
+  const rawUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+  const cleanedUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+  const supabaseUrl = (cleanedUrl && cleanedUrl.includes('.supabase.co') && !cleanedUrl.includes('supabase.https:'))
+    ? cleanedUrl
+    : FALLBACK_SUPABASE_URL;
+
+  const rawKey = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+  const isValidKey = (
+    rawKey.length >= 30 &&
+    !rawKey.includes('@') &&
+    !rawKey.includes(' ') &&
+    !rawKey.startsWith('http') &&
+    (rawKey.startsWith('sb_') || rawKey.startsWith('eyJ'))
+  );
+  const supabaseKey = isValidKey ? rawKey : FALLBACK_SUPABASE_ANON_KEY;
 
   return {
     plugins: [react(), tailwindcss()],
