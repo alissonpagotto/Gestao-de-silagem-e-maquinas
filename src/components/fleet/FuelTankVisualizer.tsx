@@ -250,6 +250,27 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
 
         {tankCapacity > 0 ? (
           <div className="flex items-center space-x-1">
+            {/* Badges de Média se disponíveis */}
+            {liveKmPerLiter ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                {liveKmPerLiter.toFixed(2).replace('.', ',')} km/L
+              </span>
+            ) : historicalAvgKmPerLiter ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50 shadow-2xs">
+                {historicalAvgKmPerLiter.toFixed(2).replace('.', ',')} km/L
+              </span>
+            ) : null}
+
+            {liveLitersPerHour ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs">
+                {liveLitersPerHour.toFixed(2).replace('.', ',')} L/h
+              </span>
+            ) : historicalAvgLitersPerHour ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50 shadow-2xs">
+                {historicalAvgLitersPerHour.toFixed(2).replace('.', ',')} L/h
+              </span>
+            ) : null}
+
             <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white/80 dark:bg-stone-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-stone-700 shadow-2xs">
               <span>Tanque:</span>
               <strong className="text-amber-600 dark:text-amber-400 font-mono">{tankCapacity} L</strong>

@@ -12,7 +12,13 @@ import {
 } from 'lucide-react';
 import { FuelLog, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatFuelLogEfficiency, findVehicleForLog, isVehicleHoursControlled } from '../../lib/fuelCalculation';
+import { 
+  formatFuelLogEfficiency, 
+  formatDualFuelLogEfficiency, 
+  getFuelLogReadings, 
+  findVehicleForLog, 
+  isVehicleHoursControlled 
+} from '../../lib/fuelCalculation';
 import { useAbastecimentosRealtime } from '../../hooks/useAbastecimentosRealtime';
 
 interface ReportsConsumoTabProps {
@@ -128,14 +134,28 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
     const headers = 'Data,Maquina_Veiculo,Tipo_Controle,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Leitura_Atual,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
     const rows = filteredLogs.map(l => {
       const vehicle = findVehicleForLog(l, machineries);
-      const isHours = vehicle?.controla_por
-        ? (vehicle.controla_por.toLowerCase() === 'horas')
-        : isVehicleHoursControlled(vehicle, l);
-      const eff = formatFuelLogEfficiency(l, vehicle);
-      const unit = isHours ? 'h' : 'km';
-      const reading = l.currentHourMeterOrKm ? `${l.currentHourMeterOrKm} ${unit}` : '';
-      const media = eff?.formatted || '';
-      const tipoControle = isHours ? 'Horas (L/h)' : 'KM (km/L)';
+      const readings = getFuelLogReadings(l, vehicle);
+      const dualEff = formatDualFuelLogEfficiency(l, vehicle);
+
+      let reading = '';
+      if (readings.hasBoth) {
+        reading = `${readings.kmFormatted} / ${readings.hoursFormatted}`;
+      } else if (readings.kmFormatted) {
+        reading = readings.kmFormatted;
+      } else if (readings.hoursFormatted) {
+        reading = readings.hoursFormatted;
+      }
+
+      let media = '';
+      if (dualEff.hasBoth) {
+        media = `${dualEff.kmPerLiter?.formatted} / ${dualEff.litersPerHour?.formatted}`;
+      } else if (dualEff.kmPerLiter) {
+        media = dualEff.kmPerLiter.formatted;
+      } else if (dualEff.litersPerHour) {
+        media = dualEff.litersPerHour.formatted;
+      }
+
+      const tipoControle = readings.hasBoth ? 'Misto (KM + Horas)' : (readings.hoursFormatted ? 'Horas (L/h)' : 'KM (km/L)');
       return `"${l.date}","${l.machineryPlateOrName}","${tipoControle}","${l.fuelType}","${l.liters}","${l.pricePerLiter}","${l.totalAmount}","${reading}","${media}","${l.driverOrOperator || ''}","${l.supplierStation || ''}"`;
     }).join('\n');
 
@@ -315,10 +335,8 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
               {filteredLogs.length > 0 ? (
                 filteredLogs.map((item) => {
                   const vehicle = findVehicleForLog(item, machineries);
-                  const isHours = vehicle?.controla_por
-                    ? (vehicle.controla_por.toLowerCase() === 'horas')
-                    : isVehicleHoursControlled(vehicle, item);
-                  const eff = formatFuelLogEfficiency(item, vehicle);
+                  const readings = getFuelLogReadings(item, vehicle);
+                  const dualEff = formatDualFuelLogEfficiency(item, vehicle);
 
                   return (
                     <tr key={item.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
@@ -341,18 +359,36 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                         {formatCurrencyBRL(item.totalAmount)}
                       </td>
                       <td className="py-2.5 px-3.5 text-right font-mono text-stone-700 dark:text-stone-300 whitespace-nowrap">
-                        {item.currentHourMeterOrKm 
-                          ? `${item.currentHourMeterOrKm.toLocaleString('pt-BR')} ${isHours ? 'h' : 'km'}` 
-                          : '-'}
+                        {readings.hasBoth ? (
+                          <div className="flex flex-col items-end space-y-0.5">
+                            <span className="font-semibold text-stone-900 dark:text-stone-100">{readings.kmFormatted}</span>
+                            <span className="text-xs text-stone-500 dark:text-stone-400">{readings.hoursFormatted}</span>
+                          </div>
+                        ) : readings.kmFormatted ? (
+                          <span className="font-medium">{readings.kmFormatted}</span>
+                        ) : readings.hoursFormatted ? (
+                          <span className="font-medium">{readings.hoursFormatted}</span>
+                        ) : (
+                          <span className="text-stone-400 dark:text-stone-600">-</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3.5 text-right font-mono whitespace-nowrap">
-                        {eff ? (
-                          <span className={`text-xs font-bold ${
-                            eff.unit === 'L/h'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-emerald-600 dark:text-emerald-400'
-                          }`}>
-                            {eff.formatted}
+                        {dualEff.hasBoth ? (
+                          <div className="flex flex-col items-end space-y-1">
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 inline-block">
+                              {dualEff.kmPerLiter?.formatted}
+                            </span>
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 inline-block">
+                              {dualEff.litersPerHour?.formatted}
+                            </span>
+                          </div>
+                        ) : dualEff.kmPerLiter ? (
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            {dualEff.kmPerLiter.formatted}
+                          </span>
+                        ) : dualEff.litersPerHour ? (
+                          <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                            {dualEff.litersPerHour.formatted}
                           </span>
                         ) : (
                           <span className="text-stone-400 dark:text-stone-600 text-xs font-normal">-</span>

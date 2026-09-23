@@ -433,10 +433,183 @@ export function isVehicleHoursControlled(
 // Alias para compatibilidade
 export const isMachineOrTractor = isVehicleHoursControlled;
 
-export interface FuelEfficiencyDisplay {
-  value: number;
-  formatted: string;
-  unit: 'km/L' | 'L/h';
+export interface DualFuelEfficiencyDisplay {
+  kmPerLiter: FuelEfficiencyDisplay | null;
+  litersPerHour: FuelEfficiencyDisplay | null;
+  hasBoth: boolean;
+}
+
+export interface DualFuelReadingDisplay {
+  km: number | null;
+  kmFormatted: string | null;
+  hours: number | null;
+  hoursFormatted: string | null;
+  hasBoth: boolean;
+}
+
+/**
+ * Retorna as leituras mecânicas formatadas de um registro de abastecimento,
+ * suportando KM, Horas ou AMBOS simultaneamente (controle misto, ex: FORD CARGO 2628).
+ */
+export function getFuelLogReadings(
+  log: any,
+  vehicle?: any | null
+): DualFuelReadingDisplay {
+  if (!log) {
+    return { km: null, kmFormatted: null, hours: null, hoursFormatted: null, hasBoth: false };
+  }
+
+  // 1. Extração de KM Atual
+  let kmVal: number | null = null;
+  const rawKm = log.currentKm ?? (log as any).km_atual ?? (log as any).kmAtual;
+  if (rawKm !== undefined && rawKm !== null && rawKm !== '') {
+    const parsed = Number(rawKm);
+    if (!isNaN(parsed) && parsed > 0) kmVal = parsed;
+  }
+
+  // 2. Extração de Horas Atual
+  let hoursVal: number | null = null;
+  const rawHours = log.currentHourMeter ?? (log as any).horas_atual ?? (log as any).horasAtual ?? (log as any).horimetro_atual;
+  if (rawHours !== undefined && rawHours !== null && rawHours !== '') {
+    const parsed = Number(rawHours);
+    if (!isNaN(parsed) && parsed > 0) hoursVal = parsed;
+  }
+
+  // 3. Fallback inteligente para currentHourMeterOrKm se os campos específicos não foram preenchidos
+  const fallbackVal = Number(log.currentHourMeterOrKm);
+  if (!isNaN(fallbackVal) && fallbackVal > 0) {
+    if (kmVal === null && hoursVal === null) {
+      const isHours = vehicle?.controla_por
+        ? (vehicle.controla_por.toLowerCase() === 'horas')
+        : isVehicleHoursControlled(vehicle, log);
+      if (isHours) {
+        hoursVal = fallbackVal;
+      } else {
+        kmVal = fallbackVal;
+      }
+    }
+  }
+
+  return {
+    km: kmVal,
+    kmFormatted: kmVal !== null ? `${kmVal.toLocaleString('pt-BR')} km` : null,
+    hours: hoursVal,
+    hoursFormatted: hoursVal !== null ? `${hoursVal.toLocaleString('pt-BR')} h` : null,
+    hasBoth: kmVal !== null && hoursVal !== null,
+  };
+}
+
+/**
+ * Calcula e formata individualmente as médias de consumo do abastecimento:
+ * - KM: km/L (se houver KM e litros)
+ * - Horas: L/h (se houver horas e litros)
+ * Permite renderização empilhada simultânea quando o veículo opera em controle misto.
+ */
+export function formatDualFuelLogEfficiency(
+  log: any,
+  vehicle?: any | null
+): DualFuelEfficiencyDisplay {
+  if (!log) {
+    return { kmPerLiter: null, litersPerHour: null, hasBoth: false };
+  }
+
+  const liters = Number(log.liters) || 0;
+
+  // --- CÁLCULO KM/L ---
+  let kmEff: FuelEfficiencyDisplay | null = null;
+  const directKml = Number(log.media_kml ?? log.media_km_l ?? log.averageKmPerLiter);
+  if (!isNaN(directKml) && directKml > 0) {
+    const fixed = parseFloat(directKml.toFixed(2));
+    kmEff = {
+      value: fixed,
+      formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+      unit: 'km/L',
+    };
+  } else {
+    const currK = Number(log.currentKm ?? (log as any).km_atual);
+    const prevK = Number(log.previousKm ?? (log as any).km_anterior);
+    if (!isNaN(currK) && !isNaN(prevK) && currK > prevK && liters > 0) {
+      const diffKm = currK - prevK;
+      const calcKml = diffKm / liters;
+      const fixed = parseFloat(calcKml.toFixed(2));
+      kmEff = {
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L',
+      };
+    } else {
+      // Fallback: se não for máquina pura e houver averageCalculated
+      const isPureHours = vehicle?.controla_por?.toLowerCase() === 'horas';
+      if (!isPureHours) {
+        const avgCalc = Number(log.averageCalculated);
+        if (!isNaN(avgCalc) && avgCalc > 0 && !log.currentHourMeter && !log.media_lh) {
+          const fixed = parseFloat(avgCalc.toFixed(2));
+          kmEff = {
+            value: fixed,
+            formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+            unit: 'km/L',
+          };
+        }
+      }
+    }
+  }
+
+  // --- CÁLCULO L/h ---
+  let lhEff: FuelEfficiencyDisplay | null = null;
+  const directLh = Number(log.media_lh ?? log.media_l_h ?? log.averageLitersPerHour);
+  if (!isNaN(directLh) && directLh > 0) {
+    const fixed = parseFloat(directLh.toFixed(2));
+    lhEff = {
+      value: fixed,
+      formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+      unit: 'L/h',
+    };
+  } else {
+    const currH = Number(log.currentHourMeter ?? (log as any).horas_atual);
+    const prevH = Number(log.previousHourMeter ?? (log as any).horas_anterior);
+    if (!isNaN(currH) && !isNaN(prevH) && currH > prevH && liters > 0) {
+      const diffHours = currH - prevH;
+      const calcLh = liters / diffHours;
+      const fixed = parseFloat(calcLh.toFixed(2));
+      lhEff = {
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h',
+      };
+    } else {
+      // Fallback: se veículo ou registro for máquina e houver averageCalculated
+      const isHoursControlled = isVehicleHoursControlled(vehicle, log);
+      if (isHoursControlled && !kmEff) {
+        const avgCalc = Number(log.averageCalculated);
+        if (!isNaN(avgCalc) && avgCalc > 0) {
+          const fixed = parseFloat(avgCalc.toFixed(2));
+          lhEff = {
+            value: fixed,
+            formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+            unit: 'L/h',
+          };
+        }
+      }
+    }
+  }
+
+  // Se nenhum dos dois específicos foi encontrado, tenta fallback padrão do formatFuelLogEfficiency
+  if (!kmEff && !lhEff) {
+    const standardEff = formatFuelLogEfficiency(log, vehicle);
+    if (standardEff) {
+      if (standardEff.unit === 'km/L') {
+        kmEff = standardEff;
+      } else {
+        lhEff = standardEff;
+      }
+    }
+  }
+
+  return {
+    kmPerLiter: kmEff,
+    litersPerHour: lhEff,
+    hasBoth: kmEff !== null && lhEff !== null,
+  };
 }
 
 /**

@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatFuelLogEfficiency, findVehicleForLog, isVehicleHoursControlled } from '../../lib/fuelCalculation';
+import { 
+  formatFuelLogEfficiency, 
+  formatDualFuelLogEfficiency, 
+  getFuelLogReadings, 
+  findVehicleForLog, 
+  isVehicleHoursControlled 
+} from '../../lib/fuelCalculation';
 import { useAbastecimentosRealtime } from '../../hooks/useAbastecimentosRealtime';
 
 interface FleetFuelViewProps {
@@ -231,26 +237,43 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
 
                     {(() => {
                       const vehicle = findVehicleForLog(log, machineries);
-                      const isHours = vehicle?.controla_por
-                        ? (vehicle.controla_por.toLowerCase() === 'horas')
-                        : isVehicleHoursControlled(vehicle, log);
-                      const eff = formatFuelLogEfficiency(log, vehicle);
-                      const unit = isHours ? 'h' : 'km';
+                      const readings = getFuelLogReadings(log, vehicle);
+                      const dualEff = formatDualFuelLogEfficiency(log, vehicle);
 
                       return (
                         <>
                           <td className="py-3.5 px-4 font-mono text-stone-700 dark:text-stone-300 whitespace-nowrap">
-                            {log.currentHourMeterOrKm ? `${log.currentHourMeterOrKm.toLocaleString('pt-BR')} ${unit}` : '--'}
+                            {readings.hasBoth ? (
+                              <div className="flex flex-col space-y-0.5">
+                                <span className="font-semibold text-stone-900 dark:text-stone-100">{readings.kmFormatted}</span>
+                                <span className="text-xs text-stone-500 dark:text-stone-400">{readings.hoursFormatted}</span>
+                              </div>
+                            ) : readings.kmFormatted ? (
+                              <span className="font-medium">{readings.kmFormatted}</span>
+                            ) : readings.hoursFormatted ? (
+                              <span className="font-medium">{readings.hoursFormatted}</span>
+                            ) : (
+                              <span className="text-stone-400 dark:text-stone-600">--</span>
+                            )}
                           </td>
 
                           <td className="py-3.5 px-4 font-mono whitespace-nowrap">
-                            {eff ? (
-                              <span className={`text-xs font-bold ${
-                                eff.unit === 'L/h' 
-                                  ? 'text-amber-600 dark:text-amber-400' 
-                                  : 'text-emerald-600 dark:text-emerald-400'
-                              }`}>
-                                {eff.formatted}
+                            {dualEff.hasBoth ? (
+                              <div className="flex flex-col space-y-1">
+                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 inline-block">
+                                  {dualEff.kmPerLiter?.formatted}
+                                </span>
+                                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 inline-block">
+                                  {dualEff.litersPerHour?.formatted}
+                                </span>
+                              </div>
+                            ) : dualEff.kmPerLiter ? (
+                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                {dualEff.kmPerLiter.formatted}
+                              </span>
+                            ) : dualEff.litersPerHour ? (
+                              <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                                {dualEff.litersPerHour.formatted}
                               </span>
                             ) : (
                               <span className="text-stone-400 dark:text-stone-600 text-xs font-normal">--</span>
