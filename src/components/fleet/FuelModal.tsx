@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
+import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface FuelModalProps {
   editingLog: FuelLog | null;
   machineries: Machinery[];
   employees: Employee[];
+  fuelLogs?: FuelLog[];
 }
 
 export const FuelModal: React.FC<FuelModalProps> = ({
@@ -19,6 +21,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   editingLog,
   machineries,
   employees,
+  fuelLogs = [],
 }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [machineryId, setMachineryId] = useState('');
@@ -41,6 +44,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const selectedMachinery = useMemo(() => {
     return machineries.find(m => m.id === machineryId);
   }, [machineries, machineryId]);
+
+  // Histórico de métricas do veículo através de logs anteriores
+  const vehicleMetrics = useMemo(() => {
+    if (!machineryId || !fuelLogs || fuelLogs.length === 0) return null;
+    return calculateVehicleConsumptionMetrics(machineryId, fuelLogs);
+  }, [machineryId, fuelLogs]);
+
+  const historicalAvgLitersPerHour = useMemo(() => {
+    return selectedMachinery?.averageConsumptionLitersPerHour ?? vehicleMetrics?.avgLitersPerHour ?? null;
+  }, [selectedMachinery, vehicleMetrics]);
+
+  const historicalAvgKmPerLiter = useMemo(() => {
+    return selectedMachinery?.averageConsumptionKmPerLiter ?? vehicleMetrics?.avgKmPerLiter ?? null;
+  }, [selectedMachinery, vehicleMetrics]);
 
   useEffect(() => {
     if (editingLog) {
@@ -126,7 +143,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     calculateTotal(liters, val);
   };
 
-  // Real-time calculated live metrics for this specific refill
+  // Live metrics for this specific refill
   const calculatedMetrics = useMemo(() => {
     const l = parseFloat(liters) || 0;
     
@@ -148,6 +165,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
     return { kmPerLiter, litersPerHour };
   }, [liters, currentKm, previousKm, currentHourMeter, previousHourMeter]);
+
+  const displayLitersPerHour = calculatedMetrics.litersPerHour ?? historicalAvgLitersPerHour;
+  const displayKmPerLiter = calculatedMetrics.kmPerLiter ?? historicalAvgKmPerLiter;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,6 +253,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
             <div className="lg:col-span-7">
               <form id="fuel-form" onSubmit={handleSubmit} className="space-y-4">
                 
+                {/* 1. TOPO (MANTIDO): Veículo / Máquina e Data do Abastecimento */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {/* Veículo */}
                   <div>
@@ -269,213 +290,223 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  {/* Combustível */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Combustível
-                    </label>
-                    <select
-                      value={fuelType}
-                      onChange={(e) => setFuelType(e.target.value as any)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-                    >
-                      <option value="Diesel S10">Diesel S10</option>
-                      <option value="Diesel Comum">Diesel Comum</option>
-                      <option value="Arla 32">Arla 32</option>
-                      <option value="Gasolina">Gasolina</option>
-                      <option value="Etanol">Etanol</option>
-                    </select>
-                  </div>
-
-                  {/* Litros Abastecidos */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Litros Abastecidos <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0.1"
-                      required
-                      value={liters}
-                      onChange={(e) => handleLitersChange(e.target.value)}
-                      placeholder="Ex: 250"
-                      className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/30 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-                    />
-                  </div>
-
-                  {/* Preço por Litro */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Preço / Litro (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={pricePerLiter}
-                      onChange={(e) => handlePriceChange(e.target.value)}
-                      placeholder="Ex: 5.85"
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Total Financeiro */}
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 text-xs font-semibold">
-                    <Calculator className="w-4 h-4" />
-                    <span>Valor Total Calculado:</span>
-                  </div>
-                  <div className="text-lg font-black text-amber-900 dark:text-amber-200 font-['Outfit']">
-                    R$ {totalAmount ? parseFloat(totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
-                  </div>
-                </div>
-
-                {/* Seção 1: Quilometragem (KM) */}
-                <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
-                      <Gauge className="w-4 h-4 text-emerald-600" />
-                      <span>Odômetro / Quilometragem (KM)</span>
-                    </span>
-                    {calculatedMetrics.kmPerLiter !== null && (
-                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
-                        Média: {calculatedMetrics.kmPerLiter} km/L
+                {/* 2. BLOCO 2 (SUBIR BLOCO VERMELHO): Odômetro / Quilometragem (KM) e Horímetro (Horas de Motor) */}
+                <div className="space-y-3">
+                  {/* Seção: Quilometragem (KM) */}
+                  <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
+                        <Gauge className="w-4 h-4 text-emerald-600" />
+                        <span>Odômetro / Quilometragem (KM)</span>
                       </span>
-                    )}
+                      {displayKmPerLiter !== null && (
+                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
+                          Média: {displayKmPerLiter} km/L
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                          KM Anterior
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={previousKm}
+                          onChange={(e) => setPreviousKm(e.target.value)}
+                          placeholder="Ex: 145000"
+                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                          KM Atual no Abastecimento
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={currentKm}
+                          onChange={(e) => setCurrentKm(e.target.value)}
+                          placeholder="Ex: 145600"
+                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Seção: Horímetro (Horas) */}
+                  <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span>Horímetro (Horas de Motor)</span>
+                      </span>
+                      {displayLitersPerHour !== null && (
+                        <span className="text-xs font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
+                          Média: {displayLitersPerHour} L/h
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                          Horas Anterior
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={previousHourMeter}
+                          onChange={(e) => setPreviousHourMeter(e.target.value)}
+                          placeholder="Ex: 198"
+                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                          Horas Atual no Abastecimento
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={currentHourMeter}
+                          onChange={(e) => setCurrentHourMeter(e.target.value)}
+                          placeholder="Ex: 250"
+                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. BLOCO 3 (DESCER BLOCO ROSA): Combustível, Litros Abastecidos, Preço / Litro e Total */}
+                <div className="space-y-3.5 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {/* Combustível */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                        KM Anterior
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Combustível
+                      </label>
+                      <select
+                        value={fuelType}
+                        onChange={(e) => setFuelType(e.target.value as any)}
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                      >
+                        <option value="Diesel S10">Diesel S10</option>
+                        <option value="Diesel Comum">Diesel Comum</option>
+                        <option value="Arla 32">Arla 32</option>
+                        <option value="Gasolina">Gasolina</option>
+                        <option value="Etanol">Etanol</option>
+                      </select>
+                    </div>
+
+                    {/* Litros Abastecidos */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Litros Abastecidos <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="number"
                         step="any"
-                        value={previousKm}
-                        onChange={(e) => setPreviousKm(e.target.value)}
-                        placeholder="Ex: 145000"
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        min="0.1"
+                        required
+                        value={liters}
+                        onChange={(e) => handleLitersChange(e.target.value)}
+                        placeholder="Ex: 250"
+                        className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/30 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
                       />
                     </div>
 
+                    {/* Preço por Litro */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                        KM Atual no Abastecimento
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Preço / Litro (R$)
                       </label>
                       <input
                         type="number"
-                        step="any"
-                        value={currentKm}
-                        onChange={(e) => setCurrentKm(e.target.value)}
-                        placeholder="Ex: 145600"
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        step="0.01"
+                        value={pricePerLiter}
+                        onChange={(e) => handlePriceChange(e.target.value)}
+                        placeholder="Ex: 5.85"
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
                       />
+                    </div>
+                  </div>
+
+                  {/* Total Financeiro */}
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                      <Calculator className="w-4 h-4" />
+                      <span>Valor Total Calculado:</span>
+                    </div>
+                    <div className="text-lg font-black text-amber-900 dark:text-amber-200 font-['Outfit']">
+                      R$ {totalAmount ? parseFloat(totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
                     </div>
                   </div>
                 </div>
 
-                {/* Seção 2: Horímetro (Horas) */}
-                <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
-                      <Clock className="w-4 h-4 text-amber-600" />
-                      <span>Horímetro (Horas de Motor)</span>
-                    </span>
-                    {calculatedMetrics.litersPerHour !== null && (
-                      <span className="text-xs font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
-                        Média: {calculatedMetrics.litersPerHour} L/h
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 4. BLOCO 4 (FIM - BLOCO VERDE): Motorista / Operador e Local / Posto */}
+                <div className="space-y-3.5 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Motorista / Responsável */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                        Horas Anterior
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Motorista / Operador
                       </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={previousHourMeter}
-                        onChange={(e) => setPreviousHourMeter(e.target.value)}
-                        placeholder="Ex: 4500"
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
+                      <select
+                        value={driverOrOperator}
+                        onChange={(e) => setDriverOrOperator(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                      >
+                        <option value="">Selecione quem abasteceu...</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.name}>
+                            {emp.name} ({emp.role})
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
+                    {/* Posto / Fornecedor */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                        Horas Atual no Abastecimento
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Local / Posto de Abastecimento
                       </label>
                       <input
-                        type="number"
-                        step="any"
-                        value={currentHourMeter}
-                        onChange={(e) => setCurrentHourMeter(e.target.value)}
-                        placeholder="Ex: 4520"
-                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        type="text"
+                        value={supplierStation}
+                        onChange={(e) => setSupplierStation(e.target.value)}
+                        placeholder="Ex: Tanque da Fazenda, Posto Trevo..."
+                        className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
                       />
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Motorista / Responsável */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Motorista / Operador
+                  {/* Sincronizar com Despesas */}
+                  {!editingLog && (
+                    <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={createExpense}
+                        onChange={(e) => setCreateExpense(e.target.checked)}
+                        className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                          Lançar automaticamente nas Despesas Financeiras (DRE)
+                        </span>
+                        <span className="text-stone-500 dark:text-stone-400">
+                          Cria lançamento de despesa em "Combustível" vinculado ao veículo.
+                        </span>
+                      </div>
                     </label>
-                    <select
-                      value={driverOrOperator}
-                      onChange={(e) => setDriverOrOperator(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-                    >
-                      <option value="">Selecione quem abasteceu...</option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.name}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Posto / Fornecedor */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Local / Posto de Abastecimento
-                    </label>
-                    <input
-                      type="text"
-                      value={supplierStation}
-                      onChange={(e) => setSupplierStation(e.target.value)}
-                      placeholder="Ex: Tanque da Fazenda, Posto Trevo..."
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-                    />
-                  </div>
+                  )}
                 </div>
 
-                {/* Sincronizar com Despesas */}
-                {!editingLog && (
-                  <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={createExpense}
-                      onChange={(e) => setCreateExpense(e.target.checked)}
-                      className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
-                    />
-                    <div className="text-xs">
-                      <span className="font-bold text-stone-900 dark:text-stone-100 block">
-                        Lançar automaticamente nas Despesas Financeiras (DRE)
-                      </span>
-                      <span className="text-stone-500 dark:text-stone-400">
-                        Cria lançamento de despesa em "Combustível" vinculado ao veículo.
-                      </span>
-                    </div>
-                  </label>
-                )}
               </form>
             </div>
 
@@ -484,6 +515,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               <FuelTankVisualizer 
                 machinery={selectedMachinery}
                 addedLitersInput={liters}
+                currentHourMeterInput={currentHourMeter}
+                previousHourMeterInput={previousHourMeter}
+                currentKmInput={currentKm}
+                previousKmInput={previousKm}
+                liveLitersPerHour={calculatedMetrics.litersPerHour}
+                liveKmPerLiter={calculatedMetrics.kmPerLiter}
+                historicalAvgLitersPerHour={historicalAvgLitersPerHour}
+                historicalAvgKmPerLiter={historicalAvgKmPerLiter}
               />
             </div>
 

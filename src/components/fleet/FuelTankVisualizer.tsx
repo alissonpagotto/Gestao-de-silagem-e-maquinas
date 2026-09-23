@@ -5,11 +5,27 @@ import { Machinery } from '../../types';
 interface FuelTankVisualizerProps {
   machinery?: Machinery | null;
   addedLitersInput: string;
+  currentHourMeterInput?: string;
+  previousHourMeterInput?: string;
+  currentKmInput?: string;
+  previousKmInput?: string;
+  liveLitersPerHour?: number | null;
+  liveKmPerLiter?: number | null;
+  historicalAvgLitersPerHour?: number | null;
+  historicalAvgKmPerLiter?: number | null;
 }
 
 export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   machinery,
   addedLitersInput,
+  currentHourMeterInput,
+  previousHourMeterInput,
+  currentKmInput,
+  previousKmInput,
+  liveLitersPerHour,
+  liveKmPerLiter,
+  historicalAvgLitersPerHour,
+  historicalAvgKmPerLiter,
 }) => {
   // 1. Capacidade Total do Tanque
   const tankCapacity = useMemo(() => {
@@ -19,30 +35,125 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     return !isNaN(num) && num > 0 ? num : 0;
   }, [machinery]);
 
-  // 2. Porcentagem Atual pré-abastecimento (0 a 100)
-  const initialPercentage = useMemo(() => {
-    if (!machinery) return 0;
-    const curr = machinery.currentFuelPercentage;
-    if (curr !== undefined && curr !== null && !isNaN(Number(curr))) {
-      return Math.max(0, Math.min(100, Number(curr)));
-    }
-    // Fallback: se não tiver porcentagem mas tiver tanque cadastrado, estima 50% ou 0
-    return tankCapacity > 0 ? 50 : 0;
-  }, [machinery, tankCapacity]);
-
-  // 3. Litros Atuais estimados no tanque antes do novo abastecimento
-  const initialLiters = useMemo(() => {
-    if (tankCapacity <= 0) return 0;
-    return (initialPercentage / 100) * tankCapacity;
-  }, [initialPercentage, tankCapacity]);
-
-  // 4. Litros adicionados digitados pelo usuário
+  // 2. Litros adicionados digitados pelo usuário
   const addedLiters = useMemo(() => {
     const parsed = parseFloat(addedLitersInput);
     return !isNaN(parsed) && parsed > 0 ? parsed : 0;
   }, [addedLitersInput]);
 
-  // 5. Quantidade Projetada e Porcentagem Dinâmica
+  // 3. Deltas de Horímetro (Horas) e Odômetro (KM)
+  const deltaHours = useMemo(() => {
+    const c = parseFloat(currentHourMeterInput || '');
+    const p = parseFloat(previousHourMeterInput || '');
+    return !isNaN(c) && !isNaN(p) && c > p ? (c - p) : 0;
+  }, [currentHourMeterInput, previousHourMeterInput]);
+
+  const deltaKm = useMemo(() => {
+    const c = parseFloat(currentKmInput || '');
+    const p = parseFloat(previousKmInput || '');
+    return !isNaN(c) && !isNaN(p) && c > p ? (c - p) : 0;
+  }, [currentKmInput, previousKmInput]);
+
+  // 4. Médias de Consumo Eficazes (L/h ou km/L)
+  const effectiveLitersPerHour = useMemo(() => {
+    if (liveLitersPerHour && liveLitersPerHour > 0) return liveLitersPerHour;
+    if (machinery?.averageConsumptionLitersPerHour && machinery.averageConsumptionLitersPerHour > 0) {
+      return machinery.averageConsumptionLitersPerHour;
+    }
+    if (historicalAvgLitersPerHour && historicalAvgLitersPerHour > 0) {
+      return historicalAvgLitersPerHour;
+    }
+    if (deltaHours > 0 && addedLiters > 0) {
+      return addedLiters / deltaHours;
+    }
+    return null;
+  }, [liveLitersPerHour, machinery, historicalAvgLitersPerHour, deltaHours, addedLiters]);
+
+  const effectiveKmPerLiter = useMemo(() => {
+    if (liveKmPerLiter && liveKmPerLiter > 0) return liveKmPerLiter;
+    if (machinery?.averageConsumptionKmPerLiter && machinery.averageConsumptionKmPerLiter > 0) {
+      return machinery.averageConsumptionKmPerLiter;
+    }
+    if (historicalAvgKmPerLiter && historicalAvgKmPerLiter > 0) {
+      return historicalAvgKmPerLiter;
+    }
+    if (deltaKm > 0 && addedLiters > 0) {
+      return deltaKm / addedLiters;
+    }
+    return null;
+  }, [liveKmPerLiter, machinery, historicalAvgKmPerLiter, deltaKm, addedLiters]);
+
+  // PASSO 1: Cálculo do Combustível Consumido
+  const consumedData = useMemo(() => {
+    if (deltaHours > 0 && effectiveLitersPerHour && effectiveLitersPerHour > 0) {
+      const consumed = deltaHours * effectiveLitersPerHour;
+      return {
+        consumedLiters: consumed,
+        mode: 'hours' as const,
+        delta: deltaHours,
+        rate: effectiveLitersPerHour,
+      };
+    }
+    if (deltaKm > 0 && effectiveKmPerLiter && effectiveKmPerLiter > 0) {
+      const consumed = deltaKm / effectiveKmPerLiter;
+      return {
+        consumedLiters: consumed,
+        mode: 'km' as const,
+        delta: deltaKm,
+        rate: effectiveKmPerLiter,
+      };
+    }
+    return {
+      consumedLiters: 0,
+      mode: 'none' as const,
+      delta: 0,
+      rate: 0,
+    };
+  }, [deltaHours, effectiveLitersPerHour, deltaKm, effectiveKmPerLiter]);
+
+  // PASSO 2: Subtrair o consumo do volume inicial do ciclo para achar o "NÍVEL ATUAL" real (o que sobrou)
+  const { initialLiters, initialPercentage } = useMemo(() => {
+    if (tankCapacity <= 0) return { initialLiters: 0, initialPercentage: 0 };
+
+    // Ponto de partida do ciclo: o veículo partiu com tanque cheio (capacidade do tanque)
+    const baseCycleVolume = tankCapacity;
+
+    if (consumedData.consumedLiters > 0) {
+      const remaining = Math.max(0, baseCycleVolume - consumedData.consumedLiters);
+      const remainingPercentage = (remaining / tankCapacity) * 100;
+      return {
+        initialLiters: remaining,
+        initialPercentage: remainingPercentage,
+      };
+    }
+
+    // Se o usuário já preencheu os litros abastecidos mas não há horímetro ou delta = 0,
+    // estima o nível residual para não inflar artificialmente acima de 100% se coube no tanque:
+    if (addedLiters > 0 && addedLiters <= tankCapacity) {
+      const remaining = Math.max(0, tankCapacity - addedLiters);
+      return {
+        initialLiters: remaining,
+        initialPercentage: (remaining / tankCapacity) * 100,
+      };
+    }
+
+    // Fallback: se houver currentFuelPercentage registrado no veículo
+    const curr = machinery?.currentFuelPercentage;
+    if (curr !== undefined && curr !== null && !isNaN(Number(curr))) {
+      const p = Math.max(0, Math.min(100, Number(curr)));
+      return {
+        initialLiters: (p / 100) * tankCapacity,
+        initialPercentage: p,
+      };
+    }
+
+    return {
+      initialLiters: tankCapacity * 0.5,
+      initialPercentage: 50,
+    };
+  }, [tankCapacity, consumedData, addedLiters, machinery]);
+
+  // PASSO 3: Quando preencher "Litros Abastecidos", somar ao NÍVEL ATUAL para obter a PROJEÇÃO
   const projectedLiters = useMemo(() => {
     return initialLiters + addedLiters;
   }, [initialLiters, addedLiters]);
@@ -52,14 +163,14 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     return (projectedLiters / tankCapacity) * 100;
   }, [projectedLiters, tankCapacity]);
 
-  // Altura visual do líquido (clamp entre 0% e 100%)
+  // PASSO 4: Altura visual do líquido (clamp entre 0% e 100%)
   const visualLiquidHeight = useMemo(() => {
     if (tankCapacity <= 0) return 0;
     return Math.max(0, Math.min(100, projectedPercentage));
   }, [tankCapacity, projectedPercentage]);
 
   const isOverflowing = projectedPercentage > 100;
-  const isNearlyEmpty = projectedPercentage > 0 && projectedPercentage <= 15;
+  const isNearlyEmpty = initialPercentage > 0 && initialPercentage <= 15;
   const hasNoTankCapacity = tankCapacity <= 0;
 
   return (
@@ -324,6 +435,21 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Passo 1 & 2: Detalhamento do Consumo Calculado no Período */}
+            {consumedData.consumedLiters > 0 && (
+              <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-[11px] text-sky-900 dark:text-sky-200 flex items-center justify-between shadow-2xs">
+                <span className="flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                  <span>
+                    Consumo gasto: <strong>{consumedData.delta} {consumedData.mode === 'hours' ? 'h' : 'km'}</strong> {consumedData.mode === 'hours' ? '×' : '÷'} <strong>{consumedData.rate.toFixed(2)} {consumedData.mode === 'hours' ? 'L/h' : 'km/L'}</strong>
+                  </span>
+                </span>
+                <span className="font-bold text-sky-700 dark:text-sky-300 font-mono">
+                  -{consumedData.consumedLiters.toFixed(1)} L
+                </span>
+              </div>
+            )}
 
             {/* Aviso de Transbordo / Capacidade Excedida */}
             {isOverflowing && (

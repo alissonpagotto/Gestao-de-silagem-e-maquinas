@@ -755,6 +755,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         editingLog={editingFuelLog}
         machineries={machineries}
         employees={employees}
+        fuelLogs={fuelLogs}
       />
 
       <MaintenanceModal
