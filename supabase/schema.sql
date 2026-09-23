@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS public.gestao_frotas (
     status TEXT DEFAULT 'operacional',
     fuel_level NUMERIC(5,2) DEFAULT 100,
     accumulated_cost NUMERIC(15,2) DEFAULT 0,
+    tank_capacity NUMERIC(10,2) DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -372,6 +373,7 @@ ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS tank_capacity NUMERIC DEFAULT 0;
 
 -- Compatibilidade de colunas da tabela de assinantes (subscribers)
 ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS email TEXT;

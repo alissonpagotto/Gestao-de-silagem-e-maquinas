@@ -90,6 +90,7 @@ ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS fleet_number
 ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS hourmeter NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS fuel_level NUMERIC(5,2) DEFAULT 100;
 ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS accumulated_cost NUMERIC(15,2) DEFAULT 0;
+ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS tank_capacity NUMERIC DEFAULT 0;
 
 -- 3. RH Funcionários
 ALTER TABLE IF EXISTS public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;

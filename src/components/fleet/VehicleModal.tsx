@@ -439,6 +439,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       licensingLastLaunchDate: effectiveLicensingLaunchDate || undefined,
       capacityM3: capacityM3 ? parseFloat(capacityM3) : undefined,
       fuelCapacityLiters: fuelCapacityLiters ? parseFloat(fuelCapacityLiters) : undefined,
+      tank_capacity: fuelCapacityLiters ? parseFloat(fuelCapacityLiters) : undefined,
+      tankCapacity: fuelCapacityLiters ? parseFloat(fuelCapacityLiters) : undefined,
       licensePlateOrSerial: (plate.trim() || serialNumber.trim() || fleetNumber.trim()).toUpperCase(),
       hourMeter: hourMeter ? parseFloat(hourMeter) : (editingVehicle?.hourMeter || 0),
       currentKm: currentKm ? parseFloat(currentKm) : (editingVehicle?.currentKm || undefined),
@@ -596,7 +598,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setTaraWeightKg(editingVehicle.taraWeightKg ? String(editingVehicle.taraWeightKg) : '');
       setCapacityLoadKg(editingVehicle.capacityLoadKg ? String(editingVehicle.capacityLoadKg) : '');
       setCapacityM3(editingVehicle.capacityM3 !== undefined ? String(editingVehicle.capacityM3) : '');
-      setFuelCapacityLiters(editingVehicle.fuelCapacityLiters !== undefined ? String(editingVehicle.fuelCapacityLiters) : '');
+      const initialTank = (editingVehicle as any).tank_capacity ?? (editingVehicle as any).tankCapacity ?? editingVehicle.fuelCapacityLiters;
+      setFuelCapacityLiters(initialTank !== undefined && initialTank !== null ? String(initialTank) : '');
       setHourMeter(editingVehicle.hourMeter !== undefined ? String(editingVehicle.hourMeter) : '');
       setCurrentKm(editingVehicle.currentKm !== undefined ? String(editingVehicle.currentKm) : '');
 
@@ -1142,6 +1145,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       // Capacity & Meters
       capacityM3: capacityM3 ? parseFloat(capacityM3) : undefined,
       fuelCapacityLiters: fuelCapacityLiters ? parseFloat(fuelCapacityLiters) : undefined,
+      tank_capacity: fuelCapacityLiters ? parseFloat(fuelCapacityLiters) : undefined,
+      tankCapacity: fuelCapacityLiters ? parseFloat(fuelCapacityLiters) : undefined,
       licensePlateOrSerial: (plate.trim() || serialNumber.trim()).toUpperCase(),
       hourMeter: hourMeter ? parseFloat(hourMeter) : (editingVehicle?.hourMeter || 0),
       currentKm: currentKm ? parseFloat(currentKm) : (editingVehicle?.currentKm || undefined),
@@ -1375,9 +1380,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 </div>
               </div>
 
-              {/* Marca, Modelo, Ano, Cor */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
-                <div>
+              {/* Marca, Modelo, Ano, Cor e Capacidade do Tanque (L) */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+                <div className="sm:col-span-3">
                   <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Marca
                   </label>
@@ -1389,7 +1394,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-3">
                   <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Modelo
                   </label>
@@ -1401,7 +1406,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Ano de Fabricação
                   </label>
@@ -1413,7 +1418,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold mb-1 text-zinc-700">
                     Cor
                   </label>
@@ -1422,6 +1427,26 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold mb-1 text-zinc-700" title="Capacidade total do tanque de combustível em litros">
+                    Capacidade do Tanque (L)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={fuelCapacityLiters}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                        setFuelCapacityLiters(val);
+                      }
+                    }}
+                    placeholder="Ex: 300"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
               </div>

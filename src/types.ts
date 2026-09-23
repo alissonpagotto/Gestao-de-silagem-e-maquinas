@@ -215,6 +215,8 @@ export interface Machinery {
   accumulatedCost?: number; // Acumulado R$
   categoryType?: 'caminhao' | 'ensiladeira' | 'forrageira' | 'trator' | 'onibus' | 'utilitario' | 'reboque' | 'outro' | string;
   fuelCapacityLiters?: number;
+  tank_capacity?: number; // Volume do tanque de combustível (L)
+  tankCapacity?: number; // Alias para volume do tanque (L)
   currentFuelPercentage?: number;
   purchaseDate?: string;
   notes?: string;

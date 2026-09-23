@@ -885,15 +885,26 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       console.warn('Supabase fetchGestaoFrotas notice:', error.message);
       return [];
     }
-    return (data as any[] || []).map(row => ({
-      ...row,
-      fleetNumber: row.fleet_number || row.fleetNumber || undefined,
-      licensePlateOrSerial: row.plate_or_serial || row.licensePlateOrSerial,
-      hourMeter: row.hourmeter !== undefined ? Number(row.hourmeter) : row.hourMeter,
-      currentFuelPercentage: row.fuel_level !== undefined ? Number(row.fuel_level) : row.currentFuelPercentage,
-      accumulatedCost: row.accumulated_cost !== undefined ? Number(row.accumulated_cost) : row.accumulatedCost,
-      categoryType: row.type || row.categoryType,
-    })) as Machinery[];
+    return (data as any[] || []).map(row => {
+      const tankCapacityNumber = row.tank_capacity !== undefined && row.tank_capacity !== null
+        ? Number(row.tank_capacity)
+        : (row.tankCapacity !== undefined && row.tankCapacity !== null
+            ? Number(row.tankCapacity)
+            : (row.fuelCapacityLiters !== undefined && row.fuelCapacityLiters !== null ? Number(row.fuelCapacityLiters) : undefined));
+
+      return {
+        ...row,
+        fleetNumber: row.fleet_number || row.fleetNumber || undefined,
+        licensePlateOrSerial: row.plate_or_serial || row.licensePlateOrSerial,
+        hourMeter: row.hourmeter !== undefined ? Number(row.hourmeter) : row.hourMeter,
+        currentFuelPercentage: row.fuel_level !== undefined ? Number(row.fuel_level) : row.currentFuelPercentage,
+        accumulatedCost: row.accumulated_cost !== undefined ? Number(row.accumulated_cost) : row.accumulatedCost,
+        categoryType: row.type || row.categoryType,
+        tank_capacity: tankCapacityNumber,
+        tankCapacity: tankCapacityNumber,
+        fuelCapacityLiters: tankCapacityNumber,
+      };
+    }) as Machinery[];
   } catch (err) {
     console.warn('Supabase fetchGestaoFrotas err:', err);
     return [];
@@ -904,6 +915,12 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = vehicle.companyId || companyId || getActiveCompanyId();
+    const tankCapacityVal = (vehicle.tank_capacity !== undefined && vehicle.tank_capacity !== null)
+      ? Number(vehicle.tank_capacity)
+      : ((vehicle.tankCapacity !== undefined && vehicle.tankCapacity !== null)
+          ? Number(vehicle.tankCapacity)
+          : (vehicle.fuelCapacityLiters !== undefined && vehicle.fuelCapacityLiters !== null ? Number(vehicle.fuelCapacityLiters) : 0));
+
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
       company_id: activeCompanyId,
@@ -917,6 +934,7 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       status: vehicle.status || 'operacional',
       fuel_level: Number(vehicle.currentFuelPercentage) || 100,
       accumulated_cost: vehicle.accumulatedCost || 0,
+      tank_capacity: isNaN(tankCapacityVal) ? 0 : tankCapacityVal,
       updated_at: new Date().toISOString()
     };
 
@@ -926,9 +944,10 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
 
     if (error) {
       logPostgresError('upsertGestaoFrota', error, { table: 'gestao_frotas', action: 'UPSERT', payload });
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('fleet_number') || error.message.includes('column')))) {
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('fleet_number') || error.message.includes('tank_capacity') || error.message.includes('column')))) {
         delete payload.company_id;
         delete payload.fleet_number;
+        delete payload.tank_capacity;
         const retry = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
@@ -940,6 +959,10 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     return false;
   }
 }
+
+// Aliases para compatibilidade direta de chamadas
+export const fetchFrotas = fetchGestaoFrotas;
+export const upsertFrota = upsertGestaoFrota;
 
 export async function deleteGestaoFrota(id: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;

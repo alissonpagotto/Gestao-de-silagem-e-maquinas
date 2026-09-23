@@ -68,6 +68,10 @@ export function generateVehicleRegistrationPrintHtml(
             <div style="font-size: 12px; font-weight: 700; color: #0f172a;">${vehicle.color || '--'}</div>
           </div>
           <div>
+            <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Capacidade Tanque</div>
+            <div style="font-size: 12px; font-weight: 700; color: #0f172a; font-family: monospace;">${(vehicle.tank_capacity || vehicle.tankCapacity || vehicle.fuelCapacityLiters) ? `${(vehicle.tank_capacity || vehicle.tankCapacity || vehicle.fuelCapacityLiters)?.toLocaleString('pt-BR')} L` : '--'}</div>
+          </div>
+          <div>
             <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Categoria Operacional</div>
             <div style="font-size: 12px; font-weight: 700; color: #0f172a;">${vehicle.categoryType || 'Equipamento Agrícola'}</div>
           </div>
