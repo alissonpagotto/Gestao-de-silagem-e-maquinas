@@ -31,6 +31,7 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
+import { formatIsoDateOnly } from '../../lib/supabaseService';
 import { ManageableDropdown } from '../common/ManageableDropdown';
 import { RoleSelectDropdown } from './RoleSelectDropdown';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
@@ -295,11 +296,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [generalDocs, setGeneralDocs] = useState<EmployeeAttachment | null>(null);
   const [signedRegistrationDoc, setSignedRegistrationDoc] = useState<EmployeeAttachment | null>(null);
 
-  const cnhReport = checkCnhStatus(employees);
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+
+  useEffect(() => {
+    if (employees) {
+      setLocalEmployees(employees);
+    }
+  }, [employees]);
+
+  const cnhReport = checkCnhStatus(localEmployees);
 
   // Lista de colaboradores filtrada e rigorosamente ordenada de A a Z pelo nome
   const filteredEmployees = useMemo(() => {
-    return [...employees]
+    return [...localEmployees]
       .filter(emp =>
         (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (emp.role || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -312,7 +321,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       .sort((a, b) => 
         (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
       );
-  }, [employees, searchTerm]);
+  }, [localEmployees, searchTerm]);
 
   // 1. ORDENAÇÃO AUTOMÁTICA DA TABELA (ORDEM ALFABÉTICA A-Z):
   // Garante que a lista de colaboradores seja exibida SEMPRE em ordem alfabética
@@ -417,19 +426,46 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setPhotoUrl(emp.photoUrl || '');
     setPhone(emp.phone || '');
     setBaseSalary(emp.baseSalary !== undefined ? formatCurrencyInputDisplay(emp.baseSalary) : (emp.salary !== undefined ? formatCurrencyInputDisplay(emp.salary) : '0,00'));
-    setContractType(emp.contractType || 'Registrado (CLT)');
-    setAdmissionDate(emp.admissionDate || '');
-    setTerminationDate(emp.terminationDate || '');
+    setContractType(emp.contractType || (emp as any).regime || 'Registrado (CLT)');
+    
+    // Converte datas para YYYY-MM-DD para garantir compatibilidade com input type="date"
+    const safeAdm = formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at) || '';
+    setAdmissionDate(safeAdm);
+    const safeTerm = formatIsoDateOnly(emp.terminationDate || (emp as any).data_demissao) || '';
+    setTerminationDate(safeTerm);
+    const safeBirth = formatIsoDateOnly(emp.birthDate || (emp as any).data_nascimento) || '';
+    setBirthDate(safeBirth);
+
     setIsActive(emp.active !== undefined ? emp.active : (emp.status !== 'inativo'));
     const isEmpBroker = r1.trim().toLowerCase() === 'agenciador' || r2.trim().toLowerCase() === 'agenciador';
-    setReceivesCommission(isEmpBroker ? false : (emp.receivesCommission || false));
-    setCommissionPerHour(!isEmpBroker && emp.commissionPerHour !== undefined ? formatCurrencyInputDisplay(emp.commissionPerHour) : '0,00');
+
+    // Normalização rigorosa de comissões numéricas
+    const commVal = Number(
+      emp.commissionPerHour ||
+      emp.commissionPerAlqueire ||
+      emp.commissionPerHectare ||
+      (emp as any).comissao_valor ||
+      (emp as any).comissao ||
+      0
+    );
+    const recComm = Boolean(
+      emp.receivesCommission ||
+      (emp as any).recebe_comissao ||
+      commVal > 0
+    );
+    setReceivesCommission(isEmpBroker ? false : recComm);
+
+    const commPerHourVal = emp.commissionPerHour !== undefined && Number(emp.commissionPerHour) > 0
+      ? emp.commissionPerHour
+      : ((emp as any).comissao_valor || (emp as any).comissao || 0);
+    setCommissionPerHour(!isEmpBroker && commPerHourVal ? formatCurrencyInputDisplay(Number(commPerHourVal)) : '0,00');
     setCommissionPerAlqueire(!isEmpBroker && emp.commissionPerAlqueire !== undefined ? formatCurrencyInputDisplay(emp.commissionPerAlqueire) : '0,00');
     setCommissionPerHectare(!isEmpBroker && emp.commissionPerHectare !== undefined ? formatCurrencyInputDisplay(emp.commissionPerHectare) : '0,00');
     
     setCnhNumber((emp.cnhNumber || '').toUpperCase());
     setCnhCategory(emp.cnhCategory || 'B');
-    setCnhExpiration(emp.cnhExpiration || '');
+    const safeCnhExp = formatIsoDateOnly(emp.cnhExpiration || (emp as any).license_expiry || (emp as any).cnh_vencimento) || '';
+    setCnhExpiration(safeCnhExp);
     setCnhUpgradeDT(Boolean(emp.cnhUpgradeDT));
     setCnhUpgradeCategory(emp.cnhUpgradeCategory || 'A');
 
@@ -589,7 +625,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    const emp = employees.find(e => e.id === id);
+    const emp = localEmployees.find(e => e.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Funcionário / Colaborador',
       message: emp?.name 
@@ -600,7 +636,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveEmployees(employees.filter(e => e.id !== id));
+      const updatedList = localEmployees.filter(e => e.id !== id);
+      setLocalEmployees(updatedList);
+      onSaveEmployees(updatedList);
     }
   };
 
@@ -621,12 +659,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const rawRegType = registrationType.trim();
     const finalRegType = (rawRegType === 'mecanico_especialista' ? 'Mecanico Especialista' : rawRegType) || 'Funcionário';
 
+    // Conversão de valores monetários e comissões com Number() e parseFloat()
     const parsedSalary = parseCurrencyInput(baseSalary);
     const parsedPerHour = parseCurrencyInput(commissionPerHour);
     const parsedPerAlq = parseCurrencyInput(commissionPerAlqueire);
     const parsedPerHa = parseCurrencyInput(commissionPerHectare);
-    const parsedBrokerCommission = isBroker ? parseCurrencyInput(brokerCommissionValue) : undefined;
+    const parsedBrokerCommission = isBroker ? parseCurrencyInput(brokerCommissionValue) : 0;
     const finalReceivesCommission = !isBroker && receivesCommission;
+
+    // Formatação rigorosa de datas para YYYY-MM-DD
+    const formattedAdmissionDate = admissionDate ? (formatIsoDateOnly(admissionDate) || admissionDate.trim()) : undefined;
+    const formattedTerminationDate = terminationDate ? (formatIsoDateOnly(terminationDate) || terminationDate.trim()) : undefined;
+    const formattedBirthDate = birthDate ? (formatIsoDateOnly(birthDate) || birthDate.trim()) : undefined;
+    const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
 
     const employeeData: Partial<Employee> = {
       name: name.trim().toUpperCase(),
@@ -634,28 +679,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       role: finalRole,
       roles: finalRoles,
       brokerCommissionType: isBroker ? brokerCommissionType : undefined,
-      brokerCommissionValue: parsedBrokerCommission,
+      brokerCommissionValue: isBroker ? (parseFloat(String(parsedBrokerCommission)) || 0) : 0,
       actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
       cpf: cpf.trim() || undefined,
       rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
-      birthDate: birthDate || undefined,
+      birthDate: formattedBirthDate,
       pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
       photoUrl: photoUrl || undefined,
       phone: phone.trim(),
       baseSalary: parsedSalary,
       salary: parsedSalary,
       contractType: contractType.trim() || 'Registrado (CLT)',
-      admissionDate: admissionDate || undefined,
-      terminationDate: terminationDate || undefined,
+      admissionDate: formattedAdmissionDate,
+      terminationDate: formattedTerminationDate,
       active: isActive,
       status: isActive ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo') : 'inativo',
       receivesCommission: finalReceivesCommission,
-      commissionPerHour: finalReceivesCommission ? parsedPerHour : 0,
-      commissionPerAlqueire: finalReceivesCommission ? parsedPerAlq : 0,
-      commissionPerHectare: finalReceivesCommission ? parsedPerHa : 0,
+      commissionPerHour: finalReceivesCommission ? (parseFloat(String(parsedPerHour)) || 0) : 0,
+      commissionPerAlqueire: finalReceivesCommission ? (parseFloat(String(parsedPerAlq)) || 0) : 0,
+      commissionPerHectare: finalReceivesCommission ? (parseFloat(String(parsedPerHa)) || 0) : 0,
       cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
       cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
-      cnhExpiration: cnhExpiration || undefined,
+      cnhExpiration: formattedCnhExpiration,
       cnhUpgradeDT,
       cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
       paymentLocation: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : undefined,
@@ -668,16 +713,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       signedRegistrationDoc: signedRegistrationDoc || undefined,
     };
 
+    let updatedList: Employee[] = [];
     if (editingEmployee) {
-      const updated = employees.map(emp =>
+      updatedList = localEmployees.map(emp =>
         emp.id === editingEmployee.id
-          ? {
+          ? ({
               ...emp,
               ...employeeData,
-            }
+            } as Employee)
           : emp
       );
-      onSaveEmployees(updated);
     } else {
       const newEmp: Employee = {
         id: `emp_${Date.now()}`,
@@ -686,9 +731,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         phone: employeeData.phone!,
         status: employeeData.status!,
         ...employeeData,
-      };
-      onSaveEmployees([...employees, newEmp]);
+      } as Employee;
+      updatedList = [...localEmployees, newEmp];
     }
+
+    // Atualização imediata no estado local da tabela (renderização instantânea sem F5)
+    setLocalEmployees(updatedList);
+    // Notifica o manipulador superior para persistência no Supabase
+    onSaveEmployees(updatedList);
     setIsModalOpen(false);
   };
 

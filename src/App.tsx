@@ -491,6 +491,18 @@ export default function App() {
       });
     });
 
+    const unsubFuncionarios = subscribeToCloudTable('funcionarios', () => {
+      fetchRhFuncionarios(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_employees) {
+            lastSyncedState.current.rel_employees = ser;
+            setEmployees(fresh);
+          }
+        }
+      });
+    });
+
     const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
       fetchGestaoFrotas(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
@@ -661,6 +673,7 @@ export default function App() {
       unsubFornecedores();
       unsubEstoque();
       unsubRH();
+      unsubFuncionarios();
       unsubFrotas();
       unsubContas();
       unsubSettings();
@@ -1118,21 +1131,37 @@ export default function App() {
   };
 
   // RH Funcionários Handlers (Multi-Tenant Persistência no Supabase)
-  const handleSaveEmployees = (newEmployees: Employee[]) => {
+  const handleSaveEmployees = async (newEmployees: Employee[]) => {
+    // 1. Atualização otimista imediata na UI (garante renderização instantânea dos novos dados)
+    setEmployees(newEmployees);
+
     const oldIds = new Set(employees.map(e => e.id));
     const newIds = new Set(newEmployees.map(e => e.id));
 
-    for (const oldId of oldIds) {
-      if (!newIds.has(oldId)) {
-        deleteRhFuncionario(oldId, activeTenantId).catch(err => console.warn('Supabase deleteRhFuncionario notice:', err));
+    try {
+      // 2. Remove colaboradores excluídos
+      const deletePromises: Promise<any>[] = [];
+      for (const oldId of oldIds) {
+        if (!newIds.has(oldId)) {
+          deletePromises.push(deleteRhFuncionario(oldId, activeTenantId));
+        }
       }
-    }
+      if (deletePromises.length > 0) {
+        await Promise.allSettled(deletePromises);
+      }
 
-    for (const emp of newEmployees) {
-      upsertRhFuncionario(emp, activeTenantId).catch(err => console.warn('Supabase upsertRhFuncionario notice:', err));
-    }
+      // 3. Salva ou atualiza colaboradores com garantia de tipos e conversão de colunas
+      const upsertPromises = newEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId));
+      await Promise.allSettled(upsertPromises);
 
-    setEmployees(newEmployees);
+      // 4. Re-busca no banco para sincronizar exatamente os campos gravados no Supabase
+      const fresh = await fetchRhFuncionarios(activeTenantId);
+      if (fresh && fresh.length > 0) {
+        setEmployees(fresh);
+      }
+    } catch (err) {
+      console.warn('Supabase handleSaveEmployees sync notice:', err);
+    }
   };
 
   // Fornecedores Handlers (Multi-Tenant Persistência no Supabase)

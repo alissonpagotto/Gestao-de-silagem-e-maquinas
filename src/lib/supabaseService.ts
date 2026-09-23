@@ -773,20 +773,214 @@ export async function deleteCliente(id: string, companyId?: string): Promise<boo
 }
 
 // ===========================================================================
-// 6. RH Funcionários (Tabela: public.rh_funcionarios)
+// 6. RH Funcionários (Tabela: public.rh_funcionarios e public.funcionarios)
 // ===========================================================================
+
+/**
+ * Converte qualquer formato de data (ISO, DD/MM/YYYY, timestamp) rigorosamente para o formato YYYY-MM-DD
+ * aceito por colunas DATE do PostgreSQL, ou retorna null se vazio/inválido.
+ */
+export function formatIsoDateOnly(dateValue?: any): string | null {
+  if (!dateValue) return null;
+  const str = String(dateValue).trim();
+  if (!str || str === 'null' || str === 'undefined') return null;
+
+  // Se já estiver no formato YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+  // Se contiver timestamp ISO (ex: 2025-05-15T00:00:00.000Z)
+  if (str.includes('T')) {
+    const part = str.split('T')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(part)) return part;
+  }
+  // Se estiver no formato brasileiro DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    const [dia, mes, ano] = str.split('/');
+    return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  }
+  // Se estiver no formato DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    const [dia, mes, ano] = str.split('-');
+    return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  }
+  // Fallback seguro via Date
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  return null;
+}
+
+/**
+ * Converte linhas vindas do Supabase (seja com colunas em português ou inglês)
+ * para a interface padronizada Employee da aplicação.
+ */
+export function mapRowToEmployee(row: any): Employee {
+  const admissionDate = formatIsoDateOnly(
+    row.admission_date || row.data_admissao || row.admitted_at || row.dataAdmissao
+  ) || '';
+
+  const terminationDate = formatIsoDateOnly(
+    row.termination_date || row.data_demissao || row.dataDemissao
+  ) || '';
+
+  const cnhExpiration = formatIsoDateOnly(
+    row.license_expiry || row.cnh_vencimento || row.cnh_expiration || row.cnhExpiration
+  ) || '';
+
+  const salaryNum = parseFloat(String(row.salary || row.salario || row.base_salary || 0)) || 0;
+
+  // Normalização de comissões numéricas
+  const commVal = parseFloat(String(
+    row.comissao_valor ?? row.comissao ?? row.commission ?? row.commission_value ?? 0
+  )) || 0;
+
+  const commPerHour = parseFloat(String(
+    row.commission_per_hour ?? row.comissao_hora ?? 0
+  )) || 0;
+
+  const commPerAlq = parseFloat(String(
+    row.commission_per_alqueire ?? row.comissao_alqueire ?? 0
+  )) || 0;
+
+  const commPerHa = parseFloat(String(
+    row.commission_per_hectare ?? row.comissao_hectare ?? 0
+  )) || 0;
+
+  const receivesCommission = Boolean(
+    row.receives_commission ??
+    row.recebe_comissao ??
+    (commVal > 0 || commPerHour > 0 || commPerAlq > 0 || commPerHa > 0)
+  );
+
+  const contractType = String(
+    row.contract_type || row.regime || row.tipo_contrato || row.registration_type || 'Registrado (CLT)'
+  );
+
+  const roleStr = String(row.role || row.cargo || row.funcao || 'Operador de Forrageira');
+
+  return {
+    id: String(row.id || `emp_${Date.now()}`),
+    companyId: row.company_id || undefined,
+    name: String(row.name || row.nome || row.nome_funcionario || '').trim(),
+    role: roleStr,
+    roles: Array.isArray(row.roles) ? row.roles : (roleStr ? [roleStr] : []),
+    cpf: row.cpf ? String(row.cpf).trim() : '',
+    rg: row.rg || undefined,
+    birthDate: formatIsoDateOnly(row.birth_date || row.data_nascimento) || undefined,
+    pis: row.pis || undefined,
+    phone: row.phone || row.telefone || '',
+    status: (row.status || 'ativo') as any,
+    active: row.status !== 'inativo' && row.active !== false,
+    registrationType: (row.registration_type || row.tipo_registro || 'Funcionário') as any,
+    contractType: contractType,
+    salary: salaryNum,
+    baseSalary: salaryNum,
+    admissionDate: admissionDate,
+    terminationDate: terminationDate,
+    receivesCommission: receivesCommission,
+    commissionPerHour: receivesCommission ? (commPerHour || (commVal > 0 ? commVal : 0)) : 0,
+    commissionPerAlqueire: receivesCommission ? commPerAlq : 0,
+    commissionPerHectare: receivesCommission ? commPerHa : 0,
+    brokerCommissionValue: parseFloat(String(row.broker_commission_value || row.comissao_agenciador || 0)) || 0,
+    brokerCommissionType: row.broker_commission_type || row.tipo_comissao_agenciador || undefined,
+    actingRegion: row.acting_region || row.regiao_atuacao || undefined,
+    cnhNumber: row.driver_license || row.cnh_numero || row.cnh_number || '',
+    cnhCategory: row.license_category || row.cnh_categoria || row.cnh_category || 'B',
+    cnhExpiration: cnhExpiration,
+    cnhUpgradeDT: Boolean(row.cnh_upgrade_dt || row.cnhUpgradeDT),
+    cnhUpgradeCategory: row.cnh_upgrade_category || row.cnhUpgradeCategory || undefined,
+    paymentLocation: row.payment_location || row.local_pagamento || undefined,
+    bankPixKey: row.bank_pix_key || row.chave_pix || undefined,
+    bankAgency: row.bank_agency || row.agencia || undefined,
+    bankAccount: row.bank_account || row.conta || undefined,
+  };
+}
+
+// Cache interno de colunas indisponíveis por tabela para evitar requisições extras
+const missingColumnsCache = new Map<string, Set<string>>();
+
+/**
+ * Executa upsert de funcionário com tolerância a divergências de schema.
+ * Trata automaticamente colunas faltantes (PGRST204 / 42703) e restrições de company_id.
+ */
+async function executeAdaptiveFuncionarioUpsert(
+  tableName: 'rh_funcionarios' | 'funcionarios',
+  rawPayload: Record<string, any>
+): Promise<{ success: boolean; tableNotFound?: boolean; error?: any }> {
+  const payload = { ...rawPayload };
+
+  // Remove colunas que já sabemos não existirem nessa tabela
+  const knownMissing = missingColumnsCache.get(tableName);
+  if (knownMissing) {
+    for (const col of knownMissing) {
+      delete payload[col];
+    }
+  }
+
+  let attempts = 0;
+  while (attempts < 10) {
+    attempts++;
+    const { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
+    if (!error) {
+      return { success: true };
+    }
+
+    const msg = error.message || '';
+    const code = error.code || '';
+
+    // Se a tabela inteira não existir no schema do Supabase (42P01)
+    if (code === '42P01' || msg.includes('does not exist') && msg.includes(tableName)) {
+      return { success: false, tableNotFound: true, error };
+    }
+
+    // Se uma coluna específica não existir no schema do Supabase (PGRST204 ou 42703)
+    const matchMissingCol =
+      msg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
+      msg.match(/column "?([a-zA-Z0-9_]+)"? of relation/i) ||
+      msg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i) ||
+      msg.match(/column ([a-zA-Z0-9_]+) does not exist/i);
+
+    if (matchMissingCol && matchMissingCol[1]) {
+      const badCol = matchMissingCol[1];
+      if (!knownMissing) {
+        missingColumnsCache.set(tableName, new Set([badCol]));
+      } else {
+        knownMissing.add(badCol);
+      }
+      delete payload[badCol];
+      continue; // Tenta novamente sem a coluna inexistente
+    }
+
+    // Se houver erro de chave estrangeira de company_id (23503)
+    if (code === '23503' || msg.includes('company_id')) {
+      delete payload.company_id;
+      continue;
+    }
+
+    // Outro erro irrecuperável
+    return { success: false, error };
+  }
+
+  return { success: false };
+}
+
 export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) return [];
+
   try {
+    // 1. Tenta buscar da tabela principal 'rh_funcionarios'
     let { data, error } = await supabase
       .from('rh_funcionarios')
       .select('*')
       .eq('company_id', activeCompanyId)
       .order('name', { ascending: true });
 
-    if ((!data || data.length === 0) && activeCompanyId) {
+    // Fallback com UUID alternativo se vazio
+    if ((!data || data.length === 0) && activeCompanyId && (!error || error.code !== '42P01')) {
       const altUuid = toValidUUID(activeCompanyId);
       if (altUuid && altUuid !== activeCompanyId) {
         const retry = await supabase
@@ -801,11 +995,33 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
       }
     }
 
+    // 2. Se a tabela 'rh_funcionarios' não existir, tenta 'funcionarios'
+    if (error && (error.code === '42P01' || error.message?.includes('does not exist'))) {
+      let funcQuery = await supabase
+        .from('funcionarios')
+        .select('*')
+        .eq('company_id', activeCompanyId);
+      if (!funcQuery.error && Array.isArray(funcQuery.data) && funcQuery.data.length > 0) {
+        return funcQuery.data.map(mapRowToEmployee);
+      }
+    }
+
     if (error) {
       console.warn('Supabase fetchRhFuncionarios notice:', error.message);
+      // Tenta 'funcionarios' como fallback secundário
+      try {
+        const funcFallback = await supabase.from('funcionarios').select('*');
+        if (!funcFallback.error && Array.isArray(funcFallback.data) && funcFallback.data.length > 0) {
+          return funcFallback.data.map(mapRowToEmployee);
+        }
+      } catch (_) {}
       return [];
     }
-    return (data || []) as Employee[];
+
+    if (Array.isArray(data)) {
+      return data.map(mapRowToEmployee);
+    }
+    return [];
   } catch (err) {
     console.warn('Supabase fetchRhFuncionarios err:', err);
     return [];
@@ -816,38 +1032,116 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
-    const payload: Record<string, any> = {
+
+    // 1. MAPEAMENTO E CONVERSÃO RIGOROSA DE DATA (YYYY-MM-DD):
+    const formattedAdmissionDate = formatIsoDateOnly(employee.admissionDate);
+    const formattedTerminationDate = formatIsoDateOnly(employee.terminationDate);
+    const formattedCnhExpiration = formatIsoDateOnly(employee.cnhExpiration);
+    const formattedBirthDate = formatIsoDateOnly(employee.birthDate);
+
+    // 2. TRATAMENTO NUMÉRICO DE SALÁRIO:
+    const parsedSalary = Number(employee.salary || employee.baseSalary) || 0;
+
+    // 3. TRATAMENTO NUMÉRICO DE COMISSÃO E "SEM COMISSÃO":
+    const isCommissionActive = Boolean(
+      employee.receivesCommission ||
+      (employee.brokerCommissionValue !== undefined && Number(employee.brokerCommissionValue) > 0)
+    );
+
+    let parsedCommissionValue: number = 0;
+    if (isCommissionActive) {
+      if (employee.brokerCommissionValue !== undefined && Number(employee.brokerCommissionValue) > 0) {
+        parsedCommissionValue = parseFloat(String(employee.brokerCommissionValue)) || 0;
+      } else if (employee.commissionPerHour !== undefined && Number(employee.commissionPerHour) > 0) {
+        parsedCommissionValue = parseFloat(String(employee.commissionPerHour)) || 0;
+      } else if (employee.commissionPerAlqueire !== undefined && Number(employee.commissionPerAlqueire) > 0) {
+        parsedCommissionValue = parseFloat(String(employee.commissionPerAlqueire)) || 0;
+      } else if (employee.commissionPerHectare !== undefined && Number(employee.commissionPerHectare) > 0) {
+        parsedCommissionValue = parseFloat(String(employee.commissionPerHectare)) || 0;
+      } else if ((employee as any).comissao_valor !== undefined) {
+        parsedCommissionValue = parseFloat(String((employee as any).comissao_valor)) || 0;
+      } else if ((employee as any).comissao !== undefined) {
+        parsedCommissionValue = parseFloat(String((employee as any).comissao)) || 0;
+      }
+    } else {
+      // Quando selecionado "Sem comissão", envia estritamente 0 numérico para evitar 400 Bad Request
+      parsedCommissionValue = 0;
+    }
+
+    const commPerHour = isCommissionActive ? (parseFloat(String(employee.commissionPerHour)) || 0) : 0;
+    const commPerAlq = isCommissionActive ? (parseFloat(String(employee.commissionPerAlqueire)) || 0) : 0;
+    const commPerHa = isCommissionActive ? (parseFloat(String(employee.commissionPerHectare)) || 0) : 0;
+    const commBroker = parseFloat(String(employee.brokerCommissionValue || 0)) || 0;
+
+    const contractTypeStr = employee.contractType || employee.registrationType || 'Registrado (CLT)';
+    const roleStr = employee.role || (employee.roles && employee.roles[0]) || 'Operador de Forrageira';
+
+    // Payload abrangente suportando tanto nomes de colunas internacionais quanto em português
+    const basePayload: Record<string, any> = {
       id: toValidUUID(employee.id),
       company_id: activeCompanyId,
       name: employee.name,
-      role: employee.role,
+      nome: employee.name,
+      role: roleStr,
+      cargo: roleStr,
       cpf: employee.cpf || '',
       phone: employee.phone || '',
+      telefone: employee.phone || '',
       email: '',
       status: employee.status || 'ativo',
       registration_type: employee.registrationType || 'Funcionário',
-      salary: Number(employee.salary || employee.baseSalary) || 0,
-      admission_date: employee.admissionDate || null,
+      tipo_registro: employee.registrationType || 'Funcionário',
+      contract_type: contractTypeStr,
+      regime: contractTypeStr,
+      salary: parsedSalary,
+      salario: parsedSalary,
+      admission_date: formattedAdmissionDate,
+      data_admissao: formattedAdmissionDate,
+      admitted_at: formattedAdmissionDate,
+      termination_date: formattedTerminationDate,
+      data_demissao: formattedTerminationDate,
+      comissao: parsedCommissionValue,
+      comissao_valor: parsedCommissionValue,
+      commission: parsedCommissionValue,
+      receives_commission: isCommissionActive,
+      recebe_comissao: isCommissionActive,
+      commission_per_hour: commPerHour,
+      comissao_hora: commPerHour,
+      commission_per_alqueire: commPerAlq,
+      comissao_alqueire: commPerAlq,
+      commission_per_hectare: commPerHa,
+      comissao_hectare: commPerHa,
+      broker_commission_value: commBroker,
+      comissao_agenciador: commBroker,
+      broker_commission_type: employee.brokerCommissionType || null,
+      acting_region: employee.actingRegion || null,
+      regiao_atuacao: employee.actingRegion || null,
+      birth_date: formattedBirthDate,
       driver_license: employee.cnhNumber || '',
+      cnh_numero: employee.cnhNumber || '',
       license_category: employee.cnhCategory || '',
-      license_expiry: employee.cnhExpiration || null,
+      cnh_categoria: employee.cnhCategory || '',
+      license_expiry: formattedCnhExpiration,
+      cnh_vencimento: formattedCnhExpiration,
       updated_at: new Date().toISOString()
     };
 
-    let { error } = await supabase
-      .from('rh_funcionarios')
-      .upsert(payload, { onConflict: 'id' });
-
-    if (error) {
-      logPostgresError('upsertRhFuncionario', error, { table: 'rh_funcionarios', action: 'UPSERT', payload });
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
-        delete payload.company_id;
-        const retry = await supabase.from('rh_funcionarios').upsert(payload, { onConflict: 'id' });
-        if (!retry.error) return true;
-      }
-      return false;
+    // 1. Tenta salvar na tabela 'rh_funcionarios'
+    const rhResult = await executeAdaptiveFuncionarioUpsert('rh_funcionarios', basePayload);
+    if (rhResult.success) {
+      // Opcional: tenta atualizar também na tabela 'funcionarios' se ela existir
+      executeAdaptiveFuncionarioUpsert('funcionarios', basePayload).catch(() => {});
+      return true;
     }
-    return true;
+
+    // 2. Se 'rh_funcionarios' não existir, tenta salvar em 'funcionarios'
+    if (rhResult.tableNotFound) {
+      const funcResult = await executeAdaptiveFuncionarioUpsert('funcionarios', basePayload);
+      if (funcResult.success) return true;
+    }
+
+    logPostgresError('upsertRhFuncionario', rhResult.error, { table: 'rh_funcionarios', action: 'UPSERT' });
+    return false;
   } catch (err) {
     console.warn('Supabase upsertRhFuncionario err:', err);
     return false;
@@ -859,13 +1153,26 @@ export async function deleteRhFuncionario(id: string, companyId?: string): Promi
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
+
+    // Deleta de rh_funcionarios
     let query = supabase.from('rh_funcionarios').delete().eq('id', uuid);
     if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-    const { error } = await query;
-    if (error && id !== uuid) {
-      let retry = supabase.from('rh_funcionarios').delete().eq('id', id);
-      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
-      await retry;
+    await query;
+
+    // Deleta também de funcionarios caso essa seja a tabela ativa
+    let funcQuery = supabase.from('funcionarios').delete().eq('id', uuid);
+    if (activeCompanyId) funcQuery = funcQuery.eq('company_id', activeCompanyId);
+    await funcQuery;
+
+    // Se o id original não era UUID, tenta com o id original
+    if (id !== uuid) {
+      let retryRh = supabase.from('rh_funcionarios').delete().eq('id', id);
+      if (activeCompanyId) retryRh = retryRh.eq('company_id', activeCompanyId);
+      await retryRh;
+
+      let retryFunc = supabase.from('funcionarios').delete().eq('id', id);
+      if (activeCompanyId) retryFunc = retryFunc.eq('company_id', activeCompanyId);
+      await retryFunc;
     }
     return true;
   } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Fuel, 
   Plus, 
@@ -17,8 +17,7 @@ import {
 import { FuelLog, Machinery, Employee } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatFuelLogEfficiency, findVehicleForLog, isVehicleHoursControlled } from '../../lib/fuelCalculation';
-import { supabase } from '../../lib/supabaseClient';
-import { fetchAbastecimentos } from '../../lib/supabaseService';
+import { useAbastecimentosRealtime } from '../../hooks/useAbastecimentosRealtime';
 
 interface FleetFuelViewProps {
   fuelLogs: FuelLog[];
@@ -40,68 +39,9 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<string>('todos');
   const [selectedFuelType, setSelectedFuelType] = useState<string>('todos');
-  const [localLogs, setLocalLogs] = useState<FuelLog[]>(fuelLogs);
 
-  useEffect(() => {
-    setLocalLogs(fuelLogs);
-  }, [fuelLogs]);
-
-  // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchUpdatedData = async () => {
-      try {
-        const fresh = await fetchAbastecimentos();
-        if (fresh && fresh.length > 0 && isMounted) {
-          setLocalLogs(fresh);
-        }
-      } catch (err) {
-        console.warn('Erro ao atualizar abastecimentos em tempo real:', err);
-      }
-    };
-
-    // Subscrição ao canal Realtime do Supabase na tabela abastecimentos
-    const canalAbastecimentos = supabase
-      .channel('mudancas-abastecimentos-frota')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'abastecimentos' },
-        (_payload) => {
-          // Re-busca imediata com renderização instantânea da tabela e dos cards
-          fetchUpdatedData(); 
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'site_settings' },
-        (_payload) => {
-          fetchUpdatedData();
-        }
-      )
-      .subscribe();
-
-    // 3. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
-    const intervalId = setInterval(() => {
-      fetchUpdatedData();
-    }, 30000);
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        fetchUpdatedData();
-      }
-    };
-    document.addEventListener('visibilitychange', handleFocus);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      isMounted = false;
-      supabase.removeChannel(canalAbastecimentos);
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleFocus);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
+  // Sincronização em tempo real via Hook unificado (Realtime + Polling 30s + Foco da Janela)
+  const { fuelLogs: localLogs } = useAbastecimentosRealtime(fuelLogs);
 
   // Filtered Fuel Logs
   const filteredLogs = useMemo(() => {
