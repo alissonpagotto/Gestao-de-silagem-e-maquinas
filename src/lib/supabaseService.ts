@@ -926,11 +926,20 @@ async function executeAdaptiveFuncionarioUpsert(
     // Tenta primeiro upsert com onConflict: 'id'
     let { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
     
-    // Se o upsert falhar por erro de sintaxe/onConflict ou 400, tenta fallback direto com update().eq('id', payload.id)
+    // Se o upsert falhar por erro de sintaxe/onConflict ou 400 (Bad Request), tenta fallback direto com update().eq('id', payload.id)
     if (error && payload.id) {
       const msg = error.message || '';
       const code = error.code || '';
-      if (msg.includes('conflict') || msg.includes('ON CONFLICT') || code === '42P10' || code === 'PGRST100') {
+      const status = (error as any).status || (error as any).statusCode;
+      if (
+        msg.includes('conflict') ||
+        msg.includes('ON CONFLICT') ||
+        code === '42P10' ||
+        code === 'PGRST100' ||
+        code === '23505' ||
+        status === 400 ||
+        status === '400'
+      ) {
         const updateResult = await supabase.from(tableName).update(payload).eq('id', payload.id);
         if (!updateResult.error) {
           return { success: true };
