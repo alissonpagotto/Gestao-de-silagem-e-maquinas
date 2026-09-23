@@ -67,10 +67,9 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       cors: true,
       allowedHosts: true,
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // HMR WebSockets disabled in AI Studio iframe environment to prevent WebSocket connection failures
+      hmr: false,
+      watch: null,
     },
   };
 });

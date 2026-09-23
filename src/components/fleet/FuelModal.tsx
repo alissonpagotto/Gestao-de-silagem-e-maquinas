@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles, CheckCircle2, History, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
+import { supabase } from '../../lib/supabaseClient';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -15,16 +16,46 @@ interface FuelModalProps {
   initialMachineryId?: string;
 }
 
+/**
+ * FuelModal: Modal de Abastecimento com arquitetura 100% HTTP assíncrona (PostgREST)
+ * - ZERO conexões de WebSocket / Realtime (.subscribe / .on('postgres_changes') desativados)
+ * - Carregamento resiliente com async/await e try/catch direto na tabela 'gestao_frotas'
+ * - Inputs 100% desbloqueados para digitação manual imediata (sem travas por isLoading ou conexões)
+ */
 export const FuelModal: React.FC<FuelModalProps> = ({
   isOpen,
   onClose,
   onSave,
   editingLog,
-  machineries,
+  machineries: propMachineries,
   employees,
-  fuelLogs = [],
+  fuelLogs: propFuelLogs = [],
   initialMachineryId,
 }) => {
+  // Estado local para veículos e abastecimentos carregados via HTTP padrão (REST)
+  const [dbMachineries, setDbMachineries] = useState<Machinery[]>([]);
+  const [dbFuelLogs, setDbFuelLogs] = useState<FuelLog[]>([]);
+
+  // Lista unificada de veículos (prioriza dados atualizados do banco mantendo props locais de fallback)
+  const availableMachineries = useMemo(() => {
+    if (dbMachineries.length > 0) {
+      // Mescla garantindo que todos os veículos apareçam
+      const map = new Map<string, Machinery>();
+      propMachineries.forEach(m => map.set(m.id, m));
+      dbMachineries.forEach(m => map.set(m.id, { ...(map.get(m.id) || {}), ...m }));
+      return Array.from(map.values());
+    }
+    return propMachineries;
+  }, [propMachineries, dbMachineries]);
+
+  const activeFuelLogs = useMemo(() => {
+    if (dbFuelLogs.length > 0) {
+      return [...dbFuelLogs, ...propFuelLogs.filter(p => !dbFuelLogs.some(d => d.id === p.id))];
+    }
+    return propFuelLogs;
+  }, [propFuelLogs, dbFuelLogs]);
+
+  // Formulário State (totalmente independente de loading flags)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [machineryId, setMachineryId] = useState('');
   const [fuelType, setFuelType] = useState<FuelLog['fuelType']>('Diesel S10');
@@ -32,27 +63,120 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [pricePerLiter, setPricePerLiter] = useState('5.85');
   const [totalAmount, setTotalAmount] = useState('');
   
-  // Meters: KM & Horímetro
+  // Medidores: KM & Horímetro (100% Desbloqueados para Edição Manual)
   const [currentKm, setCurrentKm] = useState('');
   const [previousKm, setPreviousKm] = useState('');
   const [currentHourMeter, setCurrentHourMeter] = useState('');
   const [previousHourMeter, setPreviousHourMeter] = useState('');
-  const [metersSource, setMetersSource] = useState<'local_history' | 'initial_profile'>('initial_profile');
 
   const [driverOrOperator, setDriverOrOperator] = useState('');
   const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
   const [notes, setNotes] = useState('');
   const [createExpense, setCreateExpense] = useState(true);
 
-  const selectedMachinery = useMemo(() => {
-    return machineries.find(m => m.id === machineryId);
-  }, [machineries, machineryId]);
+  // 1. CARREGAMENTO ASSÍNCRONO TRADICIONAL VIA HTTP (ASYNC/AWAIT com try/catch)
+  // Sem WebSocket, sem conexões persistentes - apenas requisição HTTP pontual e estável
+  useEffect(() => {
+    if (!isOpen) return;
 
-  // Histórico de métricas do veículo através de logs anteriores
+    let isMounted = true;
+
+    const loadGestaoFrotasHttp = async () => {
+      try {
+        // Chamada HTTP regular do PostgREST para a tabela 'gestao_frotas'
+        const { data, error } = await supabase
+          .from('gestao_frotas')
+          .select('*');
+
+        if (!error && data && Array.isArray(data) && data.length > 0 && isMounted) {
+          const mappedVehicles: Machinery[] = data.map((row: any) => {
+            const tankCap = row.tank_capacity ?? row.tankCapacity ?? row.fuelCapacityLiters ?? 0;
+            const hourMeterVal = row.horimetro_ou_km_atual ?? row.hourMeter ?? row.hourmeter ?? 0;
+            const kmVal = row.km_atual ?? row.currentKm ?? 0;
+            
+            return {
+              id: String(row.id),
+              name: row.nome || row.name || 'Veículo',
+              nome: row.nome || row.name || 'Veículo',
+              model: row.modelo || row.model || '',
+              modelo: row.modelo || row.model || '',
+              categoryType: row.tipo || row.type || 'veiculo',
+              tipo: row.tipo || row.type || 'veiculo',
+              licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || '',
+              placa_ou_serie: row.placa_ou_serie || row.plate_or_serial || '',
+              brand: row.marca || row.brand || '',
+              fuelCapacityLiters: Number(tankCap) || undefined,
+              tank_capacity: Number(tankCap) || undefined,
+              hourMeter: Number(hourMeterVal) || 0,
+              currentKm: Number(kmVal) || 0,
+              currentFuelPercentage: row.current_fuel_percentage !== undefined ? Number(row.current_fuel_percentage) : 50,
+              operatorOrDriver: row.motorista_responsavel || row.operatorOrDriver || '',
+              averageConsumptionLitersPerHour: row.consumo_medio_hora ? Number(row.consumo_medio_hora) : undefined,
+              averageConsumptionKmPerLiter: row.consumo_medio_km ? Number(row.consumo_medio_km) : undefined,
+              companyId: row.company_id,
+            } as Machinery;
+          });
+
+          setDbMachineries(mappedVehicles);
+        }
+      } catch (err) {
+        // Falha graciosa por HTTP: os dados em memória das props continuam funcionando sem travar a tela
+        console.warn('Busca HTTP gestao_frotas concluída com fallback local:', err);
+      }
+
+      // Busca secundária HTTP segura do histórico recente de abastecimentos
+      try {
+        const { data: logsData, error: logsError } = await supabase
+          .from('abastecimentos')
+          .select('*')
+          .order('data', { ascending: false })
+          .limit(100);
+
+        if (!logsError && logsData && Array.isArray(logsData) && isMounted) {
+          const mappedLogs: FuelLog[] = logsData.map((r: any) => ({
+            id: String(r.id),
+            date: r.data || r.date,
+            machineryId: String(r.machinery_id || r.veiculo_id || ''),
+            machineryPlateOrName: r.placa_ou_nome || '',
+            fuelType: r.tipo_combustivel || r.fuel_type || 'Diesel S10',
+            liters: Number(r.litros || r.liters || 0),
+            pricePerLiter: Number(r.preco_litro || r.price_per_liter || 0),
+            totalAmount: Number(r.valor_total || r.total_amount || 0),
+            currentHourMeterOrKm: Number(r.horimetro_ou_km_atual || 0),
+            previousHourMeterOrKm: r.horimetro_ou_km_anterior ? Number(r.horimetro_ou_km_anterior) : undefined,
+            currentKm: r.km_atual ? Number(r.km_atual) : undefined,
+            previousKm: r.km_anterior ? Number(r.km_anterior) : undefined,
+            currentHourMeter: r.horimetro_atual ? Number(r.horimetro_atual) : undefined,
+            previousHourMeter: r.horimetro_anterior ? Number(r.horimetro_anterior) : undefined,
+            driverOrOperator: r.motorista_operador || '',
+            supplierStation: r.posto_fornecedor || '',
+            notes: r.observacoes || '',
+            createdAt: r.created_at || new Date().toISOString(),
+          }));
+          setDbFuelLogs(mappedLogs);
+        }
+      } catch {
+        // Fallback silencioso sem travar a aplicação
+      }
+    };
+
+    loadGestaoFrotasHttp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  // Veículo Selecionado
+  const selectedMachinery = useMemo(() => {
+    return availableMachineries.find(m => m.id === machineryId) || null;
+  }, [availableMachineries, machineryId]);
+
+  // Histórico de métricas do veículo
   const vehicleMetrics = useMemo(() => {
-    if (!machineryId || !fuelLogs || fuelLogs.length === 0) return null;
-    return calculateVehicleConsumptionMetrics(machineryId, fuelLogs);
-  }, [machineryId, fuelLogs]);
+    if (!machineryId || !activeFuelLogs || activeFuelLogs.length === 0) return null;
+    return calculateVehicleConsumptionMetrics(machineryId, activeFuelLogs);
+  }, [machineryId, activeFuelLogs]);
 
   const historicalAvgLitersPerHour = useMemo(() => {
     return selectedMachinery?.averageConsumptionLitersPerHour ?? vehicleMetrics?.avgLitersPerHour ?? null;
@@ -62,109 +186,31 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     return selectedMachinery?.averageConsumptionKmPerLiter ?? vehicleMetrics?.avgKmPerLiter ?? null;
   }, [selectedMachinery, vehicleMetrics]);
 
-  const prevIsOpenRef = useRef(false);
-
-  /**
-   * CARREGAMENTO DIRETO E INSTANTÂNEO DOS LEITURAS DE HORÍMETRO E KM:
-   * 1. Consulta o histórico local de abastecimentos (fuelLogs) do veículo selecionado.
-   * 2. Se não houver histórico anterior, busca diretamente o Horímetro Inicial e o KM Inicial
-   *    do objeto do veículo já carregado da tabela 'gestao_frotas'.
-   * 3. Execução 100% síncrona e local, sem requisições a tabelas inexistentes,
-   *    mantendo todos os campos liberados e imediatamente editáveis.
-   */
-  const loadVehicleMeters = useCallback((vehicleId: string, mach?: Machinery) => {
-    if (!vehicleId) return;
-
-    const targetMach = mach || machineries.find((m) => m.id === vehicleId);
-
-    // 1. Procura no histórico local de abastecimentos (fuelLogs)
-    const logsForVehicle = (fuelLogs || [])
-      .filter((f) => f.machineryId === vehicleId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    let foundHours: number | null = null;
-    let foundKm: number | null = null;
-    let source: 'local_history' | 'initial_profile' = 'initial_profile';
-
-    if (logsForVehicle.length > 0) {
-      const lastLog = logsForVehicle[0];
-      const h = lastLog.currentHourMeter !== undefined ? lastLog.currentHourMeter : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm <= 50000 ? lastLog.currentHourMeterOrKm : undefined);
-      const k = lastLog.currentKm !== undefined ? lastLog.currentKm : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm > 50000 ? lastLog.currentHourMeterOrKm : undefined);
-      if (h !== undefined && h > 0) {
-        foundHours = h;
-        source = 'local_history';
-      }
-      if (k !== undefined && k > 0) {
-        foundKm = k;
-        source = 'local_history';
-      }
-    }
-
-    // 2. Fallback do perfil do veículo (Horímetro Inicial / KM Inicial da tabela 'gestao_frotas')
-    if (foundHours === null && targetMach) {
-      const machH = targetMach.hourMeter ?? targetMach.horimetro_ou_km_atual;
-      if (machH !== undefined && machH !== null && Number(machH) > 0) {
-        foundHours = Number(machH);
-        source = 'initial_profile';
-      }
-    }
-    if (foundKm === null && targetMach) {
-      const machK = targetMach.currentKm ?? targetMach.horimetro_ou_km_atual;
-      if (machK !== undefined && machK !== null && Number(machK) > 0) {
-        foundKm = Number(machK);
-        source = 'initial_profile';
-      }
-    }
-
-    // Seta imediatamente na tela os valores de forma síncrona
-    setPreviousHourMeter(foundHours !== null ? String(foundHours) : '');
-    setPreviousKm(foundKm !== null ? String(foundKm) : '');
-    setMetersSource(source);
-  }, [fuelLogs, machineries]);
-
-  // Hook estável de inicialização do modal: executa apenas ao abrir ou trocar edição
+  // Inicialização síncrona imediata ao abrir o modal (inputs livres desde o milissegundo 0)
   useEffect(() => {
-    if (!isOpen) {
-      prevIsOpenRef.current = false;
-      return;
-    }
-
-    const wasOpened = !prevIsOpenRef.current;
-    prevIsOpenRef.current = true;
+    if (!isOpen) return;
 
     if (editingLog) {
       setDate(editingLog.date);
       setMachineryId(editingLog.machineryId);
       setFuelType(editingLog.fuelType);
-      setLiters(String(editingLog.liters));
-      setPricePerLiter(String(editingLog.pricePerLiter));
-      setTotalAmount(String(editingLog.totalAmount));
+      setLiters(String(editingLog.liters || ''));
+      setPricePerLiter(String(editingLog.pricePerLiter || '5.85'));
+      setTotalAmount(String(editingLog.totalAmount || ''));
       
-      setCurrentKm(editingLog.currentKm !== undefined ? String(editingLog.currentKm) : (editingLog.currentHourMeterOrKm > 50000 ? String(editingLog.currentHourMeterOrKm) : ''));
-      setPreviousKm(editingLog.previousKm !== undefined ? String(editingLog.previousKm) : (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm > 50000 ? String(editingLog.previousHourMeterOrKm) : ''));
+      setCurrentKm(editingLog.currentKm !== undefined && editingLog.currentKm !== null ? String(editingLog.currentKm) : (editingLog.currentHourMeterOrKm && editingLog.currentHourMeterOrKm > 50000 ? String(editingLog.currentHourMeterOrKm) : ''));
+      setPreviousKm(editingLog.previousKm !== undefined && editingLog.previousKm !== null ? String(editingLog.previousKm) : (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm > 50000 ? String(editingLog.previousHourMeterOrKm) : ''));
       
-      setCurrentHourMeter(editingLog.currentHourMeter !== undefined ? String(editingLog.currentHourMeter) : (editingLog.currentHourMeterOrKm <= 50000 ? String(editingLog.currentHourMeterOrKm) : ''));
-      setPreviousHourMeter(editingLog.previousHourMeter !== undefined ? String(editingLog.previousHourMeter) : (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm <= 50000 ? String(editingLog.previousHourMeterOrKm) : ''));
+      setCurrentHourMeter(editingLog.currentHourMeter !== undefined && editingLog.currentHourMeter !== null ? String(editingLog.currentHourMeter) : (editingLog.currentHourMeterOrKm && editingLog.currentHourMeterOrKm <= 50000 ? String(editingLog.currentHourMeterOrKm) : ''));
+      setPreviousHourMeter(editingLog.previousHourMeter !== undefined && editingLog.previousHourMeter !== null ? String(editingLog.previousHourMeter) : (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm <= 50000 ? String(editingLog.previousHourMeterOrKm) : ''));
       
       setDriverOrOperator(editingLog.driverOrOperator || '');
-      setSupplierStation(editingLog.supplierStation || 'Posto Trevo Petrobras');
+      setSupplierStation(editingLog.supplierStation || 'Tanque da Fazenda');
       setNotes(editingLog.notes || '');
       setCreateExpense(false);
-      setMetersSource('local_history');
-      return;
-    }
-
-    // Inicialização ao abrir novo registro de abastecimento
-    if (wasOpened) {
+    } else {
+      // Novo Registro de Abastecimento
       setDate(new Date().toISOString().split('T')[0]);
-      const initialId = initialMachineryId || (machineries.length > 0 ? machineries[0].id : '');
-      setMachineryId(initialId);
-      const targetMach = machineries.find(m => m.id === initialId);
-      if (targetMach?.operatorOrDriver) {
-        setDriverOrOperator(targetMach.operatorOrDriver.split(',')[0].trim());
-      } else {
-        setDriverOrOperator('');
-      }
       setFuelType('Diesel S10');
       setLiters('');
       setPricePerLiter('5.85');
@@ -175,31 +221,82 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setNotes('');
       setCreateExpense(true);
 
-      if (initialId) {
-        loadVehicleMeters(initialId, targetMach);
-      }
-    }
-  }, [isOpen, editingLog?.id, initialMachineryId, loadVehicleMeters, machineries]);
+      const targetId = initialMachineryId || (availableMachineries.length > 0 ? availableMachineries[0].id : '');
+      setMachineryId(targetId);
 
-  const handleMachineryChange = (id: string) => {
-    setMachineryId(id);
-    const mach = machineries.find((m) => m.id === id);
-    if (mach) {
-      if (mach.operatorOrDriver) {
-        setDriverOrOperator(mach.operatorOrDriver.split(',')[0].trim());
+      const mach = availableMachineries.find(m => m.id === targetId);
+      if (mach) {
+        const initKm = mach.currentKm ?? (mach as any).km_inicial ?? (mach as any).initialKm ?? (mach as any).horimetro_ou_km_atual;
+        const initHours = mach.hourMeter ?? (mach as any).horimetro_inicial ?? (mach as any).initialHourMeter ?? (mach as any).horimetro_ou_km_atual;
+
+        const prevLogs = (activeFuelLogs || [])
+          .filter(l => l.machineryId === targetId)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const lastLog = prevLogs[0];
+
+        const finalKm = lastLog?.currentKm !== undefined && lastLog.currentKm !== null 
+          ? String(lastLog.currentKm) 
+          : (initKm !== undefined && initKm !== null && Number(initKm) > 0 ? String(initKm) : '');
+
+        const finalHours = lastLog?.currentHourMeter !== undefined && lastLog.currentHourMeter !== null 
+          ? String(lastLog.currentHourMeter) 
+          : (initHours !== undefined && initHours !== null && Number(initHours) > 0 ? String(initHours) : '');
+
+        setPreviousKm(finalKm);
+        setPreviousHourMeter(finalHours);
+
+        if (mach.operatorOrDriver) {
+          setDriverOrOperator(mach.operatorOrDriver.split(',')[0].trim());
+        } else {
+          setDriverOrOperator('');
+        }
       } else {
+        setPreviousKm('');
+        setPreviousHourMeter('');
         setDriverOrOperator('');
       }
-      // Ao trocar de veículo, limpa as leituras atuais digitadas e carrega os medidores instantaneamente
-      setCurrentHourMeter('');
+    }
+  }, [isOpen, editingLog]);
+
+  // Seleção de Veículo pelo Usuário
+  const handleMachineryChange = (id: string) => {
+    setMachineryId(id);
+    const mach = availableMachineries.find((m) => m.id === id);
+
+    if (!mach) {
+      setPreviousKm('');
+      setPreviousHourMeter('');
       setCurrentKm('');
-      loadVehicleMeters(id, mach);
+      setCurrentHourMeter('');
+      setDriverOrOperator('');
+      return;
+    }
+
+    const initKm = mach.currentKm ?? (mach as any).km_inicial ?? (mach as any).initialKm ?? (mach as any).horimetro_ou_km_atual;
+    const initHours = mach.hourMeter ?? (mach as any).horimetro_inicial ?? (mach as any).initialHourMeter ?? (mach as any).horimetro_ou_km_atual;
+
+    const prevLogs = (activeFuelLogs || [])
+      .filter((l) => l.machineryId === id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const lastLog = prevLogs[0];
+
+    const prevKmFinal = lastLog?.currentKm !== undefined && lastLog.currentKm !== null
+      ? String(lastLog.currentKm)
+      : (initKm !== undefined && initKm !== null && Number(initKm) > 0 ? String(initKm) : '');
+
+    const prevHourFinal = lastLog?.currentHourMeter !== undefined && lastLog.currentHourMeter !== null
+      ? String(lastLog.currentHourMeter)
+      : (initHours !== undefined && initHours !== null && Number(initHours) > 0 ? String(initHours) : '');
+
+    setPreviousKm(prevKmFinal);
+    setPreviousHourMeter(prevHourFinal);
+    setCurrentKm('');
+    setCurrentHourMeter('');
+
+    if (mach.operatorOrDriver) {
+      setDriverOrOperator(mach.operatorOrDriver.split(',')[0].trim());
     } else {
       setDriverOrOperator('');
-      setPreviousHourMeter('');
-      setPreviousKm('');
-      setCurrentHourMeter('');
-      setCurrentKm('');
     }
   };
 
@@ -221,11 +318,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     calculateTotal(liters, val);
   };
 
-  // Live metrics for this specific refill
+  // Cálculo de Médias em Tempo Real
   const calculatedMetrics = useMemo(() => {
     const l = parseFloat(liters) || 0;
     
-    // 1. KM Average: km/L
+    // Média KM: km/L
     let kmPerLiter: number | null = null;
     const cKm = parseFloat(currentKm);
     const pKm = parseFloat(previousKm);
@@ -233,7 +330,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       kmPerLiter = parseFloat(((cKm - pKm) / l).toFixed(2));
     }
 
-    // 2. Horímetro Average: L/h (Litros por Hora)
+    // Média Horas: L/h
     let litersPerHour: number | null = null;
     const cHour = parseFloat(currentHourMeter);
     const pHour = parseFloat(previousHourMeter);
@@ -261,7 +358,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     if (isNaN(l) || l <= 0 || !machineryId) return;
 
     const machName = selectedMachinery 
-      ? (selectedMachinery.licensePlateOrSerial ? `${selectedMachinery.licensePlateOrSerial} - ${selectedMachinery.model || selectedMachinery.name}` : selectedMachinery.name)
+      ? (selectedMachinery.licensePlateOrSerial ? `[${selectedMachinery.licensePlateOrSerial}] - ${selectedMachinery.model || selectedMachinery.name}` : selectedMachinery.name)
       : 'Veículo';
 
     const log: FuelLog = {
@@ -299,7 +396,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/75 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-5xl w-full shadow-2xl border border-zinc-300 dark:border-stone-700 overflow-hidden flex flex-col max-h-[92vh]">
         
-        {/* Header - Charcoal bg-zinc-800 with White Text */}
+        {/* Cabeçalho */}
         <div className="px-6 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center text-white shadow-xs">
@@ -323,17 +420,16 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body: Layout em Duas Colunas (Formulário à Esquerda + Visualizador do Tanque à Direita) */}
+        {/* Corpo do Modal */}
         <div className="overflow-y-auto flex-1 bg-white dark:bg-stone-900">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-6 items-start">
             
-            {/* Coluna Esquerda: Formulário de Preenchimento (7 colunas no Desktop) */}
+            {/* Formulário à Esquerda (Todos os inputs 100% livres para digitação manual) */}
             <div className="lg:col-span-7">
               <form id="fuel-form" onSubmit={handleSubmit} className="space-y-4">
                 
-                {/* 1. TOPO (MANTIDO): Veículo / Máquina e Data do Abastecimento */}
+                {/* 1. Veículo / Máquina e Data do Abastecimento */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Veículo */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                       Veículo / Máquina <span className="text-rose-500">*</span>
@@ -345,7 +441,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                       className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
                     >
                       <option value="">Selecione o veículo...</option>
-                      {machineries.map((m) => (
+                      {availableMachineries.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}{m.brand ? `${m.brand} ` : ''}{m.model || m.name}
                         </option>
@@ -353,7 +449,6 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     </select>
                   </div>
 
-                  {/* Data */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                       Data do Abastecimento <span className="text-rose-500">*</span>
@@ -368,7 +463,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   </div>
                 </div>
 
-                {/* 2. BLOCO 2 (SUBIR BLOCO VERMELHO): Odômetro / Quilometragem (KM) e Horímetro (Horas de Motor) */}
+                {/* 2. Odômetro / Quilometragem (KM) e Horímetro (Horas de Motor) */}
                 <div className="space-y-3">
                   {/* Seção: Quilometragem (KM) */}
                   <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
@@ -392,21 +487,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           </label>
                           {previousKm && (
                             <span 
-                              className={`text-[10px] font-medium flex items-center space-x-1 ${
-                                metersSource === 'local_history'
-                                  ? 'text-sky-600 dark:text-sky-400'
-                                  : 'text-stone-500 dark:text-stone-400'
-                              }`}
-                              title={
-                                metersSource === 'local_history'
-                                  ? 'Carregado do histórico do último abastecimento'
-                                  : 'Horímetro/KM inicial cadastrado na frota'
-                              }
+                              className="text-[10px] font-medium text-stone-500 dark:text-stone-400 flex items-center space-x-1"
+                              title="Leitura anterior do veículo"
                             >
                               <History className="w-2.5 h-2.5" />
-                              <span>
-                                {metersSource === 'initial_profile' ? 'Inicial (Frota)' : 'Último'}
-                              </span>
+                              <span>Anterior</span>
                             </span>
                           )}
                         </div>
@@ -458,21 +543,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           </label>
                           {previousHourMeter && (
                             <span 
-                              className={`text-[10px] font-medium flex items-center space-x-1 ${
-                                metersSource === 'local_history'
-                                  ? 'text-amber-600 dark:text-amber-400'
-                                  : 'text-stone-500 dark:text-stone-400'
-                              }`}
-                              title={
-                                metersSource === 'local_history'
-                                  ? 'Carregado do histórico do último abastecimento'
-                                  : 'Horímetro/KM inicial cadastrado na frota'
-                              }
+                              className="text-[10px] font-medium text-stone-500 dark:text-stone-400 flex items-center space-x-1"
+                              title="Leitura anterior do veículo"
                             >
                               <History className="w-2.5 h-2.5" />
-                              <span>
-                                {metersSource === 'initial_profile' ? 'Inicial (Frota)' : 'Último'}
-                              </span>
+                              <span>Anterior</span>
                             </span>
                           )}
                         </div>
@@ -503,7 +578,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   </div>
                 </div>
 
-                {/* 3. BLOCO 3 (DESCER BLOCO ROSA): Combustível, Litros Abastecidos, Preço / Litro e Total */}
+                {/* 3. Combustível, Litros Abastecidos, Preço / Litro e Total */}
                 <div className="space-y-3.5 pt-1">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     {/* Combustível */}
@@ -557,7 +632,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Total Financeiro */}
+                  {/* Total Financeiro Formatado no Padrão R$ #.##0,00 */}
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 text-xs font-semibold">
                       <Calculator className="w-4 h-4" />
@@ -569,10 +644,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   </div>
                 </div>
 
-                {/* 4. BLOCO 4 (FIM - BLOCO VERDE): Motorista / Operador e Local / Posto */}
+                {/* 4. Motorista / Operador e Local / Posto */}
                 <div className="space-y-3.5 pt-1">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Motorista / Responsável */}
                     <div>
                       <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                         Motorista / Operador
@@ -591,7 +665,6 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                       </select>
                     </div>
 
-                    {/* Posto / Fornecedor */}
                     <div>
                       <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                         Local / Posto de Abastecimento
@@ -630,7 +703,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               </form>
             </div>
 
-            {/* Coluna Direita: Animação Visual Dinâmica do Tanque de Combustível (5 colunas no Desktop) */}
+            {/* Visualizador do Tanque à Direita */}
             <div className="lg:col-span-5 lg:sticky lg:top-0">
               <FuelTankVisualizer 
                 machinery={selectedMachinery}
@@ -649,7 +722,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           </div>
         </div>
 
-        {/* Footer com Ações */}
+        {/* Rodapé com Ações */}
         <div className="px-6 py-3.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3 shrink-0">
           <button
             type="button"
