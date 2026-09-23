@@ -1014,7 +1014,56 @@ export async function deleteGestaoFrota(id: string, companyId?: string): Promise
   }
 }
 
-// Operações de abastecimento utilizam o histórico local e o perfil da frota ('gestao_frotas')
+// Operações de abastecimento utilizam o histórico local, o perfil da frota ('gestao_frotas') e persistência segura em nuvem
+
+/**
+ * Salva registros de abastecimento na nuvem (Supabase) com fallback seguro sem gerar 404
+ */
+export async function saveCloudFuelLogs(logs: FuelLog[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    if (!cId) return false;
+
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_fuel_logs_${cId}`,
+      hero_title: JSON.stringify(logs),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Aviso ao sincronizar abastecimentos no Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Erro ao salvar abastecimentos na nuvem:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega registros de abastecimento da nuvem com resiliência sem gerar 404 no console
+ */
+export async function fetchCloudFuelLogs(companyId?: string): Promise<FuelLog[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    if (!cId) return null;
+
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_fuel_logs_${cId}`)
+      .maybeSingle();
+
+    if (error || !data?.hero_title) return null;
+    const parsed = JSON.parse(data.hero_title) as FuelLog[];
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 // ===========================================================================
 // Sincronização Global para o Supabase

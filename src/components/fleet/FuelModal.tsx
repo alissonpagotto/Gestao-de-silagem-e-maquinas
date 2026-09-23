@@ -3,7 +3,7 @@ import { X, Fuel, Save, Calculator, Gauge, Clock, History } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { supabase } from '../../lib/supabaseClient';
+import { fetchGestaoFrotas, fetchCloudFuelLogs } from '../../lib/supabaseService';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -89,80 +89,21 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
     const loadGestaoFrotasHttp = async () => {
       try {
-        // Chamada HTTP regular do PostgREST para a tabela 'gestao_frotas'
-        const { data, error } = await supabase
-          .from('gestao_frotas')
-          .select('*');
-
-        if (!error && data && Array.isArray(data) && data.length > 0 && isMounted) {
-          const mappedVehicles: Machinery[] = data.map((row: any) => {
-            const tankCap = row.tank_capacity ?? row.tankCapacity ?? row.fuelCapacityLiters ?? 0;
-            const hourMeterVal = row.horimetro_ou_km_atual ?? row.hourMeter ?? row.hourmeter ?? 0;
-            const kmVal = row.km_atual ?? row.currentKm ?? 0;
-            
-            return {
-              id: String(row.id),
-              name: row.nome || row.name || 'Veículo',
-              nome: row.nome || row.name || 'Veículo',
-              model: row.modelo || row.model || '',
-              modelo: row.modelo || row.model || '',
-              categoryType: row.tipo || row.type || 'veiculo',
-              tipo: row.tipo || row.type || 'veiculo',
-              licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || '',
-              placa_ou_serie: row.placa_ou_serie || row.plate_or_serial || '',
-              brand: row.marca || row.brand || '',
-              fuelCapacityLiters: Number(tankCap) || undefined,
-              tank_capacity: Number(tankCap) || undefined,
-              hourMeter: Number(hourMeterVal) || 0,
-              currentKm: Number(kmVal) || 0,
-              currentFuelPercentage: row.current_fuel_percentage !== undefined ? Number(row.current_fuel_percentage) : 50,
-              operatorOrDriver: row.motorista_responsavel || row.operatorOrDriver || '',
-              averageConsumptionLitersPerHour: row.consumo_medio_hora ? Number(row.consumo_medio_hora) : undefined,
-              averageConsumptionKmPerLiter: row.consumo_medio_km ? Number(row.consumo_medio_km) : undefined,
-              companyId: row.company_id,
-            } as Machinery;
-          });
-
-          setDbMachineries(mappedVehicles);
+        const vehicles = await fetchGestaoFrotas();
+        if (vehicles && vehicles.length > 0 && isMounted) {
+          setDbMachineries(vehicles);
         }
       } catch (err) {
-        // Falha graciosa por HTTP: os dados em memória das props continuam funcionando sem travar a tela
-        console.warn('Busca HTTP gestao_frotas concluída com fallback local:', err);
+        console.warn('Busca HTTP gestao_frotas com fallback local:', err);
       }
 
-      // Busca secundária HTTP segura do histórico recente de abastecimentos
       try {
-        const { data: logsData, error: logsError } = await supabase
-          .from('abastecimentos')
-          .select('*')
-          .order('data', { ascending: false })
-          .limit(100);
-
-        if (!logsError && logsData && Array.isArray(logsData) && isMounted) {
-          const mappedLogs: FuelLog[] = logsData.map((r: any) => ({
-            id: String(r.id),
-            date: r.data || r.date,
-            machineryId: String(r.machinery_id || r.veiculo_id || ''),
-            machineryPlateOrName: r.placa_ou_nome || '',
-            fuelType: r.tipo_combustivel || r.fuel_type || 'Diesel S10',
-            liters: Number(r.litros || r.liters || 0),
-            pricePerLiter: Number(r.preco_litro || r.price_per_liter || 0),
-            totalAmount: Number(r.valor_total || r.total_amount || 0),
-            currentHourMeterOrKm: Number(r.horimetro_ou_km_atual || 0),
-            previousHourMeterOrKm: r.horimetro_ou_km_anterior ? Number(r.horimetro_ou_km_anterior) : undefined,
-            currentKm: r.km_atual ? Number(r.km_atual) : undefined,
-            previousKm: r.km_anterior ? Number(r.km_anterior) : undefined,
-            currentHourMeter: r.horimetro_atual ? Number(r.horimetro_atual) : undefined,
-            previousHourMeter: r.horimetro_anterior ? Number(r.horimetro_anterior) : undefined,
-            driverOrOperator: r.motorista_operador || '',
-            supplierStation: r.posto_fornecedor || '',
-            notes: r.observacoes || '',
-            createdAt: r.created_at || new Date().toISOString(),
-          }));
-          setDbFuelLogs(mappedLogs);
+        const cloudLogs = await fetchCloudFuelLogs();
+        if (cloudLogs && Array.isArray(cloudLogs) && cloudLogs.length > 0 && isMounted) {
+          setDbFuelLogs(cloudLogs);
         }
       } catch {
-        // Fallback silencioso sem travar a aplicação
+        // Fallback silencioso mantendo histórico de abastecimentos das props
       }
     };
 
