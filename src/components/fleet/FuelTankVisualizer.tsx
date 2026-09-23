@@ -473,6 +473,18 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
               </div>
             </div>
 
+            {/* Primeiro Abastecimento: Projeção direta dos litros abastecidos */}
+            {isFirstRecordEffective && !calculationResult.isOverflowing && (
+              <div className="p-2 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 flex items-center justify-between shadow-2xs">
+                <span className="flex items-center space-x-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>
+                    Registro inicial: Nível base 0L (Projeção = Litros abastecidos).
+                  </span>
+                </span>
+              </div>
+            )}
+
             {/* Detalhe do Cálculo do Consumo (Passo 1 das regras de negócio) */}
             {calculationResult.combustivelGasto > 0 && (
               <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-[11px] text-sky-900 dark:text-sky-200 flex items-center justify-between shadow-2xs">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle } from 'lucide-react';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
@@ -287,31 +287,63 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     calculateTotal(liters, val);
   };
 
-  // Cálculo de Médias em Tempo Real
+  // 1. VALIDAÇÃO DE REGISTRO INICIAL (Primeiro Abastecimento de Veículo / Máquina)
+  // Quando um veículo é novo no sistema, KM Anterior ou Horas Anterior vêm nulos, vazios ou zero.
+  const isFirstRecordHour = useMemo(() => {
+    const val = parseFloat(previousHourMeter);
+    return !previousHourMeter || isNaN(val) || val === 0;
+  }, [previousHourMeter]);
+
+  const isFirstRecordKm = useMemo(() => {
+    const val = parseFloat(previousKm);
+    return !previousKm || isNaN(val) || val === 0;
+  }, [previousKm]);
+
+  // Identifica se é primeiro abastecimento no sistema para este lançamento
+  const isFirstRecord = useMemo(() => {
+    if (editingLog) {
+      const pKm = editingLog.previousKm ?? (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm > 50000 ? editingLog.previousHourMeterOrKm : 0);
+      const pHour = editingLog.previousHourMeter ?? (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm <= 50000 ? editingLog.previousHourMeterOrKm : 0);
+      return (!pKm || pKm === 0) && (!pHour || pHour === 0);
+    }
+    return isFirstRecordHour && isFirstRecordKm;
+  }, [editingLog, isFirstRecordHour, isFirstRecordKm]);
+
+  // 2. CÁLCULO DE MÉDIAS EM TEMPO REAL
+  // Se isFirstRecord for verdadeiro, o sistema NÃO tenta calcular a diferença nem subtrair consumo do nível do tanque.
+  // O consumo e médias são definidos temporariamente como nulos / 0 para este lançamento.
   const calculatedMetrics = useMemo(() => {
+    if (isFirstRecord) {
+      return { kmPerLiter: null, litersPerHour: null };
+    }
+
     const l = parseFloat(liters) || 0;
     
     // Média KM: km/L
     let kmPerLiter: number | null = null;
-    const cKm = parseFloat(currentKm);
-    const pKm = parseFloat(previousKm);
-    if (!isNaN(cKm) && !isNaN(pKm) && cKm > pKm && l > 0) {
-      kmPerLiter = parseFloat(((cKm - pKm) / l).toFixed(2));
+    if (!isFirstRecordKm) {
+      const cKm = parseFloat(currentKm);
+      const pKm = parseFloat(previousKm);
+      if (!isNaN(cKm) && !isNaN(pKm) && cKm > pKm && l > 0) {
+        kmPerLiter = parseFloat(((cKm - pKm) / l).toFixed(2));
+      }
     }
 
     // Média Horas: L/h
     let litersPerHour: number | null = null;
-    const cHour = parseFloat(currentHourMeter);
-    const pHour = parseFloat(previousHourMeter);
-    if (!isNaN(cHour) && !isNaN(pHour) && cHour > pHour && l > 0) {
-      litersPerHour = parseFloat((l / (cHour - pHour)).toFixed(2));
+    if (!isFirstRecordHour) {
+      const cHour = parseFloat(currentHourMeter);
+      const pHour = parseFloat(previousHourMeter);
+      if (!isNaN(cHour) && !isNaN(pHour) && cHour > pHour && l > 0) {
+        litersPerHour = parseFloat((l / (cHour - pHour)).toFixed(2));
+      }
     }
 
     return { kmPerLiter, litersPerHour };
-  }, [liters, currentKm, previousKm, currentHourMeter, previousHourMeter]);
+  }, [isFirstRecord, isFirstRecordKm, isFirstRecordHour, liters, currentKm, previousKm, currentHourMeter, previousHourMeter]);
 
-  const displayLitersPerHour = calculatedMetrics.litersPerHour ?? historicalAvgLitersPerHour;
-  const displayKmPerLiter = calculatedMetrics.kmPerLiter ?? historicalAvgKmPerLiter;
+  const displayLitersPerHour = isFirstRecord || isFirstRecordHour ? null : (calculatedMetrics.litersPerHour ?? historicalAvgLitersPerHour);
+  const displayKmPerLiter = isFirstRecord || isFirstRecordKm ? null : (calculatedMetrics.kmPerLiter ?? historicalAvgKmPerLiter);
 
   const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) {
@@ -362,17 +394,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       pricePerLiter: !isNaN(p) && p > 0 ? p : 0,
       totalAmount: !isNaN(t) && t > 0 ? t : (l * (!isNaN(p) && p > 0 ? p : 0)),
       currentHourMeterOrKm: !isNaN(currH) && currH > 0 ? currH : (!isNaN(currK) ? currK : 0),
-      previousHourMeterOrKm: !isNaN(prevH) && prevH > 0 ? prevH : (!isNaN(prevK) ? prevK : undefined),
+      previousHourMeterOrKm: isFirstRecord ? 0 : (!isNaN(prevH) && prevH > 0 ? prevH : (!isNaN(prevK) ? prevK : undefined)),
       currentKm: !isNaN(currK) && currK > 0 ? currK : undefined,
-      previousKm: !isNaN(prevK) && prevK > 0 ? prevK : undefined,
+      previousKm: isFirstRecord || isFirstRecordKm ? undefined : (!isNaN(prevK) && prevK > 0 ? prevK : undefined),
       currentHourMeter: !isNaN(currH) && currH > 0 ? currH : undefined,
-      previousHourMeter: !isNaN(prevH) && prevH > 0 ? prevH : undefined,
-      averageCalculated: calculatedMetrics.kmPerLiter || calculatedMetrics.litersPerHour || undefined,
-      averageKmPerLiter: calculatedMetrics.kmPerLiter || undefined,
-      averageLitersPerHour: calculatedMetrics.litersPerHour || undefined,
+      previousHourMeter: isFirstRecord || isFirstRecordHour ? undefined : (!isNaN(prevH) && prevH > 0 ? prevH : undefined),
+      averageCalculated: isFirstRecord ? undefined : (calculatedMetrics.kmPerLiter || calculatedMetrics.litersPerHour || undefined),
+      averageKmPerLiter: isFirstRecord || isFirstRecordKm ? undefined : (calculatedMetrics.kmPerLiter || undefined),
+      averageLitersPerHour: isFirstRecord || isFirstRecordHour ? undefined : (calculatedMetrics.litersPerHour || undefined),
       currentFuelPercentage: latestCalculation ? Math.round(latestCalculation.novoNivelPorcentagem) : undefined,
       currentFuelLiters: latestCalculation ? latestCalculation.novoNivel : undefined,
-      fuelConsumedLiters: latestCalculation ? latestCalculation.combustivelGasto : undefined,
+      fuelConsumedLiters: isFirstRecord ? 0 : (latestCalculation ? latestCalculation.combustivelGasto : 0),
       tankCapacity: latestCalculation ? latestCalculation.capacidadeTanque : undefined,
       driverOrOperator: driverOrOperator.trim(),
       supplierStation: supplierStation.trim(),
@@ -456,6 +488,19 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   </div>
                 </div>
 
+                {/* Banner Informativo: Primeiro Abastecimento */}
+                {isFirstRecord && (
+                  <div className="p-3 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-start space-x-2.5 text-xs text-amber-900 dark:text-amber-200 shadow-2xs">
+                    <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Primeiro Abastecimento Detectado</span>
+                      <span className="text-amber-800/90 dark:text-amber-300/90 text-[11px] leading-relaxed">
+                        Este é o registro inicial deste veículo no sistema. O cálculo de consumo foi desativado temporariamente (0L) e o nível do tanque partirá de 0L. Preencha apenas a leitura atual, que servirá como base para os próximos abastecimentos.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* 2. Odômetro / Quilometragem (KM) e Horímetro (Horas de Motor) */}
                 <div className="space-y-3">
                   {/* Seção: Quilometragem (KM) */}
@@ -465,11 +510,15 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         <Gauge className="w-4 h-4 text-emerald-600" />
                         <span>Odômetro / Quilometragem (KM)</span>
                       </span>
-                      {displayKmPerLiter !== null && (
+                      {isFirstRecordKm ? (
+                        <span className="text-[10px] font-semibold text-stone-600 dark:text-stone-400 bg-stone-200/80 dark:bg-stone-700/80 px-2 py-0.5 rounded-md">
+                          Registro Inicial
+                        </span>
+                      ) : displayKmPerLiter !== null ? (
                         <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
                           Média: {displayKmPerLiter} km/L
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -478,7 +527,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400">
                             KM Anterior
                           </label>
-                          {previousKm && (
+                          {isFirstRecordKm ? (
+                            <span 
+                              className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/70 px-1.5 py-0.5 rounded flex items-center space-x-1"
+                              title="Primeiro registro deste veículo - campo desabilitado"
+                            >
+                              <span>Primeiro registro</span>
+                            </span>
+                          ) : previousKm ? (
                             <span 
                               className="text-[10px] font-medium text-stone-500 dark:text-stone-400 flex items-center space-x-1"
                               title="Leitura anterior do veículo"
@@ -486,22 +542,34 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               <History className="w-2.5 h-2.5" />
                               <span>Anterior</span>
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <input
                           type="number"
                           step="any"
-                          value={previousKm}
+                          value={isFirstRecordKm ? '' : previousKm}
                           onChange={(e) => setPreviousKm(e.target.value)}
-                          placeholder="Ex: 145000"
-                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          disabled={isFirstRecordKm}
+                          placeholder={isFirstRecordKm ? "Primeiro registro" : "Ex: 145000"}
+                          className={`w-full px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium focus:outline-none transition ${
+                            isFirstRecordKm
+                              ? 'border-stone-200 dark:border-stone-700/60 bg-stone-100/80 dark:bg-stone-800/60 text-stone-400 dark:text-stone-500 cursor-not-allowed select-none placeholder:text-stone-400 dark:placeholder:text-stone-500'
+                              : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500'
+                          }`}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          KM Atual no Abastecimento
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            KM Atual no Abastecimento
+                          </label>
+                          {isFirstRecordKm && (
+                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                              Base para os próximos
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="number"
                           step="any"
@@ -521,11 +589,15 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         <Clock className="w-4 h-4 text-amber-600" />
                         <span>Horímetro (Horas de Motor)</span>
                       </span>
-                      {displayLitersPerHour !== null && (
+                      {isFirstRecordHour ? (
+                        <span className="text-[10px] font-semibold text-stone-600 dark:text-stone-400 bg-stone-200/80 dark:bg-stone-700/80 px-2 py-0.5 rounded-md">
+                          Registro Inicial
+                        </span>
+                      ) : displayLitersPerHour !== null ? (
                         <span className="text-xs font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
                           Média: {displayLitersPerHour} L/h
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -534,7 +606,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400">
                             Horas Anterior
                           </label>
-                          {previousHourMeter && (
+                          {isFirstRecordHour ? (
+                            <span 
+                              className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/70 px-1.5 py-0.5 rounded flex items-center space-x-1"
+                              title="Primeiro registro desta máquina - campo desabilitado"
+                            >
+                              <span>Primeiro registro</span>
+                            </span>
+                          ) : previousHourMeter ? (
                             <span 
                               className="text-[10px] font-medium text-stone-500 dark:text-stone-400 flex items-center space-x-1"
                               title="Leitura anterior do veículo"
@@ -542,22 +621,34 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               <History className="w-2.5 h-2.5" />
                               <span>Anterior</span>
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <input
                           type="number"
                           step="any"
-                          value={previousHourMeter}
+                          value={isFirstRecordHour ? '' : previousHourMeter}
                           onChange={(e) => setPreviousHourMeter(e.target.value)}
-                          placeholder="Ex: 198"
-                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          disabled={isFirstRecordHour}
+                          placeholder={isFirstRecordHour ? "Primeiro registro" : "Ex: 198"}
+                          className={`w-full px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium focus:outline-none transition ${
+                            isFirstRecordHour
+                              ? 'border-stone-200 dark:border-stone-700/60 bg-stone-100/80 dark:bg-stone-800/60 text-stone-400 dark:text-stone-500 cursor-not-allowed select-none placeholder:text-stone-400 dark:placeholder:text-stone-500'
+                              : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-amber-500'
+                          }`}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          Horas Atual no Abastecimento
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            Horas Atual no Abastecimento
+                          </label>
+                          {isFirstRecordHour && (
+                            <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                              Base para os próximos
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="number"
                           step="any"
@@ -707,6 +798,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                 liveKmPerLiter={calculatedMetrics.kmPerLiter}
                 historicalAvgLitersPerHour={historicalAvgLitersPerHour}
                 historicalAvgKmPerLiter={historicalAvgKmPerLiter}
+                isFirstRecord={isFirstRecord}
                 onCalculationChange={setLatestCalculation}
               />
             </div>

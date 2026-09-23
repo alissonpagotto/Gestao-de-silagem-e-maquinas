@@ -100,7 +100,9 @@ export function calculateTankLevelMetrics(input: FuelCalculationInput): FuelCalc
   const anterior = Math.max(0, Number(input.horimetroKmAnterior) || 0);
   const atual = Math.max(0, Number(input.horimetroKmAtual) || 0);
   const litrosAbastecidos = Math.max(0, Number(input.litrosAbastecidos) || 0);
-  const isFirstRecord = Boolean(input.isFirstRecord || anterior === 0);
+  const isFirstRecord = input.isFirstRecord !== undefined
+    ? Boolean(input.isFirstRecord)
+    : Boolean(anterior === 0);
 
   // 1. Cálculo de Consumo (se for primeiro registro, consumo é zero)
   const { distanciaOuTempo, combustivelGasto } = isFirstRecord
