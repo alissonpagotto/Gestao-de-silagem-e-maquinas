@@ -259,13 +259,17 @@ export function findVehicleForLog(log: any, machineries: any[] = []): any | null
   }
   const search = String(log.machineryPlateOrName || log.vehicleName || log.vehiclePlate || '').toLowerCase().trim();
   if (!search) return null;
+  const cleanSearch = search.replace(/[^a-z0-9]/gi, '');
+
   return machineries.find(m => {
+    if (m.id && search === m.id.toLowerCase()) return true;
     const plate = String(m.licensePlateOrSerial || m.plate || m.plateOrSerial || '').toLowerCase().trim();
-    if (plate && search.includes(plate)) return true;
+    const cleanPlate = plate.replace(/[^a-z0-9]/gi, '');
+    if (plate && (search.includes(plate) || (cleanPlate && cleanSearch.includes(cleanPlate)))) return true;
     const name = String(m.name || m.nome || '').toLowerCase().trim();
-    if (name && search.includes(name)) return true;
+    if (name && (search.includes(name) || (name.length > 3 && cleanSearch.includes(name.replace(/[^a-z0-9]/gi, ''))))) return true;
     const model = String(m.model || m.modelo || '').toLowerCase().trim();
-    if (model && search.includes(model)) return true;
+    if (model && (search.includes(model) || (model.length > 3 && cleanSearch.includes(model.replace(/[^a-z0-9]/gi, ''))))) return true;
     return false;
   }) || null;
 }
@@ -396,17 +400,30 @@ export function isVehicleHoursControlled(
     textToCheck.includes('strada') ||
     textToCheck.includes('saveiro') ||
     textToCheck.includes('hilux') ||
-    textToCheck.includes('s10')
+    textToCheck.includes('s10') ||
+    textToCheck.includes('acm')
   ) {
     return false;
   }
 
-  // 5. Validação por campos numéricos do Log
+  // 5. Placas padrão Brasil / Mercosul (ex: ACM-5108, ACM5I08, ABC1234) indicam veículo rodoviário
+  const platePattern = /[a-z]{3}-?[0-9][0-9a-z][0-9]{2}/i;
+  if (platePattern.test(textToCheck)) {
+    return false;
+  }
+
+  // 6. Odômetro elevado (> 25.000) é característico de KM rodoviário
+  const reading = Number(typeof logOrName === 'object' ? (logOrName?.currentHourMeterOrKm || logOrName?.currentKm) : 0);
+  if (reading > 25000) {
+    return false;
+  }
+
+  // 7. Validação por campos numéricos do Log
   if (typeof logOrName === 'object' && logOrName !== null) {
     if (logOrName.averageKmPerLiter || logOrName.media_kml) return false;
     if (logOrName.averageLitersPerHour || logOrName.media_lh) return true;
     if (logOrName.currentKm && !logOrName.currentHourMeter) return false;
-    if (logOrName.currentHourMeter && !logOrName.currentKm) return true;
+    if (logOrName.currentHourMeter && !logOrName.currentKm && reading <= 25000) return true;
   }
 
   // Padrão: Veículos Rodoviários (Caminhões, Carros) operam em KM
@@ -465,7 +482,7 @@ export function formatFuelLogEfficiency(
 
     // 3. Fallback do campo genérico averageCalculated para máquina
     const avgCalc = Number(log.averageCalculated);
-    if (!isNaN(avgCalc) && avgCalc > 0 && !log.averageKmPerLiter) {
+    if (!isNaN(avgCalc) && avgCalc > 0) {
       const fixed = parseFloat(avgCalc.toFixed(2));
       return {
         value: fixed,
@@ -503,8 +520,9 @@ export function formatFuelLogEfficiency(
     }
 
     // 3. Fallback do campo genérico averageCalculated para veículo rodoviário
-    const avgCalc = Number(log.averageCalculated);
-    if (!isNaN(avgCalc) && avgCalc > 0 && !log.averageLitersPerHour) {
+    // Se o log gravou a média no campo genérico averageCalculated ou até mesmo em averageLitersPerHour
+    const avgCalc = Number(log.averageCalculated ?? log.averageLitersPerHour);
+    if (!isNaN(avgCalc) && avgCalc > 0) {
       const fixed = parseFloat(avgCalc.toFixed(2));
       return {
         value: fixed,

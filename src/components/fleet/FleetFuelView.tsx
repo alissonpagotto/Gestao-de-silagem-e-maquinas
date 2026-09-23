@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatFuelLogEfficiency, findVehicleForLog } from '../../lib/fuelCalculation';
+import { formatFuelLogEfficiency, findVehicleForLog, isVehicleHoursControlled } from '../../lib/fuelCalculation';
 
 interface FleetFuelViewProps {
   fuelLogs: FuelLog[];
@@ -225,19 +225,26 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 font-mono text-stone-700 dark:text-stone-300">
-                      {log.currentHourMeterOrKm ? `${log.currentHourMeterOrKm.toLocaleString('pt-BR')}` : '--'}
                       {(() => {
                         const vehicle = findVehicleForLog(log, machineries);
+                        const isHours = vehicle?.controla_por
+                          ? (vehicle.controla_por.toLowerCase() === 'horas')
+                          : isVehicleHoursControlled(vehicle, log);
                         const eff = formatFuelLogEfficiency(log, vehicle);
-                        if (!eff) return null;
+                        const unit = isHours ? 'h' : 'km';
                         return (
-                          <span className={`block text-[10px] font-bold ${
-                            eff.unit === 'L/h' 
-                              ? 'text-amber-600 dark:text-amber-400' 
-                              : 'text-emerald-600 dark:text-emerald-400'
-                          }`}>
-                            {eff.formatted}
-                          </span>
+                          <>
+                            <div>{log.currentHourMeterOrKm ? `${log.currentHourMeterOrKm.toLocaleString('pt-BR')} ${unit}` : '--'}</div>
+                            {eff && (
+                              <span className={`block text-[10px] font-bold ${
+                                eff.unit === 'L/h' 
+                                  ? 'text-amber-600 dark:text-amber-400' 
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                              }`}>
+                                {eff.formatted}
+                              </span>
+                            )}
+                          </>
                         );
                       })()}
                     </td>

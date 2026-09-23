@@ -968,6 +968,8 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         modelo: row.modelo || row.model || '',
         categoryType: row.tipo || row.type || 'veiculo',
         tipo: row.tipo || row.type || 'veiculo',
+        controla_por: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
+        controlBy: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
         licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || '',
         placa_ou_serie: row.placa_ou_serie || row.plate_or_serial || '',
         fleetNumber: row.fleet_number || row.fleetNumber || undefined,

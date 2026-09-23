@@ -274,6 +274,8 @@ export interface Machinery {
   purchaseInstallmentIntervalDays?: number; // Intervalo de dias selecionado (ex: 30 = Mensal, 90 = Trimestral, 180 = Semestral, 365 = Anual)
 
   // Supabase gestao_frotas compatibility fields
+  controla_por?: 'horas' | 'km' | string;
+  controlBy?: 'horas' | 'km' | string;
   horimetro_ou_km_atual?: number;
   tipo?: string;
   nome?: string;

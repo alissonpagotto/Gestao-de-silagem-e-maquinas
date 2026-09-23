@@ -84,7 +84,10 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
 
     return Array.from(map.values()).map(item => {
       const vehicle = findVehicleForLog({ machineryId: item.id, machineryPlateOrName: item.name }, machineries);
-      const isHours = isVehicleHoursControlled(vehicle, item.name);
+      // Lógica condicional: veiculo.controla_por === 'horas' ? 'L/h' : 'km/L'
+      const isHours = vehicle?.controla_por
+        ? (vehicle.controla_por.toLowerCase() === 'horas')
+        : isVehicleHoursControlled(vehicle, item.name);
 
       // Coleta médias válidas calculadas de cada abastecimento
       const validEffs = item.logs
@@ -97,6 +100,16 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
         const avgVal = sumVal / validEffs.length;
         const unit = isHours ? 'L/h' : 'km/L';
         avgEfficiencyText = `${avgVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unit}`;
+      } else {
+        // Fallback: se nenhum log calculou individualmente, verificar se algum log possui averageCalculated
+        const logWithAvg = item.logs.find(l => (l.averageCalculated && l.averageCalculated > 0) || (l.averageKmPerLiter && l.averageKmPerLiter > 0) || (l.averageLitersPerHour && l.averageLitersPerHour > 0));
+        if (logWithAvg) {
+          const rawVal = Number(logWithAvg.averageCalculated || (isHours ? logWithAvg.averageLitersPerHour : logWithAvg.averageKmPerLiter) || logWithAvg.averageLitersPerHour);
+          if (!isNaN(rawVal) && rawVal > 0) {
+            const unit = isHours ? 'L/h' : 'km/L';
+            avgEfficiencyText = `${rawVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unit}`;
+          }
+        }
       }
 
       return {
@@ -108,11 +121,18 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   }, [filteredLogs, machineries]);
 
   const handleExportCsv = () => {
-    const headers = 'Data,Maquina_Veiculo,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Horimetro_KM,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
+    const headers = 'Data,Maquina_Veiculo,Tipo_Controle,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Horimetro_KM,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
     const rows = filteredLogs.map(l => {
       const vehicle = findVehicleForLog(l, machineries);
+      const isHours = vehicle?.controla_por
+        ? (vehicle.controla_por.toLowerCase() === 'horas')
+        : isVehicleHoursControlled(vehicle, l);
       const eff = formatFuelLogEfficiency(l, vehicle);
-      return `"${l.date}","${l.machineryPlateOrName}","${l.fuelType}","${l.liters}","${l.pricePerLiter}","${l.totalAmount}","${l.currentHourMeterOrKm}","${eff?.formatted || ''}","${l.driverOrOperator || ''}","${l.supplierStation || ''}"`;
+      const unit = isHours ? 'h' : 'km';
+      const reading = l.currentHourMeterOrKm ? `${l.currentHourMeterOrKm} ${unit}` : '';
+      const media = eff?.formatted || '';
+      const tipoControle = isHours ? 'Horas (L/h)' : 'KM (km/L)';
+      return `"${l.date}","${l.machineryPlateOrName}","${tipoControle}","${l.fuelType}","${l.liters}","${l.pricePerLiter}","${l.totalAmount}","${reading}","${media}","${l.driverOrOperator || ''}","${l.supplierStation || ''}"`;
     }).join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
@@ -196,7 +216,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                     {m.isMachine ? (
                       <Tractor className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                     ) : (
-                      <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <Truck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     )}
                     <span className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate block">
                       {m.name}
@@ -208,7 +228,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                       <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
                         m.isMachine 
                           ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/50'
-                          : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200/50'
+                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/50'
                       }`}>
                         Média: {m.avgEfficiencyText}
                       </span>
@@ -290,6 +310,9 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
               {filteredLogs.length > 0 ? (
                 filteredLogs.map((item) => {
                   const vehicle = findVehicleForLog(item, machineries);
+                  const isHours = vehicle?.controla_por
+                    ? (vehicle.controla_por.toLowerCase() === 'horas')
+                    : isVehicleHoursControlled(vehicle, item);
                   const eff = formatFuelLogEfficiency(item, vehicle);
 
                   return (
@@ -313,7 +336,11 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                         {formatCurrencyBRL(item.totalAmount)}
                       </td>
                       <td className="py-2.5 px-3.5 text-right font-mono text-stone-600 dark:text-stone-400">
-                        <div>{item.currentHourMeterOrKm ? item.currentHourMeterOrKm.toLocaleString('pt-BR') : '-'}</div>
+                        <div>
+                          {item.currentHourMeterOrKm 
+                            ? `${item.currentHourMeterOrKm.toLocaleString('pt-BR')} ${isHours ? 'h' : 'km'}` 
+                            : '-'}
+                        </div>
                         {eff ? (
                           <span className={`block text-[10px] font-bold mt-0.5 ${
                             eff.unit === 'L/h'
