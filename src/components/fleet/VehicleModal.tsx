@@ -132,6 +132,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     });
   }, [fleetNumber, machineries, editingVehicle]);
 
+  // Identificador visual persistente para fixação no cabeçalho e abas
+  const persistentVehicleIdentifier = useMemo(() => {
+    return (
+      plate.trim() ||
+      (editingVehicle?.name ? editingVehicle.name.trim() : '') ||
+      (model.trim() ? `${brand.trim() ? brand.trim() + ' ' : ''}${model.trim()}` : '') ||
+      ''
+    );
+  }, [plate, editingVehicle, brand, model]);
+
   const [status, setStatus] = useState<Machinery['status']>('disponivel');
   const [ownership, setOwnership] = useState<string>('Próprio');
   const [regimesList, setRegimesList] = useState<string[]>([]);
@@ -1203,25 +1213,32 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/75 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[94vh]"
       >
         
         {/* Header - Charcoal bg-zinc-800 with White Text */}
         <div 
-          className="px-5 sm:px-6 py-3.5 bg-zinc-800 text-white flex items-center justify-between shrink-0 shadow-xs"
+          className="px-4 sm:px-5 py-2.5 bg-zinc-800 text-white flex items-center justify-between shrink-0 shadow-xs"
         >
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-zinc-700 text-white flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-zinc-700 text-white flex items-center justify-center shadow-xs shrink-0">
               <Truck className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 
-                className="text-base sm:text-lg font-bold text-white font-['Outfit']"
-              >
-                {editingVehicle ? 'Editar Veículo / Máquina' : 'Cadastrar Novo Veículo / Máquina'}
-              </h3>
+              <div className="flex items-center space-x-2">
+                <h3 
+                  className="text-sm sm:text-base font-bold text-white font-['Outfit'] tracking-tight"
+                >
+                  {editingVehicle ? 'Editar Veículo / Máquina' : 'Cadastrar Novo Veículo / Máquina'}
+                </h3>
+                {persistentVehicleIdentifier && (
+                  <span className="text-xs font-black bg-zinc-700/90 text-amber-300 border border-zinc-600 px-2 py-0.5 rounded-md font-mono tracking-wide">
+                    {persistentVehicleIdentifier}
+                  </span>
+                )}
+              </div>
               <p 
-                className="text-[11px] text-zinc-300"
+                className="text-[11px] text-zinc-300 line-clamp-1"
               >
                 Gestão de dados cadastrais, dados de propriedade, pesos e controle de compra
               </p>
@@ -1237,47 +1254,70 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           </button>
         </div>
 
-        {/* Tabs Bar with Print Action Buttons */}
+        {/* Tabs Bar with Sticky Vehicle Plate Tag & Print Action Buttons */}
         <div 
-          className="p-2.5 sm:p-3 bg-zinc-100/90 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0"
+          className="p-2 sm:p-2.5 bg-zinc-100/95 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2 shrink-0"
         >
-          {/* Central Tabs: Dados & Histórico */}
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto max-w-md bg-zinc-200/80 p-1 rounded-xl shadow-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('dados')}
-              className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
-                activeTab === 'dados'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span>Dados do Veículo</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('historico')}
-              className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
-                activeTab === 'historico'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-              }`}
-            >
-              <Clock className="w-4 h-4" />
-              <span>Histórico, Consumo & DRE</span>
-            </button>
+          {/* Central Tabs & Persistent Plate Tag */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 gap-1.5 w-full sm:w-auto bg-zinc-200/80 p-1 rounded-xl shadow-xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('dados')}
+                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'dados'
+                    ? 'bg-zinc-800 text-white shadow-xs'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                <Car className="w-3.5 h-3.5" />
+                <span>Dados do Veículo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('historico')}
+                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                  activeTab === 'historico'
+                    ? 'bg-zinc-800 text-white shadow-xs'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Histórico, Consumo & DRE</span>
+              </button>
+            </div>
+
+            {/* Tag Visual Compacta do Veículo / Placa Fixada no Topo (Identificação Persistente) */}
+            {persistentVehicleIdentifier && (
+              <div 
+                className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 bg-white border border-zinc-300 rounded-xl shadow-2xs"
+                title="Veículo atualmente em edição"
+              >
+                <Truck className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
+                <span className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider">
+                  Placa:
+                </span>
+                <span className="text-xs font-black text-zinc-900 font-mono tracking-wide">
+                  {persistentVehicleIdentifier}
+                </span>
+                {fleetNumber && (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                    Frota #{fleetNumber}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons: Imprimir Cadastro & Imprimir Histórico */}
-          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={handlePrintCadastro}
               title="Imprimir Ficha Cadastral do Veículo"
-              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
             >
-              <Printer className="w-4 h-4 text-zinc-700" />
+              <Printer className="w-3.5 h-3.5 text-zinc-700" />
               <span className="font-bold whitespace-nowrap">
                 Imprimir Cadastro
               </span>
@@ -1287,9 +1327,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               type="button"
               onClick={handlePrintHistorico}
               title="Imprimir Relatório de Histórico, Consumo e DRE"
-              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1.5 shadow-xs border border-zinc-300 cursor-pointer text-zinc-800 bg-white hover:bg-zinc-100 active:scale-95"
             >
-              <Printer className="w-4 h-4 text-zinc-700" />
+              <Printer className="w-3.5 h-3.5 text-zinc-700" />
               <span className="font-bold whitespace-nowrap">
                 Imprimir Histórico
               </span>
@@ -1301,42 +1341,42 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         {activeTab === 'dados' && (
           <form 
             onSubmit={handleSubmit} 
-            className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5 bg-zinc-50"
+            className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5 bg-zinc-50"
           >
             
-            {/* SEÇÃO 1: IDENTIFICAÇÃO BÁSICA (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3.5">
-              <div className="flex items-center space-x-2">
+            {/* SEÇÃO 1: IDENTIFICAÇÃO BÁSICA (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2.5">
+              <div className="flex items-center space-x-1.5">
                 <Truck className="w-4 h-4 text-zinc-700" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                   1. IDENTIFICAÇÃO DO VEÍCULO / MÁQUINA
                 </h4>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
                 {/* 1º: Placa do Veículo */}
                 <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Placa do Veículo
                   </label>
                   <input
                     type="text"
                     value={plate}
                     onChange={(e) => setPlate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* 2º: Nº da Frota */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Nº da Frota
                   </label>
                   <input
                     type="text"
                     value={fleetNumber}
                     onChange={(e) => setFleetNumber(e.target.value)}
-                    className={`w-full px-3.5 py-2 rounded-xl border text-zinc-900 text-sm font-bold uppercase focus:outline-none shadow-xs transition-colors ${
+                    className={`w-full px-3 py-1.5 rounded-lg border text-zinc-900 text-xs sm:text-sm font-bold uppercase focus:outline-none shadow-xs transition-colors ${
                       isFleetNumberDuplicate
                         ? 'border-rose-500 ring-2 ring-rose-500/40 bg-rose-50/50 focus:border-rose-600 focus:ring-rose-500'
                         : 'border-zinc-300 bg-white focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700'
@@ -1344,10 +1384,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     placeholder="Ex: 10"
                   />
                   {isFleetNumberDuplicate && (
-                    <div className="mt-1.5 flex items-start space-x-1 text-rose-600">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                      <p className="text-xs font-bold leading-tight">
-                        Este número de frota já está cadastrado em outro veículo. Escolha um número exclusivo.
+                    <div className="mt-1 flex items-start space-x-1 text-rose-600">
+                      <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0 mt-0.5" />
+                      <p className="text-[10px] font-bold leading-tight">
+                        Frota já cadastrada.
                       </p>
                     </div>
                   )}
@@ -1355,84 +1395,84 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 3º: Nº de Série (Chassi / Fabricante) */}
                 <div className="sm:col-span-4">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Nº de Série (Chassi / Fabricante)
                   </label>
                   <input
                     type="text"
                     value={serialNumber}
                     onChange={(e) => setSerialNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* 4º: Código RENAVAM */}
                 <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Código RENAVAM
                   </label>
                   <input
                     type="text"
                     value={renavam}
                     onChange={(e) => setRenavam(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
               </div>
 
               {/* Marca, Modelo, Ano, Cor e Capacidade do Tanque (L) */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+              <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5">
+                <div className="col-span-1 sm:col-span-3">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Marca
                   </label>
                   <input
                     type="text"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                <div className="col-span-1 sm:col-span-3">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Modelo
                   </label>
                   <input
                     type="text"
                     value={model}
                     onChange={(e) => setModel(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
-                    Ano de Fabricação
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                    Ano Fabricação
                   </label>
                   <input
                     type="number"
                     value={year}
                     onChange={(e) => setYear(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Cor
                   </label>
                   <input
                     type="text"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold mb-1 text-zinc-700" title="Capacidade total do tanque de combustível em litros">
-                    Capacidade do Tanque (L)
+                <div className="col-span-2 sm:col-span-2">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700" title="Capacidade total do tanque de combustível em litros">
+                    Tanque (L)
                   </label>
                   <input
                     type="number"
@@ -1446,26 +1486,26 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       }
                     }}
                     placeholder="Ex: 300"
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
               </div>
 
               {/* Categoria do Veículo e Status Operacional */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Categoria do Veículo - Lista Editável */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-zinc-700">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block text-[11px] font-bold text-zinc-700">
                       Categoria do Veículo
                     </label>
                     <button
                       type="button"
                       onClick={() => setIsCategoriesModalOpen(true)}
-                      className="text-[11px] text-zinc-700 hover:text-zinc-900 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
+                      className="text-[10px] text-zinc-700 hover:text-zinc-900 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
                       title="Gerenciar lista: incluir novas ou excluir opções"
                     >
-                      <Tag className="w-3 h-3 text-zinc-600" />
+                      <Tag className="w-2.5 h-2.5 text-zinc-600" />
                       <span>Editar Lista</span>
                     </button>
                   </div>
@@ -1485,7 +1525,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           }
                         }
                       }}
-                      className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
                     >
                       {categoriesList.map((cat) => (
                         <option key={cat} value={cat}>
@@ -1502,22 +1542,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsCategoriesModalOpen(true)}
-                      className="p-2 border border-zinc-300 bg-white hover:bg-zinc-50 rounded-xl text-zinc-700 transition cursor-pointer shrink-0 shadow-xs"
+                      className="p-1.5 border border-zinc-300 bg-white hover:bg-zinc-50 rounded-lg text-zinc-700 transition cursor-pointer shrink-0 shadow-xs"
                       title="Incluir nova categoria ou excluir existente"
                     >
-                      <Plus className="w-4 h-4 text-zinc-700" />
+                      <Plus className="w-3.5 h-3.5 text-zinc-700" />
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Status Operacional
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   >
                     <option value="disponivel">Disponível</option>
                     <option value="operacional">Operacional (Em Atividade / Campo)</option>
@@ -1529,39 +1569,39 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
               {/* BLOCO CONDICIONAL: DETALHAMENTO DO REBOQUE (quando Categoria = Reboque) */}
               {isReboqueCategory && (
-                <div className="pt-3.5 border-t border-zinc-200 space-y-3">
+                <div className="pt-2 border-t border-zinc-200 space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Layers className="w-4 h-4 text-zinc-700" />
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
+                    <div className="flex items-center space-x-1.5">
+                      <Layers className="w-3.5 h-3.5 text-zinc-700" />
+                      <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-800">
                         Detalhamento do Reboque
                       </h5>
                     </div>
-                    <span className="text-[11px] font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-300">
+                    <span className="text-[10px] font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-300">
                       Categoria: Reboque
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
                     {/* Campo: Tipo de Reboque */}
                     <div className="sm:col-span-8">
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-zinc-700">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[11px] font-bold text-zinc-700">
                           Tipo de Reboque
                         </label>
                         <span className="text-[10px] text-zinc-500 font-medium">
-                          Selecione uma opção ou digite livremente
+                          Selecione ou digite livremente
                         </span>
                       </div>
                       
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <input
                           type="text"
                           list="reboque-tipo-sugestoes"
                           value={trailerType}
                           onChange={(e) => setTrailerType(e.target.value)}
                           placeholder="Ex: Prancha, Baú, Graneleiro, Basculante, Sider..."
-                          className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                          className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
                         <datalist id="reboque-tipo-sugestoes">
                           <option value="Prancha" />
@@ -1576,7 +1616,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         </datalist>
 
                         {/* Sugestões rápidas de 1 clique */}
-                        <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
+                        <div className="flex items-center flex-wrap gap-1 pt-0.5">
                           <span className="text-[10px] font-semibold text-zinc-500 mr-0.5">Sugestões:</span>
                           {['Prancha', 'Baú', 'Graneleiro', 'Basculante', 'Sider'].map((tipo) => {
                             const isSelected = trailerType.trim().toLowerCase() === tipo.toLowerCase();
@@ -1585,7 +1625,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                                 key={tipo}
                                 type="button"
                                 onClick={() => setTrailerType(tipo)}
-                                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer shadow-2xs ${
+                                className={`px-2 py-0.5 text-[11px] font-bold rounded border transition cursor-pointer shadow-2xs ${
                                   isSelected
                                     ? 'bg-zinc-800 text-white border-zinc-800'
                                     : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-500 hover:bg-zinc-100'
@@ -1601,10 +1641,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                     {/* Campo: Quantidade de Eixos */}
                     <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                         Quantidade de Eixos
                       </label>
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <input
                           type="number"
                           min={1}
@@ -1612,11 +1652,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           value={trailerAxlesCount}
                           onChange={(e) => setTrailerAxlesCount(e.target.value)}
                           placeholder="Ex: 1, 2, 3, 4+"
-                          className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                          className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
 
                         {/* Atalhos numéricos rápidos */}
-                        <div className="flex items-center gap-1.5 pt-0.5">
+                        <div className="flex items-center gap-1 pt-0.5">
                           <span className="text-[10px] font-semibold text-zinc-500 mr-0.5">Eixos:</span>
                           {['1', '2', '3', '4'].map((num) => {
                             const isSelected = trailerAxlesCount === num;
@@ -1625,7 +1665,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                                 key={num}
                                 type="button"
                                 onClick={() => setTrailerAxlesCount(num)}
-                                className={`flex-1 py-1 text-xs font-bold rounded-lg border text-center transition cursor-pointer shadow-2xs ${
+                                className={`flex-1 py-0.5 text-[11px] font-bold rounded border text-center transition cursor-pointer shadow-2xs ${
                                   isSelected
                                     ? 'bg-zinc-800 text-white border-zinc-800'
                                     : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-500 hover:bg-zinc-100'
@@ -1643,34 +1683,34 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               )}
             </div>
 
-            {/* SEÇÃO: VÍNCULO DE REBOQUE / IMPLEMENTO (CARD BRANCO) */}
+            {/* SEÇÃO: VÍNCULO DE REBOQUE / IMPLEMENTO (CARD BRANCO COMPACTO) */}
             {!isReboqueCategory ? (
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5">
                   <Link2 className="w-4 h-4 text-zinc-700" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
                     Vínculo de Reboque / Implemento
                   </h4>
                 </div>
-                <span className="text-[11px] font-semibold text-zinc-500">
+                <span className="text-[10px] font-semibold text-zinc-500">
                   Acoplamento Operacional
                 </span>
               </div>
 
               {/* 1. Pergunta de Vínculo (Checkbox / Switch) */}
-              <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                <div className="flex items-center space-x-2.5">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition shadow-2xs ${hasCoupledTrailer ? 'bg-zinc-800 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 border border-zinc-200">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition shadow-2xs ${hasCoupledTrailer ? 'bg-zinc-800 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
                     <Truck className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <label htmlFor="coupledTrailerSwitch" className="text-xs font-bold text-zinc-800 cursor-pointer block">
+                    <label htmlFor="coupledTrailerSwitch" className="text-xs font-bold text-zinc-800 cursor-pointer block leading-tight">
                       Este veículo possui reboque vinculado?
                     </label>
-                    <span className="text-[11px] text-zinc-600">
+                    <span className="text-[10px] text-zinc-500">
                       {hasCoupledTrailer 
-                        ? 'Sim — Reboque, carreta ou implemento acoplado a este veículo' 
+                        ? 'Sim — Reboque, carreta ou implemento acoplado' 
                         : 'Não — Veículo operando de forma isolada / sem reboque'}
                     </span>
                   </div>
@@ -1685,8 +1725,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     onChange={(e) => handleToggleCoupledTrailer(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-800"></div>
-                  <span className="ml-2 text-xs font-black uppercase text-zinc-800">
+                  <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-800"></div>
+                  <span className="ml-1.5 text-xs font-black uppercase text-zinc-800">
                     {hasCoupledTrailer ? 'Sim' : 'Não'}
                   </span>
                 </label>
@@ -1694,16 +1734,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
               {/* 2. Bloco Dinâmico do Reboque */}
               {hasCoupledTrailer && (
-                <div className="pt-3 border-t border-zinc-200 space-y-3">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200">
+                <div className="pt-2 border-t border-zinc-200 space-y-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-200">
                     <div className="flex items-center space-x-1.5">
                       <Layers className="w-3.5 h-3.5 text-zinc-700" />
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
+                      <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-800">
                         Dados do Reboque
                       </h5>
                     </div>
                     {candidateTrailers.length > 0 && (
-                      <span className="text-[11px] text-zinc-500 font-medium">
+                      <span className="text-[10px] text-zinc-500 font-medium">
                         Preenchimento manual ou vínculo rápido
                       </span>
                     )}
@@ -1712,13 +1752,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   {/* Seletor Opcional de Reboques Cadastrados */}
                   {candidateTrailers.length > 0 && (
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                         Vincular a partir da Frota Existente (Opcional):
                       </label>
                       <select
                         value={coupledTrailerId}
                         onChange={(e) => handleSelectCandidateTrailer(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       >
                         <option value="">-- Preencher dados manualmente ou selecionar reboque da frota --</option>
                         {candidateTrailers.map((t) => (
@@ -1731,11 +1771,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                   )}
 
                   {/* Grid Proporcional de Campos do Reboque */}
-                  <div className="grid grid-cols-1 sm:grid-cols-[130px_repeat(4,minmax(0,1fr))] gap-4">
-                    {/* 1º: Placa do Reboque (Compacto para 7 caracteres) */}
-                    <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
-                        Placa do Reboque
+                  <div className="grid grid-cols-2 sm:grid-cols-[120px_repeat(4,minmax(0,1fr))] gap-2">
+                    {/* 1º: Placa do Reboque */}
+                    <div className="col-span-1">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                        Placa
                       </label>
                       <input
                         type="text"
@@ -1743,42 +1783,42 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         maxLength={8}
                         value={trailerPlate}
                         onChange={(e) => setTrailerPlate(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       />
                     </div>
 
-                    {/* 2º: Modelo do Reboque (Largura média idêntica aos demais) */}
-                    <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
-                        Modelo do Reboque
+                    {/* 2º: Modelo do Reboque */}
+                    <div className="col-span-1">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                        Modelo
                       </label>
                       <input
                         type="text"
-                        placeholder="Ex: Randon Basculante"
+                        placeholder="Ex: Randon"
                         value={trailerModel}
                         onChange={(e) => setTrailerModel(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       />
                     </div>
 
-                    {/* 3º: Tipo de Reboque (Largura média idêntica aos demais) */}
-                    <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
-                        Tipo de Reboque
+                    {/* 3º: Tipo de Reboque */}
+                    <div className="col-span-1">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                        Tipo
                       </label>
                       <input
                         type="text"
-                        placeholder="Ex: Graneleiro, Caçamba"
+                        placeholder="Ex: Basculante"
                         value={coupledTrailerType}
                         onChange={(e) => setCoupledTrailerType(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                       />
                     </div>
 
-                    {/* 4º: Capacidade Carga (kg) (Largura idêntica aos de Modelo e Tipo) */}
-                    <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
-                        Capacidade Carga (kg)
+                    {/* 4º: Capacidade Carga (kg) */}
+                    <div className="col-span-1">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                        Carga (kg)
                       </label>
                       <div className="relative">
                         <input
@@ -1787,18 +1827,18 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           placeholder="Ex: 25000"
                           value={trailerCapacityLoadKg}
                           onChange={(e) => setTrailerCapacityLoadKg(e.target.value)}
-                          className="w-full px-3 py-2 pr-8 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-zinc-500 pointer-events-none">
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                           kg
                         </span>
                       </div>
                     </div>
 
-                    {/* 5º: Capacidade Volumétrica (m³) (Largura idêntica aos de Modelo e Tipo) */}
-                    <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
-                        Capacidade (m³)
+                    {/* 5º: Capacidade Volumétrica (m³) */}
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                        Volume (m³)
                       </label>
                       <div className="relative">
                         <input
@@ -1807,9 +1847,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           placeholder="Ex: 40"
                           value={trailerCapacityM3}
                           onChange={(e) => setTrailerCapacityM3(e.target.value)}
-                          className="w-full px-3 py-2 pr-8 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                         />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-zinc-500 pointer-events-none">
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                           m³
                         </span>
                       </div>
@@ -1819,103 +1859,122 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               )}
             </div>
             ) : (
-              <div className="p-3.5 sm:p-4 rounded-xl bg-zinc-100/80 border border-zinc-200 flex items-center justify-between text-xs text-zinc-600">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-zinc-200 text-zinc-600 flex items-center justify-center shrink-0">
+              <div className="p-2.5 rounded-xl bg-zinc-100/80 border border-zinc-200 flex items-center justify-between text-xs text-zinc-600">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-lg bg-zinc-200 text-zinc-600 flex items-center justify-center shrink-0">
                     <Link2 className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <span className="font-bold text-zinc-800">Vínculo de Reboque / Implemento: </span>
+                    <span className="font-bold text-zinc-800">Vínculo de Reboque: </span>
                     <span className="text-zinc-600">
-                      Desativado porque o veículo cadastrado já é da categoria <strong>Reboque</strong>.
+                      Desativado porque o veículo já é da categoria <strong>Reboque</strong>.
                     </span>
                   </div>
                 </div>
-                <span className="text-[11px] font-bold text-zinc-600 bg-zinc-200 px-2 py-0.5 rounded-md shrink-0">
+                <span className="text-[10px] font-bold text-zinc-600 bg-zinc-200 px-2 py-0.5 rounded-md shrink-0">
                   Não Aplicável
                 </span>
               </div>
             )}
 
-            {/* SEÇÃO 2: PROPRIEDADE & NO NOME DE QUEM (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center space-x-2">
+            {/* SEÇÃO 2: PROPRIEDADE & NO NOME DE QUEM (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5">
                   <Building className="w-4 h-4 text-zinc-700" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
-                    Propriedade & Documentação ("No Nome de Quem")
+                    2. Propriedade & Documentação ("No Nome de Quem")
                   </h4>
                 </div>
-                <div className="flex items-center space-x-1.5 self-end sm:self-auto">
-                  <span className="text-[11px] text-zinc-600 font-semibold">Regime:</span>
-                  <select
-                    value={ownership}
-                    onChange={(e) => {
-                      if (e.target.value === '__manage__') {
-                        setIsRegimesModalOpen(true);
-                      } else {
-                        setOwnership(e.target.value);
-                      }
-                    }}
-                    className="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 cursor-pointer shadow-xs"
-                  >
-                    {regimesList.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                    {!regimesList.includes(ownership) && ownership && (
-                      <option value={ownership}>{ownership}</option>
-                    )}
-                    <option disabled>──────────</option>
-                    <option value="__manage__">+ Incluir ou Excluir Regimes...</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsRegimesModalOpen(true)}
-                    className="p-1 border border-zinc-300 bg-white hover:bg-zinc-50 rounded-lg text-zinc-700 transition cursor-pointer shrink-0 shadow-xs"
-                    title="Incluir novo regime ou excluir opções da lista"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-zinc-700" />
-                  </button>
-                </div>
+                <span className="text-[10px] text-zinc-500 font-medium hidden sm:inline">
+                  Regime patrimonial e titularidade
+                </span>
               </div>
 
-              {/* Titular Principal */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+              {/* Grid 3 colunas: Regime, Proprietário, CNPJ/CPF */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                {/* Regime */}
+                <div className="sm:col-span-3">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block text-[11px] font-bold text-zinc-700">Regime</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsRegimesModalOpen(true)}
+                      className="text-[10px] text-zinc-700 hover:text-zinc-900 hover:underline font-bold cursor-pointer"
+                      title="Gerenciar lista de regimes"
+                    >
+                      Editar
+                    </button>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <select
+                      value={ownership}
+                      onChange={(e) => {
+                        if (e.target.value === '__manage__') {
+                          setIsRegimesModalOpen(true);
+                        } else {
+                          setOwnership(e.target.value);
+                        }
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 cursor-pointer shadow-xs"
+                    >
+                      {regimesList.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                      {!regimesList.includes(ownership) && ownership && (
+                        <option value={ownership}>{ownership}</option>
+                      )}
+                      <option disabled>──────────</option>
+                      <option value="__manage__">+ Gerenciar Regimes...</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsRegimesModalOpen(true)}
+                      className="p-1.5 border border-zinc-300 bg-white hover:bg-zinc-50 rounded-lg text-zinc-700 transition cursor-pointer shrink-0 shadow-xs"
+                      title="Incluir novo regime ou excluir opções da lista"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-zinc-700" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Titular Principal */}
+                <div className="sm:col-span-5">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Está no Nome de Quem (Razão Social ou Nome do Proprietário)
                   </label>
                   <input
                     type="text"
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    placeholder="Nome constante no documento"
                   />
-                  <p className="text-[10px] text-zinc-500 mt-1">Nome constante no documento do veículo</p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                {/* CNPJ / CPF */}
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     CNPJ ou CPF do Proprietário
                   </label>
                   <input
                     type="text"
                     value={ownerDocument}
                     onChange={(e) => setOwnerDocument(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    placeholder="00.000.000/0000-00 ou CPF"
                   />
-                  <p className="text-[10px] text-zinc-500 mt-1">Permite veículos no CPF e no CNPJ da empresa</p>
                 </div>
               </div>
 
               {/* Segundo Proprietário / Sócio (Opcional) */}
               {showSecondaryOwner ? (
-                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-2.5">
+                <div className="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-zinc-800">
+                    <span className="text-[11px] font-bold text-zinc-800">
                       Segundo Proprietário / Coproprietário / Sócio
                     </span>
                     <button
@@ -1925,26 +1984,28 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         setSecondaryOwnerName('');
                         setSecondaryOwnerDocument('');
                       }}
-                      className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                      className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
                     >
                       Remover segundo titular
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <input
                         type="text"
+                        placeholder="Nome do coproprietário"
                         value={secondaryOwnerName}
                         onChange={(e) => setSecondaryOwnerName(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
                     <div>
                       <input
                         type="text"
+                        placeholder="CPF ou CNPJ do coproprietário"
                         value={secondaryOwnerDocument}
                         onChange={(e) => setSecondaryOwnerDocument(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
                   </div>
@@ -1953,135 +2014,138 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowSecondaryOwner(true)}
-                  className="inline-flex items-center space-x-1.5 text-xs text-zinc-700 font-bold hover:text-zinc-900 hover:underline cursor-pointer"
+                  className="inline-flex items-center space-x-1.5 text-[11px] text-zinc-700 font-bold hover:text-zinc-900 hover:underline cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 text-zinc-700" />
+                  <Plus className="w-3 h-3 text-zinc-700" />
                   <span>Possui mais de um sócio / coproprietário? Adicionar segundo titular</span>
                 </button>
               )}
             </div>
 
-            {/* SEÇÃO 3: CONTROLE DE PESO (TARA & LOTAÇÃO) E MEDIÇÕES (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3.5">
-              <div className="flex items-center space-x-2">
-                <Weight className="w-4 h-4 text-zinc-700" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
-                  Controle de Pesos, Capacidade & Odômetro/Horímetro
-                </h4>
+            {/* SEÇÃO 3: CONTROLE DE PESO (TARA & LOTAÇÃO) E MEDIÇÕES (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5">
+                  <Weight className="w-4 h-4 text-zinc-700" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
+                    3. Controle de Pesos, Capacidade & Odômetro/Horímetro
+                  </h4>
+                </div>
+                <span className="text-[10px] text-zinc-500 font-medium hidden sm:inline">
+                  Métricas de carga e leituras atuais
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                {/* Tara (kg) */}
+              {/* Grid 6 Colunas Densa: Tara, Lotação, PBT Calculado, Caçamba, Horímetro, Odômetro */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {/* 1. Tara (kg) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Peso do veículo vazio sem carga">
                     Tara (kg)
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       step="any"
+                      placeholder="0"
                       value={taraWeightKg}
                       onChange={(e) => setTaraWeightKg(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                       kg
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1">Peso do veículo vazio sem carga</p>
                 </div>
 
-                {/* Lotação (kg) */}
+                {/* 2. Lotação (kg) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Carga máxima útil permitida">
                     Lotação (kg)
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       step="any"
+                      placeholder="0"
                       value={capacityLoadKg}
                       onChange={(e) => setCapacityLoadKg(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                       kg
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1">Carga máxima útil permitida</p>
                 </div>
 
-                {/* PBT Calculado */}
-                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-zinc-700 uppercase">
-                    PBT Calculado (Tara + Lotação)
+                {/* 3. PBT Calculado */}
+                <div className="h-[48px] sm:h-[50px] p-1.5 bg-zinc-50 rounded-lg border border-zinc-200 flex flex-col justify-center text-center">
+                  <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-tight leading-none">
+                    PBT Calculado
                   </span>
-                  <div className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                  <div className="text-xs sm:text-sm font-black text-zinc-900 font-mono my-0.5 leading-none">
                     {computedPbt > 0 ? `${computedPbt.toLocaleString('pt-BR')} kg` : '--'}
                   </div>
-                  <span className="text-[10px] text-zinc-500">
-                    {computedPbt > 0 ? `Equivale a ${(computedPbt / 1000).toFixed(1)} toneladas` : 'Informe Tara e Lotação'}
+                  <span className="text-[9px] text-zinc-500 leading-none">
+                    {computedPbt > 0 ? `${(computedPbt / 1000).toFixed(1)} t` : 'Tara + Lotação'}
                   </span>
                 </div>
-              </div>
 
-              {/* Volume M3, Horímetro e Odômetro */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
-                {/* Capacidade M³ */}
+                {/* 4. Caçamba (m³) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-zinc-700">
-                    <Layers className="w-3.5 h-3.5 text-zinc-600" />
-                    <span>Capacidade Caçamba (m³)</span>
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Capacidade da caçamba ou volume útil">
+                    Caçamba (m³)
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       step="0.1"
+                      placeholder="0.0"
                       value={capacityM3}
                       onChange={(e) => setCapacityM3(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                       m³
                     </span>
                   </div>
                 </div>
 
-                {/* Horímetro Atual */}
+                {/* 5. Horímetro Atual */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-zinc-700">
-                    <Clock className="w-3.5 h-3.5 text-zinc-600" />
-                    <span>Horímetro Atual (Horas)</span>
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Leitura atual do horímetro em horas">
+                    Horímetro (h)
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       step="any"
+                      placeholder="0"
                       value={hourMeter}
                       onChange={(e) => setHourMeter(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                       h
                     </span>
                   </div>
                 </div>
 
-                {/* Odômetro Atual */}
+                {/* 6. Odômetro Atual */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 flex items-center space-x-1 text-zinc-700">
-                    <Gauge className="w-3.5 h-3.5 text-zinc-600" />
-                    <span>Odômetro Atual (KM)</span>
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Quilometragem atual do odômetro">
+                    Odômetro (km)
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       step="any"
+                      placeholder="0"
                       value={currentKm}
                       onChange={(e) => setCurrentKm(e.target.value)}
-                      className="w-full px-3.5 py-2 pr-12 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                       km
                     </span>
                   </div>
@@ -2089,22 +2153,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               </div>
             </div>
 
-            {/* SEÇÃO 4: CONTROLE DE COMPRA, NOTA FISCAL & FINANCIAMENTO (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center space-x-2">
+            {/* SEÇÃO 4: CONTROLE DE COMPRA, NOTA FISCAL & FINANCIAMENTO (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <div className="flex items-center space-x-1.5">
                   <Receipt className="w-4 h-4 text-zinc-700" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
-                    Controle de Compra, Nota Fiscal & Financiamento
+                    4. Controle de Compra, Nota Fiscal & Financiamento
                   </h4>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-medium text-zinc-600">Modalidade:</span>
+                <div className="flex items-center space-x-1.5 self-end sm:self-auto">
+                  <span className="text-[11px] font-semibold text-zinc-600">Modalidade:</span>
                   <div className="inline-flex rounded-lg p-0.5 bg-zinc-200 border border-zinc-300">
                     <button
                       type="button"
                       onClick={() => setIsFinanced(false)}
-                      className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
                         !isFinanced ? 'bg-zinc-800 text-white shadow-xs' : 'text-zinc-700 hover:text-zinc-900'
                       }`}
                     >
@@ -2113,7 +2177,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsFinanced(true)}
-                      className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
                         isFinanced ? 'bg-zinc-800 text-white shadow-xs' : 'text-zinc-700 hover:text-zinc-900'
                       }`}
                     >
@@ -2123,8 +2187,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 </div>
               </div>
 
-              {/* Dados da Nota de Compra e Valor */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              {/* Dados da Nota de Compra e Valor: 4 colunas */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {/* Valor de Compra */}
                 <div>
                   <CurrencyInput
@@ -2133,7 +2197,6 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     value={purchaseValue}
                     onChange={(numericValue, formattedValue) => {
                       setPurchaseValue(formattedValue);
-                      // Se estiver financiado e tiver parcelas, calcula sugestão
                       const count = parseInt(installmentsCount, 10);
                       if (isFinanced && count > 0 && numericValue > 0) {
                         const parcelVal = numericValue / count;
@@ -2146,64 +2209,67 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* Nota Fiscal de Compra */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Nota Fiscal de Compra
                   </label>
                   <input
                     type="text"
                     value={purchaseInvoiceNumber}
                     onChange={(e) => setPurchaseInvoiceNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    placeholder="Ex: 001.234"
                   />
                 </div>
 
                 {/* Data da Compra */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Data da Compra
                   </label>
                   <input
                     type="date"
                     value={purchaseDate}
                     onChange={(e) => setPurchaseDate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                 </div>
 
                 {/* Fornecedor / Vendedor */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Concessionária / Vendedor
                   </label>
                   <input
                     type="text"
                     value={purchaseSupplier}
                     onChange={(e) => setPurchaseSupplier(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    placeholder="Nome do fornecedor"
                   />
                 </div>
               </div>
 
               {/* Chave de Acesso e Anexo da Nota */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                <div className="sm:col-span-7">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Chave de Acesso da NF-e (44 dígitos)
                   </label>
                   <input
                     type="text"
                     value={purchaseInvoiceKey}
                     onChange={(e) => setPurchaseInvoiceKey(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                    placeholder="44 dígitos numéricos"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
-                    Anexar Arquivo da Nota Fiscal (PDF ou Imagem)
+                <div className="sm:col-span-5">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                    Anexo da Nota Fiscal (PDF/Imagem)
                   </label>
                   <div className="flex items-center space-x-2">
-                    <label className="px-3.5 py-2 rounded-xl border border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition shadow-xs">
+                    <label className="px-3 py-1.5 rounded-lg border border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition shadow-xs">
                       <Paperclip className="w-3.5 h-3.5 text-zinc-700" />
                       <span>Selecionar Arquivo...</span>
                       <input type="file" onChange={handleFileUpload} className="hidden" accept=".pdf,image/*" />
@@ -2211,7 +2277,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     {purchaseAttachmentName && (
                       <span className="text-xs text-zinc-800 font-medium truncate max-w-xs flex items-center space-x-1">
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                        <span>{purchaseAttachmentName}</span>
+                        <span className="truncate">{purchaseAttachmentName}</span>
                       </span>
                     )}
                   </div>
@@ -2220,43 +2286,42 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
               {/* SE FINANCIADO / PARCELADO */}
               {isFinanced && (
-                <div className="p-3.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                     <span className="text-xs font-bold text-zinc-800 flex items-center space-x-1.5">
-                      <CreditCard className="w-4 h-4 text-zinc-700" />
+                      <CreditCard className="w-3.5 h-3.5 text-zinc-700" />
                       <span>Condições do Financiamento / Parcelamento</span>
                     </span>
                     <div className="flex items-center space-x-2">
                       {editingVehicle?.installmentsGenerated && (
                         <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 border border-zinc-300">
-                          Parcelas já lançadas no Contas a Pagar
+                          Lançadas no Contas a Pagar
                         </span>
                       )}
                       <button
                         type="button"
                         id="btn-abrir-modal-parcelas-compra-financiamento"
                         onClick={handleOpenPurchaseInstallmentsModal}
-                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-900 text-white text-xs font-bold rounded-lg transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-98"
+                        className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-900 text-white text-[11px] font-bold rounded-lg transition flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-98"
                         title="Abrir a grade de Parcelas Geradas para Compra / Financiamento"
                       >
-                        <CreditCard className="w-3.5 h-3.5 text-zinc-200" />
+                        <CreditCard className="w-3 h-3 text-zinc-200" />
                         <span>Parcelas da Compra / Financiamento</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Feedback se as parcelas foram recém geradas */}
                   {installmentsCreatedFeedback && (
-                    <div className="p-2 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center space-x-2 text-emerald-800 text-xs font-bold animate-in fade-in">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="p-1.5 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center space-x-2 text-emerald-800 text-xs font-bold animate-in fade-in">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Parcelas de compra/financiamento gravadas com sucesso no módulo financeiro (Contas a Pagar)!</span>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {/* Quantidade de parcelas */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                         Qtd. de Parcelas
                       </label>
                       <input
@@ -2265,7 +2330,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         max="120"
                         value={installmentsCount}
                         onChange={(e) => handleInstallmentsCountChange(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
 
@@ -2284,47 +2349,48 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                     {/* Data 1º Vencimento */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                         1º Vencimento
                       </label>
                       <input
                         type="date"
                         value={firstInstallmentDueDate}
                         onChange={(e) => setFirstInstallmentDueDate(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                       />
                     </div>
 
                     {/* Banco / Financeira */}
                     <div>
-                      <label className="block text-xs font-bold mb-1 text-zinc-700">
+                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                         Banco / Instituição
                       </label>
                       <input
                         type="text"
                         value={financialInstitution}
                         onChange={(e) => setFinancialInstitution(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                        placeholder="Ex: Santander"
                       />
                     </div>
                   </div>
 
                   {/* Automação: Incluir no Contas a Pagar */}
                   {!editingVehicle?.installmentsGenerated && (
-                    <div className="pt-2 border-t border-zinc-200 flex items-start space-x-2.5">
+                    <div className="pt-1.5 border-t border-zinc-200 flex items-center space-x-2">
                       <input
                         type="checkbox"
                         id="generatePayablesCheck"
                         checked={generatePayables}
                         onChange={(e) => setGeneratePayables(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-zinc-800 focus:ring-zinc-700 cursor-pointer accent-zinc-800"
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-zinc-800 focus:ring-zinc-700 cursor-pointer accent-zinc-800"
                       />
                       <label htmlFor="generatePayablesCheck" className="text-xs text-zinc-800 cursor-pointer">
                         <strong className="text-zinc-900">
                           Incluir as parcelas no Contas a Pagar automaticamente
                         </strong>
-                        <span className="block text-[11px] text-zinc-600">
-                          O sistema irá gerar as {installmentsCount || 'X'} despesas mensais sequenciais no módulo financeiro vinculadas à aquisição deste veículo.
+                        <span className="text-[11px] text-zinc-500 ml-1">
+                          ({installmentsCount || 'X'} despesas mensais sequenciais)
                         </span>
                       </label>
                     </div>
@@ -2333,22 +2399,22 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               )}
             </div>
 
-            {/* SEÇÃO 4: CONTROLE PATRIMONIAL, IMPOSTOS & TAXAS */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-200">
-                <div className="flex items-center space-x-2">
+            {/* SEÇÃO 5: CONTROLE PATRIMONIAL, IMPOSTOS & TAXAS (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-zinc-200">
+                <div className="flex items-center space-x-1.5">
                   <ShieldCheck className="w-4 h-4 text-zinc-700" />
                   <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
-                    4. Controle Patrimonial, Impostos & Taxas
+                    5. Controle Patrimonial, Impostos & Taxas
                   </h4>
                 </div>
-                <span className="text-[11px] text-zinc-500 font-medium">
+                <span className="text-[10px] text-zinc-500 font-medium">
                   Ativo Imobilizado, Avaliação FIPE e Tributos da Frota
                 </span>
               </div>
 
-              {/* Grid dos Campos de Avaliação e IPVA */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* Grid dos Campos de Avaliação e IPVA: 6 colunas */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {/* 1. Valor Comercial Tabela FIPE (R$) */}
                 <div className="sm:col-span-1 lg:col-span-2">
                   <CurrencyInput
@@ -2377,8 +2443,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 3. Alíquota IPVA (%) */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
-                    Alíquota IPVA (%)
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
+                    Alíquota (%)
                   </label>
                   <div className="relative">
                     <input
@@ -2387,9 +2453,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       placeholder="Ex: 2"
                       value={ipvaRatePercent}
                       onChange={(e) => setIpvaRatePercent(e.target.value)}
-                      className="w-full px-3 py-2 pr-7 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                      className="w-full px-2.5 py-1.5 pr-6 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                     />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500">
                       %
                     </span>
                   </div>
@@ -2397,10 +2463,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 4. Valor Total IPVA (R$) - Calculado Automaticamente */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate">
                     Total IPVA (R$)
                   </label>
-                  <div className="px-3 py-2 rounded-xl border border-zinc-300 bg-zinc-100 text-zinc-900 text-xs sm:text-sm font-black flex items-center h-[38px]">
+                  <div className="px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-zinc-100 text-zinc-900 text-xs font-black flex items-center h-[34px]">
                     {computedIpvaTotal > 0 
                       ? computedIpvaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                       : 'R$ 0,00'}
@@ -2408,19 +2474,19 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 </div>
               </div>
 
-              {/* Linha de Parcelamento e Licenciamento */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+              {/* Linha de Parcelamento e Licenciamento: 4 colunas */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 pt-0.5">
                 {/* 5. Qtd. Parcelas IPVA */}
                 <div>
-                  <label className="block text-xs font-bold mb-1 text-zinc-700">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
                     Qtd. Parcelas IPVA
                   </label>
                   <select
                     value={ipvaInstallmentsCount}
                     onChange={(e) => setIpvaInstallmentsCount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 h-[34px]"
                   >
-                    <option value="1">1x (À Vista / Cota Única)</option>
+                    <option value="1">1x (À Vista)</option>
                     <option value="2">2x mensais</option>
                     <option value="3">3x mensais</option>
                     <option value="4">4x mensais</option>
@@ -2432,7 +2498,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 <div>
                   <CurrencyInput
                     id="licensingValueInput"
-                    label="Valor do Licenciamento (R$)"
+                    label="Valor Licenciamento (R$)"
                     value={licensingValue}
                     onChange={(numericValue, formattedValue) => {
                       setLicensingValue(formattedValue);
@@ -2443,22 +2509,19 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 7. Ação de Lançar IPVA no Financeiro */}
                 <div className="flex flex-col justify-end">
-                  <span className="block text-[10px] font-bold text-zinc-500 mb-1">
-                    Integração Contas a Pagar
-                  </span>
                   {ipvaFinancialStatus === 'lancado' ? (
-                    <div className="h-[38px] px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between gap-1 text-emerald-800 text-xs font-black">
+                    <div className="h-[34px] px-2 rounded-lg bg-emerald-50 border border-emerald-300 flex items-center justify-between gap-1 text-emerald-800 text-xs font-black">
                       <div className="flex items-center space-x-1 truncate">
-                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span className="truncate">IPVA Lançado</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleLaunchIpva}
-                        className="px-2 py-1 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-lg text-[10px] font-bold text-emerald-900 transition cursor-pointer shrink-0 shadow-2xs"
+                        className="px-1.5 py-0.5 bg-white hover:bg-emerald-100 border border-emerald-300 rounded text-[10px] font-bold text-emerald-900 transition cursor-pointer shrink-0 shadow-2xs"
                         title="Ver parcelas geradas ou lançar novamente"
                       >
-                        Ver / Gerar
+                        Ver/Gerar
                       </button>
                     </div>
                   ) : (
@@ -2466,70 +2529,61 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       type="button"
                       onClick={handleLaunchIpva}
                       disabled={computedIpvaTotal <= 0}
-                      className="h-[38px] px-3 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-[34px] px-2.5 rounded-lg border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Landmark className="w-4 h-4 text-zinc-700" />
-                      <span>Lançar IPVA no Financeiro</span>
+                      <Landmark className="w-3.5 h-3.5 text-zinc-700" />
+                      <span>Lançar IPVA</span>
                     </button>
                   )}
-                  <span className="text-[11px] text-zinc-500 text-center mt-1.5 leading-tight">
-                    Último lançamento: {effectiveIpvaLaunchDate ? formatDateBR(effectiveIpvaLaunchDate) : '-'}
-                  </span>
                 </div>
 
                 {/* 8. Ação de Lançar Licenciamento no Financeiro */}
                 <div className="flex flex-col justify-end">
-                  <span className="block text-[10px] font-bold text-zinc-500 mb-1">
-                    Taxa Anual CRLV
-                  </span>
                   {licensingFinancialStatus === 'lancado' ? (
-                    <div className="h-[38px] px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between gap-1 text-emerald-800 text-xs font-black">
+                    <div className="h-[34px] px-2 rounded-lg bg-emerald-50 border border-emerald-300 flex items-center justify-between gap-1 text-emerald-800 text-xs font-black">
                       <div className="flex items-center space-x-1 truncate">
-                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="truncate">✓ Licenciamento Lançado</span>
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">✓ Licenciamento</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleLaunchLicensing}
-                        className="px-2 py-1 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-lg text-[10px] font-bold text-emerald-900 transition cursor-pointer shrink-0 shadow-2xs"
+                        className="px-1.5 py-0.5 bg-white hover:bg-emerald-100 border border-emerald-300 rounded text-[10px] font-bold text-emerald-900 transition cursor-pointer shrink-0 shadow-2xs"
                         title="Ver dados do licenciamento ou lançar novamente"
                       >
-                        Ver / Gerar
+                        Ver/Gerar
                       </button>
                     </div>
                   ) : (
                     <button
                       type="button"
                       onClick={handleLaunchLicensing}
-                      className="h-[38px] px-3 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
+                      className="h-[34px] px-2.5 rounded-lg border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
                     >
-                      <DollarSign className="w-4 h-4 text-zinc-700" />
+                      <DollarSign className="w-3.5 h-3.5 text-zinc-700" />
                       <span>Lançar Licenciamento</span>
                     </button>
                   )}
-                  <span className="text-[11px] text-zinc-500 text-center mt-1.5 leading-tight">
-                    Último lançamento: {effectiveLicensingLaunchDate ? formatDateBR(effectiveLicensingLaunchDate) : '-'}
-                  </span>
                 </div>
               </div>
             </div>
 
-            {/* SEÇÃO 5: MOTORISTAS / OPERADORES (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-zinc-200 shadow-xs space-y-3">
+            {/* SEÇÃO 6: MOTORISTAS / OPERADORES (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 bg-white rounded-xl border border-zinc-200 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold flex items-center space-x-1.5 text-zinc-800">
                   <Users className="w-4 h-4 text-zinc-700" />
-                  <span>Motoristas & Operadores Vinculados (Múltiplos)</span>
+                  <span>6. Motoristas & Operadores Vinculados (Múltiplos)</span>
                 </label>
-                <span className="text-[11px] font-semibold text-zinc-500">
+                <span className="text-[10px] font-semibold text-zinc-500">
                   {selectedDriverIds.length} selecionado(s)
                 </span>
               </div>
 
               {/* Chips of selected employees */}
-              <div className="flex flex-wrap gap-2 min-h-[38px] p-2 bg-zinc-50 border border-zinc-200 rounded-xl">
+              <div className="flex flex-wrap gap-1.5 min-h-[34px] p-1.5 bg-zinc-50 border border-zinc-200 rounded-lg">
                 {selectedDriverIds.length === 0 ? (
-                  <span className="text-xs text-zinc-500 italic py-1 px-1">
+                  <span className="text-[11px] text-zinc-500 italic py-0.5 px-1">
                     Nenhum motorista ou operador selecionado. Escolha na lista abaixo:
                   </span>
                 ) : (
@@ -2539,9 +2593,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     return (
                       <span
                         key={emp.id}
-                        className="inline-flex items-center space-x-1.5 py-1 px-2.5 rounded-lg bg-zinc-100 border border-zinc-300 text-zinc-800 text-xs font-bold shadow-2xs"
+                        className="inline-flex items-center space-x-1 py-0.5 px-2 rounded-md bg-zinc-100 border border-zinc-300 text-zinc-800 text-xs font-bold shadow-2xs"
                       >
-                        <UserCheck className="w-3.5 h-3.5 text-zinc-700" />
+                        <UserCheck className="w-3 h-3 text-zinc-700" />
                         <span>{emp.name}</span>
                         <span className="text-[10px] text-zinc-500 font-normal">
                           ({emp.role})
@@ -2551,7 +2605,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           onClick={() => handleRemoveDriver(emp.id)}
                           className="hover:bg-zinc-200 rounded-full p-0.5 transition cursor-pointer text-zinc-600 hover:text-zinc-900"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-2.5 h-2.5" />
                         </button>
                       </span>
                     );
@@ -2560,14 +2614,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               </div>
 
               {/* Employee Selection Search */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="relative">
                   <input
                     type="text"
                     value={driverSearchQuery}
                     onChange={(e) => setDriverSearchQuery(e.target.value)}
-                    placeholder="Pesquisar funcionário..."
-                    className="w-full px-3.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs sm:text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
+                    placeholder="Pesquisar funcionário por nome ou cargo..."
+                    className="w-full px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs sm:text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
                   />
                   {filteredEmployeeSuggestions.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-zinc-100">
@@ -2576,7 +2630,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                           key={emp.id}
                           type="button"
                           onClick={() => handleToggleDriver(emp.id)}
-                          className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 flex items-center justify-between text-xs transition cursor-pointer"
+                          className="w-full text-left px-3 py-1.5 hover:bg-zinc-50 flex items-center justify-between text-xs transition cursor-pointer"
                         >
                           <div className="flex items-center space-x-2">
                             <span className="font-bold text-zinc-900">{emp.name}</span>
@@ -2593,7 +2647,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 </div>
 
                 {/* Quick Selection Buttons */}
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
+                <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pt-0.5">
                   {activeEmployees.slice(0, 10).map((emp) => {
                     const isSelected = selectedDriverIds.includes(emp.id);
                     return (
@@ -2601,13 +2655,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         key={emp.id}
                         type="button"
                         onClick={() => handleToggleDriver(emp.id)}
-                        className={`text-xs py-1 px-2.5 rounded-lg border transition flex items-center space-x-1.5 cursor-pointer ${
+                        className={`text-[11px] py-0.5 px-2 rounded-md border transition flex items-center space-x-1 cursor-pointer ${
                           isSelected
                             ? 'bg-zinc-800 text-white border-zinc-800 font-bold'
                             : 'bg-white border-zinc-300 text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50 font-medium'
                         }`}
                       >
-                        {isSelected ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 text-zinc-400" />}
+                        {isSelected ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5 text-zinc-400" />}
                         <span>{emp.name}</span>
                       </button>
                     );
@@ -2616,35 +2670,32 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
               </div>
             </div>
 
-            {/* SEÇÃO 6: MÉDIAS DE CONSUMO AUTOMÁTICAS (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-3">
+            {/* SEÇÃO 7: MÉDIAS DE CONSUMO AUTOMÁTICAS (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
-                    <Fuel className="w-3.5 h-3.5 text-white" />
+                  <div className="w-5 h-5 rounded-md bg-zinc-800 text-white flex items-center justify-center">
+                    <Fuel className="w-3 h-3 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-800">
-                      Médias de Consumo de Combustível
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
+                      7. Médias de Consumo de Combustível
                     </h4>
-                    <p className="text-[11px] text-zinc-500">
-                      Calculadas automaticamente com base nos registros de abastecimento
-                    </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-300">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-300">
                   Cálculo Automático
                 </span>
               </div>
 
               {/* Metric Badges */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-zinc-600">
+                    <span className="text-[10px] font-bold text-zinc-600">
                       Média por Km (km/L)
                     </span>
-                    <div className="text-lg font-black text-zinc-900 font-['Outfit']">
+                    <div className="text-base font-black text-zinc-900 font-['Outfit']">
                       {consumptionMetrics.avgKmPerLiter !== null 
                         ? `${consumptionMetrics.avgKmPerLiter.toLocaleString('pt-BR')} km/L` 
                         : (editingVehicle?.averageConsumptionKmPerLiter 
@@ -2652,15 +2703,15 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                             : 'Aguardando Abastecimento')}
                     </div>
                   </div>
-                  <Gauge className="w-6 h-6 text-zinc-400" />
+                  <Gauge className="w-5 h-5 text-zinc-400" />
                 </div>
 
-                <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between">
+                <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-bold text-zinc-600">
+                    <span className="text-[10px] font-bold text-zinc-600">
                       Média por Horas (L/h)
                     </span>
-                    <div className="text-lg font-black text-zinc-900 font-['Outfit']">
+                    <div className="text-base font-black text-zinc-900 font-['Outfit']">
                       {consumptionMetrics.avgLitersPerHour !== null 
                         ? `${consumptionMetrics.avgLitersPerHour.toLocaleString('pt-BR')} L/h` 
                         : (editingVehicle?.averageConsumptionLitersPerHour 
@@ -2668,39 +2719,40 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                             : 'Aguardando Abastecimento')}
                     </div>
                   </div>
-                  <Clock className="w-6 h-6 text-zinc-400" />
+                  <Clock className="w-5 h-5 text-zinc-400" />
                 </div>
               </div>
             </div>
 
-            {/* SEÇÃO 7: OBSERVAÇÕES (CARD BRANCO) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
-              <label className="block text-xs font-bold text-zinc-800">
-                Observações Adicionais
+            {/* SEÇÃO 8: OBSERVAÇÕES (CARD BRANCO COMPACTO) */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-1">
+              <label className="block text-[11px] font-bold text-zinc-800">
+                8. Observações Adicionais
               </label>
               <textarea
-                rows={2}
+                rows={1.5}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 resize-none shadow-xs"
+                className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 resize-none shadow-xs"
+                placeholder="Anotações gerais sobre o veículo..."
               />
             </div>
 
-            {/* Actions / Rodapé */}
+            {/* Actions / Rodapé Compacto */}
             <div 
-              className="p-3.5 sm:p-4 bg-white rounded-xl border border-zinc-200 shadow-xs flex items-center justify-end space-x-2.5"
+              className="p-2.5 sm:p-3 bg-white rounded-xl border border-zinc-200 shadow-xs flex items-center justify-end space-x-2"
             >
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
+                className="px-4 py-2 rounded-lg border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isFleetNumberDuplicate}
-                className={`px-6 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-2 ${
+                className={`px-5 py-2 rounded-lg text-white text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-2 ${
                   isFleetNumberDuplicate
                     ? 'bg-zinc-400 opacity-60 cursor-not-allowed'
                     : 'bg-zinc-800 hover:bg-zinc-900 cursor-pointer active:scale-95'
