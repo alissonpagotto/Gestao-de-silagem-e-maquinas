@@ -125,7 +125,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   }, [filteredLogs, machineries]);
 
   const handleExportCsv = () => {
-    const headers = 'Data,Maquina_Veiculo,Tipo_Controle,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Horimetro_KM,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
+    const headers = 'Data,Maquina_Veiculo,Tipo_Controle,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Leitura_Atual,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
     const rows = filteredLogs.map(l => {
       const vehicle = findVehicleForLog(l, machineries);
       const isHours = vehicle?.controla_por
@@ -305,7 +305,8 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                 <th className="py-3 px-3.5 text-right">Volume (Litros)</th>
                 <th className="py-3 px-3.5 text-right">Preço / Litro</th>
                 <th className="py-3 px-3.5 text-right">Total (R$)</th>
-                <th className="py-3 px-3.5 text-right">Horímetro / KM</th>
+                <th className="py-3 px-3.5 text-right">Leitura Atual</th>
+                <th className="py-3 px-3.5 text-right">Média Consumo</th>
                 <th className="py-3 px-3.5">Operador / Motorista</th>
                 <th className="py-3 px-3.5">Posto / Local</th>
               </tr>
@@ -339,21 +340,23 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                       <td className="py-2.5 px-3.5 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
                         {formatCurrencyBRL(item.totalAmount)}
                       </td>
-                      <td className="py-2.5 px-3.5 text-right font-mono text-stone-600 dark:text-stone-400">
-                        <div>
-                          {item.currentHourMeterOrKm 
-                            ? `${item.currentHourMeterOrKm.toLocaleString('pt-BR')} ${isHours ? 'h' : 'km'}` 
-                            : '-'}
-                        </div>
+                      <td className="py-2.5 px-3.5 text-right font-mono text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                        {item.currentHourMeterOrKm 
+                          ? `${item.currentHourMeterOrKm.toLocaleString('pt-BR')} ${isHours ? 'h' : 'km'}` 
+                          : '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-mono whitespace-nowrap">
                         {eff ? (
-                          <span className={`block text-[10px] font-bold mt-0.5 ${
+                          <span className={`text-xs font-bold ${
                             eff.unit === 'L/h'
                               ? 'text-amber-600 dark:text-amber-400'
                               : 'text-emerald-600 dark:text-emerald-400'
                           }`}>
                             {eff.formatted}
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="text-stone-400 dark:text-stone-600 text-xs font-normal">-</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
                         {item.driverOrOperator || '-'}
@@ -366,7 +369,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-stone-400">
+                  <td colSpan={10} className="py-8 text-center text-stone-400">
                     Nenhum registro de abastecimento localizado no período selecionado.
                   </td>
                 </tr>

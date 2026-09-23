@@ -186,7 +186,8 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                 <th className="py-3 px-4">Litros</th>
                 <th className="py-3 px-4">Preço / Litro</th>
                 <th className="py-3 px-4">Valor Total</th>
-                <th className="py-3 px-4">Horímetro / KM</th>
+                <th className="py-3 px-4">Leitura Atual</th>
+                <th className="py-3 px-4">Média Consumo</th>
                 <th className="py-3 px-4">Motorista / Responsável</th>
                 <th className="py-3 px-4">Local / Posto</th>
                 <th className="py-3 px-4 text-right">Ações</th>
@@ -195,7 +196,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800/60 font-medium">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-stone-400">
+                  <td colSpan={11} className="py-8 text-center text-stone-400">
                     Nenhum registro de abastecimento encontrado.
                   </td>
                 </tr>
@@ -228,30 +229,36 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                       {formatCurrencyBRL(log.totalAmount)}
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono text-stone-700 dark:text-stone-300">
-                      {(() => {
-                        const vehicle = findVehicleForLog(log, machineries);
-                        const isHours = vehicle?.controla_por
-                          ? (vehicle.controla_por.toLowerCase() === 'horas')
-                          : isVehicleHoursControlled(vehicle, log);
-                        const eff = formatFuelLogEfficiency(log, vehicle);
-                        const unit = isHours ? 'h' : 'km';
-                        return (
-                          <>
-                            <div>{log.currentHourMeterOrKm ? `${log.currentHourMeterOrKm.toLocaleString('pt-BR')} ${unit}` : '--'}</div>
-                            {eff && (
-                              <span className={`block text-[10px] font-bold ${
+                    {(() => {
+                      const vehicle = findVehicleForLog(log, machineries);
+                      const isHours = vehicle?.controla_por
+                        ? (vehicle.controla_por.toLowerCase() === 'horas')
+                        : isVehicleHoursControlled(vehicle, log);
+                      const eff = formatFuelLogEfficiency(log, vehicle);
+                      const unit = isHours ? 'h' : 'km';
+
+                      return (
+                        <>
+                          <td className="py-3.5 px-4 font-mono text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                            {log.currentHourMeterOrKm ? `${log.currentHourMeterOrKm.toLocaleString('pt-BR')} ${unit}` : '--'}
+                          </td>
+
+                          <td className="py-3.5 px-4 font-mono whitespace-nowrap">
+                            {eff ? (
+                              <span className={`text-xs font-bold ${
                                 eff.unit === 'L/h' 
                                   ? 'text-amber-600 dark:text-amber-400' 
                                   : 'text-emerald-600 dark:text-emerald-400'
                               }`}>
                                 {eff.formatted}
                               </span>
+                            ) : (
+                              <span className="text-stone-400 dark:text-stone-600 text-xs font-normal">--</span>
                             )}
-                          </>
-                        );
-                      })()}
-                    </td>
+                          </td>
+                        </>
+                      );
+                    })()}
 
                     <td className="py-3.5 px-4 text-stone-700 dark:text-stone-300">
                       {log.driverOrOperator || '--'}
