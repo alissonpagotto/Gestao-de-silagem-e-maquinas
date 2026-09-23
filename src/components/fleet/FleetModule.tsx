@@ -235,9 +235,10 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   };
 
   // --- FUEL HANDLERS ---
-  const handleOpenNewFuel = (vehicleId?: string) => {
+  const handleOpenNewFuel = (vehicleId?: unknown) => {
     setEditingFuelLog(null);
-    setSelectedFuelVehicleId(vehicleId || null);
+    const cleanId = typeof vehicleId === 'string' ? vehicleId : null;
+    setSelectedFuelVehicleId(cleanId);
     setIsFuelModalOpen(true);
   };
 
@@ -648,8 +649,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           expenses={expenses}
           onNavigateSubtab={(tab) => setActiveSubTab(tab)}
           onOpenNewVehicle={handleOpenNewVehicle}
-          onOpenNewFuel={handleOpenNewFuel}
-          onOpenNewMaintenance={handleOpenNewMaintenance}
+          onOpenNewFuel={() => handleOpenNewFuel()}
+          onOpenNewMaintenance={() => handleOpenNewMaintenance()}
         />
       )}
 
@@ -699,7 +700,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           fuelLogs={fuelLogs}
           machineries={machineries}
           employees={employees}
-          onOpenNewFuel={handleOpenNewFuel}
+          onOpenNewFuel={() => handleOpenNewFuel()}
           onEditFuel={handleEditFuel}
           onDeleteFuel={handleDeleteFuel}
         />
@@ -712,7 +713,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           companyProfile={companyProfile}
           purchaseRequests={purchaseRequests}
           onSavePurchaseRequests={handleSavePurchaseRequests}
-          onOpenNewMaintenance={handleOpenNewMaintenance}
+          onOpenNewMaintenance={() => handleOpenNewMaintenance()}
           onEditMaintenance={handleEditMaintenance}
           onDeleteMaintenance={handleDeleteMaintenance}
           onUpdateStatus={handleUpdateMaintenanceStatus}

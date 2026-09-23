@@ -227,8 +227,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setNotes('');
       setCreateExpense(true);
 
-      const targetId = initialMachineryId || (availableMachineries.length > 0 ? availableMachineries[0].id : '');
-      setMachineryId(targetId);
+      const cleanInitialId = typeof initialMachineryId === 'string' ? initialMachineryId : '';
+      const targetId = cleanInitialId || (availableMachineries.length > 0 ? availableMachineries[0].id : '');
+      setMachineryId(typeof targetId === 'string' ? targetId : '');
 
       const mach = availableMachineries.find(m => m.id === targetId);
       if (mach) {

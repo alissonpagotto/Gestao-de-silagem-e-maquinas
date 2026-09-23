@@ -13,6 +13,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script>
+      // Proteção global contra travamento por checagem Cross-Origin em sandbox iframe
+      window.addEventListener('error', function(event) {
+        if (event && (event.message?.includes('cross-origin') || event.message?.includes('Cross-Origin') || event.message?.includes('Blocked a frame'))) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      window.onerror = function(msg) {
+        if (typeof msg === 'string' && (msg.includes('cross-origin') || msg.includes('Cross-Origin') || msg.includes('Blocked a frame'))) {
+          return true;
+        }
+      };
+
       try {
         const t = localStorage.getItem('silagem_facil_theme');
         if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
