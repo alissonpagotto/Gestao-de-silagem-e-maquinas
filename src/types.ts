@@ -218,6 +218,7 @@ export interface Machinery {
   tank_capacity?: number; // Volume do tanque de combustível (L)
   tankCapacity?: number; // Alias para volume do tanque (L)
   currentFuelPercentage?: number;
+  currentFuelLiters?: number; // Nível atual de combustível em litros
   purchaseDate?: string;
   notes?: string;
   totalFuelExpenses?: number;
@@ -682,6 +683,10 @@ export interface FuelLog {
   averageCalculated?: number; // km/L ou L/h geral
   averageKmPerLiter?: number; // Média calculada desta abastecida em km/L
   averageLitersPerHour?: number; // Média calculada desta abastecida em L/h
+  currentFuelPercentage?: number; // Nível projetado do tanque em %
+  currentFuelLiters?: number; // Nível projetado do tanque em litros
+  fuelConsumedLiters?: number; // Volume de combustível consumido estimado
+  tankCapacity?: number; // Capacidade do tanque do veículo
   driverOrOperator?: string;
   driverName?: string; // Nome do motorista (compatibilidade)
   driverIds?: string[];

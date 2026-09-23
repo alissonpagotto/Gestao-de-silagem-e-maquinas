@@ -1015,6 +1015,7 @@ export default function App() {
     for (const m of newMachineries) {
       upsertGestaoFrota(m, activeTenantId).catch(err => console.warn('Supabase upsertGestaoFrota notice:', err));
     }
+    saveCloudMachineries(newMachineries, activeTenantId).catch(err => console.warn('Supabase saveCloudMachineries notice:', err));
 
     setMachineries(newMachineries);
   };

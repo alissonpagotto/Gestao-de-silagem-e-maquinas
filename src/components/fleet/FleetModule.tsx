@@ -23,7 +23,7 @@ import { FuelModal } from './FuelModal';
 import { MaintenanceModal } from './MaintenanceModal';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 import { updateVehicleWithCalculatedMetrics } from '../../lib/fleetMetrics';
-import { upsertGestaoFrota, saveCloudFuelLogs } from '../../lib/supabaseService';
+import { upsertGestaoFrota, saveCloudFuelLogs, saveCloudMachineries } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getStoredVehicleTypes, 
@@ -274,38 +274,64 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     onSaveFuelLogs(updatedFuelLogs);
     saveCloudFuelLogs(updatedFuelLogs).catch(err => console.warn('Supabase save fuel sync:', err));
 
-    // Update vehicle's hourMeter, currentKm, fuel expenses, and calculated averages
+    // Update vehicle's hourMeter, currentKm, fuel expenses, tank levels, and calculated averages
     const targetVehicle = machineries.find(m => m.id === fuelLog.machineryId);
     if (targetVehicle) {
       const updatedMachineries = machineries.map(m => {
         if (m.id === targetVehicle.id) {
           const updatedWithLogs = updateVehicleWithCalculatedMetrics(m, updatedFuelLogs);
           const tankCap = Number((m as any).tank_capacity ?? (m as any).tankCapacity ?? m.fuelCapacityLiters ?? 0);
+          
           let newFuelLevel = m.currentFuelPercentage;
-          if (tankCap > 0 && fuelLog.liters > 0) {
+          let newFuelLiters = m.currentFuelLiters;
+
+          // Se o abastecimento calculou o novo nível com precisão
+          if (fuelLog.currentFuelPercentage !== undefined && fuelLog.currentFuelPercentage !== null) {
+            newFuelLevel = fuelLog.currentFuelPercentage;
+            newFuelLiters = fuelLog.currentFuelLiters;
+          } else if (tankCap > 0 && fuelLog.liters > 0) {
             const prevPercent = (m.currentFuelPercentage !== undefined && m.currentFuelPercentage !== null)
               ? Math.max(0, Math.min(100, Number(m.currentFuelPercentage)))
               : 50;
             const prevLiters = (prevPercent / 100) * tankCap;
             const nextLiters = Math.min(tankCap, prevLiters + fuelLog.liters);
             newFuelLevel = Math.round((nextLiters / tankCap) * 100);
+            newFuelLiters = nextLiters;
           }
+
+          // Atualiza horímetro e km mais recentes
+          const updatedHourMeter = fuelLog.currentHourMeter && fuelLog.currentHourMeter > (m.hourMeter || 0)
+            ? fuelLog.currentHourMeter
+            : (updatedWithLogs.hourMeter || m.hourMeter);
+
+          const updatedKm = fuelLog.currentKm && fuelLog.currentKm > (m.currentKm || 0)
+            ? fuelLog.currentKm
+            : (updatedWithLogs.currentKm || m.currentKm);
+
           return {
             ...updatedWithLogs,
             currentFuelPercentage: newFuelLevel,
+            currentFuelLiters: newFuelLiters,
+            hourMeter: updatedHourMeter,
+            currentKm: updatedKm,
             totalFuelExpenses: (m.totalFuelExpenses || 0) + (editingFuelLog ? 0 : fuelLog.totalAmount),
           };
         }
         return m;
       });
+
       onSaveMachineries(updatedMachineries);
 
+      // Persistência em nuvem (Supabase): salva o registro do veículo em gestao_frotas e o estado completo no site_settings
       const updatedTargetVehicle = updatedMachineries.find(m => m.id === targetVehicle.id);
       if (updatedTargetVehicle) {
         upsertGestaoFrota(updatedTargetVehicle).catch(err => {
           console.warn('Sincronização de veículo pós abastecimento no Supabase:', err);
         });
       }
+      saveCloudMachineries(updatedMachineries).catch(err => {
+        console.warn('Sincronização de frotas completas no Supabase:', err);
+      });
     }
 
     // Automatically create expense in finance if requested

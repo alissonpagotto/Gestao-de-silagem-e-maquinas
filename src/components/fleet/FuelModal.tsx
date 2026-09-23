@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Fuel, Save, Calculator, Gauge, Clock, History } from 'lucide-react';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
+import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { fetchGestaoFrotas, fetchCloudFuelLogs } from '../../lib/supabaseService';
 
@@ -79,6 +80,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
   const [notes, setNotes] = useState('');
   const [createExpense, setCreateExpense] = useState(true);
+  const [latestCalculation, setLatestCalculation] = useState<FuelCalculationResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 1. CARREGAMENTO ASSÍNCRONO TRADICIONAL VIA HTTP (ASYNC/AWAIT com try/catch)
   // Sem WebSocket, sem conexões persistentes - apenas requisição HTTP pontual e estável
@@ -132,6 +135,21 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const historicalAvgKmPerLiter = useMemo(() => {
     return selectedMachinery?.averageConsumptionKmPerLiter ?? vehicleMetrics?.avgKmPerLiter ?? null;
   }, [selectedMachinery, vehicleMetrics]);
+
+  // Trava de segurança: Bloqueia o botão Salvar se o abastecimento ultrapassar a capacidade do tanque
+  const isOverCapacity = useMemo(() => {
+    if (latestCalculation?.isOverflowing) return true;
+
+    const capacidadeTanque = Number(
+      (selectedMachinery as any)?.tank_capacity ?? 
+      (selectedMachinery as any)?.tankCapacity ?? 
+      selectedMachinery?.fuelCapacityLiters ?? 0
+    );
+    const litrosAbastecidos = parseFloat(liters) || 0;
+    const nivelAtual = latestCalculation ? latestCalculation.nivelAtual : 0;
+
+    return capacidadeTanque > 0 && (nivelAtual + litrosAbastecidos) > capacidadeTanque;
+  }, [latestCalculation, selectedMachinery, liters]);
 
   // Inicialização síncrona imediata ao abrir o modal (inputs livres desde o milissegundo 0)
   useEffect(() => {
@@ -323,6 +341,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       return;
     }
 
+    if (isOverCapacity) {
+      console.warn("Validação: O volume total ultrapassa a capacidade máxima do tanque.");
+      return;
+    }
+
     const currentSelected = availableMachineries.find((m) => m.id === effectiveMachineryId) || selectedMachinery;
 
     const machName = currentSelected 
@@ -347,6 +370,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       averageCalculated: calculatedMetrics.kmPerLiter || calculatedMetrics.litersPerHour || undefined,
       averageKmPerLiter: calculatedMetrics.kmPerLiter || undefined,
       averageLitersPerHour: calculatedMetrics.litersPerHour || undefined,
+      currentFuelPercentage: latestCalculation ? Math.round(latestCalculation.novoNivelPorcentagem) : undefined,
+      currentFuelLiters: latestCalculation ? latestCalculation.novoNivel : undefined,
+      fuelConsumedLiters: latestCalculation ? latestCalculation.combustivelGasto : undefined,
+      tankCapacity: latestCalculation ? latestCalculation.capacidadeTanque : undefined,
       driverOrOperator: driverOrOperator.trim(),
       supplierStation: supplierStation.trim(),
       notes: notes.trim() || undefined,
@@ -680,6 +707,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                 liveKmPerLiter={calculatedMetrics.kmPerLiter}
                 historicalAvgLitersPerHour={historicalAvgLitersPerHour}
                 historicalAvgKmPerLiter={historicalAvgKmPerLiter}
+                onCalculationChange={setLatestCalculation}
               />
             </div>
 
@@ -687,23 +715,40 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Rodapé com Ações */}
-        <div className="px-6 py-3.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3 shrink-0 relative z-30 pointer-events-auto">
-          <button
-            type="button"
-            onClick={() => onClose()}
-            className="pointer-events-auto cursor-pointer px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-600 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-stone-700 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            form="fuel-form"
-            onClick={(e) => handleSubmit(e)}
-            className="pointer-events-auto cursor-pointer px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2"
-          >
-            <Save className="w-4 h-4 pointer-events-none" />
-            <span>Salvar Abastecimento</span>
-          </button>
+        <div className="px-6 py-3.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 relative z-30 pointer-events-auto">
+          <div className="w-full sm:w-auto">
+            {isOverCapacity && (
+              <div className="flex items-center space-x-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Capacidade do tanque excedida (+{latestCalculation?.excessoLitros?.toFixed(1) || '0.0'} L). Ajuste a quantidade para salvar.</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={() => onClose()}
+              className="pointer-events-auto cursor-pointer px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-600 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-stone-700 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              form="fuel-form"
+              onClick={(e) => handleSubmit(e)}
+              disabled={isOverCapacity || isLoading}
+              title={isOverCapacity ? 'Abastecimento excede a capacidade máxima do tanque' : undefined}
+              className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-xs transition flex items-center space-x-2 ${
+                isOverCapacity || isLoading
+                  ? 'opacity-50 cursor-not-allowed bg-stone-400 dark:bg-stone-600 pointer-events-none select-none'
+                  : 'pointer-events-auto cursor-pointer bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800'
+              }`}
+            >
+              <Save className="w-4 h-4 pointer-events-none" />
+              <span>{isLoading ? 'Salvando...' : 'Salvar Abastecimento'}</span>
+            </button>
+          </div>
         </div>
 
       </div>

@@ -869,6 +869,18 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                                 <span className="text-[#000000] dark:text-emerald-400">{vehicle.currentKm.toLocaleString('pt-BR')} km</span>
                               </div>
                             )}
+                            {vehicle.currentFuelPercentage !== undefined && (
+                              <div className="flex items-center space-x-1.5 text-[10px] mt-0.5" title={`Nível do Tanque: ${vehicle.currentFuelPercentage}%`}>
+                                <Fuel className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span className="font-bold text-slate-800 dark:text-slate-200">{vehicle.currentFuelPercentage}%</span>
+                                <div className="w-10 h-1.5 bg-black/10 dark:bg-stone-700 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full ${vehicle.currentFuelPercentage <= 20 ? 'bg-rose-500' : vehicle.currentFuelPercentage < 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                                    style={{ width: `${Math.min(100, Math.max(0, vehicle.currentFuelPercentage))}%` }} 
+                                  />
+                                </div>
+                              </div>
+                            )}
                             {!vehicle.hourMeter && !vehicle.currentKm && (
                               <span className="text-stone-500 dark:text-stone-400">--</span>
                             )}
