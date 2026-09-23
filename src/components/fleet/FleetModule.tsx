@@ -275,8 +275,19 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       const updatedMachineries = machineries.map(m => {
         if (m.id === targetVehicle.id) {
           const updatedWithLogs = updateVehicleWithCalculatedMetrics(m, updatedFuelLogs);
+          const tankCap = Number((m as any).tank_capacity ?? (m as any).tankCapacity ?? m.fuelCapacityLiters ?? 0);
+          let newFuelLevel = m.currentFuelPercentage;
+          if (tankCap > 0 && fuelLog.liters > 0) {
+            const prevPercent = (m.currentFuelPercentage !== undefined && m.currentFuelPercentage !== null)
+              ? Math.max(0, Math.min(100, Number(m.currentFuelPercentage)))
+              : 50;
+            const prevLiters = (prevPercent / 100) * tankCap;
+            const nextLiters = Math.min(tankCap, prevLiters + fuelLog.liters);
+            newFuelLevel = Math.round((nextLiters / tankCap) * 100);
+          }
           return {
             ...updatedWithLogs,
+            currentFuelPercentage: newFuelLevel,
             totalFuelExpenses: (m.totalFuelExpenses || 0) + (editingFuelLog ? 0 : fuelLog.totalAmount),
           };
         }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
+import { FuelTankVisualizer } from './FuelTankVisualizer';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -197,11 +198,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/75 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-zinc-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-5xl w-full shadow-2xl border border-zinc-300 dark:border-stone-700 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Header - Charcoal bg-zinc-800 with White Text */}
-        <div className="px-6 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700">
+        <div className="px-6 py-4 bg-zinc-800 text-white flex items-center justify-between border-b border-zinc-700 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center text-white shadow-xs">
               <Fuel className="w-4 h-4 text-white" />
@@ -224,270 +225,289 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto bg-white">
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Veículo */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Veículo / Máquina <span className="text-rose-500">*</span>
-              </label>
-              <select
-                required
-                value={machineryId}
-                onChange={(e) => handleMachineryChange(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-              >
-                <option value="">Selecione o veículo...</option>
-                {machineries.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}{m.brand ? `${m.brand} ` : ''}{m.model || m.name}
-                  </option>
-                ))}
-              </select>
+        {/* Modal Body: Layout em Duas Colunas (Formulário à Esquerda + Visualizador do Tanque à Direita) */}
+        <div className="overflow-y-auto flex-1 bg-white dark:bg-stone-900">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-6 items-start">
+            
+            {/* Coluna Esquerda: Formulário de Preenchimento (7 colunas no Desktop) */}
+            <div className="lg:col-span-7">
+              <form id="fuel-form" onSubmit={handleSubmit} className="space-y-4">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Veículo */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Veículo / Máquina <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={machineryId}
+                      onChange={(e) => handleMachineryChange(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    >
+                      <option value="">Selecione o veículo...</option>
+                      {machineries.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}{m.brand ? `${m.brand} ` : ''}{m.model || m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Data */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Data do Abastecimento <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  {/* Combustível */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Combustível
+                    </label>
+                    <select
+                      value={fuelType}
+                      onChange={(e) => setFuelType(e.target.value as any)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    >
+                      <option value="Diesel S10">Diesel S10</option>
+                      <option value="Diesel Comum">Diesel Comum</option>
+                      <option value="Arla 32">Arla 32</option>
+                      <option value="Gasolina">Gasolina</option>
+                      <option value="Etanol">Etanol</option>
+                    </select>
+                  </div>
+
+                  {/* Litros Abastecidos */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Litros Abastecidos <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.1"
+                      required
+                      value={liters}
+                      onChange={(e) => handleLitersChange(e.target.value)}
+                      placeholder="Ex: 250"
+                      className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/30 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    />
+                  </div>
+
+                  {/* Preço por Litro */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Preço / Litro (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={pricePerLiter}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      placeholder="Ex: 5.85"
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Total Financeiro */}
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                    <Calculator className="w-4 h-4" />
+                    <span>Valor Total Calculado:</span>
+                  </div>
+                  <div className="text-lg font-black text-amber-900 dark:text-amber-200 font-['Outfit']">
+                    R$ {totalAmount ? parseFloat(totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
+                  </div>
+                </div>
+
+                {/* Seção 1: Quilometragem (KM) */}
+                <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
+                      <Gauge className="w-4 h-4 text-emerald-600" />
+                      <span>Odômetro / Quilometragem (KM)</span>
+                    </span>
+                    {calculatedMetrics.kmPerLiter !== null && (
+                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
+                        Média: {calculatedMetrics.kmPerLiter} km/L
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                        KM Anterior
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={previousKm}
+                        onChange={(e) => setPreviousKm(e.target.value)}
+                        placeholder="Ex: 145000"
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                        KM Atual no Abastecimento
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={currentKm}
+                        onChange={(e) => setCurrentKm(e.target.value)}
+                        placeholder="Ex: 145600"
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção 2: Horímetro (Horas) */}
+                <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span>Horímetro (Horas de Motor)</span>
+                    </span>
+                    {calculatedMetrics.litersPerHour !== null && (
+                      <span className="text-xs font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
+                        Média: {calculatedMetrics.litersPerHour} L/h
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                        Horas Anterior
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={previousHourMeter}
+                        onChange={(e) => setPreviousHourMeter(e.target.value)}
+                        placeholder="Ex: 4500"
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                        Horas Atual no Abastecimento
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={currentHourMeter}
+                        onChange={(e) => setCurrentHourMeter(e.target.value)}
+                        placeholder="Ex: 4520"
+                        className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Motorista / Responsável */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Motorista / Operador
+                    </label>
+                    <select
+                      value={driverOrOperator}
+                      onChange={(e) => setDriverOrOperator(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    >
+                      <option value="">Selecione quem abasteceu...</option>
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.name}>
+                          {emp.name} ({emp.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Posto / Fornecedor */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Local / Posto de Abastecimento
+                    </label>
+                    <input
+                      type="text"
+                      value={supplierStation}
+                      onChange={(e) => setSupplierStation(e.target.value)}
+                      placeholder="Ex: Tanque da Fazenda, Posto Trevo..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Sincronizar com Despesas */}
+                {!editingLog && (
+                  <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createExpense}
+                      onChange={(e) => setCreateExpense(e.target.checked)}
+                      className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                        Lançar automaticamente nas Despesas Financeiras (DRE)
+                      </span>
+                      <span className="text-stone-500 dark:text-stone-400">
+                        Cria lançamento de despesa em "Combustível" vinculado ao veículo.
+                      </span>
+                    </div>
+                  </label>
+                )}
+              </form>
             </div>
 
-            {/* Data */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Data do Abastecimento <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+            {/* Coluna Direita: Animação Visual Dinâmica do Tanque de Combustível (5 colunas no Desktop) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-0">
+              <FuelTankVisualizer 
+                machinery={selectedMachinery}
+                addedLitersInput={liters}
               />
             </div>
+
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {/* Combustível */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Combustível
-              </label>
-              <select
-                value={fuelType}
-                onChange={(e) => setFuelType(e.target.value as any)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-              >
-                <option value="Diesel S10">Diesel S10</option>
-                <option value="Diesel Comum">Diesel Comum</option>
-                <option value="Arla 32">Arla 32</option>
-                <option value="Gasolina">Gasolina</option>
-                <option value="Etanol">Etanol</option>
-              </select>
-            </div>
-
-            {/* Litros Abastecidos */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Litros Abastecidos <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="any"
-                required
-                value={liters}
-                onChange={(e) => handleLitersChange(e.target.value)}
-                placeholder="Ex: 250"
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-              />
-            </div>
-
-            {/* Preço por Litro */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Preço / Litro (R$)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={pricePerLiter}
-                onChange={(e) => handlePriceChange(e.target.value)}
-                placeholder="Ex: 5.85"
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-              />
-            </div>
-          </div>
-
-          {/* Total Financeiro */}
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 text-xs font-semibold">
-              <Calculator className="w-4 h-4" />
-              <span>Valor Total Calculado:</span>
-            </div>
-            <div className="text-lg font-black text-amber-900 dark:text-amber-200 font-['Outfit']">
-              R$ {totalAmount ? parseFloat(totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
-            </div>
-          </div>
-
-          {/* Seção 1: Quilometragem (KM) */}
-          <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
-                <Gauge className="w-4 h-4 text-emerald-600" />
-                <span>Odômetro / Quilometragem (KM)</span>
-              </span>
-              {calculatedMetrics.kmPerLiter !== null && (
-                <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
-                  Média: {calculatedMetrics.kmPerLiter} km/L
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                  KM Anterior
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={previousKm}
-                  onChange={(e) => setPreviousKm(e.target.value)}
-                  placeholder="Ex: 145000"
-                  className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                  KM Atual no Abastecimento
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={currentKm}
-                  onChange={(e) => setCurrentKm(e.target.value)}
-                  placeholder="Ex: 145600"
-                  className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Seção 2: Horímetro (Horas) */}
-          <div className="p-3.5 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
-                <Clock className="w-4 h-4 text-amber-600" />
-                <span>Horímetro (Horas de Motor)</span>
-              </span>
-              {calculatedMetrics.litersPerHour !== null && (
-                <span className="text-xs font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
-                  Média: {calculatedMetrics.litersPerHour} L/h
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                  Horas Anterior
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={previousHourMeter}
-                  onChange={(e) => setPreviousHourMeter(e.target.value)}
-                  placeholder="Ex: 4500"
-                  className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                  Horas Atual no Abastecimento
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={currentHourMeter}
-                  onChange={(e) => setCurrentHourMeter(e.target.value)}
-                  placeholder="Ex: 4520"
-                  className="w-full px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Motorista / Responsável */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Motorista / Operador
-              </label>
-              <select
-                value={driverOrOperator}
-                onChange={(e) => setDriverOrOperator(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-              >
-                <option value="">Selecione quem abasteceu...</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.name}>
-                    {emp.name} ({emp.role})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Posto / Fornecedor */}
-            <div>
-              <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                Local / Posto de Abastecimento
-              </label>
-              <input
-                type="text"
-                value={supplierStation}
-                onChange={(e) => setSupplierStation(e.target.value)}
-                placeholder="Ex: Tanque da Fazenda, Posto Trevo..."
-                className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
-              />
-            </div>
-          </div>
-
-          {/* Sincronizar com Despesas */}
-          {!editingLog && (
-            <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={createExpense}
-                onChange={(e) => setCreateExpense(e.target.checked)}
-                className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
-              />
-              <div className="text-xs">
-                <span className="font-bold text-stone-900 dark:text-stone-100 block">
-                  Lançar automaticamente nas Despesas Financeiras (DRE)
-                </span>
-                <span className="text-stone-500 dark:text-stone-400">
-                  Cria lançamento de despesa em "Combustível" vinculado ao veículo.
-                </span>
-              </div>
-            </label>
-          )}
-
-          {/* Actions */}
-          <div className="pt-3 border-t border-zinc-200 flex items-center justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-zinc-300 text-zinc-700 text-xs font-semibold hover:bg-zinc-100 transition cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Salvar Abastecimento</span>
-            </button>
-          </div>
-        </form>
+        {/* Footer com Ações */}
+        <div className="px-6 py-3.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-600 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-stone-700 transition cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="fuel-form"
+            className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>Salvar Abastecimento</span>
+          </button>
+        </div>
 
       </div>
     </div>
