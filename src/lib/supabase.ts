@@ -68,6 +68,30 @@ if (isSupabaseConfigured) {
   console.warn('⚠️ Credenciais do Supabase não encontradas ou inválidas.');
 }
 
+// Classe de transporte WebSocket segura sem conexão de rede para ambientes restritos (sandboxes, Cloud Run e iFrames)
+class NoOpWebSocket {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+  readonly readyState = 3; // CLOSED
+  readonly url = '';
+  readonly protocol = '';
+  readonly extensions = '';
+  readonly bufferedAmount = 0;
+  binaryType = 'blob';
+  onopen: any = null;
+  onclose: any = null;
+  onerror: any = null;
+  onmessage: any = null;
+  constructor(_url?: string) {}
+  close() {}
+  send() {}
+  addEventListener() {}
+  removeEventListener() {}
+  dispatchEvent() { return true; }
+}
+
 // Inicialização direta do cliente oficial com as credenciais reais de produção e schema público estático
 export const isRealtimeEnabledInEnv = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ === true;
 
@@ -88,13 +112,16 @@ export const supabase: SupabaseClient = createClient(
         'x-application-name': 'agrocontrol-silagem',
       }
     },
-    ...(isRealtimeEnabledInEnv ? {} : {
-      realtime: {
-        params: {
-          eventsPerSecond: 0,
-        },
+    realtime: isRealtimeEnabledInEnv ? {
+      params: {
+        eventsPerSecond: 10,
       }
-    })
+    } : {
+      transport: NoOpWebSocket as any,
+      params: {
+        eventsPerSecond: 0,
+      },
+    }
   }
 );
 

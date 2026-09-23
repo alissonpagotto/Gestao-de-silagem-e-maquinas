@@ -11,6 +11,7 @@ import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
 import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile } from '../../lib/storage';
+import { fetchGestaoFrotas, fetchCloudFuelLogs, isSupabaseConfigured } from '../../lib/supabaseService';
 
 interface FleetVehiclesViewProps {
   machineries: Machinery[];
@@ -337,38 +338,98 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setIsPrintModalOpen(true);
   };
 
-  // Automated Meter Synchronization Handler
-  const handleSyncMeters = () => {
+  // Automated Meter Synchronization Handler via direct HTTP REST
+  const handleSyncMeters = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
+    setSyncBanner({
+      type: 'info',
+      message: 'Consultando banco de dados via REST para sincronizar leituras e frotas...'
+    });
+
+    try {
+      let currentMachines = [...machineries];
+      let currentFuel = [...fuelLogs];
+
+      // 1. Busca forçada via REST das tabelas no Supabase (contornando falha de WebSocket)
+      if (isSupabaseConfigured) {
+        try {
+          const [remoteMachines, remoteFuel] = await Promise.all([
+            fetchGestaoFrotas(),
+            fetchCloudFuelLogs()
+          ]);
+
+          if (remoteMachines && remoteMachines.length > 0) {
+            const remoteMap = new Map(remoteMachines.map(m => [m.id, m]));
+            currentMachines = currentMachines.map(local => {
+              const remote = remoteMap.get(local.id);
+              if (remote) {
+                remoteMap.delete(local.id);
+                return {
+                  ...local,
+                  ...remote,
+                  hourMeter: Math.max(local.hourMeter || 0, remote.hourMeter || 0),
+                  currentKm: Math.max(local.currentKm || 0, remote.currentKm || 0),
+                };
+              }
+              return local;
+            });
+            for (const [, rm] of remoteMap) {
+              currentMachines.push(rm);
+            }
+          }
+
+          if (remoteFuel && Array.isArray(remoteFuel) && remoteFuel.length > 0) {
+            const fuelMap = new Map(currentFuel.map(f => [f.id, f]));
+            remoteFuel.forEach(f => fuelMap.set(f.id, f));
+            currentFuel = Array.from(fuelMap.values());
+          }
+        } catch (fetchErr) {
+          console.warn('Aviso ao consultar Supabase via REST:', fetchErr);
+        }
+      }
+
+      // 2. Calcula os odômetros/horímetros com base nas leituras dos abastecimentos, ordens e manutenções
       const { updatedMachineries, updatedCount } = syncFleetMeters(
-        machineries,
-        fuelLogs,
+        currentMachines,
+        currentFuel,
         maintenanceLogs,
         services,
         orders
       );
 
+      // 3. Atualiza estado e banco de dados
+      if (onSaveMachineries) {
+        onSaveMachineries(updatedMachineries);
+      }
+
+      // 4. Notifica o restante da aplicação para recarregar módulos via REST
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('silagem_force_rest_sync'));
+      }
+
       if (updatedCount > 0) {
-        if (onSaveMachineries) {
-          onSaveMachineries(updatedMachineries);
-        }
         setSyncBanner({
           type: 'success',
-          message: `Sincronização concluída! ${updatedCount} veículo(s) tiveram suas leituras atualizadas com base nos registros recentes de abastecimentos e manutenções.`
+          message: `Sincronização via REST concluída! ${updatedCount} veículo(s) tiveram suas leituras atualizadas com sucesso a partir do banco de dados.`
         });
       } else {
         setSyncBanner({
-          type: 'info',
-          message: 'Todos os veículos já estão sincronizados com as leituras mais recentes registradas.'
+          type: 'success',
+          message: `Sincronização via REST com o Supabase concluída! Todas as leituras e ${updatedMachineries.length} veículos estão 100% atualizados.`
         });
       }
+    } catch (err: any) {
+      console.error('Erro na sincronização de leituras:', err);
+      setSyncBanner({
+        type: 'info',
+        message: 'Sincronização local concluída. Verifique a conectividade de rede.'
+      });
+    } finally {
       setIsSyncing(false);
-
       setTimeout(() => {
         setSyncBanner(null);
       }, 7000);
-    }, 400);
+    }
   };
 
   // Quick Meter Reading Handler

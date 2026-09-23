@@ -129,6 +129,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   }, []);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
@@ -259,6 +260,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
       if (base64) {
+        setLogoError(false);
         setFormData(prev => ({
           ...prev,
           logoUrl: base64
@@ -269,6 +271,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   };
 
   const handleResetToDefaultLogo = () => {
+    setLogoError(false);
     setFormData(prev => ({
       ...prev,
       logoUrl: ''
@@ -402,12 +405,13 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
               <span className="text-[11px] font-black text-black dark:text-stone-300 mb-2 self-start">Logotipo da Empresa</span>
               
               <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-white dark:bg-stone-900 border-2 border-slate-300 dark:border-stone-700 flex items-center justify-center p-2 overflow-hidden shadow-inner relative group">
-                {formData.logoUrl ? (
+                {formData.logoUrl && !logoError ? (
                   <img 
                     src={formData.logoUrl} 
                     alt="Logotipo da Empresa" 
                     className="max-w-full max-h-full object-contain drop-shadow-sm transition-transform duration-200 group-hover:scale-105"
                     referrerPolicy="no-referrer"
+                    onError={() => setLogoError(true)}
                   />
                 ) : (
                   <div className="text-center text-black/70 dark:text-stone-400 p-2">

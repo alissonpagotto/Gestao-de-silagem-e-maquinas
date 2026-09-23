@@ -383,8 +383,25 @@ export default function App() {
             setClients(cloudModules.clients);
           }
           if (Array.isArray(cloudModules.machineries) && cloudModules.machineries.length > 0) {
-            lastSyncedState.current.machineries = JSON.stringify(cloudModules.machineries);
-            setMachineries(cloudModules.machineries);
+            setMachineries(prev => {
+              const map = new Map(prev.map(m => [m.id, m]));
+              cloudModules.machineries.forEach((m: Machinery) => {
+                const existing = map.get(m.id);
+                if (existing) {
+                  map.set(m.id, {
+                    ...m,
+                    ...existing,
+                    hourMeter: Math.max(existing.hourMeter || 0, m.hourMeter || 0),
+                    currentKm: Math.max(existing.currentKm || 0, m.currentKm || 0),
+                  });
+                } else {
+                  map.set(m.id, m);
+                }
+              });
+              const merged = Array.from(map.values());
+              lastSyncedState.current.machineries = JSON.stringify(merged);
+              return merged;
+            });
           }
           if (Array.isArray(cloudModules.expenses) && cloudModules.expenses.length > 0) {
             lastSyncedState.current.expenses = JSON.stringify(cloudModules.expenses);
@@ -406,6 +423,12 @@ export default function App() {
     };
 
     loadCloudData();
+
+    // Sincronização forçada sob demanda via REST (desencadeada por ações manuais como 'Sincronizar Leituras')
+    const handleForceRestSync = () => {
+      loadCloudData();
+    };
+    window.addEventListener('silagem_force_rest_sync', handleForceRestSync);
 
     // Assinaturas em tempo real com checagem de integridade (elimina loops de eco)
     const unsubClientes = subscribeToCloudTable('clientes', () => {
@@ -552,6 +575,7 @@ export default function App() {
 
     return () => { 
       isMounted = false; 
+      window.removeEventListener('silagem_force_rest_sync', handleForceRestSync);
       unsubClientes();
       unsubFornecedores();
       unsubEstoque();

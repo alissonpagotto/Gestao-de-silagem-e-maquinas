@@ -106,6 +106,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (onCloseMobile) onCloseMobile();
   };
 
+  const [logoError, setLogoError] = useState(false);
+
   // Build sorted navigation list
   const currentOrder = propMenuOrder || menuOrder;
   const navItems: MenuItemDef[] = currentOrder
@@ -126,13 +128,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           
           {/* Brand Header */}
           <div className="p-4 sm:p-5 border-b border-zinc-300 dark:border-stone-800 flex items-center space-x-3 cursor-pointer bg-zinc-200/90 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
-            {companyProfile?.logoUrl ? (
+            {companyProfile?.logoUrl && !logoError ? (
               <div className="w-10 h-10 rounded-xl bg-white dark:bg-emerald-950/60 border border-zinc-300 dark:border-emerald-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
                 <img 
                   src={companyProfile.logoUrl} 
                   alt="Logo" 
                   className="max-w-full max-h-full object-contain"
                   referrerPolicy="no-referrer"
+                  onError={() => setLogoError(true)}
                 />
               </div>
             ) : (

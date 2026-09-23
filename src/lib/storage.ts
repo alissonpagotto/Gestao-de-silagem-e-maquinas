@@ -531,12 +531,13 @@ export function getStoredCompanyProfile(): CompanyProfile {
     if (!raw) return INITIAL_COMPANY_PROFILE;
     const parsed = JSON.parse(raw);
     const profile = { ...INITIAL_COMPANY_PROFILE, ...parsed };
-    // Remove o logotipo padrão do carrinho/trator verde legado para manter o perfil limpo
+    // Remove o logotipo padrão do carrinho/trator verde legado ou caminhos 404 de /upload/ para manter o perfil limpo
     if (
       profile.logoUrl &&
       (profile.logoUrl.includes('a7f3d0') ||
         profile.logoUrl.includes('15803d') ||
-        profile.logoUrl.includes('viewBox="0 0 200 160"'))
+        profile.logoUrl.includes('viewBox="0 0 200 160"') ||
+        profile.logoUrl.startsWith('/upload/'))
     ) {
       profile.logoUrl = '';
     }

@@ -24,7 +24,28 @@ export default defineConfig(() => {
   const supabaseKey = isValidKey ? rawKey : FALLBACK_SUPABASE_ANON_KEY;
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'upload-fallback-middleware',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url && (req.url.startsWith('/upload/') || req.url.startsWith('/upload'))) {
+              res.writeHead(200, {
+                'Content-Type': 'image/svg+xml',
+                'Cache-Control': 'public, max-age=86400',
+              });
+              res.end(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#f4f4f5"/><path d="M50 42a12 12 0 100-24 12 12 0 000 24zm-22 36c0-11 9.8-20 22-20s22 9 22 20H28z" fill="#a1a1aa"/></svg>'
+              );
+              return;
+            }
+            next();
+          });
+        },
+      },
+    ],
     envPrefix: ['VITE_', 'SUPABASE_'],
     define: {
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),

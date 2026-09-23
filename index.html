@@ -16,9 +16,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="modulepreload" href="/src/main.tsx">
     <script>
-      // Proteção global contra travamento por checagem Cross-Origin em sandbox iframe
+      // Proteção global contra travamento por checagem Cross-Origin em sandbox iframe e falha de WebSocket handshake
       window.addEventListener('error', function(event) {
-        if (event && (event.message?.includes('cross-origin') || event.message?.includes('Cross-Origin') || event.message?.includes('Blocked a frame'))) {
+        if (event && (
+          event.message?.includes('cross-origin') || 
+          event.message?.includes('Cross-Origin') || 
+          event.message?.includes('Blocked a frame') ||
+          event.message?.includes('WebSocket') ||
+          event.message?.includes('Sec-WebSocket-Accept')
+        )) {
           event.preventDefault();
           event.stopImmediatePropagation();
           return true;
@@ -26,10 +32,24 @@
       }, true);
 
       window.onerror = function(msg) {
-        if (typeof msg === 'string' && (msg.includes('cross-origin') || msg.includes('Cross-Origin') || msg.includes('Blocked a frame'))) {
+        if (typeof msg === 'string' && (
+          msg.includes('cross-origin') || 
+          msg.includes('Cross-Origin') || 
+          msg.includes('Blocked a frame') ||
+          msg.includes('WebSocket') ||
+          msg.includes('Sec-WebSocket-Accept')
+        )) {
           return true;
         }
       };
+
+      window.addEventListener('unhandledrejection', function(event) {
+        const reasonStr = String(event?.reason?.message || event?.reason || '');
+        if (reasonStr.includes('WebSocket') || reasonStr.includes('Sec-WebSocket-Accept')) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
 
       try {
         const t = localStorage.getItem('silagem_facil_theme');
