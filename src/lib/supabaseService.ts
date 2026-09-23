@@ -865,7 +865,16 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       .from('gestao_frotas')
       .select('*')
       .eq('company_id', activeCompanyId)
-      .order('name', { ascending: true });
+      .order('nome', { ascending: true });
+
+    if (error && error.message?.includes('nome')) {
+      const fallbackOrder = await supabase
+        .from('gestao_frotas')
+        .select('*')
+        .eq('company_id', activeCompanyId);
+      data = fallbackOrder.data;
+      error = fallbackOrder.error;
+    }
 
     if ((!data || data.length === 0) && activeCompanyId) {
       const altUuid = toValidUUID(activeCompanyId);
@@ -873,8 +882,7 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         const retry = await supabase
           .from('gestao_frotas')
           .select('*')
-          .eq('company_id', altUuid)
-          .order('name', { ascending: true });
+          .eq('company_id', altUuid);
         if (retry.data && retry.data.length > 0) {
           data = retry.data;
           error = null;
@@ -893,14 +901,31 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
             ? Number(row.tankCapacity)
             : (row.fuelCapacityLiters !== undefined && row.fuelCapacityLiters !== null ? Number(row.fuelCapacityLiters) : undefined));
 
+      const meterVal = row.horimetro_ou_km_atual !== undefined && row.horimetro_ou_km_atual !== null
+        ? Number(row.horimetro_ou_km_atual)
+        : (row.hourmeter !== undefined ? Number(row.hourmeter) : (row.hourMeter !== undefined ? Number(row.hourMeter) : 0));
+
       return {
         ...row,
+        id: row.id,
+        name: row.nome || row.name || 'Veículo',
+        nome: row.nome || row.name || 'Veículo',
+        model: row.modelo || row.model || '',
+        modelo: row.modelo || row.model || '',
+        categoryType: row.tipo || row.type || 'veiculo',
+        tipo: row.tipo || row.type || 'veiculo',
+        licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || '',
+        placa_ou_serie: row.placa_ou_serie || row.plate_or_serial || '',
         fleetNumber: row.fleet_number || row.fleetNumber || undefined,
-        licensePlateOrSerial: row.plate_or_serial || row.licensePlateOrSerial,
-        hourMeter: row.hourmeter !== undefined ? Number(row.hourmeter) : row.hourMeter,
-        currentFuelPercentage: row.fuel_level !== undefined ? Number(row.fuel_level) : row.currentFuelPercentage,
-        accumulatedCost: row.accumulated_cost !== undefined ? Number(row.accumulated_cost) : row.accumulatedCost,
-        categoryType: row.type || row.categoryType,
+        year: row.ano ? Number(row.ano) : (row.year ? Number(row.year) : null),
+        ano: row.ano ? Number(row.ano) : null,
+        hourMeter: meterVal,
+        currentKm: meterVal,
+        horimetro_ou_km_atual: meterVal,
+        status: row.status || 'ativo',
+        maintenanceStatus: row.manutencao_status || row.maintenanceStatus || 'ok',
+        imageUrl: row.foto_url || row.fotoUrl || row.imageUrl,
+        photoUrl: row.foto_url || row.fotoUrl,
         tank_capacity: tankCapacityNumber,
         tankCapacity: tankCapacityNumber,
         fuelCapacityLiters: tankCapacityNumber,
@@ -922,19 +947,24 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
           ? Number(vehicle.tankCapacity)
           : (vehicle.fuelCapacityLiters !== undefined && vehicle.fuelCapacityLiters !== null ? Number(vehicle.fuelCapacityLiters) : 0));
 
+    const currentMeter = (vehicle.hourMeter !== undefined && vehicle.hourMeter !== null)
+      ? Number(vehicle.hourMeter)
+      : ((vehicle.currentKm !== undefined && vehicle.currentKm !== null)
+          ? Number(vehicle.currentKm)
+          : (vehicle.horimetro_ou_km_atual !== undefined ? Number(vehicle.horimetro_ou_km_atual) : 0));
+
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
-      company_id: activeCompanyId,
-      name: vehicle.name,
-      type: vehicle.categoryType || 'maquina',
-      model: vehicle.model,
-      plate_or_serial: vehicle.licensePlateOrSerial || vehicle.serialNumber || '',
-      fleet_number: vehicle.fleetNumber || '',
-      year: vehicle.year ? Number(vehicle.year) : null,
-      hourmeter: Number(vehicle.hourMeter) || 0,
-      status: vehicle.status || 'operacional',
-      fuel_level: Number(vehicle.currentFuelPercentage) || 100,
-      accumulated_cost: vehicle.accumulatedCost || 0,
+      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
+      tipo: vehicle.categoryType || vehicle.tipo || 'veiculo',
+      nome: vehicle.name || vehicle.nome || 'Veículo',
+      modelo: vehicle.model || vehicle.modelo || null,
+      placa_ou_serie: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
+      ano: vehicle.year ? Number(vehicle.year) : null,
+      horimetro_ou_km_atual: isNaN(currentMeter) ? 0 : currentMeter,
+      status: vehicle.status || 'ativo',
+      manutencao_status: vehicle.maintenanceStatus || vehicle.manutencao_status || 'ok',
+      foto_url: vehicle.imageUrl || vehicle.photoUrl || vehicle.foto_url || null,
       tank_capacity: isNaN(tankCapacityVal) ? 0 : tankCapacityVal,
       updated_at: new Date().toISOString()
     };
@@ -945,9 +975,8 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
 
     if (error) {
       logPostgresError('upsertGestaoFrota', error, { table: 'gestao_frotas', action: 'UPSERT', payload });
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('fleet_number') || error.message.includes('tank_capacity') || error.message.includes('column')))) {
+      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('tank_capacity') || error.message.includes('column')))) {
         delete payload.company_id;
-        delete payload.fleet_number;
         delete payload.tank_capacity;
         const retry = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
@@ -985,10 +1014,14 @@ export async function deleteGestaoFrota(id: string, companyId?: string): Promise
   }
 }
 
+// Cache defensivo para tabelas de abastecimento (evita disparar requisições 404 repetitivas no console)
+let isAbastecimentosTableAvailable: boolean | null = null;
+let isCombustivelTableAvailable: boolean | null = null;
+
 /**
- * Busca dinâmica do último registro de abastecimento para um veículo específico no Supabase.
- * Consulta 'abastecimentos' ou 'combustivel' filtrando por veiculo_id, ordenando de forma decrescente
- * por created_at e limitando a 1 registro.
+ * Busca dinâmica defensiva do último registro de abastecimento para um veículo no Supabase.
+ * Se a tabela não existir (Erro 404/42P01/PGRST200) ou a requisição falhar (400),
+ * captura o erro no catch, exibe console.warn amigável e NÃO trava a aplicação.
  */
 export async function fetchUltimoAbastecimentoVeiculo(vehicleId: string): Promise<{
   currentHourMeter?: number | null;
@@ -998,96 +1031,135 @@ export async function fetchUltimoAbastecimentoVeiculo(vehicleId: string): Promis
   date?: string | null;
 } | null> {
   if (!isSupabaseConfigured || !vehicleId) return null;
-  try {
-    // 1. Consulta prioritária na tabela 'abastecimentos'
-    const { data: dataAbast, error: errAbast } = await supabase
-      .from('abastecimentos')
-      .select('*')
-      .eq('veiculo_id', vehicleId)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (!errAbast && dataAbast && dataAbast.length > 0) {
-      const row = dataAbast[0];
-      const hourVal = row.horas_atual ?? row.horimetro_atual ?? row.horas_motor_atual ?? row.current_hour_meter ?? row.currentHourMeter ?? row.horimetro;
-      const kmVal = row.km_atual ?? row.odometro_atual ?? row.quilometragem_atual ?? row.current_km ?? row.currentKm ?? row.odometro;
-      return {
-        currentHourMeter: hourVal !== undefined && hourVal !== null && !isNaN(Number(hourVal)) ? Number(hourVal) : null,
-        currentKm: kmVal !== undefined && kmVal !== null && !isNaN(Number(kmVal)) ? Number(kmVal) : null,
-        liters: row.litros ?? row.liters ?? null,
-        fuelType: row.tipo_combustivel ?? row.fuel_type ?? null,
-        date: row.data ?? row.date ?? null,
-      };
-    }
-
-    // 2. Consulta alternativa na tabela 'combustivel'
-    const { data: dataComb, error: errComb } = await supabase
-      .from('combustivel')
-      .select('*')
-      .eq('veiculo_id', vehicleId)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (!errComb && dataComb && dataComb.length > 0) {
-      const row = dataComb[0];
-      const hourVal = row.horas_atual ?? row.horimetro_atual ?? row.horas_motor_atual ?? row.current_hour_meter ?? row.currentHourMeter ?? row.horimetro;
-      const kmVal = row.km_atual ?? row.odometro_atual ?? row.quilometragem_atual ?? row.current_km ?? row.currentKm ?? row.odometro;
-      return {
-        currentHourMeter: hourVal !== undefined && hourVal !== null && !isNaN(Number(hourVal)) ? Number(hourVal) : null,
-        currentKm: kmVal !== undefined && kmVal !== null && !isNaN(Number(kmVal)) ? Number(kmVal) : null,
-        liters: row.litros ?? row.liters ?? null,
-        fuelType: row.tipo_combustivel ?? row.fuel_type ?? null,
-        date: row.data ?? row.date ?? null,
-      };
-    }
-  } catch (err) {
-    console.warn('fetchUltimoAbastecimentoVeiculo notice:', err);
+  
+  // Se ambas as tabelas já foram verificadas e não existem remotamente, encerra sem disparar 404
+  if (isAbastecimentosTableAvailable === false && isCombustivelTableAvailable === false) {
+    return null;
   }
+
+  // 1. Consulta prioritária na tabela 'abastecimentos'
+  if (isAbastecimentosTableAvailable !== false) {
+    try {
+      const { data: dataAbast, error: errAbast } = await supabase
+        .from('abastecimentos')
+        .select('*')
+        .eq('veiculo_id', vehicleId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (errAbast) {
+        if (errAbast.code === '42P01' || errAbast.code === 'PGRST200' || errAbast.message?.includes('not find') || errAbast.message?.includes('does not exist')) {
+          isAbastecimentosTableAvailable = false;
+          console.warn('Aviso: Tabela "abastecimentos" não encontrada no Supabase (404/42P01). Sistema utilizará histórico local e perfil do veículo.');
+        } else {
+          console.warn('Aviso na busca de abastecimentos:', errAbast.message);
+        }
+      } else if (dataAbast && dataAbast.length > 0) {
+        isAbastecimentosTableAvailable = true;
+        const row = dataAbast[0];
+        const hourVal = row.horas_atual ?? row.horimetro_atual ?? row.horas_motor_atual ?? row.current_hour_meter ?? row.currentHourMeter ?? row.horimetro;
+        const kmVal = row.km_atual ?? row.odometro_atual ?? row.quilometragem_atual ?? row.current_km ?? row.currentKm ?? row.odometro;
+        return {
+          currentHourMeter: hourVal !== undefined && hourVal !== null && !isNaN(Number(hourVal)) ? Number(hourVal) : null,
+          currentKm: kmVal !== undefined && kmVal !== null && !isNaN(Number(kmVal)) ? Number(kmVal) : null,
+          liters: row.litros ?? row.liters ?? null,
+          fuelType: row.tipo_combustivel ?? row.fuel_type ?? null,
+          date: row.data ?? row.date ?? null,
+        };
+      }
+    } catch (err: any) {
+      isAbastecimentosTableAvailable = false;
+      console.warn('Tratamento defensivo na busca de "abastecimentos":', err?.message || err);
+    }
+  }
+
+  // 2. Consulta alternativa na tabela 'combustivel'
+  if (isCombustivelTableAvailable !== false) {
+    try {
+      const { data: dataComb, error: errComb } = await supabase
+        .from('combustivel')
+        .select('*')
+        .eq('veiculo_id', vehicleId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (errComb) {
+        if (errComb.code === '42P01' || errComb.code === 'PGRST200' || errComb.message?.includes('not find') || errComb.message?.includes('does not exist')) {
+          isCombustivelTableAvailable = false;
+          console.warn('Aviso: Tabela "combustivel" não encontrada no Supabase. Sistema utilizará histórico local e perfil do veículo.');
+        } else {
+          console.warn('Aviso na busca de combustivel:', errComb.message);
+        }
+      } else if (dataComb && dataComb.length > 0) {
+        isCombustivelTableAvailable = true;
+        const row = dataComb[0];
+        const hourVal = row.horas_atual ?? row.horimetro_atual ?? row.horas_motor_atual ?? row.current_hour_meter ?? row.currentHourMeter ?? row.horimetro;
+        const kmVal = row.km_atual ?? row.odometro_atual ?? row.quilometragem_atual ?? row.current_km ?? row.currentKm ?? row.odometro;
+        return {
+          currentHourMeter: hourVal !== undefined && hourVal !== null && !isNaN(Number(hourVal)) ? Number(hourVal) : null,
+          currentKm: kmVal !== undefined && kmVal !== null && !isNaN(Number(kmVal)) ? Number(kmVal) : null,
+          liters: row.litros ?? row.liters ?? null,
+          fuelType: row.tipo_combustivel ?? row.fuel_type ?? null,
+          date: row.data ?? row.date ?? null,
+        };
+      }
+    } catch (err: any) {
+      isCombustivelTableAvailable = false;
+      console.warn('Tratamento defensivo na busca de "combustivel":', err?.message || err);
+    }
+  }
+
   return null;
 }
 
 /**
- * Persiste ou sincroniza um registro de abastecimento no Supabase
+ * Persiste ou sincroniza um registro de abastecimento no Supabase defensivamente
  */
 export async function saveAbastecimentoSupabase(fuelLog: FuelLog, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
+  if (isAbastecimentosTableAvailable === false && isCombustivelTableAvailable === false) {
+    return false;
+  }
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const payload: Record<string, any> = {
       id: toValidUUID(fuelLog.id),
-      company_id: activeCompanyId,
+      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
       veiculo_id: fuelLog.machineryId,
-      vehicle_id: fuelLog.machineryId,
-      machinery_id: fuelLog.machineryId,
       data: fuelLog.date,
-      date: fuelLog.date,
       tipo_combustivel: fuelLog.fuelType,
-      fuel_type: fuelLog.fuelType,
       litros: Number(fuelLog.liters) || 0,
-      liters: Number(fuelLog.liters) || 0,
       preco_litro: Number(fuelLog.pricePerLiter) || 0,
-      price_per_liter: Number(fuelLog.pricePerLiter) || 0,
       valor_total: Number(fuelLog.totalAmount) || 0,
-      total_amount: Number(fuelLog.totalAmount) || 0,
       horas_anterior: fuelLog.previousHourMeter !== undefined && fuelLog.previousHourMeter !== null ? Number(fuelLog.previousHourMeter) : null,
       horas_atual: fuelLog.currentHourMeter !== undefined && fuelLog.currentHourMeter !== null ? Number(fuelLog.currentHourMeter) : null,
-      horimetro_atual: fuelLog.currentHourMeter !== undefined && fuelLog.currentHourMeter !== null ? Number(fuelLog.currentHourMeter) : null,
       km_anterior: fuelLog.previousKm !== undefined && fuelLog.previousKm !== null ? Number(fuelLog.previousKm) : null,
       km_atual: fuelLog.currentKm !== undefined && fuelLog.currentKm !== null ? Number(fuelLog.currentKm) : null,
-      odometro_atual: fuelLog.currentKm !== undefined && fuelLog.currentKm !== null ? Number(fuelLog.currentKm) : null,
       motorista_operador: fuelLog.driverOrOperator || null,
-      driver_operator: fuelLog.driverOrOperator || null,
       posto_fornecedor: fuelLog.supplierStation || null,
-      supplier_station: fuelLog.supplierStation || null,
       created_at: new Date().toISOString(),
     };
 
-    let { error } = await supabase.from('abastecimentos').upsert(payload, { onConflict: 'id' });
-    if (error) {
-      const retryComb = await supabase.from('combustivel').upsert(payload, { onConflict: 'id' });
-      if (!retryComb.error) return true;
-    } else {
-      return true;
+    if (isAbastecimentosTableAvailable !== false) {
+      let { error } = await supabase.from('abastecimentos').upsert(payload, { onConflict: 'id' });
+      if (!error) {
+        isAbastecimentosTableAvailable = true;
+        return true;
+      }
+      if (error.code === '42P01' || error.code === 'PGRST200' || error.message?.includes('not find')) {
+        isAbastecimentosTableAvailable = false;
+      }
+    }
+
+    if (isCombustivelTableAvailable !== false) {
+      let { error } = await supabase.from('combustivel').upsert(payload, { onConflict: 'id' });
+      if (!error) {
+        isCombustivelTableAvailable = true;
+        return true;
+      }
+      if (error.code === '42P01' || error.code === 'PGRST200' || error.message?.includes('not find')) {
+        isCombustivelTableAvailable = false;
+      }
     }
   } catch (err) {
     console.warn('saveAbastecimentoSupabase notice:', err);

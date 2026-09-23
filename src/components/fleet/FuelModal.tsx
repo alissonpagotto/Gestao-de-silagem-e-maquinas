@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles, CheckCircle2, History, RefreshCw } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { supabase } from '../../lib/supabase';
+import { fetchUltimoAbastecimentoVeiculo } from '../../lib/supabaseService';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -64,118 +64,99 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     return selectedMachinery?.averageConsumptionKmPerLiter ?? vehicleMetrics?.avgKmPerLiter ?? null;
   }, [selectedMachinery, vehicleMetrics]);
 
+  const prevIsOpenRef = useRef(false);
+
   /**
-   * BUSCA DINÂMICA DO ÚLTIMO REGISTRO DE ABASTECIMENTO:
-   * Consulta o Supabase nas tabelas 'abastecimentos' ou 'combustivel' filtrando por '.eq("veiculo_id", id_selecionado)'
-   * ordenando por '.order("created_at", { ascending: false })' e '.limit(1)'.
-   * Se retornar um registro, extrai as Horas e KM desse último registro para 'Horas Anterior' e 'KM Anterior'.
-   * Se não retornar nenhum registro anterior, executa o fallback de buscar o Horímetro / KM inicial do veículo.
+   * BUSCA DINÂMICA DEFENSIVA E FALLBACK SEGURO:
+   * 1. Executa imediatamente o Fallback Seguro (sem esperar rede e sem travar a interface):
+   *    - Busca o último abastecimento registrado na memória local (fuelLogs) do veículo.
+   *    - Se não houver histórico, busca o Horímetro Inicial e o KM Inicial cadastrados na ficha do veículo (machineries).
+   * 2. Em segundo plano e dentro de try/catch robusto, consulta se há registro mais recente no Supabase.
+   * 3. Caso ocorra erro de rede (400) ou tabela inexistente (404/42P01), captura o erro amigavelmente sem travar.
+   * 4. Mantém todos os campos do modal desbloqueados para digitação manual livre pelo usuário.
    */
   const loadLatestVehicleMeters = useCallback(async (vehicleId: string, mach?: Machinery) => {
     if (!vehicleId) return;
-    setIsLoadingMeters(true);
+
+    // --- PASSO 1: APLICAÇÃO IMEDIATA E SÍNCRONA DO FALLBACK ---
+    const targetMach = mach || machineries.find((m) => m.id === vehicleId);
+
+    // 1.1 Procura no histórico local de abastecimentos (fuelLogs)
+    const logsForVehicle = (fuelLogs || [])
+      .filter((f) => f.machineryId === vehicleId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     let foundHours: number | null = null;
     let foundKm: number | null = null;
     let source: 'supabase' | 'local_history' | 'initial_profile' = 'initial_profile';
 
-    try {
-      // 1. Consulta prioritária na tabela 'abastecimentos' do Supabase
-      const { data: dataAbast, error: errAbast } = await supabase
-        .from('abastecimentos')
-        .select('*')
-        .eq('veiculo_id', vehicleId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (!errAbast && dataAbast && dataAbast.length > 0) {
-        const lastRow = dataAbast[0];
-        const h = lastRow.horas_atual ?? lastRow.horimetro_atual ?? lastRow.horas_motor_atual ?? lastRow.current_hour_meter ?? lastRow.currentHourMeter ?? lastRow.horimetro;
-        const k = lastRow.km_atual ?? lastRow.odometro_atual ?? lastRow.quilometragem_atual ?? lastRow.current_km ?? lastRow.currentKm ?? lastRow.odometro;
-        if (h !== undefined && h !== null && !isNaN(Number(h))) {
-          foundHours = Number(h);
-          source = 'supabase';
-        }
-        if (k !== undefined && k !== null && !isNaN(Number(k))) {
-          foundKm = Number(k);
-          source = 'supabase';
-        }
+    if (logsForVehicle.length > 0) {
+      const lastLog = logsForVehicle[0];
+      const h = lastLog.currentHourMeter !== undefined ? lastLog.currentHourMeter : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm <= 50000 ? lastLog.currentHourMeterOrKm : undefined);
+      const k = lastLog.currentKm !== undefined ? lastLog.currentKm : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm > 50000 ? lastLog.currentHourMeterOrKm : undefined);
+      if (h !== undefined && h > 0) {
+        foundHours = h;
+        source = 'local_history';
       }
-
-      // 2. Consulta alternativa na tabela 'combustivel' do Supabase caso não encontre na primeira
-      if (foundHours === null && foundKm === null) {
-        const { data: dataComb, error: errComb } = await supabase
-          .from('combustivel')
-          .select('*')
-          .eq('veiculo_id', vehicleId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (!errComb && dataComb && dataComb.length > 0) {
-          const lastRow = dataComb[0];
-          const h = lastRow.horas_atual ?? lastRow.horimetro_atual ?? lastRow.horas_motor_atual ?? lastRow.current_hour_meter ?? lastRow.currentHourMeter ?? lastRow.horimetro;
-          const k = lastRow.km_atual ?? lastRow.odometro_atual ?? lastRow.quilometragem_atual ?? lastRow.current_km ?? lastRow.currentKm ?? lastRow.odometro;
-          if (h !== undefined && h !== null && !isNaN(Number(h))) {
-            foundHours = Number(h);
-            source = 'supabase';
-          }
-          if (k !== undefined && k !== null && !isNaN(Number(k))) {
-            foundKm = Number(k);
-            source = 'supabase';
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Busca no Supabase de abastecimentos aviso:', e);
-    }
-
-    // Fallback 1: Histórico de registros em memória / local (fuelLogs)
-    if (foundHours === null && foundKm === null && fuelLogs && fuelLogs.length > 0) {
-      const logsForVehicle = fuelLogs
-        .filter(f => f.machineryId === vehicleId)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      if (logsForVehicle.length > 0) {
-        const lastLog = logsForVehicle[0];
-        const h = lastLog.currentHourMeter !== undefined ? lastLog.currentHourMeter : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm <= 50000 ? lastLog.currentHourMeterOrKm : undefined);
-        const k = lastLog.currentKm !== undefined ? lastLog.currentKm : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm > 50000 ? lastLog.currentHourMeterOrKm : undefined);
-        if (h !== undefined && h > 0) {
-          foundHours = h;
-          source = 'local_history';
-        }
-        if (k !== undefined && k > 0) {
-          foundKm = k;
-          source = 'local_history';
-        }
+      if (k !== undefined && k > 0) {
+        foundKm = k;
+        source = 'local_history';
       }
     }
 
-    // Fallback 2: Horímetro Inicial / KM Inicial cadastrado no perfil principal do veículo na tabela de frotas
-    const targetMach = mach || machineries.find(m => m.id === vehicleId);
-
-    if (foundHours !== null) {
-      setPreviousHourMeter(String(foundHours));
-    } else if (targetMach?.hourMeter) {
-      setPreviousHourMeter(String(targetMach.hourMeter));
-      source = 'initial_profile';
-    } else {
-      setPreviousHourMeter('');
+    // 1.2 Fallback do perfil do veículo (Horímetro Inicial / KM Inicial)
+    if (foundHours === null && targetMach) {
+      const machH = targetMach.hourMeter ?? targetMach.horimetro_ou_km_atual;
+      if (machH !== undefined && machH !== null && Number(machH) > 0) {
+        foundHours = Number(machH);
+        source = 'initial_profile';
+      }
+    }
+    if (foundKm === null && targetMach) {
+      const machK = targetMach.currentKm ?? targetMach.horimetro_ou_km_atual;
+      if (machK !== undefined && machK !== null && Number(machK) > 0) {
+        foundKm = Number(machK);
+        source = 'initial_profile';
+      }
     }
 
-    if (foundKm !== null) {
-      setPreviousKm(String(foundKm));
-    } else if (targetMach?.currentKm) {
-      setPreviousKm(String(targetMach.currentKm));
-      source = 'initial_profile';
-    } else {
-      setPreviousKm('');
-    }
-
+    // Seta imediatamente na tela os valores de fallback
+    setPreviousHourMeter(foundHours !== null ? String(foundHours) : '');
+    setPreviousKm(foundKm !== null ? String(foundKm) : '');
     setMetersSource(source);
-    setIsLoadingMeters(false);
+
+    // --- PASSO 2: CONSULTA DEFENSIVA ASSÍNCRONA NO SUPABASE COM TRY/CATCH ---
+    try {
+      setIsLoadingMeters(true);
+      const remoteData = await fetchUltimoAbastecimentoVeiculo(vehicleId);
+      if (remoteData) {
+        if (remoteData.currentHourMeter !== null && remoteData.currentHourMeter !== undefined) {
+          setPreviousHourMeter(String(remoteData.currentHourMeter));
+          setMetersSource('supabase');
+        }
+        if (remoteData.currentKm !== null && remoteData.currentKm !== undefined) {
+          setPreviousKm(String(remoteData.currentKm));
+          setMetersSource('supabase');
+        }
+      }
+    } catch (e: any) {
+      // Captura amigável sem travar a tela
+      console.warn('Aviso: busca remota de abastecimentos indisponível ou tabela ausente. Mantendo fallback:', e?.message || e);
+    } finally {
+      setIsLoadingMeters(false);
+    }
   }, [fuelLogs, machineries]);
 
+  // Hook estável de inicialização do modal: executa apenas ao abrir ou trocar edição
   useEffect(() => {
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const wasOpened = !prevIsOpenRef.current;
+    prevIsOpenRef.current = true;
+
     if (editingLog) {
       setDate(editingLog.date);
       setMachineryId(editingLog.machineryId);
@@ -195,7 +176,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setNotes(editingLog.notes || '');
       setCreateExpense(false);
       setMetersSource('local_history');
-    } else if (isOpen) {
+      return;
+    }
+
+    // Inicialização ao abrir novo registro de abastecimento
+    if (wasOpened) {
       setDate(new Date().toISOString().split('T')[0]);
       const initialId = initialMachineryId || (machineries.length > 0 ? machineries[0].id : '');
       setMachineryId(initialId);
@@ -219,7 +204,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         loadLatestVehicleMeters(initialId, targetMach);
       }
     }
-  }, [editingLog, isOpen, initialMachineryId, machineries, loadLatestVehicleMeters]);
+  }, [isOpen, editingLog?.id, initialMachineryId, loadLatestVehicleMeters, machineries]);
 
   const handleMachineryChange = (id: string) => {
     setMachineryId(id);
@@ -227,11 +212,19 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     if (mach) {
       if (mach.operatorOrDriver) {
         setDriverOrOperator(mach.operatorOrDriver.split(',')[0].trim());
+      } else {
+        setDriverOrOperator('');
       }
-      // Ao mudar o veículo, limpa as leituras atuais digitadas para permitir novo cálculo limpo
+      // Ao trocar de veículo, limpa as leituras atuais digitadas
       setCurrentHourMeter('');
       setCurrentKm('');
       loadLatestVehicleMeters(id, mach);
+    } else {
+      setDriverOrOperator('');
+      setPreviousHourMeter('');
+      setPreviousKm('');
+      setCurrentHourMeter('');
+      setCurrentKm('');
     }
   };
 

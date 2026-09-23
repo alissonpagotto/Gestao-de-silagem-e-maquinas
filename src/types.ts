@@ -272,6 +272,19 @@ export interface Machinery {
   purchaseInstallmentRows?: any[]; // Linhas detalhadas de parcelas confirmadas no modal de compra/financiamento
   purchaseInstallmentIntervalDays?: number; // Intervalo de dias selecionado (ex: 30 = Mensal, 90 = Trimestral, 180 = Semestral, 365 = Anual)
 
+  // Supabase gestao_frotas compatibility fields
+  horimetro_ou_km_atual?: number;
+  tipo?: string;
+  nome?: string;
+  modelo?: string;
+  placa_ou_serie?: string;
+  ano?: number;
+  manutencao_status?: string;
+  maintenanceStatus?: string;
+  imageUrl?: string;
+  photoUrl?: string;
+  foto_url?: string;
+
   // 4. Controle Patrimonial, Impostos & Taxas (FIPE, IPVA & Licenciamento)
   fipeValue?: number; // Valor Comercial Tabela FIPE (R$)
   ipvaBaseValue?: number; // Valor Base para IPVA (R$) (Valor Venal)
