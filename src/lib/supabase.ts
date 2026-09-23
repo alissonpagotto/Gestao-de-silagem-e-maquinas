@@ -95,6 +95,32 @@ class NoOpWebSocket {
 // Inicialização direta do cliente oficial com as credenciais reais de produção e schema público estático
 export const isRealtimeEnabledInEnv = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ === true;
 
+// Higienização preventiva de sessão corrompida ou expirada no localStorage para evitar requisição automática de refresh com status 400 no Sandbox
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey && (storageKey.startsWith('sb-') || storageKey.includes('-auth-token'))) {
+        const itemStr = localStorage.getItem(storageKey);
+        if (itemStr) {
+          try {
+            const parsed = JSON.parse(itemStr);
+            const expiresAt = parsed?.expires_at ? Number(parsed.expires_at) * 1000 : 0;
+            const isCorrupted = !parsed?.refresh_token || !parsed?.access_token;
+            // Se expirou há mais de 10 minutos ou está corrompido, limpa o token órfão do Sandbox
+            const isStale = expiresAt > 0 && (Date.now() - expiresAt > 600 * 1000);
+            if (isCorrupted || isStale) {
+              localStorage.removeItem(storageKey);
+            }
+          } catch {
+            localStorage.removeItem(storageKey);
+          }
+        }
+      }
+    }
+  } catch {}
+}
+
 export const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
@@ -124,6 +150,17 @@ export const supabase: SupabaseClient = createClient(
     }
   }
 );
+
+if (typeof window !== 'undefined') {
+  // Evita looping de requisições de refresh 400 em caso de token expirado
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if ((event === 'TOKEN_REFRESHED' && !session) || event === 'SIGNED_OUT') {
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {}
+    }
+  });
+}
 
 /**
  * Dicionário especializado de Códigos de Erro do PostgreSQL / PostgREST (DBA Diagnostic)

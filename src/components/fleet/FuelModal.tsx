@@ -221,21 +221,40 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
       const mach = availableMachineries.find(m => m.id === targetId);
       if (mach) {
-        const initKm = mach.currentKm ?? (mach as any).km_inicial ?? (mach as any).initialKm ?? (mach as any).horimetro_ou_km_atual;
-        const initHours = mach.hourMeter ?? (mach as any).horimetro_inicial ?? (mach as any).initialHourMeter ?? (mach as any).horimetro_ou_km_atual;
-
         const prevLogs = (activeFuelLogs || [])
           .filter(l => l.machineryId === targetId)
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         const lastLog = prevLogs[0];
 
-        const finalKm = lastLog?.currentKm !== undefined && lastLog.currentKm !== null 
-          ? String(lastLog.currentKm) 
-          : (initKm !== undefined && initKm !== null && Number(initKm) > 0 ? String(initKm) : '');
+        // 1. KM ANTERIOR: Estritamente de km_atual do último registro ou currentKm do cadastro
+        let finalKm = '';
+        if (lastLog) {
+          const lKm = (lastLog as any).km_atual ?? (lastLog as any).kmAtual ?? lastLog.currentKm;
+          if (lKm !== undefined && lKm !== null && String(lKm).trim() !== '' && !isNaN(Number(lKm)) && Number(lKm) > 0) {
+            finalKm = String(lKm);
+          }
+        }
+        if (!finalKm) {
+          const machKm = (mach as any).km_atual ?? (mach as any).kmAtual ?? (mach as any).km_inicial ?? (mach as any).initialKm ?? mach.currentKm;
+          if (machKm !== undefined && machKm !== null && String(machKm).trim() !== '' && !isNaN(Number(machKm)) && Number(machKm) > 0) {
+            finalKm = String(machKm);
+          }
+        }
 
-        const finalHours = lastLog?.currentHourMeter !== undefined && lastLog.currentHourMeter !== null 
-          ? String(lastLog.currentHourMeter) 
-          : (initHours !== undefined && initHours !== null && Number(initHours) > 0 ? String(initHours) : '');
+        // 2. HORAS ANTERIOR: Estritamente de horas_atual / horimetro do último registro ou hourMeter do cadastro
+        let finalHours = '';
+        if (lastLog) {
+          const lHours = (lastLog as any).horas_atual ?? (lastLog as any).horasAtual ?? (lastLog as any).horimetro_atual ?? (lastLog as any).horimetroAtual ?? lastLog.currentHourMeter;
+          if (lHours !== undefined && lHours !== null && String(lHours).trim() !== '' && !isNaN(Number(lHours)) && Number(lHours) > 0) {
+            finalHours = String(lHours);
+          }
+        }
+        if (!finalHours) {
+          const machHours = (mach as any).horas_atual ?? (mach as any).horasAtual ?? (mach as any).horimetro_atual ?? (mach as any).horimetroAtual ?? (mach as any).horimetro_inicial ?? (mach as any).initialHourMeter ?? mach.hourMeter;
+          if (machHours !== undefined && machHours !== null && String(machHours).trim() !== '' && !isNaN(Number(machHours)) && Number(machHours) > 0) {
+            finalHours = String(machHours);
+          }
+        }
 
         setPreviousKm(finalKm);
         setPreviousHourMeter(finalHours);
@@ -267,21 +286,40 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       return;
     }
 
-    const initKm = mach.currentKm ?? (mach as any).km_inicial ?? (mach as any).initialKm ?? (mach as any).horimetro_ou_km_atual;
-    const initHours = mach.hourMeter ?? (mach as any).horimetro_inicial ?? (mach as any).initialHourMeter ?? (mach as any).horimetro_ou_km_atual;
-
     const prevLogs = (activeFuelLogs || [])
       .filter((l) => l.machineryId === id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const lastLog = prevLogs[0];
 
-    const prevKmFinal = lastLog?.currentKm !== undefined && lastLog.currentKm !== null
-      ? String(lastLog.currentKm)
-      : (initKm !== undefined && initKm !== null && Number(initKm) > 0 ? String(initKm) : '');
+    // 1. KM ANTERIOR: Estritamente de km_atual
+    let prevKmFinal = '';
+    if (lastLog) {
+      const lKm = (lastLog as any).km_atual ?? (lastLog as any).kmAtual ?? lastLog.currentKm;
+      if (lKm !== undefined && lKm !== null && String(lKm).trim() !== '' && !isNaN(Number(lKm)) && Number(lKm) > 0) {
+        prevKmFinal = String(lKm);
+      }
+    }
+    if (!prevKmFinal) {
+      const machKm = (mach as any).km_atual ?? (mach as any).kmAtual ?? (mach as any).km_inicial ?? (mach as any).initialKm ?? mach.currentKm;
+      if (machKm !== undefined && machKm !== null && String(machKm).trim() !== '' && !isNaN(Number(machKm)) && Number(machKm) > 0) {
+        prevKmFinal = String(machKm);
+      }
+    }
 
-    const prevHourFinal = lastLog?.currentHourMeter !== undefined && lastLog.currentHourMeter !== null
-      ? String(lastLog.currentHourMeter)
-      : (initHours !== undefined && initHours !== null && Number(initHours) > 0 ? String(initHours) : '');
+    // 2. HORAS ANTERIOR: Estritamente de horas_atual
+    let prevHourFinal = '';
+    if (lastLog) {
+      const lHours = (lastLog as any).horas_atual ?? (lastLog as any).horasAtual ?? (lastLog as any).horimetro_atual ?? (lastLog as any).horimetroAtual ?? lastLog.currentHourMeter;
+      if (lHours !== undefined && lHours !== null && String(lHours).trim() !== '' && !isNaN(Number(lHours)) && Number(lHours) > 0) {
+        prevHourFinal = String(lHours);
+      }
+    }
+    if (!prevHourFinal) {
+      const machHours = (mach as any).horas_atual ?? (mach as any).horasAtual ?? (mach as any).horimetro_atual ?? (mach as any).horimetroAtual ?? (mach as any).horimetro_inicial ?? (mach as any).initialHourMeter ?? mach.hourMeter;
+      if (machHours !== undefined && machHours !== null && String(machHours).trim() !== '' && !isNaN(Number(machHours)) && Number(machHours) > 0) {
+        prevHourFinal = String(machHours);
+      }
+    }
 
     // Atualização imediata e síncrona dos estados
     setPreviousKm(prevKmFinal);
@@ -422,6 +460,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       expenseId: editingLog?.expenseId,
       createdAt: editingLog?.createdAt || new Date().toISOString(),
     };
+
+    (log as any).km_atual = !isNaN(currK) && currK > 0 ? currK : undefined;
+    (log as any).horas_atual = !isNaN(currH) && currH > 0 ? currH : undefined;
 
     onSave(log, createExpense && !editingLog);
     onClose();

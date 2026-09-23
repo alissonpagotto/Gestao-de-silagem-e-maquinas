@@ -922,9 +922,42 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
             ? Number(row.tankCapacity)
             : (row.fuelCapacityLiters !== undefined && row.fuelCapacityLiters !== null ? Number(row.fuelCapacityLiters) : undefined));
 
-      const meterVal = row.horimetro_ou_km_atual !== undefined && row.horimetro_ou_km_atual !== null
-        ? Number(row.horimetro_ou_km_atual)
-        : (row.hourmeter !== undefined ? Number(row.hourmeter) : (row.hourMeter !== undefined ? Number(row.hourMeter) : 0));
+      const tipoLower = String(row.tipo || row.type || row.categoryType || '').toLowerCase();
+      const nomeLower = String(row.nome || row.name || row.modelo || row.model || '').toLowerCase();
+      const isAgricolaOuMaquina = 
+        tipoLower.includes('trator') || 
+        tipoLower.includes('colhedor') || 
+        tipoLower.includes('colheit') || 
+        tipoLower.includes('ensilad') || 
+        tipoLower.includes('forrageir') || 
+        tipoLower.includes('maquina') || 
+        tipoLower.includes('máquina') || 
+        tipoLower.includes('implemento') ||
+        nomeLower.includes('claas') ||
+        nomeLower.includes('jaguar') ||
+        nomeLower.includes('maq') ||
+        nomeLower.includes('trator') ||
+        nomeLower.includes('colheitadeira') ||
+        nomeLower.includes('ensiladeira');
+
+      // KM: estritamente de colunas de quilometragem ou quando for veículo rodoviário
+      const explicitKm = row.km_atual ?? row.current_km ?? row.quilometragem ?? row.currentKm;
+      const kmVal = (explicitKm !== undefined && explicitKm !== null)
+        ? Number(explicitKm)
+        : (!isAgricolaOuMaquina && row.horimetro_ou_km_atual !== undefined && row.horimetro_ou_km_atual !== null
+            ? Number(row.horimetro_ou_km_atual)
+            : undefined);
+
+      // Horas: estritamente de colunas de horímetro ou quando for máquina agrícola
+      const explicitHour = row.horas_atual ?? row.horimetro_atual ?? row.hour_meter ?? row.hourmeter ?? row.hourMeter;
+      const hourVal = (explicitHour !== undefined && explicitHour !== null)
+        ? Number(explicitHour)
+        : (isAgricolaOuMaquina && row.horimetro_ou_km_atual !== undefined && row.horimetro_ou_km_atual !== null
+            ? Number(row.horimetro_ou_km_atual)
+            : (row.hourmeter !== undefined ? Number(row.hourmeter) : (row.hourMeter !== undefined ? Number(row.hourMeter) : undefined)));
+
+      const rawPhoto = row.foto_url || row.fotoUrl || row.imageUrl;
+      const validPhoto = (rawPhoto && !rawPhoto.includes('/_upload/') && !rawPhoto.includes('/upload/')) ? rawPhoto : undefined;
 
       return {
         ...row,
@@ -940,13 +973,15 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         fleetNumber: row.fleet_number || row.fleetNumber || undefined,
         year: row.ano ? Number(row.ano) : (row.year ? Number(row.year) : null),
         ano: row.ano ? Number(row.ano) : null,
-        hourMeter: meterVal,
-        currentKm: meterVal,
-        horimetro_ou_km_atual: meterVal,
+        hourMeter: hourVal !== undefined ? hourVal : undefined,
+        currentKm: kmVal !== undefined ? kmVal : undefined,
+        km_atual: kmVal !== undefined ? kmVal : undefined,
+        horas_atual: hourVal !== undefined ? hourVal : undefined,
+        horimetro_ou_km_atual: (hourVal || kmVal || 0),
         status: row.status || 'ativo',
         maintenanceStatus: row.manutencao_status || row.maintenanceStatus || 'ok',
-        imageUrl: row.foto_url || row.fotoUrl || row.imageUrl,
-        photoUrl: row.foto_url || row.fotoUrl,
+        imageUrl: validPhoto,
+        photoUrl: validPhoto,
         tank_capacity: tankCapacityNumber,
         tankCapacity: tankCapacityNumber,
         fuelCapacityLiters: tankCapacityNumber,

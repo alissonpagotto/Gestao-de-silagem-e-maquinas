@@ -233,6 +233,12 @@ export function getStoredMachineries(): Machinery[] {
       );
       const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61', 'veh_forrageira', 'veh_trator', 'veh_heavy_machine'].includes(m.id);
       return !isMock && !isMockId;
+    }).map(m => {
+      const img = m.imageUrl || m.photoUrl;
+      if (img && (img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
+        return { ...m, imageUrl: undefined, photoUrl: undefined, foto_url: undefined };
+      }
+      return m;
     });
     if (cleaned.length !== parsed.length) {
       localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(cleaned));
@@ -531,13 +537,16 @@ export function getStoredCompanyProfile(): CompanyProfile {
     if (!raw) return INITIAL_COMPANY_PROFILE;
     const parsed = JSON.parse(raw);
     const profile = { ...INITIAL_COMPANY_PROFILE, ...parsed };
-    // Remove o logotipo padrão do carrinho/trator verde legado ou caminhos 404 de /upload/ para manter o perfil limpo
+    // Remove o logotipo padrão do carrinho/trator verde legado ou caminhos 404 de /_upload/ ou /upload/ para manter o perfil limpo
     if (
       profile.logoUrl &&
       (profile.logoUrl.includes('a7f3d0') ||
         profile.logoUrl.includes('15803d') ||
         profile.logoUrl.includes('viewBox="0 0 200 160"') ||
-        profile.logoUrl.startsWith('/upload/'))
+        profile.logoUrl.startsWith('/upload/') ||
+        profile.logoUrl.startsWith('/_upload/') ||
+        profile.logoUrl.includes('/_upload/') ||
+        profile.logoUrl.includes('/upload/'))
     ) {
       profile.logoUrl = '';
     }
