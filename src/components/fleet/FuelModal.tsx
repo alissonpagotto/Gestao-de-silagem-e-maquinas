@@ -38,14 +38,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
   // Lista unificada de veículos (prioriza dados atualizados do banco mantendo props locais de fallback)
   const availableMachineries = useMemo(() => {
+    let list: Machinery[] = propMachineries;
     if (dbMachineries.length > 0) {
       // Mescla garantindo que todos os veículos apareçam
       const map = new Map<string, Machinery>();
       propMachineries.forEach(m => map.set(m.id, m));
       dbMachineries.forEach(m => map.set(m.id, { ...(map.get(m.id) || {}), ...m }));
-      return Array.from(map.values());
+      list = Array.from(map.values());
     }
-    return propMachineries;
+    return list.map((v) => ({
+      ...v,
+      nome: v.nome || (v.licensePlateOrSerial 
+        ? `[${v.licensePlateOrSerial}] ${v.brand ? `${v.brand} ` : ''}${v.model || v.name || 'Veículo'}`
+        : (v.brand ? `${v.brand} ` : '') + (v.model || v.name || 'Veículo'))
+    }));
   }, [propMachineries, dbMachineries]);
 
   const activeFuelLogs = useMemo(() => {
@@ -258,8 +264,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     }
   }, [isOpen, editingLog]);
 
-  // Seleção de Veículo pelo Usuário
-  const handleMachineryChange = (id: string) => {
+  // Seleção de Veículo pelo Usuário - Manipulação síncrona direta em memória
+  const handleSelecaoVeiculo = (id: string) => {
     setMachineryId(id);
     const mach = availableMachineries.find((m) => m.id === id);
 
@@ -288,6 +294,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       ? String(lastLog.currentHourMeter)
       : (initHours !== undefined && initHours !== null && Number(initHours) > 0 ? String(initHours) : '');
 
+    // Atualização imediata e síncrona dos estados
     setPreviousKm(prevKmFinal);
     setPreviousHourMeter(prevHourFinal);
     setCurrentKm('');
@@ -299,6 +306,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setDriverOrOperator('');
     }
   };
+
+  const handleMachineryChange = handleSelecaoVeiculo;
 
   const calculateTotal = (litersVal: string, priceVal: string) => {
     const l = parseFloat(litersVal);
@@ -437,13 +446,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     <select
                       required
                       value={machineryId}
-                      onChange={(e) => handleMachineryChange(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                      onChange={(e) => handleSelecaoVeiculo(e.target.value)}
+                      className="w-full p-2 border border-stone-300 dark:border-stone-700 rounded bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
                     >
                       <option value="">Selecione o veículo...</option>
-                      {availableMachineries.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] ` : ''}{m.brand ? `${m.brand} ` : ''}{m.model || m.name}
+                      {availableMachineries.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.nome}
                         </option>
                       ))}
                     </select>
