@@ -660,11 +660,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const finalRegType = (rawRegType === 'mecanico_especialista' ? 'Mecanico Especialista' : rawRegType) || 'Funcionário';
 
     // Conversão de valores monetários e comissões com Number() e parseFloat()
-    const parsedSalary = parseCurrencyInput(baseSalary);
-    const parsedPerHour = parseCurrencyInput(commissionPerHour);
-    const parsedPerAlq = parseCurrencyInput(commissionPerAlqueire);
-    const parsedPerHa = parseCurrencyInput(commissionPerHectare);
-    const parsedBrokerCommission = isBroker ? parseCurrencyInput(brokerCommissionValue) : 0;
+    const parsedSalary = Number(parseCurrencyInput(baseSalary)) || 0;
+    const parsedPerHour = Number(parseCurrencyInput(commissionPerHour)) || 0;
+    const parsedPerAlq = Number(parseCurrencyInput(commissionPerAlqueire)) || 0;
+    const parsedPerHa = Number(parseCurrencyInput(commissionPerHectare)) || 0;
+    const parsedBrokerCommission = isBroker ? (Number(parseCurrencyInput(brokerCommissionValue)) || 0) : 0;
     const finalReceivesCommission = !isBroker && receivesCommission;
 
     // Formatação rigorosa de datas para YYYY-MM-DD
@@ -680,7 +680,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       role: finalRole,
       roles: finalRoles,
       brokerCommissionType: isBroker ? brokerCommissionType : undefined,
-      brokerCommissionValue: isBroker ? (parseFloat(String(parsedBrokerCommission)) || 0) : 0,
+      brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
       actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
       cpf: cpf.trim() || undefined,
       rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
@@ -696,9 +696,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       active: isActive,
       status: isActive ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo') : 'inativo',
       receivesCommission: finalReceivesCommission,
-      commissionPerHour: finalReceivesCommission ? (parseFloat(String(parsedPerHour)) || 0) : 0,
-      commissionPerAlqueire: finalReceivesCommission ? (parseFloat(String(parsedPerAlq)) || 0) : 0,
-      commissionPerHectare: finalReceivesCommission ? (parseFloat(String(parsedPerHa)) || 0) : 0,
+      commissionPerHour: finalReceivesCommission ? (Number(parseFloat(String(parsedPerHour))) || 0) : 0,
+      commissionPerAlqueire: finalReceivesCommission ? (Number(parseFloat(String(parsedPerAlq))) || 0) : 0,
+      commissionPerHectare: finalReceivesCommission ? (Number(parseFloat(String(parsedPerHa))) || 0) : 0,
       cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
       cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
       cnhExpiration: formattedCnhExpiration,

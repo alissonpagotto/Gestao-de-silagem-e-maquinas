@@ -919,32 +919,22 @@ async function executeAdaptiveFuncionarioUpsert(
     }
   }
 
+  const isEditing = Boolean(payload.id);
+
   let attempts = 0;
   while (attempts < 10) {
     attempts++;
-    
-    // Tenta primeiro upsert com onConflict: 'id'
-    let { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
-    
-    // Se o upsert falhar por erro de sintaxe/onConflict ou 400 (Bad Request), tenta fallback direto com update().eq('id', payload.id)
-    if (error && payload.id) {
-      const msg = error.message || '';
-      const code = error.code || '';
-      const status = (error as any).status || (error as any).statusCode;
-      if (
-        msg.includes('conflict') ||
-        msg.includes('ON CONFLICT') ||
-        code === '42P10' ||
-        code === 'PGRST100' ||
-        code === '23505' ||
-        status === 400 ||
-        status === '400'
-      ) {
-        const updateResult = await supabase.from(tableName).update(payload).eq('id', payload.id);
-        if (!updateResult.error) {
-          return { success: true };
-        }
-      }
+
+    let error: any = null;
+
+    if (isEditing) {
+      // Se for EDIÇÃO (o funcionário já possui ID), força .update().eq('id', payload.id) em vez de .upsert()
+      const updateResult = await supabase.from(tableName).update(payload).eq('id', payload.id);
+      error = updateResult.error;
+    } else {
+      // Se for NOVO cadastro (sem ID prévio), utiliza .insert()
+      const insertResult = await supabase.from(tableName).insert(payload);
+      error = insertResult.error;
     }
 
     if (!error) {
@@ -983,6 +973,14 @@ async function executeAdaptiveFuncionarioUpsert(
       continue;
     }
 
+    // Fallback: se update não encontrar registro ou falhar, tenta upsert sem onConflict ou insert
+    if (isEditing && attempts === 1) {
+      const fallbackResult = await supabase.from(tableName).upsert(payload);
+      if (!fallbackResult.error) {
+        return { success: true };
+      }
+    }
+
     // Outro erro irrecuperável - detalha no console
     console.error(`[Supabase RH Funcionario] Falha ao persistir na tabela "${tableName}":`, {
       code,
@@ -993,7 +991,6 @@ async function executeAdaptiveFuncionarioUpsert(
     });
     return { success: false, error };
   }
-
   return { success: false };
 }
 
@@ -1156,6 +1153,18 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       cnh_vencimento: formattedCnhExpiration,
       updated_at: new Date().toISOString()
     };
+
+    console.log('[Supabase RH Funcionario] Persistindo dados:', {
+      isEditing: Boolean(employee.id),
+      id: basePayload.id,
+      name: basePayload.name,
+      commPerHour,
+      commPerAlq,
+      commPerHa,
+      commBroker,
+      parsedCommissionValue,
+      payload: basePayload
+    });
 
     // 1. Tenta salvar na tabela 'rh_funcionarios'
     const rhResult = await executeAdaptiveFuncionarioUpsert('rh_funcionarios', basePayload);
