@@ -922,7 +922,22 @@ async function executeAdaptiveFuncionarioUpsert(
   let attempts = 0;
   while (attempts < 10) {
     attempts++;
-    const { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
+    
+    // Tenta primeiro upsert com onConflict: 'id'
+    let { error } = await supabase.from(tableName).upsert(payload, { onConflict: 'id' });
+    
+    // Se o upsert falhar por erro de sintaxe/onConflict ou 400, tenta fallback direto com update().eq('id', payload.id)
+    if (error && payload.id) {
+      const msg = error.message || '';
+      const code = error.code || '';
+      if (msg.includes('conflict') || msg.includes('ON CONFLICT') || code === '42P10' || code === 'PGRST100') {
+        const updateResult = await supabase.from(tableName).update(payload).eq('id', payload.id);
+        if (!updateResult.error) {
+          return { success: true };
+        }
+      }
+    }
+
     if (!error) {
       return { success: true };
     }
@@ -959,7 +974,14 @@ async function executeAdaptiveFuncionarioUpsert(
       continue;
     }
 
-    // Outro erro irrecuperável
+    // Outro erro irrecuperável - detalha no console
+    console.error(`[Supabase RH Funcionario] Falha ao persistir na tabela "${tableName}":`, {
+      code,
+      message: msg,
+      details: error.details,
+      hint: error.hint,
+      payload
+    });
     return { success: false, error };
   }
 

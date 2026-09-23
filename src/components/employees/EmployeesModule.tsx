@@ -674,6 +674,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
 
     const employeeData: Partial<Employee> = {
+      id: editingEmployee ? editingEmployee.id : undefined,
       name: name.trim().toUpperCase(),
       registrationType: finalRegType,
       role: finalRole,
@@ -720,6 +721,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           ? ({
               ...emp,
               ...employeeData,
+              id: editingEmployee.id,
             } as Employee)
           : emp
       );
@@ -737,8 +739,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     // Atualização imediata no estado local da tabela (renderização instantânea sem F5)
     setLocalEmployees(updatedList);
-    // Notifica o manipulador superior para persistência no Supabase
-    onSaveEmployees(updatedList);
+    // Notifica o manipulador superior para persistência no Supabase com try/catch e logs detalhados
+    try {
+      onSaveEmployees(updatedList);
+    } catch (err: any) {
+      console.error('[RH Salvar Funcionário Error]', {
+        message: err?.message,
+        details: err,
+        employeeData
+      });
+    }
     setIsModalOpen(false);
   };
 
