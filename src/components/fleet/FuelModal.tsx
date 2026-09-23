@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles, CheckCircle2, History, RefreshCw } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
+import { supabase } from '../../lib/supabase';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface FuelModalProps {
   machineries: Machinery[];
   employees: Employee[];
   fuelLogs?: FuelLog[];
+  initialMachineryId?: string;
 }
 
 export const FuelModal: React.FC<FuelModalProps> = ({
@@ -22,6 +24,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   machineries,
   employees,
   fuelLogs = [],
+  initialMachineryId,
 }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [machineryId, setMachineryId] = useState('');
@@ -35,6 +38,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [previousKm, setPreviousKm] = useState('');
   const [currentHourMeter, setCurrentHourMeter] = useState('');
   const [previousHourMeter, setPreviousHourMeter] = useState('');
+  const [metersSource, setMetersSource] = useState<'supabase' | 'local_history' | 'initial_profile'>('initial_profile');
+  const [isLoadingMeters, setIsLoadingMeters] = useState(false);
 
   const [driverOrOperator, setDriverOrOperator] = useState('');
   const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
@@ -59,6 +64,117 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     return selectedMachinery?.averageConsumptionKmPerLiter ?? vehicleMetrics?.avgKmPerLiter ?? null;
   }, [selectedMachinery, vehicleMetrics]);
 
+  /**
+   * BUSCA DINÂMICA DO ÚLTIMO REGISTRO DE ABASTECIMENTO:
+   * Consulta o Supabase nas tabelas 'abastecimentos' ou 'combustivel' filtrando por '.eq("veiculo_id", id_selecionado)'
+   * ordenando por '.order("created_at", { ascending: false })' e '.limit(1)'.
+   * Se retornar um registro, extrai as Horas e KM desse último registro para 'Horas Anterior' e 'KM Anterior'.
+   * Se não retornar nenhum registro anterior, executa o fallback de buscar o Horímetro / KM inicial do veículo.
+   */
+  const loadLatestVehicleMeters = useCallback(async (vehicleId: string, mach?: Machinery) => {
+    if (!vehicleId) return;
+    setIsLoadingMeters(true);
+
+    let foundHours: number | null = null;
+    let foundKm: number | null = null;
+    let source: 'supabase' | 'local_history' | 'initial_profile' = 'initial_profile';
+
+    try {
+      // 1. Consulta prioritária na tabela 'abastecimentos' do Supabase
+      const { data: dataAbast, error: errAbast } = await supabase
+        .from('abastecimentos')
+        .select('*')
+        .eq('veiculo_id', vehicleId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!errAbast && dataAbast && dataAbast.length > 0) {
+        const lastRow = dataAbast[0];
+        const h = lastRow.horas_atual ?? lastRow.horimetro_atual ?? lastRow.horas_motor_atual ?? lastRow.current_hour_meter ?? lastRow.currentHourMeter ?? lastRow.horimetro;
+        const k = lastRow.km_atual ?? lastRow.odometro_atual ?? lastRow.quilometragem_atual ?? lastRow.current_km ?? lastRow.currentKm ?? lastRow.odometro;
+        if (h !== undefined && h !== null && !isNaN(Number(h))) {
+          foundHours = Number(h);
+          source = 'supabase';
+        }
+        if (k !== undefined && k !== null && !isNaN(Number(k))) {
+          foundKm = Number(k);
+          source = 'supabase';
+        }
+      }
+
+      // 2. Consulta alternativa na tabela 'combustivel' do Supabase caso não encontre na primeira
+      if (foundHours === null && foundKm === null) {
+        const { data: dataComb, error: errComb } = await supabase
+          .from('combustivel')
+          .select('*')
+          .eq('veiculo_id', vehicleId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!errComb && dataComb && dataComb.length > 0) {
+          const lastRow = dataComb[0];
+          const h = lastRow.horas_atual ?? lastRow.horimetro_atual ?? lastRow.horas_motor_atual ?? lastRow.current_hour_meter ?? lastRow.currentHourMeter ?? lastRow.horimetro;
+          const k = lastRow.km_atual ?? lastRow.odometro_atual ?? lastRow.quilometragem_atual ?? lastRow.current_km ?? lastRow.currentKm ?? lastRow.odometro;
+          if (h !== undefined && h !== null && !isNaN(Number(h))) {
+            foundHours = Number(h);
+            source = 'supabase';
+          }
+          if (k !== undefined && k !== null && !isNaN(Number(k))) {
+            foundKm = Number(k);
+            source = 'supabase';
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Busca no Supabase de abastecimentos aviso:', e);
+    }
+
+    // Fallback 1: Histórico de registros em memória / local (fuelLogs)
+    if (foundHours === null && foundKm === null && fuelLogs && fuelLogs.length > 0) {
+      const logsForVehicle = fuelLogs
+        .filter(f => f.machineryId === vehicleId)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      if (logsForVehicle.length > 0) {
+        const lastLog = logsForVehicle[0];
+        const h = lastLog.currentHourMeter !== undefined ? lastLog.currentHourMeter : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm <= 50000 ? lastLog.currentHourMeterOrKm : undefined);
+        const k = lastLog.currentKm !== undefined ? lastLog.currentKm : (lastLog.currentHourMeterOrKm && lastLog.currentHourMeterOrKm > 50000 ? lastLog.currentHourMeterOrKm : undefined);
+        if (h !== undefined && h > 0) {
+          foundHours = h;
+          source = 'local_history';
+        }
+        if (k !== undefined && k > 0) {
+          foundKm = k;
+          source = 'local_history';
+        }
+      }
+    }
+
+    // Fallback 2: Horímetro Inicial / KM Inicial cadastrado no perfil principal do veículo na tabela de frotas
+    const targetMach = mach || machineries.find(m => m.id === vehicleId);
+
+    if (foundHours !== null) {
+      setPreviousHourMeter(String(foundHours));
+    } else if (targetMach?.hourMeter) {
+      setPreviousHourMeter(String(targetMach.hourMeter));
+      source = 'initial_profile';
+    } else {
+      setPreviousHourMeter('');
+    }
+
+    if (foundKm !== null) {
+      setPreviousKm(String(foundKm));
+    } else if (targetMach?.currentKm) {
+      setPreviousKm(String(targetMach.currentKm));
+      source = 'initial_profile';
+    } else {
+      setPreviousKm('');
+    }
+
+    setMetersSource(source);
+    setIsLoadingMeters(false);
+  }, [fuelLogs, machineries]);
+
   useEffect(() => {
     if (editingLog) {
       setDate(editingLog.date);
@@ -78,20 +194,16 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setSupplierStation(editingLog.supplierStation || 'Posto Trevo Petrobras');
       setNotes(editingLog.notes || '');
       setCreateExpense(false);
-    } else {
+      setMetersSource('local_history');
+    } else if (isOpen) {
       setDate(new Date().toISOString().split('T')[0]);
-      if (machineries.length > 0) {
-        const first = machineries[0];
-        setMachineryId(first.id);
-        if (first.operatorOrDriver) {
-          setDriverOrOperator(first.operatorOrDriver.split(',')[0].trim());
-        }
-        if (first.hourMeter) {
-          setPreviousHourMeter(String(first.hourMeter));
-        }
-        if (first.currentKm) {
-          setPreviousKm(String(first.currentKm));
-        }
+      const initialId = initialMachineryId || (machineries.length > 0 ? machineries[0].id : '');
+      setMachineryId(initialId);
+      const targetMach = machineries.find(m => m.id === initialId);
+      if (targetMach?.operatorOrDriver) {
+        setDriverOrOperator(targetMach.operatorOrDriver.split(',')[0].trim());
+      } else {
+        setDriverOrOperator('');
       }
       setFuelType('Diesel S10');
       setLiters('');
@@ -102,8 +214,12 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setSupplierStation('Tanque da Fazenda');
       setNotes('');
       setCreateExpense(true);
+
+      if (initialId) {
+        loadLatestVehicleMeters(initialId, targetMach);
+      }
     }
-  }, [editingLog, isOpen, machineries]);
+  }, [editingLog, isOpen, initialMachineryId, machineries, loadLatestVehicleMeters]);
 
   const handleMachineryChange = (id: string) => {
     setMachineryId(id);
@@ -112,16 +228,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       if (mach.operatorOrDriver) {
         setDriverOrOperator(mach.operatorOrDriver.split(',')[0].trim());
       }
-      if (mach.hourMeter) {
-        setPreviousHourMeter(String(mach.hourMeter));
-      } else {
-        setPreviousHourMeter('');
-      }
-      if (mach.currentKm) {
-        setPreviousKm(String(mach.currentKm));
-      } else {
-        setPreviousKm('');
-      }
+      // Ao mudar o veículo, limpa as leituras atuais digitadas para permitir novo cálculo limpo
+      setCurrentHourMeter('');
+      setCurrentKm('');
+      loadLatestVehicleMeters(id, mach);
     }
   };
 
@@ -308,9 +418,34 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          KM Anterior
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            KM Anterior
+                          </label>
+                          {previousKm && (
+                            <span 
+                              className={`text-[10px] font-medium flex items-center space-x-1 ${
+                                metersSource === 'supabase'
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : metersSource === 'local_history'
+                                  ? 'text-sky-600 dark:text-sky-400'
+                                  : 'text-stone-400'
+                              }`}
+                              title={
+                                metersSource === 'supabase'
+                                  ? 'Carregado do último registro do Supabase'
+                                  : metersSource === 'local_history'
+                                  ? 'Carregado do último abastecimento'
+                                  : 'Horímetro/KM inicial do veículo'
+                              }
+                            >
+                              <History className="w-2.5 h-2.5" />
+                              <span>
+                                {metersSource === 'initial_profile' ? 'Inicial' : 'Último'}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="number"
                           step="any"
@@ -353,9 +488,34 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          Horas Anterior
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400">
+                            Horas Anterior
+                          </label>
+                          {previousHourMeter && (
+                            <span 
+                              className={`text-[10px] font-medium flex items-center space-x-1 ${
+                                metersSource === 'supabase'
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : metersSource === 'local_history'
+                                  ? 'text-sky-600 dark:text-sky-400'
+                                  : 'text-stone-400'
+                              }`}
+                              title={
+                                metersSource === 'supabase'
+                                  ? 'Carregado do último registro do Supabase'
+                                  : metersSource === 'local_history'
+                                  ? 'Carregado do último abastecimento'
+                                  : 'Horímetro/KM inicial do veículo'
+                              }
+                            >
+                              <History className="w-2.5 h-2.5" />
+                              <span>
+                                {metersSource === 'initial_profile' ? 'Inicial' : 'Último'}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="number"
                           step="any"

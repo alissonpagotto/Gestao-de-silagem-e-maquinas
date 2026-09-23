@@ -8,6 +8,7 @@ import {
   ExpenseStatus,
   PaymentMethod,
   Machinery,
+  FuelLog,
   Employee,
   SilageOrder,
   ServiceOrder,
@@ -982,6 +983,116 @@ export async function deleteGestaoFrota(id: string, companyId?: string): Promise
     console.warn('Supabase deleteGestaoFrota err:', err);
     return false;
   }
+}
+
+/**
+ * Busca dinâmica do último registro de abastecimento para um veículo específico no Supabase.
+ * Consulta 'abastecimentos' ou 'combustivel' filtrando por veiculo_id, ordenando de forma decrescente
+ * por created_at e limitando a 1 registro.
+ */
+export async function fetchUltimoAbastecimentoVeiculo(vehicleId: string): Promise<{
+  currentHourMeter?: number | null;
+  currentKm?: number | null;
+  liters?: number | null;
+  fuelType?: string | null;
+  date?: string | null;
+} | null> {
+  if (!isSupabaseConfigured || !vehicleId) return null;
+  try {
+    // 1. Consulta prioritária na tabela 'abastecimentos'
+    const { data: dataAbast, error: errAbast } = await supabase
+      .from('abastecimentos')
+      .select('*')
+      .eq('veiculo_id', vehicleId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!errAbast && dataAbast && dataAbast.length > 0) {
+      const row = dataAbast[0];
+      const hourVal = row.horas_atual ?? row.horimetro_atual ?? row.horas_motor_atual ?? row.current_hour_meter ?? row.currentHourMeter ?? row.horimetro;
+      const kmVal = row.km_atual ?? row.odometro_atual ?? row.quilometragem_atual ?? row.current_km ?? row.currentKm ?? row.odometro;
+      return {
+        currentHourMeter: hourVal !== undefined && hourVal !== null && !isNaN(Number(hourVal)) ? Number(hourVal) : null,
+        currentKm: kmVal !== undefined && kmVal !== null && !isNaN(Number(kmVal)) ? Number(kmVal) : null,
+        liters: row.litros ?? row.liters ?? null,
+        fuelType: row.tipo_combustivel ?? row.fuel_type ?? null,
+        date: row.data ?? row.date ?? null,
+      };
+    }
+
+    // 2. Consulta alternativa na tabela 'combustivel'
+    const { data: dataComb, error: errComb } = await supabase
+      .from('combustivel')
+      .select('*')
+      .eq('veiculo_id', vehicleId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!errComb && dataComb && dataComb.length > 0) {
+      const row = dataComb[0];
+      const hourVal = row.horas_atual ?? row.horimetro_atual ?? row.horas_motor_atual ?? row.current_hour_meter ?? row.currentHourMeter ?? row.horimetro;
+      const kmVal = row.km_atual ?? row.odometro_atual ?? row.quilometragem_atual ?? row.current_km ?? row.currentKm ?? row.odometro;
+      return {
+        currentHourMeter: hourVal !== undefined && hourVal !== null && !isNaN(Number(hourVal)) ? Number(hourVal) : null,
+        currentKm: kmVal !== undefined && kmVal !== null && !isNaN(Number(kmVal)) ? Number(kmVal) : null,
+        liters: row.litros ?? row.liters ?? null,
+        fuelType: row.tipo_combustivel ?? row.fuel_type ?? null,
+        date: row.data ?? row.date ?? null,
+      };
+    }
+  } catch (err) {
+    console.warn('fetchUltimoAbastecimentoVeiculo notice:', err);
+  }
+  return null;
+}
+
+/**
+ * Persiste ou sincroniza um registro de abastecimento no Supabase
+ */
+export async function saveAbastecimentoSupabase(fuelLog: FuelLog, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const payload: Record<string, any> = {
+      id: toValidUUID(fuelLog.id),
+      company_id: activeCompanyId,
+      veiculo_id: fuelLog.machineryId,
+      vehicle_id: fuelLog.machineryId,
+      machinery_id: fuelLog.machineryId,
+      data: fuelLog.date,
+      date: fuelLog.date,
+      tipo_combustivel: fuelLog.fuelType,
+      fuel_type: fuelLog.fuelType,
+      litros: Number(fuelLog.liters) || 0,
+      liters: Number(fuelLog.liters) || 0,
+      preco_litro: Number(fuelLog.pricePerLiter) || 0,
+      price_per_liter: Number(fuelLog.pricePerLiter) || 0,
+      valor_total: Number(fuelLog.totalAmount) || 0,
+      total_amount: Number(fuelLog.totalAmount) || 0,
+      horas_anterior: fuelLog.previousHourMeter !== undefined && fuelLog.previousHourMeter !== null ? Number(fuelLog.previousHourMeter) : null,
+      horas_atual: fuelLog.currentHourMeter !== undefined && fuelLog.currentHourMeter !== null ? Number(fuelLog.currentHourMeter) : null,
+      horimetro_atual: fuelLog.currentHourMeter !== undefined && fuelLog.currentHourMeter !== null ? Number(fuelLog.currentHourMeter) : null,
+      km_anterior: fuelLog.previousKm !== undefined && fuelLog.previousKm !== null ? Number(fuelLog.previousKm) : null,
+      km_atual: fuelLog.currentKm !== undefined && fuelLog.currentKm !== null ? Number(fuelLog.currentKm) : null,
+      odometro_atual: fuelLog.currentKm !== undefined && fuelLog.currentKm !== null ? Number(fuelLog.currentKm) : null,
+      motorista_operador: fuelLog.driverOrOperator || null,
+      driver_operator: fuelLog.driverOrOperator || null,
+      posto_fornecedor: fuelLog.supplierStation || null,
+      supplier_station: fuelLog.supplierStation || null,
+      created_at: new Date().toISOString(),
+    };
+
+    let { error } = await supabase.from('abastecimentos').upsert(payload, { onConflict: 'id' });
+    if (error) {
+      const retryComb = await supabase.from('combustivel').upsert(payload, { onConflict: 'id' });
+      if (!retryComb.error) return true;
+    } else {
+      return true;
+    }
+  } catch (err) {
+    console.warn('saveAbastecimentoSupabase notice:', err);
+  }
+  return false;
 }
 
 // ===========================================================================

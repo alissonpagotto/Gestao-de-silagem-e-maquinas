@@ -23,7 +23,7 @@ import { FuelModal } from './FuelModal';
 import { MaintenanceModal } from './MaintenanceModal';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 import { updateVehicleWithCalculatedMetrics } from '../../lib/fleetMetrics';
-import { upsertGestaoFrota } from '../../lib/supabaseService';
+import { upsertGestaoFrota, saveAbastecimentoSupabase } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getStoredVehicleTypes, 
@@ -120,6 +120,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [editingFuelLog, setEditingFuelLog] = useState<FuelLog | null>(null);
+  const [selectedFuelVehicleId, setSelectedFuelVehicleId] = useState<string | null>(null);
 
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [editingMaintenanceLog, setEditingMaintenanceLog] = useState<MaintenanceLog | null>(null);
@@ -236,6 +237,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   // --- FUEL HANDLERS ---
   const handleOpenNewFuel = (vehicleId?: string) => {
     setEditingFuelLog(null);
+    setSelectedFuelVehicleId(vehicleId || null);
     setIsFuelModalOpen(true);
   };
 
@@ -268,6 +270,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       : [fuelLog, ...fuelLogs];
     
     onSaveFuelLogs(updatedFuelLogs);
+
+    // Persistência ou sincronização opcional no Supabase (abastecimentos / combustivel)
+    saveAbastecimentoSupabase(fuelLog).catch(e => console.warn('Supabase saveAbastecimento notice:', e));
 
     // Update vehicle's hourMeter, currentKm, fuel expenses, and calculated averages
     const targetVehicle = machineries.find(m => m.id === fuelLog.machineryId);
@@ -750,12 +755,16 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
       <FuelModal
         isOpen={isFuelModalOpen}
-        onClose={() => setIsFuelModalOpen(false)}
+        onClose={() => {
+          setIsFuelModalOpen(false);
+          setSelectedFuelVehicleId(null);
+        }}
         onSave={handleSaveFuel}
         editingLog={editingFuelLog}
         machineries={machineries}
         employees={employees}
         fuelLogs={fuelLogs}
+        initialMachineryId={selectedFuelVehicleId || undefined}
       />
 
       <MaintenanceModal
