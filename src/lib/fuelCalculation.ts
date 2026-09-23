@@ -24,6 +24,7 @@ export interface FuelCalculationInput {
   horimetroKmAtual: number;
   litrosAbastecidos: number;
   nivelAnterior?: number; // Volume que estava no tanque antes do ciclo (L)
+  isFirstRecord?: boolean; // Flag para identificar primeiro registro de abastecimento
 }
 
 export interface FuelCalculationResult {
@@ -55,6 +56,7 @@ export interface FuelCalculationResult {
   isOverflowing: boolean; // Se ultrapassou a capacidade do tanque
   excessoLitros: number;
   isReserve: boolean; // Se o nível atual ficou abaixo de 20%
+  isFirstRecord?: boolean; // Flag para primeiro abastecimento
 }
 
 /**
@@ -98,30 +100,38 @@ export function calculateTankLevelMetrics(input: FuelCalculationInput): FuelCalc
   const anterior = Math.max(0, Number(input.horimetroKmAnterior) || 0);
   const atual = Math.max(0, Number(input.horimetroKmAtual) || 0);
   const litrosAbastecidos = Math.max(0, Number(input.litrosAbastecidos) || 0);
+  const isFirstRecord = Boolean(input.isFirstRecord || anterior === 0);
 
-  // 1. Cálculo de Consumo
-  const { distanciaOuTempo, combustivelGasto } = calculateFuelConsumption(
-    anterior,
-    atual,
-    mediaConsumo,
-    tipoConsumo
-  );
+  // 1. Cálculo de Consumo (se for primeiro registro, consumo é zero)
+  const { distanciaOuTempo, combustivelGasto } = isFirstRecord
+    ? { distanciaOuTempo: 0, combustivelGasto: 0 }
+    : calculateFuelConsumption(
+        anterior,
+        atual,
+        mediaConsumo,
+        tipoConsumo
+      );
 
-  // Determina o volume inicial do ciclo (nível_anterior):
-  // Se o usuário/sistema já informou nivelAnterior, utiliza-o.
+  // Determina o volume inicial do ciclo (nivel_anterior):
+  // Se for primeiro registro e o nível inicial histórico for desconhecido (ou nulo), o Nível Atual parte de 0L.
   // Caso contrário, parte da premissa de tanque cheio (capacidade do tanque) do início do ciclo.
-  let nivelAnterior = capacidadeTanque;
+  let nivelAnterior = isFirstRecord ? 0 : capacidadeTanque;
   if (input.nivelAnterior !== undefined && input.nivelAnterior !== null && !isNaN(Number(input.nivelAnterior))) {
     nivelAnterior = Math.max(0, Math.min(capacidadeTanque, Number(input.nivelAnterior)));
   }
 
   // 2. Atualizar o volume estimado do tanque: nivel_atual = nivel_anterior - combustivel_gasto
-  const nivelAtual = Math.max(0, parseFloat((nivelAnterior - combustivelGasto).toFixed(2)));
+  // Se for o primeiro registro sem histórico, nivelAtual = nivelAnterior (0 L)
+  const nivelAtual = isFirstRecord
+    ? nivelAnterior
+    : Math.max(0, parseFloat((nivelAnterior - combustivelGasto).toFixed(2)));
+
   const nivelAtualPorcentagem = capacidadeTanque > 0 
     ? Math.max(0, Math.min(100, parseFloat(((nivelAtual / capacidadeTanque) * 100).toFixed(1))))
     : 0;
 
   // 3. Cálculo de Abastecimento: novo_nivel = nivel_atual + litros_abastecidos
+  // No primeiro registro, se nivelAtual é 0, a Projeção reflete puramente os litros abastecidos
   const novoNivelBruto = parseFloat((nivelAtual + litrosAbastecidos).toFixed(2));
   
   // O novo_nivel nunca pode ultrapassar a capacidade_tanque
@@ -139,7 +149,7 @@ export function calculateTankLevelMetrics(input: FuelCalculationInput): FuelCalc
 
   const isOverflowing = capacidadeTanque > 0 && novoNivelBruto > capacidadeTanque;
   const excessoLitros = isOverflowing ? parseFloat((novoNivelBruto - capacidadeTanque).toFixed(2)) : 0;
-  const isReserve = capacidadeTanque > 0 && (nivelAtual / capacidadeTanque) <= 0.20;
+  const isReserve = !isFirstRecord && capacidadeTanque > 0 && (nivelAtual / capacidadeTanque) <= 0.20;
 
   return {
     capacidadeTanque,
@@ -160,6 +170,7 @@ export function calculateTankLevelMetrics(input: FuelCalculationInput): FuelCalc
     isOverflowing,
     excessoLitros,
     isReserve,
+    isFirstRecord,
   };
 }
 

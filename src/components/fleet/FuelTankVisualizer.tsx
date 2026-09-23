@@ -19,6 +19,7 @@ interface FuelTankVisualizerProps {
   liveKmPerLiter?: number | null;
   historicalAvgLitersPerHour?: number | null;
   historicalAvgKmPerLiter?: number | null;
+  isFirstRecord?: boolean;
   onCalculationChange?: (result: FuelCalculationResult) => void;
 }
 
@@ -33,6 +34,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   liveKmPerLiter,
   historicalAvgLitersPerHour,
   historicalAvgKmPerLiter,
+  isFirstRecord,
   onCalculationChange,
 }) => {
   // 1. Capacidade Total do Tanque (capacidade_tanque)
@@ -111,11 +113,28 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     }
   }, [tipoConsumo, machinery, historicalAvgLitersPerHour, liveLitersPerHour, historicalAvgKmPerLiter, liveKmPerLiter]);
 
+  // Flag efetiva de primeiro abastecimento
+  const isFirstRecordEffective = isFirstRecord ?? (
+    (!prevH || prevH === 0) && (!prevK || prevK === 0)
+  );
+
   // 6. Volume inicial do ciclo (nivel_anterior):
+  // Se for primeiro registro e o nível inicial for desconhecido, parte de 0L.
   // Se o veículo tem nível em litros ou porcentagem salvo no cadastro, calcula a partir dele.
   // Senão, assume tanque completo do ciclo anterior (capacidade do tanque).
   const nivelAnterior = useMemo(() => {
     if (tankCapacity <= 0) return 0;
+    if (isFirstRecordEffective) {
+      if ((machinery as any)?.currentFuelLiters !== undefined && (machinery as any)?.currentFuelLiters !== null) {
+        const lit = Number((machinery as any).currentFuelLiters);
+        if (!isNaN(lit) && lit > 0) return Math.min(tankCapacity, lit);
+      }
+      if (machinery?.currentFuelPercentage !== undefined && machinery.currentFuelPercentage !== null) {
+        const p = Math.max(0, Math.min(100, Number(machinery.currentFuelPercentage)));
+        if (!isNaN(p) && p > 0) return (p / 100) * tankCapacity;
+      }
+      return 0; // Primeiro registro sem nível anterior registrado: parte de 0L
+    }
     if ((machinery as any)?.currentFuelLiters !== undefined && (machinery as any)?.currentFuelLiters !== null) {
       const lit = Number((machinery as any).currentFuelLiters);
       if (!isNaN(lit) && lit >= 0) return Math.min(tankCapacity, lit);
@@ -125,7 +144,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
       if (!isNaN(p)) return (p / 100) * tankCapacity;
     }
     return tankCapacity;
-  }, [tankCapacity, machinery]);
+  }, [tankCapacity, machinery, isFirstRecordEffective]);
 
   // 7. Cálculo das Métricas de Consumo e Níveis do Tanque
   const calculationResult: FuelCalculationResult = useMemo(() => {
@@ -141,8 +160,9 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
       horimetroKmAtual,
       litrosAbastecidos: addedLiters,
       nivelAnterior,
+      isFirstRecord: isFirstRecordEffective,
     });
-  }, [tankCapacity, mediaConsumo, tipoConsumo, prevH, currH, prevK, currK, addedLiters, nivelAnterior]);
+  }, [tankCapacity, mediaConsumo, tipoConsumo, prevH, currH, prevK, currK, addedLiters, nivelAnterior, isFirstRecordEffective]);
 
   // Notifica o componente pai sempre que os cálculos atualizarem
   useEffect(() => {
