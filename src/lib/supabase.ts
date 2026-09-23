@@ -69,6 +69,8 @@ if (isSupabaseConfigured) {
 }
 
 // Inicialização direta do cliente oficial com as credenciais reais de produção e schema público estático
+export const isRealtimeEnabledInEnv = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ === true;
+
 export const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
@@ -85,7 +87,14 @@ export const supabase: SupabaseClient = createClient(
       headers: {
         'x-application-name': 'agrocontrol-silagem',
       }
-    }
+    },
+    ...(isRealtimeEnabledInEnv ? {} : {
+      realtime: {
+        params: {
+          eventsPerSecond: 0,
+        },
+      }
+    })
   }
 );
 

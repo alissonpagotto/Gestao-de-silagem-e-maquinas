@@ -668,61 +668,85 @@ export async function upsertCliente(client: Client, companyId?: string): Promise
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = client.companyId || companyId || getActiveCompanyId();
-    const hasValidId = isValidUUID(client.id);
+    const isNumericId = /^\d+$/.test(String(client.id || '').trim());
     const clientName = (client.name || client.nome || '').trim() || 'Cliente';
 
-    // Monta o payload estritamente compatível com a tabela public.clientes (supabase_schema.sql)
+    // Monta o payload estritamente compatível com o schema real da tabela public.clientes
     const payload: Record<string, any> = {
+      nome_razao_social: clientName,
+      nome: clientName,
       name: clientName,
-      farm_name: (client.farmName || client.fazenda || '').trim() || null,
+      fazenda: (client.farmName || client.fazenda || '').trim() || null,
       cpf_cnpj: (client.cpfCnpj || '').trim() || null,
-      state_registration: (client.stateRegistration || '').trim() || null,
-      phone: (client.phone || client.telefone || '').trim() || null,
+      inscricao_estadual: (client.stateRegistration || '').trim() || null,
+      telefone: (client.phone || client.telefone || '').trim() || null,
       email: (client.email || '').trim() || null,
-      city: (client.city || client.cidade || '').trim() || null,
-      state: (client.state || client.estado || '').trim() || null,
-      total_area: Number(client.areaHectares) || 0,
-      cultivated_area: Number(client.areaHectares) || 0,
-      notes: (client.notes || client.observacoes || '').trim() || null,
-      company_id: activeCompanyId,
-      updated_at: new Date().toISOString()
+      cidade: (client.city || client.cidade || '').trim() || null,
+      estado: (client.state || client.estado || '').trim() || null,
+      area_total_ha: Number(client.areaHectares) || 0,
+      area_cultivada_ha: Number(client.areaHectares) || 0,
+      observacoes: (client.notes || client.observacoes || '').trim() || null,
+      ativo: client.status !== 'inativo',
+      status: client.status || 'ativo',
+      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
+      criado_em: client.createdAt || new Date().toISOString()
     };
 
-    if (hasValidId) {
-      payload.id = client.id.trim().toLowerCase();
+    // 1. Se possuir ID numérico (bigint no Postgres), realiza upsert com onConflict: 'id'
+    if (isNumericId) {
+      payload.id = Number(client.id);
       let { error } = await supabase
         .from('clientes')
         .upsert(payload, { onConflict: 'id' });
 
       if (error) {
-        logPostgresError('upsertCliente:hasValidId', error, { table: 'clientes', action: 'UPSERT', payload });
-        if (error.code === '23503' || error.code === '42703' || (error.message && error.message.includes('company_id'))) {
+        logPostgresError('upsertCliente:numericId', error, { table: 'clientes', action: 'UPSERT', payload });
+        if (error.code === '23503' || (error.message && error.message.includes('company_id'))) {
           delete payload.company_id;
           const retry = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
           if (!retry.error) return true;
         }
         return false;
       }
-
       return true;
     }
 
-    // Se for um novo cliente ou ID não UUID, usa UUID determinístico
-    payload.id = toValidUUID(client.id);
-    let { error } = await supabase
-      .from('clientes')
-      .upsert(payload, { onConflict: 'id' });
+    // 2. Se o ID não for numérico (ID gerado localmente em memória), verifica se já existe cliente cadastrado
+    if (activeCompanyId) {
+      const { data: existing } = await supabase
+        .from('clientes')
+        .select('id')
+        .eq('company_id', toValidUUID(activeCompanyId))
+        .eq('nome_razao_social', clientName)
+        .maybeSingle();
 
-    if (error) {
-      logPostgresError('upsertCliente:deterministicUUID', error, { table: 'clientes', action: 'UPSERT', payload });
-      if (error.code === '23503' || error.code === '42703' || (error.message && error.message.includes('company_id'))) {
+      if (existing?.id) {
+        payload.id = existing.id;
+        const { error } = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
+        if (!error) return true;
+      }
+    }
+
+    // 3. Inserção simples deixando o PostgreSQL gerar o ID sequencial (bigint)
+    const { data: inserted, error: insertError } = await supabase
+      .from('clientes')
+      .insert(payload)
+      .select('id')
+      .maybeSingle();
+
+    if (insertError) {
+      if (insertError.code === '23503' || (insertError.message && insertError.message.includes('company_id'))) {
         delete payload.company_id;
-        const retry = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
+        const retry = await supabase.from('clientes').insert(payload);
         if (!retry.error) return true;
       }
+      logPostgresError('upsertCliente:insert', insertError, { table: 'clientes', action: 'INSERT', payload });
       return false;
     }
 
+    if (inserted?.id) {
+      client.id = String(inserted.id);
+    }
     return true;
   } catch (err: any) {
     logPostgresError('upsertCliente:exception', err, { table: 'clientes', action: 'UPSERT' });
@@ -734,15 +758,12 @@ export async function deleteCliente(id: string, companyId?: string): Promise<boo
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
-    const targetUuid = isValidUUID(id) ? id.trim().toLowerCase() : toValidUUID(id);
-    let query = supabase.from('clientes').delete().eq('id', targetUuid);
-    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-    const { error } = await query;
-
-    if (error && id !== targetUuid) {
-      let retry = supabase.from('clientes').delete().eq('id', id);
-      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
-      await retry;
+    const isNumericId = /^\d+$/.test(String(id || '').trim());
+    if (isNumericId) {
+      let query = supabase.from('clientes').delete().eq('id', Number(id));
+      if (activeCompanyId) query = query.eq('company_id', toValidUUID(activeCompanyId));
+      await query;
+      return true;
     }
     return true;
   } catch (err) {
@@ -2697,11 +2718,16 @@ const activeChannels = new Map<string, { channel: any; listeners: Set<(payload: 
 let realtimeTransportDisabledUntil = 0;
 let consecutiveTransportFailures = 0;
 
+// Em ambientes de sandbox, iFrames e proxies reversos (Google Cloud Run / IDX / AI Studio),
+// os cabeçalhos de upgrade de WebSocket ('Sec-WebSocket-Accept') são bloqueados por padrão.
+// O realtime via WebSocket é ativado somente se expressamente habilitado via window.__ENABLE_SUPABASE_REALTIME__ === true.
+export const isRealtimeWebSocketActive = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ === true;
+
 export function subscribeToCloudTable(
   tableName: string,
   onChange: (payload: any) => void
 ): () => void {
-  if (!tableName || tableName === 'null' || tableName === 'undefined' || !isSupabaseConfigured || isTableUnmigrated(tableName)) {
+  if (!isRealtimeWebSocketActive || !tableName || tableName === 'null' || tableName === 'undefined' || !isSupabaseConfigured || isTableUnmigrated(tableName)) {
     return () => {};
   }
 
