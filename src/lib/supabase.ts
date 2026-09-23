@@ -93,7 +93,7 @@ class NoOpWebSocket {
 }
 
 // Inicialização direta do cliente oficial com as credenciais reais de produção e schema público estático
-export const isRealtimeEnabledInEnv = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ === true;
+export const isRealtimeEnabledInEnv = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ !== false;
 
 // Higienização preventiva de sessão corrompida ou expirada no localStorage para evitar requisição automática de refresh com status 400 no Sandbox
 if (typeof window !== 'undefined' && window.localStorage) {

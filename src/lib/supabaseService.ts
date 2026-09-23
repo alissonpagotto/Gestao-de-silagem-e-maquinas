@@ -1123,6 +1123,55 @@ export async function fetchCloudFuelLogs(companyId?: string): Promise<FuelLog[] 
   }
 }
 
+/**
+ * Busca a lista completa de abastecimentos atualizada diretamente do banco de dados (Supabase)
+ * Suporta tanto a tabela relacional 'abastecimentos' quanto o armazenamento em nuvem de alta disponibilidade
+ */
+export async function fetchAbastecimentos(companyId?: string): Promise<FuelLog[]> {
+  if (!isSupabaseConfigured) return [];
+  const cId = companyId || getActiveCompanyId();
+
+  try {
+    let query = supabase.from('abastecimentos').select('*').order('data', { ascending: false });
+    if (cId) {
+      query = query.eq('company_id', cId);
+    }
+    const { data, error } = await query;
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data.map((row: any) => ({
+        id: String(row.id || `fuel_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`),
+        date: row.data || row.date || new Date().toISOString().split('T')[0],
+        machineryId: row.veiculo_id || row.machinery_id || row.veiculo || '',
+        machineryPlateOrName: row.placa_ou_nome || row.placa || row.veiculo_nome || row.machinery_plate_or_name || '',
+        vehicleName: row.veiculo_nome || row.vehicle_name || '',
+        vehiclePlate: row.placa || row.vehicle_plate || '',
+        fuelType: row.tipo_combustivel || row.combustivel || row.fuel_type || 'Diesel S10',
+        liters: Number(row.litros || row.liters || row.quantidade || 0),
+        pricePerLiter: Number(row.valor_litro || row.preco_litro || row.price_per_liter || 0),
+        totalAmount: Number(row.valor_total || row.total_amount || row.total || 0),
+        currentHourMeterOrKm: Number(row.km_ou_horimetro || row.km_atual || row.horimetro_atual || row.current_hour_meter_or_km || 0),
+        previousHourMeterOrKm: row.km_anterior || row.horimetro_anterior ? Number(row.km_anterior || row.horimetro_anterior) : undefined,
+        currentKm: row.km_atual ? Number(row.km_atual) : undefined,
+        previousKm: row.km_anterior ? Number(row.km_anterior) : undefined,
+        currentHourMeter: row.horimetro_atual ? Number(row.horimetro_atual) : undefined,
+        previousHourMeter: row.horimetro_anterior ? Number(row.horimetro_anterior) : undefined,
+        averageCalculated: row.media_calculada ? Number(row.media_calculada) : (row.media ? Number(row.media) : undefined),
+        averageKmPerLiter: row.media_kml ? Number(row.media_kml) : undefined,
+        averageLitersPerHour: row.media_lh ? Number(row.media_lh) : undefined,
+        driverOrOperator: row.motorista || row.operador || row.driver_or_operator || '',
+        supplierStation: row.posto || row.fornecedor || row.supplier_station || 'Tanque da Fazenda',
+        notes: row.observacoes || row.notes || '',
+        createdAt: row.created_at || new Date().toISOString()
+      }));
+    }
+  } catch (err) {
+    // Tabela física em schema não migrado ou erro de rede; utiliza fallback seguro
+  }
+
+  const cloudLogs = await fetchCloudFuelLogs(cId);
+  return cloudLogs || [];
+}
+
 // ===========================================================================
 // Sincronização Global para o Supabase
 // ===========================================================================
@@ -2757,8 +2806,8 @@ let consecutiveTransportFailures = 0;
 
 // Em ambientes de sandbox, iFrames e proxies reversos (Google Cloud Run / IDX / AI Studio),
 // os cabeçalhos de upgrade de WebSocket ('Sec-WebSocket-Accept') são bloqueados por padrão.
-// O realtime via WebSocket é ativado somente se expressamente habilitado via window.__ENABLE_SUPABASE_REALTIME__ === true.
-export const isRealtimeWebSocketActive = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ === true;
+// O realtime via WebSocket é ativado por padrão no navegador, com fallback resiliente caso o proxy ou rede apresente instabilidades
+export const isRealtimeWebSocketActive = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ !== false;
 
 export function subscribeToCloudTable(
   tableName: string,

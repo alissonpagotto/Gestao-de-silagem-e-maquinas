@@ -154,8 +154,11 @@ import {
   fetchCloudClients,
   saveCloudMachineries,
   saveCloudExpenses,
-  fetchAllClientModulesFromSupabase
+  fetchAllClientModulesFromSupabase,
+  fetchAbastecimentos,
+  saveCloudFuelLogs
 } from './lib/supabaseService';
+import { supabase } from './lib/supabaseClient';
 
 export default function App() {
   // State Initialization from LocalStorage
@@ -293,6 +296,7 @@ export default function App() {
     clients?: string;
     machineries?: string;
     expenses?: string;
+    fuelLogs?: string;
     rel_clients?: string;
     rel_suppliers?: string;
     rel_inventory?: string;
@@ -410,6 +414,14 @@ export default function App() {
           if (Array.isArray(cloudModules.terminations) && cloudModules.terminations.length > 0) {
             saveStoredTerminations(cloudModules.terminations);
           }
+        }
+
+        // 3. Carrega abastecimentos sincronizados em nuvem (tabela abastecimentos / site_settings)
+        const cloudFuels = await fetchAbastecimentos(activeTenantId);
+        if (cloudFuels && cloudFuels.length > 0 && isMounted) {
+          lastSyncedState.current.fuelLogs = JSON.stringify(cloudFuels);
+          setFuelLogs(cloudFuels);
+          saveStoredFuelLogs(cloudFuels);
         }
 
         setLastSyncedAt(new Date());
@@ -573,6 +585,75 @@ export default function App() {
       });
     });
 
+    // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
+    // Escuta as alterações no banco de dados na tabela 'abastecimentos' e em 'site_settings'
+    const canalAbastecimentos = supabase
+      .channel('mudancas-abastecimentos')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'abastecimentos' },
+        (_payload) => {
+          fetchAbastecimentos(activeTenantId).then(fresh => {
+            if (fresh && isMounted) {
+              const ser = JSON.stringify(fresh);
+              if (ser !== lastSyncedState.current.fuelLogs) {
+                lastSyncedState.current.fuelLogs = ser;
+                setFuelLogs(fresh);
+                saveStoredFuelLogs(fresh);
+              }
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'site_settings' },
+        (_payload) => {
+          fetchAbastecimentos(activeTenantId).then(fresh => {
+            if (fresh && isMounted) {
+              const ser = JSON.stringify(fresh);
+              if (ser !== lastSyncedState.current.fuelLogs) {
+                lastSyncedState.current.fuelLogs = ser;
+                setFuelLogs(fresh);
+                saveStoredFuelLogs(fresh);
+              }
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    // 3. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
+    const pollAbastecimentosInterval = setInterval(() => {
+      fetchAbastecimentos(activeTenantId).then(fresh => {
+        if (fresh && fresh.length > 0 && isMounted) {
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.fuelLogs) {
+            lastSyncedState.current.fuelLogs = ser;
+            setFuelLogs(fresh);
+            saveStoredFuelLogs(fresh);
+          }
+        }
+      }).catch(() => {});
+    }, 30000);
+
+    const handleFocusSync = () => {
+      if (document.visibilityState === 'visible' && isMounted) {
+        fetchAbastecimentos(activeTenantId).then(fresh => {
+          if (fresh && fresh.length > 0 && isMounted) {
+            const ser = JSON.stringify(fresh);
+            if (ser !== lastSyncedState.current.fuelLogs) {
+              lastSyncedState.current.fuelLogs = ser;
+              setFuelLogs(fresh);
+              saveStoredFuelLogs(fresh);
+            }
+          }
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleFocusSync);
+    window.addEventListener('focus', handleFocusSync);
+
     return () => { 
       isMounted = false; 
       window.removeEventListener('silagem_force_rest_sync', handleForceRestSync);
@@ -583,6 +664,10 @@ export default function App() {
       unsubFrotas();
       unsubContas();
       unsubSettings();
+      supabase.removeChannel(canalAbastecimentos);
+      clearInterval(pollAbastecimentosInterval);
+      document.removeEventListener('visibilitychange', handleFocusSync);
+      window.removeEventListener('focus', handleFocusSync);
     };
   }, [activeTenantId, currentUser?.uid]);
 
@@ -784,6 +869,18 @@ export default function App() {
     }, 1200);
     return () => clearTimeout(t);
   }, [expenses, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current || !activeTenantId) return;
+    const currentSerialized = JSON.stringify(fuelLogs);
+    if (currentSerialized === lastSyncedState.current.fuelLogs) return;
+
+    const t = setTimeout(() => {
+      lastSyncedState.current.fuelLogs = currentSerialized;
+      saveCloudFuelLogs(fuelLogs, activeTenantId);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [fuelLogs, activeTenantId]);
 
   // Keep third-party settlements state fresh across component interactions
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Fuel, 
   Search, 
@@ -13,6 +13,8 @@ import {
 import { FuelLog, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatFuelLogEfficiency, findVehicleForLog, isVehicleHoursControlled } from '../../lib/fuelCalculation';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchAbastecimentos } from '../../lib/supabaseService';
 
 interface ReportsConsumoTabProps {
   fuelLogs: FuelLog[];
@@ -30,10 +32,72 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState('todos');
   const [fuelTypeFilter, setFuelTypeFilter] = useState('todos');
+  const [localLogs, setLocalLogs] = useState<FuelLog[]>(fuelLogs);
+
+  useEffect(() => {
+    setLocalLogs(fuelLogs);
+  }, [fuelLogs]);
+
+  // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes na tabela abastecimentos):
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUpdatedReportsAbastecimentos = async () => {
+      try {
+        const fresh = await fetchAbastecimentos();
+        if (fresh && fresh.length > 0 && isMounted) {
+          setLocalLogs(fresh);
+        }
+      } catch (err) {
+        console.warn('Relatórios Consumo: Erro ao atualizar abastecimentos em tempo real:', err);
+      }
+    };
+
+    // Subscrição ao canal Realtime do Supabase na tabela abastecimentos
+    const canalAbastecimentos = supabase
+      .channel('mudancas-abastecimentos-relatorios')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'abastecimentos' },
+        (_payload) => {
+          // Re-busca imediata com renderização instantânea da tabela e dos cards na hora
+          fetchUpdatedReportsAbastecimentos(); 
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'site_settings' },
+        (_payload) => {
+          fetchUpdatedReportsAbastecimentos();
+        }
+      )
+      .subscribe();
+
+    // 3. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
+    const intervalId = setInterval(() => {
+      fetchUpdatedReportsAbastecimentos();
+    }, 30000);
+
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchUpdatedReportsAbastecimentos();
+      }
+    };
+    document.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(canalAbastecimentos);
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   // Filtered Fuel Logs (Respeitando dinamicamente filtros de data, veículo e busca)
   const filteredLogs = useMemo(() => {
-    return fuelLogs.filter(log => {
+    return localLogs.filter(log => {
       const matchDate = log.date >= startDate && log.date <= endDate;
       const matchSearch = 
         log.machineryPlateOrName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +110,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
 
       return matchDate && matchSearch && matchType && matchVehicle;
     });
-  }, [fuelLogs, startDate, endDate, searchTerm, fuelTypeFilter, selectedVehicle]);
+  }, [localLogs, startDate, endDate, searchTerm, fuelTypeFilter, selectedVehicle]);
 
   // KPIs
   const totalLiters = filteredLogs.reduce((sum, l) => sum + (l.liters || 0), 0);
