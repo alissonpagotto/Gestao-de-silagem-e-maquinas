@@ -353,32 +353,49 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const displayLitersPerHour = calculatedMetrics.litersPerHour ?? historicalAvgLitersPerHour;
   const displayKmPerLiter = calculatedMetrics.kmPerLiter ?? historicalAvgKmPerLiter;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && 'preventDefault' in e) {
+      e.preventDefault();
+    }
+    console.log("Botão Salvar Clicado");
     const l = parseFloat(liters);
     const p = parseFloat(pricePerLiter);
-    const t = parseFloat(totalAmount) || (l * p);
+    const t = parseFloat(totalAmount) || (l * (isNaN(p) ? 0 : p));
     
     const currK = parseFloat(currentKm);
     const prevK = parseFloat(previousKm);
     const currH = parseFloat(currentHourMeter);
     const prevH = parseFloat(previousHourMeter);
 
-    if (isNaN(l) || l <= 0 || !machineryId) return;
+    const effectiveMachineryId = machineryId || (availableMachineries.length > 0 ? availableMachineries[0].id : '');
 
-    const machName = selectedMachinery 
-      ? (selectedMachinery.licensePlateOrSerial ? `[${selectedMachinery.licensePlateOrSerial}] - ${selectedMachinery.model || selectedMachinery.name}` : selectedMachinery.name)
+    if (!effectiveMachineryId) {
+      console.warn("Validação: selecione um veículo.");
+      return;
+    }
+
+    if (isNaN(l) || l <= 0) {
+      console.warn("Validação: informe a quantidade de litros.");
+      const inputLiters = document.querySelector('input[placeholder="Ex: 250"]') as HTMLInputElement;
+      if (inputLiters) inputLiters.focus();
+      return;
+    }
+
+    const currentSelected = availableMachineries.find((m) => m.id === effectiveMachineryId) || selectedMachinery;
+
+    const machName = currentSelected 
+      ? (currentSelected.licensePlateOrSerial ? `[${currentSelected.licensePlateOrSerial}] - ${currentSelected.model || currentSelected.name}` : currentSelected.name)
       : 'Veículo';
 
     const log: FuelLog = {
       id: editingLog ? editingLog.id : `fuel_${Date.now()}`,
-      date,
-      machineryId,
+      date: date || new Date().toISOString().split('T')[0],
+      machineryId: effectiveMachineryId,
       machineryPlateOrName: machName,
       fuelType,
       liters: l,
-      pricePerLiter: p || 0,
-      totalAmount: t || 0,
+      pricePerLiter: !isNaN(p) && p > 0 ? p : 0,
+      totalAmount: !isNaN(t) && t > 0 ? t : (l * (!isNaN(p) && p > 0 ? p : 0)),
       currentHourMeterOrKm: !isNaN(currH) && currH > 0 ? currH : (!isNaN(currK) ? currK : 0),
       previousHourMeterOrKm: !isNaN(prevH) && prevH > 0 ? prevH : (!isNaN(prevK) ? prevK : undefined),
       currentKm: !isNaN(currK) && currK > 0 ? currK : undefined,
@@ -422,10 +439,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
+            onClick={() => onClose()}
+            className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer pointer-events-auto"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-5 h-5 text-white pointer-events-none" />
           </button>
         </div>
 
@@ -435,7 +452,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
             
             {/* Formulário à Esquerda (Todos os inputs 100% livres para digitação manual) */}
             <div className="lg:col-span-7">
-              <form id="fuel-form" onSubmit={handleSubmit} className="space-y-4">
+              <form id="fuel-form" noValidate onSubmit={handleSubmit} className="space-y-4">
                 
                 {/* 1. Veículo / Máquina e Data do Abastecimento */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -444,10 +461,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                       Veículo / Máquina <span className="text-rose-500">*</span>
                     </label>
                     <select
-                      required
                       value={machineryId}
                       onChange={(e) => handleSelecaoVeiculo(e.target.value)}
-                      className="w-full p-2 border border-stone-300 dark:border-stone-700 rounded bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full p-2 border border-stone-300 dark:border-stone-700 rounded bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 pointer-events-auto cursor-pointer"
                     >
                       <option value="">Selecione o veículo...</option>
                       {availableMachineries.map((v) => (
@@ -464,10 +480,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     </label>
                     <input
                       type="date"
-                      required
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs pointer-events-auto"
                     />
                   </div>
                 </div>
@@ -616,12 +631,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                       <input
                         type="number"
                         step="any"
-                        min="0.1"
-                        required
                         value={liters}
                         onChange={(e) => handleLitersChange(e.target.value)}
                         placeholder="Ex: 250"
-                        className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/30 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+                        className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/30 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs pointer-events-auto"
                       />
                     </div>
 
@@ -732,20 +745,21 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Rodapé com Ações */}
-        <div className="px-6 py-3.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3 shrink-0">
+        <div className="px-6 py-3.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-end space-x-3 shrink-0 relative z-30 pointer-events-auto">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-600 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-stone-700 transition cursor-pointer"
+            onClick={() => onClose()}
+            className="pointer-events-auto cursor-pointer px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-600 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-stone-700 transition"
           >
             Cancelar
           </button>
           <button
-            type="submit"
+            type="button"
             form="fuel-form"
-            className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer"
+            onClick={(e) => handleSubmit(e)}
+            className="pointer-events-auto cursor-pointer px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold shadow-xs transition flex items-center space-x-2"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-4 h-4 pointer-events-none" />
             <span>Salvar Abastecimento</span>
           </button>
         </div>
