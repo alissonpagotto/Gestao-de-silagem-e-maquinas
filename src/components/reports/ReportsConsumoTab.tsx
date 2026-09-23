@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { FuelLog, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatFuelLogEfficiency, isMachineOrTractor } from '../../lib/fuelCalculation';
 
 interface ReportsConsumoTabProps {
   fuelLogs: FuelLog[];
@@ -27,9 +28,10 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   endDate,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedVehicle, setSelectedVehicle] = useState('todos');
   const [fuelTypeFilter, setFuelTypeFilter] = useState('todos');
 
-  // Filtered Fuel Logs
+  // Filtered Fuel Logs (Respeitando dinamicamente filtros de data, veículo e busca)
   const filteredLogs = useMemo(() => {
     return fuelLogs.filter(log => {
       const matchDate = log.date >= startDate && log.date <= endDate;
@@ -38,34 +40,80 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
         (log.driverOrOperator && log.driverOrOperator.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (log.supplierStation && log.supplierStation.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchType = fuelTypeFilter === 'todos' || log.fuelType === fuelTypeFilter;
-      return matchDate && matchSearch && matchType;
+      const matchVehicle = selectedVehicle === 'todos' || 
+        log.machineryId === selectedVehicle || 
+        log.machineryPlateOrName.toLowerCase() === selectedVehicle.toLowerCase();
+
+      return matchDate && matchSearch && matchType && matchVehicle;
     });
-  }, [fuelLogs, startDate, endDate, searchTerm, fuelTypeFilter]);
+  }, [fuelLogs, startDate, endDate, searchTerm, fuelTypeFilter, selectedVehicle]);
 
   // KPIs
   const totalLiters = filteredLogs.reduce((sum, l) => sum + (l.liters || 0), 0);
   const totalAmount = filteredLogs.reduce((sum, l) => sum + (l.totalAmount || 0), 0);
   const avgPricePerLiter = totalLiters > 0 ? (totalAmount / totalLiters) : 0;
 
-  // Breakdown by Machinery
+  // Breakdown by Machinery com Média Dinâmica por Tipo (L/h para Máquinas e km/L para Rodoviários)
   const machineryStats = useMemo(() => {
-    const map = new Map<string, { name: string; liters: number; totalCost: number; count: number }>();
+    const map = new Map<string, {
+      id?: string;
+      name: string;
+      liters: number;
+      totalCost: number;
+      count: number;
+      logs: FuelLog[];
+    }>();
+
     filteredLogs.forEach(l => {
       const name = l.machineryPlateOrName || 'Outro Veículo';
-      const existing = map.get(name) || { name, liters: 0, totalCost: 0, count: 0 };
+      const existing = map.get(name) || {
+        id: l.machineryId,
+        name,
+        liters: 0,
+        totalCost: 0,
+        count: 0,
+        logs: [],
+      };
       existing.liters += l.liters || 0;
       existing.totalCost += l.totalAmount || 0;
       existing.count += 1;
+      existing.logs.push(l);
+      if (!existing.id && l.machineryId) existing.id = l.machineryId;
       map.set(name, existing);
     });
-    return Array.from(map.values()).sort((a, b) => b.liters - a.liters);
-  }, [filteredLogs]);
+
+    return Array.from(map.values()).map(item => {
+      const vehicle = machineries.find(m => m.id === item.id || m.licensePlateOrSerial === item.name || m.name === item.name);
+      const isMachine = isMachineOrTractor(vehicle, item.name);
+
+      // Coleta médias válidas calculadas de cada abastecimento
+      const validEffs = item.logs
+        .map(l => formatFuelLogEfficiency(l, vehicle))
+        .filter((eff): eff is NonNullable<typeof eff> => eff !== null && eff.value > 0);
+
+      let avgEfficiencyText: string | null = null;
+      if (validEffs.length > 0) {
+        const sumVal = validEffs.reduce((acc, curr) => acc + curr.value, 0);
+        const avgVal = sumVal / validEffs.length;
+        const unit = isMachine ? 'L/h' : 'km/L';
+        avgEfficiencyText = `${avgVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unit}`;
+      }
+
+      return {
+        ...item,
+        isMachine,
+        avgEfficiencyText,
+      };
+    }).sort((a, b) => b.liters - a.liters);
+  }, [filteredLogs, machineries]);
 
   const handleExportCsv = () => {
-    const headers = 'Data,Maquina_Veiculo,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Horimetro_KM,Operador_Motorista,Posto_Fornecedor\n';
-    const rows = filteredLogs.map(l => 
-      `"${l.date}","${l.machineryPlateOrName}","${l.fuelType}","${l.liters}","${l.pricePerLiter}","${l.totalAmount}","${l.currentHourMeterOrKm}","${l.driverOrOperator || ''}","${l.supplierStation || ''}"`
-    ).join('\n');
+    const headers = 'Data,Maquina_Veiculo,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Horimetro_KM,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
+    const rows = filteredLogs.map(l => {
+      const vehicle = machineries.find(m => m.id === l.machineryId);
+      const eff = formatFuelLogEfficiency(l, vehicle);
+      return `"${l.date}","${l.machineryPlateOrName}","${l.fuelType}","${l.liters}","${l.pricePerLiter}","${l.totalAmount}","${l.currentHourMeterOrKm}","${eff?.formatted || ''}","${l.driverOrOperator || ''}","${l.supplierStation || ''}"`;
+    }).join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -89,7 +137,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
               Relatório de Consumo de Combustível & Lubrificantes
             </h3>
             <p className="text-xs text-stone-500">
-              Controle de litros de Diesel S10/Arla, gasto financeiro e médias de consumo por maquinário
+              Controle de litros de Diesel S10/Arla, gasto financeiro e médias de consumo (L/h para máquinas e km/L para rodoviários)
             </p>
           </div>
         </div>
@@ -133,7 +181,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
 
       </div>
 
-      {/* Top Máquinas por Consumo */}
+      {/* Top Máquinas por Consumo com Médias Formatadas */}
       {machineryStats.length > 0 && (
         <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs">
           <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 mb-3 flex items-center space-x-1.5">
@@ -143,11 +191,31 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {machineryStats.map(m => (
               <div key={m.name} className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200/70 dark:border-stone-700/60 flex justify-between items-center">
-                <div>
-                  <span className="text-xs font-bold text-stone-900 dark:text-stone-100 block">{m.name}</span>
-                  <span className="text-[10px] text-stone-400">{m.count} abastecimento(s)</span>
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    {m.isMachine ? (
+                      <Tractor className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    ) : (
+                      <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    )}
+                    <span className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate block">
+                      {m.name}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className="text-[10px] text-stone-400">{m.count} abastecimento(s)</span>
+                    {m.avgEfficiencyText && (
+                      <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                        m.isMachine 
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/50'
+                          : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200/50'
+                      }`}>
+                        Média: {m.avgEfficiencyText}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <span className="text-xs font-black text-amber-600 dark:text-amber-400 block">{m.liters.toFixed(1)} L</span>
                   <span className="text-[10px] font-bold text-stone-500">{formatCurrencyBRL(m.totalCost)}</span>
                 </div>
@@ -158,8 +226,8 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       )}
 
       {/* Filter and Search */}
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5">
-        <div className="relative w-full sm:w-80">
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-3 shadow-xs flex flex-col md:flex-row items-center justify-between gap-2.5">
+        <div className="relative w-full md:w-72">
           <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -170,17 +238,33 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
           />
         </div>
 
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* Filtro Dinâmico de Veículo / Máquina */}
+          <select
+            value={selectedVehicle}
+            onChange={(e) => setSelectedVehicle(e.target.value)}
+            className="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-[#009688] cursor-pointer"
+          >
+            <option value="todos">Todos os Veículos / Máquinas</option>
+            {machineries.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.licensePlateOrSerial ? `[${m.licensePlateOrSerial}] - ` : ''}{m.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Filtro de Tipo de Combustível */}
           <select
             value={fuelTypeFilter}
             onChange={(e) => setFuelTypeFilter(e.target.value)}
-            className="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200"
+            className="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none focus:ring-1 focus:ring-[#009688] cursor-pointer"
           >
             <option value="todos">Todos os combustíveis</option>
             <option value="Diesel S10">Diesel S10</option>
             <option value="Diesel Comum">Diesel Comum</option>
             <option value="Arla 32">Arla 32</option>
             <option value="Gasolina">Gasolina</option>
+            <option value="Etanol">Etanol</option>
           </select>
         </div>
       </div>
@@ -204,37 +288,47 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
             </thead>
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
               {filteredLogs.length > 0 ? (
-                filteredLogs.map((item) => (
-                  <tr key={item.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
-                    <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-600 dark:text-stone-400">
-                      {formatDateBR(item.date)}
-                    </td>
-                    <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
-                      {item.machineryPlateOrName}
-                    </td>
-                    <td className="py-2.5 px-3.5 font-medium text-stone-700 dark:text-stone-300">
-                      {item.fuelType}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-right font-black text-stone-900 dark:text-stone-100">
-                      {item.liters.toFixed(1)} L
-                    </td>
-                    <td className="py-2.5 px-3.5 text-right font-semibold text-stone-600 dark:text-stone-400">
-                      {formatCurrencyBRL(item.pricePerLiter)}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                      {formatCurrencyBRL(item.totalAmount)}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-right font-mono text-stone-600 dark:text-stone-400">
-                      {item.currentHourMeterOrKm || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
-                      {item.driverOrOperator || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
-                      {item.supplierStation || '-'}
-                    </td>
-                  </tr>
-                ))
+                filteredLogs.map((item) => {
+                  const vehicle = machineries.find(m => m.id === item.machineryId);
+                  const eff = formatFuelLogEfficiency(item, vehicle);
+
+                  return (
+                    <tr key={item.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition">
+                      <td className="py-2.5 px-3.5 whitespace-nowrap text-stone-600 dark:text-stone-400">
+                        {formatDateBR(item.date)}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-bold text-stone-900 dark:text-stone-100">
+                        {item.machineryPlateOrName}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-medium text-stone-700 dark:text-stone-300">
+                        {item.fuelType}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-stone-900 dark:text-stone-100">
+                        {item.liters.toFixed(1)} L
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-stone-600 dark:text-stone-400">
+                        {formatCurrencyBRL(item.pricePerLiter)}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                        {formatCurrencyBRL(item.totalAmount)}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-mono text-stone-600 dark:text-stone-400">
+                        <div>{item.currentHourMeterOrKm ? item.currentHourMeterOrKm.toLocaleString('pt-BR') : '-'}</div>
+                        {eff ? (
+                          <span className="block text-[10px] font-bold text-emerald-600 mt-0.5">
+                            {eff.formatted}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
+                        {item.driverOrOperator || '-'}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-stone-600 dark:text-stone-400">
+                        {item.supplierStation || '-'}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-stone-400">

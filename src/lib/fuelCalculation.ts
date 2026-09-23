@@ -246,3 +246,185 @@ export function getTankColorTheme(percentage: number, isOverflowing = false) {
     glow: 'shadow-[inset_0_2px_10px_rgba(52,211,153,0.8),inset_0_-8px_20px_rgba(5,150,105,0.5)]',
   };
 }
+
+/**
+ * Identifica se um veículo é Máquina Agrícola / Trator (opera por Horas - L/h)
+ * ou se é Veículo Rodoviário (opera por KM - km/L).
+ */
+export function isMachineOrTractor(
+  vehicle?: any | null,
+  logOrName?: any | string
+): boolean {
+  if (vehicle) {
+    const cat = String(vehicle.categoryType || vehicle.tipo || vehicle.type || '').toLowerCase();
+    const model = String(vehicle.model || vehicle.modelo || vehicle.name || vehicle.nome || '').toLowerCase();
+    
+    const isAgriCat = 
+      cat.includes('forrageir') ||
+      cat.includes('ensilad') ||
+      cat.includes('colhedor') ||
+      cat.includes('colheit') ||
+      cat.includes('trator') ||
+      cat.includes('maquina') ||
+      cat.includes('máquina') ||
+      cat.includes('implemento') ||
+      cat.includes('pulverizad') ||
+      cat.includes('retro') ||
+      cat.includes('carregadeira');
+
+    const isAgriModel = 
+      model.includes('claas') ||
+      model.includes('jaguar') ||
+      model.includes('maq') ||
+      model.includes('trator') ||
+      model.includes('colheitadeira') ||
+      model.includes('ensiladeira') ||
+      model.includes('retroescavadeira') ||
+      model.includes('carregadeira') ||
+      model.includes('valtra') ||
+      model.includes('massey') ||
+      model.includes('case ih') ||
+      (model.includes('john deere') && !model.includes('camionete'));
+
+    const isRoadCat = 
+      cat.includes('caminhao') ||
+      cat.includes('caminhão') ||
+      cat.includes('cavalo') ||
+      cat.includes('utilitario') ||
+      cat.includes('utilitário') ||
+      cat.includes('onibus') ||
+      cat.includes('ônibus') ||
+      cat.includes('van') ||
+      cat.includes('carro') ||
+      cat.includes('pickup') ||
+      cat.includes('reboque');
+
+    if (isAgriCat || isAgriModel) return true;
+    if (isRoadCat) return false;
+
+    if (vehicle.hourMeter && Number(vehicle.hourMeter) > 0 && (!vehicle.currentKm || Number(vehicle.currentKm) === 0)) {
+      return true;
+    }
+    if (vehicle.currentKm && Number(vehicle.currentKm) > 0 && (!vehicle.hourMeter || Number(vehicle.hourMeter) === 0)) {
+      return false;
+    }
+  }
+
+  // Verificação por identificador/placa ou log
+  const textToCheck = typeof logOrName === 'string'
+    ? logOrName.toLowerCase()
+    : String(logOrName?.machineryPlateOrName || logOrName?.vehicleName || '').toLowerCase();
+
+  if (
+    textToCheck.includes('maq') ||
+    textToCheck.includes('claas') ||
+    textToCheck.includes('jaguar') ||
+    textToCheck.includes('trator') ||
+    textToCheck.includes('colheit') ||
+    textToCheck.includes('ensilad') ||
+    textToCheck.includes('forrageir') ||
+    textToCheck.includes('retro')
+  ) {
+    return true;
+  }
+
+  if (typeof logOrName === 'object' && logOrName !== null) {
+    if (logOrName.averageLitersPerHour && !logOrName.averageKmPerLiter) return true;
+    if (logOrName.currentHourMeter && !logOrName.currentKm) return true;
+  }
+
+  return false;
+}
+
+export interface FuelEfficiencyDisplay {
+  value: number;
+  formatted: string;
+  unit: 'km/L' | 'L/h';
+}
+
+/**
+ * Calcula e formata com precisão a média de consumo do abastecimento:
+ * - Se Máquina/Trator: Média L/h = Litros Abastecidos / Diferença de Horas
+ * - Se Rodoviário: Média km/L = Diferença de KM / Litros Abastecidos
+ */
+export function formatFuelLogEfficiency(
+  log: any,
+  vehicle?: any | null
+): FuelEfficiencyDisplay | null {
+  if (!log) return null;
+
+  const isMachine = isMachineOrTractor(vehicle, log);
+  const liters = Number(log.liters) || 0;
+
+  if (isMachine) {
+    // Cálculo Máquina / Trator: L/h = Litros / (Horas Atual - Horas Anterior)
+    const currH = Number(log.currentHourMeter ?? (log.currentHourMeterOrKm && log.currentHourMeterOrKm < 50000 ? log.currentHourMeterOrKm : undefined));
+    const prevH = Number(log.previousHourMeter ?? (log.previousHourMeterOrKm && log.previousHourMeterOrKm < 50000 ? log.previousHourMeterOrKm : undefined));
+
+    if (!isNaN(currH) && !isNaN(prevH) && currH > prevH && liters > 0) {
+      const diffHours = currH - prevH;
+      const avgLh = liters / diffHours;
+      return {
+        value: parseFloat(avgLh.toFixed(2)),
+        formatted: `${avgLh.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h',
+      };
+    }
+
+    // Se já gravado no log
+    if (log.averageLitersPerHour && Number(log.averageLitersPerHour) > 0) {
+      const val = Number(log.averageLitersPerHour);
+      return {
+        value: parseFloat(val.toFixed(2)),
+        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h',
+      };
+    }
+
+    if (log.averageCalculated && Number(log.averageCalculated) > 0) {
+      const val = Number(log.averageCalculated);
+      return {
+        value: parseFloat(val.toFixed(2)),
+        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h',
+      };
+    }
+
+    return null;
+  } else {
+    // Cálculo Veículo Rodoviário: km/L = (KM Atual - KM Anterior) / Litros
+    const currK = Number(log.currentKm ?? (log.currentHourMeterOrKm && log.currentHourMeterOrKm >= 500 ? log.currentHourMeterOrKm : undefined));
+    const prevK = Number(log.previousKm ?? (log.previousHourMeterOrKm && log.previousHourMeterOrKm >= 500 ? log.previousHourMeterOrKm : undefined));
+
+    if (!isNaN(currK) && !isNaN(prevK) && currK > prevK && liters > 0) {
+      const diffKm = currK - prevK;
+      const avgKmL = diffKm / liters;
+      return {
+        value: parseFloat(avgKmL.toFixed(2)),
+        formatted: `${avgKmL.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L',
+      };
+    }
+
+    // Se já gravado no log
+    if (log.averageKmPerLiter && Number(log.averageKmPerLiter) > 0) {
+      const val = Number(log.averageKmPerLiter);
+      return {
+        value: parseFloat(val.toFixed(2)),
+        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L',
+      };
+    }
+
+    if (log.averageCalculated && Number(log.averageCalculated) > 0) {
+      const val = Number(log.averageCalculated);
+      return {
+        value: parseFloat(val.toFixed(2)),
+        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L',
+      };
+    }
+
+    return null;
+  }
+}
