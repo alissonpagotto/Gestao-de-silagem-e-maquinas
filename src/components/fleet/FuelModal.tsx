@@ -3,7 +3,6 @@ import { X, Fuel, Save, DollarSign, Calculator, Calendar, Gauge, Clock, Sparkles
 import { FuelLog, Machinery, Employee } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { fetchUltimoAbastecimentoVeiculo } from '../../lib/supabaseService';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -38,8 +37,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [previousKm, setPreviousKm] = useState('');
   const [currentHourMeter, setCurrentHourMeter] = useState('');
   const [previousHourMeter, setPreviousHourMeter] = useState('');
-  const [metersSource, setMetersSource] = useState<'supabase' | 'local_history' | 'initial_profile'>('initial_profile');
-  const [isLoadingMeters, setIsLoadingMeters] = useState(false);
+  const [metersSource, setMetersSource] = useState<'local_history' | 'initial_profile'>('initial_profile');
 
   const [driverOrOperator, setDriverOrOperator] = useState('');
   const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
@@ -67,28 +65,26 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const prevIsOpenRef = useRef(false);
 
   /**
-   * BUSCA DINÂMICA DEFENSIVA E FALLBACK SEGURO:
-   * 1. Executa imediatamente o Fallback Seguro (sem esperar rede e sem travar a interface):
-   *    - Busca o último abastecimento registrado na memória local (fuelLogs) do veículo.
-   *    - Se não houver histórico, busca o Horímetro Inicial e o KM Inicial cadastrados na ficha do veículo (machineries).
-   * 2. Em segundo plano e dentro de try/catch robusto, consulta se há registro mais recente no Supabase.
-   * 3. Caso ocorra erro de rede (400) ou tabela inexistente (404/42P01), captura o erro amigavelmente sem travar.
-   * 4. Mantém todos os campos do modal desbloqueados para digitação manual livre pelo usuário.
+   * CARREGAMENTO DIRETO E INSTANTÂNEO DOS LEITURAS DE HORÍMETRO E KM:
+   * 1. Consulta o histórico local de abastecimentos (fuelLogs) do veículo selecionado.
+   * 2. Se não houver histórico anterior, busca diretamente o Horímetro Inicial e o KM Inicial
+   *    do objeto do veículo já carregado da tabela 'gestao_frotas'.
+   * 3. Execução 100% síncrona e local, sem requisições a tabelas inexistentes,
+   *    mantendo todos os campos liberados e imediatamente editáveis.
    */
-  const loadLatestVehicleMeters = useCallback(async (vehicleId: string, mach?: Machinery) => {
+  const loadVehicleMeters = useCallback((vehicleId: string, mach?: Machinery) => {
     if (!vehicleId) return;
 
-    // --- PASSO 1: APLICAÇÃO IMEDIATA E SÍNCRONA DO FALLBACK ---
     const targetMach = mach || machineries.find((m) => m.id === vehicleId);
 
-    // 1.1 Procura no histórico local de abastecimentos (fuelLogs)
+    // 1. Procura no histórico local de abastecimentos (fuelLogs)
     const logsForVehicle = (fuelLogs || [])
       .filter((f) => f.machineryId === vehicleId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     let foundHours: number | null = null;
     let foundKm: number | null = null;
-    let source: 'supabase' | 'local_history' | 'initial_profile' = 'initial_profile';
+    let source: 'local_history' | 'initial_profile' = 'initial_profile';
 
     if (logsForVehicle.length > 0) {
       const lastLog = logsForVehicle[0];
@@ -104,7 +100,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       }
     }
 
-    // 1.2 Fallback do perfil do veículo (Horímetro Inicial / KM Inicial)
+    // 2. Fallback do perfil do veículo (Horímetro Inicial / KM Inicial da tabela 'gestao_frotas')
     if (foundHours === null && targetMach) {
       const machH = targetMach.hourMeter ?? targetMach.horimetro_ou_km_atual;
       if (machH !== undefined && machH !== null && Number(machH) > 0) {
@@ -120,31 +116,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       }
     }
 
-    // Seta imediatamente na tela os valores de fallback
+    // Seta imediatamente na tela os valores de forma síncrona
     setPreviousHourMeter(foundHours !== null ? String(foundHours) : '');
     setPreviousKm(foundKm !== null ? String(foundKm) : '');
     setMetersSource(source);
-
-    // --- PASSO 2: CONSULTA DEFENSIVA ASSÍNCRONA NO SUPABASE COM TRY/CATCH ---
-    try {
-      setIsLoadingMeters(true);
-      const remoteData = await fetchUltimoAbastecimentoVeiculo(vehicleId);
-      if (remoteData) {
-        if (remoteData.currentHourMeter !== null && remoteData.currentHourMeter !== undefined) {
-          setPreviousHourMeter(String(remoteData.currentHourMeter));
-          setMetersSource('supabase');
-        }
-        if (remoteData.currentKm !== null && remoteData.currentKm !== undefined) {
-          setPreviousKm(String(remoteData.currentKm));
-          setMetersSource('supabase');
-        }
-      }
-    } catch (e: any) {
-      // Captura amigável sem travar a tela
-      console.warn('Aviso: busca remota de abastecimentos indisponível ou tabela ausente. Mantendo fallback:', e?.message || e);
-    } finally {
-      setIsLoadingMeters(false);
-    }
   }, [fuelLogs, machineries]);
 
   // Hook estável de inicialização do modal: executa apenas ao abrir ou trocar edição
@@ -201,10 +176,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setCreateExpense(true);
 
       if (initialId) {
-        loadLatestVehicleMeters(initialId, targetMach);
+        loadVehicleMeters(initialId, targetMach);
       }
     }
-  }, [isOpen, editingLog?.id, initialMachineryId, loadLatestVehicleMeters, machineries]);
+  }, [isOpen, editingLog?.id, initialMachineryId, loadVehicleMeters, machineries]);
 
   const handleMachineryChange = (id: string) => {
     setMachineryId(id);
@@ -215,10 +190,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       } else {
         setDriverOrOperator('');
       }
-      // Ao trocar de veículo, limpa as leituras atuais digitadas
+      // Ao trocar de veículo, limpa as leituras atuais digitadas e carrega os medidores instantaneamente
       setCurrentHourMeter('');
       setCurrentKm('');
-      loadLatestVehicleMeters(id, mach);
+      loadVehicleMeters(id, mach);
     } else {
       setDriverOrOperator('');
       setPreviousHourMeter('');
@@ -418,23 +393,19 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           {previousKm && (
                             <span 
                               className={`text-[10px] font-medium flex items-center space-x-1 ${
-                                metersSource === 'supabase'
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : metersSource === 'local_history'
+                                metersSource === 'local_history'
                                   ? 'text-sky-600 dark:text-sky-400'
-                                  : 'text-stone-400'
+                                  : 'text-stone-500 dark:text-stone-400'
                               }`}
                               title={
-                                metersSource === 'supabase'
-                                  ? 'Carregado do último registro do Supabase'
-                                  : metersSource === 'local_history'
-                                  ? 'Carregado do último abastecimento'
-                                  : 'Horímetro/KM inicial do veículo'
+                                metersSource === 'local_history'
+                                  ? 'Carregado do histórico do último abastecimento'
+                                  : 'Horímetro/KM inicial cadastrado na frota'
                               }
                             >
                               <History className="w-2.5 h-2.5" />
                               <span>
-                                {metersSource === 'initial_profile' ? 'Inicial' : 'Último'}
+                                {metersSource === 'initial_profile' ? 'Inicial (Frota)' : 'Último'}
                               </span>
                             </span>
                           )}
@@ -488,23 +459,19 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           {previousHourMeter && (
                             <span 
                               className={`text-[10px] font-medium flex items-center space-x-1 ${
-                                metersSource === 'supabase'
+                                metersSource === 'local_history'
                                   ? 'text-amber-600 dark:text-amber-400'
-                                  : metersSource === 'local_history'
-                                  ? 'text-sky-600 dark:text-sky-400'
-                                  : 'text-stone-400'
+                                  : 'text-stone-500 dark:text-stone-400'
                               }`}
                               title={
-                                metersSource === 'supabase'
-                                  ? 'Carregado do último registro do Supabase'
-                                  : metersSource === 'local_history'
-                                  ? 'Carregado do último abastecimento'
-                                  : 'Horímetro/KM inicial do veículo'
+                                metersSource === 'local_history'
+                                  ? 'Carregado do histórico do último abastecimento'
+                                  : 'Horímetro/KM inicial cadastrado na frota'
                               }
                             >
                               <History className="w-2.5 h-2.5" />
                               <span>
-                                {metersSource === 'initial_profile' ? 'Inicial' : 'Último'}
+                                {metersSource === 'initial_profile' ? 'Inicial (Frota)' : 'Último'}
                               </span>
                             </span>
                           )}

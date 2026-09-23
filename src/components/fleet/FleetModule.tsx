@@ -23,7 +23,7 @@ import { FuelModal } from './FuelModal';
 import { MaintenanceModal } from './MaintenanceModal';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 import { updateVehicleWithCalculatedMetrics } from '../../lib/fleetMetrics';
-import { upsertGestaoFrota, saveAbastecimentoSupabase } from '../../lib/supabaseService';
+import { upsertGestaoFrota } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getStoredVehicleTypes, 
@@ -270,9 +270,6 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       : [fuelLog, ...fuelLogs];
     
     onSaveFuelLogs(updatedFuelLogs);
-
-    // Persistência ou sincronização opcional no Supabase (abastecimentos / combustivel)
-    saveAbastecimentoSupabase(fuelLog).catch(e => console.warn('Supabase saveAbastecimento notice:', e));
 
     // Update vehicle's hourMeter, currentKm, fuel expenses, and calculated averages
     const targetVehicle = machineries.find(m => m.id === fuelLog.machineryId);
