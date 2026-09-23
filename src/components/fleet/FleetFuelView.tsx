@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { FuelLog, Machinery, Employee } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatFuelLogEfficiency } from '../../lib/fuelCalculation';
+import { formatFuelLogEfficiency, findVehicleForLog } from '../../lib/fuelCalculation';
 
 interface FleetFuelViewProps {
   fuelLogs: FuelLog[];
@@ -227,11 +227,15 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                     <td className="py-3.5 px-4 font-mono text-stone-700 dark:text-stone-300">
                       {log.currentHourMeterOrKm ? `${log.currentHourMeterOrKm.toLocaleString('pt-BR')}` : '--'}
                       {(() => {
-                        const vehicle = machineries.find(m => m.id === log.machineryId);
+                        const vehicle = findVehicleForLog(log, machineries);
                         const eff = formatFuelLogEfficiency(log, vehicle);
                         if (!eff) return null;
                         return (
-                          <span className="block text-[10px] font-bold text-emerald-600">
+                          <span className={`block text-[10px] font-bold ${
+                            eff.unit === 'L/h' 
+                              ? 'text-amber-600 dark:text-amber-400' 
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }`}>
                             {eff.formatted}
                           </span>
                         );

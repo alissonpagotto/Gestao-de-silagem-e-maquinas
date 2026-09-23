@@ -248,69 +248,127 @@ export function getTankColorTheme(percentage: number, isOverflowing = false) {
 }
 
 /**
+ * Localiza o veículo/máquina correspondente a partir do registro de combustível,
+ * cruzando por ID, placa ou nome do maquinário.
+ */
+export function findVehicleForLog(log: any, machineries: any[] = []): any | null {
+  if (!log || !machineries || !machineries.length) return null;
+  if (log.machineryId) {
+    const byId = machineries.find(m => m.id === log.machineryId);
+    if (byId) return byId;
+  }
+  const search = String(log.machineryPlateOrName || log.vehicleName || log.vehiclePlate || '').toLowerCase().trim();
+  if (!search) return null;
+  return machineries.find(m => {
+    const plate = String(m.licensePlateOrSerial || m.plate || m.plateOrSerial || '').toLowerCase().trim();
+    if (plate && search.includes(plate)) return true;
+    const name = String(m.name || m.nome || '').toLowerCase().trim();
+    if (name && search.includes(name)) return true;
+    const model = String(m.model || m.modelo || '').toLowerCase().trim();
+    if (model && search.includes(model)) return true;
+    return false;
+  }) || null;
+}
+
+/**
  * Identifica se um veículo é Máquina Agrícola / Trator (opera por Horas - L/h)
  * ou se é Veículo Rodoviário (opera por KM - km/L).
+ * 
+ * Regra:
+ * - Se veículo controla_por === 'horas' ou veiculo.tipo === 'maquina' -> L/h (true)
+ * - Se veículo controla_por === 'km' ou veiculo.tipo === 'caminhao' / 'carro' -> km/L (false)
  */
-export function isMachineOrTractor(
+export function isVehicleHoursControlled(
   vehicle?: any | null,
   logOrName?: any | string
 ): boolean {
-  if (vehicle) {
-    const cat = String(vehicle.categoryType || vehicle.tipo || vehicle.type || '').toLowerCase();
-    const model = String(vehicle.model || vehicle.modelo || vehicle.name || vehicle.nome || '').toLowerCase();
-    
-    const isAgriCat = 
-      cat.includes('forrageir') ||
-      cat.includes('ensilad') ||
-      cat.includes('colhedor') ||
-      cat.includes('colheit') ||
-      cat.includes('trator') ||
-      cat.includes('maquina') ||
-      cat.includes('máquina') ||
-      cat.includes('implemento') ||
-      cat.includes('pulverizad') ||
-      cat.includes('retro') ||
-      cat.includes('carregadeira');
-
-    const isAgriModel = 
-      model.includes('claas') ||
-      model.includes('jaguar') ||
-      model.includes('maq') ||
-      model.includes('trator') ||
-      model.includes('colheitadeira') ||
-      model.includes('ensiladeira') ||
-      model.includes('retroescavadeira') ||
-      model.includes('carregadeira') ||
-      model.includes('valtra') ||
-      model.includes('massey') ||
-      model.includes('case ih') ||
-      (model.includes('john deere') && !model.includes('camionete'));
-
-    const isRoadCat = 
-      cat.includes('caminhao') ||
-      cat.includes('caminhão') ||
-      cat.includes('cavalo') ||
-      cat.includes('utilitario') ||
-      cat.includes('utilitário') ||
-      cat.includes('onibus') ||
-      cat.includes('ônibus') ||
-      cat.includes('van') ||
-      cat.includes('carro') ||
-      cat.includes('pickup') ||
-      cat.includes('reboque');
-
-    if (isAgriCat || isAgriModel) return true;
-    if (isRoadCat) return false;
-
-    if (vehicle.hourMeter && Number(vehicle.hourMeter) > 0 && (!vehicle.currentKm || Number(vehicle.currentKm) === 0)) {
-      return true;
-    }
-    if (vehicle.currentKm && Number(vehicle.currentKm) > 0 && (!vehicle.hourMeter || Number(vehicle.hourMeter) === 0)) {
-      return false;
-    }
+  // 1. Validação prioritária por propriedade explícita: controla_por / controlBy
+  const controlaPor = String(vehicle?.controla_por || vehicle?.controlBy || vehicle?.medidor_tipo || '').toLowerCase();
+  if (controlaPor === 'horas' || controlaPor === 'horimetro' || controlaPor === 'hourmeter') {
+    return true;
+  }
+  if (controlaPor === 'km' || controlaPor === 'quilometragem' || controlaPor === 'odometro') {
+    return false;
   }
 
-  // Verificação por identificador/placa ou log
+  // 2. Validação explícita por tipo de veículo (veiculo.tipo === 'maquina', 'trator', etc.)
+  const tipo = String(vehicle?.tipo || vehicle?.type || vehicle?.categoryType || '').toLowerCase();
+  if (
+    tipo === 'maquina' || 
+    tipo === 'máquina' || 
+    tipo === 'trator' || 
+    tipo === 'forrageira' || 
+    tipo === 'ensiladeira' || 
+    tipo === 'colhedora' || 
+    tipo === 'colheitadeira' || 
+    tipo === 'implemento' ||
+    tipo.includes('trator') ||
+    tipo.includes('maquina') ||
+    tipo.includes('máquina') ||
+    tipo.includes('ensilad') ||
+    tipo.includes('forrageir') ||
+    tipo.includes('colheit')
+  ) {
+    return true;
+  }
+
+  if (
+    tipo === 'caminhao' || 
+    tipo === 'caminhão' || 
+    tipo === 'carro' || 
+    tipo === 'veiculo' || 
+    tipo === 'veículo' || 
+    tipo === 'utilitario' || 
+    tipo === 'utilitário' || 
+    tipo === 'cavalo' || 
+    tipo === 'onibus' || 
+    tipo === 'ônibus' || 
+    tipo === 'van' || 
+    tipo === 'pickup' ||
+    tipo.includes('caminh') ||
+    tipo.includes('carro') ||
+    tipo.includes('utilit')
+  ) {
+    return false;
+  }
+
+  // 3. Validação por Modelo ou Nome da Máquina / Veículo
+  const modelName = String(vehicle?.model || vehicle?.modelo || vehicle?.name || vehicle?.nome || '').toLowerCase();
+  if (
+    modelName.includes('maq') ||
+    modelName.includes('claas') ||
+    modelName.includes('jaguar') ||
+    modelName.includes('trator') ||
+    modelName.includes('colheitadeira') ||
+    modelName.includes('ensiladeira') ||
+    modelName.includes('retroescavadeira') ||
+    modelName.includes('carregadeira') ||
+    modelName.includes('valtra') ||
+    modelName.includes('massey') ||
+    modelName.includes('case ih')
+  ) {
+    return true;
+  }
+
+  if (
+    modelName.includes('caminh') ||
+    modelName.includes('1944') ||
+    modelName.includes('mercedes') ||
+    modelName.includes('scania') ||
+    modelName.includes('volvo') ||
+    modelName.includes('iveco') ||
+    modelName.includes('vw') ||
+    modelName.includes('constellation') ||
+    modelName.includes('strada') ||
+    modelName.includes('saveiro') ||
+    modelName.includes('hilux') ||
+    modelName.includes('s10') ||
+    modelName.includes('f-4000')
+  ) {
+    return false;
+  }
+
+  // 4. Identificação pelo texto do Registro / Placa
   const textToCheck = typeof logOrName === 'string'
     ? logOrName.toLowerCase()
     : String(logOrName?.machineryPlateOrName || logOrName?.vehicleName || '').toLowerCase();
@@ -328,13 +386,35 @@ export function isMachineOrTractor(
     return true;
   }
 
+  if (
+    textToCheck.includes('caminh') ||
+    textToCheck.includes('1944') ||
+    textToCheck.includes('mercedes') ||
+    textToCheck.includes('scania') ||
+    textToCheck.includes('volvo') ||
+    textToCheck.includes('iveco') ||
+    textToCheck.includes('strada') ||
+    textToCheck.includes('saveiro') ||
+    textToCheck.includes('hilux') ||
+    textToCheck.includes('s10')
+  ) {
+    return false;
+  }
+
+  // 5. Validação por campos numéricos do Log
   if (typeof logOrName === 'object' && logOrName !== null) {
-    if (logOrName.averageLitersPerHour && !logOrName.averageKmPerLiter) return true;
+    if (logOrName.averageKmPerLiter || logOrName.media_kml) return false;
+    if (logOrName.averageLitersPerHour || logOrName.media_lh) return true;
+    if (logOrName.currentKm && !logOrName.currentHourMeter) return false;
     if (logOrName.currentHourMeter && !logOrName.currentKm) return true;
   }
 
+  // Padrão: Veículos Rodoviários (Caminhões, Carros) operam em KM
   return false;
 }
+
+// Alias para compatibilidade
+export const isMachineOrTractor = isVehicleHoursControlled;
 
 export interface FuelEfficiencyDisplay {
   value: number;
@@ -344,8 +424,8 @@ export interface FuelEfficiencyDisplay {
 
 /**
  * Calcula e formata com precisão a média de consumo do abastecimento:
- * - Se Máquina/Trator: Média L/h = Litros Abastecidos / Diferença de Horas
- * - Se Rodoviário: Média km/L = Diferença de KM / Litros Abastecidos
+ * - Para Veículos Rodoviários (Caminhões, Carros): Exibir a média em "km/L" (Ex: 8,75 km/L)
+ * - Para Máquinas Agrícolas / Tratores (Horímetro): Exibir a média em "L/h" (Ex: 14,34 L/h)
  */
 export function formatFuelLogEfficiency(
   log: any,
@@ -353,75 +433,83 @@ export function formatFuelLogEfficiency(
 ): FuelEfficiencyDisplay | null {
   if (!log) return null;
 
-  const isMachine = isMachineOrTractor(vehicle, log);
+  const isHours = isVehicleHoursControlled(vehicle, log);
   const liters = Number(log.liters) || 0;
 
-  if (isMachine) {
-    // Cálculo Máquina / Trator: L/h = Litros / (Horas Atual - Horas Anterior)
-    const currH = Number(log.currentHourMeter ?? (log.currentHourMeterOrKm && log.currentHourMeterOrKm < 50000 ? log.currentHourMeterOrKm : undefined));
-    const prevH = Number(log.previousHourMeter ?? (log.previousHourMeterOrKm && log.previousHourMeterOrKm < 50000 ? log.previousHourMeterOrKm : undefined));
+  if (isHours) {
+    // 🚜 MÁQUINAS AGRÍCOLAS / TRATORES: Média em L/h
+    // 1. Média já calculada especificamente em L/h
+    const directLh = Number(log.media_lh ?? log.media_l_h ?? log.averageLitersPerHour);
+    if (!isNaN(directLh) && directLh > 0) {
+      const fixed = parseFloat(directLh.toFixed(2));
+      return {
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h'
+      };
+    }
 
+    // 2. Cálculo matemático estrito: Litros / Diferença de Horas
+    const currH = Number(log.currentHourMeter ?? log.currentHourMeterOrKm);
+    const prevH = Number(log.previousHourMeter ?? log.previousHourMeterOrKm);
     if (!isNaN(currH) && !isNaN(prevH) && currH > prevH && liters > 0) {
       const diffHours = currH - prevH;
-      const avgLh = liters / diffHours;
+      const calcLh = liters / diffHours;
+      const fixed = parseFloat(calcLh.toFixed(2));
       return {
-        value: parseFloat(avgLh.toFixed(2)),
-        formatted: `${avgLh.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
-        unit: 'L/h',
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h'
       };
     }
 
-    // Se já gravado no log
-    if (log.averageLitersPerHour && Number(log.averageLitersPerHour) > 0) {
-      const val = Number(log.averageLitersPerHour);
+    // 3. Fallback do campo genérico averageCalculated para máquina
+    const avgCalc = Number(log.averageCalculated);
+    if (!isNaN(avgCalc) && avgCalc > 0 && !log.averageKmPerLiter) {
+      const fixed = parseFloat(avgCalc.toFixed(2));
       return {
-        value: parseFloat(val.toFixed(2)),
-        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
-        unit: 'L/h',
-      };
-    }
-
-    if (log.averageCalculated && Number(log.averageCalculated) > 0) {
-      const val = Number(log.averageCalculated);
-      return {
-        value: parseFloat(val.toFixed(2)),
-        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
-        unit: 'L/h',
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L/h`,
+        unit: 'L/h'
       };
     }
 
     return null;
   } else {
-    // Cálculo Veículo Rodoviário: km/L = (KM Atual - KM Anterior) / Litros
-    const currK = Number(log.currentKm ?? (log.currentHourMeterOrKm && log.currentHourMeterOrKm >= 500 ? log.currentHourMeterOrKm : undefined));
-    const prevK = Number(log.previousKm ?? (log.previousHourMeterOrKm && log.previousHourMeterOrKm >= 500 ? log.previousHourMeterOrKm : undefined));
+    // 🚚 VEÍCULOS RODOVIÁRIOS (CAMINHÕES, CARROS): Média em km/L
+    // 1. Média já calculada especificamente em km/L
+    const directKml = Number(log.media_kml ?? log.media_km_l ?? log.averageKmPerLiter);
+    if (!isNaN(directKml) && directKml > 0) {
+      const fixed = parseFloat(directKml.toFixed(2));
+      return {
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L'
+      };
+    }
 
+    // 2. Cálculo matemático estrito: Diferença de KM / Litros
+    const currK = Number(log.currentKm ?? log.currentHourMeterOrKm);
+    const prevK = Number(log.previousKm ?? log.previousHourMeterOrKm);
     if (!isNaN(currK) && !isNaN(prevK) && currK > prevK && liters > 0) {
       const diffKm = currK - prevK;
-      const avgKmL = diffKm / liters;
+      const calcKml = diffKm / liters;
+      const fixed = parseFloat(calcKml.toFixed(2));
       return {
-        value: parseFloat(avgKmL.toFixed(2)),
-        formatted: `${avgKmL.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
-        unit: 'km/L',
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L'
       };
     }
 
-    // Se já gravado no log
-    if (log.averageKmPerLiter && Number(log.averageKmPerLiter) > 0) {
-      const val = Number(log.averageKmPerLiter);
+    // 3. Fallback do campo genérico averageCalculated para veículo rodoviário
+    const avgCalc = Number(log.averageCalculated);
+    if (!isNaN(avgCalc) && avgCalc > 0 && !log.averageLitersPerHour) {
+      const fixed = parseFloat(avgCalc.toFixed(2));
       return {
-        value: parseFloat(val.toFixed(2)),
-        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
-        unit: 'km/L',
-      };
-    }
-
-    if (log.averageCalculated && Number(log.averageCalculated) > 0) {
-      const val = Number(log.averageCalculated);
-      return {
-        value: parseFloat(val.toFixed(2)),
-        formatted: `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
-        unit: 'km/L',
+        value: fixed,
+        formatted: `${fixed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km/L`,
+        unit: 'km/L'
       };
     }
 

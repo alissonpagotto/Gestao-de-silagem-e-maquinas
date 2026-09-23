@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { FuelLog, Machinery } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
-import { formatFuelLogEfficiency, isMachineOrTractor } from '../../lib/fuelCalculation';
+import { formatFuelLogEfficiency, findVehicleForLog, isVehicleHoursControlled } from '../../lib/fuelCalculation';
 
 interface ReportsConsumoTabProps {
   fuelLogs: FuelLog[];
@@ -83,8 +83,8 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
     });
 
     return Array.from(map.values()).map(item => {
-      const vehicle = machineries.find(m => m.id === item.id || m.licensePlateOrSerial === item.name || m.name === item.name);
-      const isMachine = isMachineOrTractor(vehicle, item.name);
+      const vehicle = findVehicleForLog({ machineryId: item.id, machineryPlateOrName: item.name }, machineries);
+      const isHours = isVehicleHoursControlled(vehicle, item.name);
 
       // Coleta médias válidas calculadas de cada abastecimento
       const validEffs = item.logs
@@ -95,13 +95,13 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
       if (validEffs.length > 0) {
         const sumVal = validEffs.reduce((acc, curr) => acc + curr.value, 0);
         const avgVal = sumVal / validEffs.length;
-        const unit = isMachine ? 'L/h' : 'km/L';
+        const unit = isHours ? 'L/h' : 'km/L';
         avgEfficiencyText = `${avgVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unit}`;
       }
 
       return {
         ...item,
-        isMachine,
+        isMachine: isHours,
         avgEfficiencyText,
       };
     }).sort((a, b) => b.liters - a.liters);
@@ -110,7 +110,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
   const handleExportCsv = () => {
     const headers = 'Data,Maquina_Veiculo,Tipo_Combustivel,Litros,Preco_Litro,Total_R$,Horimetro_KM,Media_Consumo,Operador_Motorista,Posto_Fornecedor\n';
     const rows = filteredLogs.map(l => {
-      const vehicle = machineries.find(m => m.id === l.machineryId);
+      const vehicle = findVehicleForLog(l, machineries);
       const eff = formatFuelLogEfficiency(l, vehicle);
       return `"${l.date}","${l.machineryPlateOrName}","${l.fuelType}","${l.liters}","${l.pricePerLiter}","${l.totalAmount}","${l.currentHourMeterOrKm}","${eff?.formatted || ''}","${l.driverOrOperator || ''}","${l.supplierStation || ''}"`;
     }).join('\n');
@@ -289,7 +289,7 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
               {filteredLogs.length > 0 ? (
                 filteredLogs.map((item) => {
-                  const vehicle = machineries.find(m => m.id === item.machineryId);
+                  const vehicle = findVehicleForLog(item, machineries);
                   const eff = formatFuelLogEfficiency(item, vehicle);
 
                   return (
@@ -315,7 +315,11 @@ export const ReportsConsumoTab: React.FC<ReportsConsumoTabProps> = ({
                       <td className="py-2.5 px-3.5 text-right font-mono text-stone-600 dark:text-stone-400">
                         <div>{item.currentHourMeterOrKm ? item.currentHourMeterOrKm.toLocaleString('pt-BR') : '-'}</div>
                         {eff ? (
-                          <span className="block text-[10px] font-bold text-emerald-600 mt-0.5">
+                          <span className={`block text-[10px] font-bold mt-0.5 ${
+                            eff.unit === 'L/h'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }`}>
                             {eff.formatted}
                           </span>
                         ) : null}
