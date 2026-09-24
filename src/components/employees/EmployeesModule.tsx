@@ -29,7 +29,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatIsoDateOnly } from '../../lib/supabaseService';
 import { ManageableDropdown } from '../common/ManageableDropdown';
@@ -444,6 +444,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       emp.commissionPerHour ||
       emp.commissionPerAlqueire ||
       emp.commissionPerHectare ||
+      (emp as any).comissao_hora ||
+      (emp as any).comissao_alqueire ||
+      (emp as any).comissao_hectare ||
       (emp as any).comissao_valor ||
       (emp as any).comissao ||
       0
@@ -455,12 +458,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     );
     setReceivesCommission(isEmpBroker ? false : recComm);
 
-    const commPerHourVal = emp.commissionPerHour !== undefined && Number(emp.commissionPerHour) > 0
+    const commPerHourVal = (emp.commissionPerHour !== undefined && Number(emp.commissionPerHour) > 0)
       ? emp.commissionPerHour
-      : ((emp as any).comissao_valor || (emp as any).comissao || 0);
+      : ((emp as any).comissao_hora || (emp as any).comissao_valor || (emp as any).comissao || 0);
     setCommissionPerHour(!isEmpBroker && commPerHourVal ? formatCurrencyInputDisplay(Number(commPerHourVal)) : '0,00');
-    setCommissionPerAlqueire(!isEmpBroker && emp.commissionPerAlqueire !== undefined ? formatCurrencyInputDisplay(emp.commissionPerAlqueire) : '0,00');
-    setCommissionPerHectare(!isEmpBroker && emp.commissionPerHectare !== undefined ? formatCurrencyInputDisplay(emp.commissionPerHectare) : '0,00');
+
+    const commPerAlqVal = (emp.commissionPerAlqueire !== undefined && Number(emp.commissionPerAlqueire) > 0)
+      ? emp.commissionPerAlqueire
+      : ((emp as any).comissao_alqueire || 0);
+    setCommissionPerAlqueire(!isEmpBroker && commPerAlqVal ? formatCurrencyInputDisplay(Number(commPerAlqVal)) : '0,00');
+
+    const commPerHaVal = (emp.commissionPerHectare !== undefined && Number(emp.commissionPerHectare) > 0)
+      ? emp.commissionPerHectare
+      : ((emp as any).comissao_hectare || 0);
+    setCommissionPerHectare(!isEmpBroker && commPerHaVal ? formatCurrencyInputDisplay(Number(commPerHaVal)) : '0,00');
     
     setCnhNumber((emp.cnhNumber || '').toUpperCase());
     setCnhCategory(emp.cnhCategory || 'B');
@@ -665,7 +676,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const parsedPerAlq = Number(parseCurrencyInput(commissionPerAlqueire)) || 0;
     const parsedPerHa = Number(parseCurrencyInput(commissionPerHectare)) || 0;
     const parsedBrokerCommission = isBroker ? (Number(parseCurrencyInput(brokerCommissionValue)) || 0) : 0;
-    const finalReceivesCommission = !isBroker && receivesCommission;
+    const hasAnyCommission = parsedPerHour > 0 || parsedPerAlq > 0 || parsedPerHa > 0;
+    const finalReceivesCommission = !isBroker && (receivesCommission || hasAnyCommission);
+
+    const numPerHour = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHour))) || 0) : 0;
+    const numPerAlq = finalReceivesCommission ? (Number(parseFloat(String(parsedPerAlq))) || 0) : 0;
+    const numPerHa = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHa))) || 0) : 0;
 
     // Formatação rigorosa de datas para YYYY-MM-DD
     const formattedAdmissionDate = admissionDate ? (formatIsoDateOnly(admissionDate) || admissionDate.trim()) : undefined;
@@ -696,9 +712,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       active: isActive,
       status: isActive ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo') : 'inativo',
       receivesCommission: finalReceivesCommission,
-      commissionPerHour: finalReceivesCommission ? (Number(parseFloat(String(parsedPerHour))) || 0) : 0,
-      commissionPerAlqueire: finalReceivesCommission ? (Number(parseFloat(String(parsedPerAlq))) || 0) : 0,
-      commissionPerHectare: finalReceivesCommission ? (Number(parseFloat(String(parsedPerHa))) || 0) : 0,
+      commissionPerHour: numPerHour,
+      commissionPerAlqueire: numPerAlq,
+      commissionPerHectare: numPerHa,
+      comissao_hora: numPerHour,
+      comissao_alqueire: numPerAlq,
+      comissao_hectare: numPerHa,
+      recebe_comissao: finalReceivesCommission,
       cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
       cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
       cnhExpiration: formattedCnhExpiration,
@@ -737,8 +757,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       updatedList = [...localEmployees, newEmp];
     }
 
-    // Atualização imediata no estado local da tabela (renderização instantânea sem F5)
+    // Atualização imediata no estado local da tabela e no storage (renderização instantânea sem perda)
     setLocalEmployees(updatedList);
+    saveStoredEmployees(updatedList);
     // Notifica o manipulador superior para persistência no Supabase com try/catch e logs detalhados
     try {
       onSaveEmployees(updatedList);

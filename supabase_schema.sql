@@ -129,6 +129,10 @@ CREATE TABLE IF NOT EXISTS public.rh_funcionarios (
     driver_license TEXT,
     license_category TEXT,
     license_expiry DATE,
+    comissao_hora NUMERIC(15,2) DEFAULT 0,
+    comissao_alqueire NUMERIC(15,2) DEFAULT 0,
+    comissao_hectare NUMERIC(15,2) DEFAULT 0,
+    recebe_comissao BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -421,6 +425,10 @@ ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT DEFAU
 ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hora NUMERIC(15,2) DEFAULT 0;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_alqueire NUMERIC(15,2) DEFAULT 0;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hectare NUMERIC(15,2) DEFAULT 0;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS recebe_comissao BOOLEAN DEFAULT false;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
 ALTER TABLE public.agenda_servicos ADD COLUMN IF NOT EXISTS company_id TEXT DEFAULT 'default';
 

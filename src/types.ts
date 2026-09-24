@@ -371,6 +371,10 @@ export interface Employee {
   commissionPerHour?: number; // Por hora (R$/h)
   commissionPerAlqueire?: number; // Por alqueire (R$/alq)
   commissionPerHectare?: number; // Por hectare (R$/ha)
+  comissao_hora?: number; // Alias banco Supabase (R$/h)
+  comissao_alqueire?: number; // Alias banco Supabase (R$/alq)
+  comissao_hectare?: number; // Alias banco Supabase (R$/ha)
+  recebe_comissao?: boolean; // Alias banco Supabase
   brokerCommissionType?: 'Porcentagem (%) sobre o valor do pedido' | 'Porcentagem (%) sobre a produção' | 'Valor Fixo por contrato/pedido' | string; // Tipo de comissão do agenciador
   brokerCommissionValue?: number; // Valor/Percentual da comissão do agenciador
   actingRegion?: string; // Região de Atuação (específico para Agenciador)

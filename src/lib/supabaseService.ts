@@ -23,6 +23,7 @@ import {
   Subscriber
 } from '../types/masterAdmin';
 import { getActiveCompanyId, setDbAuthCompanyId, getDbAuthCompanyId, clearAllAuthSessionCache, sanitizeServiceOrders } from './storage';
+import { parseCurrencyInput } from './formatters';
 
 /**
  * Converte qualquer ID de string para um UUID v4 determinístico válido,
@@ -837,20 +838,20 @@ export function mapRowToEmployee(row: any): Employee {
   )) || 0;
 
   const commPerHour = parseFloat(String(
-    row.commission_per_hour ?? row.comissao_hora ?? 0
+    row.comissao_hora ?? row.commission_per_hour ?? row.comissaoHora ?? 0
   )) || 0;
 
   const commPerAlq = parseFloat(String(
-    row.commission_per_alqueire ?? row.comissao_alqueire ?? 0
+    row.comissao_alqueire ?? row.commission_per_alqueire ?? row.comissaoAlqueire ?? 0
   )) || 0;
 
   const commPerHa = parseFloat(String(
-    row.commission_per_hectare ?? row.comissao_hectare ?? 0
+    row.comissao_hectare ?? row.commission_per_hectare ?? row.comissaoHectare ?? 0
   )) || 0;
 
   const receivesCommission = Boolean(
-    row.receives_commission ??
     row.recebe_comissao ??
+    row.receives_commission ??
     (commVal > 0 || commPerHour > 0 || commPerAlq > 0 || commPerHa > 0)
   );
 
@@ -859,6 +860,10 @@ export function mapRowToEmployee(row: any): Employee {
   );
 
   const roleStr = String(row.role || row.cargo || row.funcao || 'Operador de Forrageira');
+
+  const finalPerHour = receivesCommission ? (commPerHour || (commVal > 0 ? commVal : 0)) : 0;
+  const finalPerAlq = receivesCommission ? commPerAlq : 0;
+  const finalPerHa = receivesCommission ? commPerHa : 0;
 
   return {
     id: String(row.id || `emp_${Date.now()}`),
@@ -880,9 +885,13 @@ export function mapRowToEmployee(row: any): Employee {
     admissionDate: admissionDate,
     terminationDate: terminationDate,
     receivesCommission: receivesCommission,
-    commissionPerHour: receivesCommission ? (commPerHour || (commVal > 0 ? commVal : 0)) : 0,
-    commissionPerAlqueire: receivesCommission ? commPerAlq : 0,
-    commissionPerHectare: receivesCommission ? commPerHa : 0,
+    commissionPerHour: finalPerHour,
+    commissionPerAlqueire: finalPerAlq,
+    commissionPerHectare: finalPerHa,
+    comissao_hora: finalPerHour,
+    comissao_alqueire: finalPerAlq,
+    comissao_hectare: finalPerHa,
+    recebe_comissao: receivesCommission,
     brokerCommissionValue: parseFloat(String(row.broker_commission_value || row.comissao_agenciador || 0)) || 0,
     brokerCommissionType: row.broker_commission_type || row.tipo_comissao_agenciador || undefined,
     actingRegion: row.acting_region || row.regiao_atuacao || undefined,
@@ -958,6 +967,56 @@ export function sanitizeRhFuncionarioPayload(
   };
 }
 
+/**
+ * Converte e sanitiza campos de comissões para números válidos (Float/Numeric),
+ * mapeando estritamente para as colunas reais da tabela rh_funcionarios no Supabase.
+ */
+export function getRhFuncionarioCommissionPayload(
+  employee: Partial<Employee> & Record<string, any>
+): {
+  comissao_hora: number;
+  comissao_alqueire: number;
+  comissao_hectare: number;
+  recebe_comissao: boolean;
+} {
+  const rawCommPerHour = employee.commissionPerHour ?? (employee as any).comissao_hora ?? (employee as any).comissaoHora ?? (employee as any).commission_per_hour ?? (employee as any).comissao_valor ?? (employee as any).comissao ?? 0;
+  const rawCommPerAlq = employee.commissionPerAlqueire ?? (employee as any).comissao_alqueire ?? (employee as any).comissaoAlqueire ?? (employee as any).commission_per_alqueire ?? 0;
+  const rawCommPerHa = employee.commissionPerHectare ?? (employee as any).comissao_hectare ?? (employee as any).comissaoHectare ?? (employee as any).commission_per_hectare ?? 0;
+
+  const commPerHour = typeof rawCommPerHour === 'number' && !isNaN(rawCommPerHour)
+    ? rawCommPerHour
+    : parseCurrencyInput(rawCommPerHour);
+
+  const commPerAlq = typeof rawCommPerAlq === 'number' && !isNaN(rawCommPerAlq)
+    ? rawCommPerAlq
+    : parseCurrencyInput(rawCommPerAlq);
+
+  const commPerHa = typeof rawCommPerHa === 'number' && !isNaN(rawCommPerHa)
+    ? rawCommPerHa
+    : parseCurrencyInput(rawCommPerHa);
+
+  const receivesCommission = Boolean(
+    employee.receivesCommission ||
+    (employee as any).recebe_comissao ||
+    commPerHour > 0 ||
+    commPerAlq > 0 ||
+    commPerHa > 0
+  );
+
+  return {
+    comissao_hora: receivesCommission ? (Number(commPerHour.toFixed(2)) || 0) : 0,
+    comissao_alqueire: receivesCommission ? (Number(commPerAlq.toFixed(2)) || 0) : 0,
+    comissao_hectare: receivesCommission ? (Number(commPerHa.toFixed(2)) || 0) : 0,
+    recebe_comissao: receivesCommission,
+  };
+}
+
+let hasRhCommissionColumns: boolean | null = null;
+
+export function resetRhCommissionColumnsCache(): void {
+  hasRhCommissionColumns = null;
+}
+
 export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
@@ -1024,6 +1083,8 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
  * Salva ou atualiza colaborador na tabela 'rh_funcionarios'.
  * Garante que o payload enviado via PATCH ou UPSERT use estritamente as colunas existentes,
  * sem propriedades temporárias que causem erros 400 (Bad Request).
+ * Caso a tabela física não possua colunas separadas para cada tipo de comissão,
+ * adapta dinamicamente o envio para não quebrar a requisição.
  */
 export async function upsertRhFuncionario(employee: Employee, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
@@ -1031,16 +1092,37 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
     const cleanPayload = sanitizeRhFuncionarioPayload(employee, activeCompanyId);
     const validId = cleanPayload.id;
+    const commPayload = getRhFuncionarioCommissionPayload(employee);
+
+    // Se hasRhCommissionColumns !== false, tenta incluir comissões estruturadas no payload
+    let payloadToSend: Record<string, any> = { ...cleanPayload };
+    if (hasRhCommissionColumns !== false) {
+      payloadToSend = { ...payloadToSend, ...commPayload };
+    }
 
     // Remove 'id' do corpo do PATCH para atualizar por filtro eq('id', validId)
-    const { id: _ignoredId, ...patchBody } = cleanPayload;
+    const { id: _ignoredId, ...patchBody } = payloadToSend;
 
     // 1. Tenta atualizar com PATCH direto em /rest/v1/rh_funcionarios?id=eq.<validId>
-    const updateRes = await supabase
+    let updateRes = await supabase
       .from('rh_funcionarios')
       .update(patchBody)
       .eq('id', validId)
       .select('id');
+
+    // Se houve erro PGRST204 de coluna inexistente (ex: comissao_hora não existe no banco físico),
+    // marca cache como falso e retenta imediatamente apenas com as colunas base para não quebrar o PATCH
+    if (updateRes.error && (updateRes.error.code === 'PGRST204' || updateRes.error.message?.includes('column') || updateRes.error.message?.includes('comissao'))) {
+      hasRhCommissionColumns = false;
+      const { id: _ignoredId2, ...cleanPatchBody } = cleanPayload;
+      updateRes = await supabase
+        .from('rh_funcionarios')
+        .update(cleanPatchBody)
+        .eq('id', validId)
+        .select('id');
+    } else if (!updateRes.error && hasRhCommissionColumns === null) {
+      hasRhCommissionColumns = true;
+    }
 
     if (!updateRes.error && Array.isArray(updateRes.data) && updateRes.data.length > 0) {
       return true;
@@ -1048,21 +1130,39 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
 
     // Se houve erro de restrição de company_id (23503), remove company_id e tenta o update novamente
     if (updateRes.error && (updateRes.error.code === '23503' || updateRes.error.message?.includes('company_id'))) {
-      const { company_id: _cid, ...patchWithoutCompany } = patchBody;
-      const retryUpdate = await supabase
+      const activeBody = hasRhCommissionColumns !== false ? patchBody : cleanPayload;
+      const { company_id: _cid, id: _i2, ...patchWithoutCompany } = activeBody;
+      let retryUpdate = await supabase
         .from('rh_funcionarios')
         .update(patchWithoutCompany)
         .eq('id', validId)
         .select('id');
+      if (retryUpdate.error && (retryUpdate.error.code === 'PGRST204' || retryUpdate.error.message?.includes('column'))) {
+        hasRhCommissionColumns = false;
+        const { company_id: _cid2, id: _i3, ...baseWithoutCompany } = cleanPayload;
+        retryUpdate = await supabase
+          .from('rh_funcionarios')
+          .update(baseWithoutCompany)
+          .eq('id', validId)
+          .select('id');
+      }
       if (!retryUpdate.error && Array.isArray(retryUpdate.data) && retryUpdate.data.length > 0) {
         return true;
       }
     }
 
     // 2. Se não atualizou nenhuma linha (registro novo), executa o upsert/insert com id
-    const upsertRes = await supabase
+    const targetUpsert = hasRhCommissionColumns !== false ? payloadToSend : cleanPayload;
+    let upsertRes = await supabase
       .from('rh_funcionarios')
-      .upsert(cleanPayload, { onConflict: 'id' });
+      .upsert(targetUpsert, { onConflict: 'id' });
+
+    if (upsertRes.error && (upsertRes.error.code === 'PGRST204' || upsertRes.error.message?.includes('column') || upsertRes.error.message?.includes('comissao'))) {
+      hasRhCommissionColumns = false;
+      upsertRes = await supabase
+        .from('rh_funcionarios')
+        .upsert(cleanPayload, { onConflict: 'id' });
+    }
 
     if (!upsertRes.error) {
       return true;
@@ -1070,10 +1170,18 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
 
     // Se o upsert falhou por restrição de company_id
     if (upsertRes.error && (upsertRes.error.code === '23503' || upsertRes.error.message?.includes('company_id'))) {
-      const { company_id: _cid, ...cleanWithoutCompany } = cleanPayload;
-      const retryUpsert = await supabase
+      const targetClean = hasRhCommissionColumns !== false ? payloadToSend : cleanPayload;
+      const { company_id: _cid, ...cleanWithoutCompany } = targetClean;
+      let retryUpsert = await supabase
         .from('rh_funcionarios')
         .upsert(cleanWithoutCompany, { onConflict: 'id' });
+      if (retryUpsert.error && (retryUpsert.error.code === 'PGRST204' || retryUpsert.error.message?.includes('column'))) {
+        hasRhCommissionColumns = false;
+        const { company_id: _cid2, ...baseWithoutCompany } = cleanPayload;
+        retryUpsert = await supabase
+          .from('rh_funcionarios')
+          .upsert(baseWithoutCompany, { onConflict: 'id' });
+      }
       if (!retryUpsert.error) {
         return true;
       }

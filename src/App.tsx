@@ -336,8 +336,37 @@ export default function App() {
             setInventory(cloudData.estoque);
           }
           if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
-            lastSyncedState.current.rel_employees = JSON.stringify(cloudData.rh_funcionarios);
-            setEmployees(cloudData.rh_funcionarios);
+            const currentStored = getStoredEmployees();
+            const mergedInitial = cloudData.rh_funcionarios.map(cloudEmp => {
+              const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
+              if (!localEmp) return cloudEmp;
+              const commH = (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0) ? cloudEmp.commissionPerHour : (localEmp.commissionPerHour || 0);
+              const commA = (cloudEmp.commissionPerAlqueire && cloudEmp.commissionPerAlqueire > 0) ? cloudEmp.commissionPerAlqueire : (localEmp.commissionPerAlqueire || 0);
+              const commHa = (cloudEmp.commissionPerHectare && cloudEmp.commissionPerHectare > 0) ? cloudEmp.commissionPerHectare : (localEmp.commissionPerHectare || 0);
+              const recComm = cloudEmp.receivesCommission || localEmp.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+              return {
+                ...cloudEmp,
+                ...localEmp,
+                commissionPerHour: recComm ? commH : 0,
+                commissionPerAlqueire: recComm ? commA : 0,
+                commissionPerHectare: recComm ? commHa : 0,
+                comissao_hora: recComm ? commH : 0,
+                comissao_alqueire: recComm ? commA : 0,
+                comissao_hectare: recComm ? commHa : 0,
+                recebe_comissao: recComm,
+                bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
+                bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
+                bankAccount: localEmp.bankAccount || cloudEmp.bankAccount,
+                paymentLocation: localEmp.paymentLocation || cloudEmp.paymentLocation,
+                admissionExamDoc: localEmp.admissionExamDoc || cloudEmp.admissionExamDoc,
+                experienceContractDoc: localEmp.experienceContractDoc || cloudEmp.experienceContractDoc,
+                generalDocs: localEmp.generalDocs || cloudEmp.generalDocs,
+                signedRegistrationDoc: localEmp.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+              };
+            });
+            lastSyncedState.current.rel_employees = JSON.stringify(mergedInitial);
+            setEmployees(mergedInitial);
+            saveStoredEmployees(mergedInitial);
           }
           if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
             lastSyncedState.current.rel_machineries = JSON.stringify(cloudData.gestao_frotas);
@@ -483,10 +512,39 @@ export default function App() {
     const unsubRH = subscribeToCloudTable('rh_funcionarios', () => {
       fetchRhFuncionarios(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          const ser = JSON.stringify(fresh);
+          const currentStored = getStoredEmployees();
+          const merged = fresh.map(cloudEmp => {
+            const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
+            if (!localEmp) return cloudEmp;
+            const commH = (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0) ? cloudEmp.commissionPerHour : (localEmp.commissionPerHour || 0);
+            const commA = (cloudEmp.commissionPerAlqueire && cloudEmp.commissionPerAlqueire > 0) ? cloudEmp.commissionPerAlqueire : (localEmp.commissionPerAlqueire || 0);
+            const commHa = (cloudEmp.commissionPerHectare && cloudEmp.commissionPerHectare > 0) ? cloudEmp.commissionPerHectare : (localEmp.commissionPerHectare || 0);
+            const recComm = cloudEmp.receivesCommission || localEmp.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+            return {
+              ...cloudEmp,
+              ...localEmp,
+              commissionPerHour: recComm ? commH : 0,
+              commissionPerAlqueire: recComm ? commA : 0,
+              commissionPerHectare: recComm ? commHa : 0,
+              comissao_hora: recComm ? commH : 0,
+              comissao_alqueire: recComm ? commA : 0,
+              comissao_hectare: recComm ? commHa : 0,
+              recebe_comissao: recComm,
+              bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
+              bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
+              bankAccount: localEmp.bankAccount || cloudEmp.bankAccount,
+              paymentLocation: localEmp.paymentLocation || cloudEmp.paymentLocation,
+              admissionExamDoc: localEmp.admissionExamDoc || cloudEmp.admissionExamDoc,
+              experienceContractDoc: localEmp.experienceContractDoc || cloudEmp.experienceContractDoc,
+              generalDocs: localEmp.generalDocs || cloudEmp.generalDocs,
+              signedRegistrationDoc: localEmp.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+            };
+          });
+          const ser = JSON.stringify(merged);
           if (ser !== lastSyncedState.current.rel_employees) {
             lastSyncedState.current.rel_employees = ser;
-            setEmployees(fresh);
+            setEmployees(merged);
+            saveStoredEmployees(merged);
           }
         }
       });
@@ -495,10 +553,39 @@ export default function App() {
     const unsubFuncionarios = subscribeToCloudTable('funcionarios', () => {
       fetchRhFuncionarios(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          const ser = JSON.stringify(fresh);
+          const currentStored = getStoredEmployees();
+          const merged = fresh.map(cloudEmp => {
+            const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
+            if (!localEmp) return cloudEmp;
+            const commH = (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0) ? cloudEmp.commissionPerHour : (localEmp.commissionPerHour || 0);
+            const commA = (cloudEmp.commissionPerAlqueire && cloudEmp.commissionPerAlqueire > 0) ? cloudEmp.commissionPerAlqueire : (localEmp.commissionPerAlqueire || 0);
+            const commHa = (cloudEmp.commissionPerHectare && cloudEmp.commissionPerHectare > 0) ? cloudEmp.commissionPerHectare : (localEmp.commissionPerHectare || 0);
+            const recComm = cloudEmp.receivesCommission || localEmp.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+            return {
+              ...cloudEmp,
+              ...localEmp,
+              commissionPerHour: recComm ? commH : 0,
+              commissionPerAlqueire: recComm ? commA : 0,
+              commissionPerHectare: recComm ? commHa : 0,
+              comissao_hora: recComm ? commH : 0,
+              comissao_alqueire: recComm ? commA : 0,
+              comissao_hectare: recComm ? commHa : 0,
+              recebe_comissao: recComm,
+              bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
+              bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
+              bankAccount: localEmp.bankAccount || cloudEmp.bankAccount,
+              paymentLocation: localEmp.paymentLocation || cloudEmp.paymentLocation,
+              admissionExamDoc: localEmp.admissionExamDoc || cloudEmp.admissionExamDoc,
+              experienceContractDoc: localEmp.experienceContractDoc || cloudEmp.experienceContractDoc,
+              generalDocs: localEmp.generalDocs || cloudEmp.generalDocs,
+              signedRegistrationDoc: localEmp.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+            };
+          });
+          const ser = JSON.stringify(merged);
           if (ser !== lastSyncedState.current.rel_employees) {
             lastSyncedState.current.rel_employees = ser;
-            setEmployees(fresh);
+            setEmployees(merged);
+            saveStoredEmployees(merged);
           }
         }
       });
@@ -1135,8 +1222,9 @@ export default function App() {
 
   // RH Funcionários Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveEmployees = async (newEmployees: Employee[]) => {
-    // 1. Atualização otimista imediata na UI (garante renderização instantânea dos novos dados)
+    // 1. Atualização otimista imediata na UI e armazenamento local
     setEmployees(newEmployees);
+    saveStoredEmployees(newEmployees);
 
     const oldIds = new Set(employees.map(e => e.id));
     const newIds = new Set(newEmployees.map(e => e.id));
@@ -1157,14 +1245,42 @@ export default function App() {
       const upsertPromises = newEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId));
       await Promise.allSettled(upsertPromises);
 
-      // 4. Re-busca no banco para sincronizar exatamente os campos gravados no Supabase
+      // 4. Re-busca no banco para sincronizar colunas gravadas no Supabase preservando dados locais
       const fresh = await fetchRhFuncionarios(activeTenantId);
       if (fresh && fresh.length > 0) {
         const merged = fresh.map(f => {
           const local = newEmployees.find(e => toValidUUID(e.id) === f.id || e.id === f.id);
-          return local ? { ...local, ...f } : f;
+          if (!local) return f;
+
+          // Se a tabela física no banco não tiver comissões ou retornar zero, mantém as comissões locais configuradas
+          const commH = (f.commissionPerHour && f.commissionPerHour > 0) ? f.commissionPerHour : (local.commissionPerHour || 0);
+          const commA = (f.commissionPerAlqueire && f.commissionPerAlqueire > 0) ? f.commissionPerAlqueire : (local.commissionPerAlqueire || 0);
+          const commHa = (f.commissionPerHectare && f.commissionPerHectare > 0) ? f.commissionPerHectare : (local.commissionPerHectare || 0);
+          const recComm = f.receivesCommission || local.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+
+          return {
+            ...f,
+            ...local,
+            commissionPerHour: recComm ? commH : 0,
+            commissionPerAlqueire: recComm ? commA : 0,
+            commissionPerHectare: recComm ? commHa : 0,
+            comissao_hora: recComm ? commH : 0,
+            comissao_alqueire: recComm ? commA : 0,
+            comissao_hectare: recComm ? commHa : 0,
+            recebe_comissao: recComm,
+            bankPixKey: local.bankPixKey || f.bankPixKey,
+            bankAgency: local.bankAgency || f.bankAgency,
+            bankAccount: local.bankAccount || f.bankAccount,
+            paymentLocation: local.paymentLocation || f.paymentLocation,
+            admissionExamDoc: local.admissionExamDoc || f.admissionExamDoc,
+            experienceContractDoc: local.experienceContractDoc || f.experienceContractDoc,
+            generalDocs: local.generalDocs || f.generalDocs,
+            signedRegistrationDoc: local.signedRegistrationDoc || f.signedRegistrationDoc,
+          };
         });
+        lastSyncedState.current.rel_employees = JSON.stringify(merged);
         setEmployees(merged);
+        saveStoredEmployees(merged);
       }
     } catch (err) {
       console.warn('Supabase handleSaveEmployees sync notice:', err);
