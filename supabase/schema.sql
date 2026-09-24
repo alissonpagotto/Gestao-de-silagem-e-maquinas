@@ -53,6 +53,26 @@ CREATE INDEX IF NOT EXISTS idx_notas_fiscais_fornecedor ON public.notas_fiscais(
 CREATE INDEX IF NOT EXISTS idx_notas_fiscais_emissao ON public.notas_fiscais(data_emissao);
 
 -- ==============================================================================
+-- 2.1 TABELA: documentos_entrada (Entradas Manuais: Romaneios, Recibos, Produtor)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.documentos_entrada (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id TEXT,
+    fornecedor TEXT NOT NULL,
+    fornecedor_id UUID REFERENCES public.fornecedores(id) ON DELETE SET NULL,
+    data DATE NOT NULL DEFAULT CURRENT_DATE,
+    tipo_documento TEXT NOT NULL, -- 'Romaneio', 'Recibo', 'Nota de Produtor', 'Outros'
+    valor_total NUMERIC(15,2) NOT NULL DEFAULT 0,
+    observacoes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_documentos_entrada_company ON public.documentos_entrada(company_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_entrada_data ON public.documentos_entrada(data);
+CREATE INDEX IF NOT EXISTS idx_documentos_entrada_tipo ON public.documentos_entrada(tipo_documento);
+
+-- ==============================================================================
 -- 3. TABELA: contas_a_pagar (Financeiro)
 -- Regra Crítica: ON DELETE CASCADE na chave estrangeira nota_fiscal_id
 -- ==============================================================================

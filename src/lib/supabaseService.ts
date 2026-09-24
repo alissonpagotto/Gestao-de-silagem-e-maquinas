@@ -14,15 +14,26 @@ import {
   ServiceOrder,
   CompanyProfile,
   ServiceAppointment,
-  TerminationRecord
+  TerminationRecord,
+  DocumentoEntradaRecord
 } from '../types';
-export type { CompanyProfile };
+export type { CompanyProfile, DocumentoEntradaRecord };
 import {
   SiteConfig,
   PlanDefinition,
   Subscriber
 } from '../types/masterAdmin';
-import { getActiveCompanyId, setDbAuthCompanyId, getDbAuthCompanyId, clearAllAuthSessionCache, sanitizeServiceOrders } from './storage';
+import { 
+  getActiveCompanyId, 
+  setDbAuthCompanyId, 
+  getDbAuthCompanyId, 
+  clearAllAuthSessionCache, 
+  sanitizeServiceOrders,
+  getStoredDocumentosEntrada,
+  saveStoredDocumentosEntrada,
+  saveLocalDocumentoEntrada,
+  deleteLocalDocumentoEntrada
+} from './storage';
 import { parseCurrencyInput } from './formatters';
 
 /**
@@ -327,6 +338,207 @@ export async function deleteNotaFiscal(notaId: string): Promise<boolean> {
     return false;
   }
 }
+
+// ===========================================================================
+// 2.1 Documentos de Entrada Manuais (Tabela: public.documentos_entrada)
+// Para cadastros de Romaneios, Recibos, Notas de Produtor e Outros sem XML
+// Colunas: id, company_id, fornecedor, fornecedor_id, data, tipo_documento,
+//          valor_total, observacoes, created_at, updated_at
+// ===========================================================================
+export interface DocumentoEntradaInput {
+  id?: string;
+  fornecedor: string;
+  fornecedor_id?: string | null;
+  data: string; // YYYY-MM-DD
+  tipo_documento: 'Romaneio' | 'Recibo' | 'Nota de Produtor' | 'Outros' | string;
+  valor_total: number;
+  observacoes?: string;
+}
+
+/**
+ * Cadastra uma nova entrada manual no Supabase via POST (tabela public.documentos_entrada).
+ * Também salva localmente para resposta imediata na UI e resiliência offline.
+ */
+export async function insertDocumentoEntrada(
+  doc: DocumentoEntradaInput,
+  companyId?: string
+): Promise<DocumentoEntradaRecord> {
+  const activeCompanyId = companyId || getActiveCompanyId();
+  const uuid = toValidUUID(doc.id || generateUUID());
+  const now = new Date().toISOString();
+
+  const localRecord: DocumentoEntradaRecord = {
+    id: uuid,
+    company_id: activeCompanyId || undefined,
+    fornecedor: doc.fornecedor.trim(),
+    fornecedor_nome: doc.fornecedor.trim(),
+    fornecedor_id: doc.fornecedor_id || null,
+    data: doc.data,
+    data_emissao: doc.data,
+    data_entrada: doc.data,
+    tipo_documento: doc.tipo_documento,
+    valor_total: Number(doc.valor_total) || 0,
+    observacoes: doc.observacoes?.trim() || '',
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Salva no armazenamento local primeiro para sincronismo imediato
+  saveLocalDocumentoEntrada(localRecord);
+
+  if (!isSupabaseConfigured) {
+    return localRecord;
+  }
+
+  try {
+    const payload: Record<string, any> = {
+      id: uuid,
+      company_id: activeCompanyId,
+      fornecedor: doc.fornecedor.trim(),
+      fornecedor_nome: doc.fornecedor.trim(),
+      fornecedor_id: doc.fornecedor_id ? toValidUUID(doc.fornecedor_id) : null,
+      data: doc.data,
+      data_emissao: doc.data,
+      data_entrada: doc.data,
+      tipo_documento: doc.tipo_documento,
+      valor_total: Number(doc.valor_total) || 0,
+      observacoes: doc.observacoes?.trim() || '',
+      updated_at: now
+    };
+
+    let { data, error } = await supabase
+      .from('documentos_entrada')
+      .insert([payload])
+      .select();
+
+    if (error) {
+      logPostgresError('insertDocumentoEntrada', error, { table: 'documentos_entrada', action: 'INSERT', payload });
+      // Se houver incompatibilidade de colunas (ex: fornecedor_nome ou data_emissao não existirem), reenvia com payload enxuto
+      const cleanPayload: Record<string, any> = {
+        id: uuid,
+        fornecedor: doc.fornecedor.trim(),
+        data: doc.data,
+        tipo_documento: doc.tipo_documento,
+        valor_total: Number(doc.valor_total) || 0,
+        observacoes: doc.observacoes?.trim() || '',
+      };
+      if (activeCompanyId) cleanPayload.company_id = activeCompanyId;
+
+      const retry = await supabase
+        .from('documentos_entrada')
+        .insert([cleanPayload])
+        .select();
+
+      if (!retry.error && retry.data && retry.data[0]) {
+        const returned = retry.data[0] as DocumentoEntradaRecord;
+        saveLocalDocumentoEntrada(returned);
+        return returned;
+      }
+
+      // Se der erro de company_id, tenta uma terceira vez sem company_id
+      if (retry.error && (retry.error.message.includes('company_id') || retry.error.code === '42703')) {
+        delete cleanPayload.company_id;
+        const retryNoCompany = await supabase
+          .from('documentos_entrada')
+          .insert([cleanPayload])
+          .select();
+        if (!retryNoCompany.error && retryNoCompany.data && retryNoCompany.data[0]) {
+          const returned = retryNoCompany.data[0] as DocumentoEntradaRecord;
+          saveLocalDocumentoEntrada(returned);
+          return returned;
+        }
+      }
+    } else if (data && data[0]) {
+      const returned = data[0] as DocumentoEntradaRecord;
+      saveLocalDocumentoEntrada(returned);
+      return returned;
+    }
+  } catch (err) {
+    console.warn('Supabase insertDocumentoEntrada exception:', err);
+  }
+
+  return localRecord;
+}
+
+/**
+ * Busca a lista de Documentos de Entrada registrados na tabela public.documentos_entrada.
+ */
+export async function fetchDocumentosEntrada(companyId?: string): Promise<DocumentoEntradaRecord[]> {
+  const activeCompanyId = companyId || getActiveCompanyId();
+  const localList = getStoredDocumentosEntrada();
+
+  if (!isSupabaseConfigured) {
+    return localList;
+  }
+
+  try {
+    let query = supabase
+      .from('documentos_entrada')
+      .select('*')
+      .order('data', { ascending: false });
+
+    if (activeCompanyId) {
+      query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      // Tenta busca simples sem filtro
+      const fallbackQuery = await supabase
+        .from('documentos_entrada')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (!fallbackQuery.error && fallbackQuery.data && fallbackQuery.data.length > 0) {
+        const map = new Map<string, DocumentoEntradaRecord>();
+        (fallbackQuery.data as DocumentoEntradaRecord[]).forEach(d => map.set(d.id, d));
+        localList.forEach(d => { if (!map.has(d.id)) map.set(d.id, d); });
+        const merged = Array.from(map.values());
+        saveStoredDocumentosEntrada(merged);
+        return merged;
+      }
+      return localList;
+    }
+
+    if (data && Array.isArray(data)) {
+      const map = new Map<string, DocumentoEntradaRecord>();
+      (data as DocumentoEntradaRecord[]).forEach(d => map.set(d.id, d));
+      localList.forEach(d => { if (!map.has(d.id)) map.set(d.id, d); });
+      const merged = Array.from(map.values());
+      saveStoredDocumentosEntrada(merged);
+      return merged;
+    }
+  } catch (err) {
+    console.warn('fetchDocumentosEntrada error:', err);
+  }
+
+  return localList;
+}
+
+/**
+ * Exclui um Documento de Entrada no Supabase e no armazenamento local.
+ */
+export async function deleteDocumentoEntrada(id: string): Promise<boolean> {
+  deleteLocalDocumentoEntrada(id);
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    const uuid = toValidUUID(id);
+    const { error } = await supabase
+      .from('documentos_entrada')
+      .delete()
+      .eq('id', uuid);
+
+    if (error && id !== uuid) {
+      await supabase.from('documentos_entrada').delete().eq('id', id);
+    }
+    return true;
+  } catch (err) {
+    console.warn('deleteDocumentoEntrada error:', err);
+    return false;
+  }
+}
+
 
 // ===========================================================================
 // 3. Contas a Pagar (Tabela: public.contas_a_pagar)

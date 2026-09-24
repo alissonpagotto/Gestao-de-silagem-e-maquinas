@@ -32,9 +32,20 @@ import {
   Tag,
   Receipt,
   Pencil,
-  AlertTriangle
+  AlertTriangle,
+  FileCheck
 } from 'lucide-react';
-import { Expense, CompanyProfile, InventoryItem, Supplier, CostCenter, ExpenseCategory, PaymentMethod } from '../../types';
+import { 
+  Expense, 
+  CompanyProfile, 
+  InventoryItem, 
+  Supplier, 
+  CostCenter, 
+  ExpenseCategory, 
+  PaymentMethod,
+  DocumentoEntradaRecord,
+  TipoDocumentoEntrada
+} from '../../types';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -45,12 +56,20 @@ import {
   getStoredSuppliers,
   saveStoredSuppliers,
   getStoredCostCenters,
-  saveStoredCostCenters
+  saveStoredCostCenters,
+  getStoredDocumentosEntrada
 } from '../../lib/storage';
-import { formatCpfCnpj, formatPhone, formatCep, cleanDigits } from '../../lib/formatters';
+import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { SupplierModal } from '../suppliers/SupplierModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
-import { upsertNotaFiscal, upsertContaAPagar, deleteNotaFiscal } from '../../lib/supabaseService';
+import { 
+  upsertNotaFiscal, 
+  upsertContaAPagar, 
+  deleteNotaFiscal,
+  insertDocumentoEntrada,
+  fetchDocumentosEntrada,
+  deleteDocumentoEntrada
+} from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
   code: string;
@@ -952,6 +971,223 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [showExtraPrices, setShowExtraPrices] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // ENTRADAS MANUAIS (public.documentos_entrada: Romaneios, Recibos, etc.)
+  // ---------------------------------------------------------------------------
+  const [documentosEntrada, setDocumentosEntrada] = useState<DocumentoEntradaRecord[]>(() => {
+    return getStoredDocumentosEntrada();
+  });
+
+  // Carrega entradas manuais do Supabase
+  useEffect(() => {
+    let isMounted = true;
+    fetchDocumentosEntrada().then(data => {
+      if (isMounted && data && Array.isArray(data)) {
+        setDocumentosEntrada(data);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  // Modal de Nova Entrada Manual
+  const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
+  const [manualSupplier, setManualSupplier] = useState('');
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [manualDocumentType, setManualDocumentType] = useState<TipoDocumentoEntrada>('Romaneio');
+  const [manualAmountDisplay, setManualAmountDisplay] = useState('');
+  const [manualNotes, setManualNotes] = useState('');
+  const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
+  const [manualFormError, setManualFormError] = useState('');
+
+  // Modal de Visualização de Detalhes da Entrada Manual
+  const [viewingManualDoc, setViewingManualDoc] = useState<DocumentoEntradaRecord | null>(null);
+
+  // Confirmação de Exclusão de Entrada Manual
+  const [manualDocToDelete, setManualDocToDelete] = useState<DocumentoEntradaRecord | null>(null);
+
+  const handleOpenManualEntryModal = () => {
+    setManualSupplier('');
+    setManualDate(new Date().toISOString().split('T')[0]);
+    setManualDocumentType('Romaneio');
+    setManualAmountDisplay('');
+    setManualNotes('');
+    setManualFormError('');
+    setIsManualEntryModalOpen(true);
+  };
+
+  const handleManualAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/\D/g, '');
+    if (!rawVal) {
+      setManualAmountDisplay('');
+      return;
+    }
+    const num = parseInt(rawVal, 10) / 100;
+    setManualAmountDisplay(formatCurrencyInputDisplay(num));
+  };
+
+  const handleSaveManualEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setManualFormError('');
+
+    const trimmedSupplier = manualSupplier.trim();
+    if (!trimmedSupplier) {
+      setManualFormError('Por favor, informe o fornecedor.');
+      return;
+    }
+
+    if (!manualDate) {
+      setManualFormError('Por favor, informe a data do documento.');
+      return;
+    }
+
+    const numericAmount = parseCurrencyInput(manualAmountDisplay);
+    if (numericAmount <= 0) {
+      setManualFormError('Por favor, informe um valor total válido maior que zero.');
+      return;
+    }
+
+    setIsSavingManualEntry(true);
+    try {
+      const savedDoc = await insertDocumentoEntrada({
+        fornecedor: trimmedSupplier,
+        data: manualDate,
+        tipo_documento: manualDocumentType,
+        valor_total: numericAmount,
+        observacoes: manualNotes.trim()
+      });
+
+      setDocumentosEntrada(prev => {
+        const filtered = prev.filter(d => d.id !== savedDoc.id);
+        return [savedDoc, ...filtered];
+      });
+
+      // Cadastra despesa correspondente para sincronia financeira
+      if (onAddExpenseFromNfe) {
+        onAddExpenseFromNfe({
+          id: `exp_doc_${savedDoc.id}`,
+          description: `Entrada Manual (${manualDocumentType}) - ${trimmedSupplier}`,
+          amount: numericAmount,
+          categoryId: 'cat_insumos',
+          categoryName: 'Insumos & Entradas',
+          categoryColor: '#059669',
+          dueDate: manualDate,
+          status: 'pendente',
+          paymentMethod: 'boleto',
+          supplier: trimmedSupplier,
+          invoiceNumber: `${manualDocumentType.toUpperCase()}`,
+          notes: manualNotes.trim() ? `Documento de Entrada (${manualDocumentType}): ${manualNotes.trim()}` : `Documento de Entrada (${manualDocumentType})`,
+        });
+      }
+
+      setIsManualEntryModalOpen(false);
+      setSuccessMessage(`Entrada manual (${manualDocumentType}) no valor de ${formatCurrencyBRL(numericAmount)} cadastrada com sucesso!`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Erro ao salvar entrada manual:', err);
+      setManualFormError('Ocorreu um erro ao salvar o documento. Tente novamente.');
+    } finally {
+      setIsSavingManualEntry(false);
+    }
+  };
+
+  const handleDeleteManualDoc = async (doc: DocumentoEntradaRecord) => {
+    try {
+      await deleteDocumentoEntrada(doc.id);
+      setDocumentosEntrada(prev => prev.filter(d => d.id !== doc.id));
+      if (onDeleteExpense) {
+        onDeleteExpense(`exp_doc_${doc.id}`);
+      }
+      setManualDocToDelete(null);
+      setViewingManualDoc(null);
+      setSuccessMessage(`Documento de entrada (${doc.tipo_documento}) excluído com sucesso!`);
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      console.error('Erro ao excluir documento:', err);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // LISTA UNIFICADA DE ENTRADAS (NOTAS XML + ENTRADAS MANUAIS)
+  // ---------------------------------------------------------------------------
+  const unifiedEntries = useMemo(() => {
+    const list: Array<{
+      id: string;
+      sourceType: 'xml' | 'manual';
+      documentNumber: string;
+      supplier: string;
+      description: string;
+      date: string;
+      amount: number;
+      status: string;
+      documentType: string;
+      badgeColor: 'sky' | 'amber' | 'purple' | 'emerald' | 'stone';
+      rawExpense?: Expense;
+      rawManualDoc?: DocumentoEntradaRecord;
+    }> = [];
+
+    // 1. Notas Fiscais Eletrônicas via XML
+    notasFiscaisExibicao.forEach(exp => {
+      list.push({
+        id: exp.id,
+        sourceType: 'xml',
+        documentNumber: exp.invoiceNumber || 'NF-e',
+        supplier: exp.supplier || 'Fornecedor NF-e',
+        description: exp.description || 'Importada via NF-e (XML)',
+        date: exp.dueDate || exp.createdAt || '',
+        amount: Number(exp.amount) || 0,
+        status: exp.status || 'pendente',
+        documentType: 'XML / NF-e',
+        badgeColor: 'sky',
+        rawExpense: exp
+      });
+    });
+
+    // 2. Entradas Manuais da tabela public.documentos_entrada
+    documentosEntrada.forEach(doc => {
+      const tipo = doc.tipo_documento || 'Romaneio';
+      let badge: 'sky' | 'amber' | 'purple' | 'emerald' | 'stone' = 'amber';
+      if (tipo === 'Romaneio') badge = 'amber';
+      else if (tipo === 'Recibo') badge = 'purple';
+      else if (tipo === 'Nota de Produtor') badge = 'emerald';
+      else badge = 'stone';
+
+      list.push({
+        id: doc.id,
+        sourceType: 'manual',
+        documentNumber: tipo,
+        supplier: doc.fornecedor || doc.fornecedor_nome || 'Fornecedor',
+        description: doc.observacoes ? doc.observacoes : `Entrada manual: ${tipo}`,
+        date: doc.data || doc.data_entrada || doc.data_emissao || doc.created_at || '',
+        amount: Number(doc.valor_total) || 0,
+        status: 'registrado',
+        documentType: tipo,
+        badgeColor: badge,
+        rawManualDoc: doc
+      });
+    });
+
+    // Ordena decrescente por data
+    list.sort((a, b) => {
+      const timeA = a.date ? new Date(a.date).getTime() : 0;
+      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    // Filtro de busca se informado
+    if (searchNfeNumber && searchNfeNumber.trim()) {
+      const term = searchNfeNumber.toLowerCase().trim();
+      return list.filter(item => 
+        item.documentNumber.toLowerCase().includes(term) ||
+        item.supplier.toLowerCase().includes(term) ||
+        item.description.toLowerCase().includes(term) ||
+        item.documentType.toLowerCase().includes(term)
+      );
+    }
+
+    return list;
+  }, [notasFiscaisExibicao, documentosEntrada, searchNfeNumber]);
+
 
   // Fornecedores locais e sincronização
   const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => {
@@ -2709,20 +2945,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   return (
     <div id="nfe-module" className="w-full max-w-none space-y-4">
       
-      {/* 1. Header Unificado com Título, Contador e Botão Importar XML */}
+      {/* 1. Header Unificado com Título, Contador e Botões Importar XML e Nova Entrada Manual */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/15 dark:border-stone-800 pb-2.5">
         <div>
           <h2 className="text-sm sm:text-base font-black text-black dark:text-white tracking-tight font-['Outfit']">
-            NF-e & Notas Fiscais Eletrônicas
+            Notas e Entradas
           </h2>
           <p className="text-[11px] sm:text-xs font-bold text-black mt-0.5">
-            Importação de arquivos XML de compras de diesel, lonas, inoculantes e manutenção de maquinários
+            Gestão unificada de notas fiscais (XML) e entradas manuais de mercadorias (romaneios, recibos, nota de produtor)
           </p>
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
           <div className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-[11px] sm:text-xs font-bold text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700 shadow-2xs">
-            Notas Lançadas ({notasLancadas.length})
+            Notas e Entradas ({unifiedEntries.length})
           </div>
 
           <button
@@ -2742,6 +2978,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             onChange={handleFileUpload}
             className="hidden"
           />
+
+          <button
+            type="button"
+            id="btn-nova-entrada-manual-topo"
+            onClick={handleOpenManualEntryModal}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-2xs hover:shadow-xs transition cursor-pointer whitespace-nowrap"
+            title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Recibo, Nota de Produtor, Outros)"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Nova Entrada Manual</span>
+          </button>
         </div>
       </div>
 
@@ -2815,15 +3062,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <span>Fechar Detalhes da Nota</span>
             </button>
           ) : (
-            <button
-              type="button"
-              id="btn-carregar-xml-toolbar"
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-bold rounded-lg border border-stone-200 dark:border-stone-700 transition cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Carregar XML</span>
-            </button>
+            <>
+              <button
+                type="button"
+                id="btn-carregar-xml-toolbar"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-bold rounded-lg border border-stone-200 dark:border-stone-700 transition cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Carregar XML</span>
+              </button>
+              <button
+                type="button"
+                id="btn-nova-entrada-manual-toolbar"
+                onClick={handleOpenManualEntryModal}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition cursor-pointer shadow-2xs"
+                title="Cadastrar entrada manual"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Nova Entrada Manual</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -3606,16 +3865,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
       )}
 
-      {/* 3. HISTÓRICO PERMANENTE DE NOTAS FISCAIS LANÇADAS */}
+      {/* 3. HISTÓRICO UNIFICADO DE NOTAS E ENTRADAS (XML & REGISTROS MANUAIS) */}
       <div id="painel-historico-notas-nfe" className="space-y-1.5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
             <ReceiptText className="w-3.5 h-3.5 text-sky-600" />
-            <span>Histórico de Notas Fiscais Lançadas ({notasFiscaisExibicao.length})</span>
+            <span>Histórico de Notas e Entradas ({unifiedEntries.length})</span>
           </h3>
-          {notasFiscaisExibicao.length > 0 && (
-            <span className="text-[11px] sm:text-xs text-black hidden sm:inline-block">
-              Clique em uma linha ou em "Abrir & Editar" para visualizar ou editar os itens.
+          {unifiedEntries.length > 0 && (
+            <span className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-400">
+              Clique em uma linha para visualizar ou editar os detalhes.
             </span>
           )}
         </div>
@@ -3625,118 +3884,174 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             <table className="w-full table-fixed text-left text-xs sm:text-sm">
               <thead className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
-                  <th className="py-1.5 px-2.5 w-[100px] shrink-0">Nota Fiscal</th>
+                  <th className="py-1.5 px-2.5 w-[110px] shrink-0">Documento</th>
                   <th className="py-1.5 px-2.5 w-[160px] lg:w-[190px]">Fornecedor</th>
-                  <th className="py-1.5 px-2.5 min-w-0">Descrição da Despesa</th>
+                  <th className="py-1.5 px-2.5 min-w-0">Descrição / Obs.</th>
                   <th className="py-1.5 px-2 w-[85px] text-center shrink-0">Data</th>
-                  <th className="py-1.5 px-2.5 w-[100px] text-right shrink-0">Valor</th>
-                  <th className="py-1.5 px-2 w-[75px] text-center shrink-0">Status</th>
+                  <th className="py-1.5 px-2.5 w-[105px] text-right shrink-0">Valor</th>
+                  <th className="py-1.5 px-2 w-[85px] text-center shrink-0">Tipo</th>
                   <th className="py-1.5 px-2.5 text-right w-[145px] shrink-0">Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                {notasFiscaisExibicao.map((exp) => (
-                  <tr 
-                    key={exp.id} 
-                    id={`row-nfe-${exp.id}`}
-                    onClick={(e) => {
-                      const target = e.target as HTMLElement;
-                      if (target && target.closest('button')) {
-                        return;
-                      }
-                      handleEditNota(exp);
-                    }}
-                    className="hover:bg-sky-50/60 dark:hover:bg-stone-800/80 cursor-pointer transition group"
-                    title={`Clique para abrir e editar os detalhes da nota ${exp.invoiceNumber || ''}`}
-                  >
-                    <td className="py-1.5 px-2.5 font-mono font-bold text-xs text-sky-600 dark:text-sky-400 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition">
-                      <div className="flex items-center space-x-1 truncate">
-                        <FileEdit className="w-3 h-3 text-stone-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 shrink-0 transition" />
-                        <span className="truncate group-hover:underline underline-offset-2">
-                          {exp.invoiceNumber}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-1.5 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200">
-                      <span className="truncate max-w-[200px] block" title={exp.supplier || '-'}>
-                        {exp.supplier || '-'}
-                      </span>
-                    </td>
-                    <td className="py-1.5 px-2.5 text-xs text-stone-600 dark:text-stone-300">
-                      <span className="truncate max-w-[200px] sm:max-w-none block break-words whitespace-normal line-clamp-1" title={exp.description}>
-                        {exp.description}
-                      </span>
-                    </td>
-                    <td className="py-1.5 px-2 text-stone-500 text-center whitespace-nowrap text-xs">
-                      {formatDateBR(exp.dueDate)}
-                    </td>
-                    <td className="py-1.5 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
-                      {formatCurrencyBRL(exp.amount)}
-                    </td>
-                    <td className="py-1.5 px-2 text-center whitespace-nowrap">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight ${
-                        exp.status === 'pendente'
-                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
-                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                      }`}>
-                        {exp.status?.toUpperCase() || 'PENDENTE'}
-                      </span>
-                    </td>
-                    <td 
+                {unifiedEntries.map((entry) => {
+                  const isXml = entry.sourceType === 'xml';
+                  return (
+                    <tr 
+                      key={entry.id} 
+                      id={`row-doc-${entry.id}`}
                       onClick={(e) => {
-                        e.stopPropagation();
+                        const target = e.target as HTMLElement;
+                        if (target && target.closest('button')) {
+                          return;
+                        }
+                        if (isXml && entry.rawExpense) {
+                          handleEditNota(entry.rawExpense);
+                        } else if (!isXml && entry.rawManualDoc) {
+                          setViewingManualDoc(entry.rawManualDoc);
+                        }
                       }}
-                      className="py-1.5 px-2.5 text-right whitespace-nowrap"
+                      className="hover:bg-sky-50/60 dark:hover:bg-stone-800/80 cursor-pointer transition group"
+                      title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
                     >
-                      <div 
-                        className="flex items-center justify-end space-x-1"
+                      <td className="py-1.5 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200">
+                        <div className="flex items-center space-x-1.5 truncate">
+                          {isXml ? (
+                            <FileEdit className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 transition" />
+                          ) : (
+                            <Receipt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 transition" />
+                          )}
+                          <span className="truncate group-hover:underline underline-offset-2 font-bold text-stone-900 dark:text-stone-100">
+                            {entry.documentNumber}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-1.5 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200">
+                        <span className="truncate max-w-[200px] block" title={entry.supplier || '-'}>
+                          {entry.supplier || '-'}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2.5 text-xs text-stone-600 dark:text-stone-300">
+                        <span className="truncate max-w-[200px] sm:max-w-none block break-words whitespace-normal line-clamp-1" title={entry.description}>
+                          {entry.description}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2 text-stone-500 text-center whitespace-nowrap text-xs">
+                        {formatDateBR(entry.date)}
+                      </td>
+                      <td className="py-1.5 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
+                        {formatCurrencyBRL(entry.amount)}
+                      </td>
+                      <td className="py-1.5 px-2 text-center whitespace-nowrap">
+                        {isXml ? (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                            XML / NF-E
+                          </span>
+                        ) : entry.badgeColor === 'amber' ? (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                            ROMANEIO
+                          </span>
+                        ) : entry.badgeColor === 'purple' ? (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                            RECIBO
+                          </span>
+                        ) : entry.badgeColor === 'emerald' ? (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                            PRODUTOR
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
+                            OUTROS
+                          </span>
+                        )}
+                      </td>
+                      <td 
                         onClick={(e) => {
                           e.stopPropagation();
                         }}
+                        className="py-1.5 px-2.5 text-right whitespace-nowrap"
                       >
-                        <button
-                          type="button"
-                          id={`btn-edit-nfe-${exp.id}`}
+                        <div 
+                          className="flex items-center justify-end space-x-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleEditNota(exp);
                           }}
-                          className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
-                          title={`Abrir e editar detalhes da nota ${exp.invoiceNumber || ''}`}
                         >
-                          <FileEdit className="w-3 h-3 shrink-0 pointer-events-none" />
-                          <span className="truncate pointer-events-none">Abrir & Editar</span>
-                        </button>
-                        <button
-                          type="button"
-                          id={`btn-delete-nfe-${exp.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setNotaParaExcluir(exp.id);
-                          }}
-                          className="p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-                          title={`Excluir nota fiscal ${exp.invoiceNumber || ''}`}
-                          aria-label={`Excluir nota fiscal ${exp.invoiceNumber || ''}`}
-                        >
-                          <Trash2 className="w-3 h-3 shrink-0 pointer-events-none" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {notasFiscaisExibicao.length === 0 && (
+                          {isXml ? (
+                            <button
+                              type="button"
+                              id={`btn-edit-nfe-${entry.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (entry.rawExpense) handleEditNota(entry.rawExpense);
+                              }}
+                              className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
+                              title={`Abrir e editar detalhes da nota ${entry.documentNumber}`}
+                            >
+                              <FileEdit className="w-3 h-3 shrink-0 pointer-events-none" />
+                              <span className="truncate pointer-events-none">Abrir & Editar</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              id={`btn-view-doc-${entry.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (entry.rawManualDoc) setViewingManualDoc(entry.rawManualDoc);
+                              }}
+                              className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
+                              title={`Visualizar detalhes do documento ${entry.documentNumber}`}
+                            >
+                              <FileText className="w-3 h-3 shrink-0 pointer-events-none" />
+                              <span className="truncate pointer-events-none">Visualizar</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            id={`btn-delete-doc-${entry.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isXml) {
+                                setNotaParaExcluir(entry.id);
+                              } else if (entry.rawManualDoc) {
+                                setManualDocToDelete(entry.rawManualDoc);
+                              }
+                            }}
+                            className="p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                            title={`Excluir ${isXml ? 'nota fiscal' : 'entrada manual'} ${entry.documentNumber}`}
+                            aria-label={`Excluir ${entry.documentNumber}`}
+                          >
+                            <Trash2 className="w-3 h-3 shrink-0 pointer-events-none" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {unifiedEntries.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-stone-400">
                       <ReceiptText className="w-7 h-7 mx-auto mb-1.5 opacity-50" />
-                      <p className="font-semibold text-xs sm:text-sm">Nenhuma nota fiscal lançada até o momento.</p>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="mt-2.5 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
-                      >
-                        <Upload className="w-3 h-3" />
-                        <span>Importar Primeira NF-e</span>
-                      </button>
+                      <p className="font-semibold text-xs sm:text-sm">Nenhuma nota ou entrada registrada até o momento.</p>
+                      <div className="mt-3 flex items-center justify-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>Importar XML</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenManualEntryModal}
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition shadow-2xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Nova Entrada Manual</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -4525,6 +4840,330 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         editingSupplier={supplierForModal}
         zIndexClass="z-70"
       />
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: NOVA ENTRADA MANUAL (SEM NOTA FISCAL OFICIAL) */}
+      {/* ========================================================================= */}
+      {isManualEntryModalOpen && (
+        <div 
+          id="modal-nova-entrada-manual"
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          onClick={() => {
+            if (!isSavingManualEntry) setIsManualEntryModalOpen(false);
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho do Modal */}
+            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/80 dark:bg-stone-800/60">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
+                    Nova Entrada Manual
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Cadastre entradas sem nota fiscal oficial (Romaneios, Recibos, etc.)
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSavingManualEntry) setIsManualEntryModalOpen(false);
+                }}
+                disabled={isSavingManualEntry}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition cursor-pointer disabled:opacity-50"
+                title="Fechar formulário"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Formulário de Cadastro */}
+            <form onSubmit={handleSaveManualEntry} className="p-4 sm:p-6 space-y-4">
+              {manualFormError && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{manualFormError}</span>
+                </div>
+              )}
+
+              {/* 1. Fornecedor */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                  Fornecedor / Produtor <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="manual-supplier-input"
+                    type="text"
+                    list="suppliers-datalist"
+                    value={manualSupplier}
+                    onChange={(e) => setManualSupplier(e.target.value)}
+                    required
+                    placeholder="Digite ou selecione o fornecedor..."
+                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                  />
+                  <datalist id="suppliers-datalist">
+                    {localSuppliers.map((s) => (
+                      <option key={s.id} value={s.name} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              {/* 2. Grid com Data e Tipo de Documento */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Data */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                    Data do Documento <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="manual-date-input"
+                      type="date"
+                      value={manualDate}
+                      onChange={(e) => setManualDate(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Tipo de Documento (Select com: Romaneio, Recibo, Nota de Produtor, Outros) */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                    Tipo de Documento <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    id="manual-type-select"
+                    value={manualDocumentType}
+                    onChange={(e) => setManualDocumentType(e.target.value as TipoDocumentoEntrada)}
+                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs cursor-pointer"
+                  >
+                    <option value="Romaneio">Romaneio</option>
+                    <option value="Recibo">Recibo</option>
+                    <option value="Nota de Produtor">Nota de Produtor</option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 3. Valor Total (Formato BRL R$ #.##0,00) */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                  Valor Total <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative rounded-xl shadow-2xs">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500 font-bold text-xs sm:text-sm">
+                    R$
+                  </div>
+                  <input
+                    id="manual-amount-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={manualAmountDisplay}
+                    onChange={handleManualAmountChange}
+                    required
+                    placeholder="0,00"
+                    className="w-full pl-10 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* 4. Observações */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                  Observações
+                </label>
+                <textarea
+                  id="manual-notes-input"
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Informações adicionais, produtos/serviços, pesagem, número de romaneio, etc..."
+                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-medium text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs resize-none"
+                />
+              </div>
+
+              {/* Rodapé e Ações do Formulário */}
+              <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  id="btn-cancelar-entrada-manual"
+                  onClick={() => setIsManualEntryModalOpen(false)}
+                  disabled={isSavingManualEntry}
+                  className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  id="btn-salvar-entrada-manual"
+                  disabled={isSavingManualEntry}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingManualEntry ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>Gravando no Supabase...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Salvar Entrada</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: VISUALIZAR DETALHES DA ENTRADA MANUAL */}
+      {/* ========================================================================= */}
+      {viewingManualDoc && (
+        <div 
+          id="modal-visualizar-entrada-manual"
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          onClick={() => setViewingManualDoc(null)}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 space-y-4 p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
+              <div className="flex items-center space-x-2">
+                <Receipt className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                    Documento de Entrada Manual
+                  </h3>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                    {viewingManualDoc.tipo_documento}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setViewingManualDoc(null)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="font-medium text-stone-500">Fornecedor / Emitente:</span>
+                  <span className="font-bold text-stone-900 dark:text-stone-100 text-right">
+                    {viewingManualDoc.fornecedor || viewingManualDoc.fornecedor_nome || '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-stone-500">Data do Documento:</span>
+                  <span className="font-bold text-stone-900 dark:text-stone-100">
+                    {formatDateBR(viewingManualDoc.data || viewingManualDoc.data_entrada)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-stone-200/60 dark:border-stone-700/60">
+                  <span className="font-bold text-stone-700 dark:text-stone-300">Valor Total:</span>
+                  <span className="font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+                    {formatCurrencyBRL(viewingManualDoc.valor_total)}
+                  </span>
+                </div>
+              </div>
+
+              {viewingManualDoc.observacoes && (
+                <div>
+                  <span className="font-bold text-stone-700 dark:text-stone-300 block mb-1">
+                    Observações:
+                  </span>
+                  <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl text-stone-700 dark:text-stone-300 whitespace-pre-line leading-relaxed">
+                    {viewingManualDoc.observacoes}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+              <button
+                type="button"
+                id="btn-excluir-doc-detalhes"
+                onClick={() => {
+                  setManualDocToDelete(viewingManualDoc);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition cursor-pointer flex items-center space-x-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Excluir Entrada</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewingManualDoc(null)}
+                className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: CONFIRMAR EXCLUSÃO DE ENTRADA MANUAL */}
+      {/* ========================================================================= */}
+      {manualDocToDelete && (
+        <div 
+          id="modal-confirmar-exclusao-entrada-manual"
+          className="fixed inset-0 z-80 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setManualDocToDelete(null)}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center space-x-2 text-rose-600">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-sm font-bold">Excluir Documento de Entrada</h3>
+            </div>
+            <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+              Deseja realmente excluir esta entrada manual ({manualDocToDelete.tipo_documento}) de {formatCurrencyBRL(manualDocToDelete.valor_total)}? Esta ação é irreversível no banco de dados.
+            </p>
+            <div className="pt-2 flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setManualDocToDelete(null)}
+                className="px-3 py-1.5 text-xs font-bold text-stone-600 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                id="btn-confirmar-exclusao-entrada-manual"
+                onClick={() => handleDeleteManualDoc(manualDocToDelete)}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition cursor-pointer flex items-center space-x-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sim, Excluir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
     </div>
   );

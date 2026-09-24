@@ -30,7 +30,8 @@ import {
   TireItem,
   MaintenancePurchaseRequest,
   MaintenanceCategoryDefinition,
-  ServiceAppointment
+  ServiceAppointment,
+  DocumentoEntradaRecord
 } from '../types';
 import { 
   INITIAL_VEHICLE_TYPES, 
@@ -1495,5 +1496,26 @@ export const updateAppointmentFieldReturn = (
   }
 };
 
+// -------------------------------------------------------------
+// DOCUMENTOS DE ENTRADA (MÓDULO NOTAS & ENTRADAS MANUAIS)
+// -------------------------------------------------------------
+const STORAGE_KEY_DOCUMENTOS_ENTRADA = 'silagem_facil_documentos_entrada_v1';
 
+export const getStoredDocumentosEntrada = (): DocumentoEntradaRecord[] => {
+  return getStoredList<DocumentoEntradaRecord>(STORAGE_KEY_DOCUMENTOS_ENTRADA, []);
+};
 
+export const saveStoredDocumentosEntrada = (docs: DocumentoEntradaRecord[]): void => {
+  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA, docs);
+};
+
+export const saveLocalDocumentoEntrada = (doc: DocumentoEntradaRecord): void => {
+  const current = getStoredDocumentosEntrada();
+  const filtered = current.filter(d => d.id !== doc.id);
+  saveStoredDocumentosEntrada([doc, ...filtered]);
+};
+
+export const deleteLocalDocumentoEntrada = (id: string): void => {
+  const current = getStoredDocumentosEntrada();
+  saveStoredDocumentosEntrada(current.filter(d => d.id !== id));
+};

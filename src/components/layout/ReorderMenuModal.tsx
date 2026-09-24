@@ -35,7 +35,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'venda', label: 'Venda', icon: ShoppingCart },
   { id: 'estoque', label: 'Estoque', icon: Package },
   { id: 'financeiro', label: 'Financeiro', icon: TrendingUp },
-  { id: 'fiscal', label: 'Fiscal', icon: ReceiptText },
+  { id: 'fiscal', label: 'Notas e Entradas', icon: ReceiptText },
   { id: 'rh', label: 'RH', icon: HeartHandshake },
   { id: 'relatorios', label: 'Relatórios', icon: FileSpreadsheet },
   { id: 'clientes', label: 'Clientes', icon: Users },

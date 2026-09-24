@@ -2252,8 +2252,8 @@ export default function App() {
             />
           )}
 
-          {/* TAB: Fiscal (NF-e, Notas Fiscais Eletrônicas, Importação XML) */}
-          {(activeTab === 'fiscal' || activeTab === 'nfe_importar' || activeTab === 'nfe_notas') && (
+          {/* TAB: Notas e Entradas (NF-e, Notas Fiscais, Entradas Manuais, Romaneios, Recibos) */}
+          {(activeTab === 'fiscal' || activeTab === 'documentos_entrada' || activeTab === 'entradas' || activeTab === 'nfe_importar' || activeTab === 'nfe_notas') && (
             <div id="fiscal-module-container" className="w-full max-w-none space-y-6">
               <NfeModule
                 expenses={expenses}

@@ -197,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               const isActive = 
                 activeTab === item.id ||
                 (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
-                (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar')) ||
+                (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
                 (item.id === 'financeiro' && activeTab === 'despesas') ||
                 (item.id === 'frotas' && ['veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(activeTab)) ||
                 (item.id === 'rh' && activeTab === 'funcionarios');

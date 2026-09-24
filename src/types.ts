@@ -1336,5 +1336,43 @@ export interface ServiceAppointment {
   updatedAt?: string;
 }
 
+// ==============================================================================
+// MÓDULO DOCUMENTOS DE ENTRADA (NOTAS FISCAIS & ENTRADAS MANUAIS)
+// ==============================================================================
+export type TipoDocumentoEntrada = 'Romaneio' | 'Recibo' | 'Nota de Produtor' | 'Outros';
 
+export interface DocumentoEntrada {
+  id: string;
+  companyId?: string;
+  supplier: string;
+  supplierId?: string;
+  date: string; // YYYY-MM-DD
+  documentType: TipoDocumentoEntrada | string;
+  totalAmount: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Compatibilidade com Supabase (colunas snake_case)
+  fornecedor?: string;
+  fornecedor_id?: string | null;
+  data?: string;
+  tipo_documento?: string;
+  valor_total?: number;
+  observacoes?: string;
+}
 
+export interface DocumentoEntradaRecord {
+  id: string;
+  company_id?: string;
+  fornecedor: string;
+  fornecedor_nome?: string;
+  fornecedor_id?: string | null;
+  data: string;
+  data_emissao?: string;
+  data_entrada?: string;
+  tipo_documento: string;
+  valor_total: number;
+  observacoes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
