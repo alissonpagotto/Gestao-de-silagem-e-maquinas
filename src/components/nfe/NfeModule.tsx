@@ -34,7 +34,8 @@ import {
   Pencil,
   AlertTriangle,
   FileCheck,
-  UserPlus
+  UserPlus,
+  Settings
 } from 'lucide-react';
 import { 
   Expense, 
@@ -43,7 +44,7 @@ import {
   Supplier, 
   CostCenter, 
   ExpenseCategory, 
-  PaymentMethod,
+  PaymentMethod, 
   DocumentoEntradaRecord,
   TipoDocumentoEntrada,
   DocumentoEntradaItem
@@ -60,10 +61,17 @@ import {
   getStoredCostCenters,
   saveStoredCostCenters,
   getStoredDocumentosEntrada,
-  getStoredDocumentosEntradaItens
+  getStoredDocumentosEntradaItens,
+  getStoredManualEntryDocumentTypes,
+  saveStoredManualEntryDocumentTypes,
+  DEFAULT_INVENTORY_CATEGORIES,
+  getStoredInventoryCategories,
+  saveStoredInventoryCategories
 } from '../../lib/storage';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { SupplierModal } from '../suppliers/SupplierModal';
+import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
+import { ManageDocumentTypesModal } from './ManageDocumentTypesModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
 import { 
   upsertNotaFiscal, 
@@ -76,7 +84,10 @@ import {
   fetchDocumentosEntradaItens,
   deleteDocumentoEntradaItem,
   updateDocumentoEntradaTotal,
-  upsertEstoqueItem
+  upsertEstoqueItem,
+  saveCloudInventory,
+  saveCloudManualEntryDocumentTypes,
+  fetchCloudManualEntryDocumentTypes
 } from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
@@ -1052,6 +1063,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
 
+  // Tipos de Documentos de Entrada Manual (dinâmico e gerenciável)
+  const [manualDocTypes, setManualDocTypes] = useState<string[]>(() => getStoredManualEntryDocumentTypes());
+  const [isManageDocTypesModalOpen, setIsManageDocTypesModalOpen] = useState(false);
+
+  // Sincronização inicial dos tipos de documento de entrada com o Supabase
+  useEffect(() => {
+    let isMounted = true;
+    fetchCloudManualEntryDocumentTypes().then(cloudTypes => {
+      if (cloudTypes && cloudTypes.length > 0 && isMounted) {
+        setManualDocTypes(cloudTypes);
+        saveStoredManualEntryDocumentTypes(cloudTypes);
+      }
+    }).catch(err => console.warn('Supabase fetch doc types sync notice:', err));
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleSaveDocumentTypes = (newTypes: string[]) => {
+    setManualDocTypes(newTypes);
+    saveStoredManualEntryDocumentTypes(newTypes);
+    saveCloudManualEntryDocumentTypes(newTypes).catch(err => 
+      console.warn('Supabase save doc types sync notice:', err)
+    );
+  };
+
   // PASSO 2: Itens / Produtos da Entrada
   const [manualDocItems, setManualDocItems] = useState<DocumentoEntradaItem[]>([]);
   const [isLoadingDocItems, setIsLoadingDocItems] = useState(false);
@@ -1068,12 +1103,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [isQuickProductModalOpen, setIsQuickProductModalOpen] = useState(false);
   const [quickProductName, setQuickProductName] = useState('');
   const [quickProductUnit, setQuickProductUnit] = useState('UN');
-  const [quickProductCategory, setQuickProductCategory] = useState<InventoryItem['category']>('outro');
+  const [quickProductCategory, setQuickProductCategory] = useState<string>('Outros Insumos');
+  const [quickProductBrand, setQuickProductBrand] = useState('');
+  const [quickProductBarcode, setQuickProductBarcode] = useState('');
+  const [quickProductHasNoGtin, setQuickProductHasNoGtin] = useState(false);
+  const [quickProductFactoryRef, setQuickProductFactoryRef] = useState('');
+  const [quickProductNcm, setQuickProductNcm] = useState('');
+  const [quickProductFiscalGroup, setQuickProductFiscalGroup] = useState<'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO'>('TRIBUTADO');
+  const [quickProductIpiGroup, setQuickProductIpiGroup] = useState<'NAO TRIBUTADO' | 'TRIBUTADO'>('NAO TRIBUTADO');
+  const [quickProductCostDisplay, setQuickProductCostDisplay] = useState('');
+  const [quickProductSaleDisplay, setQuickProductSaleDisplay] = useState('');
+  const [quickProductProfitMargin, setQuickProductProfitMargin] = useState<string>('');
   const [quickProductCode, setQuickProductCode] = useState('');
-  const [quickProductCost, setQuickProductCost] = useState<number>(0);
-  const [quickProductSale, setQuickProductSale] = useState<number>(0);
   const [quickProductLocation, setQuickProductLocation] = useState('Barracão Principal');
   const [isSavingQuickProduct, setIsSavingQuickProduct] = useState(false);
+
+  // Gerenciador de Categorias de Estoque
+  const [stockCategories, setStockCategories] = useState<string[]>(() => {
+    const stored = getStoredInventoryCategories();
+    return Array.from(new Set([...DEFAULT_INVENTORY_CATEGORIES, ...(stored || [])]));
+  });
+  const [isManageCategoryModalOpen, setIsManageCategoryModalOpen] = useState(false);
 
   // Modal de Visualização de Detalhes da Entrada Manual
   const [viewingManualDoc, setViewingManualDoc] = useState<DocumentoEntradaRecord | null>(null);
@@ -1102,7 +1152,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setCurrentManualDoc(null);
     setManualSupplier('');
     setManualDate(new Date().toISOString().split('T')[0]);
-    setManualDocumentType('Romaneio');
+    const defaultType = (manualDocTypes.includes(manualDocumentType) && manualDocumentType !== 'Recibo')
+      ? manualDocumentType 
+      : (manualDocTypes[0] || 'Romaneio');
+    setManualDocumentType(defaultType);
     setManualAmountDisplay('');
     setManualNotes('');
     setManualFormError('');
@@ -1274,17 +1327,108 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setIsItemSearchOpen(false);
   };
 
+  // Manipulação de Custo Nominal
+  const handleQuickCostChange = (valStr: string) => {
+    const rawVal = valStr.replace(/\D/g, '');
+    if (!rawVal) {
+      setQuickProductCostDisplay('');
+      return;
+    }
+    const cost = parseInt(rawVal, 10) / 100;
+    setQuickProductCostDisplay(formatCurrencyInputDisplay(cost));
+
+    // Recalcula Preço de Venda se Margem de Lucro estiver preenchida
+    const marginNum = parseFloat(quickProductProfitMargin.replace(',', '.'));
+    if (!isNaN(marginNum) && marginNum >= 0 && cost > 0) {
+      const calculatedSale = cost * (1 + marginNum / 100);
+      setQuickProductSaleDisplay(formatCurrencyInputDisplay(calculatedSale));
+    } else {
+      // Se Preço de Venda já existe, recalcula a margem
+      const currentSale = parseCurrencyInput(quickProductSaleDisplay);
+      if (currentSale > 0 && cost > 0) {
+        const calculatedMargin = (((currentSale - cost) / cost) * 100).toFixed(2);
+        setQuickProductProfitMargin(calculatedMargin.replace('.00', '').replace('.', ','));
+      }
+    }
+  };
+
+  // Manipulação de Preço de Venda Sugerido
+  const handleQuickSaleChange = (valStr: string) => {
+    const rawVal = valStr.replace(/\D/g, '');
+    if (!rawVal) {
+      setQuickProductSaleDisplay('');
+      setQuickProductProfitMargin('');
+      return;
+    }
+    const sale = parseInt(rawVal, 10) / 100;
+    setQuickProductSaleDisplay(formatCurrencyInputDisplay(sale));
+
+    // Recalcula Margem de Lucro Sugerida (%)
+    const cost = parseCurrencyInput(quickProductCostDisplay);
+    if (cost > 0) {
+      const calculatedMargin = (((sale - cost) / cost) * 100).toFixed(2);
+      setQuickProductProfitMargin(calculatedMargin.replace('.00', '').replace('.', ','));
+    }
+  };
+
+  // Manipulação de Margem de Lucro Sugerida (%)
+  const handleQuickMarginChange = (valStr: string) => {
+    const cleaned = valStr.replace(/[^0-9,.-]/g, '');
+    setQuickProductProfitMargin(cleaned);
+
+    const marginNum = parseFloat(cleaned.replace(',', '.'));
+    const cost = parseCurrencyInput(quickProductCostDisplay);
+    if (!isNaN(marginNum) && cost > 0) {
+      const calculatedSale = cost * (1 + marginNum / 100);
+      setQuickProductSaleDisplay(formatCurrencyInputDisplay(calculatedSale));
+    }
+  };
+
+  // Máscara NCM (0000.00.00)
+  const handleQuickNcmChange = (valStr: string) => {
+    const digits = valStr.replace(/\D/g, '').slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 4 && digits.length <= 6) {
+      formatted = `${digits.slice(0, 4)}.${digits.slice(4)}`;
+    } else if (digits.length > 6) {
+      formatted = `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6)}`;
+    }
+    setQuickProductNcm(formatted);
+  };
+
+  // Salva categorias gerenciadas
+  const handleSaveStockCategories = (newCategories: string[]) => {
+    setStockCategories(newCategories);
+    saveStoredInventoryCategories(newCategories);
+  };
+
   // Abre submodal de cadastro rápido de novo produto no estoque
   const handleOpenQuickProductModal = (nameToPreFill?: string) => {
     const pName = (nameToPreFill || itemSearchQuery).trim();
     setQuickProductName(pName);
     setQuickProductUnit(itemUnit || 'UN');
-    setQuickProductCategory('outro');
+    setQuickProductCategory(stockCategories[0] || 'Outros Insumos');
+    setQuickProductBrand('');
+    setQuickProductBarcode('');
+    setQuickProductHasNoGtin(false);
+    setQuickProductFactoryRef('');
+    setQuickProductNcm('');
+    setQuickProductFiscalGroup('TRIBUTADO');
+    setQuickProductIpiGroup('NAO TRIBUTADO');
     setQuickProductCode('');
-    const curCost = parseCurrencyInput(itemUnitCostDisplay);
-    setQuickProductCost(curCost > 0 ? curCost : 0);
-    setQuickProductSale(curCost > 0 ? curCost * 1.3 : 0);
     setQuickProductLocation('Barracão Principal');
+
+    const curCost = parseCurrencyInput(itemUnitCostDisplay);
+    if (curCost > 0) {
+      setQuickProductCostDisplay(formatCurrencyInputDisplay(curCost));
+      const defSale = curCost * 1.3;
+      setQuickProductSaleDisplay(formatCurrencyInputDisplay(defSale));
+      setQuickProductProfitMargin('30');
+    } else {
+      setQuickProductCostDisplay('0,00');
+      setQuickProductSaleDisplay('0,00');
+      setQuickProductProfitMargin('');
+    }
     setIsQuickProductModalOpen(true);
   };
 
@@ -1297,6 +1441,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return;
     }
 
+    const costValue = parseCurrencyInput(quickProductCostDisplay);
+    const saleValue = parseCurrencyInput(quickProductSaleDisplay);
+    const marginValue = parseFloat(quickProductProfitMargin.replace(',', '.')) || (costValue > 0 && saleValue > 0 ? Number((((saleValue - costValue) / costValue) * 100).toFixed(2)) : undefined);
+
     setIsSavingQuickProduct(true);
     try {
       const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -1306,16 +1454,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         code: quickProductCode.trim() || undefined,
         unit: (quickProductUnit || 'UN').toUpperCase().trim(),
         category: quickProductCategory || 'outro',
-        unitCost: Number(quickProductCost) || 0,
-        salePrice: Number(quickProductSale) || 0,
+        unitCost: costValue,
+        salePrice: saleValue,
+        profitMargin: marginValue,
         quantity: 0, // Saldo zerado inicial; a quantidade será somada ao adicionar o item
         minQuantity: 0,
-        location: quickProductLocation.trim() || 'Barracão Principal'
+        location: quickProductLocation.trim() || 'Barracão Principal',
+        brand: quickProductBrand.trim() || undefined,
+        barcode: quickProductHasNoGtin ? 'SEM GTIN' : (quickProductBarcode.trim() || undefined),
+        hasNoGtin: quickProductHasNoGtin,
+        factoryRef: quickProductFactoryRef.trim() || undefined,
+        ncm: quickProductNcm.trim() || undefined,
+        fiscalGroup: quickProductFiscalGroup,
+        ipiGroup: quickProductIpiGroup,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       const updated = [...localInventory, newProduct];
       saveInventory(updated);
       await upsertEstoqueItem(newProduct);
+      saveCloudInventory(updated).catch(err => console.warn('Supabase saveCloudInventory sync notice:', err));
 
       // Vincula diretamente no item atual
       setSelectedProduct(newProduct);
@@ -1567,8 +1726,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const tipo = doc.tipo_documento || 'Romaneio';
       let badge: 'sky' | 'amber' | 'purple' | 'emerald' | 'stone' = 'amber';
       if (tipo === 'Romaneio') badge = 'amber';
-      else if (tipo === 'Recibo') badge = 'purple';
+      else if (tipo === 'Nota avulsa') badge = 'sky';
+      else if (tipo === 'Cupom sem valor fiscal') badge = 'purple';
       else if (tipo === 'Nota de Produtor') badge = 'emerald';
+      else if (tipo === 'Recibo') badge = 'purple';
       else badge = 'stone';
 
       list.push({
@@ -3333,7 +3494,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             Notas e Entradas
           </h2>
           <p className="text-[11px] sm:text-xs font-bold text-black mt-0.5">
-            Gestão unificada de notas fiscais (XML) e entradas manuais de mercadorias (romaneios, recibos, nota de produtor)
+            Gestão unificada de notas fiscais (XML) e entradas manuais de mercadorias (romaneios, notas avulsas, cupons, nota de produtor)
           </p>
         </div>
 
@@ -3365,7 +3526,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             id="btn-nova-entrada-manual-topo"
             onClick={handleOpenManualEntryModal}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-2xs hover:shadow-xs transition cursor-pointer whitespace-nowrap"
-            title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Recibo, Nota de Produtor, Outros)"
+            title="Cadastrar entrada de mercadoria sem nota oficial (Romaneio, Nota avulsa, Cupom sem valor fiscal, Nota de Produtor, Outros)"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Nova Entrada Manual</span>
@@ -4328,21 +4489,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
                             XML / NF-E
                           </span>
-                        ) : entry.badgeColor === 'amber' ? (
-                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                            ROMANEIO
-                          </span>
-                        ) : entry.badgeColor === 'purple' ? (
-                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                            RECIBO
-                          </span>
-                        ) : entry.badgeColor === 'emerald' ? (
-                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                            PRODUTOR
-                          </span>
                         ) : (
-                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
-                            OUTROS
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight border uppercase ${
+                            entry.badgeColor === 'amber'
+                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                              : entry.badgeColor === 'purple'
+                              ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                              : entry.badgeColor === 'emerald'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                              : entry.badgeColor === 'sky'
+                              ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-800'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700'
+                          }`}>
+                            {entry.documentType || 'MANUAL'}
                           </span>
                         )}
                       </td>
@@ -5412,20 +5571,52 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
                     {/* Tipo de Documento */}
                     <div>
-                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                        Tipo de Documento <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        id="manual-type-select"
-                        value={manualDocumentType}
-                        onChange={(e) => setManualDocumentType(e.target.value as TipoDocumentoEntrada)}
-                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs cursor-pointer"
-                      >
-                        <option value="Romaneio">Romaneio</option>
-                        <option value="Recibo">Recibo</option>
-                        <option value="Nota de Produtor">Nota de Produtor</option>
-                        <option value="Outros">Outros</option>
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
+                          Tipo de Documento <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          id="btn-gerenciar-tipos-doc-topo"
+                          onClick={() => setIsManageDocTypesModalOpen(true)}
+                          className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer"
+                          title="Gerenciar tipos de documento"
+                        >
+                          <Settings className="w-3 h-3" />
+                          <span>Gerenciar</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          id="manual-type-select"
+                          value={manualDocumentType}
+                          onChange={(e) => {
+                            if (e.target.value === '__manage__') {
+                              setIsManageDocTypesModalOpen(true);
+                            } else {
+                              setManualDocumentType(e.target.value as TipoDocumentoEntrada);
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs cursor-pointer"
+                        >
+                          {manualDocTypes.map((tipo) => (
+                            <option key={tipo} value={tipo}>{tipo}</option>
+                          ))}
+                          <option disabled value="">──────────</option>
+                          <option value="__manage__" className="text-emerald-600 font-bold">⚙️ Gerenciar tipos...</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          id="btn-gerenciar-tipos-doc-engrenagem"
+                          onClick={() => setIsManageDocTypesModalOpen(true)}
+                          className="p-2 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer shrink-0"
+                          title="Gerenciar tipos de documento (adicionar, editar ou excluir)"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -5900,30 +6091,31 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* SUBMODAL: CADASTRO RÁPIDO DE PRODUTO NO ESTOQUE (ACIONADO NO PASSO 2) */}
+      {/* SUBMODAL: CADASTRO RÁPIDO DE PRODUTO NO ESTOQUE (REESTRUTURADO) */}
       {/* ========================================================================= */}
       {isQuickProductModalOpen && (
         <div 
           id="modal-cadastro-rapido-produto-estoque"
-          className="fixed inset-0 z-90 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          className="fixed inset-0 z-90 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
           onClick={() => {
             if (!isSavingQuickProduct) setIsQuickProductModalOpen(false);
           }}
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-2xl sm:max-w-3xl w-full shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/30">
+            {/* Cabeçalho */}
+            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-emerald-50/70 dark:bg-emerald-950/30 shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-                  <Package className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                  <Package className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100 font-['Outfit']">
+                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
                     Cadastrar Novo Produto no Estoque
                   </h3>
-                  <p className="text-xs text-stone-500">
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
                     O produto será registrado no estoque e selecionado na entrada atual
                   </p>
                 </div>
@@ -5934,125 +6126,349 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   if (!isSavingQuickProduct) setIsQuickProductModalOpen(false);
                 }}
                 disabled={isSavingQuickProduct}
-                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 transition cursor-pointer"
+                className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200/60 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
+                title="Fechar janela"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveQuickProduct} className="p-4 sm:p-6 space-y-4">
-              {/* Nome do Produto */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Nome do Produto <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={quickProductName}
-                  onChange={(e) => setQuickProductName(e.target.value)}
-                  placeholder="Ex: ÓLEO DIESEL S10, LONA DUPLA FACE..."
-                  className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Categoria e Unidade */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Categoria no Estoque
-                  </label>
-                  <select
-                    value={quickProductCategory}
-                    onChange={(e) => setQuickProductCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="combustivel">Combustível & Arla</option>
-                    <option value="lona_embalagem">Lona & Embalagem</option>
-                    <option value="inoculante">Inoculante & Biológico</option>
-                    <option value="sementes">Sementes</option>
-                    <option value="adubo">Adubo & Fertilizante</option>
-                    <option value="pecas">Peças & Manutenção</option>
-                    <option value="outro">Outros Insumos</option>
-                  </select>
+            {/* Formulário com os 3 Blocos Visuais */}
+            <form onSubmit={handleSaveQuickProduct} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              
+              {/* ============================================================== */}
+              {/* BLOCO 1: INFORMAÇÕES BÁSICAS DO PRODUTO */}
+              {/* ============================================================== */}
+              <div className="p-4 sm:p-4.5 bg-stone-50/80 dark:bg-stone-800/40 rounded-2xl border border-stone-200/90 dark:border-stone-700/60 space-y-3.5">
+                <div className="flex items-center space-x-2 text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider pb-1 border-b border-stone-200/80 dark:border-stone-700/60">
+                  <Package className="w-4 h-4 text-emerald-600" />
+                  <span>1. Informações Básicas do Produto</span>
                 </div>
 
+                {/* Nome do Produto */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Unidade de Medida
+                    Nome do Produto <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={quickProductUnit}
-                    onChange={(e) => setQuickProductUnit(e.target.value.toUpperCase())}
-                    placeholder="UN, KG, LT, SC, M..."
-                    className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
+                    required
+                    value={quickProductName}
+                    onChange={(e) => setQuickProductName(e.target.value)}
+                    placeholder="Ex: Mangueira 3/8 2AT, Óleo Diesel S10, Lona 200 Micras..."
+                    className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs"
                   />
+                </div>
+
+                {/* Grid: Categoria, Unidade e Marca */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Categoria com Engrenagem de Gerenciar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
+                        Categoria no Estoque <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsManageCategoryModalOpen(true)}
+                        className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline cursor-pointer"
+                        title="Gerenciar categorias de estoque"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>Gerenciar</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={quickProductCategory}
+                        onChange={(e) => {
+                          if (e.target.value === '__manage__') {
+                            setIsManageCategoryModalOpen(true);
+                          } else {
+                            setQuickProductCategory(e.target.value);
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs cursor-pointer"
+                      >
+                        {stockCategories.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                        <option disabled value="">──────────</option>
+                        <option value="__manage__" className="text-emerald-600 font-bold">⚙️ Gerenciar categorias...</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsManageCategoryModalOpen(true)}
+                        className="p-2 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer shrink-0"
+                        title="Gerenciar categorias"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Unidade de Medida */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Unidade de Medida <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      list="quick-product-units-list"
+                      required
+                      value={quickProductUnit}
+                      onChange={(e) => setQuickProductUnit(e.target.value.toUpperCase())}
+                      placeholder="UN, KG, LT, M, SC..."
+                      className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs"
+                    />
+                    <datalist id="quick-product-units-list">
+                      <option value="UN" />
+                      <option value="KG" />
+                      <option value="LT" />
+                      <option value="SC" />
+                      <option value="M" />
+                      <option value="M2" />
+                      <option value="CX" />
+                      <option value="PAR" />
+                      <option value="TON" />
+                      <option value="ROLO" />
+                    </datalist>
+                  </div>
+
+                  {/* Marca */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Marca
+                    </label>
+                    <input
+                      type="text"
+                      value={quickProductBrand}
+                      onChange={(e) => setQuickProductBrand(e.target.value)}
+                      placeholder="Ex: Pirelli, Tramontina, Ipiranga..."
+                      className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Grid: Cód. de Barras / GTIN e Ref. Fábrica */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+                  {/* Cód. de Barras / GTIN com Checkbox 'Sem GTIN' */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
+                        Cód. de Barras / GTIN
+                      </label>
+                      <label className="inline-flex items-center space-x-1.5 cursor-pointer text-[11px] font-bold text-stone-600 dark:text-stone-400 select-none">
+                        <input
+                          type="checkbox"
+                          checked={quickProductHasNoGtin}
+                          onChange={(e) => {
+                            setQuickProductHasNoGtin(e.target.checked);
+                            if (e.target.checked) setQuickProductBarcode('');
+                          }}
+                          className="rounded border-stone-300 dark:border-stone-600 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                        />
+                        <span>Sem GTIN</span>
+                      </label>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+                        <Barcode className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        disabled={quickProductHasNoGtin}
+                        value={quickProductHasNoGtin ? 'SEM GTIN' : quickProductBarcode}
+                        onChange={(e) => setQuickProductBarcode(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                        placeholder={quickProductHasNoGtin ? 'Sem GTIN informado' : 'Ex: 7891234567890'}
+                        className={`w-full pl-9 pr-3 py-2 text-xs font-mono rounded-xl border transition shadow-2xs ${
+                          quickProductHasNoGtin 
+                            ? 'bg-stone-100 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 text-stone-400 cursor-not-allowed italic'
+                            : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-semibold'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ref. Fábrica */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Ref. Fábrica
+                    </label>
+                    <input
+                      type="text"
+                      value={quickProductFactoryRef}
+                      onChange={(e) => setQuickProductFactoryRef(e.target.value)}
+                      placeholder="Ex: 2AT-06, RF-9020, COD-FB10"
+                      className="w-full px-3 py-2 text-xs font-mono font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Código Interno e Localização */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Código Interno (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={quickProductCode}
-                    onChange={(e) => setQuickProductCode(e.target.value)}
-                    placeholder="Ex: PRD-01"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
-                  />
+              {/* ============================================================== */}
+              {/* BLOCO 2: PARAMETRIZAÇÃO FISCAL E TRIBUTÁRIA */}
+              {/* ============================================================== */}
+              <div className="p-4 sm:p-4.5 bg-stone-50/80 dark:bg-stone-800/40 rounded-2xl border border-stone-200/90 dark:border-stone-700/60 space-y-3.5">
+                <div className="flex items-center space-x-2 text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider pb-1 border-b border-stone-200/80 dark:border-stone-700/60">
+                  <Receipt className="w-4 h-4 text-emerald-600" />
+                  <span>2. Parametrização Fiscal e Tributária</span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Localização Física
-                  </label>
-                  <input
-                    type="text"
-                    value={quickProductLocation}
-                    onChange={(e) => setQuickProductLocation(e.target.value)}
-                    placeholder="Ex: Barracão Principal"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Código NCM */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Código NCM
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={quickProductNcm}
+                      onChange={(e) => handleQuickNcmChange(e.target.value)}
+                      placeholder="0000.00.00"
+                      maxLength={10}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs"
+                    />
+                    <span className="text-[10px] text-stone-400 mt-0.5 block">
+                      Máscara: 8 dígitos (0000.00.00)
+                    </span>
+                  </div>
+
+                  {/* Grupo Fiscal */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Grupo Fiscal
+                    </label>
+                    <select
+                      value={quickProductFiscalGroup}
+                      onChange={(e) => setQuickProductFiscalGroup(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs cursor-pointer"
+                    >
+                      <option value="TRIBUTADO">TRIBUTADO</option>
+                      <option value="SUBSTITUICAO">SUBSTITUICAO</option>
+                      <option value="ISENTO">ISENTO</option>
+                    </select>
+                  </div>
+
+                  {/* Grupo IPI */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Grupo IPI
+                    </label>
+                    <select
+                      value={quickProductIpiGroup}
+                      onChange={(e) => setQuickProductIpiGroup(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition shadow-2xs cursor-pointer"
+                    >
+                      <option value="NAO TRIBUTADO">NAO TRIBUTADO</option>
+                      <option value="TRIBUTADO">TRIBUTADO</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Preço de Custo e Preço de Venda */}
-              <div className="grid grid-cols-2 gap-3 p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                    Preço de Custo Base (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={quickProductCost}
-                    onChange={(e) => setQuickProductCost(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100"
-                  />
+              {/* ============================================================== */}
+              {/* BLOCO 3: VALORES E CUSTOS */}
+              {/* ============================================================== */}
+              <div className="p-4 sm:p-4.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200/70 dark:border-emerald-800/40 space-y-3.5">
+                <div className="flex items-center justify-between pb-1 border-b border-emerald-200/60 dark:border-emerald-800/40">
+                  <div className="flex items-center space-x-2 text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                    <span>3. Valores e Custos</span>
+                  </div>
+                  <span className="text-[10px] text-stone-500 font-semibold">
+                    Padrão Comercial: R$ #.##0,00
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                    Preço de Venda Sugerido (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={quickProductSale}
-                    onChange={(e) => setQuickProductSale(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Custo Nominal (R$) */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Custo Nominal (R$)
+                    </label>
+                    <div className="relative rounded-xl shadow-2xs">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-500 font-bold text-xs">
+                        R$
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={quickProductCostDisplay}
+                        onChange={(e) => handleQuickCostChange(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Margem Lucro Sugerida (%) */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Margem Lucro Sugerida (%)
+                    </label>
+                    <div className="relative rounded-xl shadow-2xs">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={quickProductProfitMargin}
+                        onChange={(e) => handleQuickMarginChange(e.target.value)}
+                        placeholder="Ex: 30"
+                        className="w-full pr-8 pl-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                        %
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preço de Venda Sugerido (R$) */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Preço de Venda Sugerido (R$)
+                    </label>
+                    <div className="relative rounded-xl shadow-2xs">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600 font-bold text-xs">
+                        R$
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={quickProductSaleDisplay}
+                        onChange={(e) => handleQuickSaleChange(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Resumo visual de markup se aplicável */}
+                {(() => {
+                  const c = parseCurrencyInput(quickProductCostDisplay);
+                  const s = parseCurrencyInput(quickProductSaleDisplay);
+                  if (c > 0 && s > c) {
+                    const diff = s - c;
+                    return (
+                      <div className="flex items-center space-x-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 pt-1">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>
+                          Margem estimada: <strong>{quickProductProfitMargin || (((s - c) / c) * 100).toFixed(1)}%</strong> • Lucro bruto unitário: <strong>{formatCurrencyBRL(diff)}</strong>
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               {/* Botões do Formulário Rápido */}
-              <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2">
+              <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsQuickProductModalOpen(false)}
@@ -6064,16 +6480,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <button
                   type="submit"
                   disabled={isSavingQuickProduct}
-                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
                 >
                   {isSavingQuickProduct ? (
                     <>
-                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <Clock className="w-4 h-4 animate-spin" />
                       <span>Cadastrando...</span>
                     </>
                   ) : (
                     <>
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <Check className="w-4 h-4 stroke-[2.5]" />
                       <span>Cadastrar e Vincular</span>
                     </>
                   )}
@@ -6261,6 +6677,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         onSave={handleSaveSupplierFromModal}
         editingSupplier={supplierForModal}
         initialName={manualSupplier}
+        zIndexClass="z-[9999]"
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL OFICIAL: GERENCIAMENTO DE TIPOS DE DOCUMENTO (TOP LEVEL z-[9999]) */}
+      {/* ========================================================================= */}
+      <ManageDocumentTypesModal
+        isOpen={isManageDocTypesModalOpen}
+        onClose={() => setIsManageDocTypesModalOpen(false)}
+        documentTypes={manualDocTypes}
+        onSaveDocumentTypes={handleSaveDocumentTypes}
+        selectedType={manualDocumentType}
+        onSelectType={(newType) => setManualDocumentType(newType as TipoDocumentoEntrada)}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL OFICIAL: GERENCIAMENTO DE CATEGORIAS DE ESTOQUE (TOP LEVEL z-[9999]) */}
+      {/* ========================================================================= */}
+      <CategoryOptionsManagerModal
+        isOpen={isManageCategoryModalOpen}
+        onClose={() => setIsManageCategoryModalOpen(false)}
+        title="Gerenciar Categorias de Estoque"
+        subtitle="Adicione, edite, reordene ou exclua categorias de insumos e produtos"
+        items={stockCategories}
+        defaultItems={DEFAULT_INVENTORY_CATEGORIES}
+        onSaveItems={handleSaveStockCategories}
+        placeholder="Nome da nova categoria de estoque..."
+        onSelectItem={(cat) => setQuickProductCategory(cat)}
         zIndexClass="z-[9999]"
       />
 

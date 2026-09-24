@@ -459,7 +459,7 @@ export interface InventoryItem {
   id: string;
   companyId?: string; // ID da Empresa
   name: string;
-  category: 'combustivel' | 'lona_embalagem' | 'inoculante' | 'sementes' | 'adubo' | 'pecas' | 'outro';
+  category: 'combustivel' | 'lona_embalagem' | 'inoculante' | 'sementes' | 'adubo' | 'pecas' | 'outro' | string;
   quantity: number;
   unit: string;
   minQuantity: number;
@@ -475,6 +475,12 @@ export interface InventoryItem {
   promoMargin?: number; // % Promo. (Margem de lucro para Promoção)
   promoPrice?: number; // Preço Promocional (V. Promo)
   maxQuantity?: number;
+  brand?: string; // Marca do produto
+  hasNoGtin?: boolean; // Indicador 'Sem GTIN'
+  factoryRef?: string; // Ref. Fábrica
+  ncm?: string; // Código NCM (ex: 0000.00.00)
+  fiscalGroup?: 'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO' | string; // Grupo Fiscal
+  ipiGroup?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string; // Grupo IPI
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1339,7 +1345,13 @@ export interface ServiceAppointment {
 // ==============================================================================
 // MÓDULO DOCUMENTOS DE ENTRADA (NOTAS FISCAIS & ENTRADAS MANUAIS)
 // ==============================================================================
-export type TipoDocumentoEntrada = 'Romaneio' | 'Recibo' | 'Nota de Produtor' | 'Outros';
+export type TipoDocumentoEntrada = 
+  | 'Romaneio' 
+  | 'Nota avulsa' 
+  | 'Cupom sem valor fiscal' 
+  | 'Nota de Produtor' 
+  | 'Outros' 
+  | string;
 
 export interface DocumentoEntrada {
   id: string;

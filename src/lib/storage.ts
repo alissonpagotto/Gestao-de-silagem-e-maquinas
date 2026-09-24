@@ -107,6 +107,7 @@ const STORAGE_KEYS = {
   VEHICLE_SYSTEM_CATEGORIES: 'silagem_facil_clean_v1_vehicle_system_categories',
   VEHICLE_OWNERSHIP_REGIMES: 'silagem_facil_clean_v1_vehicle_ownership_regimes',
   APPOINTMENTS: 'silagem_facil_clean_v1_service_appointments',
+  MANUAL_ENTRY_DOCUMENT_TYPES: 'silagem_facil_clean_v1_manual_entry_doc_types',
 };
 
 export function getStoredExpenses(): Expense[] {
@@ -723,13 +724,12 @@ export const DEFAULT_SUPPLIER_CATEGORIES = [
 ];
 
 export const DEFAULT_INVENTORY_CATEGORIES = [
-  'Combustível (Diesel)',
-  'Lona & Embalagens',
-  'Peças & Correias',
-  'Inoculantes & Químicos',
-  'Sementes & Fertilizantes',
-  'EPI & Segurança',
-  'Fitas & Vedação',
+  'Combustível & Arla',
+  'Lona & Embalagem',
+  'Inoculante & Biológico',
+  'Sementes',
+  'Adubo & Fertilizante',
+  'Peças & Manutenção',
   'Outros Insumos'
 ];
 
@@ -1545,4 +1545,54 @@ export const deleteLocalDocumentoEntradaItem = (id: string): void => {
   const all = getStoredDocumentosEntradaItens();
   saveStoredDocumentosEntradaItens(all.filter(i => i.id !== id));
 };
+
+// ==========================================
+// TIPOS DE DOCUMENTOS DE ENTRADA MANUAL
+// ==========================================
+
+export const DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES: string[] = [
+  'Romaneio',
+  'Nota avulsa',
+  'Cupom sem valor fiscal',
+  'Nota de Produtor',
+  'Outros'
+];
+
+export function getStoredManualEntryDocumentTypes(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.MANUAL_ENTRY_DOCUMENT_TYPES);
+    if (!raw) return [...DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return [...DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES];
+    // Remove permanentemente a opção 'Recibo' e strings vazias
+    const filtered: string[] = parsed
+      .map((t: unknown) => (typeof t === 'string' ? t.trim() : ''))
+      .filter((t: string) => t !== '' && t !== 'Recibo');
+
+    // Garante que todas as opções padrão do sistema estejam presentes
+    DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES.forEach(def => {
+      if (!filtered.includes(def)) {
+        filtered.push(def);
+      }
+    });
+
+    return filtered.length > 0 ? filtered : [...DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES];
+  } catch (e) {
+    console.error('Failed to load manual entry document types', e);
+    return [...DEFAULT_MANUAL_ENTRY_DOCUMENT_TYPES];
+  }
+}
+
+export function saveStoredManualEntryDocumentTypes(types: string[]): void {
+  try {
+    const clean = types
+      .map(t => (typeof t === 'string' ? t.trim() : ''))
+      .filter(t => t !== '' && t !== 'Recibo');
+    // Salva a lista sem duplicados
+    const unique = Array.from(new Set(clean));
+    localStorage.setItem(STORAGE_KEYS.MANUAL_ENTRY_DOCUMENT_TYPES, JSON.stringify(unique));
+  } catch (e) {
+    console.error('Failed to save manual entry document types', e);
+  }
+}
 

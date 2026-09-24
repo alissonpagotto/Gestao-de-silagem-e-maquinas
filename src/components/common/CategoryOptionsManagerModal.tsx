@@ -11,6 +11,7 @@ interface CategoryOptionsManagerModalProps {
   defaultItems?: string[];
   placeholder?: string;
   onSelectItem?: (item: string) => void;
+  zIndexClass?: string;
 }
 
 export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalProps> = ({
@@ -23,6 +24,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
   defaultItems,
   placeholder = 'Nome da nova opção / categoria...',
   onSelectItem,
+  zIndexClass = 'z-50',
 }) => {
   const [newItemName, setNewItemName] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -108,7 +110,7 @@ export const CategoryOptionsManagerModal: React.FC<CategoryOptionsManagerModalPr
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-xs`}>
       <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-lg w-full shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
         
         {/* Header - Standardized Solid Teal Bar */}

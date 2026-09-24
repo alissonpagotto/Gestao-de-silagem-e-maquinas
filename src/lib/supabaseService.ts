@@ -915,15 +915,23 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
       companyId: row.company_id || undefined,
       code: row.codigo_produto || '',
       name: row.descricao || '',
-      category: 'outro',
+      category: row.categoria || 'outro',
       quantity: Number(row.quantidade_atual) || 0,
-      unit: 'un',
-      minQuantity: 0,
-      unitCost: 0,
+      unit: row.unidade || 'un',
+      minQuantity: Number(row.quantidade_minima) || 0,
+      unitCost: Number(row.custo_nominal ?? row.preco_custo) || 0,
       salePrice: Number(row.preco_venda_final) || 0,
       wholesalePrice: Number(row.preco_venda_atacado) || 0,
       promoPrice: Number(row.preco_venda_promo) || 0,
-      location: 'Depósito Principal'
+      location: row.localizacao || 'Depósito Principal',
+      brand: row.marca || undefined,
+      barcode: row.codigo_barras || row.gtin || undefined,
+      hasNoGtin: Boolean(row.sem_gtin),
+      factoryRef: row.referencia_fabrica || undefined,
+      ncm: row.ncm || undefined,
+      fiscalGroup: row.grupo_fiscal || undefined,
+      ipiGroup: row.grupo_ipi || undefined,
+      profitMargin: row.margem_lucro !== undefined && row.margem_lucro !== null ? Number(row.margem_lucro) : undefined,
     } as InventoryItem));
   } catch (err) {
     console.warn('Supabase fetchEstoque err:', err);
@@ -944,6 +952,20 @@ export async function upsertEstoqueItem(item: InventoryItem, companyId?: string)
       preco_venda_final: Number(item.salePrice) || 0,
       preco_venda_atacado: Number(item.wholesalePrice) || 0,
       preco_venda_promo: Number(item.promoPrice) || null,
+      preco_custo: Number(item.unitCost) || 0,
+      custo_nominal: Number(item.unitCost) || 0,
+      margem_lucro: item.profitMargin !== undefined && item.profitMargin !== null ? Number(item.profitMargin) : null,
+      unidade: item.unit || 'UN',
+      marca: item.brand || null,
+      codigo_barras: item.barcode || null,
+      gtin: item.barcode || null,
+      sem_gtin: Boolean(item.hasNoGtin),
+      referencia_fabrica: item.factoryRef || null,
+      ncm: item.ncm || null,
+      grupo_fiscal: item.fiscalGroup || null,
+      grupo_ipi: item.ipiGroup || null,
+      categoria: item.category || 'outro',
+      localizacao: item.location || 'Depósito Principal',
       fim_promocao: null,
     };
 
@@ -953,10 +975,25 @@ export async function upsertEstoqueItem(item: InventoryItem, companyId?: string)
 
     if (error) {
       logPostgresError('upsertEstoqueItem', error, { table: 'estoque', action: 'UPSERT', payload });
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
-        delete payload.company_id;
-        const retry = await supabase.from('estoque').upsert(payload, { onConflict: 'id' });
-        if (!retry.error) return true;
+      // Fallback adaptativo: se a tabela física ainda não possuir as colunas novas, tenta com o payload base
+      const basePayload: Record<string, any> = {
+        id: toValidUUID(item.id),
+        codigo_produto: item.code || `PRD-${toValidUUID(item.id).slice(0, 8)}`,
+        descricao: item.name || 'Produto sem descrição',
+        quantidade_atual: Number(item.quantity) || 0.000,
+        preco_venda_final: Number(item.salePrice) || 0,
+        preco_venda_atacado: Number(item.wholesalePrice) || 0,
+        preco_venda_promo: Number(item.promoPrice) || null,
+        fim_promocao: null,
+      };
+      if (activeCompanyId) basePayload.company_id = activeCompanyId;
+
+      const retry = await supabase.from('estoque').upsert(basePayload, { onConflict: 'id' });
+      if (!retry.error) return true;
+      if (retry.error && retry.error.message?.includes('company_id')) {
+        delete basePayload.company_id;
+        const retryNoComp = await supabase.from('estoque').upsert(basePayload, { onConflict: 'id' });
+        if (!retryNoComp.error) return true;
       }
       return false;
     }
@@ -5180,6 +5217,56 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
     };
   } catch (err) {
     console.warn('Erro ao carregar módulos do cliente do Supabase:', err);
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza os tipos de documento de entrada na nuvem (Supabase)
+ */
+export async function saveCloudManualEntryDocumentTypes(types: string[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const cleanTypes = types
+      .map(t => (typeof t === 'string' ? t.trim() : ''))
+      .filter(t => t !== '' && t !== 'Recibo');
+    const unique = Array.from(new Set(cleanTypes));
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_doc_entrada_tipos_${cId}`,
+      hero_title: JSON.stringify(unique),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    return !error;
+  } catch (e) {
+    console.warn('Erro ao sincronizar tipos de documentos no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega os tipos de documento de entrada da nuvem (Supabase)
+ */
+export async function fetchCloudManualEntryDocumentTypes(companyId?: string): Promise<string[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_doc_entrada_tipos_${cId}`)
+      .maybeSingle();
+
+    if (!error && data?.hero_title) {
+      const parsed = JSON.parse(data.hero_title);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .map((t: unknown) => (typeof t === 'string' ? t.trim() : ''))
+          .filter((t: string) => t !== '' && t !== 'Recibo');
+      }
+    }
+    return null;
+  } catch (e) {
     return null;
   }
 }
