@@ -1470,53 +1470,312 @@ export async function fetchCloudFuelLogs(companyId?: string): Promise<FuelLog[] 
   }
 }
 
+// ===========================================================================
+// Gerenciamento e Mapeamento Adaptativo da Tabela de Abastecimentos no Supabase
+// ===========================================================================
+
+export const DEFAULT_ABASTECIMENTOS_TABLE = 'abastecimentos';
+
+export const CANDIDATE_ABASTECIMENTOS_TABLES = [
+  'abastecimentos',
+  'abastecimento',
+  'fuel_logs',
+  'fuel_log',
+  'controle_abastecimento',
+  'controle_abastecimentos',
+  'frota_abastecimentos',
+  'registros_abastecimento'
+] as const;
+
+let resolvedAbastecimentosTableName: string = 'abastecimentos';
+let isAbastecimentosTableMissing: boolean = false;
+let lastAbastecimentosProbeTimestamp: number = 0;
+
 /**
- * Busca a lista completa de abastecimentos atualizada diretamente do banco de dados (Supabase)
- * Suporta tanto a tabela relacional 'abastecimentos' quanto o armazenamento em nuvem de alta disponibilidade
+ * Retorna o nome da tabela física de abastecimentos atualmente identificada no Supabase
+ */
+export function getAbastecimentosTableName(): string {
+  if (resolvedAbastecimentosTableName) return resolvedAbastecimentosTableName;
+
+  // 1. Variável de ambiente configurada no Vite (.env ou build)
+  const envTable = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ABASTECIMENTOS_TABLE;
+  if (envTable && typeof envTable === 'string' && envTable.trim()) {
+    resolvedAbastecimentosTableName = envTable.trim();
+    return resolvedAbastecimentosTableName;
+  }
+
+  // 2. Variável global ou localStorage
+  if (typeof window !== 'undefined') {
+    const winTable = (window as any).__SUPABASE_ABASTECIMENTOS_TABLE__;
+    if (winTable && typeof winTable === 'string' && winTable.trim()) {
+      resolvedAbastecimentosTableName = winTable.trim();
+      return resolvedAbastecimentosTableName;
+    }
+    const stored = localStorage.getItem('supabase_abastecimentos_table');
+    if (stored && stored.trim()) {
+      resolvedAbastecimentosTableName = stored.trim();
+      return resolvedAbastecimentosTableName;
+    }
+  }
+
+  return DEFAULT_ABASTECIMENTOS_TABLE;
+}
+
+/**
+ * Define ou força manualmente o nome exato da tabela de abastecimentos no Supabase
+ */
+export function setAbastecimentosTableName(name: string): void {
+  const cleanName = (name || '').trim();
+  if (cleanName) {
+    resolvedAbastecimentosTableName = cleanName;
+    isAbastecimentosTableMissing = false;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('supabase_abastecimentos_table', cleanName);
+      sessionStorage.removeItem('supabase_abastecimentos_missing');
+      (window as any).__SUPABASE_ABASTECIMENTOS_TABLE__ = cleanName;
+    }
+  } else {
+    resetAbastecimentosTableCache();
+  }
+}
+
+/**
+ * Informa se há uma tabela física relacional de abastecimentos disponível
+ */
+export function isAbastecimentosTableAvailable(): boolean {
+  return Boolean(getAbastecimentosTableName()) && !isAbastecimentosTableMissing;
+}
+
+/**
+ * Limpa o cache de resolução da tabela para permitir nova detecção
+ */
+export function resetAbastecimentosTableCache(): void {
+  resolvedAbastecimentosTableName = 'abastecimentos';
+  isAbastecimentosTableMissing = false;
+  lastAbastecimentosProbeTimestamp = 0;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('supabase_abastecimentos_table');
+    sessionStorage.removeItem('supabase_abastecimentos_missing');
+    delete (window as any).__SUPABASE_ABASTECIMENTOS_TABLE__;
+  }
+}
+
+// Expõe helpers no window para depuração rápida no console do desenvolvedor
+if (typeof window !== 'undefined') {
+  (window as any).setAbastecimentosTable = setAbastecimentosTableName;
+  (window as any).resetAbastecimentosTable = resetAbastecimentosTableCache;
+}
+
+/**
+ * Converte qualquer linha de banco de dados (esquemas em português ou inglês) para FuelLog padronizado
+ */
+export function mapRowToFuelLog(row: any): FuelLog {
+  return {
+    id: String(row.id || `fuel_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`),
+    date: row.data || row.date || new Date().toISOString().split('T')[0],
+    machineryId: row.veiculo_id || row.machinery_id || row.veiculo || '',
+    machineryPlateOrName: row.placa_ou_nome || row.placa || row.veiculo_nome || row.machinery_plate_or_name || '',
+    vehicleName: row.veiculo_nome || row.vehicle_name || '',
+    vehiclePlate: row.placa || row.vehicle_plate || '',
+    fuelType: row.tipo_combustivel || row.combustivel || row.fuel_type || 'Diesel S10',
+    liters: Number(row.litros ?? row.liters ?? row.quantidade ?? 0),
+    pricePerLiter: Number(row.valor_litro ?? row.preco_litro ?? row.price_per_liter ?? 0),
+    totalAmount: Number(row.valor_total ?? row.total_amount ?? row.total ?? 0),
+    currentHourMeterOrKm: Number(row.km_ou_horimetro ?? row.km_atual ?? row.horimetro_atual ?? row.current_hour_meter_or_km ?? 0),
+    previousHourMeterOrKm: row.km_anterior || row.horimetro_anterior ? Number(row.km_anterior || row.horimetro_anterior) : undefined,
+    currentKm: row.km_atual !== undefined && row.km_atual !== null ? Number(row.km_atual) : (row.current_km ? Number(row.current_km) : undefined),
+    previousKm: row.km_anterior !== undefined && row.km_anterior !== null ? Number(row.km_anterior) : (row.previous_km ? Number(row.previous_km) : undefined),
+    currentHourMeter: row.horimetro_atual !== undefined && row.horimetro_atual !== null ? Number(row.horimetro_atual) : (row.current_hour_meter ? Number(row.current_hour_meter) : undefined),
+    previousHourMeter: row.horimetro_anterior !== undefined && row.horimetro_anterior !== null ? Number(row.horimetro_anterior) : (row.previous_hour_meter ? Number(row.previous_hour_meter) : undefined),
+    averageCalculated: row.media_calculada !== undefined && row.media_calculada !== null ? Number(row.media_calculada) : (row.media ? Number(row.media) : undefined),
+    averageKmPerLiter: row.media_kml !== undefined && row.media_kml !== null ? Number(row.media_kml) : (row.average_km_per_liter ? Number(row.average_km_per_liter) : undefined),
+    averageLitersPerHour: row.media_lh !== undefined && row.media_lh !== null ? Number(row.media_lh) : (row.average_liters_per_hour ? Number(row.average_liters_per_hour) : undefined),
+    driverOrOperator: row.motorista || row.operador || row.driver_or_operator || '',
+    supplierStation: row.posto || row.fornecedor || row.supplier_station || 'Tanque da Fazenda',
+    notes: row.observacoes || row.notes || '',
+    createdAt: row.created_at || new Date().toISOString()
+  };
+}
+
+/**
+ * Resolve e valida dinamicamente qual tabela física de abastecimento existe no Supabase.
+ */
+export async function resolveAbastecimentosTable(): Promise<string> {
+  const current = getAbastecimentosTableName();
+  if (current) return current;
+  return DEFAULT_ABASTECIMENTOS_TABLE;
+}
+
+/**
+ * Busca a lista completa de abastecimentos atualizada diretamente do banco de dados (Supabase).
+ * Usa a tabela física 'abastecimentos' com fallback seguro para cloud fuel logs (site_settings).
  */
 export async function fetchAbastecimentos(companyId?: string): Promise<FuelLog[]> {
   if (!isSupabaseConfigured) return [];
   const cId = companyId || getActiveCompanyId();
+  const tableName = getAbastecimentosTableName() || 'abastecimentos';
 
   try {
-    let query = supabase.from('abastecimentos').select('*').order('data', { ascending: false });
+    let query = supabase.from(tableName).select('*');
     if (cId) {
       query = query.eq('company_id', cId);
     }
-    const { data, error } = await query;
-    if (!error && Array.isArray(data) && data.length > 0) {
-      return data.map((row: any) => ({
-        id: String(row.id || `fuel_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`),
-        date: row.data || row.date || new Date().toISOString().split('T')[0],
-        machineryId: row.veiculo_id || row.machinery_id || row.veiculo || '',
-        machineryPlateOrName: row.placa_ou_nome || row.placa || row.veiculo_nome || row.machinery_plate_or_name || '',
-        vehicleName: row.veiculo_nome || row.vehicle_name || '',
-        vehiclePlate: row.placa || row.vehicle_plate || '',
-        fuelType: row.tipo_combustivel || row.combustivel || row.fuel_type || 'Diesel S10',
-        liters: Number(row.litros || row.liters || row.quantidade || 0),
-        pricePerLiter: Number(row.valor_litro || row.preco_litro || row.price_per_liter || 0),
-        totalAmount: Number(row.valor_total || row.total_amount || row.total || 0),
-        currentHourMeterOrKm: Number(row.km_ou_horimetro || row.km_atual || row.horimetro_atual || row.current_hour_meter_or_km || 0),
-        previousHourMeterOrKm: row.km_anterior || row.horimetro_anterior ? Number(row.km_anterior || row.horimetro_anterior) : undefined,
-        currentKm: row.km_atual ? Number(row.km_atual) : undefined,
-        previousKm: row.km_anterior ? Number(row.km_anterior) : undefined,
-        currentHourMeter: row.horimetro_atual ? Number(row.horimetro_atual) : undefined,
-        previousHourMeter: row.horimetro_anterior ? Number(row.horimetro_anterior) : undefined,
-        averageCalculated: row.media_calculada ? Number(row.media_calculada) : (row.media ? Number(row.media) : undefined),
-        averageKmPerLiter: row.media_kml ? Number(row.media_kml) : undefined,
-        averageLitersPerHour: row.media_lh ? Number(row.media_lh) : undefined,
-        driverOrOperator: row.motorista || row.operador || row.driver_or_operator || '',
-        supplierStation: row.posto || row.fornecedor || row.supplier_station || 'Tanque da Fazenda',
-        notes: row.observacoes || row.notes || '',
-        createdAt: row.created_at || new Date().toISOString()
-      }));
+
+    // Tenta ordenar por data descrescente
+    const { data, error } = await query.order('data', { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      if (data.length > 0) {
+        return data.map(mapRowToFuelLog);
+      }
+      // Se a tabela física retornou vazia, verifica se há dados salvos na nuvem via site_settings
+      const cloudLogs = await fetchCloudFuelLogs(cId);
+      if (cloudLogs && cloudLogs.length > 0) {
+        return cloudLogs;
+      }
+      return [];
+    }
+
+    // Se falhou apenas na ordenação pela coluna 'data', tenta sem ordenação ou com 'date'
+    if (error && (error.code === '42703' || error.message?.includes('column') || error.code === 'PGRST204')) {
+      let retry = supabase.from(tableName).select('*');
+      if (cId) retry = retry.eq('company_id', cId);
+      const retryRes = await retry;
+      if (!retryRes.error && Array.isArray(retryRes.data)) {
+        return retryRes.data.map(mapRowToFuelLog);
+      }
     }
   } catch (err) {
-    // Tabela física em schema não migrado ou erro de rede; utiliza fallback seguro
+    console.warn('[Supabase Abastecimento] Erro na busca:', err);
   }
 
+  // Fallback seguro em site_settings
   const cloudLogs = await fetchCloudFuelLogs(cId);
   return cloudLogs || [];
+}
+
+/**
+ * Insere ou atualiza um registro individual de abastecimento no Supabase
+ * adaptando automaticamente os nomes de colunas e tabela física encontrada.
+ */
+export async function upsertAbastecimento(
+  log: FuelLog, 
+  companyId?: string
+): Promise<{ success: boolean; error?: any; tableName?: string }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase não configurado' };
+  const cId = companyId || getActiveCompanyId();
+  const tableName = getAbastecimentosTableName() || 'abastecimentos';
+
+  const rawPayload: Record<string, any> = {
+    id: log.id,
+    data: log.date || new Date().toISOString().split('T')[0],
+    veiculo_id: log.machineryId,
+    veiculo_nome: log.vehicleName || log.machineryPlateOrName || '',
+    placa: log.vehiclePlate || log.machineryPlateOrName || '',
+    tipo_combustivel: log.fuelType || 'Diesel S10',
+    litros: Number(log.liters) || 0,
+    valor_litro: Number(log.pricePerLiter) || 0,
+    valor_total: Number(log.totalAmount) || 0,
+    km_atual: log.currentKm ? Number(log.currentKm) : (log.currentHourMeterOrKm ? Number(log.currentHourMeterOrKm) : null),
+    km_anterior: log.previousKm ? Number(log.previousKm) : null,
+    horimetro_atual: log.currentHourMeter ? Number(log.currentHourMeter) : null,
+    horimetro_anterior: log.previousHourMeter ? Number(log.previousHourMeter) : null,
+    media_kml: log.averageKmPerLiter ? Number(log.averageKmPerLiter) : null,
+    media_lh: log.averageLitersPerHour ? Number(log.averageLitersPerHour) : null,
+    media_calculada: log.averageCalculated ? Number(log.averageCalculated) : null,
+    motorista: log.driverOrOperator || '',
+    posto: log.supplierStation || 'Tanque da Fazenda',
+    observacoes: log.notes || '',
+    company_id: cId,
+    created_at: log.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  const payload = { ...rawPayload };
+  const knownMissing = missingColumnsCache.get(tableName);
+  if (knownMissing) {
+    for (const col of knownMissing) {
+      delete payload[col];
+    }
+  }
+
+  const isEditing = Boolean(log.id && !log.id.startsWith('fuel_temp_'));
+
+  let attempts = 0;
+  while (attempts < 8) {
+    attempts++;
+    let error: any = null;
+
+    if (isEditing) {
+      const updateRes = await supabase.from(tableName).update(payload).eq('id', payload.id);
+      error = updateRes.error;
+      // Se não encontrou o registro para atualizar, tenta insert
+      if (!error && (updateRes as any).count === 0) {
+        const insertRes = await supabase.from(tableName).insert(payload);
+        error = insertRes.error;
+      }
+    } else {
+      const insertRes = await supabase.from(tableName).insert(payload);
+      error = insertRes.error;
+    }
+
+    if (!error) {
+      return { success: true, tableName };
+    }
+
+    const msg = error.message || '';
+    const code = error.code || '';
+
+    // Coluna inexistente (PGRST204 ou 42703)
+    const matchMissingCol =
+      msg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
+      msg.match(/column "?([a-zA-Z0-9_]+)"? of relation/i) ||
+      msg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i) ||
+      msg.match(/column ([a-zA-Z0-9_]+) does not exist/i);
+
+    if (matchMissingCol && matchMissingCol[1]) {
+      const badCol = matchMissingCol[1];
+      if (!knownMissing) {
+        missingColumnsCache.set(tableName, new Set([badCol]));
+      } else {
+        knownMissing.add(badCol);
+      }
+      delete payload[badCol];
+      continue;
+    }
+
+    // Se company_id der erro de foreign key
+    if (code === '23503' || msg.includes('company_id')) {
+      delete payload.company_id;
+      continue;
+    }
+
+    // Fallback com upsert
+    if (attempts === 1) {
+      const fallback = await supabase.from(tableName).upsert(payload);
+      if (!fallback.error) return { success: true, tableName };
+    }
+
+    console.warn(`[Supabase Abastecimento] Aviso ao persistir na tabela "${tableName}":`, msg);
+    break;
+  }
+
+  return { success: false, tableName };
+}
+
+/**
+ * Exclui um registro de abastecimento da tabela física do Supabase
+ */
+export async function deleteAbastecimento(id: string, _companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const tableName = getAbastecimentosTableName() || 'abastecimentos';
+    const { error } = await supabase.from(tableName).delete().eq('id', id);
+    return !error;
+  } catch (err) {
+    console.warn('[Supabase Abastecimento] Aviso ao excluir registro:', err);
+    return false;
+  }
 }
 
 // ===========================================================================

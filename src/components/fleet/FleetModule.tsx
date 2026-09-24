@@ -23,7 +23,7 @@ import { FuelModal } from './FuelModal';
 import { MaintenanceModal } from './MaintenanceModal';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 import { updateVehicleWithCalculatedMetrics } from '../../lib/fleetMetrics';
-import { upsertGestaoFrota, saveCloudFuelLogs, saveCloudMachineries } from '../../lib/supabaseService';
+import { upsertGestaoFrota, saveCloudFuelLogs, saveCloudMachineries, upsertAbastecimento, deleteAbastecimento } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getStoredVehicleTypes, 
@@ -260,6 +260,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     const remainingLogs = fuelLogs.filter(f => f.id !== id);
     onSaveFuelLogs(remainingLogs);
     saveCloudFuelLogs(remainingLogs).catch(err => console.warn('Supabase delete fuel sync:', err));
+    deleteAbastecimento(id).catch(err => console.warn('Supabase delete fuel row sync:', err));
     // Recalculate machinery metrics with remaining logs
     const updatedMachineries = machineries.map(m => updateVehicleWithCalculatedMetrics(m, remainingLogs));
     onSaveMachineries(updatedMachineries);
@@ -273,6 +274,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     
     onSaveFuelLogs(updatedFuelLogs);
     saveCloudFuelLogs(updatedFuelLogs).catch(err => console.warn('Supabase save fuel sync:', err));
+    upsertAbastecimento(fuelLog).catch(err => console.warn('Supabase save fuel row sync:', err));
 
     // Update vehicle's hourMeter, currentKm, fuel expenses, tank levels, and calculated averages
     const targetVehicle = machineries.find(m => m.id === fuelLog.machineryId);

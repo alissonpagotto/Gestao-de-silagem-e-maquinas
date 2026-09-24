@@ -156,7 +156,8 @@ import {
   saveCloudExpenses,
   fetchAllClientModulesFromSupabase,
   fetchAbastecimentos,
-  saveCloudFuelLogs
+  saveCloudFuelLogs,
+  getAbastecimentosTableName
 } from './lib/supabaseService';
 import { supabase } from './lib/supabaseClient';
 
@@ -599,11 +600,12 @@ export default function App() {
 
     // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
     // Escuta as alterações no banco de dados na tabela 'abastecimentos' e em 'site_settings'
+    const fuelTable = getAbastecimentosTableName() || 'abastecimentos';
     const canalAbastecimentos = supabase
       .channel('mudancas-abastecimentos')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'abastecimentos' },
+        { event: '*', schema: 'public', table: fuelTable },
         (_payload) => {
           fetchAbastecimentos(activeTenantId).then(fresh => {
             if (fresh && isMounted) {
@@ -632,8 +634,9 @@ export default function App() {
             }
           });
         }
-      )
-      .subscribe();
+      );
+
+    canalAbastecimentos.subscribe();
 
     // 3. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
     const pollAbastecimentosInterval = setInterval(() => {

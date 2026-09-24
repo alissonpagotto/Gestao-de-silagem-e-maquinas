@@ -433,6 +433,12 @@ export function isVehicleHoursControlled(
 // Alias para compatibilidade
 export const isMachineOrTractor = isVehicleHoursControlled;
 
+export interface FuelEfficiencyDisplay {
+  value: number;
+  formatted: string;
+  unit: string;
+}
+
 export interface DualFuelEfficiencyDisplay {
   kmPerLiter: FuelEfficiencyDisplay | null;
   litersPerHour: FuelEfficiencyDisplay | null;

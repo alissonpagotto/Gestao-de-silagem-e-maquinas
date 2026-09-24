@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FuelLog } from '../types';
 import { supabase } from '../lib/supabaseClient';
-import { fetchAbastecimentos, isRealtimeWebSocketActive } from '../lib/supabaseService';
+import { fetchAbastecimentos, isRealtimeWebSocketActive, getAbastecimentosTableName } from '../lib/supabaseService';
 import { getStoredFuelLogs, saveStoredFuelLogs } from '../lib/storage';
 
 export interface UseAbastecimentosRealtimeOptions {
@@ -122,12 +122,13 @@ export function useAbastecimentosRealtime(
     };
 
     // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
+    const currentTable = getAbastecimentosTableName() || 'abastecimentos';
     const channelId = `abastecimentos-hook-${Math.random().toString(36).substring(2, 8)}`;
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'abastecimentos' },
+        { event: '*', schema: 'public', table: currentTable },
         () => {
           executeSafeFetch();
         }
