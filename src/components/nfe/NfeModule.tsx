@@ -36,7 +36,8 @@ import {
   FileCheck,
   UserPlus,
   Settings,
-  Save
+  Save,
+  Eye
 } from 'lucide-react';
 import { 
   Expense, 
@@ -4613,17 +4614,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
 
         <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs w-full max-w-full">
-          <div className="w-full max-w-full overflow-hidden">
-            <table className="w-full table-fixed text-left text-xs sm:text-sm">
+          <div className="w-full max-w-full overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
-                  <th className="py-1.5 px-2.5 w-[110px] shrink-0">Documento</th>
-                  <th className="py-1.5 px-2.5 w-[160px] lg:w-[190px]">Fornecedor</th>
-                  <th className="py-1.5 px-2.5 min-w-0">Descrição / Obs.</th>
-                  <th className="py-1.5 px-2 w-[85px] text-center shrink-0">Data</th>
-                  <th className="py-1.5 px-2.5 w-[105px] text-right shrink-0">Valor</th>
-                  <th className="py-1.5 px-2 w-[85px] text-center shrink-0">Tipo</th>
-                  <th className="py-1.5 px-2.5 text-right w-[145px] shrink-0">Ação</th>
+                  <th className="py-2 px-2.5 w-[110px] shrink-0">Documento</th>
+                  <th className="py-2 px-2.5 w-[160px] lg:w-[200px]">Fornecedor</th>
+                  <th className="py-2 px-2.5 min-w-[150px]">Descrição / Obs.</th>
+                  <th className="py-2 px-2 w-[85px] text-center shrink-0">Data</th>
+                  <th className="py-2 px-2.5 w-[105px] text-right shrink-0">Valor</th>
+                  <th className="py-2 px-3 text-right min-w-[470px] w-[470px] shrink-0 whitespace-nowrap">Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -4641,13 +4641,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         if (isXml && entry.rawExpense) {
                           handleEditNota(entry.rawExpense);
                         } else if (!isXml && entry.rawManualDoc) {
-                          setViewingManualDoc(entry.rawManualDoc);
+                          if (entry.rawManualDoc.status === 'Rascunho') {
+                            handleOpenEditManualDoc(entry.rawManualDoc);
+                          } else {
+                            setViewingManualDoc(entry.rawManualDoc);
+                          }
                         }
                       }}
                       className="hover:bg-sky-50/60 dark:hover:bg-stone-800/80 cursor-pointer transition group"
                       title={isXml ? `Clique para abrir e editar os detalhes da nota ${entry.documentNumber}` : `Clique para visualizar os detalhes de ${entry.documentNumber}`}
                     >
-                      <td className="py-1.5 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200">
+                      <td className="py-2 px-2.5 font-mono font-bold text-xs text-stone-800 dark:text-stone-200">
                         <div className="flex items-center space-x-1.5 truncate">
                           {isXml ? (
                             <FileEdit className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 transition" />
@@ -4659,67 +4663,50 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </span>
                         </div>
                       </td>
-                      <td className="py-1.5 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200">
+                      <td className="py-2 px-2.5 font-semibold text-xs sm:text-sm text-stone-800 dark:text-stone-200">
                         <span className="truncate max-w-[200px] block" title={entry.supplier || '-'}>
                           {entry.supplier || '-'}
                         </span>
                       </td>
-                      <td className="py-1.5 px-2.5 text-xs text-stone-600 dark:text-stone-300">
+                      <td className="py-2 px-2.5 text-xs text-stone-600 dark:text-stone-300">
                         <span className="truncate max-w-[200px] sm:max-w-none block break-words whitespace-normal line-clamp-1" title={entry.description}>
                           {entry.description}
                         </span>
                       </td>
-                      <td className="py-1.5 px-2 text-stone-500 text-center whitespace-nowrap text-xs">
+                      <td className="py-2 px-2 text-stone-500 text-center whitespace-nowrap text-xs">
                         {formatDateBR(entry.date)}
                       </td>
-                      <td className="py-1.5 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
+                      <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
                         {formatCurrencyBRL(entry.amount)}
-                      </td>
-                      <td className="py-1.5 px-2 text-center whitespace-nowrap">
-                        {isXml ? (
-                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
-                            XML / NF-E
-                          </span>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center gap-0.5">
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight border uppercase ${
-                              entry.badgeColor === 'amber'
-                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                                : entry.badgeColor === 'purple'
-                                ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800'
-                                : entry.badgeColor === 'emerald'
-                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                                : entry.badgeColor === 'sky'
-                                ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-800'
-                                : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700'
-                            }`}>
-                              {entry.documentType || 'MANUAL'}
-                            </span>
-                            {entry.rawManualDoc?.status === 'Rascunho' ? (
-                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 uppercase tracking-wider">
-                                Rascunho
-                              </span>
-                            ) : (
-                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
-                                Finalizado
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </td>
                       <td 
                         onClick={(e) => {
                           e.stopPropagation();
                         }}
-                        className="py-1.5 px-2.5 text-right whitespace-nowrap"
+                        className="py-2 px-3 text-right whitespace-nowrap min-w-[470px] w-[470px] shrink-0"
                       >
                         <div 
-                          className="flex items-center justify-end space-x-1"
+                          className="flex flex-row items-center justify-end gap-2 sm:gap-2.5 flex-nowrap whitespace-nowrap"
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
                         >
-                          {/* Botão de Lápis (✏️) para CADA linha de nota */}
+                          {/* 1. Tag de status no início da linha (ex: 'ROMANEIO / FINALIZADO' ou 'ROMANEIO / RASCUNHO' ou 'XML / NF-E') */}
+                          {isXml ? (
+                            <span className="h-7 inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 uppercase tracking-wider shrink-0 leading-none whitespace-nowrap">
+                              XML / NF-E
+                            </span>
+                          ) : (
+                            <span className={`h-7 inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-md border uppercase tracking-wider shrink-0 leading-none whitespace-nowrap ${
+                              entry.rawManualDoc?.status === 'Rascunho'
+                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                                : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                            }`}>
+                              {entry.documentType || 'MANUAL'} / {entry.rawManualDoc?.status === 'Rascunho' ? 'RASCUNHO' : 'FINALIZADO'}
+                            </span>
+                          )}
+
+                          {/* 2. Botão Editar (Lápis) */}
                           {isXml ? (
                             <button
                               type="button"
@@ -4728,46 +4715,60 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 e.stopPropagation();
                                 if (entry.rawExpense) handleEditNota(entry.rawExpense);
                               }}
-                              className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
+                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
                               title={`Editar detalhes da nota ${entry.documentNumber}`}
                             >
-                              <Pencil className="w-3.5 h-3.5 shrink-0 pointer-events-none text-sky-600 dark:text-sky-400" />
-                              <span className="truncate pointer-events-none hidden sm:inline">Editar</span>
+                              <Pencil className="w-3.5 h-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+                              <span>Editar</span>
                             </button>
                           ) : (
-                            <>
-                              <button
-                                type="button"
-                                id={`btn-edit-manual-doc-${entry.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (entry.rawManualDoc) handleOpenEditManualDoc(entry.rawManualDoc);
-                                }}
-                                className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
-                                title={entry.rawManualDoc?.status === 'Rascunho' ? `Continuar lançamento do rascunho: ${entry.documentNumber}` : `Editar ou continuar ${entry.documentNumber}`}
-                              >
-                                <Pencil className="w-3.5 h-3.5 shrink-0 pointer-events-none text-amber-600 dark:text-amber-400" />
-                                <span className="truncate pointer-events-none hidden sm:inline">
-                                  {entry.rawManualDoc?.status === 'Rascunho' ? 'Continuar' : 'Editar'}
-                                </span>
-                              </button>
-
-                              <button
-                                type="button"
-                                id={`btn-view-doc-${entry.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (entry.rawManualDoc) setViewingManualDoc(entry.rawManualDoc);
-                                }}
-                                className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
-                                title={`Visualizar detalhes do documento ${entry.documentNumber}`}
-                              >
-                                <FileText className="w-3 h-3 shrink-0 pointer-events-none" />
-                                <span className="truncate pointer-events-none hidden sm:inline">Ver</span>
-                              </button>
-                            </>
+                            <button
+                              type="button"
+                              id={`btn-edit-manual-doc-${entry.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (entry.rawManualDoc) handleOpenEditManualDoc(entry.rawManualDoc);
+                              }}
+                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              title={entry.rawManualDoc?.status === 'Rascunho' ? `Continuar lançamento do rascunho: ${entry.documentNumber}` : `Editar dados e produtos de ${entry.documentNumber}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                              <span>{entry.rawManualDoc?.status === 'Rascunho' ? 'Continuar' : 'Editar'}</span>
+                            </button>
                           )}
 
+                          {/* 3. Botão Ver (Olho) */}
+                          {isXml ? (
+                            <button
+                              type="button"
+                              id={`btn-view-nfe-${entry.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (entry.rawExpense) handleEditNota(entry.rawExpense);
+                              }}
+                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              title={`Visualizar detalhes da nota ${entry.documentNumber}`}
+                            >
+                              <Eye className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                              <span>Ver</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              id={`btn-view-doc-${entry.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (entry.rawManualDoc) setViewingManualDoc(entry.rawManualDoc);
+                              }}
+                              className="h-7 inline-flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer hover:shadow-xs shrink-0 whitespace-nowrap"
+                              title={`Visualizar detalhes do documento ${entry.documentNumber}`}
+                            >
+                              <Eye className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                              <span>Ver</span>
+                            </button>
+                          )}
+
+                          {/* 4. Botão Excluir (Lixeira) */}
                           <button
                             type="button"
                             id={`btn-delete-doc-${entry.id}`}
@@ -4779,7 +4780,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 setManualDocToDelete(entry.rawManualDoc);
                               }
                             }}
-                            className="p-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-md transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                            className="h-7 w-7 inline-flex items-center justify-center p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-lg transition shadow-2xs cursor-pointer hover:scale-105 active:scale-95 shrink-0 whitespace-nowrap"
                             title={`Excluir ${isXml ? 'nota fiscal' : 'entrada manual'} ${entry.documentNumber}`}
                             aria-label={`Excluir ${entry.documentNumber}`}
                           >
@@ -4792,7 +4793,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 })}
                 {unifiedEntries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-stone-400">
+                    <td colSpan={6} className="py-8 text-center text-stone-400">
                       <ReceiptText className="w-7 h-7 mx-auto mb-1.5 opacity-50" />
                       <p className="font-semibold text-xs sm:text-sm">Nenhuma nota ou entrada registrada até o momento.</p>
                       <div className="mt-3 flex items-center justify-center space-x-2">
