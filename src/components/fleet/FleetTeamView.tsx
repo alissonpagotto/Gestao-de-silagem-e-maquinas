@@ -350,7 +350,7 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       showToast(`Funcionário "${empFormName}" atualizado.`);
     } else {
       const newEmp: Employee = {
-        id: `emp_${Date.now()}`,
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}`,
         name: empFormName.trim(),
         role: empFormRole.trim() || 'Ajudante Geral',
         phone: empFormPhone.trim(),

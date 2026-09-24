@@ -1160,7 +1160,11 @@ export default function App() {
       // 4. Re-busca no banco para sincronizar exatamente os campos gravados no Supabase
       const fresh = await fetchRhFuncionarios(activeTenantId);
       if (fresh && fresh.length > 0) {
-        setEmployees(fresh);
+        const merged = fresh.map(f => {
+          const local = newEmployees.find(e => toValidUUID(e.id) === f.id || e.id === f.id);
+          return local ? { ...local, ...f } : f;
+        });
+        setEmployees(merged);
       }
     } catch (err) {
       console.warn('Supabase handleSaveEmployees sync notice:', err);

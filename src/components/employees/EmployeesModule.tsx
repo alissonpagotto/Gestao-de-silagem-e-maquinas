@@ -727,7 +727,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       );
     } else {
       const newEmp: Employee = {
-        id: `emp_${Date.now()}`,
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}`,
         name: employeeData.name!,
         role: employeeData.role!,
         phone: employeeData.phone!,

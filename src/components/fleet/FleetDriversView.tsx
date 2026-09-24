@@ -209,7 +209,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       onSaveEmployees(updated);
     } else {
       const newDriver: Employee = {
-        id: `emp_drv_${Date.now()}`,
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_drv_${Date.now()}`,
         name: name.trim(),
         role: role.trim() || 'Motorista de Caminhão',
         phone: phone.trim(),

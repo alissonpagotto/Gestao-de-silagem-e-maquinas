@@ -898,100 +898,64 @@ export function mapRowToEmployee(row: any): Employee {
   };
 }
 
-// Cache interno de colunas indisponíveis por tabela para evitar requisições extras
-const missingColumnsCache = new Map<string, Set<string>>();
-
 /**
- * Executa upsert de funcionário com tolerância a divergências de schema.
- * Trata automaticamente colunas faltantes (PGRST204 / 42703) e restrições de company_id.
+ * Retorna um objeto estritamente compatível com o schema da tabela public.rh_funcionarios no Supabase.
+ * Colunas reais no banco: id, name, role, cpf, phone, email, status, registration_type, salary, admission_date, driver_license, license_category, license_expiry, company_id, updated_at.
+ * Remove todas as colunas ausentes ou propriedades temporárias da interface que geram
+ * erros HTTP 400 (Bad Request - PGRST204) no PostgREST.
  */
-async function executeAdaptiveFuncionarioUpsert(
-  tableName: 'rh_funcionarios' | 'funcionarios',
-  rawPayload: Record<string, any>
-): Promise<{ success: boolean; tableNotFound?: boolean; error?: any }> {
-  const payload = { ...rawPayload };
+export function sanitizeRhFuncionarioPayload(
+  employee: Partial<Employee> & Record<string, any>,
+  companyId?: string
+): {
+  id: string;
+  name: string;
+  role: string;
+  cpf: string;
+  phone: string;
+  email: string;
+  status: string;
+  registration_type: string;
+  salary: number;
+  admission_date: string | null;
+  driver_license: string;
+  license_category: string;
+  license_expiry: string | null;
+  company_id: string | null;
+  updated_at: string;
+} {
+  const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
+  const validId = toValidUUID(employee.id);
 
-  // Remove colunas que já sabemos não existirem nessa tabela
-  const knownMissing = missingColumnsCache.get(tableName);
-  if (knownMissing) {
-    for (const col of knownMissing) {
-      delete payload[col];
-    }
-  }
+  // Tratamento rigoroso de datas (DATE em PostgreSQL requer 'YYYY-MM-DD' ou null; strings vazias geram erro 22007)
+  const admissionDateIso = formatIsoDateOnly(employee.admissionDate || employee.data_admissao);
+  const licenseExpiryIso = formatIsoDateOnly(employee.cnhExpiration || employee.license_expiry || employee.cnh_vencimento);
 
-  const isEditing = Boolean(payload.id);
+  // Tratamento numérico de salário (NUMERIC em PostgreSQL)
+  const salaryNum = typeof employee.salary === 'number' && !isNaN(employee.salary)
+    ? employee.salary
+    : (Number(employee.salary || employee.baseSalary || employee.salario) || 0);
 
-  let attempts = 0;
-  while (attempts < 10) {
-    attempts++;
+  const roleStr = String(employee.role || (employee.roles && employee.roles[0]) || 'Operador de Forrageira').trim();
+  const regTypeStr = String(employee.registrationType || employee.registration_type || employee.tipo_registro || 'Funcionário').trim();
 
-    let error: any = null;
-
-    if (isEditing) {
-      // Se for EDIÇÃO (o funcionário já possui ID), força .update().eq('id', payload.id) em vez de .upsert()
-      const updateResult = await supabase.from(tableName).update(payload).eq('id', payload.id);
-      error = updateResult.error;
-    } else {
-      // Se for NOVO cadastro (sem ID prévio), utiliza .insert()
-      const insertResult = await supabase.from(tableName).insert(payload);
-      error = insertResult.error;
-    }
-
-    if (!error) {
-      return { success: true };
-    }
-
-    const msg = error.message || '';
-    const code = error.code || '';
-
-    // Se a tabela inteira não existir no schema do Supabase (42P01)
-    if (code === '42P01' || msg.includes('does not exist') && msg.includes(tableName)) {
-      return { success: false, tableNotFound: true, error };
-    }
-
-    // Se uma coluna específica não existir no schema do Supabase (PGRST204 ou 42703)
-    const matchMissingCol =
-      msg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
-      msg.match(/column "?([a-zA-Z0-9_]+)"? of relation/i) ||
-      msg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i) ||
-      msg.match(/column ([a-zA-Z0-9_]+) does not exist/i);
-
-    if (matchMissingCol && matchMissingCol[1]) {
-      const badCol = matchMissingCol[1];
-      if (!knownMissing) {
-        missingColumnsCache.set(tableName, new Set([badCol]));
-      } else {
-        knownMissing.add(badCol);
-      }
-      delete payload[badCol];
-      continue; // Tenta novamente sem a coluna inexistente
-    }
-
-    // Se houver erro de chave estrangeira de company_id (23503)
-    if (code === '23503' || msg.includes('company_id')) {
-      delete payload.company_id;
-      continue;
-    }
-
-    // Fallback: se update não encontrar registro ou falhar, tenta upsert sem onConflict ou insert
-    if (isEditing && attempts === 1) {
-      const fallbackResult = await supabase.from(tableName).upsert(payload);
-      if (!fallbackResult.error) {
-        return { success: true };
-      }
-    }
-
-    // Outro erro irrecuperável - detalha no console
-    console.error(`[Supabase RH Funcionario] Falha ao persistir na tabela "${tableName}":`, {
-      code,
-      message: msg,
-      details: error.details,
-      hint: error.hint,
-      payload
-    });
-    return { success: false, error };
-  }
-  return { success: false };
+  return {
+    id: validId,
+    name: String(employee.name || employee.nome || '').trim(),
+    role: roleStr || 'Operador de Forrageira',
+    cpf: String(employee.cpf || '').trim(),
+    phone: String(employee.phone || employee.telefone || '').trim(),
+    email: String(employee.email || '').trim(),
+    status: String(employee.status || 'ativo').trim().toLowerCase(),
+    registration_type: regTypeStr || 'Funcionário',
+    salary: salaryNum,
+    admission_date: admissionDateIso || null,
+    driver_license: String(employee.cnhNumber || employee.driver_license || employee.cnh_numero || '').trim(),
+    license_category: String(employee.cnhCategory || employee.license_category || employee.cnh_categoria || '').trim(),
+    license_expiry: licenseExpiryIso || null,
+    company_id: activeCompanyId ? String(activeCompanyId).trim() : null,
+    updated_at: new Date().toISOString()
+  };
 }
 
 export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
@@ -1056,131 +1020,72 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
   }
 }
 
+/**
+ * Salva ou atualiza colaborador na tabela 'rh_funcionarios'.
+ * Garante que o payload enviado via PATCH ou UPSERT use estritamente as colunas existentes,
+ * sem propriedades temporárias que causem erros 400 (Bad Request).
+ */
 export async function upsertRhFuncionario(employee: Employee, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
+    const cleanPayload = sanitizeRhFuncionarioPayload(employee, activeCompanyId);
+    const validId = cleanPayload.id;
 
-    // 1. MAPEAMENTO E CONVERSÃO RIGOROSA DE DATA (YYYY-MM-DD):
-    const formattedAdmissionDate = formatIsoDateOnly(employee.admissionDate);
-    const formattedTerminationDate = formatIsoDateOnly(employee.terminationDate);
-    const formattedCnhExpiration = formatIsoDateOnly(employee.cnhExpiration);
-    const formattedBirthDate = formatIsoDateOnly(employee.birthDate);
+    // Remove 'id' do corpo do PATCH para atualizar por filtro eq('id', validId)
+    const { id: _ignoredId, ...patchBody } = cleanPayload;
 
-    // 2. TRATAMENTO NUMÉRICO DE SALÁRIO:
-    const parsedSalary = Number(employee.salary || employee.baseSalary) || 0;
+    // 1. Tenta atualizar com PATCH direto em /rest/v1/rh_funcionarios?id=eq.<validId>
+    const updateRes = await supabase
+      .from('rh_funcionarios')
+      .update(patchBody)
+      .eq('id', validId)
+      .select('id');
 
-    // 3. TRATAMENTO NUMÉRICO DE COMISSÃO E "SEM COMISSÃO":
-    const isCommissionActive = Boolean(
-      employee.receivesCommission ||
-      (employee.brokerCommissionValue !== undefined && Number(employee.brokerCommissionValue) > 0)
-    );
-
-    let parsedCommissionValue: number = 0;
-    if (isCommissionActive) {
-      if (employee.brokerCommissionValue !== undefined && Number(employee.brokerCommissionValue) > 0) {
-        parsedCommissionValue = parseFloat(String(employee.brokerCommissionValue)) || 0;
-      } else if (employee.commissionPerHour !== undefined && Number(employee.commissionPerHour) > 0) {
-        parsedCommissionValue = parseFloat(String(employee.commissionPerHour)) || 0;
-      } else if (employee.commissionPerAlqueire !== undefined && Number(employee.commissionPerAlqueire) > 0) {
-        parsedCommissionValue = parseFloat(String(employee.commissionPerAlqueire)) || 0;
-      } else if (employee.commissionPerHectare !== undefined && Number(employee.commissionPerHectare) > 0) {
-        parsedCommissionValue = parseFloat(String(employee.commissionPerHectare)) || 0;
-      } else if ((employee as any).comissao_valor !== undefined) {
-        parsedCommissionValue = parseFloat(String((employee as any).comissao_valor)) || 0;
-      } else if ((employee as any).comissao !== undefined) {
-        parsedCommissionValue = parseFloat(String((employee as any).comissao)) || 0;
-      }
-    } else {
-      // Quando selecionado "Sem comissão", envia estritamente 0 numérico para evitar 400 Bad Request
-      parsedCommissionValue = 0;
-    }
-
-    const commPerHour = isCommissionActive ? (parseFloat(String(employee.commissionPerHour)) || 0) : 0;
-    const commPerAlq = isCommissionActive ? (parseFloat(String(employee.commissionPerAlqueire)) || 0) : 0;
-    const commPerHa = isCommissionActive ? (parseFloat(String(employee.commissionPerHectare)) || 0) : 0;
-    const commBroker = parseFloat(String(employee.brokerCommissionValue || 0)) || 0;
-
-    const contractTypeStr = employee.contractType || employee.registrationType || 'Registrado (CLT)';
-    const roleStr = employee.role || (employee.roles && employee.roles[0]) || 'Operador de Forrageira';
-
-    // Payload abrangente suportando tanto nomes de colunas internacionais quanto em português
-    const basePayload: Record<string, any> = {
-      id: toValidUUID(employee.id),
-      company_id: activeCompanyId,
-      name: employee.name,
-      nome: employee.name,
-      role: roleStr,
-      cargo: roleStr,
-      cpf: employee.cpf || '',
-      phone: employee.phone || '',
-      telefone: employee.phone || '',
-      email: '',
-      status: employee.status || 'ativo',
-      registration_type: employee.registrationType || 'Funcionário',
-      tipo_registro: employee.registrationType || 'Funcionário',
-      contract_type: contractTypeStr,
-      regime: contractTypeStr,
-      salary: parsedSalary,
-      salario: parsedSalary,
-      admission_date: formattedAdmissionDate,
-      data_admissao: formattedAdmissionDate,
-      admitted_at: formattedAdmissionDate,
-      termination_date: formattedTerminationDate,
-      data_demissao: formattedTerminationDate,
-      comissao: parsedCommissionValue,
-      comissao_valor: parsedCommissionValue,
-      commission: parsedCommissionValue,
-      receives_commission: isCommissionActive,
-      recebe_comissao: isCommissionActive,
-      commission_per_hour: commPerHour,
-      comissao_hora: commPerHour,
-      commission_per_alqueire: commPerAlq,
-      comissao_alqueire: commPerAlq,
-      commission_per_hectare: commPerHa,
-      comissao_hectare: commPerHa,
-      broker_commission_value: commBroker,
-      comissao_agenciador: commBroker,
-      broker_commission_type: employee.brokerCommissionType || null,
-      acting_region: employee.actingRegion || null,
-      regiao_atuacao: employee.actingRegion || null,
-      birth_date: formattedBirthDate,
-      driver_license: employee.cnhNumber || '',
-      cnh_numero: employee.cnhNumber || '',
-      license_category: employee.cnhCategory || '',
-      cnh_categoria: employee.cnhCategory || '',
-      license_expiry: formattedCnhExpiration,
-      cnh_vencimento: formattedCnhExpiration,
-      updated_at: new Date().toISOString()
-    };
-
-    console.log('[Supabase RH Funcionario] Persistindo dados:', {
-      isEditing: Boolean(employee.id),
-      id: basePayload.id,
-      name: basePayload.name,
-      commPerHour,
-      commPerAlq,
-      commPerHa,
-      commBroker,
-      parsedCommissionValue,
-      payload: basePayload
-    });
-
-    // 1. Tenta salvar na tabela 'rh_funcionarios'
-    const rhResult = await executeAdaptiveFuncionarioUpsert('rh_funcionarios', basePayload);
-    if (rhResult.success) {
-      // Opcional: tenta atualizar também na tabela 'funcionarios' se ela existir
-      executeAdaptiveFuncionarioUpsert('funcionarios', basePayload).catch(() => {});
+    if (!updateRes.error && Array.isArray(updateRes.data) && updateRes.data.length > 0) {
       return true;
     }
 
-    // 2. Se 'rh_funcionarios' não existir, tenta salvar em 'funcionarios'
-    if (rhResult.tableNotFound) {
-      const funcResult = await executeAdaptiveFuncionarioUpsert('funcionarios', basePayload);
-      if (funcResult.success) return true;
+    // Se houve erro de restrição de company_id (23503), remove company_id e tenta o update novamente
+    if (updateRes.error && (updateRes.error.code === '23503' || updateRes.error.message?.includes('company_id'))) {
+      const { company_id: _cid, ...patchWithoutCompany } = patchBody;
+      const retryUpdate = await supabase
+        .from('rh_funcionarios')
+        .update(patchWithoutCompany)
+        .eq('id', validId)
+        .select('id');
+      if (!retryUpdate.error && Array.isArray(retryUpdate.data) && retryUpdate.data.length > 0) {
+        return true;
+      }
     }
 
-    logPostgresError('upsertRhFuncionario', rhResult.error, { table: 'rh_funcionarios', action: 'UPSERT' });
+    // 2. Se não atualizou nenhuma linha (registro novo), executa o upsert/insert com id
+    const upsertRes = await supabase
+      .from('rh_funcionarios')
+      .upsert(cleanPayload, { onConflict: 'id' });
+
+    if (!upsertRes.error) {
+      return true;
+    }
+
+    // Se o upsert falhou por restrição de company_id
+    if (upsertRes.error && (upsertRes.error.code === '23503' || upsertRes.error.message?.includes('company_id'))) {
+      const { company_id: _cid, ...cleanWithoutCompany } = cleanPayload;
+      const retryUpsert = await supabase
+        .from('rh_funcionarios')
+        .upsert(cleanWithoutCompany, { onConflict: 'id' });
+      if (!retryUpsert.error) {
+        return true;
+      }
+    }
+
+    // 3. Fallback: Se a tabela 'rh_funcionarios' não existir (42P01), tenta em 'funcionarios'
+    if (updateRes.error && (updateRes.error.code === '42P01' || updateRes.error.message?.includes('does not exist'))) {
+      const funcRes = await supabase.from('funcionarios').upsert(cleanPayload, { onConflict: 'id' });
+      if (!funcRes.error) return true;
+    }
+
+    console.warn('[Supabase RH Funcionario] Aviso ao persistir funcionário:', updateRes.error || upsertRes.error);
     return false;
   } catch (err) {
     console.warn('Supabase upsertRhFuncionario err:', err);
@@ -1194,26 +1099,18 @@ export async function deleteRhFuncionario(id: string, companyId?: string): Promi
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
 
-    // Deleta de rh_funcionarios
+    // Deleta de rh_funcionarios usando apenas o UUID válido
     let query = supabase.from('rh_funcionarios').delete().eq('id', uuid);
     if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-    await query;
+    const res = await query;
 
-    // Deleta também de funcionarios caso essa seja a tabela ativa
-    let funcQuery = supabase.from('funcionarios').delete().eq('id', uuid);
-    if (activeCompanyId) funcQuery = funcQuery.eq('company_id', activeCompanyId);
-    await funcQuery;
-
-    // Se o id original não era UUID, tenta com o id original
-    if (id !== uuid) {
-      let retryRh = supabase.from('rh_funcionarios').delete().eq('id', id);
-      if (activeCompanyId) retryRh = retryRh.eq('company_id', activeCompanyId);
-      await retryRh;
-
-      let retryFunc = supabase.from('funcionarios').delete().eq('id', id);
-      if (activeCompanyId) retryFunc = retryFunc.eq('company_id', activeCompanyId);
-      await retryFunc;
+    // Se a tabela 'rh_funcionarios' não existir, tenta em 'funcionarios'
+    if (res.error && res.error.code === '42P01') {
+      let funcQuery = supabase.from('funcionarios').delete().eq('id', uuid);
+      if (activeCompanyId) funcQuery = funcQuery.eq('company_id', activeCompanyId);
+      await funcQuery;
     }
+
     return true;
   } catch (err) {
     console.warn('Supabase deleteRhFuncionario err:', err);
@@ -1653,6 +1550,9 @@ export async function fetchAbastecimentos(companyId?: string): Promise<FuelLog[]
   const cloudLogs = await fetchCloudFuelLogs(cId);
   return cloudLogs || [];
 }
+
+// Cache interno de colunas indisponíveis por tabela para abastecimentos
+const missingColumnsCache = new Map<string, Set<string>>();
 
 /**
  * Insere ou atualiza um registro individual de abastecimento no Supabase
