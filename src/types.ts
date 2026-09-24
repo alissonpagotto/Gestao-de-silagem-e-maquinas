@@ -481,6 +481,20 @@ export interface InventoryItem {
   ncm?: string; // Código NCM (ex: 0000.00.00)
   fiscalGroup?: 'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO' | string; // Grupo Fiscal
   ipiGroup?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string; // Grupo IPI
+  // Aliases em português para integração direta com a tabela 'estoque' / 'estoque_produtos'
+  nome?: string;
+  categoria?: string;
+  unidade_medida?: string;
+  marca?: string;
+  codigo_barras?: string;
+  sem_gtin?: boolean;
+  ref_fabrica?: string;
+  codigo_ncm?: string;
+  grupo_fiscal?: 'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO' | string;
+  grupo_ipi?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string;
+  custo_nominal?: number;
+  preco_venda?: number;
+  margem_lucro_sugerida?: number;
   createdAt?: string;
   updatedAt?: string;
 }

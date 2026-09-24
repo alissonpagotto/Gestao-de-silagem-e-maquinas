@@ -939,51 +939,114 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
   }
 }
 
-export async function upsertEstoqueItem(item: InventoryItem, companyId?: string): Promise<boolean> {
+export function parseNumericFloat(val: any): number {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const str = String(val)
+    .replace('R$', '')
+    .replace('%', '')
+    .replace(/\s/g, '')
+    .trim();
+  if (!str) return 0;
+  // Trata formato brasileiro (1.250,50 -> 1250.50) ou padrão (1250.50)
+  const cleaned = str.includes(',') ? str.replace(/\./g, '').replace(',', '.') : str;
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
+export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = item.companyId || companyId || getActiveCompanyId();
+    const itemId = item.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    
+    // Tratamento estrito de valores numéricos como floats válidos
+    const custoNominalFloat = parseNumericFloat(item.custo_nominal ?? item.unitCost ?? item.preco_custo);
+    const precoVendaFloat = parseNumericFloat(item.preco_venda ?? item.salePrice ?? item.preco_venda_final);
+    const margemFloat = (item.margem_lucro_sugerida !== undefined && item.margem_lucro_sugerida !== null && item.margem_lucro_sugerida !== '')
+      ? parseNumericFloat(item.margem_lucro_sugerida)
+      : (item.profitMargin !== undefined && item.profitMargin !== null && item.profitMargin !== '')
+        ? parseNumericFloat(item.profitMargin)
+        : (item.margem_lucro !== undefined && item.margem_lucro !== null && item.margem_lucro !== '')
+          ? parseNumericFloat(item.margem_lucro)
+          : (custoNominalFloat > 0 && precoVendaFloat > 0 
+              ? Number((((precoVendaFloat - custoNominalFloat) / custoNominalFloat) * 100).toFixed(2)) 
+              : null);
+
+    const nomeStr = String(item.nome || item.name || item.descricao || 'Produto sem descrição').trim();
+    const categoriaStr = String(item.categoria || item.category || 'outro').trim();
+    const unidadeStr = String(item.unidade_medida || item.unit || 'UN').trim().toUpperCase();
+    const marcaStr = item.marca || item.brand ? String(item.marca || item.brand).trim() : null;
+    const semGtinBool = Boolean(item.sem_gtin ?? item.hasNoGtin ?? (item.codigo_barras === 'SEM GTIN'));
+    const barcodeStr = semGtinBool ? 'SEM GTIN' : (item.codigo_barras || item.barcode || item.gtin ? String(item.codigo_barras || item.barcode || item.gtin).trim() : null);
+    const refFabricaStr = item.ref_fabrica || item.factoryRef || item.referencia_fabrica ? String(item.ref_fabrica || item.factoryRef || item.referencia_fabrica).trim() : null;
+    const ncmStr = item.codigo_ncm || item.ncm ? String(item.codigo_ncm || item.ncm).trim() : null;
+    const grupoFiscalStr = item.grupo_fiscal || item.fiscalGroup ? String(item.grupo_fiscal || item.fiscalGroup).trim() : null;
+    const grupoIpiStr = item.grupo_ipi || item.ipiGroup ? String(item.grupo_ipi || item.ipiGroup).trim() : null;
+
+    // Payload unificado com campos pedidos no legado e compatibilidade
     const payload: Record<string, any> = {
-      id: toValidUUID(item.id),
+      id: toValidUUID(itemId),
       company_id: activeCompanyId,
-      codigo_produto: item.code || `PRD-${toValidUUID(item.id).slice(0, 8)}`,
-      descricao: item.name || 'Produto sem descrição',
-      quantidade_atual: Number(item.quantity) || 0.000,
-      preco_venda_final: Number(item.salePrice) || 0,
-      preco_venda_atacado: Number(item.wholesalePrice) || 0,
-      preco_venda_promo: Number(item.promoPrice) || null,
-      preco_custo: Number(item.unitCost) || 0,
-      custo_nominal: Number(item.unitCost) || 0,
-      margem_lucro: item.profitMargin !== undefined && item.profitMargin !== null ? Number(item.profitMargin) : null,
-      unidade: item.unit || 'UN',
-      marca: item.brand || null,
-      codigo_barras: item.barcode || null,
-      gtin: item.barcode || null,
-      sem_gtin: Boolean(item.hasNoGtin),
-      referencia_fabrica: item.factoryRef || null,
-      ncm: item.ncm || null,
-      grupo_fiscal: item.fiscalGroup || null,
-      grupo_ipi: item.ipiGroup || null,
-      categoria: item.category || 'outro',
-      localizacao: item.location || 'Depósito Principal',
+      codigo_produto: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
+      // Nomes oficiais solicitados
+      nome: nomeStr,
+      categoria: categoriaStr,
+      unidade_medida: unidadeStr,
+      marca: marcaStr,
+      codigo_barras: barcodeStr,
+      sem_gtin: semGtinBool,
+      ref_fabrica: refFabricaStr,
+      codigo_ncm: ncmStr,
+      grupo_fiscal: grupoFiscalStr,
+      grupo_ipi: grupoIpiStr,
+      custo_nominal: custoNominalFloat,
+      preco_venda: precoVendaFloat,
+      margem_lucro_sugerida: margemFloat,
+      // Nomes legados da tabela para suporte retroativo
+      descricao: nomeStr,
+      unidade: unidadeStr,
+      gtin: barcodeStr,
+      referencia_fabrica: refFabricaStr,
+      ncm: ncmStr,
+      preco_custo: custoNominalFloat,
+      preco_venda_final: precoVendaFloat,
+      preco_venda_atacado: parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado),
+      preco_venda_promo: item.promoPrice || item.preco_venda_promo ? parseNumericFloat(item.promoPrice ?? item.preco_venda_promo) : null,
+      margem_lucro: margemFloat,
+      quantidade_atual: parseNumericFloat(item.quantity ?? item.quantidade_atual),
+      localizacao: item.location || item.localizacao || 'Depósito Principal',
       fim_promocao: null,
     };
 
-    let { error } = await supabase
+    // Tenta gravar na tabela ativa ('estoque' ou 'estoque_produtos')
+    let result = await supabase
       .from('estoque')
       .upsert(payload, { onConflict: 'id' });
 
-    if (error) {
-      logPostgresError('upsertEstoqueItem', error, { table: 'estoque', action: 'UPSERT', payload });
-      // Fallback adaptativo: se a tabela física ainda não possuir as colunas novas, tenta com o payload base
+    // Se 'estoque' der erro por coluna não existente ou tabela ausente, tenta 'estoque_produtos'
+    if (result.error) {
+      const altResult = await supabase
+        .from('estoque_produtos')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (!altResult.error) return true;
+
+      logPostgresError('upsertEstoqueItem', result.error, { table: 'estoque', action: 'UPSERT', payload });
+
+      // Fallback adaptativo: remove campos extras que podem não existir no schema físico legado
       const basePayload: Record<string, any> = {
-        id: toValidUUID(item.id),
-        codigo_produto: item.code || `PRD-${toValidUUID(item.id).slice(0, 8)}`,
-        descricao: item.name || 'Produto sem descrição',
-        quantidade_atual: Number(item.quantity) || 0.000,
-        preco_venda_final: Number(item.salePrice) || 0,
-        preco_venda_atacado: Number(item.wholesalePrice) || 0,
-        preco_venda_promo: Number(item.promoPrice) || null,
+        id: toValidUUID(itemId),
+        codigo_produto: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
+        descricao: nomeStr,
+        quantidade_atual: parseNumericFloat(item.quantity ?? item.quantidade_atual),
+        preco_venda_final: precoVendaFloat,
+        preco_venda_atacado: parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado),
+        preco_venda_promo: item.promoPrice ? parseNumericFloat(item.promoPrice) : null,
+        preco_custo: custoNominalFloat,
+        custo_nominal: custoNominalFloat,
+        unidade: unidadeStr,
+        categoria: categoriaStr,
         fim_promocao: null,
       };
       if (activeCompanyId) basePayload.company_id = activeCompanyId;
@@ -995,6 +1058,11 @@ export async function upsertEstoqueItem(item: InventoryItem, companyId?: string)
         const retryNoComp = await supabase.from('estoque').upsert(basePayload, { onConflict: 'id' });
         if (!retryNoComp.error) return true;
       }
+
+      // Tenta basePayload em estoque_produtos
+      const retryEstoqueProdutos = await supabase.from('estoque_produtos').upsert(basePayload, { onConflict: 'id' });
+      if (!retryEstoqueProdutos.error) return true;
+
       return false;
     }
     return true;
@@ -1002,6 +1070,20 @@ export async function upsertEstoqueItem(item: InventoryItem, companyId?: string)
     console.warn('Supabase upsertEstoqueItem err:', err);
     return false;
   }
+}
+
+/**
+ * Cadastra / Insere um novo produto no estoque via Supabase (com mapeamento completo dos novos campos legados)
+ */
+export async function cadastrarProduto(item: InventoryItem | any, companyId?: string): Promise<boolean> {
+  return upsertEstoqueItem(item, companyId);
+}
+
+/**
+ * Insere um novo produto no estoque (alias solicitado para inserção de novos produtos)
+ */
+export async function inserirProduto(item: InventoryItem | any, companyId?: string): Promise<boolean> {
+  return upsertEstoqueItem(item, companyId);
 }
 
 export async function deleteEstoqueItem(id: string, companyId?: string): Promise<boolean> {

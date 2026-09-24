@@ -72,6 +72,7 @@ import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput,
 import { SupplierModal } from '../suppliers/SupplierModal';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 import { ManageDocumentTypesModal } from './ManageDocumentTypesModal';
+import { ProductFormModal } from '../inventory/ProductFormModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
 import { 
   upsertNotaFiscal, 
@@ -4603,283 +4604,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       {/* Modal: Cadastrar Novo Produto no Estoque (De-Para) */}
       {newProductModal.isOpen && (
-        <div 
-          id="modal-cadastrar-produto-nfe"
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-        >
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95">
-            {/* Header do Modal */}
-            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400 flex items-center justify-center font-bold">
-                  <Package className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-['Outfit']">
-                    Cadastrar Novo Produto no Estoque
-                  </h3>
-                  <p className="text-xs text-stone-500">
-                    Preenchimento padrão de retaguarda para vinculação direta com a NF-e (De-Para)
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNewProductModal(prev => ({ ...prev, isOpen: false }))}
-                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Formulário do Produto */}
-            <form onSubmit={handleSaveNewProduct} className="p-6 space-y-5">
-              
-              {/* Bloco 1: Dados Gerais */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider pb-1 border-b border-stone-200 dark:border-stone-800">
-                  <FileText className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Dados Gerais</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                  <div className="sm:col-span-4">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Código Interno
-                    </label>
-                    <input
-                      type="text"
-                      value={newProductModal.code}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, code: e.target.value }))}
-                      placeholder="Ex: 001, PRD102"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 font-mono"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-8">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Nome do Produto <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newProductModal.name}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Ex: ÓLEO DIESEL S10 COMUM A GRANEL"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 font-medium"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-6">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Nome Fiscal (NF-e)
-                    </label>
-                    <input
-                      type="text"
-                      value={newProductModal.fiscalName}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, fiscalName: e.target.value }))}
-                      placeholder="Descrição fiscal idêntica à nota"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-3">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Cód Barras (GTIN)
-                    </label>
-                    <input
-                      type="text"
-                      value={newProductModal.barcode}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, barcode: e.target.value }))}
-                      placeholder="789..."
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 font-mono"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-3">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Unidade (Un)
-                    </label>
-                    <input
-                      type="text"
-                      value={newProductModal.unit}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, unit: e.target.value.toUpperCase() }))}
-                      placeholder="UN, LT, KG..."
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500 uppercase font-mono font-bold"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-6">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Categoria no Estoque
-                    </label>
-                    <select
-                      value={newProductModal.category}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, category: e.target.value as any }))}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500"
-                    >
-                      <option value="combustivel">Combustível & Arla</option>
-                      <option value="lona_embalagem">Lona & Embalagem</option>
-                      <option value="inoculante">Inoculante & Biológico</option>
-                      <option value="sementes">Sementes</option>
-                      <option value="adubo">Adubo & Fertilizante</option>
-                      <option value="pecas">Peças & Manutenção</option>
-                      <option value="outro">Outros Insumos</option>
-                    </select>
-                  </div>
-
-                  <div className="sm:col-span-6">
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Localização Física
-                    </label>
-                    <input
-                      type="text"
-                      value={newProductModal.location}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, location: e.target.value }))}
-                      placeholder="Ex: Barracão Principal, Tanque 1"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-1 focus:ring-sky-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bloco 2: Cálculo de Preço */}
-              <div className="space-y-3 p-4 bg-sky-50/50 dark:bg-sky-950/20 rounded-xl border border-sky-200 dark:border-sky-900/50">
-                <div className="flex items-center justify-between text-xs font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider pb-1">
-                  <span className="flex items-center space-x-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Cálculo de Preço & Formação de Margem</span>
-                  </span>
-                  <span className="text-[10px] text-sky-600 dark:text-sky-400 font-normal">
-                    Preço de Custo extraído do XML
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Preço de Custo (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={newProductModal.unitCost}
-                      onChange={(e) => handlePriceCalculation('unitCost', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-sky-300 dark:border-sky-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Margem de Lucro (%)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="any"
-                        value={newProductModal.profitMargin}
-                        onChange={(e) => handlePriceCalculation('profitMargin', parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 pr-7 text-xs rounded-lg border border-sky-300 dark:border-sky-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-mono font-bold"
-                      />
-                      <span className="absolute right-2.5 top-2 text-xs text-stone-400 font-bold">%</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Preço de Venda (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={newProductModal.salePrice}
-                      onChange={(e) => handlePriceCalculation('salePrice', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-emerald-400 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 font-mono font-bold"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bloco 3: Estoque */}
-              <div className="space-y-3 p-4 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700">
-                <div className="flex items-center justify-between text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider pb-1">
-                  <span className="flex items-center space-x-1.5">
-                    <Layers className="w-3.5 h-3.5 text-stone-500" />
-                    <span>Controle de Estoque</span>
-                  </span>
-                  <span className="text-[10px] text-stone-500 font-normal">
-                    Saldo base (a quantidade da NF-e será somada na confirmação)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Estoque Anterior / Base ({newProductModal.unit})
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={newProductModal.initialQuantity}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, initialQuantity: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Estoque Mínimo
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={newProductModal.minQuantity}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, minQuantity: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                      Estoque Máximo
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={newProductModal.maxQuantity}
-                      onChange={(e) => setNewProductModal(prev => ({ ...prev, maxQuantity: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Rodapé do Modal */}
-              <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setNewProductModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-1.5 cursor-pointer active:scale-98"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Salvar e Vincular Produto</span>
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
+        <ProductFormModal
+          isOpen={newProductModal.isOpen}
+          initialData={{
+            name: newProductModal.name,
+            code: newProductModal.code,
+            barcode: newProductModal.barcode,
+            unit: newProductModal.unit,
+            category: newProductModal.category,
+            unitCost: newProductModal.unitCost,
+            profitMargin: newProductModal.profitMargin,
+            salePrice: newProductModal.salePrice,
+            quantity: newProductModal.initialQuantity,
+            minQuantity: newProductModal.minQuantity,
+            location: newProductModal.location,
+          }}
+          onClose={() => setNewProductModal(prev => ({ ...prev, isOpen: false }))}
+          onSuccess={(newProduct) => {
+            const updated = [...localInventory, newProduct];
+            saveInventory(updated);
+            setSessionCreatedProductIds(prev => new Set(prev).add(newProduct.id));
+            handleLinkProduct(newProductModal.rowIndex, newProduct.id);
+            setNewProductModal(prev => ({ ...prev, isOpen: false }));
+            setSuccessMessage(`Produto "${newProduct.name}" cadastrado e vinculado com sucesso!`);
+            setTimeout(() => setSuccessMessage(''), 4000);
+          }}
+        />
       )}
 
       {/* Modal Customizado de Confirmação de Exclusão de NF-e com Estorno de Estoque & Prevenção de Saldo Negativo */}
