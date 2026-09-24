@@ -31,7 +31,8 @@ import {
   MaintenancePurchaseRequest,
   MaintenanceCategoryDefinition,
   ServiceAppointment,
-  DocumentoEntradaRecord
+  DocumentoEntradaRecord,
+  DocumentoEntradaItem
 } from '../types';
 import { 
   INITIAL_VEHICLE_TYPES, 
@@ -1519,3 +1520,29 @@ export const deleteLocalDocumentoEntrada = (id: string): void => {
   const current = getStoredDocumentosEntrada();
   saveStoredDocumentosEntrada(current.filter(d => d.id !== id));
 };
+
+const STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS = 'silagem_facil_documentos_entrada_itens_v1';
+
+export const getStoredDocumentosEntradaItens = (documentoEntradaId?: string): DocumentoEntradaItem[] => {
+  const all = getStoredList<DocumentoEntradaItem>(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, []);
+  if (documentoEntradaId) {
+    return all.filter(i => i.documento_entrada_id === documentoEntradaId);
+  }
+  return all;
+};
+
+export const saveStoredDocumentosEntradaItens = (items: DocumentoEntradaItem[]): void => {
+  saveStoredList(STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, items);
+};
+
+export const saveLocalDocumentoEntradaItem = (item: DocumentoEntradaItem): void => {
+  const all = getStoredDocumentosEntradaItens();
+  const filtered = all.filter(i => i.id !== item.id);
+  saveStoredDocumentosEntradaItens([item, ...filtered]);
+};
+
+export const deleteLocalDocumentoEntradaItem = (id: string): void => {
+  const all = getStoredDocumentosEntradaItens();
+  saveStoredDocumentosEntradaItens(all.filter(i => i.id !== id));
+};
+

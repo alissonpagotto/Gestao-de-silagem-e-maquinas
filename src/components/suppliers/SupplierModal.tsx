@@ -43,7 +43,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({
   onSave,
   initialName = '',
   editingSupplier = null,
-  zIndexClass = 'z-70',
+  zIndexClass = 'z-[9999]',
 }) => {
   const [activeSupplier, setActiveSupplier] = useState<Supplier | null>(editingSupplier || null);
   const [registrationTimestamp, setRegistrationTimestamp] = useState<string>(new Date().toISOString());

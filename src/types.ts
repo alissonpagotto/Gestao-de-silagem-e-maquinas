@@ -1375,4 +1375,18 @@ export interface DocumentoEntradaRecord {
   observacoes?: string;
   created_at?: string;
   updated_at?: string;
+  itens?: DocumentoEntradaItem[];
 }
+
+export interface DocumentoEntradaItem {
+  id: string;
+  documento_entrada_id: string;
+  produto_id?: string;
+  descricao: string;
+  quantidade: number;
+  unidade?: string;
+  valor_unitario: number;
+  valor_total: number;
+  created_at?: string;
+}
+

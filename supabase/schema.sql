@@ -73,6 +73,24 @@ CREATE INDEX IF NOT EXISTS idx_documentos_entrada_data ON public.documentos_entr
 CREATE INDEX IF NOT EXISTS idx_documentos_entrada_tipo ON public.documentos_entrada(tipo_documento);
 
 -- ==============================================================================
+-- 2.2 TABELA: documentos_entrada_itens (Itens/Produtos vinculados à entrada)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.documentos_entrada_itens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    documento_entrada_id UUID REFERENCES public.documentos_entrada(id) ON DELETE CASCADE,
+    produto_id TEXT,
+    descricao TEXT NOT NULL,
+    quantidade NUMERIC(15,3) NOT NULL DEFAULT 1,
+    unidade TEXT DEFAULT 'UN',
+    valor_unitario NUMERIC(15,2) NOT NULL DEFAULT 0,
+    valor_total NUMERIC(15,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_documentos_entrada_itens_doc ON public.documentos_entrada_itens(documento_entrada_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_entrada_itens_prod ON public.documentos_entrada_itens(produto_id);
+
+-- ==============================================================================
 -- 3. TABELA: contas_a_pagar (Financeiro)
 -- Regra Crítica: ON DELETE CASCADE na chave estrangeira nota_fiscal_id
 -- ==============================================================================

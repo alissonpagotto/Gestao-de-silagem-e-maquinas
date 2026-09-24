@@ -33,7 +33,8 @@ import {
   Receipt,
   Pencil,
   AlertTriangle,
-  FileCheck
+  FileCheck,
+  UserPlus
 } from 'lucide-react';
 import { 
   Expense, 
@@ -44,7 +45,8 @@ import {
   ExpenseCategory, 
   PaymentMethod,
   DocumentoEntradaRecord,
-  TipoDocumentoEntrada
+  TipoDocumentoEntrada,
+  DocumentoEntradaItem
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -57,7 +59,8 @@ import {
   saveStoredSuppliers,
   getStoredCostCenters,
   saveStoredCostCenters,
-  getStoredDocumentosEntrada
+  getStoredDocumentosEntrada,
+  getStoredDocumentosEntradaItens
 } from '../../lib/storage';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { SupplierModal } from '../suppliers/SupplierModal';
@@ -68,7 +71,12 @@ import {
   deleteNotaFiscal,
   insertDocumentoEntrada,
   fetchDocumentosEntrada,
-  deleteDocumentoEntrada
+  deleteDocumentoEntrada,
+  insertDocumentoEntradaItem,
+  fetchDocumentosEntradaItens,
+  deleteDocumentoEntradaItem,
+  updateDocumentoEntradaTotal,
+  upsertEstoqueItem
 } from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
@@ -990,8 +998,52 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // Modal de Nova Entrada Manual
+  // Fornecedores locais e sincronização
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => {
+    return (suppliers && suppliers.length > 0) ? suppliers : getStoredSuppliers();
+  });
+
+  useEffect(() => {
+    if (suppliers && suppliers.length > 0) {
+      setLocalSuppliers(suppliers);
+    }
+  }, [suppliers]);
+
+  const saveSuppliers = (updated: Supplier[]) => {
+    setLocalSuppliers(updated);
+    if (onSaveSuppliers) {
+      onSaveSuppliers(updated);
+    }
+    saveStoredSuppliers(updated);
+  };
+
+  // Estado local do inventário sincronizado com props ou storage
+  const [localInventory, setLocalInventory] = useState<InventoryItem[]>(() => {
+    return (inventory && inventory.length > 0) ? inventory : getStoredInventory();
+  });
+
+  useEffect(() => {
+    if (inventory && inventory.length > 0) {
+      setLocalInventory(inventory);
+    }
+  }, [inventory]);
+
+  const saveInventory = (updated: InventoryItem[]) => {
+    setLocalInventory(updated);
+    if (onSaveInventory) {
+      onSaveInventory(updated);
+    }
+    saveStoredInventory(updated);
+  };
+
+  // =========================================================================
+  // MODAL DE NOVA ENTRADA MANUAL (FLUXO STEPPER INTELIGENTE EM ETAPAS)
+  // =========================================================================
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
+  const [manualEntryStep, setManualEntryStep] = useState<1 | 2>(1);
+  const [currentManualDoc, setCurrentManualDoc] = useState<DocumentoEntradaRecord | null>(null);
+
+  // PASSO 1: Dados do Cabeçalho
   const [manualSupplier, setManualSupplier] = useState('');
   const [manualDate, setManualDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [manualDocumentType, setManualDocumentType] = useState<TipoDocumentoEntrada>('Romaneio');
@@ -1000,19 +1052,67 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
 
+  // PASSO 2: Itens / Produtos da Entrada
+  const [manualDocItems, setManualDocItems] = useState<DocumentoEntradaItem[]>([]);
+  const [isLoadingDocItems, setIsLoadingDocItems] = useState(false);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [isItemSearchOpen, setIsItemSearchOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [itemQuantity, setItemQuantity] = useState('1');
+  const [itemUnit, setItemUnit] = useState('UN');
+  const [itemUnitCostDisplay, setItemUnitCostDisplay] = useState('');
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [itemFormError, setItemFormError] = useState('');
+
+  // Submodal de Cadastro Rápido de Novo Produto no Estoque (Passo 2)
+  const [isQuickProductModalOpen, setIsQuickProductModalOpen] = useState(false);
+  const [quickProductName, setQuickProductName] = useState('');
+  const [quickProductUnit, setQuickProductUnit] = useState('UN');
+  const [quickProductCategory, setQuickProductCategory] = useState<InventoryItem['category']>('outro');
+  const [quickProductCode, setQuickProductCode] = useState('');
+  const [quickProductCost, setQuickProductCost] = useState<number>(0);
+  const [quickProductSale, setQuickProductSale] = useState<number>(0);
+  const [quickProductLocation, setQuickProductLocation] = useState('Barracão Principal');
+  const [isSavingQuickProduct, setIsSavingQuickProduct] = useState(false);
+
   // Modal de Visualização de Detalhes da Entrada Manual
   const [viewingManualDoc, setViewingManualDoc] = useState<DocumentoEntradaRecord | null>(null);
+  const [viewingDocItems, setViewingDocItems] = useState<DocumentoEntradaItem[]>([]);
+  const [isLoadingViewingItems, setIsLoadingViewingItems] = useState(false);
 
   // Confirmação de Exclusão de Entrada Manual
   const [manualDocToDelete, setManualDocToDelete] = useState<DocumentoEntradaRecord | null>(null);
 
+  // Carrega itens da entrada manual ao abrir visualização
+  useEffect(() => {
+    if (viewingManualDoc) {
+      setIsLoadingViewingItems(true);
+      fetchDocumentosEntradaItens(viewingManualDoc.id)
+        .then(items => setViewingDocItems(items || []))
+        .catch(() => setViewingDocItems([]))
+        .finally(() => setIsLoadingViewingItems(false));
+    } else {
+      setViewingDocItems([]);
+    }
+  }, [viewingManualDoc]);
+
+  // Abre o modal de entrada manual resetando para a Etapa 1
   const handleOpenManualEntryModal = () => {
+    setManualEntryStep(1);
+    setCurrentManualDoc(null);
     setManualSupplier('');
     setManualDate(new Date().toISOString().split('T')[0]);
     setManualDocumentType('Romaneio');
     setManualAmountDisplay('');
     setManualNotes('');
     setManualFormError('');
+    setManualDocItems([]);
+    setItemSearchQuery('');
+    setSelectedProduct(null);
+    setItemQuantity('1');
+    setItemUnit('UN');
+    setItemUnitCostDisplay('');
+    setItemFormError('');
     setIsManualEntryModalOpen(true);
   };
 
@@ -1026,8 +1126,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setManualAmountDisplay(formatCurrencyInputDisplay(num));
   };
 
-  const handleSaveManualEntry = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleItemUnitCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/\D/g, '');
+    if (!rawVal) {
+      setItemUnitCostDisplay('');
+      return;
+    }
+    const num = parseInt(rawVal, 10) / 100;
+    setItemUnitCostDisplay(formatCurrencyInputDisplay(num));
+  };
+
+  // Verifica se o fornecedor digitado já existe
+  const isSupplierExisting = useMemo(() => {
+    const q = manualSupplier.trim().toLowerCase();
+    if (!q) return true;
+    return localSuppliers.some(s => s.name.trim().toLowerCase() === q);
+  }, [manualSupplier, localSuppliers]);
+
+  // Abertura rápida do cadastro de fornecedores com pré-preenchimento
+  const handleOpenQuickSupplierModal = (nameToPreFill?: string) => {
+    const supName = (nameToPreFill || manualSupplier).trim();
+    setSupplierForModal({
+      id: `sup_manual_${Date.now()}`,
+      name: supName,
+      category: 'Insumos & Entradas',
+      state: 'PR',
+      createdAt: new Date().toISOString()
+    } as Supplier);
+    setIsSupplierModalOpen(true);
+  };
+
+  // PASSO 1 -> PASSO 2: Salva no 'documentos_entrada' e avança
+  const handleAdvanceToStep2 = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setManualFormError('');
 
     const trimmedSupplier = manualSupplier.trim();
@@ -1049,46 +1180,334 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     setIsSavingManualEntry(true);
     try {
-      const savedDoc = await insertDocumentoEntrada({
-        fornecedor: trimmedSupplier,
-        data: manualDate,
-        tipo_documento: manualDocumentType,
-        valor_total: numericAmount,
-        observacoes: manualNotes.trim()
-      });
+      let savedDoc: DocumentoEntradaRecord;
 
-      setDocumentosEntrada(prev => {
-        const filtered = prev.filter(d => d.id !== savedDoc.id);
-        return [savedDoc, ...filtered];
-      });
-
-      // Cadastra despesa correspondente para sincronia financeira
-      if (onAddExpenseFromNfe) {
-        onAddExpenseFromNfe({
-          id: `exp_doc_${savedDoc.id}`,
-          description: `Entrada Manual (${manualDocumentType}) - ${trimmedSupplier}`,
-          amount: numericAmount,
-          categoryId: 'cat_insumos',
-          categoryName: 'Insumos & Entradas',
-          categoryColor: '#059669',
-          dueDate: manualDate,
-          status: 'pendente',
-          paymentMethod: 'boleto',
-          supplier: trimmedSupplier,
-          invoiceNumber: `${manualDocumentType.toUpperCase()}`,
-          notes: manualNotes.trim() ? `Documento de Entrada (${manualDocumentType}): ${manualNotes.trim()}` : `Documento de Entrada (${manualDocumentType})`,
+      if (currentManualDoc) {
+        // Atualiza documento já existente se o usuário voltou ao passo 1
+        savedDoc = {
+          ...currentManualDoc,
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          tipo_documento: manualDocumentType,
+          valor_total: numericAmount,
+          observacoes: manualNotes.trim(),
+        };
+        await updateDocumentoEntradaTotal(savedDoc.id, numericAmount);
+        setDocumentosEntrada(prev => prev.map(d => d.id === savedDoc.id ? savedDoc : d));
+      } else {
+        // Grava no Supabase e captura o ID gerado
+        savedDoc = await insertDocumentoEntrada({
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          tipo_documento: manualDocumentType,
+          valor_total: numericAmount,
+          observacoes: manualNotes.trim()
         });
+
+        setCurrentManualDoc(savedDoc);
+        setDocumentosEntrada(prev => {
+          const filtered = prev.filter(d => d.id !== savedDoc.id);
+          return [savedDoc, ...filtered];
+        });
+
+        // Sincroniza despesa financeira
+        if (onAddExpenseFromNfe) {
+          onAddExpenseFromNfe({
+            id: `exp_doc_${savedDoc.id}`,
+            description: `Entrada Manual (${manualDocumentType}) - ${trimmedSupplier}`,
+            amount: numericAmount,
+            categoryId: 'cat_insumos',
+            categoryName: 'Insumos & Entradas',
+            categoryColor: '#059669',
+            dueDate: manualDate,
+            status: 'pendente',
+            paymentMethod: 'boleto',
+            supplier: trimmedSupplier,
+            invoiceNumber: `${manualDocumentType.toUpperCase()}`,
+            notes: manualNotes.trim() ? `Documento de Entrada (${manualDocumentType}): ${manualNotes.trim()}` : `Documento de Entrada (${manualDocumentType})`,
+          });
+        }
       }
 
-      setIsManualEntryModalOpen(false);
-      setSuccessMessage(`Entrada manual (${manualDocumentType}) no valor de ${formatCurrencyBRL(numericAmount)} cadastrada com sucesso!`);
-      setTimeout(() => setSuccessMessage(''), 5000);
+      // Carrega os itens já salvos desta entrada
+      setIsLoadingDocItems(true);
+      const items = await fetchDocumentosEntradaItens(savedDoc.id);
+      setManualDocItems(items || []);
+      setIsLoadingDocItems(false);
+
+      // Avança para o Passo 2
+      setManualEntryStep(2);
     } catch (err) {
-      console.error('Erro ao salvar entrada manual:', err);
+      console.error('Erro ao salvar cabeçalho da entrada:', err);
       setManualFormError('Ocorreu um erro ao salvar o documento. Tente novamente.');
     } finally {
       setIsSavingManualEntry(false);
     }
+  };
+
+  // PASSO 2: Busca e autocompletes de produtos no estoque
+  const filteredStockProducts = useMemo(() => {
+    const q = itemSearchQuery.trim().toLowerCase();
+    if (!q) return localInventory.slice(0, 15);
+    return localInventory.filter(item => 
+      item.name.toLowerCase().includes(q) ||
+      (item.code && item.code.toLowerCase().includes(q)) ||
+      (item.fiscalName && item.fiscalName.toLowerCase().includes(q)) ||
+      (item.category && item.category.toLowerCase().includes(q))
+    ).slice(0, 20);
+  }, [itemSearchQuery, localInventory]);
+
+  const isProductExistingInStock = useMemo(() => {
+    const q = itemSearchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return localInventory.some(p => p.name.trim().toLowerCase() === q);
+  }, [itemSearchQuery, localInventory]);
+
+  // Seleciona um produto do estoque
+  const handleSelectProduct = (prod: InventoryItem) => {
+    setSelectedProduct(prod);
+    setItemSearchQuery(prod.name);
+    setItemUnit(prod.unit || 'UN');
+    if (prod.unitCost > 0) {
+      setItemUnitCostDisplay(formatCurrencyInputDisplay(prod.unitCost));
+    }
+    setIsItemSearchOpen(false);
+  };
+
+  // Abre submodal de cadastro rápido de novo produto no estoque
+  const handleOpenQuickProductModal = (nameToPreFill?: string) => {
+    const pName = (nameToPreFill || itemSearchQuery).trim();
+    setQuickProductName(pName);
+    setQuickProductUnit(itemUnit || 'UN');
+    setQuickProductCategory('outro');
+    setQuickProductCode('');
+    const curCost = parseCurrencyInput(itemUnitCostDisplay);
+    setQuickProductCost(curCost > 0 ? curCost : 0);
+    setQuickProductSale(curCost > 0 ? curCost * 1.3 : 0);
+    setQuickProductLocation('Barracão Principal');
+    setIsQuickProductModalOpen(true);
+  };
+
+  // Salva produto rapidamente no estoque sem fechar o modal da entrada
+  const handleSaveQuickProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pName = quickProductName.trim();
+    if (!pName) {
+      alert('Por favor, informe o nome do produto.');
+      return;
+    }
+
+    setIsSavingQuickProduct(true);
+    try {
+      const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const newProduct: InventoryItem = {
+        id: newProdId,
+        name: pName,
+        code: quickProductCode.trim() || undefined,
+        unit: (quickProductUnit || 'UN').toUpperCase().trim(),
+        category: quickProductCategory || 'outro',
+        unitCost: Number(quickProductCost) || 0,
+        salePrice: Number(quickProductSale) || 0,
+        quantity: 0, // Saldo zerado inicial; a quantidade será somada ao adicionar o item
+        minQuantity: 0,
+        location: quickProductLocation.trim() || 'Barracão Principal'
+      };
+
+      const updated = [...localInventory, newProduct];
+      saveInventory(updated);
+      await upsertEstoqueItem(newProduct);
+
+      // Vincula diretamente no item atual
+      setSelectedProduct(newProduct);
+      setItemSearchQuery(newProduct.name);
+      setItemUnit(newProduct.unit);
+      if (newProduct.unitCost > 0) {
+        setItemUnitCostDisplay(formatCurrencyInputDisplay(newProduct.unitCost));
+      }
+
+      setIsQuickProductModalOpen(false);
+      setSuccessMessage(`Produto "${newProduct.name}" cadastrado com sucesso no estoque!`);
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      console.error('Erro ao salvar produto rápido:', err);
+      alert('Erro ao salvar produto. Tente novamente.');
+    } finally {
+      setIsSavingQuickProduct(false);
+    }
+  };
+
+  // Adiciona item na entrada: POST em 'documentos_entrada_itens' e SOMA automática no estoque
+  const handleAddItemToManualDoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setItemFormError('');
+
+    if (!currentManualDoc) {
+      setItemFormError('Documento de entrada não inicializado.');
+      return;
+    }
+
+    const description = (selectedProduct?.name || itemSearchQuery).trim();
+    if (!description) {
+      setItemFormError('Por favor, selecione ou digite o nome do produto.');
+      return;
+    }
+
+    const qty = parseFloat(itemQuantity.replace(',', '.'));
+    if (isNaN(qty) || qty <= 0) {
+      setItemFormError('Informe uma quantidade válida maior que zero.');
+      return;
+    }
+
+    const unitPrice = parseCurrencyInput(itemUnitCostDisplay);
+    if (unitPrice < 0) {
+      setItemFormError('O valor unitário não pode ser negativo.');
+      return;
+    }
+
+    const unit = (itemUnit || selectedProduct?.unit || 'UN').toUpperCase().trim();
+    const totalPrice = Math.round(qty * unitPrice * 100) / 100;
+
+    setIsAddingItem(true);
+    try {
+      // 1. Grava POST na tabela 'documentos_entrada_itens'
+      const savedItem = await insertDocumentoEntradaItem({
+        documento_entrada_id: currentManualDoc.id,
+        produto_id: selectedProduct?.id || undefined,
+        descricao: description,
+        quantidade: qty,
+        unidade: unit,
+        valor_unitario: unitPrice,
+        valor_total: totalPrice,
+      });
+
+      // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque'
+      let targetProduct = selectedProduct || localInventory.find(p => 
+        p.name.toLowerCase().trim() === description.toLowerCase().trim()
+      );
+
+      let updatedInventory: InventoryItem[];
+      if (targetProduct) {
+        const updatedProduct: InventoryItem = {
+          ...targetProduct,
+          quantity: (Number(targetProduct.quantity) || 0) + qty,
+          unitCost: unitPrice > 0 ? unitPrice : targetProduct.unitCost,
+        };
+        updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
+        saveInventory(updatedInventory);
+        await upsertEstoqueItem(updatedProduct);
+      } else {
+        // Produto novo cadastrado diretamente no estoque com a quantidade somada
+        const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const newProduct: InventoryItem = {
+          id: newProdId,
+          name: description,
+          unit: unit,
+          category: 'outro',
+          quantity: qty,
+          minQuantity: 0,
+          unitCost: unitPrice,
+          salePrice: unitPrice > 0 ? unitPrice * 1.3 : 0,
+          location: 'Barracão Principal',
+        };
+        updatedInventory = [...localInventory, newProduct];
+        saveInventory(updatedInventory);
+        await upsertEstoqueItem(newProduct);
+      }
+
+      setManualDocItems(prev => [...prev, savedItem]);
+
+      // Limpa campos do item
+      setSelectedProduct(null);
+      setItemSearchQuery('');
+      setItemQuantity('1');
+      setItemUnit('UN');
+      setItemUnitCostDisplay('');
+      setIsItemSearchOpen(false);
+    } catch (err) {
+      console.error('Erro ao adicionar item:', err);
+      setItemFormError('Erro ao gravar item na entrada. Tente novamente.');
+    } finally {
+      setIsAddingItem(false);
+    }
+  };
+
+  // Exclui item da entrada e estorna a quantidade do estoque
+  const handleDeleteItemFromManualDoc = async (item: DocumentoEntradaItem) => {
+    try {
+      await deleteDocumentoEntradaItem(item.id);
+
+      // Estorna a quantidade no saldo de Estoque
+      const targetProduct = localInventory.find(p => 
+        (item.produto_id && p.id === item.produto_id) ||
+        p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+      );
+
+      if (targetProduct) {
+        const newQty = Math.max(0, (Number(targetProduct.quantity) || 0) - Number(item.quantidade));
+        const updatedProduct: InventoryItem = {
+          ...targetProduct,
+          quantity: newQty,
+        };
+        const updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
+        saveInventory(updatedInventory);
+        await upsertEstoqueItem(updatedProduct);
+      }
+
+      setManualDocItems(prev => prev.filter(i => i.id !== item.id));
+    } catch (err) {
+      console.error('Erro ao excluir item da entrada:', err);
+    }
+  };
+
+  // Atualiza o total do cabeçalho com base na soma dos itens
+  const handleSyncHeaderToItemsTotal = async () => {
+    if (!currentManualDoc) return;
+    const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
+    await updateDocumentoEntradaTotal(currentManualDoc.id, itemsTotal);
+    const updatedDoc = { ...currentManualDoc, valor_total: itemsTotal };
+    setCurrentManualDoc(updatedDoc);
+    setManualAmountDisplay(formatCurrencyInputDisplay(itemsTotal));
+    setDocumentosEntrada(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+    setSuccessMessage(`Valor total da entrada atualizado para ${formatCurrencyBRL(itemsTotal)}!`);
+    setTimeout(() => setSuccessMessage(''), 4000);
+  };
+
+  // FINALIZAÇÃO: Concluir Entrada
+  const handleFinalizeManualEntry = async () => {
+    if (!currentManualDoc) return;
+
+    const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
+    const headerTotal = Number(currentManualDoc.valor_total) || parseCurrencyInput(manualAmountDisplay);
+
+    // Se o valor total dos itens for diferente do cabeçalho, atualiza automaticamente
+    if (manualDocItems.length > 0 && Math.abs(itemsTotal - headerTotal) > 0.01) {
+      await updateDocumentoEntradaTotal(currentManualDoc.id, itemsTotal);
+      const updatedDoc = { ...currentManualDoc, valor_total: itemsTotal };
+      setCurrentManualDoc(updatedDoc);
+      setDocumentosEntrada(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+
+      // Atualiza valor da despesa gerada
+      if (onAddExpenseFromNfe) {
+        onAddExpenseFromNfe({
+          id: `exp_doc_${updatedDoc.id}`,
+          description: `Entrada Manual (${updatedDoc.tipo_documento}) - ${updatedDoc.fornecedor}`,
+          amount: itemsTotal,
+          categoryId: 'cat_insumos',
+          categoryName: 'Insumos & Entradas',
+          categoryColor: '#059669',
+          dueDate: updatedDoc.data,
+          status: 'pendente',
+          paymentMethod: 'boleto',
+          supplier: updatedDoc.fornecedor,
+          invoiceNumber: `${updatedDoc.tipo_documento.toUpperCase()}`,
+          notes: updatedDoc.observacoes ? `Documento de Entrada (${updatedDoc.tipo_documento}): ${updatedDoc.observacoes}` : `Documento de Entrada (${updatedDoc.tipo_documento})`,
+        });
+      }
+    }
+
+    setIsManualEntryModalOpen(false);
+    setSuccessMessage(`Entrada manual concluída com sucesso! ${manualDocItems.length} produto(s) lançado(s) no estoque.`);
+    setTimeout(() => setSuccessMessage(''), 5000);
   };
 
   const handleDeleteManualDoc = async (doc: DocumentoEntradaRecord) => {
@@ -1187,26 +1606,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     return list;
   }, [notasFiscaisExibicao, documentosEntrada, searchNfeNumber]);
-
-
-  // Fornecedores locais e sincronização
-  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => {
-    return (suppliers && suppliers.length > 0) ? suppliers : getStoredSuppliers();
-  });
-
-  useEffect(() => {
-    if (suppliers && suppliers.length > 0) {
-      setLocalSuppliers(suppliers);
-    }
-  }, [suppliers]);
-
-  const saveSuppliers = (updated: Supplier[]) => {
-    setLocalSuppliers(updated);
-    if (onSaveSuppliers) {
-      onSaveSuppliers(updated);
-    }
-    saveStoredSuppliers(updated);
-  };
 
   // Centros de Custo locais e sincronização
   const [localCostCenters, setLocalCostCenters] = useState<CostCenter[]>(() => {
@@ -1358,7 +1757,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Salva / valida dados do fornecedor vindo do SupplierModal
   const handleSaveSupplierFromModal = (savedSupplier: Supplier) => {
-    const existingIndex = localSuppliers.findIndex(s => s.id === savedSupplier.id);
+    const existingIndex = localSuppliers.findIndex(s => s.id === savedSupplier.id || (s.name && s.name.toLowerCase() === savedSupplier.name.toLowerCase()));
     let updated: Supplier[];
     if (existingIndex >= 0) {
       updated = [...localSuppliers];
@@ -1368,6 +1767,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
     saveSuppliers(updated);
     setSupplierForModal(savedSupplier);
+    setManualSupplier(savedSupplier.name);
 
     if (parsedData) {
       setParsedData(prev => {
@@ -1397,25 +1797,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     setSuccessMessage(`Fornecedor "${savedSupplier.name}" validado e salvo com sucesso!`);
     setTimeout(() => setSuccessMessage(''), 4000);
-  };
-
-  // Estado local do inventário sincronizado com props ou storage
-  const [localInventory, setLocalInventory] = useState<InventoryItem[]>(() => {
-    return (inventory && inventory.length > 0) ? inventory : getStoredInventory();
-  });
-
-  useEffect(() => {
-    if (inventory && inventory.length > 0) {
-      setLocalInventory(inventory);
-    }
-  }, [inventory]);
-
-  const saveInventory = (updated: InventoryItem[]) => {
-    setLocalInventory(updated);
-    if (onSaveInventory) {
-      onSaveInventory(updated);
-    }
-    saveStoredInventory(updated);
   };
 
   // Dados consolidados e análise de estorno para a nota fiscal selecionada para exclusão
@@ -4832,42 +5213,33 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         />
       )}
 
-      {/* Modal de Validação / Cadastro de Fornecedor acionado automaticamente na leitura de XML */}
-      <SupplierModal
-        isOpen={isSupplierModalOpen}
-        onClose={() => setIsSupplierModalOpen(false)}
-        onSave={handleSaveSupplierFromModal}
-        editingSupplier={supplierForModal}
-        zIndexClass="z-70"
-      />
-
       {/* ========================================================================= */}
-      {/* MODAL 1: NOVA ENTRADA MANUAL (SEM NOTA FISCAL OFICIAL) */}
+      {/* MODAL 1: FLUXO STEPPER INTELIGENTE DE ENTRADA MANUAL (2 ETAPAS) */}
       {/* ========================================================================= */}
       {isManualEntryModalOpen && (
         <div 
           id="modal-nova-entrada-manual"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
           onClick={() => {
-            if (!isSavingManualEntry) setIsManualEntryModalOpen(false);
+            if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
           }}
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-2xl sm:max-w-3xl w-full shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabeçalho do Modal */}
-            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/80 dark:bg-stone-800/60">
+            {/* 1. Cabeçalho Principal com Título e Botão Fechar */}
+            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/90 dark:bg-stone-800/60 shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                  <Package className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
                     Nova Entrada Manual
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Cadastre entradas sem nota fiscal oficial (Romaneios, Recibos, etc.)
+                    Fluxo inteligente em etapas com integração direta e atualização do estoque
                   </p>
                 </div>
               </div>
@@ -4875,9 +5247,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (!isSavingManualEntry) setIsManualEntryModalOpen(false);
+                  if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
                 }}
-                disabled={isSavingManualEntry}
+                disabled={isSavingManualEntry || isAddingItem}
                 className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200/60 dark:hover:bg-stone-700/60 transition cursor-pointer disabled:opacity-50"
                 title="Fechar formulário"
               >
@@ -4885,140 +5257,824 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </button>
             </div>
 
-            {/* Formulário de Cadastro */}
-            <form onSubmit={handleSaveManualEntry} className="p-4 sm:p-6 space-y-4">
-              {manualFormError && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold animate-in fade-in">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{manualFormError}</span>
-                </div>
-              )}
+            {/* 2. Barra Visual de Progresso do Stepper */}
+            <div className="px-5 py-3 bg-stone-100/90 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3 sm:space-x-6 w-full">
+                {/* Passo 1 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (manualEntryStep === 2) setManualEntryStep(1);
+                  }}
+                  className={`flex items-center space-x-2.5 text-left transition ${
+                    manualEntryStep === 1 
+                      ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer'
+                  }`}
+                >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
+                    manualEntryStep === 1
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : currentManualDoc || manualDocItems.length > 0
+                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                      : 'bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+                  }`}>
+                    {manualEntryStep === 2 ? <Check className="w-4 h-4 stroke-[3]" /> : '1'}
+                  </div>
+                  <div>
+                    <span className="text-xs block leading-tight font-bold">1. Dados do Documento</span>
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal">Fornecedor & Cabeçalho</span>
+                  </div>
+                </button>
 
-              {/* 1. Fornecedor */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Fornecedor / Produtor <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    id="manual-supplier-input"
-                    type="text"
-                    list="suppliers-datalist"
-                    value={manualSupplier}
-                    onChange={(e) => setManualSupplier(e.target.value)}
-                    required
-                    placeholder="Digite ou selecione o fornecedor..."
-                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
-                  />
-                  <datalist id="suppliers-datalist">
-                    {localSuppliers.map((s) => (
-                      <option key={s.id} value={s.name} />
-                    ))}
-                  </datalist>
+                {/* Linha divisória */}
+                <div className="flex-1 h-0.5 bg-stone-200 dark:bg-stone-700">
+                  <div className={`h-full bg-emerald-500 transition-all duration-300 ${manualEntryStep === 2 ? 'w-full' : 'w-0'}`} />
+                </div>
+
+                {/* Passo 2 */}
+                <div
+                  className={`flex items-center space-x-2.5 text-left transition ${
+                    manualEntryStep === 2 
+                      ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
+                      : 'text-stone-400'
+                  }`}
+                >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
+                    manualEntryStep === 2
+                      ? 'bg-emerald-600 text-white shadow-xs ring-4 ring-emerald-500/15'
+                      : 'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400'
+                  }`}>
+                    2
+                  </div>
+                  <div>
+                    <span className="text-xs block leading-tight font-bold">2. Inserção de Produtos</span>
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal">Itens & Saldo de Estoque</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* 2. Grid com Data e Tipo de Documento */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Data */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Data do Documento <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="manual-date-input"
-                      type="date"
-                      value={manualDate}
-                      onChange={(e) => setManualDate(e.target.value)}
-                      required
-                      className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+            {/* 3. Corpo do Modal (Passo 1 ou Passo 2) */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
+              
+              {/* =============================================================== */}
+              {/* PASSO 1: DADOS DO DOCUMENTO (FORNECEDOR E CABEÇALHO) */}
+              {/* =============================================================== */}
+              {manualEntryStep === 1 && (
+                <form onSubmit={handleAdvanceToStep2} className="space-y-4">
+                  {manualFormError && (
+                    <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center space-x-2 text-rose-800 dark:text-rose-200 text-xs font-bold animate-in fade-in">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{manualFormError}</span>
+                    </div>
+                  )}
+
+                  {/* 1. Fornecedor com Autocomplete e Botão Rápido de Cadastro */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
+                        Fornecedor / Produtor <span className="text-rose-500">*</span>
+                      </label>
+                      {manualSupplier.trim() && (
+                        <span className="text-[11px] font-semibold text-stone-500">
+                          {isSupplierExisting ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Fornecedor cadastrado</span>
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400">
+                              Novo fornecedor
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        id="manual-supplier-input"
+                        type="text"
+                        list="suppliers-datalist-step1"
+                        value={manualSupplier}
+                        onChange={(e) => setManualSupplier(e.target.value)}
+                        required
+                        placeholder="Digite o nome do fornecedor ou produtor..."
+                        className="w-full px-3.5 py-2.5 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                      />
+                      <datalist id="suppliers-datalist-step1">
+                        {localSuppliers.map((s) => (
+                          <option key={s.id} value={s.name} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    {/* Botão Rápido de Cadastrar Fornecedor se não existir no sistema */}
+                    {!isSupplierExisting && manualSupplier.trim().length >= 2 && (
+                      <div className="mt-2.5 p-2.5 sm:p-3 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in">
+                        <div className="flex items-center space-x-2 text-xs text-emerald-900 dark:text-emerald-200">
+                          <UserPlus className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>
+                            Fornecedor <strong>"{manualSupplier.trim()}"</strong> não encontrado no cadastro.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-cadastrar-fornecedor-rapido"
+                          onClick={() => handleOpenQuickSupplierModal(manualSupplier)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-2xs shrink-0"
+                          title="Cadastrar dados completos do fornecedor sem perder a entrada"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>+ Cadastrar Fornecedor {manualSupplier.trim()}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Grid com Data e Tipo de Documento */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Data */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Data do Documento <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        id="manual-date-input"
+                        type="date"
+                        value={manualDate}
+                        onChange={(e) => setManualDate(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Tipo de Documento */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Tipo de Documento <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        id="manual-type-select"
+                        value={manualDocumentType}
+                        onChange={(e) => setManualDocumentType(e.target.value as TipoDocumentoEntrada)}
+                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs cursor-pointer"
+                      >
+                        <option value="Romaneio">Romaneio</option>
+                        <option value="Recibo">Recibo</option>
+                        <option value="Nota de Produtor">Nota de Produtor</option>
+                        <option value="Outros">Outros</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 3. Valor Total (Formato BRL R$ #.##0,00) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
+                        Valor Total do Documento <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-stone-500">
+                        Padrão Comercial: R$ #.##0,00
+                      </span>
+                    </div>
+                    <div className="relative rounded-xl shadow-2xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500 font-bold text-xs sm:text-sm">
+                        R$
+                      </div>
+                      <input
+                        id="manual-amount-input"
+                        type="text"
+                        inputMode="numeric"
+                        value={manualAmountDisplay}
+                        onChange={handleManualAmountChange}
+                        required
+                        placeholder="0,00"
+                        className="w-full pl-10 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4. Observações */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Observações
+                    </label>
+                    <textarea
+                      id="manual-notes-input"
+                      value={manualNotes}
+                      onChange={(e) => setManualNotes(e.target.value)}
+                      rows={2}
+                      placeholder="Informações adicionais, número de pesagem, placa, romaneio, etc..."
+                      className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-medium text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs resize-none"
                     />
                   </div>
-                </div>
 
-                {/* Tipo de Documento (Select com: Romaneio, Recibo, Nota de Produtor, Outros) */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Tipo de Documento <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    id="manual-type-select"
-                    value={manualDocumentType}
-                    onChange={(e) => setManualDocumentType(e.target.value as TipoDocumentoEntrada)}
-                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs cursor-pointer"
-                  >
-                    <option value="Romaneio">Romaneio</option>
-                    <option value="Recibo">Recibo</option>
-                    <option value="Nota de Produtor">Nota de Produtor</option>
-                    <option value="Outros">Outros</option>
-                  </select>
-                </div>
-              </div>
+                  {/* Rodapé do Passo 1 */}
+                  <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      id="btn-cancelar-entrada-manual-step1"
+                      onClick={() => setIsManualEntryModalOpen(false)}
+                      disabled={isSavingManualEntry}
+                      className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
 
-              {/* 3. Valor Total (Formato BRL R$ #.##0,00) */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Valor Total <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative rounded-xl shadow-2xs">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500 font-bold text-xs sm:text-sm">
-                    R$
+                    <button
+                      type="submit"
+                      id="btn-avancar-passo2-entrada"
+                      disabled={isSavingManualEntry}
+                      className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingManualEntry ? (
+                        <>
+                          <Clock className="w-4 h-4 animate-spin" />
+                          <span>Gravando Documento...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Avançar para Inserção de Produtos</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <input
-                    id="manual-amount-input"
-                    type="text"
-                    inputMode="numeric"
-                    value={manualAmountDisplay}
-                    onChange={handleManualAmountChange}
-                    required
-                    placeholder="0,00"
-                    className="w-full pl-10 pr-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
-                  />
+                </form>
+              )}
+
+              {/* =============================================================== */}
+              {/* PASSO 2: INSERÇÃO DOS ITENS/PRODUTOS (COM ATUALIZAÇÃO DE ESTOQUE) */}
+              {/* =============================================================== */}
+              {manualEntryStep === 2 && (
+                <div className="space-y-4">
+                  {/* Resumo do Documento e Status da Conferência de Valores */}
+                  {(() => {
+                    const itemsTotal = manualDocItems.reduce((acc, i) => acc + (Number(i.valor_total) || 0), 0);
+                    const headerTotal = Number(currentManualDoc?.valor_total) || parseCurrencyInput(manualAmountDisplay);
+                    const diff = Math.abs(itemsTotal - headerTotal);
+                    const isBalanced = diff < 0.01;
+
+                    return (
+                      <div className="p-3.5 bg-stone-50 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 rounded-2xl space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div>
+                            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                              Documento Vinculado (ID: {currentManualDoc?.id?.slice(0, 8)}...)
+                            </span>
+                            <div className="flex items-center space-x-2 mt-0.5">
+                              <span className="font-extrabold text-stone-900 dark:text-stone-100">
+                                {manualSupplier}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
+                                {manualDocumentType}
+                              </span>
+                              <span className="text-stone-400">•</span>
+                              <span className="text-stone-600 dark:text-stone-400 font-medium">
+                                {formatDateBR(manualDate)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Comparativo de Valores */}
+                          <div className="flex items-center space-x-3 bg-white dark:bg-stone-900 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-800 shadow-2xs">
+                            <div>
+                              <span className="text-[10px] font-semibold text-stone-500 block">Total Previsto</span>
+                              <span className="font-mono font-bold text-xs text-stone-800 dark:text-stone-200">
+                                {formatCurrencyBRL(headerTotal)}
+                              </span>
+                            </div>
+                            <div className="w-px h-6 bg-stone-200 dark:bg-stone-700" />
+                            <div>
+                              <span className="text-[10px] font-semibold text-stone-500 block">Total dos Itens</span>
+                              <span className="font-mono font-extrabold text-xs text-emerald-600 dark:text-emerald-400">
+                                {formatCurrencyBRL(itemsTotal)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Indicador de Status e Sincronização Automática */}
+                        <div className="pt-2 border-t border-stone-200/70 dark:border-stone-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          {isBalanced ? (
+                            <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Valores conferem perfeitamente ({formatCurrencyBRL(itemsTotal)}).</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>
+                                Diferença de {formatCurrencyBRL(diff)} entre o cabeçalho ({formatCurrencyBRL(headerTotal)}) e a soma dos itens ({formatCurrencyBRL(itemsTotal)}).
+                              </span>
+                            </div>
+                          )}
+
+                          {!isBalanced && (
+                            <button
+                              type="button"
+                              onClick={handleSyncHeaderToItemsTotal}
+                              className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 underline cursor-pointer self-start sm:self-auto"
+                            >
+                              Atualizar total do documento para {formatCurrencyBRL(itemsTotal)}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Formulário de Adição de Produtos */}
+                  <form onSubmit={handleAddItemToManualDoc} className="p-4 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-stone-800">
+                      <div className="flex items-center space-x-1.5 text-xs font-bold text-stone-900 dark:text-stone-100">
+                        <Plus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                        <span>Adicionar Produto à Entrada</span>
+                      </div>
+                      <span className="text-[10px] font-medium text-stone-500">
+                        A quantidade será somada no saldo do Estoque
+                      </span>
+                    </div>
+
+                    {itemFormError && (
+                      <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{itemFormError}</span>
+                      </div>
+                    )}
+
+                    {/* Campo de Busca do Produto no Estoque */}
+                    <div className="relative">
+                      <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                        Produto no Estoque <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="manual-item-search-input"
+                          type="text"
+                          value={itemSearchQuery}
+                          onChange={(e) => {
+                            setItemSearchQuery(e.target.value);
+                            setIsItemSearchOpen(true);
+                            if (selectedProduct && selectedProduct.name !== e.target.value) {
+                              setSelectedProduct(null);
+                            }
+                          }}
+                          onFocus={() => setIsItemSearchOpen(true)}
+                          placeholder="Buscar produto por nome, código ou categoria no Estoque..."
+                          className="w-full pl-9 pr-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                        />
+                        <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5 pointer-events-none" />
+                      </div>
+
+                      {/* Dropdown de sugestões do estoque */}
+                      {isItemSearchOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
+                          {filteredStockProducts.map((prod) => (
+                            <div
+                              key={prod.id}
+                              onClick={() => handleSelectProduct(prod)}
+                              className="p-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer flex items-center justify-between text-xs transition"
+                            >
+                              <div>
+                                <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                                  {prod.name}
+                                </span>
+                                <div className="flex items-center space-x-2 text-[10px] text-stone-500 mt-0.5">
+                                  {prod.code && <span className="font-mono">Cód: {prod.code}</span>}
+                                  <span>•</span>
+                                  <span>Un: {prod.unit}</span>
+                                  <span>•</span>
+                                  <span>Saldo Atual: {prod.quantity || 0}</span>
+                                </div>
+                              </div>
+                              <span className="font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
+                                {prod.unitCost ? formatCurrencyBRL(prod.unitCost) : '-'}
+                              </span>
+                            </div>
+                          ))}
+
+                          {/* Se o produto não existir no estoque, exibe opção para cadastrar novo */}
+                          {!isProductExistingInStock && itemSearchQuery.trim().length >= 1 && (
+                            <div 
+                              onClick={() => {
+                                setIsItemSearchOpen(false);
+                                handleOpenQuickProductModal(itemSearchQuery);
+                              }}
+                              className="p-3 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 cursor-pointer flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300 transition"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Plus className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                                <span>+ Cadastrar Novo Produto "{itemSearchQuery.trim()}" no Estoque</span>
+                              </div>
+                              <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full uppercase font-mono">
+                                Novo
+                              </span>
+                            </div>
+                          )}
+
+                          {filteredStockProducts.length === 0 && isProductExistingInStock && (
+                            <div className="p-3 text-center text-xs text-stone-500">
+                              Nenhum produto cadastrado no estoque.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botão rápido visível de novo produto se não existir */}
+                    {!isProductExistingInStock && itemSearchQuery.trim().length >= 2 && !isItemSearchOpen && (
+                      <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs">
+                        <span className="text-emerald-800 dark:text-emerald-300">
+                          Produto não cadastrado no módulo de Estoque.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenQuickProductModal(itemSearchQuery)}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer flex items-center space-x-1 shadow-2xs shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>+ Cadastrar Novo Produto {itemSearchQuery.trim()}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Grid com Quantidade, Unidade, Valor Unitário e Subtotal */}
+                    <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 items-end">
+                      {/* Quantidade */}
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                          Quantidade <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id="manual-item-qty-input"
+                          type="number"
+                          step="any"
+                          min="0.001"
+                          value={itemQuantity}
+                          onChange={(e) => setItemQuantity(e.target.value)}
+                          required
+                          placeholder="Ex: 10"
+                          className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Unidade */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                          Unidade
+                        </label>
+                        <input
+                          id="manual-item-unit-input"
+                          type="text"
+                          value={itemUnit}
+                          onChange={(e) => setItemUnit(e.target.value.toUpperCase())}
+                          placeholder="UN, KG, LT..."
+                          className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Valor Unitário (R$) */}
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                          Valor Unitário (R$)
+                        </label>
+                        <div className="relative rounded-xl shadow-2xs">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                            R$
+                          </div>
+                          <input
+                            id="manual-item-unitcost-input"
+                            type="text"
+                            inputMode="numeric"
+                            value={itemUnitCostDisplay}
+                            onChange={handleItemUnitCostChange}
+                            placeholder="0,00"
+                            className="w-full pl-8 pr-2.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Subtotal Previsto */}
+                      <div className="sm:col-span-4 flex flex-col justify-end">
+                        <div className="flex items-center justify-between pb-1 text-[11px] text-stone-500 font-bold">
+                          <span>Subtotal:</span>
+                          <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xs font-black">
+                            {formatCurrencyBRL(
+                              (parseFloat(itemQuantity.replace(',', '.')) || 0) * parseCurrencyInput(itemUnitCostDisplay)
+                            )}
+                          </span>
+                        </div>
+                        <button
+                          type="submit"
+                          id="btn-adicionar-produto-entrada"
+                          disabled={isAddingItem}
+                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-50"
+                        >
+                          {isAddingItem ? (
+                            <>
+                              <Clock className="w-3.5 h-3.5 animate-spin" />
+                              <span>Somando Estoque...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>+ Adicionar Item</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  {/* Tabela com a Lista dos Itens Adicionados nesta Entrada */}
+                  <div className="border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs">
+                    <div className="p-3 bg-stone-50 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Package className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                          Produtos Inseridos na Entrada ({manualDocItems.length})
+                        </span>
+                      </div>
+                      {manualDocItems.length > 0 && (
+                        <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
+                          Soma: {formatCurrencyBRL(manualDocItems.reduce((s, i) => s + (Number(i.valor_total) || 0), 0))}
+                        </span>
+                      )}
+                    </div>
+
+                    {isLoadingDocItems ? (
+                      <div className="p-8 text-center text-xs text-stone-500 flex items-center justify-center space-x-2">
+                        <Clock className="w-4 h-4 animate-spin text-emerald-600" />
+                        <span>Carregando itens...</span>
+                      </div>
+                    ) : manualDocItems.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-stone-400 dark:text-stone-500 space-y-1">
+                        <Package className="w-8 h-8 text-stone-300 dark:text-stone-700 mx-auto" />
+                        <p className="font-semibold text-stone-600 dark:text-stone-400">
+                          Nenhum produto adicionado ainda.
+                        </p>
+                        <p className="text-[11px]">
+                          Utilize o campo acima para buscar no estoque ou cadastrar um novo produto.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-stone-100/60 dark:bg-stone-800/60 text-[11px] font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800">
+                            <tr>
+                              <th className="px-3.5 py-2.5">Produto</th>
+                              <th className="px-3.5 py-2.5 text-center">Quantidade</th>
+                              <th className="px-3.5 py-2.5 text-right">Valor Unitário</th>
+                              <th className="px-3.5 py-2.5 text-right">Subtotal</th>
+                              <th className="px-3.5 py-2.5 text-center">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">
+                            {manualDocItems.map((item) => (
+                              <tr key={item.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition">
+                                <td className="px-3.5 py-2.5">
+                                  <div className="font-bold text-stone-900 dark:text-stone-100">
+                                    {item.descricao}
+                                  </div>
+                                  <div className="text-[10px] text-stone-500 font-mono">
+                                    Unidade: {item.unidade || 'UN'}
+                                  </div>
+                                </td>
+                                <td className="px-3.5 py-2.5 text-center font-mono font-bold text-stone-800 dark:text-stone-200">
+                                  {item.quantidade} {item.unidade || 'UN'}
+                                </td>
+                                <td className="px-3.5 py-2.5 text-right font-mono font-medium text-stone-700 dark:text-stone-300">
+                                  {formatCurrencyBRL(item.valor_unitario)}
+                                </td>
+                                <td className="px-3.5 py-2.5 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                                  {formatCurrencyBRL(item.valor_total)}
+                                </td>
+                                <td className="px-3.5 py-2.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteItemFromManualDoc(item)}
+                                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                                    title="Excluir item da entrada e estornar quantidade do estoque"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Rodapé do Passo 2: Finalização da Entrada */}
+                  <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      id="btn-voltar-passo1-entrada"
+                      onClick={() => setManualEntryStep(1)}
+                      className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Voltar ao Cabeçalho</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      id="btn-concluir-entrada-manual"
+                      onClick={handleFinalizeManualEntry}
+                      className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Concluir Entrada</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUBMODAL: CADASTRO RÁPIDO DE PRODUTO NO ESTOQUE (ACIONADO NO PASSO 2) */}
+      {/* ========================================================================= */}
+      {isQuickProductModalOpen && (
+        <div 
+          id="modal-cadastro-rapido-produto-estoque"
+          className="fixed inset-0 z-90 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          onClick={() => {
+            if (!isSavingQuickProduct) setIsQuickProductModalOpen(false);
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/30">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100 font-['Outfit']">
+                    Cadastrar Novo Produto no Estoque
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    O produto será registrado no estoque e selecionado na entrada atual
+                  </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSavingQuickProduct) setIsQuickProductModalOpen(false);
+                }}
+                disabled={isSavingQuickProduct}
+                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* 4. Observações */}
+            <form onSubmit={handleSaveQuickProduct} className="p-4 sm:p-6 space-y-4">
+              {/* Nome do Produto */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  Observações
+                  Nome do Produto <span className="text-rose-500">*</span>
                 </label>
-                <textarea
-                  id="manual-notes-input"
-                  value={manualNotes}
-                  onChange={(e) => setManualNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Informações adicionais, produtos/serviços, pesagem, número de romaneio, etc..."
-                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-medium text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs resize-none"
+                <input
+                  type="text"
+                  required
+                  value={quickProductName}
+                  onChange={(e) => setQuickProductName(e.target.value)}
+                  placeholder="Ex: ÓLEO DIESEL S10, LONA DUPLA FACE..."
+                  className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 
-              {/* Rodapé e Ações do Formulário */}
+              {/* Categoria e Unidade */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                    Categoria no Estoque
+                  </label>
+                  <select
+                    value={quickProductCategory}
+                    onChange={(e) => setQuickProductCategory(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="combustivel">Combustível & Arla</option>
+                    <option value="lona_embalagem">Lona & Embalagem</option>
+                    <option value="inoculante">Inoculante & Biológico</option>
+                    <option value="sementes">Sementes</option>
+                    <option value="adubo">Adubo & Fertilizante</option>
+                    <option value="pecas">Peças & Manutenção</option>
+                    <option value="outro">Outros Insumos</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                    Unidade de Medida
+                  </label>
+                  <input
+                    type="text"
+                    value={quickProductUnit}
+                    onChange={(e) => setQuickProductUnit(e.target.value.toUpperCase())}
+                    placeholder="UN, KG, LT, SC, M..."
+                    className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Código Interno e Localização */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                    Código Interno (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={quickProductCode}
+                    onChange={(e) => setQuickProductCode(e.target.value)}
+                    placeholder="Ex: PRD-01"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                    Localização Física
+                  </label>
+                  <input
+                    type="text"
+                    value={quickProductLocation}
+                    onChange={(e) => setQuickProductLocation(e.target.value)}
+                    placeholder="Ex: Barracão Principal"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Preço de Custo e Preço de Venda */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                    Preço de Custo Base (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={quickProductCost}
+                    onChange={(e) => setQuickProductCost(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                    Preço de Venda Sugerido (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={quickProductSale}
+                    onChange={(e) => setQuickProductSale(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100"
+                  />
+                </div>
+              </div>
+
+              {/* Botões do Formulário Rápido */}
               <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2">
                 <button
                   type="button"
-                  id="btn-cancelar-entrada-manual"
-                  onClick={() => setIsManualEntryModalOpen(false)}
-                  disabled={isSavingManualEntry}
-                  className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+                  onClick={() => setIsQuickProductModalOpen(false)}
+                  disabled={isSavingQuickProduct}
+                  className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  id="btn-salvar-entrada-manual"
-                  disabled={isSavingManualEntry}
+                  disabled={isSavingQuickProduct}
                   className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  {isSavingManualEntry ? (
+                  {isSavingQuickProduct ? (
                     <>
                       <Clock className="w-3.5 h-3.5 animate-spin" />
-                      <span>Gravando no Supabase...</span>
+                      <span>Cadastrando...</span>
                     </>
                   ) : (
                     <>
                       <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Salvar Entrada</span>
+                      <span>Cadastrar e Vincular</span>
                     </>
                   )}
                 </button>
@@ -5084,6 +6140,37 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Lista de Itens do Documento */}
+              {isLoadingViewingItems ? (
+                <div className="p-3 text-center text-xs text-stone-500 flex items-center justify-center space-x-2">
+                  <Clock className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                  <span>Carregando itens...</span>
+                </div>
+              ) : viewingDocItems.length > 0 ? (
+                <div className="space-y-1.5">
+                  <span className="font-bold text-stone-700 dark:text-stone-300 block text-[11px] uppercase tracking-wider">
+                    Itens da Entrada ({viewingDocItems.length}):
+                  </span>
+                  <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden bg-stone-50/50 dark:bg-stone-800/40 max-h-40 overflow-y-auto divide-y divide-stone-200 dark:divide-stone-800">
+                    {viewingDocItems.map((it) => (
+                      <div key={it.id} className="p-2 text-[11px] flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                            {it.descricao}
+                          </span>
+                          <span className="text-[10px] text-stone-500">
+                            {it.quantidade} {it.unidade || 'UN'} × {formatCurrencyBRL(it.valor_unitario)}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrencyBRL(it.valor_total)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {viewingManualDoc.observacoes && (
                 <div>
@@ -5164,6 +6251,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* MODAL OFICIAL: CADASTRO / VALIDAÇÃO DE FORNECEDORES (TOP LEVEL z-[9999]) */}
+      {/* Abre à frente de qualquer modal ou tela com backdrop escuro exclusivo */}
+      {/* ========================================================================= */}
+      <SupplierModal
+        isOpen={isSupplierModalOpen}
+        onClose={() => setIsSupplierModalOpen(false)}
+        onSave={handleSaveSupplierFromModal}
+        editingSupplier={supplierForModal}
+        initialName={manualSupplier}
+        zIndexClass="z-[9999]"
+      />
 
     </div>
   );

@@ -15,9 +15,10 @@ import {
   CompanyProfile,
   ServiceAppointment,
   TerminationRecord,
-  DocumentoEntradaRecord
+  DocumentoEntradaRecord,
+  DocumentoEntradaItem
 } from '../types';
-export type { CompanyProfile, DocumentoEntradaRecord };
+export type { CompanyProfile, DocumentoEntradaRecord, DocumentoEntradaItem };
 import {
   SiteConfig,
   PlanDefinition,
@@ -32,7 +33,11 @@ import {
   getStoredDocumentosEntrada,
   saveStoredDocumentosEntrada,
   saveLocalDocumentoEntrada,
-  deleteLocalDocumentoEntrada
+  deleteLocalDocumentoEntrada,
+  getStoredDocumentosEntradaItens,
+  saveStoredDocumentosEntradaItens,
+  saveLocalDocumentoEntradaItem,
+  deleteLocalDocumentoEntradaItem
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -538,6 +543,184 @@ export async function deleteDocumentoEntrada(id: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Atualiza o valor total de um documento de entrada no Supabase e localmente.
+ */
+export async function updateDocumentoEntradaTotal(id: string, novoValorTotal: number): Promise<boolean> {
+  const current = getStoredDocumentosEntrada();
+  const updated = current.map(d => d.id === id ? { ...d, valor_total: novoValorTotal } : d);
+  saveStoredDocumentosEntrada(updated);
+
+  if (!isSupabaseConfigured) return true;
+  try {
+    const uuid = toValidUUID(id);
+    let { error } = await supabase
+      .from('documentos_entrada')
+      .update({ valor_total: novoValorTotal, updated_at: new Date().toISOString() })
+      .eq('id', uuid);
+
+    if (error && id !== uuid) {
+      await supabase
+        .from('documentos_entrada')
+        .update({ valor_total: novoValorTotal })
+        .eq('id', id);
+    }
+    return true;
+  } catch (e) {
+    console.warn('updateDocumentoEntradaTotal error:', e);
+    return false;
+  }
+}
+
+// ===========================================================================
+// 2.2 Itens de Documentos de Entrada (Tabela: public.documentos_entrada_itens)
+// Colunas: id, documento_entrada_id, produto_id, descricao, quantidade,
+//          unidade, valor_unitario, valor_total, created_at
+// ===========================================================================
+export interface DocumentoEntradaItemInput {
+  id?: string;
+  documento_entrada_id: string;
+  produto_id?: string;
+  descricao: string;
+  quantidade: number;
+  unidade?: string;
+  valor_unitario: number;
+  valor_total: number;
+}
+
+/**
+ * Insere um item de entrada via POST na tabela public.documentos_entrada_itens.
+ * Salva localmente com fallback e atualiza integridade.
+ */
+export async function insertDocumentoEntradaItem(item: DocumentoEntradaItemInput): Promise<DocumentoEntradaItem> {
+  const uuid = toValidUUID(item.id || generateUUID());
+  const docUuid = toValidUUID(item.documento_entrada_id);
+  const now = new Date().toISOString();
+
+  const record: DocumentoEntradaItem = {
+    id: uuid,
+    documento_entrada_id: item.documento_entrada_id,
+    produto_id: item.produto_id || undefined,
+    descricao: item.descricao.trim(),
+    quantidade: Number(item.quantidade) || 0,
+    unidade: item.unidade || 'UN',
+    valor_unitario: Number(item.valor_unitario) || 0,
+    valor_total: Number(item.valor_total) || 0,
+    created_at: now
+  };
+
+  saveLocalDocumentoEntradaItem(record);
+
+  if (!isSupabaseConfigured) {
+    return record;
+  }
+
+  try {
+    const payload: Record<string, any> = {
+      id: uuid,
+      documento_entrada_id: docUuid,
+      produto_id: item.produto_id ? toValidUUID(item.produto_id) : null,
+      descricao: item.descricao.trim(),
+      quantidade: Number(item.quantidade) || 0,
+      unidade: item.unidade || 'UN',
+      valor_unitario: Number(item.valor_unitario) || 0,
+      valor_total: Number(item.valor_total) || 0,
+      created_at: now
+    };
+
+    let { data, error } = await supabase
+      .from('documentos_entrada_itens')
+      .insert([payload])
+      .select();
+
+    if (error) {
+      // Tenta fallback com produto_id como string direta
+      const fallbackPayload: Record<string, any> = {
+        id: uuid,
+        documento_entrada_id: docUuid,
+        produto_id: item.produto_id || null,
+        descricao: item.descricao.trim(),
+        quantidade: Number(item.quantidade) || 0,
+        unidade: item.unidade || 'UN',
+        valor_unitario: Number(item.valor_unitario) || 0,
+        valor_total: Number(item.valor_total) || 0
+      };
+
+      const retry = await supabase
+        .from('documentos_entrada_itens')
+        .insert([fallbackPayload])
+        .select();
+
+      if (!retry.error && retry.data && retry.data[0]) {
+        const returned = retry.data[0] as DocumentoEntradaItem;
+        saveLocalDocumentoEntradaItem(returned);
+        return returned;
+      }
+    } else if (data && data[0]) {
+      const returned = data[0] as DocumentoEntradaItem;
+      saveLocalDocumentoEntradaItem(returned);
+      return returned;
+    }
+  } catch (err) {
+    console.warn('insertDocumentoEntradaItem err:', err);
+  }
+
+  return record;
+}
+
+/**
+ * Busca itens de um documento de entrada.
+ */
+export async function fetchDocumentosEntradaItens(documentoEntradaId: string): Promise<DocumentoEntradaItem[]> {
+  const localList = getStoredDocumentosEntradaItens(documentoEntradaId);
+  if (!isSupabaseConfigured) return localList;
+
+  try {
+    const docUuid = toValidUUID(documentoEntradaId);
+    let { data, error } = await supabase
+      .from('documentos_entrada_itens')
+      .select('*')
+      .or(`documento_entrada_id.eq.${docUuid},documento_entrada_id.eq.${documentoEntradaId}`)
+      .order('created_at', { ascending: true });
+
+    if (!error && data && Array.isArray(data)) {
+      const map = new Map<string, DocumentoEntradaItem>();
+      (data as DocumentoEntradaItem[]).forEach(i => map.set(i.id, i));
+      localList.forEach(i => { if (!map.has(i.id)) map.set(i.id, i); });
+      const merged = Array.from(map.values());
+      return merged;
+    }
+  } catch (e) {
+    console.warn('fetchDocumentosEntradaItens err:', e);
+  }
+
+  return localList;
+}
+
+/**
+ * Exclui um item de documento de entrada.
+ */
+export async function deleteDocumentoEntradaItem(itemId: string): Promise<boolean> {
+  deleteLocalDocumentoEntradaItem(itemId);
+  if (!isSupabaseConfigured) return true;
+  try {
+    const uuid = toValidUUID(itemId);
+    const { error } = await supabase
+      .from('documentos_entrada_itens')
+      .delete()
+      .eq('id', uuid);
+
+    if (error && itemId !== uuid) {
+      await supabase.from('documentos_entrada_itens').delete().eq('id', itemId);
+    }
+    return true;
+  } catch (e) {
+    console.warn('deleteDocumentoEntradaItem err:', e);
+    return false;
+  }
+}
+
 
 
 // ===========================================================================
