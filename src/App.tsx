@@ -340,19 +340,33 @@ export default function App() {
             const mergedInitial = cloudData.rh_funcionarios.map(cloudEmp => {
               const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
               if (!localEmp) return cloudEmp;
-              const commH = (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0) ? cloudEmp.commissionPerHour : (localEmp.commissionPerHour || 0);
-              const commA = (cloudEmp.commissionPerAlqueire && cloudEmp.commissionPerAlqueire > 0) ? cloudEmp.commissionPerAlqueire : (localEmp.commissionPerAlqueire || 0);
-              const commHa = (cloudEmp.commissionPerHectare && cloudEmp.commissionPerHectare > 0) ? cloudEmp.commissionPerHectare : (localEmp.commissionPerHectare || 0);
-              const recComm = cloudEmp.receivesCommission || localEmp.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+              const recComm = localEmp.receivesCommission !== undefined
+                ? Boolean(localEmp.receivesCommission)
+                : Boolean(cloudEmp.receivesCommission || (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0));
+              const commH = recComm
+                ? ((localEmp.commissionPerHour !== undefined && localEmp.commissionPerHour > 0)
+                    ? localEmp.commissionPerHour
+                    : (cloudEmp.commissionPerHour || 0))
+                : 0;
+              const commA = recComm
+                ? ((localEmp.commissionPerAlqueire !== undefined && localEmp.commissionPerAlqueire > 0)
+                    ? localEmp.commissionPerAlqueire
+                    : (cloudEmp.commissionPerAlqueire || 0))
+                : 0;
+              const commHa = recComm
+                ? ((localEmp.commissionPerHectare !== undefined && localEmp.commissionPerHectare > 0)
+                    ? localEmp.commissionPerHectare
+                    : (cloudEmp.commissionPerHectare || 0))
+                : 0;
               return {
                 ...cloudEmp,
                 ...localEmp,
-                commissionPerHour: recComm ? commH : 0,
-                commissionPerAlqueire: recComm ? commA : 0,
-                commissionPerHectare: recComm ? commHa : 0,
-                comissao_hora: recComm ? commH : 0,
-                comissao_alqueire: recComm ? commA : 0,
-                comissao_hectare: recComm ? commHa : 0,
+                commissionPerHour: commH,
+                commissionPerAlqueire: commA,
+                commissionPerHectare: commHa,
+                comissao_hora: commH,
+                comissao_alqueire: commA,
+                comissao_hectare: commHa,
                 recebe_comissao: recComm,
                 bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
                 bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
@@ -516,19 +530,33 @@ export default function App() {
           const merged = fresh.map(cloudEmp => {
             const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
             if (!localEmp) return cloudEmp;
-            const commH = (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0) ? cloudEmp.commissionPerHour : (localEmp.commissionPerHour || 0);
-            const commA = (cloudEmp.commissionPerAlqueire && cloudEmp.commissionPerAlqueire > 0) ? cloudEmp.commissionPerAlqueire : (localEmp.commissionPerAlqueire || 0);
-            const commHa = (cloudEmp.commissionPerHectare && cloudEmp.commissionPerHectare > 0) ? cloudEmp.commissionPerHectare : (localEmp.commissionPerHectare || 0);
-            const recComm = cloudEmp.receivesCommission || localEmp.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+            const recComm = localEmp.receivesCommission !== undefined
+              ? Boolean(localEmp.receivesCommission)
+              : Boolean(cloudEmp.receivesCommission || (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0));
+            const commH = recComm
+              ? ((localEmp.commissionPerHour !== undefined && localEmp.commissionPerHour > 0)
+                  ? localEmp.commissionPerHour
+                  : (cloudEmp.commissionPerHour || 0))
+              : 0;
+            const commA = recComm
+              ? ((localEmp.commissionPerAlqueire !== undefined && localEmp.commissionPerAlqueire > 0)
+                  ? localEmp.commissionPerAlqueire
+                  : (cloudEmp.commissionPerAlqueire || 0))
+              : 0;
+            const commHa = recComm
+              ? ((localEmp.commissionPerHectare !== undefined && localEmp.commissionPerHectare > 0)
+                  ? localEmp.commissionPerHectare
+                  : (cloudEmp.commissionPerHectare || 0))
+              : 0;
             return {
               ...cloudEmp,
               ...localEmp,
-              commissionPerHour: recComm ? commH : 0,
-              commissionPerAlqueire: recComm ? commA : 0,
-              commissionPerHectare: recComm ? commHa : 0,
-              comissao_hora: recComm ? commH : 0,
-              comissao_alqueire: recComm ? commA : 0,
-              comissao_hectare: recComm ? commHa : 0,
+              commissionPerHour: commH,
+              commissionPerAlqueire: commA,
+              commissionPerHectare: commHa,
+              comissao_hora: commH,
+              comissao_alqueire: commA,
+              comissao_hectare: commHa,
               recebe_comissao: recComm,
               bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
               bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
@@ -1252,21 +1280,38 @@ export default function App() {
           const local = newEmployees.find(e => toValidUUID(e.id) === f.id || e.id === f.id);
           if (!local) return f;
 
-          // Se a tabela física no banco não tiver comissões ou retornar zero, mantém as comissões locais configuradas
-          const commH = (f.commissionPerHour && f.commissionPerHour > 0) ? f.commissionPerHour : (local.commissionPerHour || 0);
-          const commA = (f.commissionPerAlqueire && f.commissionPerAlqueire > 0) ? f.commissionPerAlqueire : (local.commissionPerAlqueire || 0);
-          const commHa = (f.commissionPerHectare && f.commissionPerHectare > 0) ? f.commissionPerHectare : (local.commissionPerHectare || 0);
-          const recComm = f.receivesCommission || local.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
+          // Dados locais recém-salvos pelo usuário têm precedência absoluta
+          const recComm = local.receivesCommission !== undefined
+            ? Boolean(local.receivesCommission)
+            : Boolean(f.receivesCommission || (f.commissionPerHour && f.commissionPerHour > 0));
+
+          const commH = recComm
+            ? ((local.commissionPerHour !== undefined && local.commissionPerHour > 0)
+                ? local.commissionPerHour
+                : (f.commissionPerHour || 0))
+            : 0;
+
+          const commA = recComm
+            ? ((local.commissionPerAlqueire !== undefined && local.commissionPerAlqueire > 0)
+                ? local.commissionPerAlqueire
+                : (f.commissionPerAlqueire || 0))
+            : 0;
+
+          const commHa = recComm
+            ? ((local.commissionPerHectare !== undefined && local.commissionPerHectare > 0)
+                ? local.commissionPerHectare
+                : (f.commissionPerHectare || 0))
+            : 0;
 
           return {
             ...f,
             ...local,
-            commissionPerHour: recComm ? commH : 0,
-            commissionPerAlqueire: recComm ? commA : 0,
-            commissionPerHectare: recComm ? commHa : 0,
-            comissao_hora: recComm ? commH : 0,
-            comissao_alqueire: recComm ? commA : 0,
-            comissao_hectare: recComm ? commHa : 0,
+            commissionPerHour: commH,
+            commissionPerAlqueire: commA,
+            commissionPerHectare: commHa,
+            comissao_hora: commH,
+            comissao_alqueire: commA,
+            comissao_hectare: commHa,
             recebe_comissao: recComm,
             bankPixKey: local.bankPixKey || f.bankPixKey,
             bankAgency: local.bankAgency || f.bankAgency,
@@ -1278,9 +1323,15 @@ export default function App() {
             signedRegistrationDoc: local.signedRegistrationDoc || f.signedRegistrationDoc,
           };
         });
-        lastSyncedState.current.rel_employees = JSON.stringify(merged);
-        setEmployees(merged);
-        saveStoredEmployees(merged);
+
+        // Preserva colaboradores locais recém-criados que ainda estejam em propagação no Supabase
+        const freshIds = new Set(fresh.map(f => f.id));
+        const extraLocal = newEmployees.filter(e => !freshIds.has(e.id) && !freshIds.has(toValidUUID(e.id)));
+        const finalMerged = [...merged, ...extraLocal];
+
+        lastSyncedState.current.rel_employees = JSON.stringify(finalMerged);
+        setEmployees(finalMerged);
+        saveStoredEmployees(finalMerged);
       }
     } catch (err) {
       console.warn('Supabase handleSaveEmployees sync notice:', err);

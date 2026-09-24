@@ -1110,16 +1110,25 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       .eq('id', validId)
       .select('id');
 
-    // Se houve erro PGRST204 de coluna inexistente (ex: comissao_hora não existe no banco físico),
-    // marca cache como falso e retenta imediatamente apenas com as colunas base para não quebrar o PATCH
-    if (updateRes.error && (updateRes.error.code === 'PGRST204' || updateRes.error.message?.includes('column') || updateRes.error.message?.includes('comissao'))) {
-      hasRhCommissionColumns = false;
-      const { id: _ignoredId2, ...cleanPatchBody } = cleanPayload;
-      updateRes = await supabase
-        .from('rh_funcionarios')
-        .update(cleanPatchBody)
-        .eq('id', validId)
-        .select('id');
+    // Se houve erro de coluna inexistente (PGRST204, 42703, etc.),
+    // desativa o envio de colunas de comissão e retenta imediatamente apenas com o payload básico
+    if (updateRes.error && hasRhCommissionColumns !== false) {
+      const isColumnErr =
+        updateRes.error.code === 'PGRST204' ||
+        updateRes.error.code === '42703' ||
+        updateRes.error.message?.toLowerCase().includes('column') ||
+        updateRes.error.message?.toLowerCase().includes('comissao') ||
+        updateRes.error.message?.toLowerCase().includes('schema cache');
+
+      if (isColumnErr) {
+        hasRhCommissionColumns = false;
+        const { id: _ignoredId2, ...cleanPatchBody } = cleanPayload;
+        updateRes = await supabase
+          .from('rh_funcionarios')
+          .update(cleanPatchBody)
+          .eq('id', validId)
+          .select('id');
+      }
     } else if (!updateRes.error && hasRhCommissionColumns === null) {
       hasRhCommissionColumns = true;
     }
@@ -1137,7 +1146,7 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
         .update(patchWithoutCompany)
         .eq('id', validId)
         .select('id');
-      if (retryUpdate.error && (retryUpdate.error.code === 'PGRST204' || retryUpdate.error.message?.includes('column'))) {
+      if (retryUpdate.error && (retryUpdate.error.code === 'PGRST204' || retryUpdate.error.code === '42703' || retryUpdate.error.message?.includes('column'))) {
         hasRhCommissionColumns = false;
         const { company_id: _cid2, id: _i3, ...baseWithoutCompany } = cleanPayload;
         retryUpdate = await supabase
@@ -1157,11 +1166,20 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       .from('rh_funcionarios')
       .upsert(targetUpsert, { onConflict: 'id' });
 
-    if (upsertRes.error && (upsertRes.error.code === 'PGRST204' || upsertRes.error.message?.includes('column') || upsertRes.error.message?.includes('comissao'))) {
-      hasRhCommissionColumns = false;
-      upsertRes = await supabase
-        .from('rh_funcionarios')
-        .upsert(cleanPayload, { onConflict: 'id' });
+    if (upsertRes.error && hasRhCommissionColumns !== false) {
+      const isColumnErr =
+        upsertRes.error.code === 'PGRST204' ||
+        upsertRes.error.code === '42703' ||
+        upsertRes.error.message?.toLowerCase().includes('column') ||
+        upsertRes.error.message?.toLowerCase().includes('comissao') ||
+        upsertRes.error.message?.toLowerCase().includes('schema cache');
+
+      if (isColumnErr) {
+        hasRhCommissionColumns = false;
+        upsertRes = await supabase
+          .from('rh_funcionarios')
+          .upsert(cleanPayload, { onConflict: 'id' });
+      }
     }
 
     if (!upsertRes.error) {
@@ -1175,7 +1193,7 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       let retryUpsert = await supabase
         .from('rh_funcionarios')
         .upsert(cleanWithoutCompany, { onConflict: 'id' });
-      if (retryUpsert.error && (retryUpsert.error.code === 'PGRST204' || retryUpsert.error.message?.includes('column'))) {
+      if (retryUpsert.error && (retryUpsert.error.code === 'PGRST204' || retryUpsert.error.code === '42703' || retryUpsert.error.message?.includes('column'))) {
         hasRhCommissionColumns = false;
         const { company_id: _cid2, ...baseWithoutCompany } = cleanPayload;
         retryUpsert = await supabase
@@ -1188,7 +1206,8 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     }
 
     // 3. Fallback: Se a tabela 'rh_funcionarios' não existir (42P01), tenta em 'funcionarios'
-    if (updateRes.error && (updateRes.error.code === '42P01' || updateRes.error.message?.includes('does not exist'))) {
+    if ((updateRes?.error && (updateRes.error.code === '42P01' || updateRes.error.message?.includes('does not exist'))) ||
+        (upsertRes?.error && (upsertRes.error.code === '42P01' || upsertRes.error.message?.includes('does not exist')))) {
       const funcRes = await supabase.from('funcionarios').upsert(cleanPayload, { onConflict: 'id' });
       if (!funcRes.error) return true;
     }
