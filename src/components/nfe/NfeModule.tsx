@@ -90,6 +90,7 @@ import {
   updateDocumentoEntradaTotal,
   insertContaAPagarEntradaManual,
   LancamentoContasAPagarEntradaInput,
+  determineFinancialCategory,
   upsertEstoqueItem,
   saveCloudInventory,
   saveCloudManualEntryDocumentTypes,
@@ -151,6 +152,16 @@ interface ParsedNfeData {
   costCenterName?: string;
   items?: ParsedNfeItem[];
 }
+
+export const mapPaymentMethodCode = (code: string): PaymentMethod => {
+  if (code === '02') return 'pix';
+  if (code === '03') return 'transferencia';
+  if (code === '04') return 'cartao_credito';
+  if (code === '05') return 'cartao_debito';
+  if (code === '06') return 'dinheiro';
+  if (code === '07' || code === '08') return 'safra_prazo';
+  return 'boleto';
+};
 
 const NFE_CACHE_STORAGE_KEY = 'silagem_nfe_parsed_cache_map';
 
@@ -1059,6 +1070,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [manualEntryStep, setManualEntryStep] = useState<1 | 2>(1);
   const [currentManualDoc, setCurrentManualDoc] = useState<DocumentoEntradaRecord | null>(null);
+  // Janela 2 (Entrada Manual): Forma de Pagamento e Condições de Lançamento Financeiro
+  const [isManualInstallmentsModalOpen, setIsManualInstallmentsModalOpen] = useState(false);
 
   // Helper para cálculo de vencimento padrão (30 dias)
   const calculateDefaultDueDate = (dateStr?: string): string => {
@@ -1177,6 +1190,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Abre o modal de entrada manual resetando para a Etapa 1
   const handleOpenManualEntryModal = () => {
+    setIsManualInstallmentsModalOpen(false);
     setManualEntryStep(1);
     setCurrentManualDoc(null);
     setManualSupplier('');
@@ -1202,6 +1216,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Reabre o modal de etapas carregando todos os dados daquela nota (Cabeçalho e Itens)
   const handleOpenEditManualDoc = async (doc: DocumentoEntradaRecord) => {
+    setIsManualInstallmentsModalOpen(false);
     setCurrentManualDoc(doc);
     setManualSupplier(doc.fornecedor || doc.fornecedor_nome || '');
     const docDate = doc.data || doc.data_emissao || doc.data_entrada || new Date().toISOString().split('T')[0];
@@ -1750,6 +1765,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // Atualiza o total do cabeçalho com base na soma dos itens
   const handleSyncHeaderToItemsTotal = async () => {
     if (!currentManualDoc) return;
+    setManualFormError('');
     const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
     await updateDocumentoEntradaTotal(currentManualDoc.id, itemsTotal);
     const updatedDoc = { ...currentManualDoc, valor_total: itemsTotal };
@@ -1760,21 +1776,67 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // 3. FINALIZAÇÃO: Concluir Entrada (Status: Finalizado + POST automático em public.contas_a_pagar)
+  // 3. FINALIZAÇÃO: Ação do botão "Concluir Entrada" no Passo 2
+  // 1. BLOQUEIO DE VALIDAÇÃO: Verifica se a soma dos itens bate com o total previsto do cabeçalho.
+  // Se correto, abre a Janela de Forma de Pagamento e Condições de Lançamento Financeiro (idêntica à do XML).
   const handleFinalizeManualEntry = async () => {
+    setManualFormError('');
+
     const trimmedSupplier = (currentManualDoc?.fornecedor || manualSupplier).trim();
     if (!trimmedSupplier) {
-      setManualFormError('Por favor, informe o fornecedor.');
+      setManualFormError('Bloqueio de Validação: Por favor, informe o fornecedor.');
+      setManualEntryStep(1);
+      return;
+    }
+
+    if (manualDocItems.length === 0) {
+      setManualFormError('Bloqueio de Validação: Adicione ao menos 01 produto à entrada antes de concluir.');
+      const searchInput = document.getElementById('manual-item-search-input');
+      if (searchInput) {
+        searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        searchInput.focus();
+      }
+      return;
+    }
+
+    const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
+    const headerTotal = Number(currentManualDoc?.valor_total) || parseCurrencyInput(manualAmountDisplay);
+    const diff = Math.abs(itemsTotal - headerTotal);
+
+    // Bloqueio se houver divergência entre cabeçalho e itens
+    if (diff >= 0.01) {
+      setManualFormError(
+        `Bloqueio de Validação: A soma dos itens (${formatCurrencyBRL(itemsTotal)}) deve ser exatamente igual ao valor total previsto no cabeçalho (${formatCurrencyBRL(headerTotal)}). Ajuste os itens ou clique em 'Atualizar total do documento para ${formatCurrencyBRL(itemsTotal)}'.`
+      );
+      const alertEl = document.getElementById('alerta-erro-validacao-passo-2');
+      if (alertEl) {
+        alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    // Se estiver 100% conferido, abre a Janela Independente de Forma de Pagamento & Parcelas
+    setIsManualInstallmentsModalOpen(true);
+  };
+
+  // 4. CONFIRMAÇÃO E GRAVAÇÃO DAS PARCELAS DA ENTRADA MANUAL (SUPABASE + FINANCEIRO)
+  // Fraciona e salva as parcelas geradas via POST diretamente na tabela 'public.contas_a_pagar' do Supabase,
+  // vinculando o nome do Fornecedor e o ID desta entrada de mercadoria.
+  const handleConfirmAndSaveManualInstallments = async (detailedInstallments: NfeDetailedInstallment[]) => {
+    const trimmedSupplier = (currentManualDoc?.fornecedor || manualSupplier).trim();
+    if (!trimmedSupplier) {
+      setManualFormError('Bloqueio de Validação: Por favor, informe o fornecedor.');
+      setIsManualInstallmentsModalOpen(false);
       setManualEntryStep(1);
       return;
     }
 
     const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
     const headerTotal = Number(currentManualDoc?.valor_total) || parseCurrencyInput(manualAmountDisplay);
-    const finalAmount = (manualDocItems.length > 0 && itemsTotal > 0) ? itemsTotal : (headerTotal > 0 ? headerTotal : 0);
+    const finalAmount = itemsTotal > 0 ? itemsTotal : (headerTotal > 0 ? headerTotal : 0);
 
-    const targetDueDate = manualDueDate || calculateDefaultDueDate(manualDate);
-    const docDescricao = `Entrada de mercadoria manual ref. documento ${manualDocumentType}`;
+    const firstDueDate = detailedInstallments[0]?.dueDate || manualDueDate || calculateDefaultDueDate(manualDate);
+    const totalParcs = detailedInstallments.length;
 
     setIsSavingManualEntry(true);
     try {
@@ -1786,7 +1848,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           ...currentManualDoc,
           fornecedor: trimmedSupplier,
           data: manualDate,
-          data_vencimento: targetDueDate,
+          data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
           observacoes: manualNotes.trim(),
@@ -1795,7 +1857,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         await updateDocumentoEntrada(currentManualDoc.id, {
           fornecedor: trimmedSupplier,
           data: manualDate,
-          data_vencimento: targetDueDate,
+          data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
           observacoes: manualNotes.trim(),
@@ -1806,7 +1868,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         finalDoc = await insertDocumentoEntrada({
           fornecedor: trimmedSupplier,
           data: manualDate,
-          data_vencimento: targetDueDate,
+          data_vencimento: firstDueDate,
           tipo_documento: manualDocumentType,
           valor_total: finalAmount,
           observacoes: manualNotes.trim(),
@@ -1819,42 +1881,99 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         });
       }
 
-      // LANÇAMENTO FINANCEIRO AUTOMÁTICO (POST na tabela public.contas_a_pagar do Supabase)
-      await insertContaAPagarEntradaManual({
-        id: `pagar_${activeDocId}`,
-        documento_entrada_id: activeDocId,
-        fornecedor: trimmedSupplier,
-        valor_total: finalAmount,
-        tipo_documento: manualDocumentType,
-        descricao: docDescricao,
-        data_emissao: manualDate,
-        data_vencimento: targetDueDate,
-        forma_pagamento: 'Boleto',
-      });
+      // LANÇAMENTO NO FINANCEIRO (Tabela public.contas_a_pagar do Supabase)
+      // Determinação da categoria financeira exata ('Combustível & Arla' ou 'Insumos & Entradas') para alimentação do gráfico de pizza
+      const primaryCategory = determineFinancialCategory(
+        manualDocItems.map(i => ({
+          descricao: i.descricao,
+          valor_total: Number(i.valor_total) || 0,
+          quantidade: i.quantidade,
+          valor_unitario: i.valor_unitario
+        })),
+        `${manualSupplier} ${manualDocumentType} ${manualNotes}`
+      );
+      const isCombustivel = primaryCategory === 'Combustível & Arla';
+      const catColor = isCombustivel ? '#d97706' : '#059669';
+      const catId = isCombustivel ? 'cat_combustivel' : 'cat_insumos';
 
-      // Sincroniza também no estado de despesas do app para atualização em tempo real
-      if (onAddExpenseFromNfe) {
-        onAddExpenseFromNfe({
-          id: `exp_doc_${activeDocId}`,
-          description: docDescricao,
-          amount: finalAmount,
-          categoryId: 'cat_insumos',
-          categoryName: 'Insumos & Entradas',
-          categoryColor: '#059669',
-          dueDate: targetDueDate,
-          status: 'pendente',
-          paymentMethod: 'boleto',
-          supplier: trimmedSupplier,
-          invoiceNumber: `${manualDocumentType.toUpperCase()}`,
-          notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}` : docDescricao,
+      // Fraciona e salva individualmente cada parcela gerada via POST vinculando o fornecedor e o ID da entrada
+      for (let idx = 0; idx < detailedInstallments.length; idx++) {
+        const inst = detailedInstallments[idx];
+        const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
+        const instId = totalParcs === 1 ? `pagar_${activeDocId}` : `pagar_${activeDocId}_parc_${idx + 1}`;
+        const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
+        const parcDescricao = `Entrada manual ref. ${manualDocumentType}${suffix} - ${trimmedSupplier}`;
+
+        await insertContaAPagarEntradaManual({
+          id: instId,
+          documento_entrada_id: activeDocId,
+          fornecedor: trimmedSupplier,
+          valor_total: finalAmount,
+          valor_parcela: Number(inst.amount) || 0,
+          numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
+          tipo_documento: manualDocumentType,
+          descricao: parcDescricao,
+          data_emissao: manualDate,
+          data_vencimento: inst.dueDate || firstDueDate,
+          forma_pagamento: inst.paymentMethodLabel || 'Boleto',
+          centro_custo: primaryCategory,
+          categoria: primaryCategory,
+          tipo_despesa: primaryCategory
+        });
+
+        // Persistência adicional no schema de contas_a_pagar
+        await upsertContaAPagar({
+          id: instId,
+          nota_fiscal_id: null,
+          numero_parcela: totalParcs > 1 ? `${parcelNum}/${totalParcs}` : '01/01',
+          valor_parcela: Number(inst.amount) || 0,
+          data_vencimento: inst.dueDate || firstDueDate,
+          forma_pagamento: mapPaymentMethodCode(inst.paymentMethodCode),
+          centro_custo: primaryCategory,
+          categoria: primaryCategory,
+          tipo_despesa: primaryCategory,
+          status_pago: false
         });
       }
 
+      // Sincroniza também no estado de despesas do app para atualização em tempo real
+      if (onAddExpenseFromNfe) {
+        const expenseRecords: Expense[] = detailedInstallments.map((inst, idx) => {
+          const parcelNum = inst.number || String(idx + 1).padStart(2, '0');
+          const instId = totalParcs === 1 ? `exp_doc_${activeDocId}` : `exp_doc_${activeDocId}_parc_${idx + 1}`;
+          const suffix = totalParcs > 1 ? ` (${parcelNum}/${totalParcs})` : '';
+          const docDescricao = `${manualDocumentType}${suffix} - ${trimmedSupplier}`;
+
+          return {
+            id: instId,
+            description: docDescricao,
+            amount: Number(inst.amount) || 0,
+            categoryId: catId,
+            categoryName: primaryCategory,
+            categoryColor: catColor,
+            dueDate: inst.dueDate || firstDueDate,
+            status: 'pendente' as const,
+            paymentMethod: mapPaymentMethodCode(inst.paymentMethodCode),
+            supplier: trimmedSupplier,
+            invoiceNumber: `${manualDocumentType.toUpperCase()}${suffix}`,
+            notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}` : docDescricao,
+            receiptUrl: inst.documentFileUrl,
+            receiptName: inst.documentFileName,
+            createdAt: new Date().toISOString(),
+          };
+        });
+
+        onAddExpenseFromNfe(expenseRecords);
+      }
+
+      setIsManualInstallmentsModalOpen(false);
       setIsManualEntryModalOpen(false);
-      setSuccessMessage(`Entrada manual concluída e lançada no Contas a Pagar com sucesso! (${formatCurrencyBRL(finalAmount)})`);
+      setSuccessMessage(
+        `Entrada manual concluída com sucesso! ${totalParcs} parcela(s) lançada(s) no Contas a Pagar (${formatCurrencyBRL(finalAmount)}).`
+      );
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
-      console.error('Erro ao concluir entrada manual:', err);
+      console.error('Erro ao confirmar parcelas da entrada manual:', err);
       setManualFormError('Erro ao concluir a entrada e lançar no financeiro. Tente novamente.');
     } finally {
       setIsSavingManualEntry(false);
@@ -1867,6 +1986,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       setDocumentosEntrada(prev => prev.filter(d => d.id !== doc.id));
       if (onDeleteExpense) {
         onDeleteExpense(`exp_doc_${doc.id}`);
+        // Também remove eventuais parcelas desdobradas da memória local
+        expenses
+          .filter(e => e.id.startsWith(`exp_doc_${doc.id}`))
+          .forEach(e => onDeleteExpense(e.id));
       }
       setManualDocToDelete(null);
       setViewingManualDoc(null);
@@ -3342,14 +3465,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const itemsJson = JSON.stringify(parsedData.items || []);
     const itemsEmbed = `<!-- NFE_ITEMS_JSON:${itemsJson} -->`;
 
-    const catName = parsedData.suggestedCategory === 'cat_combustivel' ? 'Combustível & Arla (Diesel)' :
-                    parsedData.suggestedCategory === 'cat_lona' ? 'Lonas & Filmes Plásticos' :
-                    parsedData.suggestedCategory === 'cat_inoculante' ? 'Inoculantes & Aditivos' :
-                    parsedData.suggestedCategory === 'cat_manutencao' ? 'Manutenção & Peças' : 'Despesas Operacionais';
-    const catColor = parsedData.suggestedCategory === 'cat_combustivel' ? '#d97706' :
-                     parsedData.suggestedCategory === 'cat_lona' ? '#059669' :
-                     parsedData.suggestedCategory === 'cat_inoculante' ? '#2563eb' :
-                     parsedData.suggestedCategory === 'cat_manutencao' ? '#dc2626' : '#64748b';
+    // AUTOMAÇÃO FINANCEIRA: Determinação exata da categoria ('Combustível & Arla' ou 'Insumos & Entradas') para cálculo correto no gráfico de despesas
+    const primaryCategory = determineFinancialCategory(
+      parsedData.items?.map(i => ({
+        description: i.description,
+        totalPrice: i.totalPrice,
+        unitPrice: i.unitPrice,
+        quantity: i.quantity
+      })),
+      `${parsedData.supplier} ${parsedData.suggestedCategory || ''} ${parsedData.itemsSummary || ''}`
+    );
+    const isCombustivel = primaryCategory === 'Combustível & Arla';
+    const catName = primaryCategory;
+    const catColor = isCombustivel ? '#d97706' : '#059669';
+    const catId = isCombustivel ? 'cat_combustivel' : 'cat_insumos';
 
     const mapPayCode = (code: string): PaymentMethod => {
       if (code === '02') return 'pix';
@@ -3374,7 +3503,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         id: instId,
         description: `Compra ${cleanInvoiceNumber}${suffix} - ${parsedData.supplier}`,
         amount: Number(inst.amount) || 0,
-        categoryId: parsedData.suggestedCategory,
+        categoryId: catId,
         categoryName: catName,
         categoryColor: catColor,
         dueDate: inst.dueDate || parsedData.issueDate,
@@ -3383,7 +3512,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         status: 'pendente' as const,
         paymentMethod: mapPayCode(inst.paymentMethodCode),
         costCenterId: selectedCC?.id,
-        costCenterName: selectedCC?.name,
+        costCenterName: selectedCC?.name || primaryCategory,
         notes: `Lançamento de parcela via NF-e XML. Parcela ${parcelNum}/${totalParcs}. Prazo: ${inst.daysInterval} dias.${contabNote}${obsNote} Chave: ${parsedData.accessKey || 'N/A'}.${stockNote}\n${itemsEmbed}`,
         receiptUrl: inst.documentFileUrl,
         receiptName: inst.documentFileName,
@@ -3406,12 +3535,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       amount: Number(parsedData.totalAmount) || 0, // VALOR TOTAL BRUTO CONSOLIDADO
       dueDate: detailedInstallments[0]?.dueDate || parsedData.dueDate || parsedData.issueDate,
       status: 'pendente' as const,
-      categoryId: parsedData.suggestedCategory,
+      categoryId: catId,
       categoryName: catName,
       categoryColor: catColor,
       paymentMethod: mapPayCode(detailedInstallments[0]?.paymentMethodCode || '01'),
       costCenterId: selectedCC?.id,
-      costCenterName: selectedCC?.name,
+      costCenterName: selectedCC?.name || primaryCategory,
       notes: `NF-e Importada via XML. Chave: ${parsedData.accessKey || 'N/A'}. Desdobrada em ${totalParcs} parcela(s) no Contas a Pagar.${stockNote}\n${itemsEmbed}`,
       nfeItems: parsedData.items,
       createdAt: new Date().toISOString(),
@@ -3476,7 +3605,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         valor_parcela: Number(inst.amount) || 0,
         data_vencimento: inst.dueDate || parsedData.issueDate,
         forma_pagamento: mapPayCode(inst.paymentMethodCode),
-        centro_custo: selectedCC?.name || 'Geral',
+        centro_custo: selectedCC?.name || primaryCategory,
+        categoria: primaryCategory,
+        tipo_despesa: primaryCategory,
         status_pago: false
       });
     });
@@ -5716,6 +5847,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               {/* =============================================================== */}
               {manualEntryStep === 2 && (
                 <div className="space-y-4">
+                  {/* Alerta de Bloqueio de Validação */}
+                  {manualFormError && (
+                    <div 
+                      id="alerta-erro-validacao-passo-2"
+                      className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center space-x-2 animate-in fade-in"
+                    >
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                      <span>{manualFormError}</span>
+                    </div>
+                  )}
+
                   {/* Resumo do Documento e Status da Conferência de Valores */}
                   {(() => {
                     const itemsTotal = manualDocItems.reduce((acc, i) => acc + (Number(i.valor_total) || 0), 0);
@@ -5781,7 +5923,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           {!isBalanced && (
                             <button
                               type="button"
-                              onClick={handleSyncHeaderToItemsTotal}
+                              onClick={() => {
+                                handleSyncHeaderToItemsTotal();
+                                setManualFormError('');
+                              }}
                               className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 underline cursor-pointer self-start sm:self-auto"
                             >
                               Atualizar total do documento para {formatCurrencyBRL(itemsTotal)}
@@ -6127,6 +6272,35 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* JANELA 2 (ENTRADA MANUAL): FORMA DE PAGAMENTO E CONDIÇÕES FINANCEIRAS */}
+      {/* Idêntica ao fluxo do XML, com parcelas, prazos, vencimento e formas de pagamento */}
+      {/* ========================================================================= */}
+      {isManualInstallmentsModalOpen && (
+        <NfeInstallmentsModal
+          isOpen={isManualInstallmentsModalOpen}
+          onClose={() => setIsManualInstallmentsModalOpen(false)}
+          invoiceNumber={currentManualDoc?.id ? currentManualDoc.id.slice(0, 8).toUpperCase() : (manualDocumentType || 'DOC')}
+          supplierName={(currentManualDoc?.fornecedor || manualSupplier).trim()}
+          issueDate={manualDate}
+          totalAmount={manualDocItems.reduce((acc, i) => acc + (Number(i.valor_total) || 0), 0)}
+          initialInstallmentsCount={1}
+          existingInstallments={[
+            {
+              number: '01',
+              dueDate: manualDueDate || calculateDefaultDueDate(manualDate),
+              amount: manualDocItems.reduce((acc, i) => acc + (Number(i.valor_total) || 0), 0),
+            }
+          ]}
+          defaultPaymentMethod="boleto"
+          suggestedCategory={determineFinancialCategory(manualDocItems, `${manualSupplier} ${manualNotes}`) === 'Combustível & Arla' ? 'cat_combustivel' : 'cat_insumos'}
+          customTitle="Forma de Pagamento e Lançamento Financeiro"
+          customSubtitle={`Entrada de Mercadoria (${manualDocumentType}) • Fornecedor: ${(currentManualDoc?.fornecedor || manualSupplier).trim()}`}
+          totalLabel="Valor Total da Entrada Manual"
+          onConfirmAndSave={handleConfirmAndSaveManualInstallments}
+        />
       )}
 
       {/* ========================================================================= */}

@@ -867,6 +867,50 @@ export async function fetchContasAPagar(companyId?: string): Promise<ContaAPagar
   }
 }
 
+export function determineFinancialCategory(
+  items?: Array<{ description?: string; descricao?: string; name?: string; valor_total?: number; totalPrice?: number; [key: string]: any }>,
+  additionalText?: string
+): 'Combustível & Arla' | 'Insumos & Entradas' {
+  const fuelKeywords = [
+    'diesel', 'combustivel', 'combustível', 's10', 's-10', 's500', 's-500',
+    'arla', 'arla32', 'arla 32', 'gasolina', 'etanol', 'abastecimento', 'combustiveis', 'cat_combustivel'
+  ];
+
+  if (items && items.length > 0) {
+    const sorted = [...items].sort((a, b) => {
+      const valA = Number(a.valor_total ?? a.totalPrice ?? 0);
+      const valB = Number(b.valor_total ?? b.totalPrice ?? 0);
+      return valB - valA;
+    });
+
+    const primary = sorted[0];
+    const primaryText = `${primary.description || ''} ${primary.descricao || ''} ${primary.name || ''}`.toLowerCase();
+    if (fuelKeywords.some(kw => primaryText.includes(kw))) {
+      return 'Combustível & Arla';
+    }
+
+    const fuelTotal = sorted.reduce((acc, item) => {
+      const itemText = `${item.description || ''} ${item.descricao || ''} ${item.name || ''}`.toLowerCase();
+      const val = Number(item.valor_total ?? item.totalPrice ?? 0);
+      return fuelKeywords.some(kw => itemText.includes(kw)) ? acc + val : acc;
+    }, 0);
+
+    const totalAll = sorted.reduce((acc, item) => acc + Number(item.valor_total ?? item.totalPrice ?? 0), 0);
+    if (fuelTotal > 0 && (totalAll === 0 || fuelTotal >= totalAll / 2)) {
+      return 'Combustível & Arla';
+    }
+  }
+
+  if (additionalText) {
+    const textLower = additionalText.toLowerCase();
+    if (fuelKeywords.some(kw => textLower.includes(kw))) {
+      return 'Combustível & Arla';
+    }
+  }
+
+  return 'Insumos & Entradas';
+}
+
 export async function upsertContaAPagar(parcela: {
   id: string;
   nota_fiscal_id?: string | null;
@@ -875,11 +919,14 @@ export async function upsertContaAPagar(parcela: {
   data_vencimento: string;
   forma_pagamento?: string;
   centro_custo?: string;
+  categoria?: string;
+  tipo_despesa?: string;
   status_pago?: boolean;
 }, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
+    const catFinal = parcela.categoria || parcela.tipo_despesa || parcela.centro_custo || 'Insumos & Entradas';
     const payload: Record<string, any> = {
       id: toValidUUID(parcela.id),
       company_id: activeCompanyId,
@@ -888,7 +935,9 @@ export async function upsertContaAPagar(parcela: {
       valor_parcela: Number(parcela.valor_parcela) || 0,
       data_vencimento: parcela.data_vencimento || new Date().toISOString().split('T')[0],
       forma_pagamento: parcela.forma_pagamento || 'Boleto',
-      centro_custo: parcela.centro_custo || 'Geral',
+      centro_custo: parcela.centro_custo || catFinal,
+      categoria: catFinal,
+      tipo_despesa: catFinal,
       status_pago: Boolean(parcela.status_pago)
     };
 
@@ -904,9 +953,19 @@ export async function upsertContaAPagar(parcela: {
         const retryNF = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
         if (!retryNF.error) return true;
       }
+      // Se for erro de coluna inexistente (ex: categoria ou tipo_despesa), remove as colunas adicionais e retenta
+      if (error.message && (error.message.includes('column') || error.code === '42703')) {
+        const leanPayload = { ...payload };
+        delete leanPayload.categoria;
+        delete leanPayload.tipo_despesa;
+        const retryCols = await supabase.from('contas_a_pagar').upsert(leanPayload, { onConflict: 'id' });
+        if (!retryCols.error) return true;
+      }
       // Se for violação em company_id ou coluna inexistente
       if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
         delete payload.company_id;
+        delete payload.categoria;
+        delete payload.tipo_despesa;
         const retry = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
@@ -944,21 +1003,29 @@ export interface LancamentoContasAPagarEntradaInput {
   documento_entrada_id?: string;
   fornecedor: string;
   valor_total: number;
+  valor_parcela?: number;
+  numero_parcela?: string;
   tipo_documento: string;
   descricao?: string;
   data_emissao: string;
   data_vencimento: string;
   forma_pagamento?: string;
+  centro_custo?: string;
+  categoria?: string;
+  tipo_despesa?: string;
 }
 
 /**
  * Realiza POST automático na tabela public.contas_a_pagar do Supabase
  * ao concluir uma entrada manual (status = 'Finalizado').
- * Payload estruturado conforme especificação:
+ * Suporta fracionamento e vinculação de parcelas:
  * - fornecedor/credor (nome do fornecedor)
- * - valor_total / valor_parcela (valor da nota)
+ * - documento_entrada_id (ID da entrada de mercadoria vinculada)
+ * - valor_total / valor_parcela (valor da parcela e total consolidado)
+ * - numero_parcela ('01/03', '02/03', etc.)
  * - descricao / centro_custo ('Entrada de mercadoria manual ref. documento ' + tipo_documento)
  * - data_emissao e data_vencimento
+ * - forma_pagamento (Boleto, Pix, Cartão, Dinheiro, etc.)
  */
 export async function insertContaAPagarEntradaManual(
   dados: LancamentoContasAPagarEntradaInput,
@@ -968,6 +1035,9 @@ export async function insertContaAPagarEntradaManual(
   const uuid = toValidUUID(dados.id || generateUUID());
   const desc = dados.descricao || `Entrada de mercadoria manual ref. documento ${dados.tipo_documento}`;
   const now = new Date().toISOString();
+  const parcelaAmount = Number(dados.valor_parcela !== undefined ? dados.valor_parcela : dados.valor_total) || 0;
+  const numParcela = dados.numero_parcela || '01/01';
+  const catFinal = dados.categoria || dados.tipo_despesa || 'Insumos & Entradas';
 
   if (!isSupabaseConfigured) {
     return { success: true };
@@ -979,16 +1049,22 @@ export async function insertContaAPagarEntradaManual(
       fornecedor: dados.fornecedor.trim(),
       credor: dados.fornecedor.trim(),
       valor_total: Number(dados.valor_total) || 0,
-      valor_parcela: Number(dados.valor_total) || 0,
+      valor_parcela: parcelaAmount,
       descricao: desc,
-      centro_custo: desc,
+      centro_custo: dados.centro_custo || catFinal,
+      categoria: catFinal,
+      tipo_despesa: catFinal,
       data_emissao: dados.data_emissao,
       data_vencimento: dados.data_vencimento,
-      numero_parcela: '01/01',
+      numero_parcela: numParcela,
       forma_pagamento: dados.forma_pagamento || 'Boleto',
       status_pago: false,
       created_at: now
     };
+
+    if (dados.documento_entrada_id) {
+      fullPayload.documento_entrada_id = toValidUUID(dados.documento_entrada_id);
+    }
 
     if (activeCompanyId) {
       fullPayload.company_id = activeCompanyId;
@@ -1002,13 +1078,15 @@ export async function insertContaAPagarEntradaManual(
     if (error) {
       logPostgresError('insertContaAPagarEntradaManual', error, { table: 'contas_a_pagar', action: 'INSERT', payload: fullPayload });
 
-      // Fallback 1: Esquema tradicional (valor_parcela, centro_custo, data_vencimento)
+      // Fallback 1: Esquema com categoria, valor_parcela, centro_custo, data_vencimento, numero_parcela, forma_pagamento
       const standardPayload: Record<string, any> = {
         id: uuid,
-        valor_parcela: Number(dados.valor_total) || 0,
+        valor_parcela: parcelaAmount,
         data_vencimento: dados.data_vencimento,
-        centro_custo: desc,
-        numero_parcela: '01/01',
+        centro_custo: dados.centro_custo || catFinal,
+        categoria: catFinal,
+        tipo_despesa: catFinal,
+        numero_parcela: numParcela,
         forma_pagamento: dados.forma_pagamento || 'Boleto',
         status_pago: false,
         created_at: now
@@ -1024,9 +1102,11 @@ export async function insertContaAPagarEntradaManual(
         return { success: true, data: retry1.data };
       }
 
-      // Fallback 2: Remove company_id se não for suportado pela tabela
+      // Fallback 2: Remove colunas extras se não existirem no schema físico do Supabase
       if (retry1.error) {
         delete standardPayload.company_id;
+        delete standardPayload.categoria;
+        delete standardPayload.tipo_despesa;
         const retry2 = await supabase
           .from('contas_a_pagar')
           .insert([standardPayload])
@@ -2642,23 +2722,31 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
       fetchContasAPagar(activeCompanyId)
     ]);
 
-    const formattedExpenses: Expense[] = (contas_a_pagar || []).map((d: any) => ({
-      id: d.id,
-      title: d.centro_custo || d.title || 'Despesa Fornecedor',
-      description: d.centro_custo || d.description || 'Despesa Fornecedor',
-      amount: Number(d.valor_parcela ?? d.amount ?? 0),
-      dueDate: d.data_vencimento || d.dueDate || new Date().toISOString().split('T')[0],
-      status: ((d.status_pago || d.status === 'pago') ? 'pago' : 'pendente') as ExpenseStatus,
-      categoryId: d.categoryId || 'despesa_geral',
-      categoryColor: d.categoryColor || '#10b981',
-      category: d.category || 'despesa_geral',
-      categoryName: d.centro_custo || d.categoryName || 'Geral',
-      paymentMethod: (d.forma_pagamento || d.paymentMethod || 'boleto') as PaymentMethod,
-      supplier: d.supplier || 'Fornecedor',
-      recurrence: d.recurrence || 'none',
-      createdAt: d.created_at || d.createdAt || new Date().toISOString(),
-      updatedAt: d.updated_at || d.updatedAt || new Date().toISOString(),
-    }));
+    const formattedExpenses: Expense[] = (contas_a_pagar || []).map((d: any) => {
+      const catExact = d.categoria || d.tipo_despesa || d.category || (d.centro_custo?.includes('Combustível') ? 'Combustível & Arla' : d.centro_custo?.includes('Insumos') ? 'Insumos & Entradas' : d.centro_custo) || 'Insumos & Entradas';
+      const isComb = catExact === 'Combustível & Arla' || (typeof d.centro_custo === 'string' && d.centro_custo.toLowerCase().includes('combust'));
+      const finalCatName = isComb ? 'Combustível & Arla' : (catExact === 'Insumos & Entradas' ? 'Insumos & Entradas' : (d.categoryName || catExact));
+      const finalCatColor = isComb ? '#d97706' : (catExact === 'Insumos & Entradas' ? '#059669' : (d.categoryColor || '#10b981'));
+      const finalCatId = isComb ? 'cat_combustivel' : (catExact === 'Insumos & Entradas' ? 'cat_insumos' : (d.categoryId || 'despesa_geral'));
+
+      return {
+        id: d.id,
+        title: d.centro_custo || d.title || 'Despesa Fornecedor',
+        description: d.descricao || d.centro_custo || d.description || 'Despesa Fornecedor',
+        amount: Number(d.valor_parcela ?? d.amount ?? 0),
+        dueDate: d.data_vencimento || d.dueDate || new Date().toISOString().split('T')[0],
+        status: ((d.status_pago || d.status === 'pago') ? 'pago' : 'pendente') as ExpenseStatus,
+        categoryId: finalCatId,
+        categoryColor: finalCatColor,
+        category: finalCatName,
+        categoryName: finalCatName,
+        paymentMethod: (d.forma_pagamento || d.paymentMethod || 'boleto') as PaymentMethod,
+        supplier: d.fornecedor || d.credor || d.supplier || 'Fornecedor',
+        recurrence: d.recurrence || 'none',
+        createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+        updatedAt: d.updated_at || d.updatedAt || new Date().toISOString(),
+      };
+    });
 
     return {
       clientes: clientes || [],

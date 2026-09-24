@@ -394,7 +394,7 @@ export const NfeInstallmentsModal: React.FC<NfeInstallmentsModalProps> = ({
   return (
     <div 
       id="modal-janela-2-parcelas-nfe"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-black/70 backdrop-blur-xs animate-in fade-in"
     >
       {/* Input de arquivo invisível para anexos de boleto/recibo */}
       <input 
