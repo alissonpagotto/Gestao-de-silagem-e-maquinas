@@ -1220,22 +1220,26 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
   }
 }
 
-export async function deleteRhFuncionario(id: string, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+export async function deleteRhFuncionario(id: string, _companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !id) return false;
   try {
-    const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
 
-    // Deleta de rh_funcionarios usando apenas o UUID válido
+    // Chama explicitamente o método .delete().eq('id', ...) do Supabase sem disparar nenhum insert ou upsert
     let query = supabase.from('rh_funcionarios').delete().eq('id', uuid);
-    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
     const res = await query;
 
-    // Se a tabela 'rh_funcionarios' não existir, tenta em 'funcionarios'
+    // Se o ID original for diferente do UUID formatado, tenta deletar também pelo ID original
+    if (id !== uuid) {
+      await supabase.from('rh_funcionarios').delete().eq('id', id);
+    }
+
+    // Se a tabela 'rh_funcionarios' não existir (42P01), tenta em 'funcionarios'
     if (res.error && res.error.code === '42P01') {
-      let funcQuery = supabase.from('funcionarios').delete().eq('id', uuid);
-      if (activeCompanyId) funcQuery = funcQuery.eq('company_id', activeCompanyId);
-      await funcQuery;
+      await supabase.from('funcionarios').delete().eq('id', uuid);
+      if (id !== uuid) {
+        await supabase.from('funcionarios').delete().eq('id', id);
+      }
     }
 
     return true;

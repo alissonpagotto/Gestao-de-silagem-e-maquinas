@@ -1249,16 +1249,44 @@ export default function App() {
   };
 
   // RH Funcionários Handlers (Multi-Tenant Persistência no Supabase)
+  const handleDeleteEmployee = async (id: string) => {
+    if (!id) return;
+    const targetUuid = toValidUUID(id);
+    // 1. Atualização imediata na UI e armazenamento local
+    setEmployees(prev => prev.filter(e => e.id !== id && e.id !== targetUuid && toValidUUID(e.id) !== targetUuid));
+    const currentStored = getStoredEmployees().filter(e => e.id !== id && e.id !== targetUuid && toValidUUID(e.id) !== targetUuid);
+    saveStoredEmployees(currentStored);
+    lastSyncedState.current.rel_employees = JSON.stringify(currentStored);
+
+    // 2. Chama explicitamente o método .delete().eq('id', id) do Supabase SEM qualquer insert ou upsert
+    try {
+      await deleteRhFuncionario(id, activeTenantId);
+    } catch (err) {
+      console.warn('Supabase handleDeleteEmployee notice:', err);
+    }
+  };
+
   const handleSaveEmployees = async (newEmployees: Employee[]) => {
-    // 1. Atualização otimista imediata na UI e armazenamento local
-    setEmployees(newEmployees);
-    saveStoredEmployees(newEmployees);
+    // 1. Deduplicação preventiva para garantir lista sem linhas repetidas
+    const seen = new Set<string>();
+    const deduplicatedEmployees: Employee[] = [];
+    for (const emp of newEmployees) {
+      const k = emp.id ? String(emp.id) : (emp.cpf ? `cpf_${emp.cpf}` : `name_${emp.name}`);
+      if (!seen.has(k)) {
+        seen.add(k);
+        deduplicatedEmployees.push(emp);
+      }
+    }
+
+    // 2. Atualização otimista imediata na UI e armazenamento local
+    setEmployees(deduplicatedEmployees);
+    saveStoredEmployees(deduplicatedEmployees);
 
     const oldIds = new Set(employees.map(e => e.id));
-    const newIds = new Set(newEmployees.map(e => e.id));
+    const newIds = new Set(deduplicatedEmployees.map(e => e.id));
 
     try {
-      // 2. Remove colaboradores excluídos
+      // 3. Remove colaboradores excluídos
       const deletePromises: Promise<any>[] = [];
       for (const oldId of oldIds) {
         if (!newIds.has(oldId)) {
@@ -1269,15 +1297,15 @@ export default function App() {
         await Promise.allSettled(deletePromises);
       }
 
-      // 3. Salva ou atualiza colaboradores com garantia de tipos e conversão de colunas
-      const upsertPromises = newEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId));
+      // 4. Salva ou atualiza colaboradores com garantia de tipos e conversão de colunas
+      const upsertPromises = deduplicatedEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId));
       await Promise.allSettled(upsertPromises);
 
-      // 4. Re-busca no banco para sincronizar colunas gravadas no Supabase preservando dados locais
+      // 5. Re-busca no banco para sincronizar colunas gravadas no Supabase preservando dados locais
       const fresh = await fetchRhFuncionarios(activeTenantId);
       if (fresh && fresh.length > 0) {
         const merged = fresh.map(f => {
-          const local = newEmployees.find(e => toValidUUID(e.id) === f.id || e.id === f.id);
+          const local = deduplicatedEmployees.find(e => toValidUUID(e.id) === f.id || e.id === f.id);
           if (!local) return f;
 
           // Dados locais recém-salvos pelo usuário têm precedência absoluta
@@ -1306,6 +1334,7 @@ export default function App() {
           return {
             ...f,
             ...local,
+            id: local.id || f.id,
             commissionPerHour: commH,
             commissionPerAlqueire: commA,
             commissionPerHectare: commHa,
@@ -1326,12 +1355,23 @@ export default function App() {
 
         // Preserva colaboradores locais recém-criados que ainda estejam em propagação no Supabase
         const freshIds = new Set(fresh.map(f => f.id));
-        const extraLocal = newEmployees.filter(e => !freshIds.has(e.id) && !freshIds.has(toValidUUID(e.id)));
+        const extraLocal = deduplicatedEmployees.filter(e => e.id && !freshIds.has(e.id) && !freshIds.has(toValidUUID(e.id)));
         const finalMerged = [...merged, ...extraLocal];
 
-        lastSyncedState.current.rel_employees = JSON.stringify(finalMerged);
-        setEmployees(finalMerged);
-        saveStoredEmployees(finalMerged);
+        // Deduplica estritamente finalMerged por ID
+        const seenFinal = new Set<string>();
+        const strictMerged: Employee[] = [];
+        for (const emp of finalMerged) {
+          const k = emp.id ? String(emp.id) : (emp.cpf ? `cpf_${emp.cpf}` : `name_${emp.name}`);
+          if (!seenFinal.has(k)) {
+            seenFinal.add(k);
+            strictMerged.push(emp);
+          }
+        }
+
+        lastSyncedState.current.rel_employees = JSON.stringify(strictMerged);
+        setEmployees(strictMerged);
+        saveStoredEmployees(strictMerged);
       }
     } catch (err) {
       console.warn('Supabase handleSaveEmployees sync notice:', err);
@@ -2272,6 +2312,7 @@ export default function App() {
               companyProfile={companyProfile}
               initialSubTab={activeTab === 'funcionarios' ? 'funcionarios' : undefined}
               onSaveEmployees={handleSaveEmployees}
+              onDeleteEmployee={handleDeleteEmployee}
               onSavePayrolls={handleSavePayrolls}
               onSaveVacations={handleSaveVacations}
               onSaveLeaves={handleSaveLeaves}

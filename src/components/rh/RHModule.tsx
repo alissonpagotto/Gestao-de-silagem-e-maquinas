@@ -55,6 +55,7 @@ interface RHModuleProps {
   companyProfile: CompanyProfile;
   initialSubTab?: RHTabType;
   onSaveEmployees: (employees: Employee[]) => void;
+  onDeleteEmployee?: (id: string) => Promise<void> | void;
   onSavePayrolls: (payrolls: PayrollRecord[]) => void;
   onSaveVacations: (vacations: VacationRecord[]) => void;
   onSaveLeaves: (leaves: LeaveRecord[]) => void;
@@ -87,6 +88,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
   companyProfile,
   initialSubTab,
   onSaveEmployees,
+  onDeleteEmployee,
   onSavePayrolls,
   onSaveVacations,
   onSaveLeaves,
@@ -386,6 +388,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         <EmployeesModule
           employees={sortedEmployees}
           onSaveEmployees={onSaveEmployees}
+          onDeleteEmployee={onDeleteEmployee}
           externalNewEmployeeTrigger={externalNewEmployeeTrigger}
           externalPrintEmployeesTrigger={externalPrintEmployeesTrigger}
         />

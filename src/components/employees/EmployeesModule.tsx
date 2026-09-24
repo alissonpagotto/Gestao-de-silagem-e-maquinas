@@ -26,12 +26,13 @@ import {
   Download,
   FileCheck,
   Paperclip,
-  MapPin
+  MapPin,
+  Loader2
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario } from '../../lib/supabaseService';
 import { ManageableDropdown } from '../common/ManageableDropdown';
 import { RoleSelectDropdown } from './RoleSelectDropdown';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
@@ -97,6 +98,7 @@ const DEFAULT_CONTRACT_TYPES = [
 interface EmployeesModuleProps {
   employees: Employee[];
   onSaveEmployees: (employees: Employee[]) => void;
+  onDeleteEmployee?: (id: string) => Promise<void> | void;
   externalNewEmployeeTrigger?: number;
   externalPrintEmployeesTrigger?: number;
 }
@@ -104,11 +106,13 @@ interface EmployeesModuleProps {
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   employees,
   onSaveEmployees,
+  onDeleteEmployee,
   externalNewEmployeeTrigger,
   externalPrintEmployeesTrigger,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [singleEmployeePrintOptions, setSingleEmployeePrintOptions] = useState<PrintDocumentOptions | null>(null);
   const [isSingleEmployeePrintOpen, setIsSingleEmployeePrintOpen] = useState(false);
@@ -306,9 +310,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const cnhReport = checkCnhStatus(localEmployees);
 
-  // Lista de colaboradores filtrada e rigorosamente ordenada de A a Z pelo nome
+  // Lista de colaboradores deduplicada por id e ordenada de A a Z pelo nome
   const filteredEmployees = useMemo(() => {
-    return [...localEmployees]
+    // 1. Deduplicação para garantir integridade caso venham registros duplicados
+    const seen = new Set<string>();
+    const deduplicated: Employee[] = [];
+    for (const emp of localEmployees) {
+      const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(emp);
+      }
+    }
+
+    return deduplicated
       .filter(emp =>
         (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (emp.role || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -636,6 +651,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   const handleDelete = async (id: string) => {
+    if (!id) return;
     const emp = localEmployees.find(e => e.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Funcionário / Colaborador',
@@ -647,130 +663,141 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
+      // 1. Atualização imediata do estado local e armazenamento
       const updatedList = localEmployees.filter(e => e.id !== id);
       setLocalEmployees(updatedList);
-      onSaveEmployees(updatedList);
+      saveStoredEmployees(updatedList);
+
+      // 2. Chama explicitamente a exclusão no Supabase (.delete().eq('id', id)) SEM disparar operação de insert/upsert
+      if (onDeleteEmployee) {
+        try {
+          await onDeleteEmployee(id);
+        } catch (err) {
+          console.error('[RH Excluir Funcionário Error]', err);
+        }
+      } else {
+        deleteRhFuncionario(id).catch(err => {
+          console.error('[RH deleteRhFuncionario Fallback Error]', err);
+        });
+      }
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!name.trim()) return;
     if (!role1.trim()) {
       alert('Por favor, selecione a Função 1 (obrigatória).');
       return;
     }
 
-    const activeRoles: string[] = [];
-    if (role1.trim()) activeRoles.push(role1.trim());
-    if (role2.trim() && role2.trim().toLowerCase() !== role1.trim().toLowerCase()) activeRoles.push(role2.trim());
-    const finalRoles = activeRoles.length > 0 ? activeRoles : ['Operador de Forrageira'];
-    const finalRole = finalRoles.join(', ');
-    
-    const rawRegType = registrationType.trim();
-    const finalRegType = (rawRegType === 'mecanico_especialista' ? 'Mecanico Especialista' : rawRegType) || 'Funcionário';
-
-    // Conversão de valores monetários e comissões com Number() e parseFloat()
-    const parsedSalary = Number(parseCurrencyInput(baseSalary)) || 0;
-    const parsedPerHour = Number(parseCurrencyInput(commissionPerHour)) || 0;
-    const parsedPerAlq = Number(parseCurrencyInput(commissionPerAlqueire)) || 0;
-    const parsedPerHa = Number(parseCurrencyInput(commissionPerHectare)) || 0;
-    const parsedBrokerCommission = isBroker ? (Number(parseCurrencyInput(brokerCommissionValue)) || 0) : 0;
-    const hasAnyCommission = parsedPerHour > 0 || parsedPerAlq > 0 || parsedPerHa > 0;
-    const finalReceivesCommission = !isBroker && (receivesCommission || hasAnyCommission);
-
-    const numPerHour = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHour))) || 0) : 0;
-    const numPerAlq = finalReceivesCommission ? (Number(parseFloat(String(parsedPerAlq))) || 0) : 0;
-    const numPerHa = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHa))) || 0) : 0;
-
-    // Formatação rigorosa de datas para YYYY-MM-DD
-    const formattedAdmissionDate = admissionDate ? (formatIsoDateOnly(admissionDate) || admissionDate.trim()) : undefined;
-    const formattedTerminationDate = terminationDate ? (formatIsoDateOnly(terminationDate) || terminationDate.trim()) : undefined;
-    const formattedBirthDate = birthDate ? (formatIsoDateOnly(birthDate) || birthDate.trim()) : undefined;
-    const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
-
-    const employeeData: Partial<Employee> = {
-      id: editingEmployee ? editingEmployee.id : undefined,
-      name: name.trim().toUpperCase(),
-      registrationType: finalRegType,
-      role: finalRole,
-      roles: finalRoles,
-      brokerCommissionType: isBroker ? brokerCommissionType : undefined,
-      brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
-      actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
-      cpf: cpf.trim() || undefined,
-      rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
-      birthDate: formattedBirthDate,
-      pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
-      photoUrl: photoUrl || undefined,
-      phone: phone.trim(),
-      baseSalary: parsedSalary,
-      salary: parsedSalary,
-      contractType: contractType.trim() || 'Registrado (CLT)',
-      admissionDate: formattedAdmissionDate,
-      terminationDate: formattedTerminationDate,
-      active: isActive,
-      status: isActive ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo') : 'inativo',
-      receivesCommission: finalReceivesCommission,
-      commissionPerHour: numPerHour,
-      commissionPerAlqueire: numPerAlq,
-      commissionPerHectare: numPerHa,
-      comissao_hora: numPerHour,
-      comissao_alqueire: numPerAlq,
-      comissao_hectare: numPerHa,
-      recebe_comissao: finalReceivesCommission,
-      cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
-      cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
-      cnhExpiration: formattedCnhExpiration,
-      cnhUpgradeDT,
-      cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
-      paymentLocation: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : undefined,
-      bankPixKey: bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : undefined,
-      bankAgency: bankAgency.trim() ? bankAgency.trim().toUpperCase() : undefined,
-      bankAccount: bankAccount.trim() ? bankAccount.trim().toUpperCase() : undefined,
-      admissionExamDoc: admissionExamDoc || undefined,
-      experienceContractDoc: experienceContractDoc || undefined,
-      generalDocs: generalDocs || undefined,
-      signedRegistrationDoc: signedRegistrationDoc || undefined,
-    };
-
-    let updatedList: Employee[] = [];
-    if (editingEmployee) {
-      updatedList = localEmployees.map(emp =>
-        emp.id === editingEmployee.id
-          ? ({
-              ...emp,
-              ...employeeData,
-              id: editingEmployee.id,
-            } as Employee)
-          : emp
-      );
-    } else {
-      const newEmp: Employee = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}`,
-        name: employeeData.name!,
-        role: employeeData.role!,
-        phone: employeeData.phone!,
-        status: employeeData.status!,
-        ...employeeData,
-      } as Employee;
-      updatedList = [...localEmployees, newEmp];
-    }
-
-    // Atualização imediata no estado local da tabela e no storage (renderização instantânea sem perda)
-    setLocalEmployees(updatedList);
-    saveStoredEmployees(updatedList);
-    // Notifica o manipulador superior para persistência no Supabase com try/catch e logs detalhados
+    setIsSubmitting(true);
     try {
-      onSaveEmployees(updatedList);
-    } catch (err: any) {
-      console.error('[RH Salvar Funcionário Error]', {
-        message: err?.message,
-        details: err,
-        employeeData
-      });
+      const activeRoles: string[] = [];
+      if (role1.trim()) activeRoles.push(role1.trim());
+      if (role2.trim() && role2.trim().toLowerCase() !== role1.trim().toLowerCase()) activeRoles.push(role2.trim());
+      const finalRoles = activeRoles.length > 0 ? activeRoles : ['Operador de Forrageira'];
+      const finalRole = finalRoles.join(', ');
+      
+      const rawRegType = registrationType.trim();
+      const finalRegType = (rawRegType === 'mecanico_especialista' ? 'Mecanico Especialista' : rawRegType) || 'Funcionário';
+
+      // Conversão de valores monetários e comissões com Number() e parseFloat()
+      const parsedSalary = Number(parseCurrencyInput(baseSalary)) || 0;
+      const parsedPerHour = Number(parseCurrencyInput(commissionPerHour)) || 0;
+      const parsedPerAlq = Number(parseCurrencyInput(commissionPerAlqueire)) || 0;
+      const parsedPerHa = Number(parseCurrencyInput(commissionPerHectare)) || 0;
+      const parsedBrokerCommission = isBroker ? (Number(parseCurrencyInput(brokerCommissionValue)) || 0) : 0;
+      const hasAnyCommission = parsedPerHour > 0 || parsedPerAlq > 0 || parsedPerHa > 0;
+      const finalReceivesCommission = !isBroker && (receivesCommission || hasAnyCommission);
+
+      const numPerHour = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHour))) || 0) : 0;
+      const numPerAlq = finalReceivesCommission ? (Number(parseFloat(String(parsedPerAlq))) || 0) : 0;
+      const numPerHa = finalReceivesCommission ? (Number(parseFloat(String(parsedPerHa))) || 0) : 0;
+
+      // Formatação rigorosa de datas para YYYY-MM-DD
+      const formattedAdmissionDate = admissionDate ? (formatIsoDateOnly(admissionDate) || admissionDate.trim()) : undefined;
+      const formattedTerminationDate = terminationDate ? (formatIsoDateOnly(terminationDate) || terminationDate.trim()) : undefined;
+      const formattedBirthDate = birthDate ? (formatIsoDateOnly(birthDate) || birthDate.trim()) : undefined;
+      const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
+
+      // Garante ID único estável e nunca undefined
+      const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+
+      const employeeData: Employee = {
+        id: finalId,
+        name: name.trim().toUpperCase(),
+        registrationType: finalRegType,
+        role: finalRole,
+        roles: finalRoles,
+        brokerCommissionType: isBroker ? brokerCommissionType : undefined,
+        brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
+        actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
+        cpf: cpf.trim() || undefined,
+        rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
+        birthDate: formattedBirthDate,
+        pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
+        photoUrl: photoUrl || undefined,
+        phone: phone.trim(),
+        baseSalary: parsedSalary,
+        salary: parsedSalary,
+        contractType: contractType.trim() || 'Registrado (CLT)',
+        admissionDate: formattedAdmissionDate,
+        terminationDate: formattedTerminationDate,
+        active: isActive,
+        status: isActive ? (editingEmployee?.status === 'ferias' ? 'ferias' : editingEmployee?.status === 'afastado' ? 'afastado' : 'ativo') : 'inativo',
+        receivesCommission: finalReceivesCommission,
+        commissionPerHour: numPerHour,
+        commissionPerAlqueire: numPerAlq,
+        commissionPerHectare: numPerHa,
+        comissao_hora: numPerHour,
+        comissao_alqueire: numPerAlq,
+        comissao_hectare: numPerHa,
+        recebe_comissao: finalReceivesCommission,
+        cnhNumber: cnhNumber.trim() ? cnhNumber.trim().toUpperCase() : undefined,
+        cnhCategory: cnhNumber.trim() ? cnhCategory : undefined,
+        cnhExpiration: formattedCnhExpiration,
+        cnhUpgradeDT,
+        cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
+        paymentLocation: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : undefined,
+        bankPixKey: bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : undefined,
+        bankAgency: bankAgency.trim() ? bankAgency.trim().toUpperCase() : undefined,
+        bankAccount: bankAccount.trim() ? bankAccount.trim().toUpperCase() : undefined,
+        admissionExamDoc: admissionExamDoc || undefined,
+        experienceContractDoc: experienceContractDoc || undefined,
+        generalDocs: generalDocs || undefined,
+        signedRegistrationDoc: signedRegistrationDoc || undefined,
+      };
+
+      let updatedList: Employee[] = [];
+      if (editingEmployee) {
+        updatedList = localEmployees.map(emp =>
+          emp.id === editingEmployee.id ? employeeData : emp
+        );
+      } else {
+        updatedList = [...localEmployees, employeeData];
+      }
+
+      // Atualização imediata no estado local da tabela e no storage (renderização instantânea sem perda)
+      setLocalEmployees(updatedList);
+      saveStoredEmployees(updatedList);
+
+      // Notifica o manipulador superior para persistência no Supabase
+      try {
+        await onSaveEmployees(updatedList);
+      } catch (err: any) {
+        console.error('[RH Salvar Funcionário Error]', {
+          message: err?.message,
+          details: err,
+          employeeData
+        });
+      }
+      setIsModalOpen(false);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
   };
 
   const getCnhBadge = (emp: Employee) => {
@@ -1051,8 +1078,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {listaOrdenada.map((emp) => (
-                <tr key={emp.id} className="hover:bg-slate-50 transition">
+              {listaOrdenada.map((emp, index) => {
+                const uniqueRowKey = emp.id ? String(emp.id) : `emp_${index}_${emp.cpf || emp.name}`;
+                return (
+                  <tr key={uniqueRowKey} className="hover:bg-slate-50 transition">
                   <td className="py-3.5 px-4">
                     <div className="flex items-center space-x-2">
                       <div className="font-bold text-black uppercase">
@@ -1183,7 +1212,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </div>
                   </td>
                 </tr>
-              ))}
+              ); })}
             </tbody>
           </table>
         </div>
@@ -2164,9 +2193,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer"
+                    disabled={isSubmitting}
+                    className="px-6 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 min-w-[140px]"
                   >
-                    {editingEmployee ? 'Salvar Alterações' : 'Cadastrar Colaborador'}
+                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin text-white" />}
+                    <span>{isSubmitting ? 'Salvando...' : (editingEmployee ? 'Salvar Alterações' : 'Cadastrar Colaborador')}</span>
                   </button>
                 </div>
               </div>
