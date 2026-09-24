@@ -35,7 +35,8 @@ import {
   AlertTriangle,
   FileCheck,
   UserPlus,
-  Settings
+  Settings,
+  Save
 } from 'lucide-react';
 import { 
   Expense, 
@@ -79,12 +80,15 @@ import {
   upsertContaAPagar, 
   deleteNotaFiscal,
   insertDocumentoEntrada,
+  updateDocumentoEntrada,
   fetchDocumentosEntrada,
   deleteDocumentoEntrada,
   insertDocumentoEntradaItem,
   fetchDocumentosEntradaItens,
   deleteDocumentoEntradaItem,
   updateDocumentoEntradaTotal,
+  insertContaAPagarEntradaManual,
+  LancamentoContasAPagarEntradaInput,
   upsertEstoqueItem,
   saveCloudInventory,
   saveCloudManualEntryDocumentTypes,
@@ -1055,9 +1059,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [manualEntryStep, setManualEntryStep] = useState<1 | 2>(1);
   const [currentManualDoc, setCurrentManualDoc] = useState<DocumentoEntradaRecord | null>(null);
 
+  // Helper para cálculo de vencimento padrão (30 dias)
+  const calculateDefaultDueDate = (dateStr?: string): string => {
+    try {
+      if (!dateStr) {
+        const now = new Date();
+        now.setDate(now.getDate() + 30);
+        return now.toISOString().split('T')[0];
+      }
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      d.setDate(d.getDate() + 30);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dayStr}`;
+    } catch {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d.toISOString().split('T')[0];
+    }
+  };
+
   // PASSO 1: Dados do Cabeçalho
   const [manualSupplier, setManualSupplier] = useState('');
   const [manualDate, setManualDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [manualDueDate, setManualDueDate] = useState(() => calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
   const [manualDocumentType, setManualDocumentType] = useState<TipoDocumentoEntrada>('Romaneio');
   const [manualAmountDisplay, setManualAmountDisplay] = useState('');
   const [manualNotes, setManualNotes] = useState('');
@@ -1152,7 +1179,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setManualEntryStep(1);
     setCurrentManualDoc(null);
     setManualSupplier('');
-    setManualDate(new Date().toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    setManualDate(today);
+    setManualDueDate(calculateDefaultDueDate(today));
     const defaultType = (manualDocTypes.includes(manualDocumentType) && manualDocumentType !== 'Recibo')
       ? manualDocumentType 
       : (manualDocTypes[0] || 'Romaneio');
@@ -1167,6 +1196,40 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setItemUnit('UN');
     setItemUnitCostDisplay('');
     setItemFormError('');
+    setIsManualEntryModalOpen(true);
+  };
+
+  // Reabre o modal de etapas carregando todos os dados daquela nota (Cabeçalho e Itens)
+  const handleOpenEditManualDoc = async (doc: DocumentoEntradaRecord) => {
+    setCurrentManualDoc(doc);
+    setManualSupplier(doc.fornecedor || doc.fornecedor_nome || '');
+    const docDate = doc.data || doc.data_emissao || doc.data_entrada || new Date().toISOString().split('T')[0];
+    setManualDate(docDate);
+    setManualDueDate(doc.data_vencimento || calculateDefaultDueDate(docDate));
+    const rawType = doc.tipo_documento || 'Romaneio';
+    setManualDocumentType(rawType as TipoDocumentoEntrada);
+    setManualAmountDisplay(doc.valor_total ? formatCurrencyInputDisplay(doc.valor_total) : '');
+    setManualNotes(doc.observacoes || '');
+    setManualFormError('');
+    setItemSearchQuery('');
+    setSelectedProduct(null);
+    setItemQuantity('1');
+    setItemUnit('UN');
+    setItemUnitCostDisplay('');
+    setItemFormError('');
+
+    setIsLoadingDocItems(true);
+    try {
+      const items = await fetchDocumentosEntradaItens(doc.id);
+      setManualDocItems(items || []);
+    } catch (err) {
+      console.warn('Erro ao carregar itens da entrada para edição:', err);
+      setManualDocItems([]);
+    } finally {
+      setIsLoadingDocItems(false);
+    }
+
+    setManualEntryStep(1);
     setIsManualEntryModalOpen(true);
   };
 
@@ -1232,6 +1295,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return;
     }
 
+    const targetDueDate = manualDueDate || calculateDefaultDueDate(manualDate);
+
     setIsSavingManualEntry(true);
     try {
       let savedDoc: DocumentoEntradaRecord;
@@ -1242,20 +1307,31 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           ...currentManualDoc,
           fornecedor: trimmedSupplier,
           data: manualDate,
+          data_vencimento: targetDueDate,
           tipo_documento: manualDocumentType,
           valor_total: numericAmount,
           observacoes: manualNotes.trim(),
         };
-        await updateDocumentoEntradaTotal(savedDoc.id, numericAmount);
+        await updateDocumentoEntrada(savedDoc.id, {
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: numericAmount,
+          observacoes: manualNotes.trim(),
+        });
+        setCurrentManualDoc(savedDoc);
         setDocumentosEntrada(prev => prev.map(d => d.id === savedDoc.id ? savedDoc : d));
       } else {
-        // Grava no Supabase e captura o ID gerado
+        // Grava no Supabase como Rascunho inicial e captura o ID gerado
         savedDoc = await insertDocumentoEntrada({
           fornecedor: trimmedSupplier,
           data: manualDate,
+          data_vencimento: targetDueDate,
           tipo_documento: manualDocumentType,
           valor_total: numericAmount,
-          observacoes: manualNotes.trim()
+          observacoes: manualNotes.trim(),
+          status: 'Rascunho'
         });
 
         setCurrentManualDoc(savedDoc);
@@ -1263,24 +1339,6 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const filtered = prev.filter(d => d.id !== savedDoc.id);
           return [savedDoc, ...filtered];
         });
-
-        // Sincroniza despesa financeira
-        if (onAddExpenseFromNfe) {
-          onAddExpenseFromNfe({
-            id: `exp_doc_${savedDoc.id}`,
-            description: `Entrada Manual (${manualDocumentType}) - ${trimmedSupplier}`,
-            amount: numericAmount,
-            categoryId: 'cat_insumos',
-            categoryName: 'Insumos & Entradas',
-            categoryColor: '#059669',
-            dueDate: manualDate,
-            status: 'pendente',
-            paymentMethod: 'boleto',
-            supplier: trimmedSupplier,
-            invoiceNumber: `${manualDocumentType.toUpperCase()}`,
-            notes: manualNotes.trim() ? `Documento de Entrada (${manualDocumentType}): ${manualNotes.trim()}` : `Documento de Entrada (${manualDocumentType})`,
-          });
-        }
       }
 
       // Carrega os itens já salvos desta entrada
@@ -1294,6 +1352,75 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     } catch (err) {
       console.error('Erro ao salvar cabeçalho da entrada:', err);
       setManualFormError('Ocorreu um erro ao salvar o documento. Tente novamente.');
+    } finally {
+      setIsSavingManualEntry(false);
+    }
+  };
+
+  // 1. SALVAR COMO RASCUNHO (Salva cabeçalho e itens na tabela 'documentos_entrada' com status 'Rascunho' sem validar valores)
+  const handleSaveManualEntryAsDraft = async () => {
+    setManualFormError('');
+    const trimmedSupplier = manualSupplier.trim();
+    if (!trimmedSupplier) {
+      setManualFormError('Por favor, informe o fornecedor antes de salvar como rascunho.');
+      if (manualEntryStep !== 1) setManualEntryStep(1);
+      return;
+    }
+
+    const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
+    const parsedAmount = parseCurrencyInput(manualAmountDisplay);
+    const finalAmount = parsedAmount > 0 ? parsedAmount : itemsTotal;
+    const targetDueDate = manualDueDate || calculateDefaultDueDate(manualDate);
+
+    setIsSavingManualEntry(true);
+    try {
+      let savedDoc: DocumentoEntradaRecord;
+
+      if (currentManualDoc) {
+        savedDoc = {
+          ...currentManualDoc,
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Rascunho'
+        };
+        await updateDocumentoEntrada(savedDoc.id, {
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Rascunho'
+        });
+        setCurrentManualDoc(savedDoc);
+        setDocumentosEntrada(prev => prev.map(d => d.id === savedDoc.id ? savedDoc : d));
+      } else {
+        savedDoc = await insertDocumentoEntrada({
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Rascunho'
+        });
+        setCurrentManualDoc(savedDoc);
+        setDocumentosEntrada(prev => {
+          const filtered = prev.filter(d => d.id !== savedDoc.id);
+          return [savedDoc, ...filtered];
+        });
+      }
+
+      setIsManualEntryModalOpen(false);
+      setSuccessMessage('Entrada salva como Rascunho com sucesso! Você pode continuar a edição pelo histórico.');
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Erro ao salvar rascunho da entrada:', err);
+      setManualFormError('Erro ao salvar rascunho. Tente novamente.');
     } finally {
       setIsSavingManualEntry(false);
     }
@@ -1632,42 +1759,105 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // FINALIZAÇÃO: Concluir Entrada
+  // 3. FINALIZAÇÃO: Concluir Entrada (Status: Finalizado + POST automático em public.contas_a_pagar)
   const handleFinalizeManualEntry = async () => {
-    if (!currentManualDoc) return;
+    const trimmedSupplier = (currentManualDoc?.fornecedor || manualSupplier).trim();
+    if (!trimmedSupplier) {
+      setManualFormError('Por favor, informe o fornecedor.');
+      setManualEntryStep(1);
+      return;
+    }
 
     const itemsTotal = manualDocItems.reduce((sum, item) => sum + (Number(item.valor_total) || 0), 0);
-    const headerTotal = Number(currentManualDoc.valor_total) || parseCurrencyInput(manualAmountDisplay);
+    const headerTotal = Number(currentManualDoc?.valor_total) || parseCurrencyInput(manualAmountDisplay);
+    const finalAmount = (manualDocItems.length > 0 && itemsTotal > 0) ? itemsTotal : (headerTotal > 0 ? headerTotal : 0);
 
-    // Se o valor total dos itens for diferente do cabeçalho, atualiza automaticamente
-    if (manualDocItems.length > 0 && Math.abs(itemsTotal - headerTotal) > 0.01) {
-      await updateDocumentoEntradaTotal(currentManualDoc.id, itemsTotal);
-      const updatedDoc = { ...currentManualDoc, valor_total: itemsTotal };
-      setCurrentManualDoc(updatedDoc);
-      setDocumentosEntrada(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+    const targetDueDate = manualDueDate || calculateDefaultDueDate(manualDate);
+    const docDescricao = `Entrada de mercadoria manual ref. documento ${manualDocumentType}`;
 
-      // Atualiza valor da despesa gerada
+    setIsSavingManualEntry(true);
+    try {
+      let activeDocId = currentManualDoc?.id;
+      let finalDoc: DocumentoEntradaRecord;
+
+      if (currentManualDoc) {
+        finalDoc = {
+          ...currentManualDoc,
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Finalizado'
+        };
+        await updateDocumentoEntrada(currentManualDoc.id, {
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Finalizado'
+        });
+        setDocumentosEntrada(prev => prev.map(d => d.id === finalDoc.id ? finalDoc : d));
+      } else {
+        finalDoc = await insertDocumentoEntrada({
+          fornecedor: trimmedSupplier,
+          data: manualDate,
+          data_vencimento: targetDueDate,
+          tipo_documento: manualDocumentType,
+          valor_total: finalAmount,
+          observacoes: manualNotes.trim(),
+          status: 'Finalizado'
+        });
+        activeDocId = finalDoc.id;
+        setDocumentosEntrada(prev => {
+          const filtered = prev.filter(d => d.id !== finalDoc.id);
+          return [finalDoc, ...filtered];
+        });
+      }
+
+      // LANÇAMENTO FINANCEIRO AUTOMÁTICO (POST na tabela public.contas_a_pagar do Supabase)
+      await insertContaAPagarEntradaManual({
+        id: `pagar_${activeDocId}`,
+        documento_entrada_id: activeDocId,
+        fornecedor: trimmedSupplier,
+        valor_total: finalAmount,
+        tipo_documento: manualDocumentType,
+        descricao: docDescricao,
+        data_emissao: manualDate,
+        data_vencimento: targetDueDate,
+        forma_pagamento: 'Boleto',
+      });
+
+      // Sincroniza também no estado de despesas do app para atualização em tempo real
       if (onAddExpenseFromNfe) {
         onAddExpenseFromNfe({
-          id: `exp_doc_${updatedDoc.id}`,
-          description: `Entrada Manual (${updatedDoc.tipo_documento}) - ${updatedDoc.fornecedor}`,
-          amount: itemsTotal,
+          id: `exp_doc_${activeDocId}`,
+          description: docDescricao,
+          amount: finalAmount,
           categoryId: 'cat_insumos',
           categoryName: 'Insumos & Entradas',
           categoryColor: '#059669',
-          dueDate: updatedDoc.data,
+          dueDate: targetDueDate,
           status: 'pendente',
           paymentMethod: 'boleto',
-          supplier: updatedDoc.fornecedor,
-          invoiceNumber: `${updatedDoc.tipo_documento.toUpperCase()}`,
-          notes: updatedDoc.observacoes ? `Documento de Entrada (${updatedDoc.tipo_documento}): ${updatedDoc.observacoes}` : `Documento de Entrada (${updatedDoc.tipo_documento})`,
+          supplier: trimmedSupplier,
+          invoiceNumber: `${manualDocumentType.toUpperCase()}`,
+          notes: manualNotes.trim() ? `${docDescricao}: ${manualNotes.trim()}` : docDescricao,
         });
       }
-    }
 
-    setIsManualEntryModalOpen(false);
-    setSuccessMessage(`Entrada manual concluída com sucesso! ${manualDocItems.length} produto(s) lançado(s) no estoque.`);
-    setTimeout(() => setSuccessMessage(''), 5000);
+      setIsManualEntryModalOpen(false);
+      setSuccessMessage(`Entrada manual concluída e lançada no Contas a Pagar com sucesso! (${formatCurrencyBRL(finalAmount)})`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Erro ao concluir entrada manual:', err);
+      setManualFormError('Erro ao concluir a entrada e lançar no financeiro. Tente novamente.');
+    } finally {
+      setIsSavingManualEntry(false);
+    }
   };
 
   const handleDeleteManualDoc = async (doc: DocumentoEntradaRecord) => {
@@ -1741,7 +1931,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         description: doc.observacoes ? doc.observacoes : `Entrada manual: ${tipo}`,
         date: doc.data || doc.data_entrada || doc.data_emissao || doc.created_at || '',
         amount: Number(doc.valor_total) || 0,
-        status: 'registrado',
+        status: doc.status || 'Finalizado',
         documentType: tipo,
         badgeColor: badge,
         rawManualDoc: doc
@@ -4491,19 +4681,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             XML / NF-E
                           </span>
                         ) : (
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight border uppercase ${
-                            entry.badgeColor === 'amber'
-                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                              : entry.badgeColor === 'purple'
-                              ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800'
-                              : entry.badgeColor === 'emerald'
-                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                              : entry.badgeColor === 'sky'
-                              ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-800'
-                              : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700'
-                          }`}>
-                            {entry.documentType || 'MANUAL'}
-                          </span>
+                          <div className="flex flex-col items-center justify-center gap-0.5">
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full inline-block leading-tight border uppercase ${
+                              entry.badgeColor === 'amber'
+                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                                : entry.badgeColor === 'purple'
+                                ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                                : entry.badgeColor === 'emerald'
+                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                                : entry.badgeColor === 'sky'
+                                ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-800'
+                                : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700'
+                            }`}>
+                              {entry.documentType || 'MANUAL'}
+                            </span>
+                            {entry.rawManualDoc?.status === 'Rascunho' ? (
+                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+                                Rascunho
+                              </span>
+                            ) : (
+                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
+                                Finalizado
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td 
@@ -4518,6 +4719,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             e.stopPropagation();
                           }}
                         >
+                          {/* Botão de Lápis (✏️) para CADA linha de nota */}
                           {isXml ? (
                             <button
                               type="button"
@@ -4527,25 +4729,43 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 if (entry.rawExpense) handleEditNota(entry.rawExpense);
                               }}
                               className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
-                              title={`Abrir e editar detalhes da nota ${entry.documentNumber}`}
+                              title={`Editar detalhes da nota ${entry.documentNumber}`}
                             >
-                              <FileEdit className="w-3 h-3 shrink-0 pointer-events-none" />
-                              <span className="truncate pointer-events-none">Abrir & Editar</span>
+                              <Pencil className="w-3.5 h-3.5 shrink-0 pointer-events-none text-sky-600 dark:text-sky-400" />
+                              <span className="truncate pointer-events-none hidden sm:inline">Editar</span>
                             </button>
                           ) : (
-                            <button
-                              type="button"
-                              id={`btn-view-doc-${entry.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (entry.rawManualDoc) setViewingManualDoc(entry.rawManualDoc);
-                              }}
-                              className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
-                              title={`Visualizar detalhes do documento ${entry.documentNumber}`}
-                            >
-                              <FileText className="w-3 h-3 shrink-0 pointer-events-none" />
-                              <span className="truncate pointer-events-none">Visualizar</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                id={`btn-edit-manual-doc-${entry.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (entry.rawManualDoc) handleOpenEditManualDoc(entry.rawManualDoc);
+                                }}
+                                className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
+                                title={entry.rawManualDoc?.status === 'Rascunho' ? `Continuar lançamento do rascunho: ${entry.documentNumber}` : `Editar ou continuar ${entry.documentNumber}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5 shrink-0 pointer-events-none text-amber-600 dark:text-amber-400" />
+                                <span className="truncate pointer-events-none hidden sm:inline">
+                                  {entry.rawManualDoc?.status === 'Rascunho' ? 'Continuar' : 'Editar'}
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                id={`btn-view-doc-${entry.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (entry.rawManualDoc) setViewingManualDoc(entry.rawManualDoc);
+                                }}
+                                className="inline-flex items-center justify-center space-x-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer group-hover:shadow-xs"
+                                title={`Visualizar detalhes do documento ${entry.documentNumber}`}
+                              >
+                                <FileText className="w-3 h-3 shrink-0 pointer-events-none" />
+                                <span className="truncate pointer-events-none hidden sm:inline">Ver</span>
+                              </button>
+                            </>
                           )}
 
                           <button
@@ -4563,7 +4783,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             title={`Excluir ${isXml ? 'nota fiscal' : 'entrada manual'} ${entry.documentNumber}`}
                             aria-label={`Excluir ${entry.documentNumber}`}
                           >
-                            <Trash2 className="w-3 h-3 shrink-0 pointer-events-none" />
+                            <Trash2 className="w-3.5 h-3.5 pointer-events-none" />
                           </button>
                         </div>
                       </td>
@@ -5202,11 +5422,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 </div>
 
                 {/* Passo 2 */}
-                <div
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentManualDoc || manualSupplier.trim()) {
+                      setManualEntryStep(2);
+                    }
+                  }}
+                  disabled={!currentManualDoc && !manualSupplier.trim()}
                   className={`flex items-center space-x-2.5 text-left transition ${
                     manualEntryStep === 2 
                       ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
-                      : 'text-stone-400'
+                      : (currentManualDoc || manualSupplier.trim())
+                      ? 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer'
+                      : 'text-stone-400 cursor-not-allowed opacity-60'
                   }`}
                 >
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
@@ -5220,7 +5449,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     <span className="text-xs block leading-tight font-bold">2. Inserção de Produtos</span>
                     <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal">Itens & Saldo de Estoque</span>
                   </div>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -5302,9 +5531,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     )}
                   </div>
 
-                  {/* 2. Grid com Data e Tipo de Documento */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Data */}
+                  {/* 2. Grid com Data de Emissão, Data de Vencimento e Tipo de Documento */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {/* Data de Emissão */}
                     <div>
                       <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                         Data do Documento <span className="text-rose-500">*</span>
@@ -5313,7 +5542,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         id="manual-date-input"
                         type="date"
                         value={manualDate}
-                        onChange={(e) => setManualDate(e.target.value)}
+                        onChange={(e) => {
+                          setManualDate(e.target.value);
+                          setManualDueDate(calculateDefaultDueDate(e.target.value));
+                        }}
+                        required
+                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Vencimento (Contas a Pagar) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
+                          Vencimento (Financeiro) <span className="text-rose-500">*</span>
+                        </label>
+                        <span className="text-[10px] text-stone-400 font-medium">30 dias padrão</span>
+                      </div>
+                      <input
+                        id="manual-due-date-input"
+                        type="date"
+                        value={manualDueDate}
+                        onChange={(e) => setManualDueDate(e.target.value)}
                         required
                         className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-2xs"
                       />
@@ -5424,24 +5674,38 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       Cancelar
                     </button>
 
-                    <button
-                      type="submit"
-                      id="btn-avancar-passo2-entrada"
-                      disabled={isSavingManualEntry}
-                      className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {isSavingManualEntry ? (
-                        <>
-                          <Clock className="w-4 h-4 animate-spin" />
-                          <span>Gravando Documento...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Avançar para Inserção de Produtos</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        id="btn-salvar-rascunho-step1"
+                        onClick={handleSaveManualEntryAsDraft}
+                        disabled={isSavingManualEntry}
+                        className="px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
+                        title="Salvar cabeçalho como Rascunho"
+                      >
+                        <Save className="w-3.5 h-3.5 text-stone-500" />
+                        <span>Salvar como Rascunho</span>
+                      </button>
+
+                      <button
+                        type="submit"
+                        id="btn-avancar-passo2-entrada"
+                        disabled={isSavingManualEntry}
+                        className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingManualEntry ? (
+                          <>
+                            <Clock className="w-4 h-4 animate-spin" />
+                            <span>Gravando Documento...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Avançar para Inserção de Produtos</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
@@ -5823,15 +6087,39 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       <span>Voltar ao Cabeçalho</span>
                     </button>
 
-                    <button
-                      type="button"
-                      id="btn-concluir-entrada-manual"
-                      onClick={handleFinalizeManualEntry}
-                      className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer"
-                    >
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                      <span>Concluir Entrada</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        id="btn-salvar-rascunho-entrada-manual"
+                        onClick={handleSaveManualEntryAsDraft}
+                        disabled={isSavingManualEntry}
+                        className="px-4 py-2.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
+                        title="Salvar cabeçalho e produtos inseridos até o momento como Rascunho sem validar se valores batem"
+                      >
+                        <Save className="w-3.5 h-3.5 text-stone-500" />
+                        <span>Salvar como Rascunho</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        id="btn-concluir-entrada-manual"
+                        onClick={handleFinalizeManualEntry}
+                        disabled={isSavingManualEntry}
+                        className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingManualEntry ? (
+                          <>
+                            <Clock className="w-4 h-4 animate-spin" />
+                            <span>Concluindo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                            <span>Concluir Entrada</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -6363,13 +6651,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 <span>Excluir Entrada</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setViewingManualDoc(null)}
-                className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
-              >
-                Fechar
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  id="btn-editar-doc-detalhes"
+                  onClick={() => {
+                    const doc = viewingManualDoc;
+                    setViewingManualDoc(null);
+                    handleOpenEditManualDoc(doc);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
+                  title="Editar dados ou continuar lançamento deste documento"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>{viewingManualDoc.status === 'Rascunho' ? 'Continuar Lançamento' : 'Editar Entrada'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewingManualDoc(null)}
+                  className="px-4 py-1.5 text-xs font-bold text-stone-700 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-xl transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>

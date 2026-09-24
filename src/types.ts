@@ -1396,9 +1396,11 @@ export interface DocumentoEntradaRecord {
   data: string;
   data_emissao?: string;
   data_entrada?: string;
+  data_vencimento?: string;
   tipo_documento: string;
   valor_total: number;
   observacoes?: string;
+  status?: 'Rascunho' | 'Finalizado' | string;
   created_at?: string;
   updated_at?: string;
   itens?: DocumentoEntradaItem[];

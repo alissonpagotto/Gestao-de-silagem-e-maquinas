@@ -355,9 +355,11 @@ export interface DocumentoEntradaInput {
   fornecedor: string;
   fornecedor_id?: string | null;
   data: string; // YYYY-MM-DD
+  data_vencimento?: string;
   tipo_documento: 'Romaneio' | 'Recibo' | 'Nota de Produtor' | 'Outros' | string;
   valor_total: number;
   observacoes?: string;
+  status?: 'Rascunho' | 'Finalizado' | string;
 }
 
 /**
@@ -381,9 +383,11 @@ export async function insertDocumentoEntrada(
     data: doc.data,
     data_emissao: doc.data,
     data_entrada: doc.data,
+    data_vencimento: doc.data_vencimento || undefined,
     tipo_documento: doc.tipo_documento,
     valor_total: Number(doc.valor_total) || 0,
     observacoes: doc.observacoes?.trim() || '',
+    status: doc.status || 'Finalizado',
     created_at: now,
     updated_at: now,
   };
@@ -408,8 +412,12 @@ export async function insertDocumentoEntrada(
       tipo_documento: doc.tipo_documento,
       valor_total: Number(doc.valor_total) || 0,
       observacoes: doc.observacoes?.trim() || '',
+      status: doc.status || 'Finalizado',
       updated_at: now
     };
+    if (doc.data_vencimento) {
+      payload.data_vencimento = doc.data_vencimento;
+    }
 
     let { data, error } = await supabase
       .from('documentos_entrada')
@@ -569,6 +577,87 @@ export async function updateDocumentoEntradaTotal(id: string, novoValorTotal: nu
     return true;
   } catch (e) {
     console.warn('updateDocumentoEntradaTotal error:', e);
+    return false;
+  }
+}
+
+/**
+ * Atualiza um Documento de Entrada completo no Supabase e localmente (status, valores, cabeçalho).
+ */
+export async function updateDocumentoEntrada(
+  id: string,
+  updates: Partial<DocumentoEntradaRecord>,
+  companyId?: string
+): Promise<boolean> {
+  const current = getStoredDocumentosEntrada();
+  const updatedList = current.map(d => {
+    if (d.id === id) {
+      return { ...d, ...updates, updated_at: new Date().toISOString() };
+    }
+    return d;
+  });
+  saveStoredDocumentosEntrada(updatedList);
+
+  if (!isSupabaseConfigured) return true;
+
+  try {
+    const uuid = toValidUUID(id);
+    const payload: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+    if (updates.fornecedor !== undefined) {
+      payload.fornecedor = updates.fornecedor.trim();
+      payload.fornecedor_nome = updates.fornecedor.trim();
+    }
+    if (updates.data !== undefined) {
+      payload.data = updates.data;
+      payload.data_emissao = updates.data;
+      payload.data_entrada = updates.data;
+    }
+    if (updates.data_vencimento !== undefined) {
+      payload.data_vencimento = updates.data_vencimento;
+    }
+    if (updates.tipo_documento !== undefined) {
+      payload.tipo_documento = updates.tipo_documento;
+    }
+    if (updates.valor_total !== undefined) {
+      payload.valor_total = Number(updates.valor_total) || 0;
+    }
+    if (updates.observacoes !== undefined) {
+      payload.observacoes = updates.observacoes;
+    }
+    if (updates.status !== undefined) {
+      payload.status = updates.status;
+    }
+
+    let { error } = await supabase
+      .from('documentos_entrada')
+      .update(payload)
+      .eq('id', uuid);
+
+    if (error) {
+      // Se houver incompatibilidade de colunas (ex: status ou data_vencimento inexistentes na tabela do Supabase)
+      const safePayload = { ...payload };
+      delete safePayload.status;
+      delete safePayload.data_vencimento;
+      delete safePayload.fornecedor_nome;
+      delete safePayload.data_emissao;
+      delete safePayload.data_entrada;
+
+      const retry = await supabase
+        .from('documentos_entrada')
+        .update(safePayload)
+        .eq('id', uuid);
+
+      if (retry.error && id !== uuid) {
+        await supabase.from('documentos_entrada').update(safePayload).eq('id', id);
+      }
+    } else if (id !== uuid) {
+      await supabase.from('documentos_entrada').update(payload).eq('id', id);
+    }
+    return true;
+  } catch (err) {
+    console.warn('updateDocumentoEntrada exception:', err);
     return false;
   }
 }
@@ -847,6 +936,114 @@ export async function deleteContaAPagar(parcelaId: string, companyId?: string): 
   } catch (err) {
     console.warn('Supabase deleteContaAPagar err:', err);
     return false;
+  }
+}
+
+export interface LancamentoContasAPagarEntradaInput {
+  id?: string;
+  documento_entrada_id?: string;
+  fornecedor: string;
+  valor_total: number;
+  tipo_documento: string;
+  descricao?: string;
+  data_emissao: string;
+  data_vencimento: string;
+  forma_pagamento?: string;
+}
+
+/**
+ * Realiza POST automático na tabela public.contas_a_pagar do Supabase
+ * ao concluir uma entrada manual (status = 'Finalizado').
+ * Payload estruturado conforme especificação:
+ * - fornecedor/credor (nome do fornecedor)
+ * - valor_total / valor_parcela (valor da nota)
+ * - descricao / centro_custo ('Entrada de mercadoria manual ref. documento ' + tipo_documento)
+ * - data_emissao e data_vencimento
+ */
+export async function insertContaAPagarEntradaManual(
+  dados: LancamentoContasAPagarEntradaInput,
+  companyId?: string
+): Promise<{ success: boolean; data?: any; error?: any }> {
+  const activeCompanyId = companyId || getActiveCompanyId();
+  const uuid = toValidUUID(dados.id || generateUUID());
+  const desc = dados.descricao || `Entrada de mercadoria manual ref. documento ${dados.tipo_documento}`;
+  const now = new Date().toISOString();
+
+  if (!isSupabaseConfigured) {
+    return { success: true };
+  }
+
+  try {
+    const fullPayload: Record<string, any> = {
+      id: uuid,
+      fornecedor: dados.fornecedor.trim(),
+      credor: dados.fornecedor.trim(),
+      valor_total: Number(dados.valor_total) || 0,
+      valor_parcela: Number(dados.valor_total) || 0,
+      descricao: desc,
+      centro_custo: desc,
+      data_emissao: dados.data_emissao,
+      data_vencimento: dados.data_vencimento,
+      numero_parcela: '01/01',
+      forma_pagamento: dados.forma_pagamento || 'Boleto',
+      status_pago: false,
+      created_at: now
+    };
+
+    if (activeCompanyId) {
+      fullPayload.company_id = activeCompanyId;
+    }
+
+    let { data, error } = await supabase
+      .from('contas_a_pagar')
+      .insert([fullPayload])
+      .select();
+
+    if (error) {
+      logPostgresError('insertContaAPagarEntradaManual', error, { table: 'contas_a_pagar', action: 'INSERT', payload: fullPayload });
+
+      // Fallback 1: Esquema tradicional (valor_parcela, centro_custo, data_vencimento)
+      const standardPayload: Record<string, any> = {
+        id: uuid,
+        valor_parcela: Number(dados.valor_total) || 0,
+        data_vencimento: dados.data_vencimento,
+        centro_custo: desc,
+        numero_parcela: '01/01',
+        forma_pagamento: dados.forma_pagamento || 'Boleto',
+        status_pago: false,
+        created_at: now
+      };
+      if (activeCompanyId) standardPayload.company_id = activeCompanyId;
+
+      const retry1 = await supabase
+        .from('contas_a_pagar')
+        .insert([standardPayload])
+        .select();
+
+      if (!retry1.error) {
+        return { success: true, data: retry1.data };
+      }
+
+      // Fallback 2: Remove company_id se não for suportado pela tabela
+      if (retry1.error) {
+        delete standardPayload.company_id;
+        const retry2 = await supabase
+          .from('contas_a_pagar')
+          .insert([standardPayload])
+          .select();
+
+        if (!retry2.error) {
+          return { success: true, data: retry2.data };
+        }
+      }
+
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Supabase insertContaAPagarEntradaManual exception:', err);
+    return { success: false, error: err };
   }
 }
 
