@@ -94,7 +94,10 @@ import {
   upsertEstoqueItem,
   saveCloudInventory,
   saveCloudManualEntryDocumentTypes,
-  fetchCloudManualEntryDocumentTypes
+  fetchCloudManualEntryDocumentTypes,
+  somarCombustivelTanqueEEstoque,
+  subtrairCombustivelTanque,
+  identificarTipoDiesel
 } from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
@@ -1683,7 +1686,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         valor_total: totalPrice,
       });
 
-      // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque'
+      // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque' (estoque_produtos)
       let targetProduct = selectedProduct || localInventory.find(p => 
         p.name.toLowerCase().trim() === description.toLowerCase().trim()
       );
@@ -1693,7 +1696,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const updatedProduct: InventoryItem = {
           ...targetProduct,
           quantity: (Number(targetProduct.quantity) || 0) + qty,
+          quantidade_atual: (Number(targetProduct.quantidade_atual ?? targetProduct.quantity) || 0) + qty,
           unitCost: unitPrice > 0 ? unitPrice : targetProduct.unitCost,
+          preco_custo_inicial: unitPrice > 0 ? unitPrice : (targetProduct.preco_custo_inicial ?? targetProduct.unitCost),
         };
         updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
         saveInventory(updatedInventory);
@@ -1701,20 +1706,33 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       } else {
         // Produto novo cadastrado diretamente no estoque com a quantidade somada
         const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const dieselMatch = identificarTipoDiesel(description);
         const newProduct: InventoryItem = {
           id: newProdId,
           name: description,
+          nome_comercial: description,
           unit: unit,
-          category: 'outro',
+          unidade_medida: unit,
+          category: dieselMatch ? 'Combustível & Arla' : 'outro',
+          categoria: dieselMatch ? 'Combustível & Arla' : 'outro',
           quantity: qty,
+          quantidade_atual: qty,
           minQuantity: 0,
           unitCost: unitPrice,
+          preco_custo_inicial: unitPrice,
           salePrice: unitPrice > 0 ? unitPrice * 1.3 : 0,
-          location: 'Barracão Principal',
+          preco_venda_varejo: unitPrice > 0 ? unitPrice * 1.3 : 0,
+          location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal',
         };
         updatedInventory = [...localInventory, newProduct];
         saveInventory(updatedInventory);
         await upsertEstoqueItem(newProduct);
+      }
+
+      // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Diesel
+      const dieselType = identificarTipoDiesel(description, targetProduct?.category);
+      if (dieselType && qty > 0) {
+        somarCombustivelTanqueEEstoque(dieselType, qty);
       }
 
       setManualDocItems(prev => [...prev, savedItem]);
@@ -1750,10 +1768,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const updatedProduct: InventoryItem = {
           ...targetProduct,
           quantity: newQty,
+          quantidade_atual: newQty,
         };
         const updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
         saveInventory(updatedInventory);
         await upsertEstoqueItem(updatedProduct);
+      }
+
+      // Estorna do Tanque de Combustível da Fazenda se for Diesel
+      const dieselType = identificarTipoDiesel(item.descricao, targetProduct?.category);
+      if (dieselType && Number(item.quantidade) > 0) {
+        const tId = dieselType === 'Diesel S500' ? 'tanque_diesel_s500' : 'tanque_diesel_s10';
+        subtrairCombustivelTanque(tId, Number(item.quantidade));
       }
 
       setManualDocItems(prev => prev.filter(i => i.id !== item.id));
@@ -3381,12 +3407,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             const currentQty = Number(invItem.quantity) || 0;
             const addQty = Number(item.quantity) || 0;
             invItem.quantity = Math.round((currentQty + addQty) * 100) / 100;
+            invItem.quantidade_atual = invItem.quantity;
             updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
+
+            // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Diesel
+            const dieselType = identificarTipoDiesel(item.description, invItem.category);
+            if (dieselType && addQty > 0) {
+              somarCombustivelTanqueEEstoque(dieselType, addQty);
+            }
           }
 
           const newUnitCost = Number(item.unitPrice) || 0;
           if (newUnitCost > 0) {
             invItem.unitCost = newUnitCost;
+            invItem.preco_custo_inicial = newUnitCost;
           }
 
           // Sincronização automática dos preços de venda (V. Final, % Markup, V. Atacado, V. Promo)
@@ -3395,11 +3429,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           }
           if (item.salePrice !== undefined && Number(item.salePrice) >= 0) {
             invItem.salePrice = Number(item.salePrice);
+            invItem.preco_venda_varejo = Number(item.salePrice);
             if (invItem.unitCost > 0 && item.markupPercent === undefined) {
               invItem.profitMargin = Math.round(((invItem.salePrice - invItem.unitCost) / invItem.unitCost) * 100 * 10) / 10;
             }
           } else if (invItem.profitMargin !== undefined && invItem.unitCost > 0) {
             invItem.salePrice = Math.round((invItem.unitCost * (1 + invItem.profitMargin / 100)) * 100) / 100;
+            invItem.preco_venda_varejo = invItem.salePrice;
           }
 
           if (item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0) {
@@ -3414,7 +3450,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         }
       } else {
         if (!editingExpenseId) {
-          const autoCat = deduceItemCategory(item.description);
+          const dieselMatch = identificarTipoDiesel(item.description);
+          const autoCat = dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description);
           const autoUnit = (item.unit || 'UN').toUpperCase();
           const autoQty = Number(item.quantity) || 1;
           const autoCost = Number(item.unitPrice) || 0;
@@ -3428,31 +3465,45 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const newInvItem: InventoryItem = {
             id: newProdId,
             name: item.description,
+            nome_comercial: item.description,
             fiscalName: item.description,
             code: item.code || `PRD${Date.now().toString().slice(-4)}`,
             barcode: item.barcode || undefined,
             unit: autoUnit,
+            unidade_medida: autoUnit,
             category: autoCat,
+            categoria: autoCat,
             unitCost: autoCost,
+            preco_custo_inicial: autoCost,
             profitMargin: autoProfitMargin,
             salePrice: autoSalePrice,
+            preco_venda_varejo: autoSalePrice,
             wholesalePrice: item.wholesalePrice !== undefined && Number(item.wholesalePrice) >= 0 ? Number(item.wholesalePrice) : undefined,
             promoPrice: item.promoPrice !== undefined && Number(item.promoPrice) >= 0 ? Number(item.promoPrice) : undefined,
             quantity: autoQty,
+            quantidade_atual: autoQty,
             minQuantity: 5,
             maxQuantity: 100,
-            location: 'Barracão Principal'
+            location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal'
           };
 
           updatedInventory.push(newInvItem);
           item.linkedInventoryId = newProdId;
           updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
+
+          // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Diesel
+          if (dieselMatch && autoQty > 0) {
+            somarCombustivelTanqueEEstoque(dieselMatch, autoQty);
+          }
         }
       }
     });
 
     // Sincroniza sempre o estoque com as quantidades e novas precificações
     saveInventory(updatedInventory);
+    updatedInventory.forEach(prod => {
+      upsertEstoqueItem(prod).catch(err => console.warn('Supabase upsertEstoqueItem XML sync:', err));
+    });
 
     // AUTOMAÇÃO FINANCEIRA: Gravação Individual das Parcelas no Contas a Pagar
     const selectedCC = localCostCenters.find(c => c.id === selectedCostCenterId);

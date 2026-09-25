@@ -146,7 +146,52 @@ export const INITIAL_MACHINERIES: Machinery[] = [];
 export const INITIAL_EMPLOYEES: Employee[] = [];
 export const INITIAL_FLEET_TEAMS: FleetTeam[] = [];
 export const INITIAL_SUPPLIERS: Supplier[] = [];
-export const INITIAL_INVENTORY: InventoryItem[] = [];
+export const INITIAL_INVENTORY: InventoryItem[] = [
+  {
+    id: 'prod_diesel_s10',
+    code: 'COMB-S10',
+    name: 'Diesel S10',
+    nome: 'Diesel S10',
+    nome_comercial: 'Diesel S10',
+    category: 'Combustível & Arla',
+    categoria: 'Combustível & Arla',
+    quantity: 11200,
+    quantidade_atual: 11200,
+    unit: 'L',
+    unidade_medida: 'L',
+    minQuantity: 2000,
+    unitCost: 5.85,
+    preco_custo_inicial: 5.85,
+    custo_nominal: 5.85,
+    salePrice: 6.50,
+    preco_venda_varejo: 6.50,
+    preco_venda: 6.50,
+    profitMargin: 11.1,
+    location: 'Tanque Fazenda (Pátio Central)',
+  },
+  {
+    id: 'prod_diesel_s500',
+    code: 'COMB-S500',
+    name: 'Diesel S500',
+    nome: 'Diesel S500',
+    nome_comercial: 'Diesel S500',
+    category: 'Combustível & Arla',
+    categoria: 'Combustível & Arla',
+    quantity: 6500,
+    quantidade_atual: 6500,
+    unit: 'L',
+    unidade_medida: 'L',
+    minQuantity: 1500,
+    unitCost: 5.60,
+    preco_custo_inicial: 5.60,
+    custo_nominal: 5.60,
+    salePrice: 6.20,
+    preco_venda_varejo: 6.20,
+    preco_venda: 6.20,
+    profitMargin: 10.7,
+    location: 'Tanque Fazenda (Oficina)',
+  }
+];
 export const INITIAL_SERVICES: ServiceOrder[] = [];
 export const INITIAL_FUEL_LOGS: FuelLog[] = [];
 export const INITIAL_MAINTENANCE_LOGS: MaintenanceLog[] = [];

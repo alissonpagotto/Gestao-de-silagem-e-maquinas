@@ -27,7 +27,8 @@ import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
 import { 
   formatCurrencyBRL, 
   getStoredMaintenanceLogs, 
-  getStoredFuelLogs 
+  getStoredFuelLogs,
+  ensureDieselProductsInInventory
 } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ProductFormModal } from './ProductFormModal';
@@ -118,13 +119,42 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     return movements;
   }, [viewingItem, maintenanceLogs, fuelLogs]);
 
-  const filteredItems = inventory.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Garante que Diesel S10 e Diesel S500 apareçam normalmente na tela de Estoque
+  const allItems = useMemo(() => {
+    return ensureDieselProductsInInventory(inventory);
+  }, [inventory]);
 
-  const totalInventoryValue = inventory.reduce((acc, curr) => acc + (curr.quantity * curr.unitCost), 0);
-  const lowStockCount = inventory.filter(item => item.quantity <= item.minQuantity).length;
+  const filteredItems = useMemo(() => {
+    const s = searchTerm.toLowerCase().trim();
+    if (!s) return allItems;
+    return allItems.filter(item => {
+      const nameMatch = (item.nome_comercial || item.name || '').toLowerCase().includes(s);
+      const catMatch = (item.categoria || item.category || '').toLowerCase().includes(s);
+      const codeMatch = (item.code || '').toLowerCase().includes(s);
+      const locMatch = (item.location || '').toLowerCase().includes(s);
+      return nameMatch || catMatch || codeMatch || locMatch;
+    });
+  }, [allItems, searchTerm]);
+
+  const totalInventoryValue = useMemo(() => {
+    return allItems.reduce((acc, curr) => acc + ((curr.quantidade_atual ?? curr.quantity) * (curr.preco_custo_inicial ?? curr.unitCost)), 0);
+  }, [allItems]);
+
+  const lowStockCount = useMemo(() => {
+    return allItems.filter(item => (item.quantidade_atual ?? item.quantity) <= item.minQuantity).length;
+  }, [allItems]);
+
+  const totalDieselLitros = useMemo(() => {
+    return allItems
+      .filter(i => 
+        i.category === 'combustivel' || 
+        i.category === 'Combustível & Arla' || 
+        i.categoria === 'Combustível & Arla' || 
+        (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel')) ||
+        (i.name && i.name.toLowerCase().includes('diesel'))
+      )
+      .reduce((acc, curr) => acc + (Number(curr.quantidade_atual ?? curr.quantity) || 0), 0);
+  }, [allItems]);
 
   // Abrir Modal de Cadastro Limpo
   const handleOpenCreateModal = () => {
@@ -210,10 +240,14 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
   const getCategoryIcon = (cat: InventoryItem['category']) => {
     switch (cat) {
-      case 'combustivel': return <Fuel className="w-4 h-4 text-amber-500" />;
-      case 'lona_embalagem': return <Layers className="w-4 h-4 text-teal-500" />;
-      case 'inoculante': return <Sprout className="w-4 h-4 text-emerald-500" />;
-      case 'pecas': return <Wrench className="w-4 h-4 text-rose-500" />;
+      case 'combustivel':
+      case 'Combustível & Arla': return <Fuel className="w-4 h-4 text-amber-500" />;
+      case 'lona_embalagem':
+      case 'Lona & Embalagem': return <Layers className="w-4 h-4 text-teal-500" />;
+      case 'inoculante':
+      case 'Inoculante & Biológico': return <Sprout className="w-4 h-4 text-emerald-500" />;
+      case 'pecas':
+      case 'Peças & Manutenção': return <Wrench className="w-4 h-4 text-rose-500" />;
       default: return <Package className="w-4 h-4 text-sky-500" />;
     }
   };
@@ -251,7 +285,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
               {formatCurrencyBRL(totalInventoryValue)}
             </div>
-            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">{inventory.length} produtos cadastrados</p>
+            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">{allItems.length} produtos cadastrados</p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
             <Package className="w-4 h-4" />
@@ -279,9 +313,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
               Diesel em Tanque
             </span>
             <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] mt-0.5">
-              {inventory.find(i => i.category === 'combustivel')?.quantity || 0} L
+              {totalDieselLitros.toLocaleString('pt-BR')} L
             </div>
-            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">Óleo diesel S10 disponível</p>
+            <p className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 mt-0.5">Diesel S10 & S500 na Fazenda</p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 flex items-center justify-center">
             <Fuel className="w-4 h-4" />
@@ -377,40 +411,46 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 </tr>
               ) : (
                 filteredItems.map((item) => {
-                  const isLow = item.quantity <= item.minQuantity;
-                  const itemTotal = item.quantity * item.unitCost;
+                  const effectiveQty = item.quantidade_atual !== undefined ? item.quantidade_atual : item.quantity;
+                  const effectiveCost = item.preco_custo_inicial !== undefined ? item.preco_custo_inicial : item.unitCost;
+                  const effectiveSale = item.preco_venda_varejo !== undefined ? item.preco_venda_varejo : item.salePrice;
+                  const displayName = item.nome_comercial || item.name;
+                  const displayCat = item.categoria || item.category || 'outro';
+
+                  const isLow = effectiveQty <= item.minQuantity;
+                  const itemTotal = effectiveQty * effectiveCost;
 
                   // Valores de margem e precificação derivados/sincronizados
                   const curProfitMargin = item.profitMargin !== undefined 
                     ? item.profitMargin 
-                    : (item.unitCost > 0 && item.salePrice ? Math.round(((item.salePrice - item.unitCost) / item.unitCost) * 100 * 10) / 10 : '');
+                    : (effectiveCost > 0 && effectiveSale ? Math.round(((effectiveSale - effectiveCost) / effectiveCost) * 100 * 10) / 10 : '');
                   
-                  const curSalePrice = item.salePrice !== undefined 
-                    ? item.salePrice 
-                    : (item.unitCost > 0 && curProfitMargin !== '' ? Math.round(item.unitCost * (1 + Number(curProfitMargin) / 100) * 100) / 100 : '');
+                  const curSalePrice = effectiveSale !== undefined 
+                    ? effectiveSale 
+                    : (effectiveCost > 0 && curProfitMargin !== '' ? Math.round(effectiveCost * (1 + Number(curProfitMargin) / 100) * 100) / 100 : '');
 
                   const curWholesaleMargin = item.wholesaleMargin !== undefined 
                     ? item.wholesaleMargin 
-                    : (item.unitCost > 0 && item.wholesalePrice ? Math.round(((item.wholesalePrice - item.unitCost) / item.unitCost) * 100 * 10) / 10 : '');
+                    : (effectiveCost > 0 && item.wholesalePrice ? Math.round(((item.wholesalePrice - effectiveCost) / effectiveCost) * 100 * 10) / 10 : '');
 
                   const curWholesalePrice = item.wholesalePrice !== undefined 
                     ? item.wholesalePrice 
-                    : (item.unitCost > 0 && curWholesaleMargin !== '' ? Math.round(item.unitCost * (1 + Number(curWholesaleMargin) / 100) * 100) / 100 : '');
+                    : (effectiveCost > 0 && curWholesaleMargin !== '' ? Math.round(effectiveCost * (1 + Number(curWholesaleMargin) / 100) * 100) / 100 : '');
 
                   const curPromoMargin = item.promoMargin !== undefined 
                     ? item.promoMargin 
-                    : (item.unitCost > 0 && item.promoPrice ? Math.round(((item.promoPrice - item.unitCost) / item.unitCost) * 100 * 10) / 10 : '');
+                    : (effectiveCost > 0 && item.promoPrice ? Math.round(((item.promoPrice - effectiveCost) / effectiveCost) * 100 * 10) / 10 : '');
 
                   const curPromoPrice = item.promoPrice !== undefined 
                     ? item.promoPrice 
-                    : (item.unitCost > 0 && curPromoMargin !== '' ? Math.round(item.unitCost * (1 + Number(curPromoMargin) / 100) * 100) / 100 : '');
+                    : (effectiveCost > 0 && curPromoMargin !== '' ? Math.round(effectiveCost * (1 + Number(curPromoMargin) / 100) * 100) / 100 : '');
 
                   return (
                     <tr key={item.id} className="hover:bg-blue-300/30 dark:hover:bg-stone-800/40 transition">
                       {/* 1. ITEM & LOCAL (Enxuto) */}
                       <td className="py-1 px-2">
-                        <div className="font-black text-black dark:text-stone-100 text-xs truncate max-w-[170px]" title={item.name}>
-                          {item.name}
+                        <div className="font-black text-black dark:text-stone-100 text-xs truncate max-w-[170px]" title={displayName}>
+                          {displayName}
                         </div>
                         <span className="text-[9.5px] font-bold text-black/70 dark:text-stone-400 block truncate max-w-[170px]">
                           {item.location || 'Geral'}
@@ -420,15 +460,15 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                       {/* 2. CATEGORIA (Compacta) */}
                       <td className="py-1 px-2">
                         <div className="flex items-center space-x-1 capitalize font-bold text-[11px] text-black dark:text-stone-200">
-                          {getCategoryIcon(item.category)}
-                          <span className="truncate max-w-[90px]">{item.category.replace('_', ' ')}</span>
+                          {getCategoryIcon(displayCat)}
+                          <span className="truncate max-w-[90px]">{displayCat.replace('_', ' ')}</span>
                         </div>
                       </td>
 
                       {/* 3. QUANTIDADE */}
                       <td className="py-1 px-2 text-right">
                         <span className={`font-black font-mono text-xs ${isLow ? 'text-rose-950 dark:text-rose-400' : 'text-black dark:text-stone-100'}`}>
-                          {item.quantity} {item.unit}
+                          {effectiveQty} {item.unidade_medida || item.unit}
                         </span>
                         {isLow && (
                           <span className="block text-[8.5px] font-black text-rose-900 dark:text-rose-400">
@@ -439,7 +479,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
                       {/* 4. CUSTO UNITÁRIO (R$) */}
                       <td className="py-1 px-2 text-right font-black text-black dark:text-stone-300 font-mono text-xs">
-                        {formatCurrencyBRL(item.unitCost)}
+                        {formatCurrencyBRL(effectiveCost)}
                       </td>
 
                       {/* 5. VALOR TOTAL (R$) */}

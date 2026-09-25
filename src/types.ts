@@ -482,6 +482,10 @@ export interface InventoryItem {
   fiscalGroup?: 'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO' | string; // Grupo Fiscal
   ipiGroup?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string; // Grupo IPI
   // Aliases em português para integração direta com a tabela 'estoque' / 'estoque_produtos'
+  nome_comercial?: string; // Coluna real da tabela estoque_produtos
+  quantidade_atual?: number; // Coluna real da tabela estoque_produtos
+  preco_custo_inicial?: number; // Coluna real da tabela estoque_produtos
+  preco_venda_varejo?: number; // Coluna real da tabela estoque_produtos
   nome?: string;
   categoria?: string;
   unidade_medida?: string;

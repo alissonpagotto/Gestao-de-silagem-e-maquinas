@@ -372,22 +372,33 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         // 1. NÃO cria lançamento de dívida pendente em contas_a_pagar.
         // 2. Registra apenas a movimentação de baixa de litros no estoque de combustível
         const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
+        const isS500 = fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500');
+        const prodSearch = isS500 ? 'Diesel S500' : 'Diesel S10';
         const fuelItem = currentInventory.find(i => 
+          (i.nome_comercial && i.nome_comercial.toLowerCase().includes(prodSearch.toLowerCase())) ||
+          (i.name && i.name.toLowerCase().includes(prodSearch.toLowerCase()))
+        ) || currentInventory.find(i => 
+          i.category === 'Combustível & Arla' || 
+          i.categoria === 'Combustível & Arla' || 
           i.category === 'combustivel' || 
-          i.name.toLowerCase().includes('diesel') ||
-          i.name.toLowerCase().includes('óleo diesel') ||
-          i.name.toLowerCase().includes('oleo diesel')
+          i.name.toLowerCase().includes('diesel')
         );
         if (fuelItem) {
-          const newQty = Math.max(0, Number(((fuelItem.quantity || 0) - fuelLog.liters).toFixed(2)));
+          const currentQty = Number(fuelItem.quantidade_atual ?? fuelItem.quantity ?? 0);
+          const newQty = Math.max(0, Number((currentQty - fuelLog.liters).toFixed(2)));
           const updatedInventory = currentInventory.map(item => 
-            item.id === fuelItem.id ? { ...item, quantity: newQty, updatedAt: new Date().toISOString() } : item
+            item.id === fuelItem.id ? { 
+              ...item, 
+              quantity: newQty, 
+              quantidade_atual: newQty, 
+              updatedAt: new Date().toISOString() 
+            } : item
           );
           if (onSaveInventory) {
             onSaveInventory(updatedInventory);
           }
           saveStoredInventory(updatedInventory);
-          upsertEstoqueItem({ ...fuelItem, quantity: newQty }).catch(err => 
+          upsertEstoqueItem({ ...fuelItem, quantity: newQty, quantidade_atual: newQty }).catch(err => 
             console.warn('Supabase baixa estoque diesel sync:', err)
           );
         }

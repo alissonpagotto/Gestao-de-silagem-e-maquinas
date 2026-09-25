@@ -409,13 +409,123 @@ export function saveStoredSuppliers(suppliers: Supplier[]): void {
   }
 }
 
+export function ensureDieselProductsInInventory(items: InventoryItem[]): InventoryItem[] {
+  const currentList = Array.isArray(items) ? [...items] : [];
+  const tanks = getStoredTanquesCombustivel();
+  const tankS10 = tanks.find(t => t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'));
+  const tankS500 = tanks.find(t => t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'));
+
+  const s10Qty = tankS10?.quantidade_atual !== undefined ? Number(tankS10.quantidade_atual) : 11200;
+  const s500Qty = tankS500?.quantidade_atual !== undefined ? Number(tankS500.quantidade_atual) : 6500;
+
+  // 1. Verifica Diesel S10
+  const s10Idx = currentList.findIndex(i => 
+    i.id === 'prod_diesel_s10' ||
+    (i.name && i.name.toLowerCase().includes('diesel s10')) ||
+    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel s10'))
+  );
+
+  if (s10Idx >= 0) {
+    currentList[s10Idx] = {
+      ...currentList[s10Idx],
+      name: currentList[s10Idx].name || 'Diesel S10',
+      nome_comercial: currentList[s10Idx].nome_comercial || currentList[s10Idx].name || 'Diesel S10',
+      category: 'Combustível & Arla',
+      categoria: 'Combustível & Arla',
+      unit: currentList[s10Idx].unit || 'L',
+      unidade_medida: currentList[s10Idx].unidade_medida || 'L',
+      quantity: currentList[s10Idx].quantity !== undefined ? currentList[s10Idx].quantity : s10Qty,
+      quantidade_atual: currentList[s10Idx].quantidade_atual !== undefined ? currentList[s10Idx].quantidade_atual : (currentList[s10Idx].quantity ?? s10Qty),
+      unitCost: currentList[s10Idx].unitCost || 5.85,
+      preco_custo_inicial: currentList[s10Idx].preco_custo_inicial || currentList[s10Idx].unitCost || 5.85,
+      salePrice: currentList[s10Idx].salePrice || 6.50,
+      preco_venda_varejo: currentList[s10Idx].preco_venda_varejo || currentList[s10Idx].salePrice || 6.50,
+    };
+  } else {
+    currentList.unshift({
+      id: 'prod_diesel_s10',
+      code: 'COMB-S10',
+      name: 'Diesel S10',
+      nome: 'Diesel S10',
+      nome_comercial: 'Diesel S10',
+      category: 'Combustível & Arla',
+      categoria: 'Combustível & Arla',
+      quantity: s10Qty,
+      quantidade_atual: s10Qty,
+      unit: 'L',
+      unidade_medida: 'L',
+      minQuantity: 2000,
+      unitCost: 5.85,
+      preco_custo_inicial: 5.85,
+      custo_nominal: 5.85,
+      salePrice: 6.50,
+      preco_venda_varejo: 6.50,
+      preco_venda: 6.50,
+      profitMargin: 11.1,
+      location: 'Tanque Fazenda (Pátio Central)',
+    });
+  }
+
+  // 2. Verifica Diesel S500
+  const s500Idx = currentList.findIndex(i => 
+    i.id === 'prod_diesel_s500' ||
+    (i.name && i.name.toLowerCase().includes('diesel s500')) ||
+    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel s500'))
+  );
+
+  if (s500Idx >= 0) {
+    currentList[s500Idx] = {
+      ...currentList[s500Idx],
+      name: currentList[s500Idx].name || 'Diesel S500',
+      nome_comercial: currentList[s500Idx].nome_comercial || currentList[s500Idx].name || 'Diesel S500',
+      category: 'Combustível & Arla',
+      categoria: 'Combustível & Arla',
+      unit: currentList[s500Idx].unit || 'L',
+      unidade_medida: currentList[s500Idx].unidade_medida || 'L',
+      quantity: currentList[s500Idx].quantity !== undefined ? currentList[s500Idx].quantity : s500Qty,
+      quantidade_atual: currentList[s500Idx].quantidade_atual !== undefined ? currentList[s500Idx].quantidade_atual : (currentList[s500Idx].quantity ?? s500Qty),
+      unitCost: currentList[s500Idx].unitCost || 5.60,
+      preco_custo_inicial: currentList[s500Idx].preco_custo_inicial || currentList[s500Idx].unitCost || 5.60,
+      salePrice: currentList[s500Idx].salePrice || 6.20,
+      preco_venda_varejo: currentList[s500Idx].preco_venda_varejo || currentList[s500Idx].salePrice || 6.20,
+    };
+  } else {
+    const insertPos = currentList.findIndex(i => i.name === 'Diesel S10') + 1;
+    currentList.splice(insertPos > 0 ? insertPos : 1, 0, {
+      id: 'prod_diesel_s500',
+      code: 'COMB-S500',
+      name: 'Diesel S500',
+      nome: 'Diesel S500',
+      nome_comercial: 'Diesel S500',
+      category: 'Combustível & Arla',
+      categoria: 'Combustível & Arla',
+      quantity: s500Qty,
+      quantidade_atual: s500Qty,
+      unit: 'L',
+      unidade_medida: 'L',
+      minQuantity: 1500,
+      unitCost: 5.60,
+      preco_custo_inicial: 5.60,
+      custo_nominal: 5.60,
+      salePrice: 6.20,
+      preco_venda_varejo: 6.20,
+      preco_venda: 6.20,
+      profitMargin: 10.7,
+      location: 'Tanque Fazenda (Oficina)',
+    });
+  }
+
+  return currentList;
+}
+
 export function getStoredInventory(): InventoryItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
-    if (!raw) return INITIAL_INVENTORY;
-    return JSON.parse(raw);
+    if (!raw) return ensureDieselProductsInInventory(INITIAL_INVENTORY);
+    const parsed = JSON.parse(raw);
+    return ensureDieselProductsInInventory(Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_INVENTORY);
   } catch (e) {
-    return INITIAL_INVENTORY;
+    return ensureDieselProductsInInventory(INITIAL_INVENTORY);
   }
 }
 

@@ -41,7 +41,10 @@ import {
   deleteLocalDocumentoEntradaItem,
   getStoredTanquesCombustivel,
   saveStoredTanquesCombustivel,
-  DEFAULT_TANQUES_COMBUSTIVEL
+  DEFAULT_TANQUES_COMBUSTIVEL,
+  getStoredInventory,
+  saveStoredInventory,
+  ensureDieselProductsInInventory
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -1155,68 +1158,98 @@ export const upsertParcelaFinanceira = async (parcela: {
 };
 
 // ===========================================================================
-// 4. Estoque (Tabela: public.estoque)
-// Colunas: id, codigo_produto, descricao, quantidade_atual, preco_venda_final,
-//          preco_venda_atacado, preco_venda_promo, fim_promocao, created_at
+// 4. Estoque (Tabela principal: public.estoque_produtos, fallback: public.estoque)
+// Mapeamento das colunas reais de 'estoque_produtos':
+//   * nome_comercial (em vez de nome)
+//   * quantidade_atual (em vez de quantidade)
+//   * preco_custo_inicial (em vez de custo_nominal)
+//   * preco_venda_varejo (em vez de preco_venda)
 // ===========================================================================
 export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] | null> {
-  if (!isSupabaseConfigured) return null;
+  const localItems = getStoredInventory();
+  if (!isSupabaseConfigured) return localItems;
   const activeCompanyId = companyId || getActiveCompanyId();
-  if (!activeCompanyId) return [];
   try {
-    let { data, error } = await supabase
-      .from('estoque')
-      .select('*')
-      .eq('company_id', activeCompanyId)
-      .order('descricao', { ascending: true });
+    let rows: any[] = [];
+    let querySuccess = false;
 
-    if ((!data || data.length === 0) && activeCompanyId) {
-      const altUuid = toValidUUID(activeCompanyId);
-      if (altUuid && altUuid !== activeCompanyId) {
-        const retry = await supabase
-          .from('estoque')
-          .select('*')
-          .eq('company_id', altUuid)
-          .order('descricao', { ascending: true });
-        if (retry.data && retry.data.length > 0) {
-          data = retry.data;
-          error = null;
-        }
+    // 1. Tenta buscar prioritariamente da tabela oficial 'estoque_produtos'
+    let qProdutos = supabase.from('estoque_produtos').select('*');
+    if (activeCompanyId) {
+      qProdutos = qProdutos.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+    }
+    const resProdutos = await qProdutos;
+    if (!resProdutos.error && Array.isArray(resProdutos.data) && resProdutos.data.length > 0) {
+      rows = resProdutos.data;
+      querySuccess = true;
+    } else {
+      // 2. Fallback para tabela legada 'estoque'
+      let qEstoque = supabase.from('estoque').select('*');
+      if (activeCompanyId) {
+        qEstoque = qEstoque.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+      }
+      const resEstoque = await qEstoque;
+      if (!resEstoque.error && Array.isArray(resEstoque.data) && resEstoque.data.length > 0) {
+        rows = resEstoque.data;
+        querySuccess = true;
       }
     }
 
-    if (error) {
-      console.warn('Supabase fetchEstoque notice:', error.message);
-      return [];
+    if (!querySuccess || rows.length === 0) {
+      return localItems;
     }
-    if (!data) return [];
 
-    return data.map(row => ({
-      id: row.id,
-      companyId: row.company_id || undefined,
-      code: row.codigo_produto || '',
-      name: row.descricao || '',
-      category: row.categoria || 'outro',
-      quantity: Number(row.quantidade_atual) || 0,
-      unit: row.unidade || 'un',
-      minQuantity: Number(row.quantidade_minima) || 0,
-      unitCost: Number(row.custo_nominal ?? row.preco_custo) || 0,
-      salePrice: Number(row.preco_venda_final) || 0,
-      wholesalePrice: Number(row.preco_venda_atacado) || 0,
-      promoPrice: Number(row.preco_venda_promo) || 0,
-      location: row.localizacao || 'Depósito Principal',
-      brand: row.marca || undefined,
-      barcode: row.codigo_barras || row.gtin || undefined,
-      hasNoGtin: Boolean(row.sem_gtin),
-      factoryRef: row.referencia_fabrica || undefined,
-      ncm: row.ncm || undefined,
-      fiscalGroup: row.grupo_fiscal || undefined,
-      ipiGroup: row.grupo_ipi || undefined,
-      profitMargin: row.margem_lucro !== undefined && row.margem_lucro !== null ? Number(row.margem_lucro) : undefined,
-    } as InventoryItem));
+    const mapped: InventoryItem[] = rows.map(row => {
+      // Mapeamento das colunas reais do banco
+      const name = String(row.nome_comercial || row.nome || row.descricao || 'Produto sem descrição').trim();
+      const qty = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+      const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? 0);
+      const sale = Number(row.preco_venda_varejo ?? row.preco_venda ?? row.preco_venda_final ?? 0);
+
+      return {
+        id: String(row.id),
+        companyId: row.company_id || undefined,
+        code: row.codigo_produto || '',
+        name,
+        nome_comercial: name,
+        nome: name,
+        category: row.categoria || 'outro',
+        categoria: row.categoria || 'outro',
+        quantity: qty,
+        quantidade_atual: qty,
+        unit: row.unidade_medida || row.unidade || 'UN',
+        unidade_medida: row.unidade_medida || row.unidade || 'UN',
+        minQuantity: Number(row.quantidade_minima ?? row.minQuantity ?? 0),
+        unitCost: cost,
+        preco_custo_inicial: cost,
+        custo_nominal: cost,
+        salePrice: sale,
+        preco_venda_varejo: sale,
+        preco_venda: sale,
+        wholesalePrice: Number(row.preco_venda_atacado ?? 0),
+        promoPrice: Number(row.preco_venda_promo ?? 0),
+        location: row.localizacao || 'Depósito Principal',
+        brand: row.marca || undefined,
+        barcode: row.codigo_barras || row.gtin || undefined,
+        hasNoGtin: Boolean(row.sem_gtin),
+        factoryRef: row.ref_fabrica || row.referencia_fabrica || undefined,
+        ncm: row.codigo_ncm || row.ncm || undefined,
+        fiscalGroup: row.grupo_fiscal || undefined,
+        ipiGroup: row.grupo_ipi || undefined,
+        profitMargin: row.margem_lucro_sugerida !== undefined && row.margem_lucro_sugerida !== null 
+          ? Number(row.margem_lucro_sugerida) 
+          : (row.margem_lucro !== undefined && row.margem_lucro !== null ? Number(row.margem_lucro) : undefined),
+        createdAt: row.created_at || undefined,
+        updatedAt: row.updated_at || undefined,
+      };
+    });
+
+    const finalizedList = ensureDieselProductsInInventory(mapped);
+    saveStoredInventory(finalizedList);
+    return finalizedList;
   } catch (err) {
     console.warn('Supabase fetchEstoque err:', err);
-    return [];
+    return localItems;
   }
 }
 
@@ -1236,14 +1269,27 @@ export function parseNumericFloat(val: any): number {
 }
 
 export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  const currentInv = getStoredInventory();
+  const itemId = item.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const itemWithId = { ...item, id: itemId };
+  
+  const existingIdx = currentInv.findIndex(i => i.id === itemId);
+  let updatedInv: InventoryItem[];
+  if (existingIdx >= 0) {
+    updatedInv = currentInv.map(i => i.id === itemId ? { ...i, ...itemWithId } : i);
+  } else {
+    updatedInv = [itemWithId, ...currentInv];
+  }
+  saveStoredInventory(updatedInv);
+
+  if (!isSupabaseConfigured) return true;
   try {
     const activeCompanyId = item.companyId || companyId || getActiveCompanyId();
-    const itemId = item.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     
     // Tratamento estrito de valores numéricos como floats válidos
-    const custoNominalFloat = parseNumericFloat(item.custo_nominal ?? item.unitCost ?? item.preco_custo);
-    const precoVendaFloat = parseNumericFloat(item.preco_venda ?? item.salePrice ?? item.preco_venda_final);
+    const custoNominalFloat = parseNumericFloat(item.preco_custo_inicial ?? item.custo_nominal ?? item.unitCost ?? item.preco_custo);
+    const precoVendaFloat = parseNumericFloat(item.preco_venda_varejo ?? item.preco_venda ?? item.salePrice ?? item.preco_venda_final);
+    const quantidadeFloat = parseNumericFloat(item.quantidade_atual ?? item.quantity);
     const margemFloat = (item.margem_lucro_sugerida !== undefined && item.margem_lucro_sugerida !== null && item.margem_lucro_sugerida !== '')
       ? parseNumericFloat(item.margem_lucro_sugerida)
       : (item.profitMargin !== undefined && item.profitMargin !== null && item.profitMargin !== '')
@@ -1254,7 +1300,7 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
               ? Number((((precoVendaFloat - custoNominalFloat) / custoNominalFloat) * 100).toFixed(2)) 
               : null);
 
-    const nomeStr = String(item.nome || item.name || item.descricao || 'Produto sem descrição').trim();
+    const nomeStr = String(item.nome_comercial || item.nome || item.name || item.descricao || 'Produto sem descrição').trim();
     const categoriaStr = String(item.categoria || item.category || 'outro').trim();
     const unidadeStr = String(item.unidade_medida || item.unit || 'UN').trim().toUpperCase();
     const marcaStr = item.marca || item.brand ? String(item.marca || item.brand).trim() : null;
@@ -1265,88 +1311,70 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
     const grupoFiscalStr = item.grupo_fiscal || item.fiscalGroup ? String(item.grupo_fiscal || item.fiscalGroup).trim() : null;
     const grupoIpiStr = item.grupo_ipi || item.ipiGroup ? String(item.grupo_ipi || item.ipiGroup).trim() : null;
 
-    // Payload unificado com campos pedidos no legado e compatibilidade
+    // Payload unificado com as colunas reais da tabela 'estoque_produtos' e retrocompatibilidade
     const payload: Record<string, any> = {
       id: toValidUUID(itemId),
       company_id: activeCompanyId,
       codigo_produto: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
-      // Nomes oficiais solicitados
+      // Colunas reais solicitadas
+      nome_comercial: nomeStr,
+      quantidade_atual: quantidadeFloat,
+      preco_custo_inicial: custoNominalFloat,
+      preco_venda_varejo: precoVendaFloat,
+      // Nomes legados da tabela para suporte retroativo
       nome: nomeStr,
+      descricao: nomeStr,
       categoria: categoriaStr,
       unidade_medida: unidadeStr,
+      unidade: unidadeStr,
       marca: marcaStr,
       codigo_barras: barcodeStr,
+      gtin: barcodeStr,
       sem_gtin: semGtinBool,
       ref_fabrica: refFabricaStr,
+      referencia_fabrica: refFabricaStr,
       codigo_ncm: ncmStr,
+      ncm: ncmStr,
       grupo_fiscal: grupoFiscalStr,
       grupo_ipi: grupoIpiStr,
       custo_nominal: custoNominalFloat,
-      preco_venda: precoVendaFloat,
-      margem_lucro_sugerida: margemFloat,
-      // Nomes legados da tabela para suporte retroativo
-      descricao: nomeStr,
-      unidade: unidadeStr,
-      gtin: barcodeStr,
-      referencia_fabrica: refFabricaStr,
-      ncm: ncmStr,
       preco_custo: custoNominalFloat,
+      preco_venda: precoVendaFloat,
       preco_venda_final: precoVendaFloat,
       preco_venda_atacado: parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado),
       preco_venda_promo: item.promoPrice || item.preco_venda_promo ? parseNumericFloat(item.promoPrice ?? item.preco_venda_promo) : null,
+      margem_lucro_sugerida: margemFloat,
       margem_lucro: margemFloat,
-      quantidade_atual: parseNumericFloat(item.quantity ?? item.quantidade_atual),
       localizacao: item.location || item.localizacao || 'Depósito Principal',
-      fim_promocao: null,
+      quantidade_minima: parseNumericFloat(item.minQuantity ?? item.quantidade_minima),
+      updated_at: new Date().toISOString()
     };
 
-    // Tenta gravar na tabela ativa ('estoque' ou 'estoque_produtos')
+    // 1. Tenta gravar prioritariamente na tabela real 'estoque_produtos'
     let result = await supabase
-      .from('estoque')
+      .from('estoque_produtos')
       .upsert(payload, { onConflict: 'id' });
 
-    // Se 'estoque' der erro por coluna não existente ou tabela ausente, tenta 'estoque_produtos'
+    // Se falhar na 'estoque_produtos' por company_id ou coluna
     if (result.error) {
-      const altResult = await supabase
-        .from('estoque_produtos')
-        .upsert(payload, { onConflict: 'id' });
-
-      if (!altResult.error) return true;
-
-      logPostgresError('upsertEstoqueItem', result.error, { table: 'estoque', action: 'UPSERT', payload });
-
-      // Fallback adaptativo: remove campos extras que podem não existir no schema físico legado
-      const basePayload: Record<string, any> = {
-        id: toValidUUID(itemId),
-        codigo_produto: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
-        descricao: nomeStr,
-        quantidade_atual: parseNumericFloat(item.quantity ?? item.quantidade_atual),
-        preco_venda_final: precoVendaFloat,
-        preco_venda_atacado: parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado),
-        preco_venda_promo: item.promoPrice ? parseNumericFloat(item.promoPrice) : null,
-        preco_custo: custoNominalFloat,
-        custo_nominal: custoNominalFloat,
-        unidade: unidadeStr,
-        categoria: categoriaStr,
-        fim_promocao: null,
-      };
-      if (activeCompanyId) basePayload.company_id = activeCompanyId;
-
-      const retry = await supabase.from('estoque').upsert(basePayload, { onConflict: 'id' });
-      if (!retry.error) return true;
-      if (retry.error && retry.error.message?.includes('company_id')) {
-        delete basePayload.company_id;
-        const retryNoComp = await supabase.from('estoque').upsert(basePayload, { onConflict: 'id' });
-        if (!retryNoComp.error) return true;
+      if (result.error.message?.includes('company_id')) {
+        const payloadNoComp = { ...payload };
+        delete payloadNoComp.company_id;
+        const retryComp = await supabase.from('estoque_produtos').upsert(payloadNoComp, { onConflict: 'id' });
+        if (!retryComp.error) {
+          result = retryComp;
+        }
       }
-
-      // Tenta basePayload em estoque_produtos
-      const retryEstoqueProdutos = await supabase.from('estoque_produtos').upsert(basePayload, { onConflict: 'id' });
-      if (!retryEstoqueProdutos.error) return true;
-
-      return false;
     }
-    return true;
+
+    // 2. Grava ou sincroniza também na tabela 'estoque' para máxima compatibilidade
+    try {
+      await supabase.from('estoque').upsert(payload, { onConflict: 'id' });
+    } catch {
+      // Ignora erro na tabela secundária
+    }
+
+    return !result.error;
   } catch (err) {
     console.warn('Supabase upsertEstoqueItem err:', err);
     return false;
@@ -1368,18 +1396,24 @@ export async function inserirProduto(item: InventoryItem | any, companyId?: stri
 }
 
 export async function deleteEstoqueItem(id: string, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  const currentInv = getStoredInventory();
+  saveStoredInventory(currentInv.filter(i => i.id !== id));
+
+  if (!isSupabaseConfigured) return true;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
-    let query = supabase.from('estoque').delete().eq('id', uuid);
-    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-    const { error } = await query;
-    if (error && id !== uuid) {
-      let retry = supabase.from('estoque').delete().eq('id', id);
-      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
-      await retry;
-    }
+    
+    // Deleta de estoque_produtos
+    let qProdutos = supabase.from('estoque_produtos').delete().eq('id', uuid);
+    if (activeCompanyId) qProdutos = qProdutos.eq('company_id', activeCompanyId);
+    await qProdutos;
+
+    // Deleta de estoque
+    let qEstoque = supabase.from('estoque').delete().eq('id', uuid);
+    if (activeCompanyId) qEstoque = qEstoque.eq('company_id', activeCompanyId);
+    await qEstoque;
+
     return true;
   } catch (err) {
     console.warn('Supabase deleteEstoqueItem err:', err);
@@ -2675,64 +2709,254 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
 }
 
 /**
- * Subtrai a quantidade de 'Litros Abastecidos' diretamente da coluna 'quantidade_atual'
- * da tabela 'tanques_combustivel' correspondente ao ID do tanque escolhido.
+ * Identifica o tipo de diesel (Diesel S10 ou Diesel S500) a partir de qualquer string descritiva
+ */
+export function identificarTipoDiesel(descricao: string = '', categoria: string = ''): 'Diesel S500' | 'Diesel S10' | null {
+  const text = `${descricao} ${categoria}`.toLowerCase();
+  if (text.includes('s500') || text.includes('s-500') || text.includes('diesel comum') || text.includes('comum') || text.includes('diesel s 500')) {
+    return 'Diesel S500';
+  }
+  if (text.includes('s10') || text.includes('s-10') || text.includes('diesel') || text.includes('óleo diesel') || text.includes('oleo diesel')) {
+    return 'Diesel S10';
+  }
+  return null;
+}
+
+/**
+ * Sincroniza a ENTRADA de Diesel (via entrada manual ou XML):
+ * Soma simultaneamente na coluna 'quantidade_atual' da tabela 'estoque_produtos'
+ * E na coluna 'quantidade_atual' da tabela 'tanques_combustivel'.
+ */
+export async function somarCombustivelTanqueEEstoque(
+  tipoOuTanqueId: string,
+  litrosSomar: number,
+  companyId?: string
+): Promise<{ success: boolean; novoSaldoTanque?: number; novoSaldoEstoque?: number }> {
+  if (isNaN(litrosSomar) || litrosSomar <= 0) {
+    return { success: false };
+  }
+
+  const isS500 = String(tipoOuTanqueId).toLowerCase().includes('s500');
+  const targetTankId = isS500 ? 'tanque_diesel_s500' : 'tanque_diesel_s10';
+  const prodSearch = isS500 ? 'Diesel S500' : 'Diesel S10';
+
+  // 1. SOMA NO STORAGE LOCAL DOS TANQUES (tanques_combustivel)
+  const currentTanks = getStoredTanquesCombustivel();
+  let novoSaldoTanque = 0;
+  const updatedTanks = currentTanks.map(t => {
+    const isTarget = t.id === targetTankId || 
+                     (isS500 ? t.tipo_combustivel?.toLowerCase().includes('s500') : t.tipo_combustivel?.toLowerCase().includes('s10'));
+    if (isTarget) {
+      novoSaldoTanque = Number(((Number(t.quantidade_atual) || 0) + litrosSomar).toFixed(2));
+      return { ...t, quantidade_atual: novoSaldoTanque, updated_at: new Date().toISOString() };
+    }
+    return t;
+  });
+  saveStoredTanquesCombustivel(updatedTanks);
+
+  // 2. SOMA NO STORAGE LOCAL DO ESTOQUE (estoque_produtos)
+  const currentInventory = getStoredInventory();
+  let novoSaldoEstoque = 0;
+  let targetProduct: InventoryItem | null = null;
+
+  const updatedInventory = currentInventory.map(item => {
+    const isMatch = (item.nome_comercial && item.nome_comercial.toLowerCase().includes(prodSearch.toLowerCase())) ||
+                    (item.name && item.name.toLowerCase().includes(prodSearch.toLowerCase())) ||
+                    (!isS500 && (item.category === 'Combustível & Arla' || item.name.toLowerCase().includes('diesel')));
+    if (isMatch && !targetProduct) {
+      novoSaldoEstoque = Number(((Number(item.quantidade_atual ?? item.quantity) || 0) + litrosSomar).toFixed(2));
+      targetProduct = {
+        ...item,
+        quantity: novoSaldoEstoque,
+        quantidade_atual: novoSaldoEstoque,
+        updatedAt: new Date().toISOString()
+      };
+      return targetProduct;
+    }
+    return item;
+  });
+
+  saveStoredInventory(updatedInventory);
+
+  // Notifica componentes em tempo real
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+    window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedTanks }));
+  }
+
+  // 3. PERSISTÊNCIA SIMULTÂNEA NO SUPABASE
+  if (isSupabaseConfigured) {
+    try {
+      // 3.1 Atualiza tabela tanques_combustivel
+      const { data: dbTank } = await supabase
+        .from('tanques_combustivel')
+        .select('id, quantidade_atual')
+        .or(`id.eq.${targetTankId},tipo_combustivel.ilike.%${isS500 ? 's500' : 's10'}%`)
+        .maybeSingle();
+
+      const saldoFinalTanqueDb = dbTank 
+        ? Number(((Number(dbTank.quantidade_atual) || 0) + litrosSomar).toFixed(2)) 
+        : novoSaldoTanque;
+
+      const tTargetId = dbTank?.id || targetTankId;
+      await supabase
+        .from('tanques_combustivel')
+        .update({
+          quantidade_atual: saldoFinalTanqueDb,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tTargetId);
+
+      // 3.2 Atualiza tabela estoque_produtos (coluna quantidade_atual)
+      const { data: dbProd } = await supabase
+        .from('estoque_produtos')
+        .select('id, quantidade_atual, nome_comercial')
+        .or(`nome_comercial.ilike.%${prodSearch}%,descricao.ilike.%${prodSearch}%`)
+        .maybeSingle();
+
+      if (dbProd && dbProd.id) {
+        const saldoFinalEstoqueDb = Number(((Number(dbProd.quantidade_atual) || 0) + litrosSomar).toFixed(2));
+        await supabase
+          .from('estoque_produtos')
+          .update({
+            quantidade_atual: saldoFinalEstoqueDb,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', dbProd.id);
+      } else if (targetProduct) {
+        await upsertEstoqueItem(targetProduct, companyId);
+      }
+    } catch (dbErr) {
+      console.warn('Erro ao sincronizar soma em tanques_combustivel / estoque_produtos:', dbErr);
+    }
+  }
+
+  return { success: true, novoSaldoTanque, novoSaldoEstoque };
+}
+
+/**
+ * Subtrai a quantidade de 'Litros Abastecidos' simultaneamente da coluna 'quantidade_atual'
+ * da tabela 'tanques_combustivel' E da coluna 'quantidade_atual' da tabela 'estoque_produtos'.
  */
 export async function subtrairCombustivelTanque(
   tanqueId: string, 
-  litrosSubtrair: number
-): Promise<{ success: boolean; novaQuantidade?: number; error?: any }> {
+  litrosSubtrair: number,
+  companyId?: string
+): Promise<{ success: boolean; novaQuantidade?: number; novoSaldoEstoque?: number; error?: any }> {
   if (!tanqueId || isNaN(litrosSubtrair) || litrosSubtrair <= 0) {
     return { success: false, error: 'Parâmetros inválidos para baixa em tanque' };
   }
 
-  // 1. Atualização imediata no storage local
+  // 1. Identifica o tipo do tanque (S500 ou S10)
   const currentList = getStoredTanquesCombustivel();
-  let novaQtdLocal = 0;
+  const targetTank = currentList.find(t => t.id === tanqueId);
+  const isS500 = targetTank 
+    ? (targetTank.tipo_combustivel?.toLowerCase().includes('s500') || targetTank.nome?.toLowerCase().includes('s500'))
+    : tanqueId.toLowerCase().includes('s500');
+  const prodSearch = isS500 ? 'Diesel S500' : 'Diesel S10';
+
+  // 2. Atualização imediata no storage local dos tanques (tanques_combustivel)
+  let novaQtdLocalTanque = 0;
   const updatedList = currentList.map(t => {
-    if (t.id === tanqueId) {
-      novaQtdLocal = Math.max(0, Number(((t.quantidade_atual || 0) - litrosSubtrair).toFixed(2)));
-      return { ...t, quantidade_atual: novaQtdLocal, updated_at: new Date().toISOString() };
+    if (t.id === tanqueId || (isS500 ? t.tipo_combustivel?.toLowerCase().includes('s500') : t.tipo_combustivel?.toLowerCase().includes('s10'))) {
+      novaQtdLocalTanque = Math.max(0, Number(((t.quantidade_atual || 0) - litrosSubtrair).toFixed(2)));
+      return { ...t, quantidade_atual: novaQtdLocalTanque, updated_at: new Date().toISOString() };
     }
     return t;
   });
   saveStoredTanquesCombustivel(updatedList);
 
+  // 3. Atualização imediata no storage local do estoque (estoque_produtos)
+  const currentInventory = getStoredInventory();
+  let novaQtdLocalEstoque = 0;
+  let targetProduct: InventoryItem | null = null;
+  const updatedInventory = currentInventory.map(item => {
+    const isMatch = (item.nome_comercial && item.nome_comercial.toLowerCase().includes(prodSearch.toLowerCase())) ||
+                    (item.name && item.name.toLowerCase().includes(prodSearch.toLowerCase())) ||
+                    (!isS500 && (item.category === 'Combustível & Arla' || item.name.toLowerCase().includes('diesel')));
+    if (isMatch && !targetProduct) {
+      novaQtdLocalEstoque = Math.max(0, Number(((Number(item.quantidade_atual ?? item.quantity) || 0) - litrosSubtrair).toFixed(2)));
+      targetProduct = {
+        ...item,
+        quantity: novaQtdLocalEstoque,
+        quantidade_atual: novaQtdLocalEstoque,
+        updatedAt: new Date().toISOString()
+      };
+      return targetProduct;
+    }
+    return item;
+  });
+  saveStoredInventory(updatedInventory);
+
+  // Notifica componentes locais
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+    window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedList }));
+  }
+
   if (!isSupabaseConfigured) {
-    return { success: true, novaQuantidade: novaQtdLocal };
+    return { success: true, novaQuantidade: novaQtdLocalTanque, novoSaldoEstoque: novaQtdLocalEstoque };
   }
 
   try {
-    // 2. Busca saldo recente do banco
-    const { data, error } = await supabase
+    // 4. Atualiza na tabela 'tanques_combustivel' do Supabase
+    const { data: tankData } = await supabase
       .from('tanques_combustivel')
-      .select('id, quantidade_atual, capacidade_total')
+      .select('id, quantidade_atual')
       .eq('id', tanqueId)
       .maybeSingle();
 
-    let saldoDb = novaQtdLocal;
-    if (!error && data && data.quantidade_atual !== undefined && data.quantidade_atual !== null) {
-      saldoDb = Math.max(0, Number((Number(data.quantidade_atual) - litrosSubtrair).toFixed(2)));
+    let saldoDbTanque = novaQtdLocalTanque;
+    if (tankData && tankData.quantidade_atual !== undefined && tankData.quantidade_atual !== null) {
+      saldoDbTanque = Math.max(0, Number((Number(tankData.quantidade_atual) - litrosSubtrair).toFixed(2)));
     }
 
-    // 3. Atualiza na tabela 'tanques_combustivel'
-    const updateRes = await supabase
+    await supabase
       .from('tanques_combustivel')
       .update({
-        quantidade_atual: saldoDb,
+        quantidade_atual: saldoDbTanque,
         updated_at: new Date().toISOString()
       })
       .eq('id', tanqueId);
 
-    if (updateRes.error) {
-      console.warn('Aviso ao subtrair litros da tabela tanques_combustivel:', updateRes.error);
-      return { success: false, error: updateRes.error, novaQuantidade: novaQtdLocal };
+    // 5. Atualiza simultaneamente na tabela 'estoque_produtos' do Supabase (coluna quantidade_atual)
+    const { data: prodData } = await supabase
+      .from('estoque_produtos')
+      .select('id, quantidade_atual, nome_comercial')
+      .or(`nome_comercial.ilike.%${prodSearch}%,descricao.ilike.%${prodSearch}%`)
+      .maybeSingle();
+
+    let saldoDbEstoque = novaQtdLocalEstoque;
+    if (prodData && prodData.id) {
+      saldoDbEstoque = Math.max(0, Number(((Number(prodData.quantidade_atual) || 0) - litrosSubtrair).toFixed(2)));
+      await supabase
+        .from('estoque_produtos')
+        .update({
+          quantidade_atual: saldoDbEstoque,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', prodData.id);
+    } else if (targetProduct) {
+      await upsertEstoqueItem(targetProduct, companyId);
     }
 
-    return { success: true, novaQuantidade: saldoDb };
+    // Sincroniza também na tabela secundária 'estoque'
+    try {
+      await supabase
+        .from('estoque')
+        .update({
+          quantidade_atual: saldoDbEstoque,
+          updated_at: new Date().toISOString()
+        })
+        .or(`descricao.ilike.%${prodSearch}%,codigo_produto.ilike.%${prodSearch}%`);
+    } catch {
+      // Ignora erro na tabela secundária
+    }
+
+    return { success: true, novaQuantidade: saldoDbTanque, novoSaldoEstoque: saldoDbEstoque };
   } catch (err) {
-    console.warn('Exceção ao subtrair combustível do tanque:', err);
-    return { success: true, novaQuantidade: novaQtdLocal };
+    console.warn('Exceção ao subtrair combustível de tanques_combustivel e estoque_produtos:', err);
+    return { success: true, novaQuantidade: novaQtdLocalTanque, novoSaldoEstoque: novaQtdLocalEstoque };
   }
 }
 
