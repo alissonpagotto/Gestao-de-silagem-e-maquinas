@@ -481,6 +481,8 @@ export interface InventoryItem {
   ncm?: string; // Código NCM (ex: 0000.00.00)
   fiscalGroup?: 'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO' | string; // Grupo Fiscal
   ipiGroup?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string; // Grupo IPI
+  gallonSizeLiters?: number; // Tamanho do galão em litros (padrão: 20L)
+  volume_litros_embalagem?: number; // Volume por embalagem em litros para conversão automática
   // Aliases em português para integração direta com a tabela 'estoque' / 'estoque_produtos'
   nome_comercial?: string; // Coluna real da tabela estoque_produtos
   quantidade_atual?: number; // Coluna real da tabela estoque_produtos
