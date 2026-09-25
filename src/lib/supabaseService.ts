@@ -1239,6 +1239,12 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
         profitMargin: row.margem_lucro_sugerida !== undefined && row.margem_lucro_sugerida !== null 
           ? Number(row.margem_lucro_sugerida) 
           : (row.margem_lucro !== undefined && row.margem_lucro !== null ? Number(row.margem_lucro) : undefined),
+        gallonSizeLiters: row.volume_litros_embalagem !== undefined && row.volume_litros_embalagem !== null
+          ? Number(row.volume_litros_embalagem)
+          : (row.capacidade_galao !== undefined && row.capacidade_galao !== null ? Number(row.capacidade_galao) : undefined),
+        volume_litros_embalagem: row.volume_litros_embalagem !== undefined && row.volume_litros_embalagem !== null
+          ? Number(row.volume_litros_embalagem)
+          : (row.capacidade_galao !== undefined && row.capacidade_galao !== null ? Number(row.capacidade_galao) : undefined),
         createdAt: row.created_at || undefined,
         updatedAt: row.updated_at || undefined,
       };

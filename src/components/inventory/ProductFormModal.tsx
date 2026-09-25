@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   Package, 
   Settings, 
   Barcode, 
   Receipt, 
-  DollarSign, 
   Layers, 
   Check, 
-  Loader2, 
-  HelpCircle,
-  TrendingUp,
-  Building2,
-  Tag
+  Loader2,
+  Droplets
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { 
@@ -29,7 +25,8 @@ interface ProductFormModalProps {
   onSuccess: (product: InventoryItem) => void;
   initialData?: Partial<InventoryItem>;
   companyId?: string;
-  showStockBalanceFields?: boolean; // Permite preenchimento de quantidade inicial e localização
+  showStockBalanceFields?: boolean;
+  zIndexClass?: string;
 }
 
 // Máscara NCM: 0000.00.00 (8 dígitos numéricos)
@@ -62,7 +59,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onSuccess,
   initialData,
   companyId,
-  showStockBalanceFields = true,
+  zIndexClass = 'z-50',
 }) => {
   // Categorias de Estoque Dinâmicas com Suporte a Gerenciamento
   const [categories, setCategories] = useState<string[]>(() => {
@@ -70,34 +67,55 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   });
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
-  // 1. INFORMAÇÕES BÁSICAS DO PRODUTO
+  // COLUNA 1: IDENTIFICAÇÃO
   const [nome, setNome] = useState('');
+  const [codigoInterno, setCodigoInterno] = useState('');
   const [categoria, setCategoria] = useState('');
   const [unidadeMedida, setUnidadeMedida] = useState('UN');
   const [marca, setMarca] = useState('');
   const [codigoBarras, setCodigoBarras] = useState('');
   const [semGtin, setSemGtin] = useState(false);
   const [refFabrica, setRefFabrica] = useState('');
-  const [codigoInterno, setCodigoInterno] = useState('');
 
-  // 2. PARAMETRIZAÇÃO FISCAL E TRIBUTÁRIA
+  // COLUNA 2: FISCAL E VALORES
   const [codigoNcm, setCodigoNcm] = useState('');
   const [grupoFiscal, setGrupoFiscal] = useState<'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO'>('TRIBUTADO');
   const [grupoIpi, setGrupoIpi] = useState<'NAO TRIBUTADO' | 'TRIBUTADO'>('NAO TRIBUTADO');
-
-  // 3. VALORES E CUSTOS
   const [custoNominalDisplay, setCustoNominalDisplay] = useState('0,00');
   const [precoVendaDisplay, setPrecoVendaDisplay] = useState('0,00');
   const [margemLucroSugerida, setMargemLucroSugerida] = useState('');
 
-  // 4. CONTROLE DE ESTOQUE (Saldo & Depósito)
+  // COLUNA 3: CONTROLE E ALMOXARIFADO
   const [quantidadeAtual, setQuantidadeAtual] = useState<number | ''>('');
   const [minQuantity, setMinQuantity] = useState<number | ''>('');
   const [localizacao, setLocalizacao] = useState('Depósito Principal');
+  const [capacidadeGalao, setCapacidadeGalao] = useState<number | ''>(20);
 
   // Estado de envio
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Verifica dinamicamente se a unidade é galão ou o nome contém 'Galão'
+  const showGallonCapacity = useMemo(() => {
+    const unitNorm = (unidadeMedida || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const nameNorm = (nome || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    return (
+      unitNorm === 'galao' ||
+      unitNorm === 'gal' ||
+      unitNorm === 'gl' ||
+      unitNorm.includes('galao') ||
+      nameNorm.includes('galao')
+    );
+  }, [unidadeMedida, nome]);
 
   // Inicializa dados ao abrir ou alterar initialData
   useEffect(() => {
@@ -161,10 +179,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setMargemLucroSugerida('30');
       }
 
-      // Estoque
+      // Estoque e Almoxarifado
       setQuantidadeAtual(initialData?.quantity !== undefined ? initialData.quantity : '');
       setMinQuantity(initialData?.minQuantity !== undefined ? initialData.minQuantity : '');
       setLocalizacao(initialData?.location || 'Depósito Principal');
+
+      const initialGallonCap = initialData?.gallonSizeLiters ?? initialData?.volume_litros_embalagem;
+      setCapacidadeGalao(initialGallonCap !== undefined && initialGallonCap !== null ? Number(initialGallonCap) : 20);
     }
   }, [isOpen, initialData]);
 
@@ -177,7 +198,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   // Tratamento e cálculo dinâmico de Custo Nominal (R$)
   const handleCustoChange = (raw: string) => {
-    // Permite digitação natural de centavos e números
     const cleanDigits = raw.replace(/\D/g, '');
     const floatVal = cleanDigits ? Number(cleanDigits) / 100 : 0;
     setCustoNominalDisplay(formatCurrencyPtBr(floatVal));
@@ -238,6 +258,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     try {
       const prodId = initialData?.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       const cleanBarcode = semGtin ? 'SEM GTIN' : (codigoBarras.trim() || undefined);
+      const parsedGallonLiters = showGallonCapacity && capacidadeGalao !== '' && Number(capacidadeGalao) > 0
+        ? Number(capacidadeGalao)
+        : undefined;
 
       const newProduct: InventoryItem = {
         id: prodId,
@@ -276,12 +299,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         quantidade_atual: typeof quantidadeAtual === 'number' ? quantidadeAtual : 0,
         minQuantity: typeof minQuantity === 'number' ? minQuantity : 0,
         location: localizacao.trim() || 'Depósito Principal',
+        gallonSizeLiters: parsedGallonLiters,
+        volume_litros_embalagem: parsedGallonLiters,
         createdAt: initialData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      // Dispara envio direto e seguro para o Supabase (tabela 'estoque' / 'estoque_produtos')
-      // com valores garantidos como floats numéricos puros
       await cadastrarProduto(newProduct, companyId);
 
       onSuccess(newProduct);
@@ -298,27 +321,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     <>
       <div 
         id="modal-cadastrar-novo-produto-estoque"
-        className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"
+        className={`fixed inset-0 ${zIndexClass} bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}
         onClick={() => {
           if (!isSaving) onClose();
         }}
       >
         <div 
-          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-6 animate-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
+          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-7xl w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Top Header */}
-          <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/90 dark:bg-stone-800/60 shrink-0">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                <Package className="w-5 h-5 stroke-[2.2]" />
+          {/* Top Header Compacto */}
+          <div className="px-4 py-2.5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/90 dark:bg-stone-800/60 shrink-0">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                <Package className="w-4 h-4 stroke-[2.2]" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
+                <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
                   Cadastrar Novo Produto no Estoque
                 </h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Preenchimento de controle de estoque, formação de preços e parametrização fiscal
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
+                  Identificação, parametrização fiscal, formação de preços e controle de almoxarifado
                 </p>
               </div>
             </div>
@@ -331,424 +354,470 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200/60 dark:hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
               title="Fechar formulário"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Erro de validação */}
           {formError && (
-            <div className="mx-4 sm:mx-6 mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between">
+            <div className="mx-4 mt-2.5 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between">
               <span>{formError}</span>
               <button 
                 type="button" 
                 onClick={() => setFormError('')} 
                 className="text-rose-500 hover:text-rose-700 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          {/* Form com os 3 Blocos Principais */}
-          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Formulário em 3 Colunas Horizontais Paralelas (Sem Barra de Rolagem Vertical) */}
+          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
             
-            {/* ============================================================== */}
-            {/* BLOCO 1: INFORMAÇÕES BÁSICAS DO PRODUTO */}
-            {/* ============================================================== */}
-            <div className="p-4 sm:p-4.5 bg-stone-50/80 dark:bg-stone-800/40 rounded-2xl border border-stone-200/90 dark:border-stone-700/60 space-y-3.5">
-              <div className="flex items-center space-x-2 text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider pb-1 border-b border-stone-200/80 dark:border-stone-700/60">
-                <Package className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <span>1. Informações Básicas do Produto</span>
-              </div>
-
-              {/* Grid: Nome e Código Interno */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-8">
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Nome do Produto (Campo: nome) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={nome}
-                    onChange={(e) => setNome(e.target.value)}
-                    placeholder="Ex: Óleo Diesel S10, Lona Dupla Face 200 Micras, Inoculante..."
-                    className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                  />
-                </div>
-
-                <div className="sm:col-span-4">
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Código Interno
-                  </label>
-                  <input
-                    type="text"
-                    value={codigoInterno}
-                    onChange={(e) => setCodigoInterno(e.target.value)}
-                    placeholder="Ex: PRD-001, DSL-S10"
-                    className="w-full px-3.5 py-2 text-xs font-mono font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                  />
-                </div>
-              </div>
-
-              {/* Grid: Categoria, Unidade e Marca */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Categoria com Engrenagem de Gerenciar */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
+              
+              {/* ============================================================== */}
+              {/* COLUNA 1: IDENTIFICAÇÃO */}
+              {/* ============================================================== */}
+              <div className="p-3 bg-stone-50/80 dark:bg-stone-800/40 rounded-xl border border-stone-200/90 dark:border-stone-700/60 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
-                      Categoria no Estoque <span className="text-rose-500">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setIsCategoryManagerOpen(true)}
-                      className="inline-flex items-center space-x-1 text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline cursor-pointer"
-                      title="Gerenciar categorias de estoque"
-                    >
-                      <Settings className="w-3 h-3" />
-                      <span>Gerenciar</span>
-                    </button>
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider pb-1.5 mb-2 border-b border-stone-200/80 dark:border-stone-700/60">
+                    <Package className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                    <span>1. Identificação</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={categoria}
-                      onChange={(e) => {
-                        if (e.target.value === '__manage__') {
-                          setIsCategoryManagerOpen(true);
-                        } else {
-                          setCategoria(e.target.value);
-                        }
-                      }}
-                      className="flex-1 px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs cursor-pointer"
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      <option disabled value="">──────────</option>
-                      <option value="__manage__" className="text-sky-600 font-bold">⚙️ Gerenciar categorias...</option>
-                    </select>
+                  <div className="space-y-2">
+                    {/* Linha 1: Nome do Produto + Código Interno */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch">
+                      <div className="col-span-8 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Nome do Produto <span className="text-rose-500">*</span>
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={nome}
+                          onChange={(e) => setNome(e.target.value)}
+                          placeholder="Ex: Óleo Diesel S10, Galão Inoculante..."
+                          className="w-full h-9 px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsCategoryManagerOpen(true)}
-                      className="p-2 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 rounded-xl transition cursor-pointer shrink-0"
-                      title="Gerenciar lista de categorias"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                    </button>
+                      <div className="col-span-4 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Código Interno
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={codigoInterno}
+                          onChange={(e) => setCodigoInterno(e.target.value)}
+                          placeholder="PRD-001"
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Linha 2: Categoria no Estoque (com botão de gerenciar) */}
+                    <div className="flex flex-col justify-end">
+                      <div className="flex items-center justify-between h-4 mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          Categoria no Estoque <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCategoryManagerOpen(true)}
+                          className="inline-flex items-center space-x-1 text-[10px] font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline cursor-pointer"
+                          title="Gerenciar categorias de estoque"
+                        >
+                          <Settings className="w-3 h-3" />
+                          <span>Gerenciar</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={categoria}
+                          onChange={(e) => {
+                            if (e.target.value === '__manage__') {
+                              setIsCategoryManagerOpen(true);
+                            } else {
+                              setCategoria(e.target.value);
+                            }
+                          }}
+                          className="flex-1 h-9 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                        >
+                          {categories.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                          <option disabled value="">──────────</option>
+                          <option value="__manage__" className="text-sky-600 font-bold">⚙️ Gerenciar categorias...</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsCategoryManagerOpen(true)}
+                          className="h-9 w-9 flex items-center justify-center bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 rounded-lg transition cursor-pointer shrink-0"
+                          title="Gerenciar lista de categorias"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Linha 3: Unidade de Medida + Marca */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch">
+                      <div className="col-span-5 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Unidade de Medida <span className="text-rose-500">*</span>
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          list="product-form-units-list"
+                          required
+                          value={unidadeMedida}
+                          onChange={(e) => setUnidadeMedida(e.target.value.toUpperCase())}
+                          placeholder="UN, LT, GALÃO..."
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                        <datalist id="product-form-units-list">
+                          <option value="UN" />
+                          <option value="KG" />
+                          <option value="LT" />
+                          <option value="GALÃO" />
+                          <option value="GL" />
+                          <option value="SC" />
+                          <option value="M" />
+                          <option value="M2" />
+                          <option value="CX" />
+                          <option value="PAR" />
+                          <option value="TON" />
+                          <option value="ROLO" />
+                          <option value="DOSES" />
+                          <option value="HORAS" />
+                        </datalist>
+                      </div>
+
+                      <div className="col-span-7 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Marca
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={marca}
+                          onChange={(e) => setMarca(e.target.value)}
+                          placeholder="Ex: Pirelli, Bosch, Ipiranga..."
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Linha 4: Cód. de Barras / GTIN (com Sem GTIN) + Ref. Fábrica */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch">
+                      <div className="col-span-7 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Cód. de Barras / GTIN
+                          </label>
+                          <label className="inline-flex items-center space-x-1 cursor-pointer text-[10px] font-bold text-stone-600 dark:text-stone-400 select-none shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={semGtin}
+                              onChange={(e) => {
+                                setSemGtin(e.target.checked);
+                                if (e.target.checked) setCodigoBarras('');
+                              }}
+                              className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3 h-3 cursor-pointer"
+                            />
+                            <span>Sem GTIN</span>
+                          </label>
+                        </div>
+
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-stone-400">
+                            <Barcode className="w-3.5 h-3.5" />
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            disabled={semGtin}
+                            value={semGtin ? 'SEM GTIN' : codigoBarras}
+                            onChange={(e) => setCodigoBarras(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                            placeholder={semGtin ? 'Sem GTIN' : '7891234567890'}
+                            className={`w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono rounded-lg border transition ${
+                              semGtin 
+                                ? 'bg-stone-100 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 text-stone-400 cursor-not-allowed italic'
+                                : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none font-semibold'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-5 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Ref. Fábrica
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={refFabrica}
+                          onChange={(e) => setRefFabrica(e.target.value)}
+                          placeholder="Ex: 2AT-06"
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                {/* Unidade de Medida */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Unidade de Medida (unidade_medida) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    list="product-form-units-list"
-                    required
-                    value={unidadeMedida}
-                    onChange={(e) => setUnidadeMedida(e.target.value.toUpperCase())}
-                    placeholder="UN, KG, LT, M, SC..."
-                    className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                  />
-                  <datalist id="product-form-units-list">
-                    <option value="UN" />
-                    <option value="KG" />
-                    <option value="LT" />
-                    <option value="SC" />
-                    <option value="M" />
-                    <option value="M2" />
-                    <option value="CX" />
-                    <option value="PAR" />
-                    <option value="TON" />
-                    <option value="ROLO" />
-                    <option value="DOSES" />
-                    <option value="HORAS" />
-                  </datalist>
-                </div>
-
-                {/* Marca */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Marca (Campo: marca)
-                  </label>
-                  <input
-                    type="text"
-                    value={marca}
-                    onChange={(e) => setMarca(e.target.value)}
-                    placeholder="Ex: Pirelli, Tramontina, Bosch, Ipiranga..."
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                  />
                 </div>
               </div>
 
-              {/* Grid: Cód. de Barras / GTIN + Sem GTIN e Ref. Fábrica */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
-                {/* Cód. de Barras / GTIN com Checkbox 'Sem GTIN' */}
+              {/* ============================================================== */}
+              {/* COLUNA 2: FISCAL E VALORES */}
+              {/* ============================================================== */}
+              <div className="p-3 bg-stone-50/80 dark:bg-stone-800/40 rounded-xl border border-stone-200/90 dark:border-stone-700/60 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300">
-                      Cód. de Barras / GTIN (codigo_barras)
-                    </label>
-                    <label className="inline-flex items-center space-x-1.5 cursor-pointer text-[11px] font-bold text-stone-600 dark:text-stone-400 select-none">
+                  <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-stone-200/80 dark:border-stone-700/60">
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider">
+                      <Receipt className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <span>2. Fiscal e Valores</span>
+                    </div>
+                    <span className="text-[10px] text-stone-400 font-semibold">R$ #.##0,00</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Linha 1: Código NCM + Grupo Fiscal */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch">
+                      <div className="col-span-5 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Código NCM
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={codigoNcm}
+                          onChange={(e) => handleNcmChange(e.target.value)}
+                          placeholder="0000.00.00"
+                          maxLength={10}
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
+
+                      <div className="col-span-7 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Grupo Fiscal
+                          </label>
+                        </div>
+                        <select
+                          value={grupoFiscal}
+                          onChange={(e) => setGrupoFiscal(e.target.value as any)}
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                        >
+                          <option value="TRIBUTADO">TRIBUTADO</option>
+                          <option value="SUBSTITUICAO">SUBSTITUICAO</option>
+                          <option value="ISENTO">ISENTO</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Linha 2: Grupo IPI */}
+                    <div className="flex flex-col justify-end">
+                      <div className="flex items-center justify-between h-4 mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          Grupo IPI
+                        </label>
+                      </div>
+                      <select
+                        value={grupoIpi}
+                        onChange={(e) => setGrupoIpi(e.target.value as any)}
+                        className="w-full h-9 px-2.5 py-1.5 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                      >
+                        <option value="NAO TRIBUTADO">NAO TRIBUTADO</option>
+                        <option value="TRIBUTADO">TRIBUTADO</option>
+                      </select>
+                    </div>
+
+                    {/* Linha 3: Custo Nominal (R$) + Preço de Venda Sugerido (R$) */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch">
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Custo Nominal (R$)
+                          </label>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-stone-500 font-bold text-xs">
+                            R$
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={custoNominalDisplay}
+                            onChange={(e) => handleCustoChange(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Preço de Venda Sugerido (R$)
+                          </label>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                            R$
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={precoVendaDisplay}
+                            onChange={(e) => handlePrecoVendaChange(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Linha 4: Margem de Lucro Sugerida (%) */}
+                    <div className="flex flex-col justify-end">
+                      <div className="flex items-center justify-between h-4 mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          Margem de Lucro Sugerida (%)
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={margemLucroSugerida}
+                          onChange={(e) => handleMargemChange(e.target.value)}
+                          placeholder="Ex: 30"
+                          className="w-full h-9 pr-7 pl-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                          %
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ============================================================== */}
+              {/* COLUNA 3: CONTROLE E ALMOXARIFADO */}
+              {/* ============================================================== */}
+              <div className="p-3 bg-stone-50/80 dark:bg-stone-800/40 rounded-xl border border-stone-200/90 dark:border-stone-700/60 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-stone-200/80 dark:border-stone-700/60">
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider">
+                      <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <span>3. Controle e Almoxarifado</span>
+                    </div>
+                    <span className="text-[10px] text-stone-400">Saldo & Local</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Linha 1: Quantidade Inicial */}
+                    <div className="flex flex-col justify-end">
+                      <div className="flex items-center justify-between h-4 mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          Quantidade Inicial ({unidadeMedida || 'UN'})
+                        </label>
+                      </div>
                       <input
-                        type="checkbox"
-                        checked={semGtin}
-                        onChange={(e) => {
-                          setSemGtin(e.target.checked);
-                          if (e.target.checked) setCodigoBarras('');
-                        }}
-                        className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5 cursor-pointer"
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={quantidadeAtual}
+                        onChange={(e) => setQuantidadeAtual(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
                       />
-                      <span>Sem GTIN</span>
-                    </label>
-                  </div>
-
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
-                      <Barcode className="w-4 h-4" />
                     </div>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      disabled={semGtin}
-                      value={semGtin ? 'SEM GTIN' : codigoBarras}
-                      onChange={(e) => setCodigoBarras(e.target.value.replace(/\D/g, '').slice(0, 14))}
-                      placeholder={semGtin ? 'Sem GTIN informado' : 'Ex: 7891234567890'}
-                      className={`w-full pl-9 pr-3 py-2 text-xs font-mono rounded-xl border transition shadow-2xs ${
-                        semGtin 
-                          ? 'bg-stone-100 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 text-stone-400 cursor-not-allowed italic'
-                          : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none font-semibold'
-                      }`}
-                    />
-                  </div>
-                </div>
 
-                {/* Ref. Fábrica */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Ref. Fábrica (Campo: ref_fabrica)
-                  </label>
-                  <input
-                    type="text"
-                    value={refFabrica}
-                    onChange={(e) => setRefFabrica(e.target.value)}
-                    placeholder="Ex: 2AT-06, RF-9020, COD-FB10"
-                    className="w-full px-3 py-2 text-xs font-mono font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                  />
+                    {/* Linha 2: Estoque Mínimo */}
+                    <div className="flex flex-col justify-end">
+                      <div className="flex items-center justify-between h-4 mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          Estoque Mínimo
+                        </label>
+                      </div>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={minQuantity}
+                        onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                      />
+                    </div>
+
+                    {/* Linha 3: Localização Física */}
+                    <div className="flex flex-col justify-end">
+                      <div className="flex items-center justify-between h-4 mb-1">
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          Localização Física
+                        </label>
+                      </div>
+                      <input
+                        type="text"
+                        value={localizacao}
+                        onChange={(e) => setLocalizacao(e.target.value)}
+                        placeholder="Ex: Barracão Principal, Tanque 1..."
+                        className="w-full h-9 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                      />
+                    </div>
+
+                    {/* Linha 4 (Dinâmica): Capacidade do Galão (L) - aparece somente se unidade for galão ou nome contiver 'Galão' */}
+                    {showGallonCapacity && (
+                      <div className="flex flex-col justify-end animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="flex items-center space-x-1 text-[11px] font-bold text-sky-700 dark:text-sky-300">
+                            <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
+                            <span>Capacidade do Galão (L)</span>
+                          </label>
+                          <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold">Conversão automática</span>
+                        </div>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.1"
+                          value={capacidadeGalao}
+                          onChange={(e) => setCapacidadeGalao(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="Ex: 20"
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-sky-400 dark:border-sky-600 bg-sky-50/50 dark:bg-sky-950/30 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+
             </div>
 
-            {/* ============================================================== */}
-            {/* BLOCO 2: PARAMETRIZAÇÃO FISCAL E TRIBUTÁRIA */}
-            {/* ============================================================== */}
-            <div className="p-4 sm:p-4.5 bg-stone-50/80 dark:bg-stone-800/40 rounded-2xl border border-stone-200/90 dark:border-stone-700/60 space-y-3.5">
-              <div className="flex items-center space-x-2 text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider pb-1 border-b border-stone-200/80 dark:border-stone-700/60">
-                <Receipt className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <span>2. Parametrização Fiscal e Tributária</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Código NCM */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Código NCM (codigo_ncm)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={codigoNcm}
-                    onChange={(e) => handleNcmChange(e.target.value)}
-                    placeholder="0000.00.00"
-                    maxLength={10}
-                    className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                  />
-                  <span className="text-[10px] text-stone-400 mt-0.5 block">
-                    Máscara 8 dígitos: 0000.00.00
-                  </span>
-                </div>
-
-                {/* Grupo Fiscal */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Grupo Fiscal (grupo_fiscal)
-                  </label>
-                  <select
-                    value={grupoFiscal}
-                    onChange={(e) => setGrupoFiscal(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs cursor-pointer"
-                  >
-                    <option value="SUBSTITUICAO">SUBSTITUICAO</option>
-                    <option value="TRIBUTADO">TRIBUTADO</option>
-                    <option value="ISENTO">ISENTO</option>
-                  </select>
-                </div>
-
-                {/* Grupo IPI */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Grupo IPI (grupo_ipi)
-                  </label>
-                  <select
-                    value={grupoIpi}
-                    onChange={(e) => setGrupoIpi(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs cursor-pointer"
-                  >
-                    <option value="NAO TRIBUTADO">NAO TRIBUTADO</option>
-                    <option value="TRIBUTADO">TRIBUTADO</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* ============================================================== */}
-            {/* BLOCO 3: VALORES E CUSTOS */}
-            {/* ============================================================== */}
-            <div className="p-4 sm:p-4.5 bg-sky-50/50 dark:bg-sky-950/20 rounded-2xl border border-sky-200/70 dark:border-sky-800/40 space-y-3.5">
-              <div className="flex items-center justify-between pb-1 border-b border-sky-200/60 dark:border-sky-800/40">
-                <div className="flex items-center space-x-2 text-xs font-bold text-sky-900 dark:text-sky-200 uppercase tracking-wider">
-                  <DollarSign className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  <span>3. Valores e Custos</span>
-                </div>
-                <span className="text-[10px] text-stone-500 dark:text-stone-400 font-semibold">
-                  Padrão Comercial: R$ #.##0,00
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Custo Nominal (R$) */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Custo Nominal (R$) (custo_nominal)
-                  </label>
-                  <div className="relative rounded-xl shadow-2xs">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-500 font-bold text-xs">
-                      R$
-                    </div>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={custoNominalDisplay}
-                      onChange={(e) => handleCustoChange(e.target.value)}
-                      placeholder="0,00"
-                      className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-                    />
-                  </div>
-                </div>
-
-                {/* Preço de Venda Sugerido (R$) */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Preço de Venda Sugerido (preco_venda)
-                  </label>
-                  <div className="relative rounded-xl shadow-2xs">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                      R$
-                    </div>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={precoVendaDisplay}
-                      onChange={(e) => handlePrecoVendaChange(e.target.value)}
-                      placeholder="0,00"
-                      className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-                    />
-                  </div>
-                </div>
-
-                {/* Margem Lucro Sugerida (%) */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Margem Lucro Sugerida (%)
-                  </label>
-                  <div className="relative rounded-xl shadow-2xs">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={margemLucroSugerida}
-                      onChange={(e) => handleMargemChange(e.target.value)}
-                      placeholder="Ex: 30"
-                      className="w-full pr-8 pl-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
-                      %
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ============================================================== */}
-            {/* BLOCO 4: CONTROLE DE ESTOQUE (SALDO & ALMOXARIFADO) */}
-            {/* ============================================================== */}
-            {showStockBalanceFields && (
-              <div className="p-4 sm:p-4.5 bg-stone-50/80 dark:bg-stone-800/40 rounded-2xl border border-stone-200/90 dark:border-stone-700/60 space-y-3.5">
-                <div className="flex items-center justify-between pb-1 border-b border-stone-200/80 dark:border-stone-700/60">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider">
-                    <Layers className="w-4 h-4 text-stone-600 dark:text-stone-400" />
-                    <span>4. Controle de Saldo & Almoxarifado</span>
-                  </div>
-                  <span className="text-[10px] text-stone-500">Opcional para estoque inicial</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Quantidade Inicial ({unidadeMedida || 'UN'})
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={quantidadeAtual}
-                      onChange={(e) => setQuantidadeAtual(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="0"
-                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Estoque Mínimo
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={minQuantity}
-                      onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="0"
-                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      Localização Física
-                    </label>
-                    <input
-                      type="text"
-                      value={localizacao}
-                      onChange={(e) => setLocalizacao(e.target.value)}
-                      placeholder="Ex: Barracão Principal, Tanque 1..."
-                      className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition shadow-2xs"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer do Modal */}
-            <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-3 shrink-0">
+            {/* Footer Compacto do Modal */}
+            <div className="pt-2.5 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2.5 shrink-0">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="px-4 py-2.5 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -756,16 +825,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-6 py-2.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50"
+                className="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-1.5 cursor-pointer active:scale-98 disabled:opacity-50"
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>Salvando no Supabase...</span>
                   </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4" />
+                    <Check className="w-3.5 h-3.5" />
                     <span>Salvar Produto no Estoque</span>
                   </>
                 )}
