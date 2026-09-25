@@ -20,6 +20,7 @@ interface FuelTankVisualizerProps {
   historicalAvgLitersPerHour?: number | null;
   historicalAvgKmPerLiter?: number | null;
   isFirstRecord?: boolean;
+  dbTankLevel?: number;
   onCalculationChange?: (result: FuelCalculationResult) => void;
 }
 
@@ -35,6 +36,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   historicalAvgLitersPerHour,
   historicalAvgKmPerLiter,
   isFirstRecord,
+  dbTankLevel,
   onCalculationChange,
 }) => {
   // 1. Capacidade Total do Tanque (capacidade_tanque)
@@ -45,28 +47,85 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     return !isNaN(num) && num > 0 ? num : 0;
   }, [machinery]);
 
-  // 2. Litros Abastecidos (litros_abastecidos)
+  // Flag efetiva de primeiro abastecimento
+  const isFirstRecordEffective = Boolean(isFirstRecord);
+
+  // 2. NÍVEL ATUAL: Reflete estritamente o valor que vem do banco de dados antes deste abastecimento
+  const nivelAtual = useMemo(() => {
+    if (isFirstRecordEffective) return 0;
+    if (dbTankLevel !== undefined && dbTankLevel !== null && !isNaN(Number(dbTankLevel)) && Number(dbTankLevel) >= 0) {
+      return Number(dbTankLevel);
+    }
+    const machLiters = (machinery as any)?.currentFuelLiters ?? (machinery as any)?.current_fuel_liters;
+    if (machLiters !== undefined && machLiters !== null && !isNaN(Number(machLiters)) && Number(machLiters) >= 0) {
+      return Number(machLiters);
+    }
+    if (machinery?.currentFuelPercentage !== undefined && machinery.currentFuelPercentage !== null && tankCapacity > 0) {
+      const p = Number(machinery.currentFuelPercentage);
+      if (!isNaN(p)) return parseFloat(((p / 100) * tankCapacity).toFixed(1));
+    }
+    return tankCapacity > 0 ? tankCapacity : 0;
+  }, [dbTankLevel, machinery, tankCapacity, isFirstRecordEffective]);
+
+  // 3. Litros Abastecidos (digitado pelo usuário no input 'Litros Abastecidos')
   const addedLiters = useMemo(() => {
-    const parsed = parseFloat(addedLitersInput);
+    const raw = String(addedLitersInput || '').trim().replace(',', '.');
+    const parsed = parseFloat(raw);
     return !isNaN(parsed) && parsed > 0 ? parsed : 0;
   }, [addedLitersInput]);
 
-  // 3. Leituras de Horímetro e Odômetro
-  const currH = parseFloat(currentHourMeterInput);
-  const prevH = parseFloat(previousHourMeterInput);
+  // 4. PROJEÇÃO: Soma matemática estrita: (Nível Atual vindo do banco + Litros Digitados)
+  // Se o nível atual era 1105 e o usuário digitou 50, a projeção DEVE exibir 1155L.
+  // Nunca trava em 100% ou muda o nível atual de forma arbitrária.
+  const projecaoLiters = useMemo(() => {
+    if (isFirstRecordEffective) return addedLiters;
+    return parseFloat((nivelAtual + addedLiters).toFixed(2));
+  }, [nivelAtual, addedLiters, isFirstRecordEffective]);
+
+  // 5. Porcentagens calculadas com base na capacidade do tanque
+  const nivelAtualPorcentagem = useMemo(() => {
+    if (tankCapacity <= 0) return 0;
+    return parseFloat(((nivelAtual / tankCapacity) * 100).toFixed(1));
+  }, [nivelAtual, tankCapacity]);
+
+  const adicionadoPorcentagem = useMemo(() => {
+    if (tankCapacity <= 0 || addedLiters <= 0) return 0;
+    return parseFloat(((addedLiters / tankCapacity) * 100).toFixed(1));
+  }, [addedLiters, tankCapacity]);
+
+  // Projeção em porcentagem (pode ultrapassar 100% se ultrapassar o tanque)
+  const projecaoPorcentagem = useMemo(() => {
+    if (tankCapacity <= 0) return 0;
+    return parseFloat(((projecaoLiters / tankCapacity) * 100).toFixed(1));
+  }, [projecaoLiters, tankCapacity]);
+
+  // 6. Alerta de excesso de capacidade teórica (sem bloqueios)
+  const isOverflowing = useMemo(() => {
+    return tankCapacity > 0 && projecaoLiters > tankCapacity;
+  }, [tankCapacity, projecaoLiters]);
+
+  const excessoLitros = useMemo(() => {
+    return isOverflowing ? parseFloat((projecaoLiters - tankCapacity).toFixed(2)) : 0;
+  }, [isOverflowing, projecaoLiters, tankCapacity]);
+
+  const isReserve = useMemo(() => {
+    return !isFirstRecordEffective && tankCapacity > 0 && (nivelAtual / tankCapacity) <= 0.20;
+  }, [isFirstRecordEffective, tankCapacity, nivelAtual]);
+
+  // 7. Leituras de Horímetro e Odômetro
+  const currH = parseFloat(String(currentHourMeterInput || '').trim().replace(',', '.'));
+  const prevH = parseFloat(String(previousHourMeterInput || '').trim().replace(',', '.'));
   const deltaH = !isNaN(currH) && !isNaN(prevH) && currH > prevH ? (currH - prevH) : 0;
 
-  const currK = parseFloat(currentKmInput);
-  const prevK = parseFloat(previousKmInput);
+  const currK = parseFloat(String(currentKmInput || '').trim().replace(',', '.'));
+  const prevK = parseFloat(String(previousKmInput || '').trim().replace(',', '.'));
   const deltaK = !isNaN(currK) && !isNaN(prevK) && currK > prevK ? (currK - prevK) : 0;
 
-  // 4. Determinação do Tipo de Consumo (Km/l para rodoviários ou l/h para tratores/máquinas)
+  // 8. Determinação do Tipo de Consumo (Km/l para rodoviários ou l/h para tratores/máquinas)
   const tipoConsumo: FuelConsumptionMode = useMemo(() => {
-    // Se o usuário digitou no campo de horas e há delta positivo
     if (deltaH > 0 && deltaK <= 0) return 'l_h';
     if (deltaK > 0 && deltaH <= 0) return 'km_l';
     
-    // Análise da categoria do veículo
     const cat = (machinery?.categoryType || machinery?.tipo || '').toLowerCase();
     if (cat.includes('caminhao') || cat.includes('caminhão') || cat.includes('onibus') || cat.includes('ônibus') || cat.includes('utilitario') || cat.includes('utilitário')) {
       return 'km_l';
@@ -75,7 +134,6 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
       return 'l_h';
     }
 
-    // Se o veículo possui média de L/h cadastrada
     if (machinery?.averageConsumptionLitersPerHour && machinery.averageConsumptionLitersPerHour > 0) {
       return 'l_h';
     }
@@ -86,74 +144,73 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     return deltaH > 0 ? 'l_h' : 'km_l';
   }, [deltaH, deltaK, machinery]);
 
-  // 5. Média de Consumo (media_consumo) cadastrada ou histórica
   const mediaConsumo = useMemo(() => {
     if (tipoConsumo === 'l_h') {
+      if (liveLitersPerHour && liveLitersPerHour > 0) return liveLitersPerHour;
+      if (historicalAvgLitersPerHour && historicalAvgLitersPerHour > 0) return historicalAvgLitersPerHour;
       if (machinery?.averageConsumptionLitersPerHour && machinery.averageConsumptionLitersPerHour > 0) {
         return machinery.averageConsumptionLitersPerHour;
       }
-      if (historicalAvgLitersPerHour && historicalAvgLitersPerHour > 0) {
-        return historicalAvgLitersPerHour;
-      }
-      if (liveLitersPerHour && liveLitersPerHour > 0) {
-        return liveLitersPerHour;
-      }
-      return 22.0; // Padrão comercial para maquinário pesado
+      return 22.0;
     } else {
+      if (liveKmPerLiter && liveKmPerLiter > 0) return liveKmPerLiter;
+      if (historicalAvgKmPerLiter && historicalAvgKmPerLiter > 0) return historicalAvgKmPerLiter;
       if (machinery?.averageConsumptionKmPerLiter && machinery.averageConsumptionKmPerLiter > 0) {
         return machinery.averageConsumptionKmPerLiter;
       }
-      if (historicalAvgKmPerLiter && historicalAvgKmPerLiter > 0) {
-        return historicalAvgKmPerLiter;
-      }
-      if (liveKmPerLiter && liveKmPerLiter > 0) {
-        return liveKmPerLiter;
-      }
-      return 2.8; // Padrão comercial para caminhão pesado carregado
+      return 2.8;
     }
-  }, [tipoConsumo, machinery, historicalAvgLitersPerHour, liveLitersPerHour, historicalAvgKmPerLiter, liveKmPerLiter]);
+  }, [tipoConsumo, liveLitersPerHour, historicalAvgLitersPerHour, machinery, liveKmPerLiter, historicalAvgKmPerLiter]);
 
-  // Flag efetiva de primeiro abastecimento
-  const isFirstRecordEffective = isFirstRecord ?? (
-    (!prevH || prevH === 0) && (!prevK || prevK === 0)
-  );
-
-  // 6. Volume inicial do ciclo (nivel_anterior):
-  // Se for primeiro registro, o Nível Atual inicial DEVE obrigatoriamente começar em 0 L.
-  // Senão, assume nível histórico ou tanque completo do ciclo anterior (capacidade do tanque).
-  const nivelAnterior = useMemo(() => {
-    if (tankCapacity <= 0) return 0;
-    if (isFirstRecordEffective) {
-      return 0; // Regra obrigatória: primeiro registro sempre parte de 0 L
-    }
-    if ((machinery as any)?.currentFuelLiters !== undefined && (machinery as any)?.currentFuelLiters !== null) {
-      const lit = Number((machinery as any).currentFuelLiters);
-      if (!isNaN(lit) && lit >= 0) return Math.min(tankCapacity, lit);
-    }
-    if (machinery?.currentFuelPercentage !== undefined && machinery.currentFuelPercentage !== null) {
-      const p = Math.max(0, Math.min(100, Number(machinery.currentFuelPercentage)));
-      if (!isNaN(p)) return (p / 100) * tankCapacity;
-    }
-    return tankCapacity;
-  }, [tankCapacity, machinery, isFirstRecordEffective]);
-
-  // 7. Cálculo das Métricas de Consumo e Níveis do Tanque
+  // 9. Resultado do Cálculo
   const calculationResult: FuelCalculationResult = useMemo(() => {
     const isHours = tipoConsumo === 'l_h';
     const horimetroKmAnterior = isHours ? (!isNaN(prevH) ? prevH : 0) : (!isNaN(prevK) ? prevK : 0);
     const horimetroKmAtual = isHours ? (!isNaN(currH) ? currH : 0) : (!isNaN(currK) ? currK : 0);
+    const distanciaOuTempo = isHours ? deltaH : deltaK;
 
-    return calculateTankLevelMetrics({
+    return {
       capacidadeTanque: tankCapacity,
-      mediaConsumo,
       tipoConsumo,
+      mediaConsumo,
       horimetroKmAnterior,
       horimetroKmAtual,
+      distanciaOuTempo,
+      combustivelGasto: addedLiters,
+      nivelAnterior: nivelAtual,
+      nivelAtual,
+      nivelAtualPorcentagem,
       litrosAbastecidos: addedLiters,
-      nivelAnterior,
+      adicionadoPorcentagem,
+      novoNivelBruto: projecaoLiters,
+      novoNivel: projecaoLiters,
+      novoNivelPorcentagem: projecaoPorcentagem,
+      isOverflowing,
+      excessoLitros,
+      isReserve,
       isFirstRecord: isFirstRecordEffective,
-    });
-  }, [tankCapacity, mediaConsumo, tipoConsumo, prevH, currH, prevK, currK, addedLiters, nivelAnterior, isFirstRecordEffective]);
+    };
+  }, [
+    tankCapacity,
+    tipoConsumo,
+    mediaConsumo,
+    prevH,
+    currH,
+    deltaH,
+    prevK,
+    currK,
+    deltaK,
+    addedLiters,
+    nivelAtual,
+    nivelAtualPorcentagem,
+    adicionadoPorcentagem,
+    projecaoLiters,
+    projecaoPorcentagem,
+    isOverflowing,
+    excessoLitros,
+    isReserve,
+    isFirstRecordEffective,
+  ]);
 
   // Notifica o componente pai sempre que os cálculos atualizarem
   useEffect(() => {
@@ -162,22 +219,22 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     }
   }, [calculationResult, onCalculationChange]);
 
-  // 8. Tema Dinâmico de Cor com base no novo_nivel e transbordo
+  // 10. Tema Dinâmico de Cor com base na projeção e se excede o tanque
   const theme = useMemo(() => {
-    return getTankColorTheme(calculationResult.novoNivelPorcentagem, calculationResult.isOverflowing);
-  }, [calculationResult.novoNivelPorcentagem, calculationResult.isOverflowing]);
+    return getTankColorTheme(projecaoPorcentagem, isOverflowing);
+  }, [projecaoPorcentagem, isOverflowing]);
 
-  // Altura visual em porcentagem (clamp entre 0% e 100%)
+  // Altura visual em porcentagem do líquido (clamp físico entre 0% e 100% da caixa visual)
   const visualHeight = useMemo(() => {
     if (tankCapacity <= 0) return 0;
-    return Math.max(0, Math.min(100, calculationResult.novoNivelPorcentagem));
-  }, [tankCapacity, calculationResult.novoNivelPorcentagem]);
+    return Math.max(0, Math.min(100, projecaoPorcentagem));
+  }, [tankCapacity, projecaoPorcentagem]);
 
-  // Altura da camada base (nível_atual que sobrou após consumo)
+  // Altura da camada base (nível_atual que já estava no tanque)
   const baseLevelHeight = useMemo(() => {
     if (tankCapacity <= 0) return 0;
-    return Math.max(0, Math.min(100, calculationResult.nivelAtualPorcentagem));
-  }, [tankCapacity, calculationResult.nivelAtualPorcentagem]);
+    return Math.max(0, Math.min(100, nivelAtualPorcentagem));
+  }, [tankCapacity, nivelAtualPorcentagem]);
 
   const hasNoTankCapacity = tankCapacity <= 0;
 
@@ -250,24 +307,16 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
 
         {tankCapacity > 0 ? (
           <div className="flex items-center space-x-1">
-            {/* Badges de Média se disponíveis */}
+            {/* Badges de Média se disponíveis em tempo real após digitação dos litros */}
             {liveKmPerLiter ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs animate-in fade-in">
                 {liveKmPerLiter.toFixed(2).replace('.', ',')} km/L
-              </span>
-            ) : historicalAvgKmPerLiter ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50 shadow-2xs">
-                {historicalAvgKmPerLiter.toFixed(2).replace('.', ',')} km/L
               </span>
             ) : null}
 
             {liveLitersPerHour ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs animate-in fade-in">
                 {liveLitersPerHour.toFixed(2).replace('.', ',')} L/h
-              </span>
-            ) : historicalAvgLitersPerHour ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50 shadow-2xs">
-                {historicalAvgLitersPerHour.toFixed(2).replace('.', ',')} L/h
               </span>
             ) : null}
 
@@ -435,58 +484,58 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
             {/* Grid dos 3 Cards: NÍVEL ATUAL, + ABASTECIDO, PROJEÇÃO / NOVO NÍVEL */}
             <div className="grid grid-cols-3 gap-1.5 text-center">
               
-              {/* Card 1: NÍVEL ATUAL */}
+              {/* Card 1: NÍVEL ATUAL - Reflete estritamente o valor que vem do banco de dados */}
               <div className="p-1.5 rounded-lg bg-white/90 dark:bg-stone-800/80 border border-slate-200/80 dark:border-stone-700/80 shadow-2xs">
                 <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 block uppercase">
                   Nível Atual
                 </span>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {calculationResult.nivelAtual.toFixed(0)} L
+                  {nivelAtual.toFixed(0)} L
                 </span>
                 <span className="text-[9px] text-slate-400 block font-mono">
-                  ({Math.round(calculationResult.nivelAtualPorcentagem)}%)
+                  ({Math.round(nivelAtualPorcentagem)}%)
                 </span>
               </div>
 
-              {/* Card 2: + ABASTECIDO */}
+              {/* Card 2: + ABASTECIDO - Exatamente os litros digitados pelo usuário */}
               <div className="p-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 shadow-2xs">
                 <span className="text-[9px] font-semibold text-amber-700 dark:text-amber-400 block uppercase">
                   + Abastecido
                 </span>
                 <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                  {calculationResult.litrosAbastecidos > 0 ? `+${calculationResult.litrosAbastecidos.toFixed(1)} L` : '--'}
+                  {addedLiters > 0 ? `+${addedLiters.toFixed(1)} L` : '--'}
                 </span>
                 <span className="text-[9px] text-amber-600 dark:text-amber-400 block font-mono">
-                  {calculationResult.litrosAbastecidos > 0 ? `+${Math.round(calculationResult.adicionadoPorcentagem)}%` : '0 L'}
+                  {addedLiters > 0 ? `+${Math.round(adicionadoPorcentagem)}%` : '0 L'}
                 </span>
               </div>
 
-              {/* Card 3: PROJEÇÃO / NOVO NÍVEL */}
+              {/* Card 3: PROJEÇÃO - Soma matemática exata (Nível Atual + Litros Digitados) */}
               <div className={`p-1.5 rounded-lg border shadow-2xs ${
-                calculationResult.isOverflowing
+                isOverflowing
                   ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
                   : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60'
               }`}>
                 <span className={`text-[9px] font-semibold block uppercase ${
-                  calculationResult.isOverflowing ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
+                  isOverflowing ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
                 }`}>
                   Projeção
                 </span>
                 <span className={`text-xs font-bold ${
-                  calculationResult.isOverflowing ? 'text-rose-800 dark:text-rose-300' : 'text-emerald-800 dark:text-emerald-300'
+                  isOverflowing ? 'text-rose-800 dark:text-rose-300' : 'text-emerald-800 dark:text-emerald-300'
                 }`}>
-                  {calculationResult.novoNivel.toFixed(0)} L
+                  {projecaoLiters.toFixed(0)} L
                 </span>
                 <span className={`text-[9px] block font-mono ${
-                  calculationResult.isOverflowing ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                  isOverflowing ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}>
-                  ({Math.round(calculationResult.novoNivelPorcentagem)}%)
+                  ({Math.round(projecaoPorcentagem)}%)
                 </span>
               </div>
             </div>
 
             {/* Primeiro Abastecimento: Projeção direta dos litros abastecidos */}
-            {isFirstRecordEffective && !calculationResult.isOverflowing && (
+            {isFirstRecordEffective && !isOverflowing && (
               <div className="p-1.5 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-[10px] text-amber-900 dark:text-amber-200 flex items-center justify-between shadow-2xs">
                 <span className="flex items-center space-x-1.5">
                   <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -497,17 +546,25 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
               </div>
             )}
 
-            {/* Detalhe do Cálculo do Consumo */}
-            {calculationResult.combustivelGasto > 0 && (
-              <div className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-[10px] text-sky-900 dark:text-sky-200 flex items-center justify-between shadow-2xs">
+            {/* Detalhe do Cálculo de Médias em Tempo Real (Sómente após digitar os litros) */}
+            {addedLiters > 0 && (deltaH > 0 || deltaK > 0) && (
+              <div className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-[10px] text-sky-900 dark:text-sky-200 flex items-center justify-between shadow-2xs animate-in fade-in">
                 <span className="flex items-center space-x-1">
                   <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
                   <span>
-                    Consumo: <strong>Δ {calculationResult.distanciaOuTempo} {calculationResult.tipoConsumo === 'l_h' ? 'h' : 'km'}</strong>
+                    {deltaH > 0 ? (
+                      <>Trabalho: <strong>Δ {deltaH.toFixed(1)} h</strong></>
+                    ) : (
+                      <>Percurso: <strong>Δ {deltaK.toFixed(1)} km</strong></>
+                    )}
                   </span>
                 </span>
                 <span className="font-bold text-sky-700 dark:text-sky-300 font-mono">
-                  -{calculationResult.combustivelGasto.toFixed(1)} L
+                  {deltaH > 0 ? (
+                    `Média: ${(addedLiters / deltaH).toFixed(2).replace('.', ',')} L/h`
+                  ) : (
+                    `Média: ${(deltaK / addedLiters).toFixed(2).replace('.', ',')} km/L`
+                  )}
                 </span>
               </div>
             )}

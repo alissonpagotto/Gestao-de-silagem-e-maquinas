@@ -182,7 +182,54 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     return isFirstRecordHour && isFirstRecordKm;
   }, [editingLog, isFirstRecordHour, isFirstRecordKm]);
 
-  // Trava de segurança: Bloqueia o botão Salvar se o abastecimento ultrapassar a capacidade do tanque
+  // Nível Atual vindo do banco de dados (saldo registrado para o veículo antes deste abastecimento)
+  const dbTankLevel = useMemo(() => {
+    const tankCap = Number(
+      (selectedMachinery as any)?.tank_capacity ?? 
+      (selectedMachinery as any)?.tankCapacity ?? 
+      selectedMachinery?.fuelCapacityLiters ?? 0
+    );
+
+    if (isFirstRecord) return 0;
+
+    // 1. Se estiver editando um registro existente, pega o saldo antes desse abastecimento
+    if (editingLog) {
+      const prevL = (editingLog as any).previousFuelLiters ?? (editingLog as any).nivel_anterior;
+      if (prevL !== undefined && prevL !== null && !isNaN(Number(prevL)) && Number(prevL) >= 0) {
+        return Number(prevL);
+      }
+    }
+
+    // 2. Saldo explícito do veículo registrado no banco de dados
+    const machLiters = (selectedMachinery as any)?.currentFuelLiters ?? (selectedMachinery as any)?.current_fuel_liters;
+    if (machLiters !== undefined && machLiters !== null && !isNaN(Number(machLiters)) && Number(machLiters) >= 0) {
+      return Number(machLiters);
+    }
+
+    // 3. Último registro de abastecimento no histórico deste veículo
+    const prevLogs = (activeFuelLogs || [])
+      .filter(l => l.machineryId === machineryId && (!editingLog || l.id !== editingLog.id))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || String(b.id).localeCompare(String(a.id)));
+    const lastLog = prevLogs[0];
+    if (lastLog) {
+      const lFuelLiters = (lastLog as any).currentFuelLiters ?? (lastLog as any).current_fuel_liters ?? (lastLog as any).novo_nivel;
+      if (lFuelLiters !== undefined && lFuelLiters !== null && !isNaN(Number(lFuelLiters)) && Number(lFuelLiters) >= 0) {
+        return Number(lFuelLiters);
+      }
+    }
+
+    // 4. Porcentagem de combustível cadastrada no veículo
+    if (selectedMachinery?.currentFuelPercentage !== undefined && selectedMachinery?.currentFuelPercentage !== null && tankCap > 0) {
+      const pct = Number(selectedMachinery.currentFuelPercentage);
+      if (!isNaN(pct)) {
+        return parseFloat(((pct / 100) * tankCap).toFixed(1));
+      }
+    }
+
+    return tankCap > 0 ? tankCap : 0;
+  }, [selectedMachinery, machineryId, activeFuelLogs, editingLog, isFirstRecord]);
+
+  // Alerta de excesso de capacidade teórica (apenas visual, sem travar o botão Salvar)
   const isOverCapacity = useMemo(() => {
     const capacidadeTanque = Number(
       (selectedMachinery as any)?.tank_capacity ?? 
@@ -193,16 +240,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
     if (capacidadeTanque <= 0) return false;
 
-    // Se for primeiro registro, o nível base é 0L: Projeção = Litros Abastecidos
-    // Só acusa excesso se os litros digitados forem maiores que a capacidade do tanque
     if (isFirstRecord) {
       return litrosAbastecidos > capacidadeTanque;
     }
 
     if (latestCalculation?.isOverflowing) return true;
-    const nivelAtual = latestCalculation ? latestCalculation.nivelAtual : 0;
-    return (nivelAtual + litrosAbastecidos) > capacidadeTanque;
-  }, [latestCalculation, selectedMachinery, liters, isFirstRecord]);
+    return (dbTankLevel + litrosAbastecidos) > capacidadeTanque;
+  }, [latestCalculation, selectedMachinery, liters, isFirstRecord, dbTankLevel]);
 
   // Inicialização síncrona imediata ao abrir o modal (inputs livres desde o milissegundo 0)
   useEffect(() => {
@@ -433,8 +477,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     return { kmPerLiter, litersPerHour };
   }, [isFirstRecord, isFirstRecordKm, isFirstRecordHour, liters, currentKm, previousKm, currentHourMeter, previousHourMeter]);
 
-  const displayLitersPerHour = isFirstRecord || isFirstRecordHour ? null : (calculatedMetrics.litersPerHour ?? historicalAvgLitersPerHour);
-  const displayKmPerLiter = isFirstRecord || isFirstRecordKm ? null : (calculatedMetrics.kmPerLiter ?? historicalAvgKmPerLiter);
+  const displayLitersPerHour = isFirstRecord || isFirstRecordHour ? null : calculatedMetrics.litersPerHour;
+  const displayKmPerLiter = isFirstRecord || isFirstRecordKm ? null : calculatedMetrics.kmPerLiter;
 
   const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) {
@@ -485,11 +529,6 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setValidationError("Por favor, informe a quantidade de litros abastecidos.");
       const inputLiters = document.getElementById('input-litros-abastecidos') as HTMLInputElement;
       if (inputLiters) inputLiters.focus();
-      return;
-    }
-
-    if (isOverCapacity) {
-      setValidationError("O volume total ultrapassa a capacidade máxima do tanque.");
       return;
     }
 
@@ -1128,6 +1167,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
             <div className="lg:col-span-5 lg:sticky lg:top-0">
               <FuelTankVisualizer 
                 machinery={selectedMachinery}
+                dbTankLevel={dbTankLevel}
                 addedLitersInput={liters}
                 currentHourMeterInput={currentHourMeter}
                 previousHourMeterInput={previousHourMeter}
@@ -1154,9 +1194,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                 <span>{validationError}</span>
               </div>
             ) : isOverCapacity ? (
-              <div className="flex items-center space-x-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>Capacidade do tanque excedida (+{latestCalculation?.excessoLitros?.toFixed(1) || '0.0'} L). Ajuste a quantidade.</span>
+              <div className="flex items-center space-x-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-300 dark:border-amber-800 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Alerta visual: Projeção excede a capacidade do tanque (+{latestCalculation?.excessoLitros?.toFixed(1) || '0.0'} L). Salvamento liberado com dados reais.</span>
               </div>
             ) : null}
           </div>
@@ -1173,10 +1213,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               id="btn-salvar-abastecimento"
               type="submit"
               form="fuel-form"
-              disabled={isOverCapacity || isLoading}
-              title={isOverCapacity ? 'Abastecimento excede a capacidade máxima do tanque' : undefined}
+              disabled={isLoading}
               className={`px-4 py-2 rounded-xl text-white text-xs font-bold shadow-xs transition flex items-center space-x-1.5 ${
-                isOverCapacity || isLoading
+                isLoading
                   ? 'opacity-50 cursor-not-allowed bg-stone-400 dark:bg-stone-600 pointer-events-none select-none'
                   : 'pointer-events-auto cursor-pointer bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800'
               }`}
