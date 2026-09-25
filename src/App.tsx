@@ -2376,6 +2376,11 @@ export default function App() {
               suppliers={suppliers}
               services={services}
               orders={orders}
+              bankAccounts={bankAccounts}
+              onSaveBankAccounts={(updatedAccounts) => {
+                setBankAccounts(updatedAccounts);
+                saveStoredBankAccounts(updatedAccounts);
+              }}
               companyProfile={companyProfile}
               initialSubTab={
                 activeTab === 'veiculos' ? 'veiculos' :
@@ -2406,9 +2411,12 @@ export default function App() {
                     categoryName: newExp.categoryName || newExp.category || 'Gestão de Frotas',
                     categoryColor: newExp.categoryColor || (newExp.category?.toLowerCase().includes('combust') ? '#d97706' : '#6366f1'),
                     dueDate: newExp.dueDate || newExp.date || new Date().toISOString().split('T')[0],
+                    paymentDate: newExp.paymentDate || (newExp.status === 'pago' ? (newExp.date || new Date().toISOString().split('T')[0]) : undefined),
                     status: (newExp.status as any) || 'pendente',
                     paymentMethod: (newExp.paymentMethod as any) || 'boleto',
                     supplier: newExp.supplier || 'Fornecedor',
+                    costCenterId: newExp.costCenterId,
+                    costCenterName: newExp.costCenterName || newExp.costCenter,
                     invoiceNumber: newExp.invoiceNumber,
                     notes: newExp.notes,
                     createdAt: newExp.createdAt || new Date().toISOString(),

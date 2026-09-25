@@ -30,7 +30,7 @@ export interface CompanyProfile {
   pixKey?: string; // Chave PIX
 }
 
-export type ExpenseStatus = 'pago' | 'pendente' | 'atrasado' | 'agendado';
+export type ExpenseStatus = 'pago' | 'pendente' | 'atrasado' | 'agendado' | 'compensado_estoque';
 
 export type PaymentMethod = 
   | 'pix' 
@@ -688,6 +688,8 @@ export interface CropSeason {
   endDate?: string;
 }
 
+export type FuelOrigin = 'Tanque Interno (Fazenda)' | 'Posto Conveniado (Faturado)' | 'Posto de Viagem (Pago na Hora)';
+
 export interface FuelLog {
   id: string;
   date: string; // YYYY-MM-DD
@@ -719,6 +721,13 @@ export interface FuelLog {
   supplierStation?: string; // Posto / Fazenda
   notes?: string;
   expenseId?: string; // Linked financial expense
+  fuelOrigin?: FuelOrigin; // 'Tanque Interno (Fazenda)' | 'Posto Conveniado (Faturado)' | 'Posto de Viagem (Pago na Hora)'
+  supplierId?: string;
+  paymentMethod?: string;
+  bankAccountId?: string;
+  bankAccountName?: string;
+  dueDate?: string;
+  financialStatus?: 'pago' | 'pendente' | 'compensado_estoque';
   createdAt: string;
 }
 

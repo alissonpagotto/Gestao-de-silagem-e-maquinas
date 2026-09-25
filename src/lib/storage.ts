@@ -1596,3 +1596,25 @@ export function saveStoredManualEntryDocumentTypes(types: string[]): void {
   }
 }
 
+export function calculateDefaultDueDate(dateStr?: string, days = 30): string {
+  try {
+    if (!dateStr) {
+      const now = new Date();
+      now.setDate(now.getDate() + days);
+      return now.toISOString().split('T')[0];
+    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dayStr}`;
+  } catch {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+}
+
+

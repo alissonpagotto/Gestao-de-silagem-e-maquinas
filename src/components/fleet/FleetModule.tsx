@@ -10,7 +10,7 @@ import {
   TrendingUp,
   RotateCcw
 } from 'lucide-react';
-import { Machinery, Employee, FleetTeam, FuelLog, MaintenanceLog, Expense, CompanyProfile, ServiceOrder, SilageOrder, VehicleTypeDefinition, TireRotationLog, InventoryItem, Supplier, MaintenancePurchaseRequest } from '../../types';
+import { Machinery, Employee, FleetTeam, FuelLog, MaintenanceLog, Expense, CompanyProfile, ServiceOrder, SilageOrder, VehicleTypeDefinition, TireRotationLog, InventoryItem, Supplier, MaintenancePurchaseRequest, BankAccount } from '../../types';
 import { FleetDashboard } from './FleetDashboard';
 import { FleetVehiclesView } from './FleetVehiclesView';
 import { FleetDriversView } from './FleetDriversView';
@@ -23,7 +23,15 @@ import { FuelModal } from './FuelModal';
 import { MaintenanceModal } from './MaintenanceModal';
 import { VehicleHistoryModal } from './VehicleHistoryModal';
 import { updateVehicleWithCalculatedMetrics } from '../../lib/fleetMetrics';
-import { upsertGestaoFrota, saveCloudFuelLogs, saveCloudMachineries, upsertAbastecimento, deleteAbastecimento } from '../../lib/supabaseService';
+import { 
+  upsertGestaoFrota, 
+  saveCloudFuelLogs, 
+  saveCloudMachineries, 
+  upsertAbastecimento, 
+  deleteAbastecimento,
+  insertContaAPagarAbastecimento,
+  upsertEstoqueItem
+} from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getStoredVehicleTypes, 
@@ -33,7 +41,10 @@ import {
   getStoredPurchaseRequests,
   saveStoredPurchaseRequests,
   getStoredInventory,
-  saveStoredInventory
+  saveStoredInventory,
+  getStoredBankAccounts,
+  saveStoredBankAccounts,
+  calculateDefaultDueDate
 } from '../../lib/storage';
 
 export type FleetSubTab = 'painel' | 'veiculos' | 'motoristas' | 'equipe' | 'combustivel' | 'manutencoes' | 'rodizio';
@@ -61,6 +72,8 @@ interface FleetModuleProps {
   onSaveServices?: (services: ServiceOrder[]) => void;
   onSaveOrders?: (orders: SilageOrder[]) => void;
   onAddExpense?: (expense: any) => void;
+  bankAccounts?: BankAccount[];
+  onSaveBankAccounts?: (accounts: BankAccount[]) => void;
 }
 
 export const FleetModule: React.FC<FleetModuleProps> = ({
@@ -85,6 +98,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   onSaveServices,
   onSaveOrders,
   onAddExpense,
+  bankAccounts = [],
+  onSaveBankAccounts,
 }) => {
   const { confirm } = useConfirm();
   const [activeSubTab, setActiveSubTab] = useState<FleetSubTab>(initialSubTab || 'painel');
@@ -336,18 +351,145 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       });
     }
 
-    // Automatically create expense in finance if requested
+    // Automatically create expense and financial integration
     if (createExpense && onAddExpense && !editingFuelLog) {
-      onAddExpense({
-        date: fuelLog.date,
-        category: 'Combustível',
-        description: `Abastecimento ${fuelLog.fuelType} - ${fuelLog.machineryPlateOrName} (${fuelLog.liters}L)`,
-        amount: fuelLog.totalAmount,
-        paymentMethod: 'pix',
-        supplier: fuelLog.supplierStation || 'Posto de Combustível',
-        status: 'pago',
-        notes: `Lançamento automático de frotas. Motorista: ${fuelLog.driverOrOperator || 'N/A'}`,
-      });
+      const machName = targetVehicle
+        ? (targetVehicle.licensePlateOrSerial ? `[${targetVehicle.licensePlateOrSerial}] - ${targetVehicle.model || targetVehicle.name}` : targetVehicle.name)
+        : (fuelLog.machineryPlateOrName || 'Veículo');
+
+      const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
+
+      if (origin === 'Tanque Interno (Fazenda)') {
+        // 1. NÃO cria lançamento de dívida pendente em contas_a_pagar.
+        // 2. Registra apenas a movimentação de baixa de litros no estoque de combustível
+        const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
+        const fuelItem = currentInventory.find(i => 
+          i.category === 'combustivel' || 
+          i.name.toLowerCase().includes('diesel') ||
+          i.name.toLowerCase().includes('óleo diesel') ||
+          i.name.toLowerCase().includes('oleo diesel')
+        );
+        if (fuelItem) {
+          const newQty = Math.max(0, Number(((fuelItem.quantity || 0) - fuelLog.liters).toFixed(2)));
+          const updatedInventory = currentInventory.map(item => 
+            item.id === fuelItem.id ? { ...item, quantity: newQty, updatedAt: new Date().toISOString() } : item
+          );
+          if (onSaveInventory) {
+            onSaveInventory(updatedInventory);
+          }
+          saveStoredInventory(updatedInventory);
+          upsertEstoqueItem({ ...fuelItem, quantity: newQty }).catch(err => 
+            console.warn('Supabase baixa estoque diesel sync:', err)
+          );
+        }
+
+        // 3. Envia o custo para o DRE do veículo e registra no financeiro como compensado pelo estoque
+        onAddExpense({
+          id: `exp_fuel_${fuelLog.id}`,
+          date: fuelLog.date,
+          category: 'Combustível & Arla',
+          description: `Abastecimento Tanque Interno - ${machName} (${fuelLog.liters}L) [Compensado pelo Estoque]`,
+          amount: fuelLog.totalAmount,
+          paymentMethod: 'outro',
+          supplier: 'Tanque da Fazenda (Estoque Interno)',
+          status: 'compensado_estoque',
+          costCenterId: targetVehicle?.id,
+          costCenterName: machName,
+          notes: `Baixa interna de ${fuelLog.liters}L no tanque da fazenda. Custo no DRE do veículo sem geração de dívida pendente a pagar. Motorista: ${fuelLog.driverOrOperator || 'N/A'}`,
+        });
+      } else if (origin === 'Posto Conveniado (Faturado)') {
+        // 1. POST na tabela 'public.contas_a_pagar' com status 'A Pagar' (Pendente), vinculando ao Fornecedor/Posto selecionado
+        insertContaAPagarAbastecimento({
+          id: `cap_fuel_${fuelLog.id}`,
+          abastecimentoId: fuelLog.id,
+          veiculoId: targetVehicle?.id,
+          veiculoNome: machName,
+          fornecedor: fuelLog.supplierStation || 'Posto Conveniado',
+          valorTotal: fuelLog.totalAmount,
+          dataEmissao: fuelLog.date,
+          dataVencimento: fuelLog.dueDate || calculateDefaultDueDate(fuelLog.date),
+          formaPagamento: 'Boleto',
+          statusPago: false,
+          origemCombustivel: 'Posto Conveniado (Faturado)',
+          litros: fuelLog.liters,
+          tipoCombustivel: fuelLog.fuelType,
+          motorista: fuelLog.driverOrOperator,
+          observacoes: fuelLog.notes,
+        }).catch(err => console.warn('Supabase insertContaAPagarAbastecimento faturado err:', err));
+
+        // 2. Distribui o valor no custo do veículo associado para o DRE e cria lançamento faturado 'A Pagar' (Pendente)
+        onAddExpense({
+          id: `exp_fuel_${fuelLog.id}`,
+          date: fuelLog.date,
+          dueDate: fuelLog.dueDate || calculateDefaultDueDate(fuelLog.date),
+          category: 'Combustível & Arla',
+          description: `Abastecimento Faturado (${fuelLog.supplierStation}) - ${machName} (${fuelLog.liters}L)`,
+          amount: fuelLog.totalAmount,
+          paymentMethod: 'boleto',
+          supplier: fuelLog.supplierStation || 'Posto Conveniado',
+          status: 'pendente',
+          costCenterId: targetVehicle?.id,
+          costCenterName: machName,
+          notes: `Abastecimento faturado em posto conveniado. A Pagar pendente no Contas a Pagar. Motorista: ${fuelLog.driverOrOperator || 'N/A'}`,
+        });
+      } else if (origin === 'Posto de Viagem (Pago na Hora)') {
+        // 1. POST na tabela 'public.contas_a_pagar' com status 'Pago' (Liquidada)
+        insertContaAPagarAbastecimento({
+          id: `cap_fuel_${fuelLog.id}`,
+          abastecimentoId: fuelLog.id,
+          veiculoId: targetVehicle?.id,
+          veiculoNome: machName,
+          fornecedor: fuelLog.supplierStation || 'Posto de Viagem',
+          valorTotal: fuelLog.totalAmount,
+          dataEmissao: fuelLog.date,
+          dataVencimento: fuelLog.date,
+          formaPagamento: fuelLog.paymentMethod || 'Pix',
+          contaBancariaId: fuelLog.bankAccountId,
+          contaBancariaNome: fuelLog.bankAccountName,
+          statusPago: true,
+          origemCombustivel: 'Posto de Viagem (Pago na Hora)',
+          litros: fuelLog.liters,
+          tipoCombustivel: fuelLog.fuelType,
+          motorista: fuelLog.driverOrOperator,
+          observacoes: fuelLog.notes,
+        }).catch(err => console.warn('Supabase insertContaAPagarAbastecimento viagem err:', err));
+
+        // 2. Deduzindo o valor na hora da conta bancária escolhida
+        if (fuelLog.bankAccountId) {
+          const currentAccounts = bankAccounts && bankAccounts.length > 0 ? bankAccounts : getStoredBankAccounts();
+          const updatedAccounts = currentAccounts.map(acc => 
+            acc.id === fuelLog.bankAccountId
+              ? { ...acc, balance: Number(((acc.balance || 0) - fuelLog.totalAmount).toFixed(2)) }
+              : acc
+          );
+          saveStoredBankAccounts(updatedAccounts);
+          if (onSaveBankAccounts) {
+            onSaveBankAccounts(updatedAccounts);
+          }
+        }
+
+        // 3. Vinculando o custo ao DRE do veículo e registrando lançamento liquidado 'Pago'
+        const rawPayment = (fuelLog.paymentMethod || '').toLowerCase();
+        const mappedPayment = rawPayment.includes('cart') ? 'cartao_debito' : (rawPayment.includes('dinh') ? 'dinheiro' : 'pix');
+
+        onAddExpense({
+          id: `exp_fuel_${fuelLog.id}`,
+          date: fuelLog.date,
+          dueDate: fuelLog.date,
+          paymentDate: fuelLog.date,
+          category: 'Combustível & Arla',
+          description: `Abastecimento Viagem (${fuelLog.supplierStation || 'Posto de Viagem'}) - ${machName} (${fuelLog.liters}L)`,
+          amount: fuelLog.totalAmount,
+          paymentMethod: mappedPayment,
+          supplier: fuelLog.supplierStation || 'Posto de Viagem',
+          status: 'pago',
+          costCenterId: targetVehicle?.id,
+          costCenterName: machName,
+          bankAccountId: fuelLog.bankAccountId,
+          bankAccountName: fuelLog.bankAccountName,
+          notes: `Pago na hora em posto de viagem. Débito realizado na conta: ${fuelLog.bankAccountName || 'Conta Bancária/Caixa'}. Motorista: ${fuelLog.driverOrOperator || 'N/A'}`,
+        });
+      }
     }
   };
 
@@ -800,6 +942,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         employees={employees}
         fuelLogs={fuelLogs}
         initialMachineryId={selectedFuelVehicleId || undefined}
+        suppliers={suppliers}
+        bankAccounts={bankAccounts}
       />
 
       <MaintenanceModal

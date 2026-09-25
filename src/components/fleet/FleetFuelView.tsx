@@ -287,8 +287,25 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                       {log.driverOrOperator || '--'}
                     </td>
 
-                    <td className="py-3.5 px-4 text-stone-500 text-xs">
-                      {log.supplierStation || 'Tanque Próprio'}
+                    <td className="py-3.5 px-4 text-xs">
+                      <div className="flex flex-col space-y-1">
+                        <span className="font-semibold text-stone-900 dark:text-stone-100">
+                          {log.supplierStation || 'Tanque da Fazenda'}
+                        </span>
+                        {log.fuelOrigin === 'Posto Conveniado (Faturado)' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 w-fit">
+                            Conveniado (A Pagar)
+                          </span>
+                        ) : log.fuelOrigin === 'Posto de Viagem (Pago na Hora)' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 w-fit">
+                            Viagem ({log.paymentMethod || 'Pago'})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 w-fit">
+                            Tanque Interno
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3.5 px-4 text-right">

@@ -2412,6 +2412,11 @@ export function mapRowToFuelLog(row: any): FuelLog {
     driverOrOperator: row.motorista || row.operador || row.driver_or_operator || '',
     supplierStation: row.posto || row.fornecedor || row.supplier_station || 'Tanque da Fazenda',
     notes: row.observacoes || row.notes || '',
+    fuelOrigin: row.origem_combustivel || row.fuel_origin || (row.posto && row.posto.toLowerCase().includes('viagem') ? 'Posto de Viagem (Pago na Hora)' : (row.posto && !row.posto.toLowerCase().includes('tanque') && !row.posto.toLowerCase().includes('fazenda') ? 'Posto Conveniado (Faturado)' : 'Tanque Interno (Fazenda)')),
+    paymentMethod: row.forma_pagamento || row.payment_method || undefined,
+    bankAccountId: row.conta_bancaria_id || row.bank_account_id || undefined,
+    dueDate: row.data_vencimento || row.due_date || undefined,
+    financialStatus: row.status_financeiro || row.financial_status || undefined,
     createdAt: row.created_at || new Date().toISOString()
   };
 }
@@ -2508,6 +2513,11 @@ export async function upsertAbastecimento(
     motorista: log.driverOrOperator || '',
     posto: log.supplierStation || 'Tanque da Fazenda',
     observacoes: log.notes || '',
+    origem_combustivel: log.fuelOrigin || 'Tanque Interno (Fazenda)',
+    forma_pagamento: log.paymentMethod || null,
+    conta_bancaria_id: log.bankAccountId || null,
+    data_vencimento: log.dueDate || null,
+    status_financeiro: log.financialStatus || null,
     company_id: cId,
     created_at: log.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -2599,6 +2609,130 @@ export async function deleteAbastecimento(id: string, _companyId?: string): Prom
     return false;
   }
 }
+
+export interface LancamentoContasAPagarAbastecimentoInput {
+  id?: string;
+  abastecimentoId?: string;
+  veiculoId?: string;
+  veiculoNome: string;
+  fornecedor: string;
+  valorTotal: number;
+  dataEmissao: string;
+  dataVencimento?: string;
+  formaPagamento?: string;
+  contaBancariaId?: string;
+  contaBancariaNome?: string;
+  statusPago: boolean; // false para Posto Conveniado (A Pagar / Pendente), true para Posto de Viagem (Pago na Hora)
+  origemCombustivel: 'Tanque Interno (Fazenda)' | 'Posto Conveniado (Faturado)' | 'Posto de Viagem (Pago na Hora)' | string;
+  litros?: number;
+  tipoCombustivel?: string;
+  motorista?: string;
+  observacoes?: string;
+}
+
+/**
+ * Realiza POST/insert na tabela 'public.contas_a_pagar' do Supabase para abastecimentos
+ * conforme a Origem do Combustível:
+ * - Tanque Interno: Não gera dívida externa (compensado pelo estoque).
+ * - Posto Conveniado (Faturado): Status 'A Pagar' (Pendente, status_pago = false) vinculado ao fornecedor/posto.
+ * - Posto de Viagem (Pago na Hora): Status 'Pago' (Liquidada, status_pago = true) vinculado à conta bancária.
+ * Em ambos os casos externos, o custo é distribuído no centro de custo do veículo para o DRE.
+ */
+export async function insertContaAPagarAbastecimento(
+  dados: LancamentoContasAPagarAbastecimentoInput,
+  companyId?: string
+): Promise<{ success: boolean; data?: any; error?: any }> {
+  // Tanque Interno da Fazenda não gera lançamento de dívida pendente a pagar
+  if (dados.origemCombustivel === 'Tanque Interno (Fazenda)') {
+    return { success: true };
+  }
+
+  if (!isSupabaseConfigured) {
+    return { success: true };
+  }
+
+  const activeCompanyId = companyId || getActiveCompanyId();
+  const uuid = toValidUUID(dados.id || generateUUID());
+  const now = new Date().toISOString();
+  const desc = dados.origemCombustivel === 'Posto Conveniado (Faturado)'
+    ? `Abastecimento Faturado (${dados.fornecedor}) - ${dados.veiculoNome}${dados.litros ? ` (${dados.litros}L ${dados.tipoCombustivel || ''})` : ''}`
+    : `Abastecimento Viagem (${dados.fornecedor}) - ${dados.veiculoNome}${dados.litros ? ` (${dados.litros}L ${dados.tipoCombustivel || ''})` : ''}`;
+
+  try {
+    const fullPayload: Record<string, any> = {
+      id: uuid,
+      fornecedor: (dados.fornecedor || 'Posto de Combustível').trim(),
+      credor: (dados.fornecedor || 'Posto de Combustível').trim(),
+      valor_total: Number(dados.valorTotal) || 0,
+      valor_parcela: Number(dados.valorTotal) || 0,
+      descricao: desc,
+      centro_custo: dados.veiculoNome,
+      categoria: 'Combustível & Arla',
+      tipo_despesa: 'Combustível & Arla',
+      data_emissao: dados.dataEmissao,
+      data_vencimento: dados.statusPago ? dados.dataEmissao : (dados.dataVencimento || dados.dataEmissao),
+      numero_parcela: '01/01',
+      forma_pagamento: dados.formaPagamento || (dados.statusPago ? 'Pix' : 'Boleto'),
+      status: dados.statusPago ? 'pago' : 'pendente',
+      status_pago: Boolean(dados.statusPago),
+      created_at: now
+    };
+
+    if (dados.statusPago) {
+      fullPayload.data_pagamento = dados.dataEmissao;
+    }
+
+    if (dados.contaBancariaId) {
+      fullPayload.conta_bancaria_id = dados.contaBancariaId;
+    }
+
+    if (activeCompanyId) {
+      fullPayload.company_id = activeCompanyId;
+    }
+
+    let { data, error } = await supabase
+      .from('contas_a_pagar')
+      .insert([fullPayload])
+      .select();
+
+    if (error) {
+      logPostgresError('insertContaAPagarAbastecimento', error, { table: 'contas_a_pagar', action: 'INSERT', payload: fullPayload });
+
+      // Fallback 1: Esquema com colunas fundamentais
+      const standardPayload: Record<string, any> = {
+        id: uuid,
+        valor_parcela: Number(dados.valorTotal) || 0,
+        data_vencimento: dados.statusPago ? dados.dataEmissao : (dados.dataVencimento || dados.dataEmissao),
+        centro_custo: dados.veiculoNome,
+        categoria: 'Combustível & Arla',
+        tipo_despesa: 'Combustível & Arla',
+        numero_parcela: '01/01',
+        forma_pagamento: dados.formaPagamento || (dados.statusPago ? 'Pix' : 'Boleto'),
+        status_pago: Boolean(dados.statusPago),
+        created_at: now
+      };
+      if (activeCompanyId) standardPayload.company_id = activeCompanyId;
+
+      const retry1 = await supabase.from('contas_a_pagar').insert([standardPayload]).select();
+      if (!retry1.error) return { success: true, data: retry1.data };
+
+      // Fallback 2: Remove colunas extras se não existirem
+      delete standardPayload.company_id;
+      delete standardPayload.categoria;
+      delete standardPayload.tipo_despesa;
+      const retry2 = await supabase.from('contas_a_pagar').insert([standardPayload]).select();
+      if (!retry2.error) return { success: true, data: retry2.data };
+
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Supabase insertContaAPagarAbastecimento exception:', err);
+    return { success: false, error: err };
+  }
+}
+
 
 // ===========================================================================
 // Sincronização Global para o Supabase

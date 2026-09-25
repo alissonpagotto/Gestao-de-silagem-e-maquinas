@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles } from 'lucide-react';
-import { FuelLog, Machinery, Employee } from '../../types';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar } from 'lucide-react';
+import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { fetchGestaoFrotas, fetchCloudFuelLogs } from '../../lib/supabaseService';
+import { getStoredSuppliers, getStoredBankAccounts, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ interface FuelModalProps {
   employees: Employee[];
   fuelLogs?: FuelLog[];
   initialMachineryId?: string;
+  suppliers?: Supplier[];
+  bankAccounts?: BankAccount[];
 }
 
 /**
@@ -32,10 +35,23 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   employees,
   fuelLogs: propFuelLogs = [],
   initialMachineryId,
+  suppliers: propSuppliers = [],
+  bankAccounts: propBankAccounts = [],
 }) => {
   // Estado local para veículos e abastecimentos carregados via HTTP padrão (REST)
   const [dbMachineries, setDbMachineries] = useState<Machinery[]>([]);
   const [dbFuelLogs, setDbFuelLogs] = useState<FuelLog[]>([]);
+
+  // Listas de Fornecedores e Contas Bancárias com fallback para o storage local
+  const availableSuppliers = useMemo(() => {
+    if (propSuppliers && propSuppliers.length > 0) return propSuppliers;
+    return getStoredSuppliers();
+  }, [propSuppliers]);
+
+  const availableBankAccounts = useMemo(() => {
+    if (propBankAccounts && propBankAccounts.length > 0) return propBankAccounts;
+    return getStoredBankAccounts();
+  }, [propBankAccounts]);
 
   // Lista unificada de veículos (prioriza dados atualizados do banco mantendo props locais de fallback)
   const availableMachineries = useMemo(() => {
@@ -65,6 +81,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   // Formulário State (totalmente independente de loading flags)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [machineryId, setMachineryId] = useState('');
+  
+  // 1. ORIGEM DO COMBUSTÍVEL & INTEGRAÇÃO FINANCEIRA
+  const [fuelOrigin, setFuelOrigin] = useState<FuelOrigin>('Tanque Interno (Fazenda)');
+  const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
+  const [dueDate, setDueDate] = useState(() => calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
+  const [paymentMethod, setPaymentMethod] = useState<'Pix' | 'Cartão' | 'Dinheiro' | string>('Pix');
+  const [bankAccountId, setBankAccountId] = useState('');
+
   const [fuelType, setFuelType] = useState<FuelLog['fuelType']>('Diesel S10');
   const [liters, setLiters] = useState('');
   const [pricePerLiter, setPricePerLiter] = useState('5.85');
@@ -77,11 +101,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [previousHourMeter, setPreviousHourMeter] = useState('');
 
   const [driverOrOperator, setDriverOrOperator] = useState('');
-  const [supplierStation, setSupplierStation] = useState('Tanque da Fazenda');
   const [notes, setNotes] = useState('');
   const [createExpense, setCreateExpense] = useState(true);
   const [latestCalculation, setLatestCalculation] = useState<FuelCalculationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   // 1. CARREGAMENTO ASSÍNCRONO TRADICIONAL VIA HTTP (ASYNC/AWAIT com try/catch)
   // Sem WebSocket, sem conexões persistentes - apenas requisição HTTP pontual e estável
@@ -184,6 +208,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    setValidationError('');
+
     if (editingLog) {
       setDate(editingLog.date);
       setMachineryId(editingLog.machineryId);
@@ -192,6 +218,21 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setPricePerLiter(String(editingLog.pricePerLiter || '5.85'));
       setTotalAmount(String(editingLog.totalAmount || ''));
       
+      const inferredOrigin: FuelOrigin = editingLog.fuelOrigin || (
+        editingLog.supplierStation?.toLowerCase().includes('viagem') 
+          ? 'Posto de Viagem (Pago na Hora)' 
+          : (editingLog.supplierStation && !editingLog.supplierStation.toLowerCase().includes('tanque') && !editingLog.supplierStation.toLowerCase().includes('fazenda') 
+            ? 'Posto Conveniado (Faturado)' 
+            : 'Tanque Interno (Fazenda)')
+      );
+      setFuelOrigin(inferredOrigin);
+      setSupplierStation(editingLog.supplierStation || (inferredOrigin === 'Tanque Interno (Fazenda)' ? 'Tanque da Fazenda' : ''));
+      const rawPay = (editingLog.paymentMethod || '').toLowerCase();
+      const normPay = rawPay.includes('cart') ? 'Cartão' : (rawPay.includes('dinh') ? 'Dinheiro' : 'Pix');
+      setPaymentMethod(normPay);
+      setBankAccountId(editingLog.bankAccountId || (availableBankAccounts[0]?.id || ''));
+      setDueDate(editingLog.dueDate || calculateDefaultDueDate(editingLog.date));
+
       setCurrentKm(editingLog.currentKm !== undefined && editingLog.currentKm !== null ? String(editingLog.currentKm) : (editingLog.currentHourMeterOrKm && editingLog.currentHourMeterOrKm > 50000 ? String(editingLog.currentHourMeterOrKm) : ''));
       setPreviousKm(editingLog.previousKm !== undefined && editingLog.previousKm !== null ? String(editingLog.previousKm) : (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm > 50000 ? String(editingLog.previousHourMeterOrKm) : ''));
       
@@ -199,19 +240,22 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setPreviousHourMeter(editingLog.previousHourMeter !== undefined && editingLog.previousHourMeter !== null ? String(editingLog.previousHourMeter) : (editingLog.previousHourMeterOrKm && editingLog.previousHourMeterOrKm <= 50000 ? String(editingLog.previousHourMeterOrKm) : ''));
       
       setDriverOrOperator(editingLog.driverOrOperator || '');
-      setSupplierStation(editingLog.supplierStation || 'Tanque da Fazenda');
       setNotes(editingLog.notes || '');
       setCreateExpense(false);
     } else {
       // Novo Registro de Abastecimento
       setDate(new Date().toISOString().split('T')[0]);
+      setFuelOrigin('Tanque Interno (Fazenda)');
+      setSupplierStation('Tanque da Fazenda');
+      setPaymentMethod('Pix');
+      setBankAccountId(availableBankAccounts[0]?.id || '');
+      setDueDate(calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
       setFuelType('Diesel S10');
       setLiters('');
       setPricePerLiter('5.85');
       setTotalAmount('');
       setCurrentKm('');
       setCurrentHourMeter('');
-      setSupplierStation('Tanque da Fazenda');
       setNotes('');
       setCreateExpense(true);
 
@@ -397,6 +441,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       e.preventDefault();
       e.stopPropagation();
     }
+
+    setValidationError('');
     
     const l = parseFloat(String(liters).trim().replace(',', '.'));
     const p = parseFloat(String(pricePerLiter).trim().replace(',', '.'));
@@ -410,19 +456,40 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     const effectiveMachineryId = machineryId || (availableMachineries.length > 0 ? availableMachineries[0].id : '');
 
     if (!effectiveMachineryId) {
-      console.warn("Validação: selecione um veículo.");
+      setValidationError("Por favor, selecione um veículo / máquina.");
       return;
     }
 
+    if (!fuelOrigin) {
+      setValidationError("Campo obrigatório: selecione a Origem do Combustível.");
+      return;
+    }
+
+    if (fuelOrigin === 'Posto Conveniado (Faturado)' && !supplierStation.trim()) {
+      setValidationError("Para Posto Conveniado (Faturado), selecione ou informe o Fornecedor/Posto.");
+      return;
+    }
+
+    if (fuelOrigin === 'Posto de Viagem (Pago na Hora)') {
+      if (!paymentMethod) {
+        setValidationError("Para Posto de Viagem (Pago na Hora), selecione a Forma de Pagamento.");
+        return;
+      }
+      if (!bankAccountId && availableBankAccounts.length > 0) {
+        setValidationError("Para Posto de Viagem (Pago na Hora), selecione a Conta Bancária/Caixa.");
+        return;
+      }
+    }
+
     if (isNaN(l) || l <= 0) {
-      console.warn("Validação: informe a quantidade de litros.");
+      setValidationError("Por favor, informe a quantidade de litros abastecidos.");
       const inputLiters = document.getElementById('input-litros-abastecidos') as HTMLInputElement;
       if (inputLiters) inputLiters.focus();
       return;
     }
 
     if (isOverCapacity) {
-      console.warn("Validação: O volume total ultrapassa a capacidade máxima do tanque.");
+      setValidationError("O volume total ultrapassa a capacidade máxima do tanque.");
       return;
     }
 
@@ -431,6 +498,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     const machName = currentSelected 
       ? (currentSelected.licensePlateOrSerial ? `[${currentSelected.licensePlateOrSerial}] - ${currentSelected.model || currentSelected.name}` : currentSelected.name)
       : 'Veículo';
+
+    const selectedAccount = availableBankAccounts.find(b => b.id === bankAccountId);
+    const selectedSupplier = availableSuppliers.find(s => s.id === supplierStation || s.name === supplierStation);
 
     const log: FuelLog = {
       id: editingLog ? editingLog.id : `fuel_${Date.now()}`,
@@ -455,7 +525,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       fuelConsumedLiters: isFirstRecord ? 0 : (latestCalculation ? latestCalculation.combustivelGasto : 0),
       tankCapacity: latestCalculation ? latestCalculation.capacidadeTanque : undefined,
       driverOrOperator: driverOrOperator.trim(),
-      supplierStation: supplierStation.trim(),
+      fuelOrigin,
+      supplierStation: fuelOrigin === 'Tanque Interno (Fazenda)'
+        ? 'Tanque da Fazenda'
+        : (supplierStation.trim() || (fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem')),
+      supplierId: selectedSupplier ? selectedSupplier.id : undefined,
+      paymentMethod: fuelOrigin === 'Posto de Viagem (Pago na Hora)'
+        ? paymentMethod
+        : (fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Boleto' : undefined),
+      bankAccountId: fuelOrigin === 'Posto de Viagem (Pago na Hora)' ? bankAccountId : undefined,
+      bankAccountName: fuelOrigin === 'Posto de Viagem (Pago na Hora)' ? selectedAccount?.name : undefined,
+      dueDate: fuelOrigin === 'Posto Conveniado (Faturado)' ? (dueDate || calculateDefaultDueDate(date)) : date,
+      financialStatus: fuelOrigin === 'Tanque Interno (Fazenda)'
+        ? 'compensado_estoque'
+        : (fuelOrigin === 'Posto Conveniado (Faturado)' ? 'pendente' : 'pago'),
       notes: notes.trim() || undefined,
       expenseId: editingLog?.expenseId,
       createdAt: editingLog?.createdAt || new Date().toISOString(),
@@ -768,7 +851,221 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Motorista / Operador e Local / Posto */}
+                {/* 4. Origem do Combustível & Integração com o Financeiro (Contas a Pagar) */}
+                <div className="p-3 bg-stone-50/90 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center space-x-1.5">
+                      <Droplets className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Origem do Combustível <span className="text-rose-500">*</span></span>
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200/80 dark:bg-stone-700 text-stone-700 dark:text-stone-300">
+                      {fuelOrigin === 'Tanque Interno (Fazenda)' ? 'Tanque da Fazenda' : fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem'}
+                    </span>
+                  </div>
+
+                  <select
+                    id="select-origem-combustivel"
+                    value={fuelOrigin}
+                    onChange={(e) => {
+                      const val = e.target.value as FuelOrigin;
+                      setFuelOrigin(val);
+                      setValidationError('');
+                      if (val === 'Tanque Interno (Fazenda)') {
+                        setSupplierStation('Tanque da Fazenda');
+                      } else if (val === 'Posto Conveniado (Faturado)') {
+                        if (supplierStation === 'Tanque da Fazenda') {
+                          setSupplierStation(availableSuppliers[0]?.name || '');
+                        }
+                      } else if (val === 'Posto de Viagem (Pago na Hora)') {
+                        if (supplierStation === 'Tanque da Fazenda') {
+                          setSupplierStation('');
+                        }
+                        if (!bankAccountId && availableBankAccounts.length > 0) {
+                          setBankAccountId(availableBankAccounts[0].id);
+                        }
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs cursor-pointer"
+                  >
+                    <option value="Tanque Interno (Fazenda)">Tanque Interno (Fazenda)</option>
+                    <option value="Posto Conveniado (Faturado)">Posto Conveniado (Faturado)</option>
+                    <option value="Posto de Viagem (Pago na Hora)">Posto de Viagem (Pago na Hora)</option>
+                  </select>
+
+                  {/* CASO 1: Tanque Interno da Fazenda */}
+                  {fuelOrigin === 'Tanque Interno (Fazenda)' && (
+                    <div className="py-2 px-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-start space-x-2">
+                      <span className="text-base shrink-0 mt-0.5">🚜</span>
+                      <div className="text-[11px] leading-snug">
+                        <strong className="block font-bold">Tanque Interno da Fazenda (Estoque Próprio)</strong>
+                        <span className="text-emerald-800/90 dark:text-emerald-300/90">
+                          Realiza baixa automática de litros no estoque de combustível e distribui o custo no DRE do veículo. No financeiro, não gera dívida pendente (consta como compensado pelo estoque).
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CASO 2: Posto Conveniado (Faturado) */}
+                  {fuelOrigin === 'Posto Conveniado (Faturado)' && (
+                    <div className="space-y-2 pt-1 border-t border-stone-200 dark:border-stone-700/60">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 flex items-center space-x-1">
+                            <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Fornecedor / Posto Conveniado <span className="text-rose-500">*</span></span>
+                          </label>
+                          {availableSuppliers.length > 0 ? (
+                            <div className="space-y-1">
+                              <select
+                                value={availableSuppliers.some(s => s.name === supplierStation || s.id === supplierStation) ? supplierStation : '__outro__'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setValidationError('');
+                                  if (val === '__outro__') {
+                                    setSupplierStation('');
+                                  } else {
+                                    const sup = availableSuppliers.find(s => s.id === val || s.name === val);
+                                    setSupplierStation(sup ? sup.name : val);
+                                  }
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs cursor-pointer"
+                              >
+                                <option value="">Selecione o Fornecedor / Posto...</option>
+                                {availableSuppliers.map((s) => (
+                                  <option key={s.id} value={s.name}>
+                                    {s.name} {s.category ? `(${s.category})` : ''}
+                                  </option>
+                                ))}
+                                <option value="__outro__">+ Outro Posto / Digitar Nome...</option>
+                              </select>
+                              {(!availableSuppliers.some(s => s.name === supplierStation) || supplierStation === '') && (
+                                <input
+                                  type="text"
+                                  value={supplierStation}
+                                  onChange={(e) => {
+                                    setSupplierStation(e.target.value);
+                                    setValidationError('');
+                                  }}
+                                  placeholder="Digite o nome do Posto Conveniado..."
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs mt-1"
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              value={supplierStation}
+                              onChange={(e) => {
+                                setSupplierStation(e.target.value);
+                                setValidationError('');
+                              }}
+                              placeholder="Ex: Posto Trevo, Auto Posto Ipiranga..."
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                            />
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 flex items-center space-x-1">
+                            <Calendar className="w-3.5 h-3.5 text-stone-500" />
+                            <span>Vencimento da Fatura</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="py-2 px-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex items-start space-x-2">
+                        <span className="text-base shrink-0 mt-0.5">📄</span>
+                        <div className="text-[11px] leading-snug">
+                          <strong className="block font-bold">Integração Contas a Pagar: Status "A Pagar" (Pendente)</strong>
+                          <span className="text-blue-800/90 dark:text-blue-300/90">
+                            Cria lançamento na tabela 'contas_a_pagar' com status 'A Pagar', vinculado ao Fornecedor/Posto faturado e apropriado ao custo do veículo para apuração do DRE.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CASO 3: Posto de Viagem (Pago na Hora) */}
+                  {fuelOrigin === 'Posto de Viagem (Pago na Hora)' && (
+                    <div className="space-y-2 pt-1 border-t border-stone-200 dark:border-stone-700/60">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Forma de Pagamento */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 flex items-center space-x-1">
+                            <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Forma de Pagamento <span className="text-rose-500">*</span></span>
+                          </label>
+                          <select
+                            value={paymentMethod}
+                            onChange={(e) => {
+                              setPaymentMethod(e.target.value);
+                              setValidationError('');
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer"
+                          >
+                            <option value="Pix">Pix</option>
+                            <option value="Cartão">Cartão</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                          </select>
+                        </div>
+
+                        {/* Conta Bancária / Caixa */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 flex items-center space-x-1">
+                            <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Conta Bancária / Caixa <span className="text-rose-500">*</span></span>
+                          </label>
+                          <select
+                            value={bankAccountId}
+                            onChange={(e) => {
+                              setBankAccountId(e.target.value);
+                              setValidationError('');
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer"
+                          >
+                            <option value="">Selecione a Conta / Caixa...</option>
+                            {availableBankAccounts.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.name} ({acc.bankName || 'Conta'}) - Saldo: {formatCurrencyBRL(acc.balance || 0)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-medium text-stone-700 dark:text-stone-300 mb-0.5">
+                          Nome do Posto na Estrada / Cidade (Opcional)
+                        </label>
+                        <input
+                          type="text"
+                          value={supplierStation}
+                          onChange={(e) => setSupplierStation(e.target.value)}
+                          placeholder="Ex: Posto Graal Rodovia, Auto Posto Presidente..."
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                        />
+                      </div>
+
+                      <div className="py-2 px-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-start space-x-2">
+                        <span className="text-base shrink-0 mt-0.5">💰</span>
+                        <div className="text-[11px] leading-snug">
+                          <strong className="block font-bold">Integração Contas a Pagar: Status "Pago" (Liquidada)</strong>
+                          <span className="text-emerald-800/90 dark:text-emerald-300/90">
+                            Cria lançamento liquidado na tabela 'contas_a_pagar' com status 'Pago', deduzindo o valor na hora da conta bancária/caixa escolhida e vinculando o custo ao DRE do veículo.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. Motorista / Operador e Observações */}
                 <div className="space-y-2 pt-0.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
@@ -791,13 +1088,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                     <div>
                       <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-0.5">
-                        Local / Posto de Abastecimento
+                        Observações do Abastecimento
                       </label>
                       <input
                         type="text"
-                        value={supplierStation}
-                        onChange={(e) => setSupplierStation(e.target.value)}
-                        placeholder="Ex: Tanque da Fazenda, Posto Trevo..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Ex: Abastecimento em trânsito safra..."
                         className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
                       />
                     </div>
@@ -814,10 +1111,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                       />
                       <div className="text-[11px] leading-tight">
                         <span className="font-bold text-stone-900 dark:text-stone-100 block">
-                          Lançar automaticamente nas Despesas Financeiras (DRE)
+                          Sincronizar lançamento financeiro & DRE do veículo
                         </span>
                         <span className="text-stone-500 dark:text-stone-400 text-[10px]">
-                          Cria lançamento de despesa em "Combustível" vinculado ao veículo.
+                          Registra a movimentação no Contas a Pagar conforme a Origem selecionada e vincula ao DRE.
                         </span>
                       </div>
                     </label>
@@ -851,12 +1148,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         {/* Rodapé com Ações Compacto */}
         <div className="px-4 py-2.5 bg-zinc-50 dark:bg-stone-800/80 border-t border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto">
           <div className="w-full sm:w-auto">
-            {isOverCapacity && (
+            {validationError ? (
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{validationError}</span>
+              </div>
+            ) : isOverCapacity ? (
               <div className="flex items-center space-x-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 <span>Capacidade do tanque excedida (+{latestCalculation?.excessoLitros?.toFixed(1) || '0.0'} L). Ajuste a quantidade.</span>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">

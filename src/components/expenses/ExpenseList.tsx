@@ -191,6 +191,15 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             <span>Agendado</span>
           </span>
         );
+      case 'compensado_estoque':
+        return (
+          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200" title="Compensado pelo Estoque (Sem Dívida Pendente)">
+            <CheckCircle2 className="w-3 h-3 text-purple-600" />
+            <span>Compensado Estoque</span>
+          </span>
+        );
+      default:
+        return null;
     }
   };
 
