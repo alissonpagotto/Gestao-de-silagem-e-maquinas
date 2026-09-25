@@ -65,25 +65,25 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
   const alturaLiquidoEfetiva = litrosDigitados > 0 ? nivelProjetadoPorcentagem : nivelAtualPorcentagem;
 
   return (
-    <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 shadow-lg text-zinc-100 flex flex-col justify-between select-none relative overflow-hidden flex-1">
+    <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 shadow-xs text-zinc-900 dark:text-zinc-100 flex flex-col justify-between select-none relative overflow-hidden flex-1">
       
       {/* 1. MONITORAMENTO DO ESTOQUE (Topo do Painel: ORIGEM) */}
-      <div className="relative z-10 space-y-2 pb-2.5 border-b border-zinc-700">
+      <div className="relative z-10 space-y-1 pb-1.5 border-b border-zinc-200 dark:border-zinc-700">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-              <Warehouse className="w-4 h-4" />
+          <div className="flex items-center space-x-2 min-w-0">
+            <div className="w-6.5 h-6.5 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+              <Warehouse className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
-                <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider font-['Outfit'] truncate">
+                <h4 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider font-['Outfit'] truncate">
                   1. MONITORAMENTO DO ESTOQUE (ORIGEM)
                 </h4>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-zinc-700 text-amber-300 border border-amber-500/40 font-mono shrink-0">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-amber-800 dark:text-amber-300 border border-zinc-300 dark:border-amber-500/40 font-mono shrink-0">
                   {tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : 'S10'}
                 </span>
               </div>
-              <p className="text-xs font-semibold text-zinc-200 truncate mt-0.5">
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">
                 {tanque?.nome || 'Tanque Principal Diesel S10'}
               </p>
             </div>
@@ -92,31 +92,31 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
           {/* Volume Disponível e Porcentagem em Destaque */}
           <div className="text-right shrink-0">
             <div className="flex items-baseline justify-end space-x-1">
-              <span className="text-sm font-black text-amber-400 font-mono">
+              <span className="text-sm font-black text-amber-600 dark:text-amber-400 font-mono">
                 {quantidadeAtual.toLocaleString('pt-BR')} L
               </span>
-              <span className="text-[11px] font-semibold text-zinc-300 font-mono">
+              <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 font-mono">
                 ({nivelAtualPorcentagem.toFixed(1)}%)
               </span>
             </div>
             {isEstoqueInsuficiente ? (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 animate-pulse">
+                <AlertTriangle className="w-2.5 h-2.5" />
                 <span>Saldo Insuficiente</span>
               </span>
             ) : isNivelCritico ? (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40">
+                <AlertTriangle className="w-2.5 h-2.5" />
                 <span>Nível Crítico</span>
               </span>
             ) : isNivelBaixo ? (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/40">
+                <AlertTriangle className="w-2.5 h-2.5" />
                 <span>Nível Baixo</span>
               </span>
             ) : (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                <ShieldCheck className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/40">
+                <ShieldCheck className="w-2.5 h-2.5" />
                 <span>Estoque OK</span>
               </span>
             )}
@@ -126,8 +126,8 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
         {/* Seletor rápido de tanques cadastrados (S10 vs S500) */}
         {tanques.length > 1 && onTanqueChange && (
           <div className="flex items-center space-x-2 pt-0.5">
-            <span className="text-[11px] text-zinc-300 font-semibold shrink-0">Tanques:</span>
-            <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar w-full">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-300 font-semibold shrink-0">Tanques:</span>
+            <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar w-full">
               {tanques.map((t) => {
                 const isSelected = t.id === tanque?.id;
                 const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
@@ -137,14 +137,14 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                     key={t.id}
                     type="button"
                     onClick={() => onTanqueChange(t.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition whitespace-nowrap cursor-pointer flex items-center space-x-1.5 ${
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition whitespace-nowrap cursor-pointer flex items-center space-x-1 ${
                       isSelected
                         ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                        : 'bg-zinc-700/80 text-zinc-200 hover:text-white hover:bg-zinc-700 border border-zinc-600'
+                        : 'bg-white dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 shadow-2xs'
                     }`}
                   >
                     <span>{t.nome}</span>
-                    <span className={`text-[9px] px-1.5 py-0.2 rounded ${isSelected ? 'bg-zinc-950/25 text-zinc-950 font-black' : 'bg-zinc-800 text-zinc-300'}`}>
+                    <span className={`text-[8px] px-1 py-0.2 rounded ${isSelected ? 'bg-zinc-950/25 text-zinc-950 font-black' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
                       {badge}
                     </span>
                   </button>
@@ -158,8 +158,8 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
       {/* ========================================================================= */}
       {/* ILUSTRAÇÃO INDUSTRIAL: TANQUE AÉREO HORIZONTAL COM RESPIRO ELEGANTE */}
       {/* ========================================================================= */}
-      <div className="relative my-2 flex flex-col items-center justify-center py-1 bg-zinc-700/25 rounded-xl border border-zinc-700/80">
-        <div className="w-full max-w-[300px] h-[125px] relative flex items-center justify-center">
+      <div className="relative my-0.5 flex flex-col items-center justify-center py-0.5 bg-white/70 dark:bg-zinc-700/25 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+        <div className="w-full max-w-[270px] h-[96px] relative flex items-center justify-center">
           <svg
             viewBox="0 0 400 210"
             className="w-full h-full drop-shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
@@ -353,15 +353,15 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
 
           {/* Badge Central Sobreposto */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-zinc-800/90 backdrop-blur-xs px-3 py-1 rounded-xl border border-zinc-600 shadow-lg flex flex-col items-center">
-              <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider leading-tight">
+            <div className="bg-white/95 dark:bg-zinc-800/90 backdrop-blur-xs px-2.5 py-0.5 rounded-xl border border-zinc-200 dark:border-zinc-600 shadow-md flex flex-col items-center">
+              <span className="text-[8px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider leading-tight">
                 Nível do Tanque
               </span>
               <div className="flex items-baseline space-x-1">
-                <span className="text-xl font-black text-white font-['Outfit'] leading-tight">
+                <span className="text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight">
                   {alturaLiquidoEfetiva.toFixed(1)}%
                 </span>
-                <span className="text-[10px] text-zinc-300 font-semibold">
+                <span className="text-[9px] text-zinc-500 dark:text-zinc-300 font-semibold">
                   {tanque?.tipo_combustivel || 'Diesel S10'}
                 </span>
               </div>
@@ -373,21 +373,21 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
       {/* ========================================================================= */}
       {/* PAINEL DE DADOS: CAPACIDADE, SALDO ATUAL E PROJEÇÃO */}
       {/* ========================================================================= */}
-      <div className="relative z-10 space-y-2 pt-2 border-t border-zinc-700">
+      <div className="relative z-10 space-y-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-700">
         
         {/* Barra de Progresso Horizontal */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] font-semibold">
-            <span className="text-zinc-300 flex items-center space-x-1.5">
-              <Droplets className="w-3.5 h-3.5 text-amber-400" />
+        <div className="space-y-0.5">
+          <div className="flex justify-between text-[10px] font-semibold">
+            <span className="text-zinc-600 dark:text-zinc-300 flex items-center space-x-1">
+              <Droplets className="w-3 h-3 text-amber-600 dark:text-amber-400" />
               <span>Volume Disponível</span>
             </span>
-            <span className="text-zinc-100 font-mono font-bold">
+            <span className="text-zinc-900 dark:text-zinc-100 font-mono font-bold">
               {quantidadeAtual.toLocaleString('pt-BR')} L / {capacidadeTotal.toLocaleString('pt-BR')} L
             </span>
           </div>
 
-          <div className="w-full h-2.5 bg-zinc-700 rounded-full overflow-hidden border border-zinc-600 p-0.5 relative">
+          <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden border border-zinc-300 dark:border-zinc-600 p-0.5 relative">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 isNivelCritico
@@ -403,54 +403,54 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
 
         {/* Quadro Dinâmico: Saída e Saldo Restante */}
         {litrosDigitados > 0 ? (
-          <div className="px-3 py-2 rounded-lg bg-zinc-700/60 border border-amber-500/40 space-y-1.5 animate-in fade-in">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-amber-300 font-semibold flex items-center space-x-1">
-                <ArrowDownRight className="w-3.5 h-3.5 text-amber-400" />
+          <div className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-700/60 border border-amber-300 dark:border-amber-500/40 space-y-1 shadow-2xs animate-in fade-in">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-amber-700 dark:text-amber-300 font-semibold flex items-center space-x-1">
+                <ArrowDownRight className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                 <span>Saída Solicitada:</span>
               </span>
-              <span className="font-mono font-black text-amber-400">
+              <span className="font-mono font-black text-amber-600 dark:text-amber-400">
                 - {litrosDigitados.toLocaleString('pt-BR')} L
               </span>
             </div>
 
-            <div className="pt-1 border-t border-zinc-600/80 flex items-center justify-between text-xs">
-              <span className="text-zinc-200 font-medium">Saldo Após Abastecimento:</span>
+            <div className="pt-0.5 border-t border-zinc-100 dark:border-zinc-600/80 flex items-center justify-between text-[11px]">
+              <span className="text-zinc-700 dark:text-zinc-200 font-medium">Saldo Após Abastecimento:</span>
               <div className="flex items-baseline space-x-1">
-                <span className={`font-mono font-black ${isEstoqueInsuficiente ? 'text-rose-400' : 'text-emerald-400'}`}>
+                <span className={`font-mono font-black ${isEstoqueInsuficiente ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {saldoProjetado.toLocaleString('pt-BR')} L
                 </span>
-                <span className="text-[10px] text-zinc-300 font-mono">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-300 font-mono">
                   ({nivelProjetadoPorcentagem.toFixed(1)}%)
                 </span>
               </div>
             </div>
 
             {isEstoqueInsuficiente && (
-              <div className="px-2.5 py-1 rounded bg-rose-500/20 border border-rose-500/40 text-[11px] text-rose-200 font-semibold flex items-center space-x-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+              <div className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-[10px] text-rose-700 dark:text-rose-200 font-semibold flex items-center space-x-1">
+                <AlertTriangle className="w-3 h-3 shrink-0 text-rose-600 dark:text-rose-400" />
                 <span>Volume informado excede o saldo do tanque!</span>
               </div>
             )}
           </div>
         ) : (
-          <div className="px-3 py-2 rounded-lg bg-zinc-700/55 border border-zinc-600/80 flex items-center justify-between text-xs">
-            <span className="text-zinc-200 font-medium flex items-center space-x-1.5">
-              <Fuel className="w-3.5 h-3.5 text-amber-400" />
+          <div className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-700/55 border border-zinc-200 dark:border-zinc-600/80 flex items-center justify-between text-[11px] shadow-2xs">
+            <span className="text-zinc-700 dark:text-zinc-200 font-medium flex items-center space-x-1">
+              <Fuel className="w-3 h-3 text-amber-600 dark:text-amber-400" />
               <span>Saldo Livre para Uso:</span>
             </span>
-            <span className="font-mono font-bold text-amber-300 text-xs">
+            <span className="font-mono font-bold text-amber-600 dark:text-amber-300 text-xs">
               {quantidadeAtual.toLocaleString('pt-BR')} L
             </span>
           </div>
         )}
 
         {/* Rodapé com Localização e Tipo de Combustível */}
-        <div className="flex items-center justify-between text-[11px] text-zinc-300 pt-0.5">
+        <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-300">
           <span className="truncate max-w-[210px]">
             📍 {tanque?.localizacao || 'Pátio Central / Barracão'}
           </span>
-          <span className="font-semibold text-amber-400">
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
             {tanque?.tipo_combustivel || 'Diesel S10'}
           </span>
         </div>

@@ -673,20 +673,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-zinc-900 rounded-2xl max-w-6xl w-full h-[88vh] max-h-[90vh] shadow-2xl border border-zinc-700 overflow-hidden flex flex-col text-zinc-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-2.5 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-6xl w-full h-auto max-h-[94vh] shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col text-zinc-900 dark:text-zinc-100">
         
-        {/* Cabeçalho Equilibrado */}
-        <div className="px-5 py-3.5 bg-zinc-800 text-zinc-100 flex items-center justify-between border-b border-zinc-700 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-xs">
-              <Fuel className="w-4 h-4 text-amber-400" />
+        {/* Cabeçalho Equilibrado e Compacto */}
+        <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/90 text-zinc-900 dark:text-zinc-100 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700/80 shrink-0">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-2xs">
+              <Fuel className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-zinc-100 font-['Outfit'] leading-tight">
+              <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white font-['Outfit'] leading-tight">
                 {editingLog ? 'Editar Abastecimento' : 'Novo Registro de Abastecimento'}
               </h3>
-              <p className="text-xs text-zinc-300 leading-none mt-0.5">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-none mt-0.5">
                 Controle de combustível com cálculo de consumo em tempo real
               </p>
             </div>
@@ -694,26 +694,26 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           <button
             type="button"
             onClick={() => onClose()}
-            className="p-2 rounded-lg bg-zinc-700/60 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-600 transition cursor-pointer pointer-events-auto"
+            className="p-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white border border-zinc-200 dark:border-zinc-600 transition cursor-pointer pointer-events-auto"
           >
             <X className="w-4 h-4 pointer-events-none" />
           </button>
         </div>
 
         {/* Corpo do Modal com Respiro Elegante e Simetria */}
-        <div className="overflow-y-auto flex-1 bg-zinc-900">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 items-stretch min-h-full">
+        <div className="overflow-y-auto flex-1 bg-zinc-100/70 dark:bg-zinc-900">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full">
             
             {/* Coluna Esquerda: Formulário com Cards e Inputs Bem Definidos */}
             <div className="lg:col-span-7 flex flex-col">
-              <form id="fuel-form" noValidate onSubmit={handleSubmit} className="flex flex-col justify-between h-full gap-3.5">
+              <form id="fuel-form" noValidate onSubmit={handleSubmit} className="flex flex-col justify-between h-full gap-2.5">
                 
                 {/* 1. Veículo / Máquina e Data do Abastecimento */}
-                <div className="p-3.5 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm">
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                     <div className="sm:col-span-8 relative" ref={vehicleDropdownRef}>
-                      <label className="block text-xs font-bold text-zinc-200 mb-1">
-                        Veículo / Máquina <span className="text-rose-400">*</span>
+                      <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
+                        Veículo / Máquina <span className="text-rose-500">*</span>
                       </label>
 
                       {/* Botão Seletor Customizado do Veículo com Fundo e Borda Nítidos */}
@@ -723,59 +723,59 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           setIsVehicleDropdownOpen(prev => !prev);
                           setVehicleSearchText('');
                         }}
-                        className="w-full text-left px-3 py-2 h-9.5 border border-zinc-500 rounded-lg bg-zinc-700/75 hover:bg-zinc-700 text-zinc-100 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 flex items-center justify-between transition cursor-pointer shadow-xs"
+                        className="w-full text-left px-3 py-1.5 h-8.5 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 flex items-center justify-between transition cursor-pointer shadow-xs"
                       >
                         <div className="flex-1 min-w-0 pr-2 flex items-center justify-between gap-2">
                           {selectedMachinery ? (
                             <>
                               <div className="flex items-center space-x-2 min-w-0">
-                                <span className="font-bold text-xs sm:text-sm text-white truncate">
+                                <span className="font-bold text-xs text-zinc-900 dark:text-white truncate">
                                   {selectedMachinery.nome}
                                 </span>
                                 {selectedMachinery.licensePlateOrSerial && (
-                                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shrink-0">
                                     {selectedMachinery.licensePlateOrSerial}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[11px] text-zinc-300 truncate hidden xl:inline shrink-0">
+                              <span className="text-[10px] text-zinc-500 dark:text-zinc-300 truncate hidden xl:inline shrink-0">
                                 👤 {selectedMachinery.operatorOrDriver ? selectedMachinery.operatorOrDriver.split(',')[0].trim() : 'Sem operador'}
                               </span>
                             </>
                           ) : (
-                            <span className="text-zinc-300 text-xs sm:text-sm">Selecione o veículo...</span>
+                            <span className="text-zinc-400 dark:text-zinc-400 text-xs">Selecione o veículo...</span>
                           )}
                         </div>
-                        <ChevronDown className={`w-4 h-4 text-zinc-300 shrink-0 transition-transform duration-200 ${isVehicleDropdownOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 dark:text-zinc-300 shrink-0 transition-transform duration-200 ${isVehicleDropdownOpen ? 'rotate-180' : ''}`} />
                       </button>
 
                       {/* Popover de Opções de Veículos com Filtro de Busca */}
                       {isVehicleDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-zinc-800 border border-zinc-600 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                          <div className="p-2.5 border-b border-zinc-700 bg-zinc-900 flex items-center space-x-2">
-                            <Search className="w-4 h-4 text-zinc-400 shrink-0" />
+                        <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                          <div className="p-2.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 flex items-center space-x-2">
+                            <Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
                             <input
                               type="text"
                               value={vehicleSearchText}
                               onChange={(e) => setVehicleSearchText(e.target.value)}
                               placeholder="Buscar máquina, placa ou operador..."
-                              className="w-full bg-transparent text-xs text-zinc-100 placeholder:text-zinc-400 focus:outline-none"
+                              className="w-full bg-transparent text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none"
                               autoFocus
                             />
                             {vehicleSearchText && (
                               <button
                                 type="button"
                                 onClick={() => setVehicleSearchText('')}
-                                className="text-zinc-300 hover:text-white text-[11px]"
+                                className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-white text-[11px]"
                               >
                                 Limpar
                               </button>
                             )}
                           </div>
 
-                          <div className="max-h-56 overflow-y-auto divide-y divide-zinc-700">
+                          <div className="max-h-56 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-700">
                             {filteredVehicles.length === 0 ? (
-                              <div className="p-3.5 text-center text-xs text-zinc-400">
+                              <div className="p-3.5 text-center text-xs text-zinc-500 dark:text-zinc-400">
                                 Nenhuma máquina encontrada.
                               </div>
                             ) : (
@@ -791,27 +791,27 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                                     }}
                                     className={`w-full text-left p-2.5 transition flex items-center justify-between cursor-pointer ${
                                       isSelected
-                                        ? 'bg-amber-500/20 border-l-4 border-amber-500'
-                                        : 'hover:bg-zinc-700/70'
+                                        ? 'bg-amber-50 dark:bg-amber-500/20 border-l-4 border-amber-500'
+                                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-700/70'
                                     }`}
                                   >
                                     <div className="flex-1 min-w-0 pr-2">
                                       <div className="flex items-center space-x-1.5 flex-wrap">
-                                        <span className={`text-xs sm:text-sm font-bold truncate ${isSelected ? 'text-amber-300' : 'text-zinc-100'}`}>
+                                        <span className={`text-xs sm:text-sm font-bold truncate ${isSelected ? 'text-amber-800 dark:text-amber-300' : 'text-zinc-900 dark:text-zinc-100'}`}>
                                           {v.nome}
                                         </span>
                                         {v.licensePlateOrSerial && (
-                                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-700 text-zinc-200 border border-zinc-600 shrink-0">
+                                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-600 shrink-0">
                                             {v.licensePlateOrSerial}
                                           </span>
                                         )}
                                       </div>
-                                      <div className="text-[11px] text-zinc-300 truncate mt-0.5">
-                                        👤 Motorista / Operador: <span className="font-semibold text-zinc-200">{v.operatorOrDriver ? v.operatorOrDriver.split(',')[0].trim() : 'Sem operador associado'}</span>
+                                      <div className="text-[11px] text-zinc-500 dark:text-zinc-300 truncate mt-0.5">
+                                        👤 Motorista / Operador: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{v.operatorOrDriver ? v.operatorOrDriver.split(',')[0].trim() : 'Sem operador associado'}</span>
                                       </div>
                                     </div>
                                     {isSelected && (
-                                      <Check className="w-4 h-4 text-amber-400 shrink-0" />
+                                      <Check className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                                     )}
                                   </button>
                                 );
@@ -840,53 +840,53 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-4">
-                      <label className="block text-xs font-bold text-zinc-200 mb-1">
-                        Data do Abastecimento <span className="text-rose-400">*</span>
+                      <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
+                        Data do Abastecimento <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full h-9.5 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-zinc-100 text-xs sm:text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 pointer-events-auto shadow-xs"
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-xs font-medium focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 pointer-events-auto shadow-xs"
                       />
                     </div>
                   </div>
 
                   {/* Banner Informativo: Primeiro Abastecimento */}
                   {isFirstRecord && (
-                    <div className="mt-2.5 py-2 px-3 bg-amber-500/15 border border-amber-500/35 rounded-lg flex items-center space-x-2 text-xs text-amber-200">
-                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div className="mt-2 py-1.5 px-2.5 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/35 rounded-lg flex items-center space-x-2 text-[11px] text-amber-900 dark:text-amber-200">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                       <span className="leading-snug">
-                        <strong className="text-amber-300 font-bold">Primeiro Abastecimento:</strong> Nível parte de 0 L (Projeção = Litros Abastecidos). Informe apenas a leitura atual como base.
+                        <strong className="text-amber-800 dark:text-amber-300 font-bold">Primeiro Abastecimento:</strong> Nível parte de 0 L (Projeção = Litros Abastecidos). Informe apenas a leitura atual como base.
                       </span>
                     </div>
                   )}
                 </div>
 
                 {/* 2. Odômetro / Quilometragem (KM) e Horímetro (Horas de Motor) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {/* Seção: Quilometragem (KM) */}
-                  <div className="p-3.5 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm space-y-2.5">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-zinc-700">
-                      <span className="text-xs font-bold text-zinc-100 flex items-center space-x-1.5">
-                        <Gauge className="w-4 h-4 text-emerald-400" />
+                  <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-700">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                        <Gauge className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>Odômetro (KM)</span>
                       </span>
                       {isFirstRecordKm ? (
-                        <span className="text-[10px] font-semibold text-zinc-300 bg-zinc-700 border border-zinc-600 px-2 py-0.5 rounded">
+                        <span className="text-[9px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-1.5 py-0.2 rounded">
                           Registro Inicial
                         </span>
                       ) : displayKmPerLiter !== null ? (
-                        <span className="text-[10px] font-black text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded">
+                        <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 px-1.5 py-0.2 rounded">
                           Média: {displayKmPerLiter} km/L
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-semibold text-zinc-300">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="block text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
                             KM Anterior
                           </label>
                           {!isFirstRecordKm && previousKm ? (
@@ -902,17 +902,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           onChange={(e) => setPreviousKm(e.target.value)}
                           disabled={isFirstRecordKm}
                           placeholder={isFirstRecordKm ? "1º registro" : "Ex: 145000"}
-                          className={`w-full h-9 px-2.5 py-1.5 rounded-lg border text-xs sm:text-sm font-semibold focus:outline-none transition ${
+                          className={`w-full h-8.5 px-2.5 py-1 rounded-lg border text-xs font-semibold focus:outline-none transition ${
                             isFirstRecordKm
-                              ? 'border-zinc-600/80 bg-zinc-700/35 text-zinc-400 cursor-not-allowed select-none placeholder:text-zinc-400'
-                              : 'border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25'
+                              ? 'border-zinc-200 dark:border-zinc-600/80 bg-zinc-50 dark:bg-zinc-700/35 text-zinc-400 dark:text-zinc-500 cursor-not-allowed select-none placeholder:text-zinc-400'
+                              : 'border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20'
                           }`}
                         />
                       </div>
 
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-bold text-zinc-200">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="block text-[10px] font-bold text-zinc-800 dark:text-zinc-200">
                             KM Atual
                           </label>
                         </div>
@@ -923,34 +923,34 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           value={currentKm}
                           onChange={(e) => setCurrentKm(e.target.value)}
                           placeholder="Ex: 145600"
-                          className="w-full h-9 px-2.5 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 shadow-xs"
+                          className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-semibold focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 shadow-xs"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* Seção: Horímetro (Horas) */}
-                  <div className="p-3.5 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm space-y-2.5">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-zinc-700">
-                      <span className="text-xs font-bold text-zinc-100 flex items-center space-x-1.5">
-                        <Clock className="w-4 h-4 text-amber-400" />
+                  <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-700">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                         <span>Horímetro (Horas)</span>
                       </span>
                       {isFirstRecordHour ? (
-                        <span className="text-[10px] font-semibold text-zinc-300 bg-zinc-700 border border-zinc-600 px-2 py-0.5 rounded">
+                        <span className="text-[9px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-1.5 py-0.2 rounded">
                           Registro Inicial
                         </span>
                       ) : displayLitersPerHour !== null ? (
-                        <span className="text-[10px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded">
+                        <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 px-1.5 py-0.2 rounded">
                           Média: {displayLitersPerHour} L/h
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-semibold text-zinc-300">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="block text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
                             Horas Anterior
                           </label>
                           {!isFirstRecordHour && previousHourMeter ? (
@@ -966,17 +966,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           onChange={(e) => setPreviousHourMeter(e.target.value)}
                           disabled={isFirstRecordHour}
                           placeholder={isFirstRecordHour ? "1º registro" : "Ex: 198"}
-                          className={`w-full h-9 px-2.5 py-1.5 rounded-lg border text-xs sm:text-sm font-semibold focus:outline-none transition ${
+                          className={`w-full h-8.5 px-2.5 py-1 rounded-lg border text-xs font-semibold focus:outline-none transition ${
                             isFirstRecordHour
-                              ? 'border-zinc-600/80 bg-zinc-700/35 text-zinc-400 cursor-not-allowed select-none placeholder:text-zinc-400'
-                              : 'border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25'
+                              ? 'border-zinc-200 dark:border-zinc-600/80 bg-zinc-50 dark:bg-zinc-700/35 text-zinc-400 dark:text-zinc-500 cursor-not-allowed select-none placeholder:text-zinc-400'
+                              : 'border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20'
                           }`}
                         />
                       </div>
 
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-bold text-zinc-200">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="block text-[10px] font-bold text-zinc-800 dark:text-zinc-200">
                             Horas Atual
                           </label>
                         </div>
@@ -987,7 +987,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           value={currentHourMeter}
                           onChange={(e) => setCurrentHourMeter(e.target.value)}
                           placeholder="Ex: 250"
-                          className="w-full h-9 px-2.5 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-semibold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 shadow-xs"
+                          className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-semibold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                         />
                       </div>
                     </div>
@@ -995,17 +995,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                 </div>
 
                 {/* 3. Combustível, Litros Abastecidos, Preço / Litro e Valor Total Calculado */}
-                <div className="p-3.5 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {/* Combustível */}
                     <div>
-                      <label className="block text-xs font-bold text-zinc-200 mb-1">
+                      <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
                         Combustível
                       </label>
                       <select
                         value={fuelType}
                         onChange={(e) => setFuelType(e.target.value as any)}
-                        className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-semibold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 cursor-pointer shadow-xs"
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-xs"
                       >
                         <option value="Diesel S10">Diesel S10</option>
                         <option value="Diesel Comum">Diesel Comum</option>
@@ -1017,8 +1017,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                     {/* Litros Abastecidos */}
                     <div>
-                      <label className="block text-xs font-bold text-amber-300 mb-1">
-                        Litros Abastecidos <span className="text-rose-400">*</span>
+                      <label className="block text-xs font-bold text-amber-700 dark:text-amber-300 mb-0.5">
+                        Litros Abastecidos <span className="text-rose-500">*</span>
                       </label>
                       <input
                         id="input-litros-abastecidos"
@@ -1027,13 +1027,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         value={liters}
                         onChange={(e) => handleLitersChange(e.target.value)}
                         placeholder="Ex: 250"
-                        className="w-full h-9 px-3 py-1.5 rounded-lg border-2 border-amber-500/80 bg-zinc-700/85 hover:bg-zinc-700 text-white placeholder:text-zinc-300 text-xs sm:text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30 pointer-events-auto shadow-xs"
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border-2 border-amber-500/80 bg-amber-50/40 dark:bg-zinc-700/85 hover:bg-amber-50/70 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-300 text-xs font-bold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30 pointer-events-auto shadow-xs"
                       />
                     </div>
 
                     {/* Preço por Litro */}
                     <div>
-                      <label className="block text-xs font-bold text-zinc-200 mb-1">
+                      <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
                         Preço / Litro (R$)
                       </label>
                       <input
@@ -1042,31 +1042,31 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         value={pricePerLiter}
                         onChange={(e) => handlePriceChange(e.target.value)}
                         placeholder="Ex: 5.85"
-                        className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-semibold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 shadow-xs"
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-semibold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                       />
                     </div>
                   </div>
 
                   {/* Total Financeiro Formatado no Padrão R$ #.##0,00 */}
-                  <div className="py-2 px-3.5 bg-zinc-700/60 border border-zinc-600 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center space-x-2 text-zinc-200 text-xs font-bold">
-                      <Calculator className="w-4 h-4 text-amber-400" />
+                  <div className="py-1.5 px-3 bg-amber-50/70 dark:bg-zinc-700/60 border border-amber-200 dark:border-zinc-600 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-zinc-700 dark:text-zinc-200 text-xs font-bold">
+                      <Calculator className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                       <span>Valor Total Calculado:</span>
                     </div>
-                    <div className="text-base sm:text-lg font-black text-amber-400 font-['Outfit']">
+                    <div className="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 font-['Outfit']">
                       R$ {totalAmount ? parseFloat(totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
                     </div>
                   </div>
                 </div>
 
                 {/* 4. Origem do Combustível & Integração com o Financeiro (Contas a Pagar) */}
-                <div className="p-3.5 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-zinc-700">
-                    <label className="text-xs font-bold text-zinc-100 flex items-center space-x-1.5">
-                      <Droplets className="w-4 h-4 text-amber-400" />
-                      <span>Origem do Combustível <span className="text-rose-400">*</span></span>
+                <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-700">
+                    <label className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                      <Droplets className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Origem do Combustível <span className="text-rose-500">*</span></span>
                     </label>
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600">
+                    <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-600">
                       {fuelOrigin === 'Tanque Interno (Fazenda)' ? 'Tanque da Fazenda' : fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem'}
                     </span>
                   </div>
@@ -1093,7 +1093,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         }
                       }
                     }}
-                    className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-bold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 cursor-pointer shadow-xs"
+                    className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-bold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-xs"
                   >
                     <option value="Tanque Interno (Fazenda)">Tanque Interno (Fazenda)</option>
                     <option value="Posto Conveniado (Faturado)">Posto Conveniado (Faturado)</option>
@@ -1102,11 +1102,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                   {/* CASO 1: Tanque Interno da Fazenda */}
                   {fuelOrigin === 'Tanque Interno (Fazenda)' && (
-                    <div className="space-y-2 pt-2 border-t border-zinc-700">
+                    <div className="space-y-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-700">
                       <div>
-                        <label className="block text-xs font-semibold text-zinc-200 mb-1 flex items-center space-x-1.5">
-                          <Warehouse className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Tanque da Fazenda (Tabela tanques_combustivel) <span className="text-rose-400">*</span></span>
+                        <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1.5">
+                          <Warehouse className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>Tanque da Fazenda (Tabela tanques_combustivel) <span className="text-rose-500">*</span></span>
                         </label>
                         <select
                           id="select-tanque-combustivel"
@@ -1124,7 +1124,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               }
                             }
                           }}
-                          className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-semibold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 cursor-pointer shadow-xs"
+                          className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-xs"
                         >
                           {tanques.map((t) => {
                             const pct = t.capacidade_total > 0 ? ((t.quantidade_atual / t.capacidade_total) * 100).toFixed(1) : '0.0';
@@ -1137,23 +1137,23 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         </select>
                       </div>
 
-                      <p className="text-[11px] text-zinc-300 leading-snug px-1">
-                        <strong className="text-zinc-100 font-semibold">{selectedTanque?.nome || 'Tanque Principal'}:</strong> subtrai os litros de <code className="font-mono text-amber-300">quantidade_atual</code> (<code className="font-mono text-amber-300">tanques_combustivel</code>) e vincula o <code className="font-mono text-amber-300">tanque_id</code> (compensado pelo estoque).
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-300 leading-snug px-0.5">
+                        <strong className="text-zinc-800 dark:text-zinc-100 font-semibold">{selectedTanque?.nome || 'Tanque Principal'}:</strong> subtrai os litros de <code className="font-mono text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-zinc-800 px-1 py-0.2 rounded">quantidade_atual</code> e vincula o estoque interno.
                       </p>
                     </div>
                   )}
 
                   {/* CASO 2: Posto Conveniado (Faturado) */}
                   {fuelOrigin === 'Posto Conveniado (Faturado)' && (
-                    <div className="space-y-2 pt-2 border-t border-zinc-700">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-700">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-200 mb-1 flex items-center space-x-1">
-                            <Building2 className="w-3.5 h-3.5 text-blue-400" />
-                            <span>Fornecedor / Posto Conveniado <span className="text-rose-400">*</span></span>
+                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1">
+                            <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <span>Fornecedor / Posto Conveniado <span className="text-rose-500">*</span></span>
                           </label>
                           {availableSuppliers.length > 0 ? (
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                               <select
                                 value={availableSuppliers.some(s => s.name === supplierStation || s.id === supplierStation) ? supplierStation : '__outro__'}
                                 onChange={(e) => {
@@ -1166,7 +1166,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                                     setSupplierStation(sup ? sup.name : val);
                                   }
                                 }}
-                                className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 cursor-pointer"
+                                className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-xs"
                               >
                                 <option value="">Selecione o Fornecedor / Posto...</option>
                                 {availableSuppliers.map((s) => (
@@ -1185,7 +1185,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                                     setValidationError('');
                                   }}
                                   placeholder="Digite o nome do Posto Conveniado..."
-                                  className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-blue-400"
+                                  className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 shadow-xs"
                                 />
                               )}
                             </div>
@@ -1198,39 +1198,39 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                                 setValidationError('');
                               }}
                               placeholder="Ex: Posto Trevo, Auto Posto Ipiranga..."
-                              className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-blue-400"
+                              className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 shadow-xs"
                             />
                           )}
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-200 mb-1 flex items-center space-x-1">
-                            <Calendar className="w-3.5 h-3.5 text-zinc-300" />
+                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1">
+                            <Calendar className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-300" />
                             <span>Vencimento da Fatura</span>
                           </label>
                           <input
                             type="date"
                             value={dueDate}
                             onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-blue-400 cursor-pointer"
+                            className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 cursor-pointer shadow-xs"
                           />
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-zinc-300 leading-snug px-1">
-                        <strong className="text-zinc-100 font-semibold">Contas a Pagar (Pendente):</strong> registra lançamento em <code className="font-mono text-blue-300">contas_a_pagar</code> vinculado ao fornecedor e ao DRE do veículo.
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-300 leading-snug px-0.5">
+                        <strong className="text-zinc-800 dark:text-zinc-100 font-semibold">Contas a Pagar (Pendente):</strong> registra lançamento vinculado ao fornecedor e ao DRE do veículo.
                       </p>
                     </div>
                   )}
 
                   {/* CASO 3: Posto de Viagem (Pago na Hora) */}
                   {fuelOrigin === 'Posto de Viagem (Pago na Hora)' && (
-                    <div className="space-y-2 pt-2 border-t border-zinc-700">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="space-y-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-700">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-200 mb-1 flex items-center space-x-1">
-                            <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Pagamento <span className="text-rose-400">*</span></span>
+                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1">
+                            <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>Pagamento <span className="text-rose-500">*</span></span>
                           </label>
                           <select
                             value={paymentMethod}
@@ -1238,7 +1238,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               setPaymentMethod(e.target.value);
                               setValidationError('');
                             }}
-                            className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-400 cursor-pointer"
+                            className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 cursor-pointer shadow-xs"
                           >
                             <option value="Pix">Pix</option>
                             <option value="Cartão">Cartão</option>
@@ -1247,9 +1247,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-200 mb-1 flex items-center space-x-1">
-                            <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Conta / Caixa <span className="text-rose-400">*</span></span>
+                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1">
+                            <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>Conta / Caixa <span className="text-rose-500">*</span></span>
                           </label>
                           <select
                             value={bankAccountId}
@@ -1257,7 +1257,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               setBankAccountId(e.target.value);
                               setValidationError('');
                             }}
-                            className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-400 cursor-pointer"
+                            className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 cursor-pointer shadow-xs"
                           >
                             <option value="">Selecione a Conta...</option>
                             {availableBankAccounts.map((acc) => (
@@ -1269,7 +1269,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-zinc-200 mb-1">
+                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5">
                             Posto (Opcional)
                           </label>
                           <input
@@ -1277,29 +1277,29 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                             value={supplierStation}
                             onChange={(e) => setSupplierStation(e.target.value)}
                             placeholder="Ex: Posto Rodovia..."
-                            className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-400"
+                            className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-medium focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 shadow-xs"
                           />
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-zinc-300 leading-snug px-1">
-                        <strong className="text-zinc-100 font-semibold">Contas a Pagar (Pago):</strong> lança despesa liquidada em <code className="font-mono text-emerald-300">contas_a_pagar</code> deduzindo da conta selecionada e apropriando ao DRE.
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-300 leading-snug px-0.5">
+                        <strong className="text-zinc-800 dark:text-zinc-100 font-semibold">Contas a Pagar (Pago):</strong> lança despesa liquidada deduzindo da conta selecionada e apropriando ao DRE.
                       </p>
                     </div>
                   )}
                 </div>
 
                 {/* 5. Motorista / Operador, Observações e Sincronização */}
-                <div className="p-3.5 bg-zinc-800 rounded-xl border border-zinc-700 shadow-sm space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-bold text-zinc-200 mb-1">
+                      <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
                         Motorista / Operador
                       </label>
                       <select
                         value={driverOrOperator}
                         onChange={(e) => setDriverOrOperator(e.target.value)}
-                        className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 cursor-pointer shadow-xs"
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-xs"
                       >
                         <option value="">Selecione quem abasteceu...</option>
                         {employees.map((emp) => (
@@ -1311,7 +1311,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-zinc-200 mb-1">
+                      <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
                         Observações do Abastecimento
                       </label>
                       <input
@@ -1319,26 +1319,26 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Ex: Abastecimento em trânsito safra..."
-                        className="w-full h-9 px-3 py-1.5 rounded-lg border border-zinc-500 bg-zinc-700/75 hover:bg-zinc-700 text-white placeholder:text-zinc-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/25 shadow-xs"
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 text-xs font-medium focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                       />
                     </div>
                   </div>
 
                   {/* Sincronizar com Despesas */}
                   {!editingLog && (
-                    <label className="flex items-center space-x-2.5 py-2 px-3 rounded-lg border border-zinc-600 bg-zinc-700/50 hover:bg-zinc-700/70 transition cursor-pointer">
+                    <label className="flex items-center space-x-2 py-1.5 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700/50 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 transition cursor-pointer">
                       <input
                         type="checkbox"
                         checked={createExpense}
                         onChange={(e) => setCreateExpense(e.target.checked)}
-                        className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500 bg-zinc-800 border-zinc-500"
+                        className="w-3.5 h-3.5 text-amber-500 rounded focus:ring-amber-500 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-500"
                       />
                       <div className="text-xs leading-snug">
-                        <span className="font-bold text-zinc-100">
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100">
                           Sincronizar lançamento financeiro & DRE do veículo
                         </span>
-                        <span className="text-zinc-300 ml-1.5 hidden sm:inline">
-                          — Registra a movimentação no Contas a Pagar conforme a Origem.
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-300 ml-1.5 hidden sm:inline">
+                          — Registra no Contas a Pagar conforme a Origem.
                         </span>
                       </div>
                     </label>
@@ -1349,7 +1349,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
             </div>
 
             {/* Painel Direito: Monitoramento do Fluxo de Combustível em Tempo Real (Origem -> Destino) */}
-            <div className="lg:col-span-5 flex flex-col justify-between h-full gap-3">
+            <div className="lg:col-span-5 flex flex-col justify-between h-full gap-2">
               
               {/* 1. MONITORAMENTO DO ESTOQUE (Topo do Painel: ORIGEM) */}
               {fuelOrigin === 'Tanque Interno (Fazenda)' ? (
@@ -1371,32 +1371,32 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   }}
                 />
               ) : (
-                <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 shadow-lg text-zinc-100 space-y-3 select-none flex flex-col justify-between flex-1">
-                  <div className="flex items-center justify-between border-b border-zinc-700 pb-2.5">
-                    <div className="flex items-center space-x-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                        <Building2 className="w-4 h-4" />
+                <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 shadow-xs text-zinc-900 dark:text-zinc-100 space-y-2 select-none flex flex-col justify-between flex-1">
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6.5 h-6.5 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                        <Building2 className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider font-['Outfit']">
+                        <h4 className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider font-['Outfit']">
                           1. MONITORAMENTO DA ORIGEM
                         </h4>
-                        <p className="text-xs font-semibold text-zinc-200 truncate max-w-[220px] mt-0.5">
+                        <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate max-w-[220px] mt-0.5">
                           {supplierStation || fuelOrigin}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-700 text-zinc-200 border border-zinc-600">
+                    <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-600">
                       {fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-300">Combustível Selecionado:</span>
-                    <span className="font-bold text-amber-400">{fuelType}</span>
+                    <span className="text-zinc-600 dark:text-zinc-300">Combustível Selecionado:</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">{fuelType}</span>
                   </div>
-                  <div className="p-3 rounded-lg bg-zinc-700/60 border border-zinc-600 flex items-center justify-between text-xs">
-                    <span className="text-zinc-200 font-medium">Volume Solicitado:</span>
-                    <span className="font-mono font-black text-amber-400 text-sm">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-600 flex items-center justify-between text-xs shadow-2xs">
+                    <span className="text-zinc-700 dark:text-zinc-200 font-medium">Volume Solicitado:</span>
+                    <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-sm">
                       {liters && Number(liters.replace(',', '.')) > 0
                         ? `${Number(liters.replace(',', '.')).toLocaleString('pt-BR')} L`
                         : '0 L'}
@@ -1406,20 +1406,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               )}
 
               {/* Indicador Visual do Fluxo de Combustível (Origem ➔ Destino) */}
-              <div className="flex items-center justify-center shrink-0">
-                <div className="flex items-center space-x-2.5 px-3.5 py-1 rounded-full bg-zinc-800 border border-zinc-600 text-[11px] font-bold text-zinc-200 shadow-sm">
-                  <span className="flex items-center text-amber-400 font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse mr-1.5" />
+              <div className="flex items-center justify-center shrink-0 my-0.5">
+                <div className="flex items-center space-x-2 px-3 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 text-[10px] font-bold text-zinc-800 dark:text-zinc-200 shadow-2xs">
+                  <span className="flex items-center text-amber-600 dark:text-amber-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1" />
                     {fuelOrigin === 'Tanque Interno (Fazenda)' 
                       ? (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10') 
                       : 'Origem Externa'}
                   </span>
-                  <ArrowDown className="w-3.5 h-3.5 text-zinc-300 animate-bounce" />
-                  <span className="flex items-center text-blue-400 font-semibold">
+                  <ArrowDown className="w-3 h-3 text-zinc-400 dark:text-zinc-300 animate-bounce" />
+                  <span className="flex items-center text-blue-600 dark:text-blue-400 font-semibold">
                     Destino: {selectedMachinery ? (selectedMachinery.licensePlateOrSerial || selectedMachinery.nome) : 'Veículo'}
                   </span>
                   {liters && Number(liters.replace(',', '.')) > 0 && (
-                    <span className="ml-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] border border-amber-500/40">
+                    <span className="ml-0.5 px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono text-[9px] border border-amber-300 dark:border-amber-500/40">
                       {liters} L
                     </span>
                   )}
@@ -1449,26 +1449,26 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Rodapé com Ações Bem Definido */}
-        <div className="px-5 py-3 bg-zinc-800 border-t border-zinc-700 flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 relative z-30 pointer-events-auto">
+        <div className="px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto">
           <div className="w-full sm:w-auto">
             {validationError ? (
-              <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-400 animate-in fade-in">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-500 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
                 <span>{validationError}</span>
               </div>
             ) : isOverCapacity ? (
-              <div className="flex items-center space-x-1.5 text-xs font-medium text-amber-300 bg-amber-500/15 px-3 py-1.5 rounded-lg border border-amber-500/40 animate-in fade-in">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+              <div className="flex items-center space-x-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-500/40 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
                 <span>Alerta visual: Projeção excede a capacidade (+{latestCalculation?.excessoLitros?.toFixed(1) || '0.0'} L). Salvamento liberado.</span>
               </div>
             ) : null}
           </div>
 
-          <div className="flex items-center space-x-2.5 w-full sm:w-auto justify-end">
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={() => onClose()}
-              className="pointer-events-auto cursor-pointer px-4 py-2 rounded-xl border border-zinc-600 bg-zinc-700/60 text-zinc-200 text-xs font-semibold hover:bg-zinc-700 hover:text-white transition"
+              className="pointer-events-auto cursor-pointer px-3.5 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white transition shadow-2xs"
             >
               Cancelar
             </button>
@@ -1477,13 +1477,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               type="submit"
               form="fuel-form"
               disabled={isLoading}
-              className={`px-5 py-2 rounded-xl text-white text-xs font-bold shadow-sm transition flex items-center space-x-2 ${
+              className={`px-4 py-1.5 rounded-xl text-white text-xs font-bold shadow-xs transition flex items-center space-x-1.5 ${
                 isLoading
-                  ? 'opacity-50 cursor-not-allowed bg-zinc-600 pointer-events-none select-none'
+                  ? 'opacity-50 cursor-not-allowed bg-zinc-400 dark:bg-zinc-600 pointer-events-none select-none'
                   : 'pointer-events-auto cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700'
               }`}
             >
-              <Save className="w-4 h-4 pointer-events-none" />
+              <Save className="w-3.5 h-3.5 pointer-events-none" />
               <span>{isLoading ? 'Salvando...' : 'Salvar Abastecimento'}</span>
             </button>
           </div>
