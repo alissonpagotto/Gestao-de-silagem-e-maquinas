@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar, ChevronDown, Search, Check, Warehouse, ArrowDown } from 'lucide-react';
-import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin, TanqueCombustivel } from '../../types';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar, ChevronDown, Search, Check, Warehouse, ArrowDown, Settings } from 'lucide-react';
+import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin, TanqueCombustivel, InventoryItem } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { TanqueIndustrialVisualizer } from './TanqueIndustrialVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, subtrairCombustivelTanque } from '../../lib/supabaseService';
-import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
+import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
+import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, getStoredInventory, ensureDieselProductsInInventory, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -48,6 +48,23 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [selectedTanqueId, setSelectedTanqueId] = useState<string>(() => {
     const list = getStoredTanquesCombustivel();
     return list[0]?.id || 'tanque_diesel_s10';
+  });
+
+  // Combustíveis dinâmicos do estoque (tabela 'public.estoque_produtos' - categoria 'Combustível & Arla')
+  const [fuelStockProducts, setFuelStockProducts] = useState<InventoryItem[]>(() => {
+    return ensureDieselProductsInInventory(getStoredInventory()).filter(item => {
+      const cat = String(item.categoria || item.category || '').toLowerCase();
+      const nome = String(item.nome_comercial || item.name || '').toLowerCase();
+      return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
+    });
+  });
+  const [selectedFuelProductId, setSelectedFuelProductId] = useState<string>(() => {
+    const list = ensureDieselProductsInInventory(getStoredInventory()).filter(item => {
+      const cat = String(item.categoria || item.category || '').toLowerCase();
+      const nome = String(item.nome_comercial || item.name || '').toLowerCase();
+      return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
+    });
+    return list[0]?.id || 'prod_diesel_s10';
   });
 
   // Estado para o dropdown customizado de veículos com busca
@@ -114,7 +131,16 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
   const [fuelType, setFuelType] = useState<FuelLog['fuelType']>('Diesel S10');
   const [liters, setLiters] = useState('');
-  const [pricePerLiter, setPricePerLiter] = useState('5.85');
+  const [pricePerLiter, setPricePerLiter] = useState(() => {
+    const list = ensureDieselProductsInInventory(getStoredInventory()).filter(item => {
+      const cat = String(item.categoria || item.category || '').toLowerCase();
+      const nome = String(item.nome_comercial || item.name || '').toLowerCase();
+      return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
+    });
+    const s10 = list.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10')) || list[0];
+    const cost = Number(s10?.preco_custo_inicial ?? (s10 as any)?.custo_nominal ?? s10?.unitCost ?? 0);
+    return cost > 0 ? cost.toFixed(2) : '5.85';
+  });
   const [totalAmount, setTotalAmount] = useState('');
   
   // Medidores: KM & Horímetro (100% Desbloqueados para Edição Manual)
@@ -129,6 +155,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [latestCalculation, setLatestCalculation] = useState<FuelCalculationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
+
+  // 2. ESTADO DO SUB-MODAL DE CAPACIDADE DO TANQUE (Supabase public.tanques_combustivel)
+  const [isTankConfigModalOpen, setIsTankConfigModalOpen] = useState(false);
+  const [tankConfigTarget, setTankConfigTarget] = useState<TanqueCombustivel | null>(null);
+  const [tankConfigName, setTankConfigName] = useState('');
+  const [tankConfigCapacity, setTankConfigCapacity] = useState('');
+  const [isSavingTankConfig, setIsSavingTankConfig] = useState(false);
+  const [tankConfigError, setTankConfigError] = useState('');
 
   // 1. CARREGAMENTO ASSÍNCRONO TRADICIONAL VIA HTTP (ASYNC/AWAIT com try/catch)
   // Sem WebSocket, sem conexões persistentes - apenas requisição HTTP pontual e estável
@@ -168,6 +202,40 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       } catch (err) {
         console.warn('Busca HTTP tanques_combustivel com fallback local:', err);
       }
+
+      try {
+        const fuelProds = await fetchCombustivelEstoqueProdutos();
+        if (fuelProds && fuelProds.length > 0 && isMounted) {
+          setFuelStockProducts(fuelProds);
+          let chosenId = '';
+          if (editingLog) {
+            const editProd = fuelProds.find(p => 
+              ((editingLog as any).produto_id && p.id === (editingLog as any).produto_id) ||
+              (p.nome_comercial || p.name).toLowerCase() === String(editingLog.fuelType || '').toLowerCase()
+            );
+            if (editProd) chosenId = editProd.id;
+          }
+          if (!chosenId) {
+            const s10 = fuelProds.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10'));
+            chosenId = s10 ? s10.id : fuelProds[0].id;
+          }
+          setSelectedFuelProductId(chosenId);
+          const chosenProd = fuelProds.find(p => p.id === chosenId);
+          if (chosenProd) {
+            setFuelType((chosenProd.nome_comercial || chosenProd.name) as any);
+            // Preenchimento automático do Preço / Litro com o custo real do estoque
+            if (!editingLog) {
+              const cost = Number(chosenProd.preco_custo_inicial ?? (chosenProd as any).custo_nominal ?? chosenProd.unitCost ?? 0);
+              if (cost > 0) {
+                const formattedPrice = cost.toFixed(2);
+                setPricePerLiter(formattedPrice);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Busca HTTP combustivel estoque_produtos com fallback:', err);
+      }
     };
 
     loadGestaoFrotasHttp();
@@ -177,10 +245,25 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     };
   }, [isOpen]);
 
-  // Tanque Selecionado
+  // Tanque Selecionado (Vinculado dinamicamente ao produto de combustível selecionado)
   const selectedTanque = useMemo(() => {
+    if (selectedFuelProductId) {
+      const byProdId = tanques.find(t => t.produto_id === selectedFuelProductId);
+      if (byProdId) return byProdId;
+      const curProd = fuelStockProducts.find(p => p.id === selectedFuelProductId);
+      if (curProd) {
+        const pName = (curProd.nome_comercial || curProd.name).toLowerCase();
+        const byType = tanques.find(t => 
+          (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === pName) ||
+          (pName.includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
+          ((pName.includes('s500') || pName.includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
+          (pName.includes('arla') && (t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla')))
+        );
+        if (byType) return byType;
+      }
+    }
     return tanques.find(t => t.id === selectedTanqueId) || tanques[0] || null;
-  }, [tanques, selectedTanqueId]);
+  }, [tanques, selectedTanqueId, selectedFuelProductId, fuelStockProducts]);
 
   // Filtro de busca para dropdown de veículos
   const filteredVehicles = useMemo(() => {
@@ -363,9 +446,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       setPaymentMethod('Pix');
       setBankAccountId(availableBankAccounts[0]?.id || '');
       setDueDate(calculateDefaultDueDate(new Date().toISOString().split('T')[0]));
-      setFuelType('Diesel S10');
+      const curProd = fuelStockProducts.find(p => p.id === selectedFuelProductId) ||
+        fuelStockProducts.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10')) ||
+        fuelStockProducts[0];
+      const prodName = curProd ? (curProd.nome_comercial || curProd.name) : 'Diesel S10';
+      setFuelType(prodName as any);
+      const defaultCost = Number(curProd?.preco_custo_inicial ?? (curProd as any)?.custo_nominal ?? curProd?.unitCost ?? 0);
       setLiters('');
-      setPricePerLiter('5.85');
+      setPricePerLiter(defaultCost > 0 ? defaultCost.toFixed(2) : '5.85');
       setTotalAmount('');
       setCurrentKm('');
       setCurrentHourMeter('');
@@ -513,6 +601,87 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     calculateTotal(liters, val);
   };
 
+  // 1. DROPDOWN DE COMBUSTÍVEL DINÂMICO & VÍNCULO AUTOMÁTICO COM OS TANQUES
+  // Quando o usuário seleciona um combustível do estoque, busca na tabela 'public.tanques_combustivel'
+  // qual tanque possui o 'produto_id' correspondente e atualiza reativamente o painel de monitoramento do estoque.
+  const handleFuelProductChange = (prodId: string) => {
+    setSelectedFuelProductId(prodId);
+    const prod = fuelStockProducts.find(p => p.id === prodId);
+    const prodName = prod ? (prod.nome_comercial || prod.name || 'Diesel S10') : 'Diesel S10';
+    setFuelType(prodName as any);
+
+    // Localiza o tanque que possui este produto_id ou tipo compatível
+    const matchingTank = tanques.find(t => 
+      t.produto_id === prodId || 
+      (t as any).produtoId === prodId ||
+      (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === prodName.toLowerCase()) ||
+      (prodName.toLowerCase().includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
+      ((prodName.toLowerCase().includes('s500') || prodName.toLowerCase().includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
+      (prodName.toLowerCase().includes('arla') && (t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla') || t.id === 'tanque_arla_32'))
+    );
+
+    if (matchingTank) {
+      setSelectedTanqueId(matchingTank.id);
+      if (fuelOrigin === 'Tanque Interno (Fazenda)') {
+        setSupplierStation(matchingTank.nome);
+      }
+    }
+
+    // 1. PREÇO POR LITRO DINÂMICO VINDO DO ESTOQUE
+    // Preenche AUTOMATICAMENTE assim que o usuário selecionar um produto no dropdown 'Combustível'.
+    // Valor puxado diretamente da coluna de custo do produto na tabela 'public.estoque_produtos'.
+    if (prod) {
+      const cost = Number(prod.preco_custo_inicial ?? (prod as any).custo_nominal ?? prod.unitCost ?? 0);
+      if (cost > 0) {
+        const formattedPrice = cost.toFixed(2);
+        setPricePerLiter(formattedPrice);
+        calculateTotal(liters, formattedPrice);
+      }
+    }
+  };
+
+  // 2. GERENCIAMENTO DE CAPACIDADE DOS TANQUES INTERNOS (Supabase 'tanques_combustivel')
+  const openTankConfigModal = (tankToConfig?: TanqueCombustivel | null) => {
+    const target = tankToConfig || selectedTanque || tanques[0];
+    if (!target) return;
+    setTankConfigTarget(target);
+    setTankConfigName(target.nome);
+    setTankConfigCapacity(String(target.capacidade_total || 15000));
+    setTankConfigError('');
+    setIsTankConfigModalOpen(true);
+  };
+
+  const handleSaveTankCapacity = async () => {
+    if (!tankConfigTarget) return;
+    const cleanCap = parseFloat(String(tankConfigCapacity).replace(/\./g, '').replace(',', '.'));
+    if (isNaN(cleanCap) || cleanCap <= 0) {
+      setTankConfigError('Informe uma capacidade total válida em litros (maior que 0).');
+      return;
+    }
+
+    setIsSavingTankConfig(true);
+    setTankConfigError('');
+    try {
+      const res = await updateCapacidadeTanqueCombustivel({
+        tanqueId: tankConfigTarget.id,
+        novaCapacidadeTotal: cleanCap,
+        novoNome: tankConfigName.trim() || tankConfigTarget.nome
+      });
+
+      if (res.success && res.tanque) {
+        setTanques(prev => prev.map(t => t.id === tankConfigTarget.id ? res.tanque! : t));
+        setIsTankConfigModalOpen(false);
+      } else {
+        setTankConfigError(res.error || 'Erro ao salvar capacidade do tanque.');
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar capacidade do tanque:', err);
+      setTankConfigError('Falha ao comunicar com o banco de dados. Tente novamente.');
+    } finally {
+      setIsSavingTankConfig(false);
+    }
+  };
+
   // 2. CÁLCULO DE MÉDIAS EM TEMPO REAL
   // Se isFirstRecord for verdadeiro, o sistema NÃO tenta calcular a diferença nem subtrair consumo do nível do tanque.
   // O consumo e médias são definidos temporariamente como nulos / 0 para este lançamento.
@@ -634,8 +803,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       tankCapacity: latestCalculation ? latestCalculation.capacidadeTanque : undefined,
       driverOrOperator: driverOrOperator.trim(),
       fuelOrigin,
-      tanque_id: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanqueId || tanques[0]?.id) : undefined,
-      tanqueId: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanqueId || tanques[0]?.id) : undefined,
+      produto_id: selectedFuelProductId,
+      produtoId: selectedFuelProductId,
+      tanque_id: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) : undefined,
+      tanqueId: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) : undefined,
       tanqueNome: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.nome || 'Tanque da Fazenda') : undefined,
       supplierStation: fuelOrigin === 'Tanque Interno (Fazenda)'
         ? (selectedTanque?.nome || 'Tanque da Fazenda')
@@ -659,8 +830,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     (log as any).horas_atual = !isNaN(currH) && currH > 0 ? currH : undefined;
 
     // Se for abastecido do Tanque Interno da Fazenda, subtrai a quantidade de litros diretamente da tabela 'tanques_combustivel'
-    if (fuelOrigin === 'Tanque Interno (Fazenda)' && (selectedTanqueId || tanques[0]?.id) && l > 0) {
-      const tId = selectedTanqueId || tanques[0]?.id;
+    if (fuelOrigin === 'Tanque Interno (Fazenda)' && (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) && l > 0) {
+      const tId = selectedTanque?.id || selectedTanqueId || tanques[0]?.id;
       subtrairCombustivelTanque(tId, l).catch(err => {
         console.warn('Erro ao subtrair litros de tanques_combustivel:', err);
       });
@@ -997,21 +1168,32 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                 {/* 3. Combustível, Litros Abastecidos, Preço / Litro e Valor Total Calculado */}
                 <div className="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-xs space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {/* Combustível */}
+                    {/* Combustível (Dropdown Dinâmico lendo de public.estoque_produtos) */}
                     <div>
                       <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
-                        Combustível
+                        Combustível <span className="text-rose-500">*</span>
                       </label>
                       <select
-                        value={fuelType}
-                        onChange={(e) => setFuelType(e.target.value as any)}
-                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-xs"
+                        id="select-combustivel-estoque"
+                        value={selectedFuelProductId}
+                        onChange={(e) => handleFuelProductChange(e.target.value)}
+                        className="w-full h-8.5 px-2.5 py-1 rounded-lg border border-zinc-300 dark:border-zinc-500 bg-white dark:bg-zinc-700/75 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-xs font-bold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-xs"
                       >
-                        <option value="Diesel S10">Diesel S10</option>
-                        <option value="Diesel Comum">Diesel Comum</option>
-                        <option value="Arla 32">Arla 32</option>
-                        <option value="Gasolina">Gasolina</option>
-                        <option value="Etanol">Etanol</option>
+                        {fuelStockProducts.map((p) => {
+                          const nomeExibicao = p.nome_comercial || p.name || 'Combustível';
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {nomeExibicao}
+                            </option>
+                          );
+                        })}
+                        {fuelStockProducts.length === 0 && (
+                          <>
+                            <option value="prod_diesel_s10">Diesel S10</option>
+                            <option value="prod_diesel_s500">Diesel S500</option>
+                            <option value="prod_arla_32">Arla 32 (Granel / Litro)</option>
+                          </>
+                        )}
                       </select>
                     </div>
 
@@ -1104,23 +1286,54 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   {fuelOrigin === 'Tanque Interno (Fazenda)' && (
                     <div className="space-y-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-700">
                       <div>
-                        <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-0.5 flex items-center space-x-1.5">
-                          <Warehouse className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                          <span>Tanque da Fazenda (Tabela tanques_combustivel) <span className="text-rose-500">*</span></span>
-                        </label>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center space-x-1.5">
+                            <Warehouse className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                            <span>Tanque da Fazenda (Tabela tanques_combustivel) <span className="text-rose-500">*</span></span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => openTankConfigModal(selectedTanque || tanques[0])}
+                            title="Configurar Capacidade do Tanque (Supabase)"
+                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 bg-amber-100/70 dark:bg-amber-500/20 hover:bg-amber-200 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-500/40 transition cursor-pointer shadow-2xs"
+                          >
+                            <Settings className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            <span>⚙️ Configurar Capacidade</span>
+                          </button>
+                        </div>
                         <select
                           id="select-tanque-combustivel"
                           value={selectedTanqueId}
                           onChange={(e) => {
                             const tId = e.target.value;
+                            if (tId === '__configurar_capacidade__') {
+                              openTankConfigModal(selectedTanque || tanques[0]);
+                              return;
+                            }
                             setSelectedTanqueId(tId);
                             const t = tanques.find(item => item.id === tId);
                             if (t) {
                               setSupplierStation(t.nome);
-                              if (t.tipo_combustivel?.toLowerCase().includes('s500')) {
-                                setFuelType('Diesel Comum');
-                              } else if (t.tipo_combustivel?.toLowerCase().includes('s10')) {
-                                setFuelType('Diesel S10');
+                              // Sincroniza o combustível selecionado a partir do tanque
+                              if (t.produto_id) {
+                                const p = fuelStockProducts.find(item => item.id === t.produto_id);
+                                if (p) {
+                                  setSelectedFuelProductId(p.id);
+                                  setFuelType((p.nome_comercial || p.name) as any);
+                                }
+                              } else {
+                                const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
+                                const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla');
+                                const matched = fuelStockProducts.find(item => {
+                                  const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                                  if (isS500) return nm.includes('s500') || nm.includes('comum');
+                                  if (isArla) return nm.includes('arla');
+                                  return nm.includes('s10');
+                                });
+                                if (matched) {
+                                  setSelectedFuelProductId(matched.id);
+                                  setFuelType((matched.nome_comercial || matched.name) as any);
+                                }
                               }
                             }
                           }}
@@ -1134,6 +1347,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               </option>
                             );
                           })}
+                          <option value="__configurar_capacidade__">⚙️ Configurar Capacidade do Tanque...</option>
                         </select>
                       </div>
 
@@ -1362,10 +1576,26 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     const t = tanques.find(item => item.id === tId);
                     if (t) {
                       setSupplierStation(t.nome);
-                      if (t.tipo_combustivel?.toLowerCase().includes('s500')) {
-                        setFuelType('Diesel Comum');
-                      } else if (t.tipo_combustivel?.toLowerCase().includes('s10')) {
-                        setFuelType('Diesel S10');
+                      // Sincroniza o combustível selecionado a partir do tanque
+                      if (t.produto_id) {
+                        const p = fuelStockProducts.find(item => item.id === t.produto_id);
+                        if (p) {
+                          setSelectedFuelProductId(p.id);
+                          setFuelType((p.nome_comercial || p.name) as any);
+                        }
+                      } else {
+                        const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
+                        const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla');
+                        const matched = fuelStockProducts.find(item => {
+                          const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                          if (isS500) return nm.includes('s500') || nm.includes('comum');
+                          if (isArla) return nm.includes('arla');
+                          return nm.includes('s10');
+                        });
+                        if (matched) {
+                          setSelectedFuelProductId(matched.id);
+                          setFuelType((matched.nome_comercial || matched.name) as any);
+                        }
                       }
                     }
                   }}
@@ -1490,6 +1720,127 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
       </div>
+
+      {/* Sub-modal: Gerenciamento da Capacidade do Tanque (Supabase 'tanques_combustivel') */}
+      {isTankConfigModalOpen && tankConfigTarget && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-zinc-900 dark:text-zinc-100">
+            
+            {/* Cabeçalho */}
+            <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/80">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Settings className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wider font-['Outfit']">
+                    Configurar Capacidade do Tanque
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    Tabela public.tanques_combustivel (Supabase)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTankConfigModalOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Corpo */}
+            <div className="p-4 space-y-3.5 text-xs">
+              {/* Badge Informativo do Tanque */}
+              <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide block">
+                    Saldo Atual em Estoque
+                  </span>
+                  <span className="text-sm font-black text-amber-900 dark:text-amber-200 font-mono">
+                    {Number(tankConfigTarget.quantidade_atual || 0).toLocaleString('pt-BR')} Litros
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-zinc-700 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 font-mono">
+                    {tankConfigTarget.tipo_combustivel || 'Diesel'}
+                  </span>
+                  <span className="block text-[9px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    ID: {tankConfigTarget.id}
+                  </span>
+                </div>
+              </div>
+
+              {/* Nome do Tanque */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">
+                  Nome do Tanque
+                </label>
+                <input
+                  type="text"
+                  value={tankConfigName}
+                  onChange={(e) => setTankConfigName(e.target.value)}
+                  placeholder="Ex: Tanque Principal Diesel S10"
+                  className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/80 text-zinc-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                />
+              </div>
+
+              {/* Capacidade Total (Litros) */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">
+                  Capacidade Total (Litros) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={tankConfigCapacity}
+                    onChange={(e) => setTankConfigCapacity(e.target.value.replace(/[^0-9.,]/g, ''))}
+                    placeholder="Ex: 15000"
+                    className="w-full h-9 pl-3 pr-8 rounded-lg border-2 border-amber-500/70 bg-amber-50/20 dark:bg-zinc-700/80 text-zinc-900 dark:text-white text-xs font-bold focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-zinc-500 dark:text-zinc-400 pointer-events-none">
+                    L
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1">
+                  Define o limite máximo (100%) utilizado no cálculo da porcentagem e no desenho do tanque horizontal.
+                </p>
+              </div>
+
+              {tankConfigError && (
+                <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/35 text-[11px] font-bold text-rose-600 dark:text-rose-300 flex items-center space-x-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{tankConfigError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Rodapé com botões */}
+            <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/80 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsTankConfigModalOpen(false)}
+                disabled={isSavingTankConfig}
+                className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-600 transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTankCapacity}
+                disabled={isSavingTankConfig}
+                className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSavingTankConfig ? 'Salvando...' : 'Salvar Capacidade'}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

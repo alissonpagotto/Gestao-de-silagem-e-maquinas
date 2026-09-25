@@ -99,7 +99,8 @@ import {
   subtrairCombustivelTanque,
   identificarTipoDiesel,
   searchEstoqueProdutos,
-  syncEssentialFuelProductsToSupabase
+  syncEssentialFuelProductsToSupabase,
+  sincronizarEntradaCombustivelSupabase
 } from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
@@ -1764,8 +1765,63 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         p.name.toLowerCase().trim() === description.toLowerCase().trim()
       );
 
+      const descLower = description.toLowerCase();
+      const isCombustivel = 
+        (targetProduct?.categoria || targetProduct?.category) === 'Combustível & Arla' ||
+        descLower.includes('diesel') ||
+        descLower.includes('arla') ||
+        identificarTipoDiesel(description, targetProduct?.category) !== null;
+
       let updatedInventory: InventoryItem[];
-      if (targetProduct) {
+
+      if (isCombustivel) {
+        // CORREÇÃO DO FLUXO DE ENTRADA (Alimentar o Tanque e o Estoque em Conjunto):
+        // Executa dois UPDATES em conjunto no Supabase:
+        // 1. Soma na coluna 'quantidade_atual' de 'public.estoque_produtos'
+        // 2. Soma a mesma quantidade na coluna 'quantidade_atual' de 'public.tanques_combustivel' usando o 'produto_id'
+        const syncResult = await sincronizarEntradaCombustivelSupabase({
+          produtoId: targetProduct?.id,
+          descricao: description,
+          categoria: 'Combustível & Arla',
+          quantidadeLitros: qty,
+          custoUnitario: unitPrice,
+        });
+
+        const finalEstoqueQty = syncResult.novoSaldoEstoque ?? ((Number(targetProduct?.quantidade_atual ?? targetProduct?.quantity) || 0) + qty);
+
+        if (targetProduct) {
+          const updatedProduct: InventoryItem = {
+            ...targetProduct,
+            quantity: finalEstoqueQty,
+            quantidade_atual: finalEstoqueQty,
+            unitCost: unitPrice > 0 ? unitPrice : targetProduct.unitCost,
+            preco_custo_inicial: unitPrice > 0 ? unitPrice : (targetProduct.preco_custo_inicial ?? targetProduct.unitCost),
+          };
+          updatedInventory = localInventory.map(p => p.id === targetProduct.id ? updatedProduct : p);
+          saveInventory(updatedInventory);
+        } else {
+          const newProdId = syncResult.produtoId || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          const newProduct: InventoryItem = {
+            id: newProdId,
+            name: description,
+            nome_comercial: description,
+            unit: 'L',
+            unidade_medida: 'L',
+            category: 'Combustível & Arla',
+            categoria: 'Combustível & Arla',
+            quantity: finalEstoqueQty,
+            quantidade_atual: finalEstoqueQty,
+            minQuantity: 2000,
+            unitCost: unitPrice,
+            preco_custo_inicial: unitPrice,
+            salePrice: unitPrice > 0 ? unitPrice * 1.3 : 0,
+            preco_venda_varejo: unitPrice > 0 ? unitPrice * 1.3 : 0,
+            location: 'Tanque da Fazenda',
+          };
+          updatedInventory = [...localInventory, newProduct];
+          saveInventory(updatedInventory);
+        }
+      } else if (targetProduct) {
         const updatedProduct: InventoryItem = {
           ...targetProduct,
           quantity: (Number(targetProduct.quantity) || 0) + qty,
@@ -1779,15 +1835,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       } else {
         // Produto novo cadastrado diretamente no estoque com a quantidade somada
         const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        const dieselMatch = identificarTipoDiesel(description);
         const newProduct: InventoryItem = {
           id: newProdId,
           name: description,
           nome_comercial: description,
           unit: unit,
           unidade_medida: unit,
-          category: dieselMatch ? 'Combustível & Arla' : 'outro',
-          categoria: dieselMatch ? 'Combustível & Arla' : 'outro',
+          category: 'outro',
+          categoria: 'outro',
           quantity: qty,
           quantidade_atual: qty,
           minQuantity: 0,
@@ -1795,17 +1850,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           preco_custo_inicial: unitPrice,
           salePrice: unitPrice > 0 ? unitPrice * 1.3 : 0,
           preco_venda_varejo: unitPrice > 0 ? unitPrice * 1.3 : 0,
-          location: dieselMatch ? 'Tanque Fazenda' : 'Barracão Principal',
+          location: 'Barracão Principal',
         };
         updatedInventory = [...localInventory, newProduct];
         saveInventory(updatedInventory);
         await upsertEstoqueItem(newProduct);
-      }
-
-      // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Diesel
-      const dieselType = identificarTipoDiesel(description, targetProduct?.category);
-      if (dieselType && qty > 0) {
-        somarCombustivelTanqueEEstoque(dieselType, qty);
       }
 
       setManualDocItems(prev => [...prev, savedItem]);
@@ -1848,11 +1897,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         await upsertEstoqueItem(updatedProduct);
       }
 
-      // Estorna do Tanque de Combustível da Fazenda se for Diesel
-      const dieselType = identificarTipoDiesel(item.descricao, targetProduct?.category);
-      if (dieselType && Number(item.quantidade) > 0) {
-        const tId = dieselType === 'Diesel S500' ? 'tanque_diesel_s500' : 'tanque_diesel_s10';
-        subtrairCombustivelTanque(tId, Number(item.quantidade));
+      // Estorna do Tanque de Combustível da Fazenda se for Combustível
+      const isCombustivel = (targetProduct?.categoria || targetProduct?.category) === 'Combustível & Arla' ||
+        item.descricao.toLowerCase().includes('diesel') ||
+        item.descricao.toLowerCase().includes('arla');
+      if (isCombustivel && Number(item.quantidade) > 0) {
+        const isS500 = item.descricao.toLowerCase().includes('s500') || item.descricao.toLowerCase().includes('comum');
+        const tId = isS500 ? 'tanque_diesel_s500' : 'tanque_diesel_s10';
+        subtrairCombustivelTanque(tId, Number(item.quantidade)).catch(() => {});
       }
 
       setManualDocItems(prev => prev.filter(i => i.id !== item.id));
@@ -3483,10 +3535,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             invItem.quantidade_atual = invItem.quantity;
             updatedSummary.push(`${invItem.name} (+${addQty} ${invItem.unit || 'UN'} | Saldo: ${invItem.quantity})`);
 
-            // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Diesel
-            const dieselType = identificarTipoDiesel(item.description, invItem.category);
-            if (dieselType && addQty > 0) {
-              somarCombustivelTanqueEEstoque(dieselType, addQty);
+            // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
+            const descLower = (item.description || '').toLowerCase();
+            const isFuelOrArla = (invItem.category === 'Combustível & Arla') || descLower.includes('diesel') || descLower.includes('arla') || identificarTipoDiesel(item.description, invItem.category) !== null;
+            if (isFuelOrArla && addQty > 0) {
+              sincronizarEntradaCombustivelSupabase({
+                produtoId: invItem.id,
+                descricao: item.description,
+                categoria: 'Combustível & Arla',
+                quantidadeLitros: addQty,
+                custoUnitario: Number(item.unitPrice) || 0
+              });
             }
           }
 
@@ -3564,9 +3623,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           item.linkedInventoryId = newProdId;
           updatedSummary.push(`${newInvItem.name} (+${autoQty} ${autoUnit} cadastrado e lançado no estoque)`);
 
-          // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Diesel
-          if (dieselMatch && autoQty > 0) {
-            somarCombustivelTanqueEEstoque(dieselMatch, autoQty);
+          // Sincroniza simultaneamente com a tabela 'tanques_combustivel' da Fazenda se for Combustível ou Arla
+          const newDescLower = (item.description || '').toLowerCase();
+          const isNewFuelOrArla = dieselMatch !== null || newDescLower.includes('diesel') || newDescLower.includes('arla');
+          if (isNewFuelOrArla && autoQty > 0) {
+            sincronizarEntradaCombustivelSupabase({
+              produtoId: newProdId,
+              descricao: item.description,
+              categoria: 'Combustível & Arla',
+              quantidadeLitros: autoQty,
+              custoUnitario: Number(item.unitPrice) || 0
+            });
           }
         }
       }

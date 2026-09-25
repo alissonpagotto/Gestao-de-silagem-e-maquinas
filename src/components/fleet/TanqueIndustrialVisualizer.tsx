@@ -29,7 +29,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
 
   const quantidadeAtual = useMemo(() => {
     const q = Number(tanque?.quantidade_atual);
-    return !isNaN(q) && q >= 0 ? q : 11200;
+    return !isNaN(q) && q >= 0 ? q : 0;
   }, [tanque]);
 
   // Litros que o usuário digitou no formulário para abastecer o veículo
@@ -80,7 +80,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                   1. MONITORAMENTO DO ESTOQUE (ORIGEM)
                 </h4>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-amber-800 dark:text-amber-300 border border-zinc-300 dark:border-amber-500/40 font-mono shrink-0">
-                  {tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : 'S10'}
+                  {tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : (tanque?.tipo_combustivel?.toLowerCase().includes('arla') ? 'ARLA 32' : 'S10')}
                 </span>
               </div>
               <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">
@@ -131,7 +131,8 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
               {tanques.map((t) => {
                 const isSelected = t.id === tanque?.id;
                 const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                const badge = isS500 ? 'S500' : 'S10';
+                const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla');
+                const badge = isS500 ? 'S500' : (isArla ? 'ARLA' : 'S10');
                 return (
                   <button
                     key={t.id}

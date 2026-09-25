@@ -700,6 +700,8 @@ export interface TanqueCombustivel {
   id: string;
   nome: string;
   tipo_combustivel: string; // ex: 'Diesel S10', 'Diesel S500'
+  produto_id?: string; // Vínculo direto com id da tabela public.estoque_produtos
+  produtoId?: string;
   capacidade_total: number;
   quantidade_atual: number;
   localizacao?: string;
@@ -716,7 +718,9 @@ export interface FuelLog {
   machineryPlateOrName: string;
   vehicleName?: string; // Nome do veículo (compatibilidade)
   vehiclePlate?: string; // Placa do veículo (compatibilidade)
-  fuelType: 'Diesel S10' | 'Diesel Comum' | 'Arla 32' | 'Gasolina' | 'Etanol';
+  fuelType: 'Diesel S10' | 'Diesel Comum' | 'Arla 32' | 'Gasolina' | 'Etanol' | string;
+  produto_id?: string; // Vínculo direto com id do produto no estoque
+  produtoId?: string;
   liters: number;
   pricePerLiter: number;
   totalAmount: number;

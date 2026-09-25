@@ -117,6 +117,8 @@ export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
     id: 'tanque_diesel_s10',
     nome: 'Tanque Principal Diesel S10',
     tipo_combustivel: 'Diesel S10',
+    produto_id: 'prod_diesel_s10',
+    produtoId: 'prod_diesel_s10',
     capacidade_total: 15000,
     quantidade_atual: 0,
     localizacao: 'Pátio Central / Barracão de Abastecimento'
@@ -125,6 +127,8 @@ export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
     id: 'tanque_diesel_s500',
     nome: 'Tanque Secundário Diesel S500',
     tipo_combustivel: 'Diesel S500',
+    produto_id: 'prod_diesel_s500',
+    produtoId: 'prod_diesel_s500',
     capacidade_total: 10000,
     quantidade_atual: 0,
     localizacao: 'Oficina / Setor Agrícola'

@@ -199,6 +199,7 @@ VALUES
     ('tanque_diesel_s500', 'Tanque Secundário Diesel S500', 'Diesel S500', 10000.00, 6500.00, 'Oficina / Setor Agrícola')
 ON CONFLICT (id) DO NOTHING;
 
+ALTER TABLE public.tanques_combustivel ADD COLUMN IF NOT EXISTS produto_id TEXT;
 ALTER TABLE public.abastecimentos ADD COLUMN IF NOT EXISTS tanque_id TEXT;
 
 -- 8. TABELA: agendamentos (Agenda Operacional por Máquinas)

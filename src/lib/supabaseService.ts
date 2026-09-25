@@ -2870,8 +2870,105 @@ export async function upsertAbastecimento(
 }
 
 /**
+ * Busca produtos de combustível e arla diretamente na tabela 'public.estoque_produtos'.
+ * Filtra estritamente os produtos pertencentes à categoria 'Combustível & Arla'.
+ * Utiliza e expõe a coluna real 'nome_comercial' pronta para renderização no dropdown.
+ */
+export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promise<InventoryItem[]> {
+  const localItems = ensureDieselProductsInInventory(getStoredInventory()).filter(item => {
+    const cat = String(item.categoria || item.category || '').toLowerCase();
+    const nome = String(item.nome_comercial || item.name || '').toLowerCase();
+    return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
+  });
+
+  if (!isSupabaseConfigured) {
+    return localItems;
+  }
+
+  try {
+    const cId = companyId || getActiveCompanyId();
+    // 1. Tenta buscar filtrando por categoria ou nomes de combustível/arla
+    let { data, error } = await supabase
+      .from('estoque_produtos')
+      .select('*')
+      .or('categoria.eq.Combustível & Arla,categoria.ilike.%combust%,categoria.ilike.%arla%,nome_comercial.ilike.%diesel%,nome_comercial.ilike.%arla%')
+      .order('nome_comercial', { ascending: true });
+
+    // Fallback se o OR falhar ou não retornar dados
+    if (error || !data || data.length === 0) {
+      const fallbackRes = await supabase
+        .from('estoque_produtos')
+        .select('*')
+        .order('nome_comercial', { ascending: true });
+      if (!fallbackRes.error && fallbackRes.data) {
+        data = fallbackRes.data;
+        error = null;
+      }
+    }
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      // Filtra estritamente os itens da categoria 'Combustível & Arla' ou diesel/arla
+      const filtered = data.filter((row: any) => {
+        const cat = String(row.categoria || row.category || '').toLowerCase();
+        const nome = String(row.nome_comercial || row.nome || row.name || '').toLowerCase();
+        return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
+      });
+
+      const mapped: InventoryItem[] = (filtered.length > 0 ? filtered : data).map((row: any) => {
+        const nomeComercial = String(row.nome_comercial || row.nome || row.name || row.descricao || 'Combustível').trim();
+        const qty = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+        const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? row.custo ?? row.unit_cost ?? row.valor_unitario ?? 0);
+        const unit = String(row.unidade_medida || row.unidade || 'L').trim();
+
+        return {
+          id: String(row.id),
+          companyId: row.company_id || undefined,
+          code: row.codigo || row.code || undefined,
+          name: nomeComercial,
+          nome_comercial: nomeComercial,
+          nome: nomeComercial,
+          category: 'Combustível & Arla',
+          categoria: 'Combustível & Arla',
+          quantity: qty,
+          quantidade_atual: qty,
+          minQuantity: Number(row.quantidade_minima ?? row.minQuantity ?? 0),
+          unit: unit,
+          unidade_medida: unit,
+          unitCost: cost,
+          preco_custo_inicial: cost,
+          custo_nominal: cost,
+          salePrice: Number(row.preco_venda_varejo ?? row.salePrice ?? 0),
+          preco_venda_varejo: Number(row.preco_venda_varejo ?? row.salePrice ?? 0),
+          location: row.localizacao || 'Tanque da Fazenda',
+          createdAt: row.created_at || undefined,
+          updatedAt: row.updated_at || undefined,
+        };
+      });
+
+      // Garante que os 4 essenciais sempre constem na lista
+      for (const localItem of localItems) {
+        const localName = String(localItem.nome_comercial || localItem.name || '').toLowerCase().trim();
+        const inMapped = mapped.some(m => 
+          m.id === localItem.id || 
+          String(m.nome_comercial || m.name || '').toLowerCase().trim() === localName
+        );
+        if (!inMapped) {
+          mapped.push(localItem);
+        }
+      }
+
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('Erro ao consultar estoque_produtos por categoria Combustível & Arla:', err);
+  }
+
+  return localItems;
+}
+
+/**
  * Busca a lista dinâmica de tanques de combustível cadastrados na tabela 'public.tanques_combustivel' do Supabase.
- * Retorna os tanques com suporte a fallback local resiliente.
+ * Retorna os tanques com mapeamento da coluna 'produto_id' e suporte a fallback local resiliente.
  */
 export async function fetchTanquesCombustivel(companyId?: string): Promise<TanqueCombustivel[]> {
   const localList = getStoredTanquesCombustivel();
@@ -2880,29 +2977,102 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
   try {
     const cId = companyId || getActiveCompanyId();
     let query = supabase.from('tanques_combustivel').select('*');
-    if (cId) {
-      query = query.or(`company_id.eq.${cId},company_id.is.null`);
-    }
 
     const { data, error } = await query.order('nome', { ascending: true });
 
     if (!error && Array.isArray(data) && data.length > 0) {
-      const mapped: TanqueCombustivel[] = data.map((row: any) => ({
-        id: String(row.id),
-        nome: String(row.nome || 'Tanque de Combustível'),
-        tipo_combustivel: String(row.tipo_combustivel || row.tipo || 'Diesel S10'),
-        capacidade_total: Number(row.capacidade_total ?? row.capacidade ?? 15000),
-        quantidade_atual: Number(row.quantidade_atual ?? row.quantidade ?? 0),
-        localizacao: row.localizacao || '',
-        company_id: row.company_id || undefined,
-        created_at: row.created_at || undefined,
-        updated_at: row.updated_at || undefined,
-      }));
+      // Busca produtos do estoque para reconciliar produto_id e saldos que foram lançados em nota manual
+      const fuelProds = await fetchCombustivelEstoqueProdutos(cId);
+
+      const mapped: TanqueCombustivel[] = data.map((row: any) => {
+        let prodId = row.produto_id || undefined;
+        let qtdAtual = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+
+        // Se o tanque não possui produto_id gravado, localiza o produto correspondente no estoque
+        if (!prodId) {
+          const isS500 = String(row.tipo_combustivel || row.nome || '').toLowerCase().includes('s500');
+          const isS10 = String(row.tipo_combustivel || row.nome || '').toLowerCase().includes('s10');
+          const isArla = String(row.tipo_combustivel || row.nome || '').toLowerCase().includes('arla');
+
+          const matchingProd = fuelProds.find(p => {
+            const pName = (p.nome_comercial || p.name).toLowerCase();
+            if (isS500 && (pName.includes('s500') || pName.includes('comum'))) return true;
+            if (isS10 && pName.includes('s10')) return true;
+            if (isArla && pName.includes('arla')) return true;
+            return false;
+          });
+
+          if (matchingProd) {
+            prodId = matchingProd.id;
+            // Se o tanque estava com saldo zerado mas o estoque já recebeu combustível via nota manual/XML, sincroniza o saldo!
+            if (qtdAtual === 0 && Number(matchingProd.quantidade_atual) > 0) {
+              qtdAtual = Number(matchingProd.quantidade_atual);
+            }
+
+            // Atualiza em background no Supabase com produto_id e quantidade_atual
+            void (async () => {
+              try {
+                const { error: updErr } = await supabase
+                  .from('tanques_combustivel')
+                  .update({
+                    produto_id: prodId,
+                    quantidade_atual: qtdAtual,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', row.id);
+
+                if (updErr) {
+                  // Fallback caso coluna produto_id ainda não exista
+                  await supabase
+                    .from('tanques_combustivel')
+                    .update({
+                      quantidade_atual: qtdAtual,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', row.id);
+                }
+              } catch {}
+            })();
+          }
+        } else {
+          // Se já tem produto_id, reconcilia caso o tanque esteja zerado mas o estoque_produtos tenha saldo
+          const matchingProd = fuelProds.find(p => p.id === prodId);
+          if (matchingProd && qtdAtual === 0 && Number(matchingProd.quantidade_atual) > 0) {
+            qtdAtual = Number(matchingProd.quantidade_atual);
+            void (async () => {
+              try {
+                await supabase
+                  .from('tanques_combustivel')
+                  .update({
+                    quantidade_atual: qtdAtual,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', row.id);
+              } catch {}
+            })();
+          }
+        }
+
+        return {
+          id: String(row.id),
+          nome: String(row.nome || 'Tanque de Combustível'),
+          tipo_combustivel: String(row.tipo_combustivel || row.tipo || 'Diesel S10'),
+          produto_id: prodId,
+          produtoId: prodId,
+          capacidade_total: Number(row.capacidade_total ?? row.capacidade ?? 15000),
+          quantidade_atual: qtdAtual,
+          localizacao: row.localizacao || '',
+          company_id: row.company_id || undefined,
+          created_at: row.created_at || undefined,
+          updated_at: row.updated_at || undefined,
+        };
+      });
+
       saveStoredTanquesCombustivel(mapped);
       return mapped;
     }
 
-    // Se a tabela existe mas está vazia, tenta inserir os tanques padrão
+    // Se a tabela existe mas está vazia, tenta inserir os tanques padrão com produto_id
     if (!error && Array.isArray(data) && data.length === 0) {
       try {
         await supabase.from('tanques_combustivel').insert(DEFAULT_TANQUES_COMBUSTIVEL);
@@ -2918,7 +3088,78 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
 }
 
 /**
- * Identifica o tipo de diesel (Diesel S10 ou Diesel S500) a partir de qualquer string descritiva
+ * Atualiza a capacidade total e o nome de um tanque na tabela 'public.tanques_combustivel'
+ * e sincroniza no storage local e eventos globais do app.
+ */
+export async function updateCapacidadeTanqueCombustivel(params: {
+  tanqueId: string;
+  novaCapacidadeTotal: number;
+  novoNome?: string;
+  companyId?: string;
+}): Promise<{ success: boolean; tanque?: TanqueCombustivel; error?: string }> {
+  const { tanqueId, novaCapacidadeTotal, novoNome } = params;
+  if (!tanqueId || isNaN(novaCapacidadeTotal) || novaCapacidadeTotal <= 0) {
+    return { success: false, error: 'Capacidade total deve ser maior que zero.' };
+  }
+
+  // 1. Atualização imediata no storage local
+  const currentList = getStoredTanquesCombustivel();
+  let updatedTank: TanqueCombustivel | undefined;
+  const updatedList = currentList.map(t => {
+    if (t.id === tanqueId) {
+      updatedTank = {
+        ...t,
+        capacidade_total: Number(novaCapacidadeTotal),
+        nome: novoNome?.trim() || t.nome,
+        updated_at: new Date().toISOString()
+      };
+      return updatedTank;
+    }
+    return t;
+  });
+  saveStoredTanquesCombustivel(updatedList);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedList }));
+  }
+
+  // 2. Atualização no Supabase
+  if (isSupabaseConfigured) {
+    try {
+      const updatePayload: any = {
+        capacidade_total: Number(novaCapacidadeTotal),
+        updated_at: new Date().toISOString()
+      };
+      if (novoNome?.trim()) {
+        updatePayload.nome = novoNome.trim();
+      }
+
+      const { data, error } = await supabase
+        .from('tanques_combustivel')
+        .update(updatePayload)
+        .eq('id', tanqueId)
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Erro ao atualizar capacidade_total no Supabase:', error);
+      } else if (data) {
+        updatedTank = {
+          ...updatedTank!,
+          capacidade_total: Number(data.capacidade_total ?? novaCapacidadeTotal),
+          nome: data.nome || updatedTank!.nome
+        };
+      }
+    } catch (err) {
+      console.warn('Exceção ao persistir capacidade_total em tanques_combustivel:', err);
+    }
+  }
+
+  return { success: true, tanque: updatedTank };
+}
+
+/**
+ * Identifica o tipo de diesel (Diesel S500 ou Diesel S10) a partir de qualquer string descritiva
  */
 export function identificarTipoDiesel(descricao: string = '', categoria: string = ''): 'Diesel S500' | 'Diesel S10' | null {
   const text = `${descricao} ${categoria}`.toLowerCase();
@@ -2932,115 +3173,317 @@ export function identificarTipoDiesel(descricao: string = '', categoria: string 
 }
 
 /**
+ * Executa os DOIS UPDATES em conjunto no Supabase ao concluir uma entrada de mercadoria de combustível (Manual ou XML):
+ * 1. Primeiro: Soma a quantidade comprada na coluna 'quantidade_atual' da tabela 'public.estoque_produtos'.
+ * 2. Segundo: Soma EXATAMENTE a mesma quantidade na coluna 'quantidade_atual' da tabela 'public.tanques_combustivel' usando o 'produto_id' correspondente.
+ */
+export async function sincronizarEntradaCombustivelSupabase(params: {
+  produtoId?: string;
+  descricao?: string;
+  categoria?: string;
+  quantidadeLitros: number;
+  custoUnitario?: number;
+  companyId?: string;
+}): Promise<{
+  success: boolean;
+  novoSaldoEstoque?: number;
+  novoSaldoTanque?: number;
+  tanqueId?: string;
+  produtoId?: string;
+}> {
+  const { produtoId, descricao = '', quantidadeLitros, custoUnitario, companyId } = params;
+  if (isNaN(quantidadeLitros) || quantidadeLitros <= 0) {
+    return { success: false };
+  }
+
+  const activeCompanyId = companyId || getActiveCompanyId();
+  const descLower = descricao.toLowerCase();
+  const isS500 = descLower.includes('s500') || descLower.includes('comum');
+  const isArla = descLower.includes('arla');
+  const isS10 = !isS500 && !isArla;
+
+  // 1. Resolve o produto no estoque local
+  const currentInventory = getStoredInventory();
+  let resolvedProdId = produtoId;
+  let targetProduct = currentInventory.find(p => 
+    (resolvedProdId && p.id === resolvedProdId) ||
+    (p.nome_comercial && p.nome_comercial.toLowerCase() === descLower) ||
+    p.name.toLowerCase() === descLower
+  );
+
+  if (!resolvedProdId) {
+    if (targetProduct) {
+      resolvedProdId = targetProduct.id;
+    } else {
+      resolvedProdId = isS500 ? 'prod_diesel_s500' : (isArla ? 'prod_arla_32' : 'prod_diesel_s10');
+    }
+  }
+
+  // Atualiza saldo no storage local do estoque
+  let novoSaldoEstoqueLocal = 0;
+  const updatedInventory = currentInventory.map(item => {
+    const isTarget = item.id === resolvedProdId ||
+      (item.nome_comercial && item.nome_comercial.toLowerCase() === descLower) ||
+      item.name.toLowerCase() === descLower;
+    if (isTarget) {
+      novoSaldoEstoqueLocal = Number(((Number(item.quantidade_atual ?? item.quantity) || 0) + quantidadeLitros).toFixed(2));
+      return {
+        ...item,
+        quantity: novoSaldoEstoqueLocal,
+        quantidade_atual: novoSaldoEstoqueLocal,
+        unitCost: (custoUnitario && custoUnitario > 0) ? custoUnitario : item.unitCost,
+        preco_custo_inicial: (custoUnitario && custoUnitario > 0) ? custoUnitario : item.preco_custo_inicial,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return item;
+  });
+  saveStoredInventory(updatedInventory);
+
+  // 2. Resolve o tanque no storage local
+  const currentTanks = getStoredTanquesCombustivel();
+  let resolvedTankId = '';
+  let novoSaldoTanqueLocal = 0;
+  const updatedTanks = currentTanks.map(t => {
+    const matchesProd = (t.produto_id && t.produto_id === resolvedProdId) ||
+      (isS500 && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
+      (isS10 && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
+      (isArla && (t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla') || t.id === 'tanque_arla_32'));
+    
+    if (matchesProd && !resolvedTankId) {
+      resolvedTankId = t.id;
+      novoSaldoTanqueLocal = Number(((Number(t.quantidade_atual) || 0) + quantidadeLitros).toFixed(2));
+      return {
+        ...t,
+        produto_id: resolvedProdId,
+        produtoId: resolvedProdId,
+        quantidade_atual: novoSaldoTanqueLocal,
+        updated_at: new Date().toISOString()
+      };
+    }
+    return t;
+  });
+  saveStoredTanquesCombustivel(updatedTanks);
+
+  // Notifica o app via CustomEvent
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+    window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedTanks }));
+  }
+
+  // 3. EXECUÇÃO DOS DOIS UPDATES EM CONJUNTO NO SUPABASE
+  if (!isSupabaseConfigured) {
+    return {
+      success: true,
+      novoSaldoEstoque: novoSaldoEstoqueLocal,
+      novoSaldoTanque: novoSaldoTanqueLocal,
+      tanqueId: resolvedTankId,
+      produtoId: resolvedProdId
+    };
+  }
+
+  try {
+    // -------------------------------------------------------------
+    // UPDATE 1: Soma a quantidade comprada na coluna 'quantidade_atual'
+    // da tabela 'public.estoque_produtos'
+    // -------------------------------------------------------------
+    let dbProdId = resolvedProdId;
+    let saldoFinalEstoque = novoSaldoEstoqueLocal;
+
+    // Busca o produto no Supabase com resiliência total
+    let dbProd: any = null;
+    if (resolvedProdId) {
+      const { data: byId } = await supabase
+        .from('estoque_produtos')
+        .select('id, nome_comercial, quantidade_atual, preco_custo_inicial')
+        .eq('id', resolvedProdId)
+        .limit(1);
+      if (byId && byId.length > 0) {
+        dbProd = byId[0];
+      }
+    }
+
+    if (!dbProd) {
+      const searchKey = isS500 ? 'S500' : (isArla ? 'Arla' : 'S10');
+      const { data: byName } = await supabase
+        .from('estoque_produtos')
+        .select('id, nome_comercial, quantidade_atual, preco_custo_inicial')
+        .ilike('nome_comercial', `%${searchKey}%`)
+        .limit(1);
+      if (byName && byName.length > 0) {
+        dbProd = byName[0];
+      }
+    }
+
+    if (dbProd && dbProd.id) {
+      dbProdId = dbProd.id;
+      saldoFinalEstoque = Number(((Number(dbProd.quantidade_atual) || 0) + quantidadeLitros).toFixed(2));
+      await supabase
+        .from('estoque_produtos')
+        .update({
+          quantidade_atual: saldoFinalEstoque,
+          quantity: saldoFinalEstoque,
+          preco_custo_inicial: (custoUnitario && custoUnitario > 0) ? custoUnitario : dbProd.preco_custo_inicial,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', dbProd.id);
+    } else {
+      const newProdItem = {
+        id: resolvedProdId,
+        nome_comercial: descricao || (isS500 ? 'Diesel S500' : (isArla ? 'Arla 32 (Granel / Litro)' : 'Diesel S10')),
+        name: descricao || (isS500 ? 'Diesel S500' : (isArla ? 'Arla 32 (Granel / Litro)' : 'Diesel S10')),
+        categoria: 'Combustível & Arla',
+        category: 'Combustível & Arla',
+        quantidade_atual: quantidadeLitros,
+        quantity: quantidadeLitros,
+        unidade_medida: 'L',
+        unit: 'L',
+        preco_custo_inicial: custoUnitario || 0,
+      };
+      await upsertEstoqueItem(newProdItem, activeCompanyId);
+      saldoFinalEstoque = quantidadeLitros;
+    }
+
+    // -------------------------------------------------------------
+    // UPDATE 2: Soma EXATAMENTE a mesma quantidade na coluna 'quantidade_atual'
+    // da tabela 'public.tanques_combustivel' usando o 'produto_id' correspondente
+    // -------------------------------------------------------------
+    let targetTankDbId = resolvedTankId;
+    let saldoFinalTanque = novoSaldoTanqueLocal;
+    let targetDbTank: any = null;
+
+    // Busca tanque que tenha produto_id correspondente
+    if (dbProdId) {
+      const { data: dbTankByProdId } = await supabase
+        .from('tanques_combustivel')
+        .select('id, nome, tipo_combustivel, quantidade_atual, produto_id')
+        .eq('produto_id', dbProdId)
+        .limit(1);
+      if (dbTankByProdId && dbTankByProdId.length > 0) {
+        targetDbTank = dbTankByProdId[0];
+      }
+    }
+
+    // Se ainda não encontrou por produto_id, busca por tipo_combustivel / nome
+    if (!targetDbTank) {
+      const fallbackTankId = isS500 ? 'tanque_diesel_s500' : (isArla ? 'tanque_arla_32' : 'tanque_diesel_s10');
+      const searchPattern = isS500 ? 's500' : (isArla ? 'arla' : 's10');
+
+      const { data: allTanks } = await supabase
+        .from('tanques_combustivel')
+        .select('id, nome, tipo_combustivel, quantidade_atual, produto_id');
+
+      if (allTanks && allTanks.length > 0) {
+        targetDbTank = allTanks.find(t => 
+          t.id === fallbackTankId ||
+          (t.tipo_combustivel && t.tipo_combustivel.toLowerCase().includes(searchPattern)) ||
+          (t.nome && t.nome.toLowerCase().includes(searchPattern))
+        ) || allTanks[0];
+      }
+    }
+
+    if (targetDbTank && targetDbTank.id) {
+      targetTankDbId = targetDbTank.id;
+      saldoFinalTanque = Number(((Number(targetDbTank.quantidade_atual) || 0) + quantidadeLitros).toFixed(2));
+
+      // Tenta atualizar com produto_id e quantidade_atual
+      const { error: tankUpdateErr } = await supabase
+        .from('tanques_combustivel')
+        .update({
+          quantidade_atual: saldoFinalTanque,
+          produto_id: dbProdId, // Vínculo explícito por produto_id
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', targetDbTank.id);
+
+      // Fallback resiliente se a coluna produto_id ainda não existir no banco
+      if (tankUpdateErr) {
+        await supabase
+          .from('tanques_combustivel')
+          .update({
+            quantidade_atual: saldoFinalTanque,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', targetDbTank.id);
+      }
+    } else {
+      const newTankId = isS500 ? 'tanque_diesel_s500' : (isArla ? 'tanque_arla_32' : 'tanque_diesel_s10');
+      const newTankName = isS500 ? 'Tanque Secundário Diesel S500' : (isArla ? 'Tanque Arla 32' : 'Tanque Principal Diesel S10');
+      const newTankType = isS500 ? 'Diesel S500' : (isArla ? 'Arla 32' : 'Diesel S10');
+      const capacity = isS500 ? 10000 : (isArla ? 5000 : 15000);
+
+      try {
+        await supabase
+          .from('tanques_combustivel')
+          .upsert({
+            id: newTankId,
+            nome: newTankName,
+            tipo_combustivel: newTankType,
+            produto_id: dbProdId,
+            capacidade_total: capacity,
+            quantidade_atual: quantidadeLitros,
+            localizacao: 'Pátio Central / Barracão de Abastecimento',
+            company_id: activeCompanyId || null,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      } catch {
+        // Fallback sem produto_id se coluna não existir
+        await supabase
+          .from('tanques_combustivel')
+          .upsert({
+            id: newTankId,
+            nome: newTankName,
+            tipo_combustivel: newTankType,
+            capacidade_total: capacity,
+            quantidade_atual: quantidadeLitros,
+            localizacao: 'Pátio Central / Barracão de Abastecimento',
+            company_id: activeCompanyId || null,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      }
+
+      targetTankDbId = newTankId;
+      saldoFinalTanque = quantidadeLitros;
+    }
+
+    return {
+      success: true,
+      novoSaldoEstoque: saldoFinalEstoque,
+      novoSaldoTanque: saldoFinalTanque,
+      tanqueId: targetTankDbId,
+      produtoId: dbProdId
+    };
+  } catch (err) {
+    console.warn('Erro ao sincronizar dois updates em estoque_produtos e tanques_combustivel:', err);
+    return {
+      success: true,
+      novoSaldoEstoque: novoSaldoEstoqueLocal,
+      novoSaldoTanque: novoSaldoTanqueLocal,
+      tanqueId: resolvedTankId,
+      produtoId: resolvedProdId
+    };
+  }
+}
+
+/**
  * Sincroniza a ENTRADA de Diesel (via entrada manual ou XML):
- * Soma simultaneamente na coluna 'quantidade_atual' da tabela 'estoque_produtos'
- * E na coluna 'quantidade_atual' da tabela 'tanques_combustivel'.
+ * Chama diretamente a sincronização dos dois updates em estoque_produtos e tanques_combustivel.
  */
 export async function somarCombustivelTanqueEEstoque(
   tipoOuTanqueId: string,
   litrosSomar: number,
   companyId?: string
 ): Promise<{ success: boolean; novoSaldoTanque?: number; novoSaldoEstoque?: number }> {
-  if (isNaN(litrosSomar) || litrosSomar <= 0) {
-    return { success: false };
-  }
-
-  const isS500 = String(tipoOuTanqueId).toLowerCase().includes('s500');
-  const targetTankId = isS500 ? 'tanque_diesel_s500' : 'tanque_diesel_s10';
-  const prodSearch = isS500 ? 'Diesel S500' : 'Diesel S10';
-
-  // 1. SOMA NO STORAGE LOCAL DOS TANQUES (tanques_combustivel)
-  const currentTanks = getStoredTanquesCombustivel();
-  let novoSaldoTanque = 0;
-  const updatedTanks = currentTanks.map(t => {
-    const isTarget = t.id === targetTankId || 
-                     (isS500 ? t.tipo_combustivel?.toLowerCase().includes('s500') : t.tipo_combustivel?.toLowerCase().includes('s10'));
-    if (isTarget) {
-      novoSaldoTanque = Number(((Number(t.quantidade_atual) || 0) + litrosSomar).toFixed(2));
-      return { ...t, quantidade_atual: novoSaldoTanque, updated_at: new Date().toISOString() };
-    }
-    return t;
+  const result = await sincronizarEntradaCombustivelSupabase({
+    descricao: tipoOuTanqueId,
+    quantidadeLitros: litrosSomar,
+    companyId
   });
-  saveStoredTanquesCombustivel(updatedTanks);
-
-  // 2. SOMA NO STORAGE LOCAL DO ESTOQUE (estoque_produtos)
-  const currentInventory = getStoredInventory();
-  let novoSaldoEstoque = 0;
-  let targetProduct: InventoryItem | null = null;
-
-  const updatedInventory = currentInventory.map(item => {
-    const isMatch = (item.nome_comercial && item.nome_comercial.toLowerCase().includes(prodSearch.toLowerCase())) ||
-                    (item.name && item.name.toLowerCase().includes(prodSearch.toLowerCase())) ||
-                    (!isS500 && (item.category === 'Combustível & Arla' || item.name.toLowerCase().includes('diesel')));
-    if (isMatch && !targetProduct) {
-      novoSaldoEstoque = Number(((Number(item.quantidade_atual ?? item.quantity) || 0) + litrosSomar).toFixed(2));
-      targetProduct = {
-        ...item,
-        quantity: novoSaldoEstoque,
-        quantidade_atual: novoSaldoEstoque,
-        updatedAt: new Date().toISOString()
-      };
-      return targetProduct;
-    }
-    return item;
-  });
-
-  saveStoredInventory(updatedInventory);
-
-  // Notifica componentes em tempo real
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
-    window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedTanks }));
-  }
-
-  // 3. PERSISTÊNCIA SIMULTÂNEA NO SUPABASE
-  if (isSupabaseConfigured) {
-    try {
-      // 3.1 Atualiza tabela tanques_combustivel
-      const { data: dbTank } = await supabase
-        .from('tanques_combustivel')
-        .select('id, quantidade_atual')
-        .or(`id.eq.${targetTankId},tipo_combustivel.ilike.%${isS500 ? 's500' : 's10'}%`)
-        .maybeSingle();
-
-      const saldoFinalTanqueDb = dbTank 
-        ? Number(((Number(dbTank.quantidade_atual) || 0) + litrosSomar).toFixed(2)) 
-        : novoSaldoTanque;
-
-      const tTargetId = dbTank?.id || targetTankId;
-      await supabase
-        .from('tanques_combustivel')
-        .update({
-          quantidade_atual: saldoFinalTanqueDb,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', tTargetId);
-
-      // 3.2 Atualiza tabela estoque_produtos (coluna quantidade_atual)
-      const { data: dbProd } = await supabase
-        .from('estoque_produtos')
-        .select('id, quantidade_atual, nome_comercial')
-        .or(`nome_comercial.ilike.%${prodSearch}%,descricao.ilike.%${prodSearch}%`)
-        .maybeSingle();
-
-      if (dbProd && dbProd.id) {
-        const saldoFinalEstoqueDb = Number(((Number(dbProd.quantidade_atual) || 0) + litrosSomar).toFixed(2));
-        await supabase
-          .from('estoque_produtos')
-          .update({
-            quantidade_atual: saldoFinalEstoqueDb,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', dbProd.id);
-      } else if (targetProduct) {
-        await upsertEstoqueItem(targetProduct, companyId);
-      }
-    } catch (dbErr) {
-      console.warn('Erro ao sincronizar soma em tanques_combustivel / estoque_produtos:', dbErr);
-    }
-  }
-
-  return { success: true, novoSaldoTanque, novoSaldoEstoque };
+  return {
+    success: result.success,
+    novoSaldoTanque: result.novoSaldoTanque,
+    novoSaldoEstoque: result.novoSaldoEstoque
+  };
 }
 
 /**
