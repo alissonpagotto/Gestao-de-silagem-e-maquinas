@@ -158,10 +158,10 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
       {/* ========================================================================= */}
       {/* ILUSTRAÇÃO INDUSTRIAL: TANQUE AÉREO HORIZONTAL COM RESPIRO ELEGANTE */}
       {/* ========================================================================= */}
-      <div className="relative my-0.5 flex flex-col items-center justify-center py-0.5 bg-white/70 dark:bg-zinc-700/25 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
-        <div className="w-full max-w-[270px] h-[96px] relative flex items-center justify-center">
+      <div className="relative my-0.5 flex flex-col items-center justify-center py-1 bg-white/70 dark:bg-zinc-700/25 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+        <div className="w-full max-w-md h-[106px] sm:h-[112px] px-1 relative flex items-center justify-center">
           <svg
-            viewBox="0 0 400 210"
+            viewBox="0 0 400 135"
             className="w-full h-full drop-shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
             xmlns="http://www.w3.org/2000/svg"
           >
@@ -194,85 +194,86 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
               </linearGradient>
 
               <clipPath id="tankInnerChamberClip">
-                <rect x="75" y="42" width="250" height="120" rx="60" ry="60" />
+                <rect x="24" y="24" width="348" height="84" rx="42" ry="42" />
               </clipPath>
             </defs>
 
             {/* Sombra Suave na Base */}
-            <ellipse cx="200" cy="198" rx="150" ry="8" fill="#18181b" opacity="0.35" />
+            <ellipse cx="198" cy="130" rx="175" ry="5" fill="#18181b" opacity="0.3" />
 
             {/* Berço Esquerdo */}
             <path
-              d="M 105 128 L 95 190 L 75 193 L 75 199 L 145 199 L 145 193 L 125 190 L 115 128 Z"
+              d="M 88 92 L 80 123 L 66 125 L 66 130 L 120 130 L 120 125 L 106 123 L 98 92 Z"
               fill="url(#saddleSupportGrad)"
               stroke="#3f3f46"
               strokeWidth="1.5"
             />
-            <circle cx="85" cy="196" r="2" fill="#d4d4d8" />
-            <circle cx="135" cy="196" r="2" fill="#d4d4d8" />
+            <circle cx="74" cy="128" r="1.5" fill="#d4d4d8" />
+            <circle cx="112" cy="128" r="1.5" fill="#d4d4d8" />
 
             {/* Berço Direito */}
             <path
-              d="M 285 128 L 275 190 L 255 193 L 255 199 L 325 199 L 325 193 L 305 190 L 295 128 Z"
+              d="M 298 92 L 290 123 L 276 125 L 276 130 L 330 130 L 330 125 L 316 123 L 308 92 Z"
               fill="url(#saddleSupportGrad)"
               stroke="#3f3f46"
               strokeWidth="1.5"
             />
-            <circle cx="265" cy="196" r="2" fill="#d4d4d8" />
-            <circle cx="315" cy="196" r="2" fill="#d4d4d8" />
+            <circle cx="284" cy="128" r="1.5" fill="#d4d4d8" />
+            <circle cx="322" cy="128" r="1.5" fill="#d4d4d8" />
 
-            {/* Barra estrutural horizontal */}
-            <rect x="125" y="180" width="150" height="5" fill="#52525b" stroke="#3f3f46" strokeWidth="1" />
+            {/* Barra estrutural horizontal entre berços */}
+            <rect x="106" y="119" width="184" height="4" fill="#52525b" stroke="#3f3f46" strokeWidth="1" />
 
-            {/* Válvula Inferior */}
-            <rect x="190" y="158" width="20" height="22" fill="#71717a" stroke="#3f3f46" strokeWidth="1" />
-            <circle cx="200" cy="175" r="4.5" fill="#f59e0b" stroke="#92400e" strokeWidth="1" />
+            {/* Válvula Inferior de Dreno */}
+            <rect x="190" y="108" width="16" height="14" fill="#71717a" stroke="#3f3f46" strokeWidth="1" />
+            <circle cx="198" cy="120" r="3.5" fill="#f59e0b" stroke="#92400e" strokeWidth="1" />
 
             {/* Boca de Visita Superior */}
-            <rect x="180" y="30" width="40" height="14" fill="#71717a" stroke="#3f3f46" strokeWidth="1.5" rx="3" />
-            <ellipse cx="200" cy="30" rx="22" ry="5" fill="#a1a1aa" stroke="#52525b" strokeWidth="1.5" />
+            <rect x="178" y="14" width="40" height="12" fill="#71717a" stroke="#3f3f46" strokeWidth="1.5" rx="2.5" />
+            <ellipse cx="198" cy="14" rx="22" ry="4.5" fill="#a1a1aa" stroke="#52525b" strokeWidth="1.5" />
 
             {/* Tubo de Respiro Superior */}
             <path
-              d="M 140 42 L 140 18 Q 140 10 148 10 Q 156 10 156 18 L 156 23"
+              d="M 120 24 L 120 8 Q 120 2 127 2 Q 134 2 134 8 L 134 13"
               fill="none"
               stroke="#a1a1aa"
-              strokeWidth="3.5"
+              strokeWidth="3"
               strokeLinecap="round"
             />
 
             {/* Corpo Metálico do Tanque */}
             <rect
-              x="75"
-              y="42"
-              width="250"
-              height="120"
-              rx="60"
-              ry="60"
+              x="24"
+              y="24"
+              width="348"
+              height="84"
+              rx="42"
+              ry="42"
               fill="url(#metalCylinderGrad)"
               stroke="#52525b"
               strokeWidth="2.5"
             />
 
-            {/* Costuras de Solda */}
-            <line x1="140" y1="43" x2="140" y2="161" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
-            <line x1="200" y1="43" x2="200" y2="161" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
-            <line x1="260" y1="43" x2="260" y2="161" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
+            {/* Costuras de Solda Verticais */}
+            <line x1="95" y1="25" x2="95" y2="107" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
+            <line x1="164" y1="25" x2="164" y2="107" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
+            <line x1="232" y1="25" x2="232" y2="107" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
+            <line x1="301" y1="25" x2="301" y2="107" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
 
             {/* Câmara Interna com Líquido Diesel */}
             <g clipPath="url(#tankInnerChamberClip)">
-              <rect x="75" y="42" width="250" height="120" fill="#3f3f46" opacity="0.55" />
+              <rect x="24" y="24" width="348" height="84" fill="#3f3f46" opacity="0.55" />
 
-              <line x1="85" y1="72" x2="315" y2="72" stroke="#a1a1aa" strokeWidth="0.8" strokeDasharray="4,4" opacity="0.45" />
-              <line x1="85" y1="102" x2="315" y2="102" stroke="#a1a1aa" strokeWidth="0.8" strokeDasharray="4,4" opacity="0.45" />
-              <line x1="85" y1="132" x2="315" y2="132" stroke="#a1a1aa" strokeWidth="0.8" strokeDasharray="4,4" opacity="0.45" />
+              <line x1="38" y1="45" x2="358" y2="45" stroke="#a1a1aa" strokeWidth="0.8" strokeDasharray="4,4" opacity="0.45" />
+              <line x1="38" y1="66" x2="358" y2="66" stroke="#a1a1aa" strokeWidth="0.8" strokeDasharray="4,4" opacity="0.45" />
+              <line x1="38" y1="87" x2="358" y2="87" stroke="#a1a1aa" strokeWidth="0.8" strokeDasharray="4,4" opacity="0.45" />
 
               {litrosDigitados > 0 && nivelAtualPorcentagem > nivelProjetadoPorcentagem && (
                 <rect
-                  x="75"
-                  y={42 + (120 * (1 - nivelAtualPorcentagem / 100))}
-                  width="250"
-                  height={120 * ((nivelAtualPorcentagem - nivelProjetadoPorcentagem) / 100)}
+                  x="24"
+                  y={24 + (84 * (1 - nivelAtualPorcentagem / 100))}
+                  width="348"
+                  height={84 * ((nivelAtualPorcentagem - nivelProjetadoPorcentagem) / 100)}
                   fill="url(#dieselDiffGrad)"
                   className="animate-pulse"
                 />
@@ -281,20 +282,20 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
               {alturaLiquidoEfetiva > 0 && (
                 <g>
                   <rect
-                    x="75"
-                    y={42 + (120 * (1 - alturaLiquidoEfetiva / 100))}
-                    width="250"
-                    height={120 * (alturaLiquidoEfetiva / 100)}
+                    x="24"
+                    y={24 + (84 * (1 - alturaLiquidoEfetiva / 100))}
+                    width="348"
+                    height={84 * (alturaLiquidoEfetiva / 100)}
                     fill="url(#dieselLiquidGrad)"
                     style={{
                       transition: 'y 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
                   />
                   <line
-                    x1="75"
-                    y1={42 + (120 * (1 - alturaLiquidoEfetiva / 100))}
-                    x2="325"
-                    y2={42 + (120 * (1 - alturaLiquidoEfetiva / 100))}
+                    x1="24"
+                    y1={24 + (84 * (1 - alturaLiquidoEfetiva / 100))}
+                    x2="372"
+                    y2={24 + (84 * (1 - alturaLiquidoEfetiva / 100))}
                     stroke="#fef08a"
                     strokeWidth="2"
                     style={{
@@ -304,42 +305,44 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                 </g>
               )}
 
-              <ellipse cx="200" cy="56" rx="100" ry="10" fill="#ffffff" opacity="0.2" />
+              <ellipse cx="198" cy="35" rx="140" ry="7" fill="#ffffff" opacity="0.22" />
             </g>
 
             {/* Contorno externo */}
             <rect
-              x="75"
-              y="42"
-              width="250"
-              height="120"
-              rx="60"
-              ry="60"
+              x="24"
+              y="24"
+              width="348"
+              height="84"
+              rx="42"
+              ry="42"
               fill="none"
               stroke="#52525b"
               strokeWidth="2.5"
             />
 
             {/* Placa ONU 1202 DIESEL */}
-            <g transform="translate(182, 114)">
-              <rect x="0" y="0" width="36" height="20" rx="2" fill="#f97316" stroke="#c2410c" strokeWidth="1" />
-              <text x="18" y="9" fontSize="6.5" fontWeight="bold" textAnchor="middle" fill="#18181b" fontFamily="sans-serif">
+            <g transform="translate(180, 76)">
+              <rect x="0" y="0" width="36" height="19" rx="2" fill="#f97316" stroke="#c2410c" strokeWidth="1" />
+              <text x="18" y="8.5" fontSize="6.5" fontWeight="bold" textAnchor="middle" fill="#18181b" fontFamily="sans-serif">
                 1202
               </text>
-              <text x="18" y="16.5" fontSize="5.5" fontWeight="bold" textAnchor="middle" fill="#18181b" fontFamily="sans-serif">
+              <text x="18" y="16" fontSize="5.5" fontWeight="bold" textAnchor="middle" fill="#18181b" fontFamily="sans-serif">
                 DIESEL
               </text>
             </g>
 
             {/* Visor Lateral de Nível */}
-            <rect x="330" y="52" width="8" height="100" rx="3" fill="#3f3f46" stroke="#71717a" strokeWidth="1" />
-            <rect x="332" y="54" width="4" height="96" rx="2" fill="#52525b" />
+            <rect x="372" y="36" width="5" height="3" fill="#a1a1aa" />
+            <rect x="372" y="94" width="5" height="3" fill="#a1a1aa" />
+            <rect x="377" y="32" width="7" height="68" rx="2.5" fill="#3f3f46" stroke="#71717a" strokeWidth="1" />
+            <rect x="379" y="34" width="3" height="64" rx="1.5" fill="#52525b" />
             {alturaLiquidoEfetiva > 0 && (
               <rect
-                x="332"
-                y={54 + (96 * (1 - alturaLiquidoEfetiva / 100))}
-                width="4"
-                height={96 * (alturaLiquidoEfetiva / 100)}
+                x="379"
+                y={34 + (64 * (1 - alturaLiquidoEfetiva / 100))}
+                width="3"
+                height={64 * (alturaLiquidoEfetiva / 100)}
                 fill="#f59e0b"
                 rx="1"
                 style={{
@@ -347,21 +350,19 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                 }}
               />
             )}
-            <rect x="325" y="55" width="5" height="4" fill="#a1a1aa" />
-            <rect x="325" y="145" width="5" height="4" fill="#a1a1aa" />
           </svg>
 
           {/* Badge Central Sobreposto */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-white/95 dark:bg-zinc-800/90 backdrop-blur-xs px-2.5 py-0.5 rounded-xl border border-zinc-200 dark:border-zinc-600 shadow-md flex flex-col items-center">
-              <span className="text-[8px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider leading-tight">
+            <div className="bg-white/95 dark:bg-zinc-800/90 backdrop-blur-xs px-3 py-1 rounded-xl border border-zinc-200 dark:border-zinc-600 shadow-md flex flex-col items-center">
+              <span className="text-[9px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider leading-tight">
                 Nível do Tanque
               </span>
               <div className="flex items-baseline space-x-1">
-                <span className="text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight">
+                <span className="text-xl font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight">
                   {alturaLiquidoEfetiva.toFixed(1)}%
                 </span>
-                <span className="text-[9px] text-zinc-500 dark:text-zinc-300 font-semibold">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-300 font-semibold">
                   {tanque?.tipo_combustivel || 'Diesel S10'}
                 </span>
               </div>

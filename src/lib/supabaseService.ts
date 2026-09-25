@@ -1259,6 +1259,209 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
   }
 }
 
+/**
+ * Sincroniza os itens essenciais de combustível e arla diretamente na tabela 'public.estoque_produtos'
+ * caso ainda não existam no banco do Supabase, garantindo que colunas reais
+ * ('nome_comercial', 'quantidade_atual', 'unidade_medida', 'categoria') fiquem disponíveis para consulta.
+ */
+export async function syncEssentialFuelProductsToSupabase(companyId?: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const activeCompanyId = companyId || getActiveCompanyId();
+  try {
+    const essentialItems = ensureDieselProductsInInventory([]);
+    for (const item of essentialItems) {
+      const nomeComercial = item.nome_comercial || item.name;
+      const { data } = await supabase
+        .from('estoque_produtos')
+        .select('id, nome_comercial')
+        .ilike('nome_comercial', nomeComercial)
+        .limit(1);
+
+      if (!data || data.length === 0) {
+        await upsertEstoqueItem(item, activeCompanyId);
+      }
+    }
+  } catch (err) {
+    console.warn('Notice syncing essential fuel products to estoque_produtos:', err);
+  }
+}
+
+/**
+ * Busca reativa de produtos diretamente na tabela 'public.estoque_produtos' do Supabase.
+ * - SEM nenhum filtro fixo de categoria (permite produtos de 'Combustível & Arla', peças, insumos, etc.).
+ * - Utiliza estritamente a coluna real 'nome_comercial' com o operador .ilike('nome_comercial', `%${search}%`).
+ * - Mapeia com precisão as colunas reais: 'nome_comercial', 'quantidade_atual' e 'unidade_medida' (L ou un).
+ */
+export async function searchEstoqueProdutos(searchTerm: string = '', companyId?: string): Promise<InventoryItem[]> {
+  const localItems = ensureDieselProductsInInventory(getStoredInventory());
+  const trimmed = searchTerm.trim();
+
+  // Helper para padronizar unidade de medida ('L' ou 'un')
+  const normalizeUnit = (u?: string): string => {
+    const raw = String(u || 'un').trim().toLowerCase();
+    if (raw === 'l' || raw === 'litro' || raw === 'litros' || raw === 'lt' || raw === 'lts') return 'L';
+    if (raw === 'un' || raw === 'und' || raw === 'unidade' || raw === 'unidades') return 'un';
+    return u || 'un';
+  };
+
+  // Helper para verificar se um item é de Combustível & Arla
+  const isFuelItem = (cat?: string, name?: string): boolean => {
+    const c = String(cat || '').toLowerCase();
+    const n = String(name || '').toLowerCase();
+    return c.includes('combust') || c.includes('arla') || n.includes('diesel') || n.includes('arla');
+  };
+
+  if (!isSupabaseConfigured) {
+    const q = trimmed.toLowerCase();
+    const filtered = localItems.filter(i => {
+      if (!q) return true;
+      const nome = String(i.nome_comercial || i.name || '').toLowerCase();
+      const code = String(i.code || '').toLowerCase();
+      const cat = String(i.categoria || i.category || '').toLowerCase();
+      return nome.includes(q) || code.includes(q) || cat.includes(q);
+    });
+
+    // Coloca combustível e arla no topo
+    filtered.sort((a, b) => {
+      const aFuel = isFuelItem(a.categoria || a.category, a.nome_comercial || a.name);
+      const bFuel = isFuelItem(b.categoria || b.category, b.nome_comercial || b.name);
+      if (aFuel && !bFuel) return -1;
+      if (!aFuel && bFuel) return 1;
+      return String(a.nome_comercial || a.name || '').localeCompare(String(b.nome_comercial || b.name || ''));
+    });
+
+    return filtered.slice(0, 50);
+  }
+
+  const activeCompanyId = companyId || getActiveCompanyId();
+  try {
+    // 1. Consulta à tabela oficial 'public.estoque_produtos' sem qualquer restrição de categoria
+    // (Permite itens de 'Combustível & Arla', peças, insumos, etc.)
+    let qProdutos = supabase.from('estoque_produtos').select('*');
+
+    if (activeCompanyId) {
+      qProdutos = qProdutos.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+    }
+
+    if (trimmed) {
+      // Busca por aproximação utilizando estritamente a coluna real do banco: 'nome_comercial'
+      qProdutos = qProdutos.ilike('nome_comercial', `%${trimmed}%`);
+    }
+
+    qProdutos = qProdutos.order('nome_comercial', { ascending: true }).limit(80);
+
+    let res = await qProdutos;
+
+    // Se com filtro de company_id deu erro ou não retornou dados, tenta sem o filtro de company_id
+    if (res.error || !res.data || res.data.length === 0) {
+      let qRetry = supabase.from('estoque_produtos').select('*');
+      if (trimmed) {
+        qRetry = qRetry.ilike('nome_comercial', `%${trimmed}%`);
+      }
+      qRetry = qRetry.order('nome_comercial', { ascending: true }).limit(80);
+      const resRetry = await qRetry;
+      if (!resRetry.error && Array.isArray(resRetry.data) && resRetry.data.length > 0) {
+        res = resRetry;
+      }
+    }
+
+    let mapped: InventoryItem[] = [];
+
+    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
+      mapped = res.data.map(row => {
+        const nomeComercial = String(row.nome_comercial || row.nome || row.descricao || 'Produto sem descrição').trim();
+        const qty = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+        const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? 0);
+        const sale = Number(row.preco_venda_varejo ?? row.preco_venda ?? 0);
+        const unit = normalizeUnit(row.unidade_medida || row.unidade);
+
+        return {
+          id: String(row.id),
+          companyId: row.company_id || undefined,
+          code: row.codigo_produto || '',
+          name: nomeComercial,
+          nome_comercial: nomeComercial,
+          nome: nomeComercial,
+          category: row.categoria || 'outro',
+          categoria: row.categoria || 'outro',
+          quantity: qty,
+          quantidade_atual: qty,
+          minQuantity: Number(row.quantidade_minima ?? row.minQuantity ?? 0),
+          unit: unit,
+          unidade_medida: unit,
+          unitCost: cost,
+          preco_custo_inicial: cost,
+          salePrice: sale,
+          preco_venda_varejo: sale,
+          location: row.localizacao || 'Depósito Principal',
+          brand: row.marca || undefined,
+          barcode: row.codigo_barras || undefined,
+          factoryRef: row.ref_fabrica || undefined,
+          ncm: row.codigo_ncm || undefined,
+          profitMargin: row.margem_lucro_sugerida !== undefined ? Number(row.margem_lucro_sugerida) : undefined,
+          gallonSizeLiters: row.volume_litros_embalagem !== undefined ? Number(row.volume_litros_embalagem) : undefined,
+          volume_litros_embalagem: row.volume_litros_embalagem !== undefined ? Number(row.volume_litros_embalagem) : undefined,
+          createdAt: row.created_at || undefined,
+          updatedAt: row.updated_at || undefined,
+        };
+      });
+    }
+
+    // 2. Garante que os produtos essenciais de Combustível & Arla estejam sempre presentes
+    // ('Diesel S10', 'Diesel S500', 'Arla 32 (Granel / Litro)', 'Arla 32 (Galão 20L)')
+    const qLower = trimmed.toLowerCase();
+    const fuelLocalMatches = localItems.filter(item => {
+      const isFuel = isFuelItem(item.categoria || item.category, item.nome_comercial || item.name);
+      if (!isFuel) return false;
+      if (!qLower) return true;
+      const nc = String(item.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || '').toLowerCase();
+      return nc.includes(qLower) || code.includes(qLower);
+    });
+
+    // Mescla garantindo Combustível & Arla prioritários
+    const combined: InventoryItem[] = [];
+
+    // Adiciona os itens de combustível correspondentes
+    for (const fuelItem of fuelLocalMatches) {
+      const fuelName = String(fuelItem.nome_comercial || fuelItem.name || '').toLowerCase().trim();
+      const inMapped = mapped.find(m => 
+        m.id === fuelItem.id || 
+        String(m.nome_comercial || m.name || '').toLowerCase().trim() === fuelName
+      );
+      if (inMapped) {
+        combined.push(inMapped);
+      } else {
+        combined.push(fuelItem);
+      }
+    }
+
+    // Adiciona os demais produtos retornados do Supabase
+    for (const item of mapped) {
+      const itemName = String(item.nome_comercial || item.name || '').toLowerCase().trim();
+      const alreadyIn = combined.some(c => 
+        c.id === item.id || 
+        String(c.nome_comercial || c.name || '').toLowerCase().trim() === itemName
+      );
+      if (!alreadyIn) {
+        combined.push(item);
+      }
+    }
+
+    return combined;
+  } catch (err) {
+    console.warn('Erro ao consultar public.estoque_produtos:', err);
+    const q = trimmed.toLowerCase();
+    return localItems.filter(i => {
+      if (!q) return true;
+      const nome = String(i.nome_comercial || i.name || '').toLowerCase();
+      const code = String(i.code || '').toLowerCase();
+      const cat = String(i.categoria || i.category || '').toLowerCase();
+      return nome.includes(q) || code.includes(q) || cat.includes(q);
+    }).slice(0, 50);
+  }
+}
+
 export function parseNumericFloat(val: any): number {
   if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;

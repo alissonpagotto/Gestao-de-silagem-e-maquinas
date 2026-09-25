@@ -348,7 +348,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
       <div className="flex flex-col items-center justify-center my-1 relative py-1.5 bg-white/70 dark:bg-zinc-700/25 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
         
         {/* Topo do Tanque: Bocal esquerdo + Sensor Ultrassônico + Respiro */}
-        <div className="w-full max-w-[270px] flex items-end justify-between px-7 h-3 relative z-20 pointer-events-none">
+        <div className="w-full max-w-[285px] flex items-end justify-between px-7 h-3 relative z-20 pointer-events-none">
           <div className="relative left-1 flex flex-col items-center">
             <div className="w-4.5 h-1.5 bg-gradient-to-r from-zinc-400 to-zinc-500 rounded-t-xs border border-zinc-400/60" />
             <div className="w-3 h-0.5 bg-zinc-500" />
@@ -364,7 +364,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
         </div>
 
         {/* CORPO DO TANQUE (Cinza Metálico Glassmorphism Bem Destacado) */}
-        <div className={`w-full max-w-[270px] h-[98px] relative rounded-[16px] p-1 bg-gradient-to-br from-zinc-700/85 via-zinc-800/90 to-zinc-700/85 border-2 ${
+        <div className={`w-full max-w-[285px] h-[98px] relative rounded-[16px] p-1 bg-gradient-to-br from-zinc-700/85 via-zinc-800/90 to-zinc-700/85 border-2 ${
           calculationResult.isOverflowing
             ? 'border-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
             : 'border-zinc-500/80 shadow-[0_8px_18px_-4px_rgba(0,0,0,0.35),inset_0_1px_2px_rgba(255,255,255,0.12)]'
@@ -463,7 +463,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
         </div>
 
         {/* Pés de sustentação metálicos */}
-        <div className="w-full max-w-[270px] flex items-start justify-between px-12 h-1.5 relative z-10 pointer-events-none">
+        <div className="w-full max-w-[285px] flex items-start justify-between px-12 h-1.5 relative z-10 pointer-events-none">
           <div className="w-5 h-1.5 bg-zinc-600 rounded-b-xs relative left-2 border-t border-zinc-500" />
           <div className="w-5 h-1.5 bg-zinc-600 rounded-b-xs relative -left-2 border-t border-zinc-500" />
         </div>

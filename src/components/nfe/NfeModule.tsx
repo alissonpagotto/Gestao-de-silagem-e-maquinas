@@ -97,7 +97,9 @@ import {
   fetchCloudManualEntryDocumentTypes,
   somarCombustivelTanqueEEstoque,
   subtrairCombustivelTanque,
-  identificarTipoDiesel
+  identificarTipoDiesel,
+  searchEstoqueProdutos,
+  syncEssentialFuelProductsToSupabase
 } from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
@@ -1138,11 +1140,54 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [isItemSearchOpen, setIsItemSearchOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [searchedStockProducts, setSearchedStockProducts] = useState<InventoryItem[]>([]);
+  const [isSearchingStock, setIsSearchingStock] = useState(false);
+  const stockSearchDropdownRef = useRef<HTMLDivElement>(null);
   const [itemQuantity, setItemQuantity] = useState('1');
   const [itemUnit, setItemUnit] = useState('UN');
   const [itemUnitCostDisplay, setItemUnitCostDisplay] = useState('');
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [itemFormError, setItemFormError] = useState('');
+
+  // Fecha dropdown de produtos ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (stockSearchDropdownRef.current && !stockSearchDropdownRef.current.contains(e.target as Node)) {
+        setIsItemSearchOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Busca reativa no Supabase (tabela public.estoque_produtos com operador .ilike na coluna real 'nome_comercial')
+  useEffect(() => {
+    let isCancelled = false;
+    if (!isManualEntryModalOpen || manualEntryStep !== 2) return;
+
+    // Sincroniza em background os produtos essenciais de diesel e arla com a tabela estoque_produtos
+    syncEssentialFuelProductsToSupabase().catch(() => {});
+
+    const runSearch = async () => {
+      setIsSearchingStock(true);
+      try {
+        const results = await searchEstoqueProdutos(itemSearchQuery);
+        if (!isCancelled) {
+          setSearchedStockProducts(results);
+        }
+      } catch (err) {
+        console.warn('Erro ao buscar produtos em public.estoque_produtos:', err);
+      } finally {
+        if (!isCancelled) setIsSearchingStock(false);
+      }
+    };
+
+    const timer = setTimeout(runSearch, 80);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [itemSearchQuery, isManualEntryModalOpen, manualEntryStep, localInventory]);
 
   // Submodal de Cadastro Rápido de Novo Produto no Estoque (Passo 2)
   const [isQuickProductModalOpen, setIsQuickProductModalOpen] = useState(false);
@@ -1445,31 +1490,58 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
-  // PASSO 2: Busca e autocompletes de produtos no estoque
+  // PASSO 2: Busca e autocompletes de produtos no estoque utilizando a coluna real 'nome_comercial'
   const filteredStockProducts = useMemo(() => {
+    if (searchedStockProducts && searchedStockProducts.length > 0) {
+      return searchedStockProducts;
+    }
     const q = itemSearchQuery.trim().toLowerCase();
-    if (!q) return localInventory.slice(0, 15);
-    return localInventory.filter(item => 
-      item.name.toLowerCase().includes(q) ||
-      (item.code && item.code.toLowerCase().includes(q)) ||
-      (item.fiscalName && item.fiscalName.toLowerCase().includes(q)) ||
-      (item.category && item.category.toLowerCase().includes(q))
-    ).slice(0, 20);
-  }, [itemSearchQuery, localInventory]);
+    const sorted = [...localInventory].sort((a, b) => {
+      const aFuel = (a.categoria || a.category) === 'Combustível & Arla' || 
+        String(a.nome_comercial || a.name || '').toLowerCase().includes('diesel') || 
+        String(a.nome_comercial || a.name || '').toLowerCase().includes('arla');
+      const bFuel = (b.categoria || b.category) === 'Combustível & Arla' || 
+        String(b.nome_comercial || b.name || '').toLowerCase().includes('diesel') || 
+        String(b.nome_comercial || b.name || '').toLowerCase().includes('arla');
+      if (aFuel && !bFuel) return -1;
+      if (!aFuel && bFuel) return 1;
+      return String(a.nome_comercial || a.name || '').localeCompare(String(b.nome_comercial || b.name || ''));
+    });
+
+    if (!q) return sorted.slice(0, 40);
+    return sorted.filter(item => {
+      const nc = String(item.nome_comercial || item.name || '').toLowerCase();
+      const code = String(item.code || '').toLowerCase();
+      const cat = String(item.categoria || item.category || '').toLowerCase();
+      return nc.includes(q) || code.includes(q) || cat.includes(q);
+    }).slice(0, 40);
+  }, [searchedStockProducts, itemSearchQuery, localInventory]);
 
   const isProductExistingInStock = useMemo(() => {
     const q = itemSearchQuery.trim().toLowerCase();
     if (!q) return true;
-    return localInventory.some(p => p.name.trim().toLowerCase() === q);
-  }, [itemSearchQuery, localInventory]);
+    return filteredStockProducts.some(p => {
+      const nc = (p.nome_comercial || p.name || p.nome || '').trim().toLowerCase();
+      return nc === q;
+    }) || localInventory.some(p => {
+      const nc = (p.nome_comercial || p.name || p.nome || '').trim().toLowerCase();
+      return nc === q;
+    });
+  }, [itemSearchQuery, filteredStockProducts, localInventory]);
 
-  // Seleciona um produto do estoque
+  // Seleciona um produto do estoque mapeando estritamente nome_comercial, unidade_medida e preco_custo_inicial
   const handleSelectProduct = (prod: InventoryItem) => {
     setSelectedProduct(prod);
-    setItemSearchQuery(prod.name);
-    setItemUnit(prod.unit || 'UN');
-    if (prod.unitCost > 0) {
-      setItemUnitCostDisplay(formatCurrencyInputDisplay(prod.unitCost));
+    const prodName = prod.nome_comercial || prod.name || prod.nome || '';
+    setItemSearchQuery(prodName);
+    const rawUnit = String(prod.unidade_medida || prod.unit || 'un').trim();
+    const cleanUnit = rawUnit.toLowerCase() === 'l' || rawUnit.toLowerCase() === 'litro' || rawUnit.toLowerCase() === 'litros' || rawUnit.toLowerCase() === 'lt'
+      ? 'L'
+      : (rawUnit.toLowerCase() === 'un' || rawUnit.toLowerCase() === 'und' || rawUnit.toLowerCase() === 'unidade' ? 'un' : rawUnit);
+    setItemUnit(cleanUnit);
+    const cost = Number(prod.preco_custo_inicial ?? prod.unitCost ?? 0);
+    if (cost > 0) {
+      setItemUnitCostDisplay(formatCurrencyInputDisplay(cost));
     }
     setIsItemSearchOpen(false);
   };
@@ -1688,6 +1760,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque' (estoque_produtos)
       let targetProduct = selectedProduct || localInventory.find(p => 
+        (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === description.toLowerCase().trim()) ||
         p.name.toLowerCase().trim() === description.toLowerCase().trim()
       );
 
@@ -4265,11 +4338,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                         <div className="flex items-center justify-between gap-1 h-6 px-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded">
                                           <div className="min-w-0 flex-1 flex items-center space-x-1">
                                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                            <span className="text-[9px] font-bold text-black dark:text-stone-100 truncate" title={linked?.name}>
-                                              {linked?.code ? `[${linked.code}] ` : ''}{linked?.name || 'Vinculado'}
+                                            <span className="text-[9px] font-bold text-black dark:text-stone-100 truncate" title={linked?.nome_comercial || linked?.name}>
+                                              {linked?.code ? `[${linked.code}] ` : ''}{linked?.nome_comercial || linked?.name || 'Vinculado'}
                                             </span>
                                             <span className="text-[8px] text-emerald-900 dark:text-emerald-300 font-bold shrink-0 bg-emerald-100 dark:bg-emerald-900/60 px-0.5 rounded">
-                                              {linked?.quantity || 0}
+                                              {linked?.quantidade_atual !== undefined ? linked.quantidade_atual : (linked?.quantity || 0)}
                                             </span>
                                           </div>
                                           <button
@@ -4302,7 +4375,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                         </option>
                                         {localInventory.map((inv) => (
                                           <option key={inv.id} value={inv.id}>
-                                            {inv.code ? `[${inv.code}] ` : ''}{inv.name} ({inv.quantity} {inv.unit})
+                                            {inv.code ? `[${inv.code}] ` : ''}{inv.nome_comercial || inv.name} ({inv.quantidade_atual !== undefined ? inv.quantidade_atual : inv.quantity} {inv.unidade_medida || inv.unit})
                                           </option>
                                         ))}
                                       </select>
@@ -6008,7 +6081,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     )}
 
                     {/* Campo de Busca do Produto no Estoque */}
-                    <div className="relative">
+                    <div className="relative" ref={stockSearchDropdownRef}>
                       <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                         Produto no Estoque <span className="text-rose-500">*</span>
                       </label>
@@ -6020,43 +6093,75 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           onChange={(e) => {
                             setItemSearchQuery(e.target.value);
                             setIsItemSearchOpen(true);
-                            if (selectedProduct && selectedProduct.name !== e.target.value) {
+                            if (selectedProduct && (selectedProduct.nome_comercial || selectedProduct.name) !== e.target.value) {
                               setSelectedProduct(null);
                             }
                           }}
                           onFocus={() => setIsItemSearchOpen(true)}
                           placeholder="Buscar produto por nome, código ou categoria no Estoque..."
-                          className="w-full pl-9 pr-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          className="w-full pl-9 pr-9 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                         />
                         <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5 pointer-events-none" />
+                        {isSearchingStock && (
+                          <div className="absolute right-3 top-2.5">
+                            <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin inline-block" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Dropdown de sugestões do estoque */}
                       {isItemSearchOpen && (
                         <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-800">
-                          {filteredStockProducts.map((prod) => (
-                            <div
-                              key={prod.id}
-                              onClick={() => handleSelectProduct(prod)}
-                              className="p-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer flex items-center justify-between text-xs transition"
-                            >
-                              <div>
-                                <span className="font-bold text-stone-900 dark:text-stone-100 block">
-                                  {prod.name}
-                                </span>
-                                <div className="flex items-center space-x-2 text-[10px] text-stone-500 mt-0.5">
-                                  {prod.code && <span className="font-mono">Cód: {prod.code}</span>}
-                                  <span>•</span>
-                                  <span>Un: {prod.unit}</span>
-                                  <span>•</span>
-                                  <span>Saldo Atual: {prod.quantity || 0}</span>
-                                </div>
-                              </div>
-                              <span className="font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
-                                {prod.unitCost ? formatCurrencyBRL(prod.unitCost) : '-'}
-                              </span>
+                          {isSearchingStock && filteredStockProducts.length === 0 && (
+                            <div className="p-3 text-center text-xs text-stone-500 flex items-center justify-center space-x-2">
+                              <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                              <span>Consultando estoque_produtos...</span>
                             </div>
-                          ))}
+                          )}
+
+                          {filteredStockProducts.map((prod) => {
+                            const displayName = prod.nome_comercial || prod.name || prod.nome || '';
+                            const rawUnit = String(prod.unidade_medida || prod.unit || 'un').trim();
+                            const displayUnit = rawUnit.toLowerCase() === 'l' || rawUnit.toLowerCase() === 'litro' || rawUnit.toLowerCase() === 'litros' || rawUnit.toLowerCase() === 'lt'
+                              ? 'L'
+                              : (rawUnit.toLowerCase() === 'un' || rawUnit.toLowerCase() === 'und' || rawUnit.toLowerCase() === 'unidade' ? 'un' : rawUnit);
+                            const displayQty = Number(prod.quantidade_atual !== undefined ? prod.quantidade_atual : (prod.quantity ?? 0));
+                            const displayCost = Number(prod.preco_custo_inicial ?? prod.unitCost ?? 0);
+                            const isFuelOrArla = (prod.categoria || prod.category) === 'Combustível & Arla' || 
+                              displayName.toLowerCase().includes('diesel') || 
+                              displayName.toLowerCase().includes('arla');
+
+                            return (
+                              <div
+                                key={prod.id}
+                                onClick={() => handleSelectProduct(prod)}
+                                className="p-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer flex items-center justify-between text-xs transition"
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                                      {displayName}
+                                    </span>
+                                    {isFuelOrArla && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 shrink-0">
+                                        Combustível & Arla
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center space-x-2 text-[10px] text-stone-500 mt-0.5">
+                                    {prod.code && <span className="font-mono">Cód: {prod.code}</span>}
+                                    {prod.code && <span>•</span>}
+                                    <span>Un: <strong className="text-stone-700 dark:text-stone-300 font-semibold">{displayUnit}</strong></span>
+                                    <span>•</span>
+                                    <span>Saldo Atual: <strong className="text-stone-700 dark:text-stone-300 font-semibold">{displayQty.toLocaleString('pt-BR')} {displayUnit}</strong></span>
+                                  </div>
+                                </div>
+                                <span className="font-mono font-bold text-stone-700 dark:text-stone-300 text-xs shrink-0">
+                                  {displayCost > 0 ? formatCurrencyBRL(displayCost) : '-'}
+                                </span>
+                              </div>
+                            );
+                          })}
 
                           {/* Se o produto não existir no estoque, exibe opção para cadastrar novo */}
                           {!isProductExistingInStock && itemSearchQuery.trim().length >= 1 && (
@@ -6077,7 +6182,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             </div>
                           )}
 
-                          {filteredStockProducts.length === 0 && isProductExistingInStock && (
+                          {filteredStockProducts.length === 0 && isProductExistingInStock && !isSearchingStock && (
                             <div className="p-3 text-center text-xs text-stone-500">
                               Nenhum produto cadastrado no estoque.
                             </div>
