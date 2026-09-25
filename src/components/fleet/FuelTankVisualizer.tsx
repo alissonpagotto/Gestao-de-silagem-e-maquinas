@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { AlertCircle, Droplets, Fuel, Info, CheckCircle2, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
+import { AlertCircle, Droplets, Fuel, Info, CheckCircle2, ShieldAlert, Sparkles, ArrowRight, Truck } from 'lucide-react';
 import { Machinery } from '../../types';
 import { 
   calculateTankLevelMetrics, 
@@ -239,7 +239,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   const hasNoTankCapacity = tankCapacity <= 0;
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-sky-50/50 via-slate-50/70 to-blue-50/40 dark:from-stone-900/60 dark:to-stone-900/40 p-3 sm:p-3.5 rounded-xl border border-sky-100 dark:border-stone-800 shadow-xs relative overflow-hidden">
+    <div className="flex flex-col h-full bg-gradient-to-b from-stone-900 via-stone-850 to-stone-900 border border-stone-700/80 rounded-2xl p-3 text-stone-100 shadow-xl relative overflow-hidden select-none">
       
       {/* Estilos CSS dedicados para animação de ondas do combustível líquido e ultrassom */}
       <style>{`
@@ -294,41 +294,61 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
         }
       `}</style>
 
-      {/* Cabeçalho do Card */}
-      <div className="flex items-center justify-between mb-1.5 pb-1.5 border-b border-slate-200/70 dark:border-stone-800">
-        <div className="flex items-center space-x-1.5">
-          <div className="w-5 h-5 rounded-md bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <Fuel className="w-3 h-3" />
+      {/* 2. MONITORAMENTO DO VEÍCULO (DESTINO) */}
+      <div className="flex items-center justify-between mb-1.5 pb-1.5 border-b border-stone-800">
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className="w-7 h-7 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+            <Truck className="w-3.5 h-3.5" />
           </div>
-          <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-            Nível do Tanque em Tempo Real
-          </span>
+          <div className="min-w-0">
+            <div className="flex items-center space-x-1.5">
+              <h4 className="text-xs font-black text-blue-400 uppercase tracking-wider font-['Outfit'] truncate">
+                2. MONITORAMENTO DO VEÍCULO (DESTINO)
+              </h4>
+              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-stone-800 text-stone-300 border border-stone-700 shrink-0">
+                Máquina
+              </span>
+            </div>
+            <p className="text-[11px] font-bold text-stone-200 truncate">
+              {machinery ? (
+                <>
+                  <span>{machinery.nome || machinery.name}</span>
+                  {machinery.licensePlateOrSerial && (
+                    <span className="ml-1 text-[10px] font-mono font-bold px-1 rounded bg-stone-800 text-amber-300 border border-stone-700">
+                      {machinery.licensePlateOrSerial}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-stone-400 italic">Selecione o veículo à esquerda</span>
+              )}
+            </p>
+          </div>
         </div>
 
         {tankCapacity > 0 ? (
-          <div className="flex items-center space-x-1">
-            {/* Badges de Média se disponíveis em tempo real após digitação dos litros */}
+          <div className="flex items-center space-x-1 shrink-0">
             {liveKmPerLiter ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs animate-in fade-in">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800 shadow-2xs">
                 {liveKmPerLiter.toFixed(2).replace('.', ',')} km/L
               </span>
             ) : null}
 
             {liveLitersPerHour ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs animate-in fade-in">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800 shadow-2xs">
                 {liveLitersPerHour.toFixed(2).replace('.', ',')} L/h
               </span>
             ) : null}
 
-            <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white/80 dark:bg-stone-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-stone-700 shadow-2xs">
-              <span>Tanque:</span>
-              <strong className="text-amber-600 dark:text-amber-400 font-mono">{tankCapacity} L</strong>
+            <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-stone-800 text-stone-300 border border-stone-700 shadow-2xs">
+              <span>Cap:</span>
+              <strong className="text-amber-400 font-mono">{tankCapacity} L</strong>
             </span>
           </div>
         ) : null}
       </div>
 
-      {/* CONTAINER DO TANQUE 3D HORIZONTAL COMPACTO */}
+      {/* CONTAINER DO TANQUE 3D COMPACTO */}
       <div className="flex-1 flex flex-col items-center justify-center my-0.5 relative py-1">
         
         {/* Topo do Tanque: Bocal esquerdo + Sensor Ultrassônico + Respiro */}
@@ -351,9 +371,9 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
           <div className="w-2.5 h-1 bg-zinc-300 dark:bg-stone-600 rounded-t-xs border border-zinc-400/40" />
         </div>
 
-        {/* CORPO DO TANQUE (Vidro Glassmorphism Compacto) */}
-        <div className={`w-full max-w-[260px] h-[135px] relative rounded-[20px] p-1 bg-gradient-to-br from-white/90 via-slate-100/40 to-white/70 dark:from-stone-800/80 dark:via-stone-900/50 dark:to-stone-800/60 border-2 ${
-          calculationResult.isOverflowing ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'border-white/90 dark:border-stone-700 shadow-[0_10px_25px_-8px_rgba(0,0,0,0.16),inset_0_1px_2px_rgba(255,255,255,0.9),inset_0_-1px_6px_rgba(0,0,0,0.05)]'
+        {/* CORPO DO TANQUE (Vidro Glassmorphism Compacto Escuro) */}
+        <div className={`w-full max-w-[260px] h-[120px] relative rounded-[18px] p-1 bg-gradient-to-br from-stone-900/90 via-stone-950/80 to-stone-900/90 border-2 ${
+          calculationResult.isOverflowing ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'border-stone-700/80 shadow-[0_10px_25px_-8px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1),inset_0_-1px_6px_rgba(0,0,0,0.4)]'
         } overflow-hidden backdrop-blur-md flex flex-col justify-end transition-colors duration-500`}>
           
           {/* Ondas Ultrassônicas emitidas pelo sensor central */}
@@ -485,27 +505,27 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
             <div className="grid grid-cols-3 gap-1.5 text-center">
               
               {/* Card 1: NÍVEL ATUAL - Reflete estritamente o valor que vem do banco de dados */}
-              <div className="p-1.5 rounded-lg bg-white/90 dark:bg-stone-800/80 border border-slate-200/80 dark:border-stone-700/80 shadow-2xs">
-                <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 block uppercase">
+              <div className="p-1.5 rounded-lg bg-stone-800/90 border border-stone-700/80 shadow-2xs">
+                <span className="text-[9px] font-semibold text-stone-400 block uppercase">
                   Nível Atual
                 </span>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                <span className="text-xs font-bold text-stone-200">
                   {nivelAtual.toFixed(0)} L
                 </span>
-                <span className="text-[9px] text-slate-400 block font-mono">
+                <span className="text-[9px] text-stone-400 block font-mono">
                   ({Math.round(nivelAtualPorcentagem)}%)
                 </span>
               </div>
 
               {/* Card 2: + ABASTECIDO - Exatamente os litros digitados pelo usuário */}
-              <div className="p-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 shadow-2xs">
-                <span className="text-[9px] font-semibold text-amber-700 dark:text-amber-400 block uppercase">
+              <div className="p-1.5 rounded-lg bg-amber-950/40 border border-amber-600/50 shadow-2xs">
+                <span className="text-[9px] font-semibold text-amber-400 block uppercase">
                   + Abastecido
                 </span>
-                <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                <span className="text-xs font-bold text-amber-300">
                   {addedLiters > 0 ? `+${addedLiters.toFixed(1)} L` : '--'}
                 </span>
-                <span className="text-[9px] text-amber-600 dark:text-amber-400 block font-mono">
+                <span className="text-[9px] text-amber-400/80 block font-mono">
                   {addedLiters > 0 ? `+${Math.round(adicionadoPorcentagem)}%` : '0 L'}
                 </span>
               </div>
@@ -513,21 +533,21 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
               {/* Card 3: PROJEÇÃO - Soma matemática exata (Nível Atual + Litros Digitados) */}
               <div className={`p-1.5 rounded-lg border shadow-2xs ${
                 isOverflowing
-                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
-                  : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60'
+                  ? 'bg-rose-950/50 border-rose-600/60'
+                  : 'bg-emerald-950/50 border-emerald-600/60'
               }`}>
                 <span className={`text-[9px] font-semibold block uppercase ${
-                  isOverflowing ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
+                  isOverflowing ? 'text-rose-400' : 'text-emerald-400'
                 }`}>
-                  Projeção
+                  Projeção Real
                 </span>
                 <span className={`text-xs font-bold ${
-                  isOverflowing ? 'text-rose-800 dark:text-rose-300' : 'text-emerald-800 dark:text-emerald-300'
+                  isOverflowing ? 'text-rose-300' : 'text-emerald-300'
                 }`}>
                   {projecaoLiters.toFixed(0)} L
                 </span>
                 <span className={`text-[9px] block font-mono ${
-                  isOverflowing ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                  isOverflowing ? 'text-rose-400' : 'text-emerald-400'
                 }`}>
                   ({Math.round(projecaoPorcentagem)}%)
                 </span>

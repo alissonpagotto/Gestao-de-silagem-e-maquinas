@@ -67,78 +67,91 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
   const alturaLiquidoEfetiva = litrosDigitados > 0 ? nivelProjetadoPorcentagem : nivelAtualPorcentagem;
 
   return (
-    <div className="bg-gradient-to-b from-stone-900 via-stone-850 to-stone-900 border border-stone-700/80 rounded-2xl p-3.5 shadow-xl text-stone-100 flex flex-col justify-between select-none relative overflow-hidden">
+    <div className="bg-gradient-to-b from-stone-900 via-stone-850 to-stone-900 border border-stone-700/80 rounded-2xl p-3 shadow-xl text-stone-100 flex flex-col justify-between select-none relative overflow-hidden">
       
       {/* Luz ambiente de fundo no topo (efeito sutil de iluminação de hangar) */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-20 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
 
-      {/* Cabeçalho do Tanque da Fazenda */}
-      <div className="relative z-10 space-y-2 mb-2">
+      {/* 1. MONITORAMENTO DO ESTOQUE (Topo do Painel: ORIGEM) */}
+      <div className="relative z-10 space-y-1.5 mb-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
-              <Warehouse className="w-4 h-4" />
+            <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+              <Warehouse className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
                 <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider font-['Outfit']">
-                  Tanque Interno (Fazenda)
+                  1. MONITORAMENTO DO ESTOQUE (ORIGEM)
                 </h4>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-stone-800 text-stone-300 border border-stone-700">
-                  Aéreo
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-stone-800 text-amber-300 border border-amber-500/40 font-mono">
+                  {tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : 'S10'}
                 </span>
               </div>
-              <p className="text-[11px] font-bold text-stone-200 truncate max-w-[220px]">
+              <p className="text-[11px] font-bold text-stone-200 truncate max-w-[210px]">
                 {tanque?.nome || 'Tanque Principal Diesel S10'}
               </p>
             </div>
           </div>
 
-          {/* Badge de Status Operacional */}
+          {/* Volume Disponível e Porcentagem em Destaque */}
           <div className="text-right">
+            <div className="flex items-baseline justify-end space-x-1">
+              <span className="text-xs font-black text-amber-400 font-mono">
+                {quantidadeAtual.toLocaleString('pt-BR')} L
+              </span>
+              <span className="text-[10px] font-bold text-stone-300 font-mono">
+                ({nivelAtualPorcentagem.toFixed(1)}%)
+              </span>
+            </div>
             {isEstoqueInsuficiente ? (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse">
+                <AlertTriangle className="w-2.5 h-2.5" />
                 <span>Saldo Insuficiente</span>
               </span>
             ) : isNivelCritico ? (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                <AlertTriangle className="w-2.5 h-2.5" />
                 <span>Nível Crítico</span>
               </span>
             ) : isNivelBaixo ? (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <AlertTriangle className="w-2.5 h-2.5" />
                 <span>Nível Baixo</span>
               </span>
             ) : (
-              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                <ShieldCheck className="w-3 h-3" />
-                <span>Operacional</span>
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <ShieldCheck className="w-2.5 h-2.5" />
+                <span>Estoque OK</span>
               </span>
             )}
           </div>
         </div>
 
-        {/* Seletor rápido de tanques cadastrados (se houver múltiplos tanques) */}
+        {/* Seletor rápido de tanques cadastrados (S10 vs S500) */}
         {tanques.length > 1 && onTanqueChange && (
-          <div className="flex items-center space-x-1.5 pt-1">
-            <span className="text-[10px] text-stone-400 font-semibold shrink-0">Trocar Tanque:</span>
+          <div className="flex items-center space-x-1.5 pt-0.5">
+            <span className="text-[10px] text-stone-400 font-semibold shrink-0">Origem:</span>
             <div className="flex items-center space-x-1 overflow-x-auto pb-0.5 w-full">
               {tanques.map((t) => {
                 const isSelected = t.id === tanque?.id;
+                const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
+                const badge = isS500 ? 'S500' : 'S10';
                 return (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => onTanqueChange(t.id)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer ${
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer flex items-center space-x-1 ${
                       isSelected
                         ? 'bg-amber-500 text-stone-950 shadow-xs'
                         : 'bg-stone-800 text-stone-400 hover:text-stone-200 hover:bg-stone-750 border border-stone-700/60'
                     }`}
                   >
-                    {t.nome}
+                    <span>{t.nome}</span>
+                    <span className={`text-[8px] px-1 rounded ${isSelected ? 'bg-stone-950/30 text-stone-950 font-black' : 'bg-stone-700 text-stone-300'}`}>
+                      {badge}
+                    </span>
                   </button>
                 );
               })}
@@ -150,10 +163,10 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
       {/* ========================================================================= */}
       {/* ILUSTRAÇÃO 50% INDUSTRIAL: TANQUE AÉREO HORIZONTAL (METAL / AÇO OVAL DEITADO) */}
       {/* ========================================================================= */}
-      <div className="relative my-2 py-1 px-1 flex flex-col items-center justify-center">
+      <div className="relative my-1 py-0.5 px-1 flex flex-col items-center justify-center">
         
         {/* SVG Tanque Horizontal Industrial Completo */}
-        <div className="w-full max-w-[340px] aspect-[16/9] relative flex items-center justify-center">
+        <div className="w-full max-w-[310px] aspect-[16/8.5] relative flex items-center justify-center">
           <svg
             viewBox="0 0 400 220"
             className="w-full h-full drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)]"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar, ChevronDown, Search, Check, Warehouse } from 'lucide-react';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar, ChevronDown, Search, Check, Warehouse, ArrowDown } from 'lucide-react';
 import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin, TanqueCombustivel } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { TanqueIndustrialVisualizer } from './TanqueIndustrialVisualizer';
@@ -1395,8 +1395,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               </form>
             </div>
 
-            {/* Visualizador do Tanque à Direita (Compactado e sem rolagem) */}
-            <div className="lg:col-span-5 lg:sticky lg:top-0">
+            {/* Painel Direito: Monitoramento do Fluxo de Combustível em Tempo Real (Origem -> Destino) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-0 space-y-2">
+              
+              {/* 1. MONITORAMENTO DO ESTOQUE (Topo do Painel: ORIGEM) */}
               {fuelOrigin === 'Tanque Interno (Fazenda)' ? (
                 <TanqueIndustrialVisualizer
                   tanque={selectedTanque}
@@ -1416,22 +1418,78 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   }}
                 />
               ) : (
-                <FuelTankVisualizer 
-                  machinery={selectedMachinery}
-                  dbTankLevel={dbTankLevel}
-                  addedLitersInput={liters}
-                  currentHourMeterInput={currentHourMeter}
-                  previousHourMeterInput={previousHourMeter}
-                  currentKmInput={currentKm}
-                  previousKmInput={previousKm}
-                  liveLitersPerHour={calculatedMetrics.litersPerHour}
-                  liveKmPerLiter={calculatedMetrics.kmPerLiter}
-                  historicalAvgLitersPerHour={historicalAvgLitersPerHour}
-                  historicalAvgKmPerLiter={historicalAvgKmPerLiter}
-                  isFirstRecord={isFirstRecord}
-                  onCalculationChange={setLatestCalculation}
-                />
+                <div className="bg-gradient-to-b from-stone-900 via-stone-850 to-stone-900 border border-stone-700/80 rounded-2xl p-3 shadow-xl text-stone-100 space-y-2 select-none">
+                  <div className="flex items-center justify-between border-b border-stone-800 pb-1.5">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <Building2 className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider font-['Outfit']">
+                          1. MONITORAMENTO DA ORIGEM
+                        </h4>
+                        <p className="text-[11px] font-bold text-stone-200 truncate max-w-[210px]">
+                          {supplierStation || fuelOrigin}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-800 text-stone-300 border border-stone-700">
+                      {fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-stone-400">Combustível:</span>
+                    <span className="font-bold text-amber-400">{fuelType}</span>
+                  </div>
+                  {liters && Number(liters.replace(',', '.')) > 0 && (
+                    <div className="p-2 rounded-xl bg-stone-800/80 border border-stone-700/80 flex items-center justify-between text-xs">
+                      <span className="text-stone-300 font-medium">Volume Solicitado:</span>
+                      <span className="font-mono font-black text-amber-400">
+                        {Number(liters.replace(',', '.')).toLocaleString('pt-BR')} L
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
+
+              {/* Indicador Visual do Fluxo de Combustível (Origem ➔ Destino) */}
+              <div className="flex items-center justify-center -my-0.5">
+                <div className="flex items-center space-x-2 px-3 py-0.5 rounded-full bg-stone-950/90 border border-stone-700/80 text-[10px] font-bold text-stone-300 shadow-sm backdrop-blur-xs">
+                  <span className="flex items-center text-amber-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse mr-1" />
+                    {fuelOrigin === 'Tanque Interno (Fazenda)' 
+                      ? (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10') 
+                      : 'Origem Externa'}
+                  </span>
+                  <ArrowDown className="w-3 h-3 text-stone-400 animate-bounce" />
+                  <span className="flex items-center text-blue-400 font-semibold">
+                    Destino: {selectedMachinery ? (selectedMachinery.licensePlateOrSerial || selectedMachinery.nome) : 'Veículo'}
+                  </span>
+                  {liters && Number(liters.replace(',', '.')) > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] border border-amber-500/30">
+                      {liters} L
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. MONITORAMENTO DO VEÍCULO (Base do Painel: DESTINO) */}
+              <FuelTankVisualizer 
+                machinery={selectedMachinery}
+                dbTankLevel={dbTankLevel}
+                addedLitersInput={liters}
+                currentHourMeterInput={currentHourMeter}
+                previousHourMeterInput={previousHourMeter}
+                currentKmInput={currentKm}
+                previousKmInput={previousKm}
+                liveLitersPerHour={calculatedMetrics.litersPerHour}
+                liveKmPerLiter={calculatedMetrics.kmPerLiter}
+                historicalAvgLitersPerHour={historicalAvgLitersPerHour}
+                historicalAvgKmPerLiter={historicalAvgKmPerLiter}
+                isFirstRecord={isFirstRecord}
+                onCalculationChange={setLatestCalculation}
+              />
+
             </div>
 
           </div>
