@@ -1,8 +1,7 @@
 import React, { useMemo, useEffect } from 'react';
-import { AlertCircle, Droplets, Fuel, Info, CheckCircle2, ShieldAlert, Sparkles, ArrowRight, Truck } from 'lucide-react';
+import { AlertCircle, Droplets, Info, CheckCircle2, ShieldAlert, Sparkles, Truck } from 'lucide-react';
 import { Machinery } from '../../types';
 import { 
-  calculateTankLevelMetrics, 
   getTankColorTheme, 
   FuelCalculationResult,
   FuelConsumptionMode 
@@ -75,8 +74,6 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   }, [addedLitersInput]);
 
   // 4. PROJEÇÃO: Soma matemática estrita: (Nível Atual vindo do banco + Litros Digitados)
-  // Se o nível atual era 1105 e o usuário digitou 50, a projeção DEVE exibir 1155L.
-  // Nunca trava em 100% ou muda o nível atual de forma arbitrária.
   const projecaoLiters = useMemo(() => {
     if (isFirstRecordEffective) return addedLiters;
     return parseFloat((nivelAtual + addedLiters).toFixed(2));
@@ -93,7 +90,6 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     return parseFloat(((addedLiters / tankCapacity) * 100).toFixed(1));
   }, [addedLiters, tankCapacity]);
 
-  // Projeção em porcentagem (pode ultrapassar 100% se ultrapassar o tanque)
   const projecaoPorcentagem = useMemo(() => {
     if (tankCapacity <= 0) return 0;
     return parseFloat(((projecaoLiters / tankCapacity) * 100).toFixed(1));
@@ -239,7 +235,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   const hasNoTankCapacity = tankCapacity <= 0;
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-stone-900 via-stone-850 to-stone-900 border border-stone-700/80 rounded-2xl p-3 text-stone-100 shadow-xl relative overflow-hidden select-none">
+    <div className="flex flex-col justify-between bg-[#2c2c2e] bg-zinc-800/80 border border-zinc-700/70 rounded-xl p-2.5 text-zinc-100 shadow-md relative overflow-hidden select-none flex-1">
       
       {/* Estilos CSS dedicados para animação de ondas do combustível líquido e ultrassom */}
       <style>{`
@@ -255,13 +251,13 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
         }
         @keyframes ultrasonicPulse {
           0% { opacity: 0.2; transform: scale(0.9); }
-          50% { opacity: 0.8; transform: scale(1.05); }
+          50% { opacity: 0.7; transform: scale(1.05); }
           100% { opacity: 0.2; transform: scale(0.9); }
         }
         @keyframes bubbleFloat {
           0% { transform: translateY(0px) translateX(0px); opacity: 0; }
           40% { opacity: 0.7; }
-          100% { transform: translateY(-70px) translateX(6px); opacity: 0; }
+          100% { transform: translateY(-55px) translateX(5px); opacity: 0; }
         }
         .anim-wave-back {
           animation: tankWaveBack 7s ease-in-out infinite;
@@ -295,32 +291,32 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
       `}</style>
 
       {/* 2. MONITORAMENTO DO VEÍCULO (DESTINO) */}
-      <div className="flex items-center justify-between mb-1.5 pb-1.5 border-b border-stone-800">
+      <div className="flex items-center justify-between pb-1.5 border-b border-zinc-700/70">
         <div className="flex items-center space-x-2 min-w-0">
-          <div className="w-7 h-7 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
             <Truck className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
-              <h4 className="text-xs font-black text-blue-400 uppercase tracking-wider font-['Outfit'] truncate">
+              <h4 className="text-[11px] font-black text-blue-400 uppercase tracking-wider font-['Outfit'] truncate">
                 2. MONITORAMENTO DO VEÍCULO (DESTINO)
               </h4>
-              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-stone-800 text-stone-300 border border-stone-700 shrink-0">
+              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-zinc-900/80 text-zinc-300 border border-zinc-700 shrink-0">
                 Máquina
               </span>
             </div>
-            <p className="text-[11px] font-bold text-stone-200 truncate">
+            <p className="text-[11px] font-semibold text-zinc-200 truncate">
               {machinery ? (
                 <>
                   <span>{machinery.nome || machinery.name}</span>
                   {machinery.licensePlateOrSerial && (
-                    <span className="ml-1 text-[10px] font-mono font-bold px-1 rounded bg-stone-800 text-amber-300 border border-stone-700">
+                    <span className="ml-1 text-[10px] font-mono font-bold px-1 rounded bg-zinc-900 text-amber-300 border border-zinc-700">
                       {machinery.licensePlateOrSerial}
                     </span>
                   )}
                 </>
               ) : (
-                <span className="text-stone-400 italic">Selecione o veículo à esquerda</span>
+                <span className="text-zinc-400 italic">Selecione o veículo à esquerda</span>
               )}
             </p>
           </div>
@@ -329,18 +325,18 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
         {tankCapacity > 0 ? (
           <div className="flex items-center space-x-1 shrink-0">
             {liveKmPerLiter ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800 shadow-2xs">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                 {liveKmPerLiter.toFixed(2).replace('.', ',')} km/L
               </span>
             ) : null}
 
             {liveLitersPerHour ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800 shadow-2xs">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
                 {liveLitersPerHour.toFixed(2).replace('.', ',')} L/h
               </span>
             ) : null}
 
-            <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-stone-800 text-stone-300 border border-stone-700 shadow-2xs">
+            <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900/80 text-zinc-300 border border-zinc-700">
               <span>Cap:</span>
               <strong className="text-amber-400 font-mono">{tankCapacity} L</strong>
             </span>
@@ -349,36 +345,34 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
       </div>
 
       {/* CONTAINER DO TANQUE 3D COMPACTO */}
-      <div className="flex-1 flex flex-col items-center justify-center my-0.5 relative py-1">
+      <div className="flex flex-col items-center justify-center my-0.5 relative py-0.5">
         
         {/* Topo do Tanque: Bocal esquerdo + Sensor Ultrassônico + Respiro */}
-        <div className="w-full max-w-[260px] flex items-end justify-between px-6 h-4 relative z-20 pointer-events-none">
-          {/* Bocal esquerdo com tampa chanfrada */}
+        <div className="w-full max-w-[240px] flex items-end justify-between px-6 h-3 relative z-20 pointer-events-none">
           <div className="relative left-1 flex flex-col items-center">
-            <div className="w-5 h-2 bg-gradient-to-r from-zinc-300 via-zinc-100 to-zinc-400 dark:from-stone-600 dark:to-stone-700 rounded-t-xs shadow-xs border border-zinc-400/60" />
-            <div className="w-3.5 h-1 bg-zinc-400 dark:bg-stone-600" />
+            <div className="w-4 h-1.5 bg-gradient-to-r from-zinc-500 to-zinc-600 rounded-t-xs border border-zinc-500/60" />
+            <div className="w-3 h-0.5 bg-zinc-600" />
           </div>
 
-          {/* Sensor Ultrassônico central no topo */}
           <div className="relative -left-1 flex flex-col items-center">
-            <div className="w-7 h-2.5 bg-gradient-to-b from-zinc-800 via-zinc-900 to-zinc-950 rounded-t-xs shadow-xs border border-zinc-700/80 flex items-center justify-center">
-              <div className="w-3.5 h-0.5 bg-zinc-700/60 rounded-full" />
+            <div className="w-6 h-2 bg-gradient-to-b from-zinc-700 to-zinc-800 rounded-t-xs border border-zinc-600/80 flex items-center justify-center">
+              <div className="w-3 h-0.5 bg-zinc-500/60 rounded-full" />
             </div>
-            <div className="w-4 h-0.5 bg-zinc-800" />
           </div>
 
-          {/* Respiro secundário à direita */}
-          <div className="w-2.5 h-1 bg-zinc-300 dark:bg-stone-600 rounded-t-xs border border-zinc-400/40" />
+          <div className="w-2.5 h-1 bg-zinc-600 rounded-t-xs border border-zinc-500/40" />
         </div>
 
-        {/* CORPO DO TANQUE (Vidro Glassmorphism Compacto Escuro) */}
-        <div className={`w-full max-w-[260px] h-[120px] relative rounded-[18px] p-1 bg-gradient-to-br from-stone-900/90 via-stone-950/80 to-stone-900/90 border-2 ${
-          calculationResult.isOverflowing ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'border-stone-700/80 shadow-[0_10px_25px_-8px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1),inset_0_-1px_6px_rgba(0,0,0,0.4)]'
+        {/* CORPO DO TANQUE (Cinza Escuro Suave Glassmorphism) */}
+        <div className={`w-full max-w-[240px] h-[90px] relative rounded-[16px] p-1 bg-gradient-to-br from-zinc-900/85 via-zinc-800/75 to-zinc-900/85 border-2 ${
+          calculationResult.isOverflowing
+            ? 'border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
+            : 'border-zinc-600/80 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.35),inset_0_1px_2px_rgba(255,255,255,0.08)]'
         } overflow-hidden backdrop-blur-md flex flex-col justify-end transition-colors duration-500`}>
           
           {/* Ondas Ultrassônicas emitidas pelo sensor central */}
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-20 h-14 pointer-events-none z-15 flex flex-col items-center anim-ultrasonic opacity-40">
-            <svg viewBox="0 0 100 60" className="w-full h-full stroke-slate-500/70 dark:stroke-slate-300/60 fill-none" strokeWidth="2.5" strokeLinecap="round">
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-16 h-11 pointer-events-none z-15 flex flex-col items-center anim-ultrasonic opacity-35">
+            <svg viewBox="0 0 100 60" className="w-full h-full stroke-zinc-300/60 fill-none" strokeWidth="2.5" strokeLinecap="round">
               <path d="M 40 8 A 12 12 0 0 0 60 8" />
               <path d="M 30 18 A 24 24 0 0 0 70 18" />
               <path d="M 20 30 A 36 36 0 0 0 80 30" />
@@ -386,70 +380,59 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
             </svg>
           </div>
 
-          {/* Cinta 1: Braçadeira metálica vertical esquerda */}
-          <div className="absolute top-0 bottom-0 left-[22%] w-3.5 bg-gradient-to-r from-zinc-200/90 via-white to-zinc-300/90 dark:from-stone-600/90 dark:via-stone-500/90 dark:to-stone-700/90 shadow-[0_0_4px_rgba(0,0,0,0.12)] z-25 pointer-events-none border-x border-zinc-300/60 flex flex-col justify-between items-center py-1">
-            <div className="w-1.5 h-0.5 bg-zinc-400 dark:bg-stone-800 rounded-xs opacity-60" />
-            <div className="w-1.5 h-0.5 bg-zinc-400 dark:bg-stone-800 rounded-xs opacity-60" />
+          {/* Cintas metálicas verticais */}
+          <div className="absolute top-0 bottom-0 left-[22%] w-3 bg-gradient-to-r from-zinc-600/80 via-zinc-500/80 to-zinc-700/80 z-25 pointer-events-none border-x border-zinc-500/40 flex flex-col justify-between items-center py-1">
+            <div className="w-1.5 h-0.5 bg-zinc-800 rounded-xs opacity-60" />
+            <div className="w-1.5 h-0.5 bg-zinc-800 rounded-xs opacity-60" />
           </div>
 
-          {/* Cinta 2: Braçadeira metálica vertical direita */}
-          <div className="absolute top-0 bottom-0 right-[24%] w-3.5 bg-gradient-to-r from-zinc-200/90 via-white to-zinc-300/90 dark:from-stone-600/90 dark:via-stone-500/90 dark:to-stone-700/90 shadow-[0_0_4px_rgba(0,0,0,0.12)] z-25 pointer-events-none border-x border-zinc-300/60 flex flex-col justify-between items-center py-1">
-            <div className="w-1.5 h-0.5 bg-zinc-400 dark:bg-stone-800 rounded-xs opacity-60" />
-            <div className="w-1.5 h-0.5 bg-zinc-400 dark:bg-stone-800 rounded-xs opacity-60" />
+          <div className="absolute top-0 bottom-0 right-[24%] w-3 bg-gradient-to-r from-zinc-600/80 via-zinc-500/80 to-zinc-700/80 z-25 pointer-events-none border-x border-zinc-500/40 flex flex-col justify-between items-center py-1">
+            <div className="w-1.5 h-0.5 bg-zinc-800 rounded-xs opacity-60" />
+            <div className="w-1.5 h-0.5 bg-zinc-800 rounded-xs opacity-60" />
           </div>
 
-          {/* Brilhos especulares do vidro */}
-          <div className="absolute top-1 left-3 right-3 h-4 rounded-full bg-gradient-to-b from-white/80 to-transparent pointer-events-none z-20" />
-          <div className="absolute top-2 left-4 w-14 h-1.5 rounded-full bg-white/90 pointer-events-none z-20 blur-[0.5px]" />
+          {/* Brilhos especulares sutis */}
+          <div className="absolute top-1 left-3 right-3 h-3 rounded-full bg-gradient-to-b from-white/25 to-transparent pointer-events-none z-20" />
 
           {/* CAMADA DE COMBUSTÍVEL LÍQUIDO DINÂMICO */}
           {!hasNoTankCapacity && visualHeight > 0 && (
             <div 
-              className="w-full relative transition-all duration-700 ease-out z-10 overflow-hidden rounded-b-[18px]"
+              className="w-full relative transition-all duration-700 ease-out z-10 overflow-hidden rounded-b-[14px]"
               style={{ height: `${visualHeight}%` }}
             >
               {/* ONDAS SUPERIORES DA SUPERFÍCIE LÍQUIDA */}
-              <div className="absolute top-0 left-0 right-0 h-5 -translate-y-3 overflow-hidden pointer-events-none">
-                {/* Onda traseira */}
-                <div className="w-[200%] h-5 absolute top-0 left-0 anim-wave-back opacity-60">
+              <div className="absolute top-0 left-0 right-0 h-4 -translate-y-2.5 overflow-hidden pointer-events-none">
+                <div className="w-[200%] h-4 absolute top-0 left-0 anim-wave-back opacity-60">
                   <svg viewBox="0 0 800 100" preserveAspectRatio="none" className={`w-full h-full ${theme.waveBack} transition-colors duration-500`}>
                     <path d="M 0 50 Q 100 20, 200 50 T 400 50 T 600 50 T 800 50 L 800 100 L 0 100 Z" />
                   </svg>
                 </div>
-                {/* Onda frontal */}
-                <div className="w-[200%] h-5 absolute top-0 left-0 anim-wave-front opacity-95">
+                <div className="w-[200%] h-4 absolute top-0 left-0 anim-wave-front opacity-95">
                   <svg viewBox="0 0 800 100" preserveAspectRatio="none" className={`w-full h-full ${theme.waveFront} transition-colors duration-500`}>
                     <path d="M 0 50 Q 100 70, 200 50 T 400 50 T 600 50 T 800 50 L 800 100 L 0 100 Z" />
                   </svg>
                 </div>
               </div>
 
-              {/* Corpo do Líquido com Gradiente Dinâmico e Brilho */}
+              {/* Corpo do Líquido com Gradiente Dinâmico */}
               <div className={`w-full h-full bg-gradient-to-b ${theme.gradient} relative opacity-95 ${theme.glow} transition-colors duration-500 flex flex-col justify-end`}>
-                
-                {/* Linha divisória sutil indicando o nível_atual antes do novo abastecimento */}
                 {addedLiters > 0 && baseLevelHeight > 0 && baseLevelHeight < visualHeight && (
                   <div 
                     className="absolute left-0 right-0 border-t border-white/50 border-dashed pointer-events-none z-15"
                     style={{ bottom: `${(baseLevelHeight / visualHeight) * 100}%` }}
                   >
-                    <span className="absolute right-1 -top-3.5 text-[8px] font-bold text-white/90 drop-shadow-xs bg-black/40 px-1 rounded">
+                    <span className="absolute right-1 -top-3.5 text-[8px] font-bold text-white/95 bg-zinc-900/60 px-1 rounded">
                       Pré: {calculationResult.nivelAtual.toFixed(0)}L
                     </span>
                   </div>
                 )}
 
-                {/* Linha de reflexo dourado sob a superfície */}
                 <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-80" />
 
-                {/* Bolhas flutuantes */}
                 <span className="w-1 h-1 rounded-full bg-white/70 absolute bubble-1" />
                 <span className="w-1 h-1 rounded-full bg-white/60 absolute bubble-2" />
                 <span className="w-1.5 h-1.5 rounded-full bg-white/50 absolute bubble-3" />
                 <span className="w-1 h-1 rounded-full bg-white/70 absolute bubble-4" />
-
-                {/* Profundidade inferior */}
-                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
               </div>
             </div>
           )}
@@ -457,46 +440,43 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
           {/* NÚMERO CENTRAL DE PORCENTAGEM */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
             {hasNoTankCapacity ? (
-              <div className="flex flex-col items-center justify-center p-2 text-center bg-white/80 dark:bg-stone-900/80 rounded-lg backdrop-blur-xs border border-slate-200 dark:border-stone-700 max-w-[200px] shadow-xs">
-                <AlertCircle className="w-4 h-4 text-amber-500 mb-0.5" />
-                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-tight">
+              <div className="flex flex-col items-center justify-center p-1.5 text-center bg-zinc-900/85 rounded-lg backdrop-blur-xs border border-zinc-700 max-w-[190px]">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400 mb-0.5" />
+                <span className="text-[10px] font-bold text-zinc-200 leading-tight">
                   Capacidade Não Definida
                 </span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Defina a capacidade do tanque no cadastro
+                <span className="text-[9px] text-zinc-400">
+                  Defina no cadastro do veículo
                 </span>
               </div>
             ) : (
-              <div className="flex items-baseline select-none">
-                <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-800 dark:text-slate-100 font-['Outfit'] drop-shadow-[0_2px_4px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+              <div className="flex items-baseline select-none bg-zinc-900/65 px-2.5 py-0.5 rounded-xl backdrop-blur-[2px] border border-zinc-700/60">
+                <span className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-100 font-['Outfit']">
                   {Math.round(calculationResult.novoNivelPorcentagem)}
                 </span>
-                <span className="text-xl sm:text-2xl font-extrabold text-slate-700 dark:text-slate-200 ml-0.5 font-['Outfit'] drop-shadow-[0_2px_3px_rgba(255,255,255,0.9)] dark:drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]">
+                <span className="text-base sm:text-lg font-extrabold text-zinc-300 ml-0.5 font-['Outfit']">
                   %
                 </span>
               </div>
             )}
           </div>
-
-          {/* Brilho inferior da base */}
-          <div className="absolute bottom-0.5 left-6 right-6 h-1.5 rounded-full bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none z-20" />
         </div>
 
         {/* Pés de sustentação metálicos */}
-        <div className="w-full max-w-[260px] flex items-start justify-between px-12 h-2 relative z-10 pointer-events-none">
-          <div className="w-5 h-1.5 bg-gradient-to-b from-zinc-700 to-zinc-900 rounded-b-xs shadow-xs relative left-2 border-t border-zinc-600" />
-          <div className="w-5 h-1.5 bg-gradient-to-b from-zinc-700 to-zinc-900 rounded-b-xs shadow-xs relative -left-2 border-t border-zinc-600" />
+        <div className="w-full max-w-[240px] flex items-start justify-between px-12 h-1.5 relative z-10 pointer-events-none">
+          <div className="w-5 h-1.5 bg-zinc-700 rounded-b-xs relative left-2 border-t border-zinc-600" />
+          <div className="w-5 h-1.5 bg-zinc-700 rounded-b-xs relative -left-2 border-t border-zinc-600" />
         </div>
 
       </div>
 
       {/* PAINEL DE TELEMETRIA EM TEMPO REAL: 3 CARDS INFERIORES */}
-      <div className="mt-1 space-y-1.5">
+      <div className="pt-1.5 border-t border-zinc-700/70 space-y-1">
         {hasNoTankCapacity ? (
-          <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start space-x-1.5">
-            <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-[10px] text-amber-800 dark:text-amber-300 leading-snug">
-              <strong>Aviso:</strong> A capacidade deste veículo está zerada. Edite o veículo em <em>Gestão de Frotas &gt; Veículos</em> e preencha a <strong>Capacidade do Tanque (L)</strong>.
+          <div className="p-1.5 rounded-lg bg-zinc-900/70 border border-amber-500/30 flex items-start space-x-1.5">
+            <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-[10px] text-zinc-300 leading-snug">
+              <strong className="text-amber-400">Aviso:</strong> Capacidade zerada. Edite o veículo em <em>Gestão de Frotas &gt; Veículos</em> para informar a <strong>Capacidade do Tanque (L)</strong>.
             </div>
           </div>
         ) : (
@@ -504,49 +484,49 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
             {/* Grid dos 3 Cards: NÍVEL ATUAL, + ABASTECIDO, PROJEÇÃO / NOVO NÍVEL */}
             <div className="grid grid-cols-3 gap-1.5 text-center">
               
-              {/* Card 1: NÍVEL ATUAL - Reflete estritamente o valor que vem do banco de dados */}
-              <div className="p-1.5 rounded-lg bg-stone-800/90 border border-stone-700/80 shadow-2xs">
-                <span className="text-[9px] font-semibold text-stone-400 block uppercase">
+              {/* Card 1: NÍVEL ATUAL */}
+              <div className="py-1 px-1.5 rounded-lg bg-zinc-900/70 border border-zinc-700/80">
+                <span className="text-[9px] font-semibold text-zinc-400 block uppercase leading-tight">
                   Nível Atual
                 </span>
-                <span className="text-xs font-bold text-stone-200">
+                <span className="text-xs font-bold text-zinc-100 leading-tight">
                   {nivelAtual.toFixed(0)} L
                 </span>
-                <span className="text-[9px] text-stone-400 block font-mono">
+                <span className="text-[9px] text-zinc-400 block font-mono leading-tight">
                   ({Math.round(nivelAtualPorcentagem)}%)
                 </span>
               </div>
 
-              {/* Card 2: + ABASTECIDO - Exatamente os litros digitados pelo usuário */}
-              <div className="p-1.5 rounded-lg bg-amber-950/40 border border-amber-600/50 shadow-2xs">
-                <span className="text-[9px] font-semibold text-amber-400 block uppercase">
+              {/* Card 2: + ABASTECIDO */}
+              <div className="py-1 px-1.5 rounded-lg bg-amber-500/10 border border-amber-500/35">
+                <span className="text-[9px] font-semibold text-amber-400 block uppercase leading-tight">
                   + Abastecido
                 </span>
-                <span className="text-xs font-bold text-amber-300">
+                <span className="text-xs font-bold text-amber-300 leading-tight">
                   {addedLiters > 0 ? `+${addedLiters.toFixed(1)} L` : '--'}
                 </span>
-                <span className="text-[9px] text-amber-400/80 block font-mono">
+                <span className="text-[9px] text-amber-400/80 block font-mono leading-tight">
                   {addedLiters > 0 ? `+${Math.round(adicionadoPorcentagem)}%` : '0 L'}
                 </span>
               </div>
 
-              {/* Card 3: PROJEÇÃO - Soma matemática exata (Nível Atual + Litros Digitados) */}
-              <div className={`p-1.5 rounded-lg border shadow-2xs ${
+              {/* Card 3: PROJEÇÃO */}
+              <div className={`py-1 px-1.5 rounded-lg border ${
                 isOverflowing
-                  ? 'bg-rose-950/50 border-rose-600/60'
-                  : 'bg-emerald-950/50 border-emerald-600/60'
+                  ? 'bg-rose-500/15 border-rose-500/40'
+                  : 'bg-emerald-500/10 border-emerald-500/35'
               }`}>
-                <span className={`text-[9px] font-semibold block uppercase ${
+                <span className={`text-[9px] font-semibold block uppercase leading-tight ${
                   isOverflowing ? 'text-rose-400' : 'text-emerald-400'
                 }`}>
                   Projeção Real
                 </span>
-                <span className={`text-xs font-bold ${
+                <span className={`text-xs font-bold leading-tight ${
                   isOverflowing ? 'text-rose-300' : 'text-emerald-300'
                 }`}>
                   {projecaoLiters.toFixed(0)} L
                 </span>
-                <span className={`text-[9px] block font-mono ${
+                <span className={`text-[9px] block font-mono leading-tight ${
                   isOverflowing ? 'text-rose-400' : 'text-emerald-400'
                 }`}>
                   ({Math.round(projecaoPorcentagem)}%)
@@ -556,9 +536,9 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
 
             {/* Primeiro Abastecimento: Projeção direta dos litros abastecidos */}
             {isFirstRecordEffective && !isOverflowing && (
-              <div className="p-1.5 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-[10px] text-amber-900 dark:text-amber-200 flex items-center justify-between shadow-2xs">
+              <div className="px-2 py-1 rounded-md bg-zinc-900/60 border border-zinc-700/70 text-[10px] text-zinc-400 flex items-center justify-between">
                 <span className="flex items-center space-x-1.5">
-                  <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
                   <span>
                     Registro inicial: Nível base 0L (Projeção = Litros abastecidos).
                   </span>
@@ -566,11 +546,11 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
               </div>
             )}
 
-            {/* Detalhe do Cálculo de Médias em Tempo Real (Sómente após digitar os litros) */}
+            {/* Detalhe do Cálculo de Médias em Tempo Real */}
             {addedLiters > 0 && (deltaH > 0 || deltaK > 0) && (
-              <div className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-[10px] text-sky-900 dark:text-sky-200 flex items-center justify-between shadow-2xs animate-in fade-in">
+              <div className="px-2 py-1 rounded-md bg-zinc-900/70 border border-sky-500/30 text-[10px] text-sky-200 flex items-center justify-between animate-in fade-in">
                 <span className="flex items-center space-x-1">
-                  <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                  <CheckCircle2 className="w-3 h-3 text-sky-400 shrink-0" />
                   <span>
                     {deltaH > 0 ? (
                       <>Trabalho: <strong>Δ {deltaH.toFixed(1)} h</strong></>
@@ -579,7 +559,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
                     )}
                   </span>
                 </span>
-                <span className="font-bold text-sky-700 dark:text-sky-300 font-mono">
+                <span className="font-bold text-sky-300 font-mono">
                   {deltaH > 0 ? (
                     `Média: ${(addedLiters / deltaH).toFixed(2).replace('.', ',')} L/h`
                   ) : (
@@ -591,18 +571,18 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
 
             {/* Aviso de Transbordo / Capacidade Excedida */}
             {calculationResult.isOverflowing && (
-              <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-[10px] text-rose-800 dark:text-rose-300 flex items-center space-x-1 animate-pulse">
-                <ShieldAlert className="w-3 h-3 shrink-0 text-rose-600" />
+              <div className="px-2 py-1 rounded-md bg-rose-500/15 border border-rose-500/40 text-[10px] text-rose-300 flex items-center space-x-1 animate-pulse">
+                <ShieldAlert className="w-3 h-3 shrink-0 text-rose-400" />
                 <span>
-                  <strong>Atenção:</strong> Abastecimento ultrapassa o tanque ({calculationResult.capacidadeTanque} L). Excesso: <strong>+{calculationResult.excessoLitros.toFixed(1)} L</strong>.
+                  <strong>Atenção:</strong> Excede o tanque ({calculationResult.capacidadeTanque} L) em <strong>+{calculationResult.excessoLitros.toFixed(1)} L</strong>.
                 </span>
               </div>
             )}
 
             {/* Alerta de Reserva Crítica */}
             {calculationResult.isReserve && !calculationResult.isOverflowing && (
-              <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-[10px] text-rose-700 dark:text-rose-300 flex items-center space-x-1">
-                <Droplets className="w-3 h-3 shrink-0 text-rose-500" />
+              <div className="px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-300 flex items-center space-x-1">
+                <Droplets className="w-3 h-3 shrink-0 text-rose-400" />
                 <span>Veículo na reserva ({calculationResult.nivelAtual.toFixed(0)}L restantes).</span>
               </div>
             )}
