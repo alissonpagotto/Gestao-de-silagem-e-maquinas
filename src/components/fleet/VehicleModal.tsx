@@ -359,9 +359,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
   // Helper to compile the active/current vehicle object (merging form fields or editingVehicle)
   const buildCurrentVehicleSnapshot = (): Machinery => {
-    const formattedModel = (model.trim() || plate.trim() || fleetNumber.trim() || serialNumber.trim() || 'Veículo / Equipamento').toUpperCase();
-    const formattedBrand = (brand.trim() || 'Agrícola').toUpperCase();
-    const formattedName = `${formattedBrand} ${formattedModel}`.trim();
+    const formattedModel = (model.trim() || plate.trim() || fleetNumber.trim() || serialNumber.trim() || 'Veículo / Equipamento').toUpperCase().replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+    const formattedBrand = brand.trim() ? brand.trim().toUpperCase().replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim() : '';
+    const formattedName = (formattedBrand ? `${formattedBrand} ${formattedModel}` : formattedModel).trim();
 
     const selectedEmpObjects = activeEmployees.filter(emp => selectedDriverIds.includes(emp.id));
     const assignedNames = selectedEmpObjects.map(emp => emp.name);
@@ -1027,9 +1027,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       return;
     }
 
-    const formattedModel = (model.trim() || plate.trim() || fleetNumber.trim() || serialNumber.trim()).toUpperCase();
-    const formattedBrand = (brand.trim() || 'Agrícola').toUpperCase();
-    const formattedName = `${formattedBrand} ${formattedModel}`.trim();
+    const formattedModel = (model.trim() || plate.trim() || fleetNumber.trim() || serialNumber.trim()).toUpperCase().replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+    const formattedBrand = brand.trim() ? brand.trim().toUpperCase().replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim() : '';
+    const formattedName = (formattedBrand ? `${formattedBrand} ${formattedModel}` : formattedModel).trim();
 
     // Compile driver names
     const selectedEmpObjects = activeEmployees.filter(emp => selectedDriverIds.includes(emp.id));

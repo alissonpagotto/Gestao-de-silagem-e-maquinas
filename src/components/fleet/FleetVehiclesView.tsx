@@ -747,10 +747,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                           </div>
 
                           <div className="font-bold text-stone-900 dark:text-stone-100 uppercase text-xs sm:text-sm leading-tight break-words">
-                            {(vehicle.model || vehicle.name || '').toUpperCase()}
+                            {(vehicle.model || vehicle.name || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim().toUpperCase()}
                           </div>
                           <div className="text-[11px] text-stone-700 dark:text-stone-300 flex flex-wrap items-center gap-1 mt-0.5 uppercase">
-                            <span className="font-semibold">{(vehicle.brand || 'Agrícola').toUpperCase()}</span>
+                            {vehicle.brand && <span className="font-semibold">{vehicle.brand.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim().toUpperCase()}</span>}
                             {vehicle.year && <span className="normal-case font-medium">• Ano {vehicle.year}</span>}
                           </div>
 

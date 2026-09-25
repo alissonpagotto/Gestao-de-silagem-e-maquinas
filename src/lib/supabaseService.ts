@@ -16,9 +16,10 @@ import {
   ServiceAppointment,
   TerminationRecord,
   DocumentoEntradaRecord,
-  DocumentoEntradaItem
+  DocumentoEntradaItem,
+  TanqueCombustivel
 } from '../types';
-export type { CompanyProfile, DocumentoEntradaRecord, DocumentoEntradaItem };
+export type { CompanyProfile, DocumentoEntradaRecord, DocumentoEntradaItem, TanqueCombustivel };
 import {
   SiteConfig,
   PlanDefinition,
@@ -37,7 +38,10 @@ import {
   getStoredDocumentosEntradaItens,
   saveStoredDocumentosEntradaItens,
   saveLocalDocumentoEntradaItem,
-  deleteLocalDocumentoEntradaItem
+  deleteLocalDocumentoEntradaItem,
+  getStoredTanquesCombustivel,
+  saveStoredTanquesCombustivel,
+  DEFAULT_TANQUES_COMBUSTIVEL
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -2125,13 +2129,19 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       const rawPhoto = row.foto_url || row.fotoUrl || row.imageUrl;
       const validPhoto = (rawPhoto && !rawPhoto.includes('/_upload/') && !rawPhoto.includes('/upload/')) ? rawPhoto : undefined;
 
+      // Sanitiza nome removendo permanentemente o prefixo fixo 'AGRÍCOLA'
+      const rawNome = row.nome || row.name || '';
+      const cleanNome = rawNome.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+      const rawModel = row.modelo || row.model || '';
+      const cleanModel = rawModel.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+
       return {
         ...row,
         id: row.id,
-        name: row.nome || row.name || 'Veículo',
-        nome: row.nome || row.name || 'Veículo',
-        model: row.modelo || row.model || '',
-        modelo: row.modelo || row.model || '',
+        name: cleanNome || cleanModel || 'Veículo',
+        nome: cleanNome || cleanModel || 'Veículo',
+        model: cleanModel,
+        modelo: cleanModel,
         categoryType: row.tipo || row.type || 'veiculo',
         tipo: row.tipo || row.type || 'veiculo',
         controla_por: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
@@ -2389,12 +2399,17 @@ if (typeof window !== 'undefined') {
  * Converte qualquer linha de banco de dados (esquemas em português ou inglês) para FuelLog padronizado
  */
 export function mapRowToFuelLog(row: any): FuelLog {
+  const rawPlateOrName = row.placa_ou_nome || row.placa || row.veiculo_nome || row.machinery_plate_or_name || '';
+  const cleanPlateOrName = rawPlateOrName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+  const rawVName = row.veiculo_nome || row.vehicle_name || '';
+  const cleanVName = rawVName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+
   return {
     id: String(row.id || `fuel_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`),
     date: row.data || row.date || new Date().toISOString().split('T')[0],
     machineryId: row.veiculo_id || row.machinery_id || row.veiculo || '',
-    machineryPlateOrName: row.placa_ou_nome || row.placa || row.veiculo_nome || row.machinery_plate_or_name || '',
-    vehicleName: row.veiculo_nome || row.vehicle_name || '',
+    machineryPlateOrName: cleanPlateOrName,
+    vehicleName: cleanVName,
     vehiclePlate: row.placa || row.vehicle_plate || '',
     fuelType: row.tipo_combustivel || row.combustivel || row.fuel_type || 'Diesel S10',
     liters: Number(row.litros ?? row.liters ?? row.quantidade ?? 0),
@@ -2411,6 +2426,9 @@ export function mapRowToFuelLog(row: any): FuelLog {
     averageLitersPerHour: row.media_lh !== undefined && row.media_lh !== null ? Number(row.media_lh) : (row.average_liters_per_hour ? Number(row.average_liters_per_hour) : undefined),
     driverOrOperator: row.motorista || row.operador || row.driver_or_operator || '',
     supplierStation: row.posto || row.fornecedor || row.supplier_station || 'Tanque da Fazenda',
+    tanque_id: row.tanque_id || row.tanqueId || undefined,
+    tanqueId: row.tanque_id || row.tanqueId || undefined,
+    tanqueNome: row.tanque_nome || row.tanqueNome || undefined,
     notes: row.observacoes || row.notes || '',
     fuelOrigin: row.origem_combustivel || row.fuel_origin || (row.posto && row.posto.toLowerCase().includes('viagem') ? 'Posto de Viagem (Pago na Hora)' : (row.posto && !row.posto.toLowerCase().includes('tanque') && !row.posto.toLowerCase().includes('fazenda') ? 'Posto Conveniado (Faturado)' : 'Tanque Interno (Fazenda)')),
     paymentMethod: row.forma_pagamento || row.payment_method || undefined,
@@ -2514,6 +2532,7 @@ export async function upsertAbastecimento(
     posto: log.supplierStation || 'Tanque da Fazenda',
     observacoes: log.notes || '',
     origem_combustivel: log.fuelOrigin || 'Tanque Interno (Fazenda)',
+    tanque_id: log.tanque_id || log.tanqueId || null,
     forma_pagamento: log.paymentMethod || null,
     conta_bancaria_id: log.bankAccountId || null,
     data_vencimento: log.dueDate || null,
@@ -2552,6 +2571,11 @@ export async function upsertAbastecimento(
     }
 
     if (!error) {
+      if ((log.tanque_id || log.tanqueId) && log.liters > 0) {
+        subtrairCombustivelTanque(log.tanque_id || log.tanqueId!, Number(log.liters) || 0).catch(tErr => {
+          console.warn('[tanques_combustivel] Subtração automática:', tErr);
+        });
+      }
       return { success: true, tableName };
     }
 
@@ -2585,7 +2609,14 @@ export async function upsertAbastecimento(
     // Fallback com upsert
     if (attempts === 1) {
       const fallback = await supabase.from(tableName).upsert(payload);
-      if (!fallback.error) return { success: true, tableName };
+      if (!fallback.error) {
+        if ((log.tanque_id || log.tanqueId) && log.liters > 0) {
+          subtrairCombustivelTanque(log.tanque_id || log.tanqueId!, Number(log.liters) || 0).catch(tErr => {
+            console.warn('[tanques_combustivel] Subtração automática fallback:', tErr);
+          });
+        }
+        return { success: true, tableName };
+      }
     }
 
     console.warn(`[Supabase Abastecimento] Aviso ao persistir na tabela "${tableName}":`, msg);
@@ -2593,6 +2624,116 @@ export async function upsertAbastecimento(
   }
 
   return { success: false, tableName };
+}
+
+/**
+ * Busca a lista dinâmica de tanques de combustível cadastrados na tabela 'public.tanques_combustivel' do Supabase.
+ * Retorna os tanques com suporte a fallback local resiliente.
+ */
+export async function fetchTanquesCombustivel(companyId?: string): Promise<TanqueCombustivel[]> {
+  const localList = getStoredTanquesCombustivel();
+  if (!isSupabaseConfigured) return localList;
+
+  try {
+    const cId = companyId || getActiveCompanyId();
+    let query = supabase.from('tanques_combustivel').select('*');
+    if (cId) {
+      query = query.or(`company_id.eq.${cId},company_id.is.null`);
+    }
+
+    const { data, error } = await query.order('nome', { ascending: true });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const mapped: TanqueCombustivel[] = data.map((row: any) => ({
+        id: String(row.id),
+        nome: String(row.nome || 'Tanque de Combustível'),
+        tipo_combustivel: String(row.tipo_combustivel || row.tipo || 'Diesel S10'),
+        capacidade_total: Number(row.capacidade_total ?? row.capacidade ?? 15000),
+        quantidade_atual: Number(row.quantidade_atual ?? row.quantidade ?? 0),
+        localizacao: row.localizacao || '',
+        company_id: row.company_id || undefined,
+        created_at: row.created_at || undefined,
+        updated_at: row.updated_at || undefined,
+      }));
+      saveStoredTanquesCombustivel(mapped);
+      return mapped;
+    }
+
+    // Se a tabela existe mas está vazia, tenta inserir os tanques padrão
+    if (!error && Array.isArray(data) && data.length === 0) {
+      try {
+        await supabase.from('tanques_combustivel').insert(DEFAULT_TANQUES_COMBUSTIVEL);
+      } catch (seedErr) {
+        console.warn('Seed tanques_combustivel notice:', seedErr);
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetchTanquesCombustivel aviso:', err);
+  }
+
+  return localList;
+}
+
+/**
+ * Subtrai a quantidade de 'Litros Abastecidos' diretamente da coluna 'quantidade_atual'
+ * da tabela 'tanques_combustivel' correspondente ao ID do tanque escolhido.
+ */
+export async function subtrairCombustivelTanque(
+  tanqueId: string, 
+  litrosSubtrair: number
+): Promise<{ success: boolean; novaQuantidade?: number; error?: any }> {
+  if (!tanqueId || isNaN(litrosSubtrair) || litrosSubtrair <= 0) {
+    return { success: false, error: 'Parâmetros inválidos para baixa em tanque' };
+  }
+
+  // 1. Atualização imediata no storage local
+  const currentList = getStoredTanquesCombustivel();
+  let novaQtdLocal = 0;
+  const updatedList = currentList.map(t => {
+    if (t.id === tanqueId) {
+      novaQtdLocal = Math.max(0, Number(((t.quantidade_atual || 0) - litrosSubtrair).toFixed(2)));
+      return { ...t, quantidade_atual: novaQtdLocal, updated_at: new Date().toISOString() };
+    }
+    return t;
+  });
+  saveStoredTanquesCombustivel(updatedList);
+
+  if (!isSupabaseConfigured) {
+    return { success: true, novaQuantidade: novaQtdLocal };
+  }
+
+  try {
+    // 2. Busca saldo recente do banco
+    const { data, error } = await supabase
+      .from('tanques_combustivel')
+      .select('id, quantidade_atual, capacidade_total')
+      .eq('id', tanqueId)
+      .maybeSingle();
+
+    let saldoDb = novaQtdLocal;
+    if (!error && data && data.quantidade_atual !== undefined && data.quantidade_atual !== null) {
+      saldoDb = Math.max(0, Number((Number(data.quantidade_atual) - litrosSubtrair).toFixed(2)));
+    }
+
+    // 3. Atualiza na tabela 'tanques_combustivel'
+    const updateRes = await supabase
+      .from('tanques_combustivel')
+      .update({
+        quantidade_atual: saldoDb,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', tanqueId);
+
+    if (updateRes.error) {
+      console.warn('Aviso ao subtrair litros da tabela tanques_combustivel:', updateRes.error);
+      return { success: false, error: updateRes.error, novaQuantidade: novaQtdLocal };
+    }
+
+    return { success: true, novaQuantidade: saldoDb };
+  } catch (err) {
+    console.warn('Exceção ao subtrair combustível do tanque:', err);
+    return { success: true, novaQuantidade: novaQtdLocal };
+  }
 }
 
 /**

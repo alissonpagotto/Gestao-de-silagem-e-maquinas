@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar } from 'lucide-react';
-import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin } from '../../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkles, Droplets, Building2, CreditCard, Wallet, Calendar, ChevronDown, Search, Check, Warehouse } from 'lucide-react';
+import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin, TanqueCombustivel } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
+import { TanqueIndustrialVisualizer } from './TanqueIndustrialVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { fetchGestaoFrotas, fetchCloudFuelLogs } from '../../lib/supabaseService';
-import { getStoredSuppliers, getStoredBankAccounts, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
+import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, subtrairCombustivelTanque } from '../../lib/supabaseService';
+import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -42,6 +43,18 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [dbMachineries, setDbMachineries] = useState<Machinery[]>([]);
   const [dbFuelLogs, setDbFuelLogs] = useState<FuelLog[]>([]);
 
+  // Tanques de Combustível da Fazenda carregados da tabela 'tanques_combustivel'
+  const [tanques, setTanques] = useState<TanqueCombustivel[]>(() => getStoredTanquesCombustivel());
+  const [selectedTanqueId, setSelectedTanqueId] = useState<string>(() => {
+    const list = getStoredTanquesCombustivel();
+    return list[0]?.id || 'tanque_diesel_s10';
+  });
+
+  // Estado para o dropdown customizado de veículos com busca
+  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
+  const [vehicleSearchText, setVehicleSearchText] = useState('');
+  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+
   // Listas de Fornecedores e Contas Bancárias com fallback para o storage local
   const availableSuppliers = useMemo(() => {
     if (propSuppliers && propSuppliers.length > 0) return propSuppliers;
@@ -54,6 +67,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   }, [propBankAccounts]);
 
   // Lista unificada de veículos (prioriza dados atualizados do banco mantendo props locais de fallback)
+  // Remove permanentemente o prefixo fixo 'AGRÍCOLA' que aparece na frente das máquinas
   const availableMachineries = useMemo(() => {
     let list: Machinery[] = propMachineries;
     if (dbMachineries.length > 0) {
@@ -63,12 +77,21 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       dbMachineries.forEach(m => map.set(m.id, { ...(map.get(m.id) || {}), ...m }));
       list = Array.from(map.values());
     }
-    return list.map((v) => ({
-      ...v,
-      nome: v.nome || (v.licensePlateOrSerial 
-        ? `[${v.licensePlateOrSerial}] ${v.brand ? `${v.brand} ` : ''}${v.model || v.name || 'Veículo'}`
-        : (v.brand ? `${v.brand} ` : '') + (v.model || v.name || 'Veículo'))
-    }));
+    return list.map((v) => {
+      const cleanRawNome = (v.nome || v.name || v.model || 'Veículo').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+      const cleanRawModel = (v.model || v.modelo || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+      const cleanBrand = (v.brand || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+      const plate = v.licensePlateOrSerial || (v as any).placa || (v as any).placa_ou_serie || '';
+      return {
+        ...v,
+        name: cleanRawNome,
+        nome: cleanRawNome,
+        model: cleanRawModel,
+        modelo: cleanRawModel,
+        brand: cleanBrand,
+        licensePlateOrSerial: plate,
+      };
+    });
   }, [propMachineries, dbMachineries]);
 
   const activeFuelLogs = useMemo(() => {
@@ -132,6 +155,19 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       } catch {
         // Fallback silencioso mantendo histórico de abastecimentos das props
       }
+
+      try {
+        const fetchedTanques = await fetchTanquesCombustivel();
+        if (fetchedTanques && fetchedTanques.length > 0 && isMounted) {
+          setTanques(fetchedTanques);
+          setSelectedTanqueId(prev => {
+            if (prev && fetchedTanques.some(t => t.id === prev)) return prev;
+            return fetchedTanques[0].id;
+          });
+        }
+      } catch (err) {
+        console.warn('Busca HTTP tanques_combustivel com fallback local:', err);
+      }
     };
 
     loadGestaoFrotasHttp();
@@ -140,6 +176,39 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       isMounted = false;
     };
   }, [isOpen]);
+
+  // Tanque Selecionado
+  const selectedTanque = useMemo(() => {
+    return tanques.find(t => t.id === selectedTanqueId) || tanques[0] || null;
+  }, [tanques, selectedTanqueId]);
+
+  // Filtro de busca para dropdown de veículos
+  const filteredVehicles = useMemo(() => {
+    if (!vehicleSearchText.trim()) return availableMachineries;
+    const term = vehicleSearchText.toLowerCase();
+    return availableMachineries.filter(v => 
+      (v.nome || '').toLowerCase().includes(term) ||
+      (v.model || '').toLowerCase().includes(term) ||
+      (v.brand || '').toLowerCase().includes(term) ||
+      (v.licensePlateOrSerial || '').toLowerCase().includes(term) ||
+      (v.operatorOrDriver || '').toLowerCase().includes(term)
+    );
+  }, [availableMachineries, vehicleSearchText]);
+
+  // Fecha o dropdown de veículo ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) {
+        setIsVehicleDropdownOpen(false);
+      }
+    };
+    if (isVehicleDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isVehicleDropdownOpen]);
 
   // Veículo Selecionado
   const selectedMachinery = useMemo(() => {
@@ -565,8 +634,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       tankCapacity: latestCalculation ? latestCalculation.capacidadeTanque : undefined,
       driverOrOperator: driverOrOperator.trim(),
       fuelOrigin,
+      tanque_id: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanqueId || tanques[0]?.id) : undefined,
+      tanqueId: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanqueId || tanques[0]?.id) : undefined,
+      tanqueNome: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.nome || 'Tanque da Fazenda') : undefined,
       supplierStation: fuelOrigin === 'Tanque Interno (Fazenda)'
-        ? 'Tanque da Fazenda'
+        ? (selectedTanque?.nome || 'Tanque da Fazenda')
         : (supplierStation.trim() || (fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem')),
       supplierId: selectedSupplier ? selectedSupplier.id : undefined,
       paymentMethod: fuelOrigin === 'Posto de Viagem (Pago na Hora)'
@@ -585,6 +657,14 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
     (log as any).km_atual = !isNaN(currK) && currK > 0 ? currK : undefined;
     (log as any).horas_atual = !isNaN(currH) && currH > 0 ? currH : undefined;
+
+    // Se for abastecido do Tanque Interno da Fazenda, subtrai a quantidade de litros diretamente da tabela 'tanques_combustivel'
+    if (fuelOrigin === 'Tanque Interno (Fazenda)' && (selectedTanqueId || tanques[0]?.id) && l > 0) {
+      const tId = selectedTanqueId || tanques[0]?.id;
+      subtrairCombustivelTanque(tId, l).catch(err => {
+        console.warn('Erro ao subtrair litros de tanques_combustivel:', err);
+      });
+    }
 
     onSave(log, createExpense && !editingLog);
     onClose();
@@ -630,14 +710,130 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                 
                 {/* 1. Veículo / Máquina e Data do Abastecimento */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
+                  <div className="relative" ref={vehicleDropdownRef}>
                     <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-0.5">
                       Veículo / Máquina <span className="text-rose-500">*</span>
                     </label>
+
+                    {/* Botão Seletor Customizado do Veículo */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVehicleDropdownOpen(prev => !prev);
+                        setVehicleSearchText('');
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs flex items-center justify-between transition cursor-pointer"
+                    >
+                      <div className="flex-1 min-w-0 pr-1.5">
+                        {selectedMachinery ? (
+                          <div>
+                            {/* Nome da Máquina + PLACA em destaque */}
+                            <div className="flex items-center space-x-1.5 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm text-stone-900 dark:text-stone-100 truncate">
+                                {selectedMachinery.nome}
+                              </span>
+                              {selectedMachinery.licensePlateOrSerial && (
+                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shrink-0">
+                                  {selectedMachinery.licensePlateOrSerial}
+                                </span>
+                              )}
+                            </div>
+                            {/* Logo abaixo em texto menor secundário: Motorista/Operador associado */}
+                            <div className="text-[10px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                              👤 Motorista / Operador: <strong className="font-semibold text-stone-700 dark:text-stone-300">{selectedMachinery.operatorOrDriver ? selectedMachinery.operatorOrDriver.split(',')[0].trim() : 'Sem operador associado'}</strong>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-stone-400 text-xs sm:text-sm">Selecione o veículo...</span>
+                        )}
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-stone-400 shrink-0 transition-transform duration-200 ${isVehicleDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Popover de Opções de Veículos com Filtro de Busca */}
+                    {isVehicleDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {/* Campo de Pesquisa Rápida */}
+                        <div className="p-2 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-850 flex items-center space-x-1.5">
+                          <Search className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          <input
+                            type="text"
+                            value={vehicleSearchText}
+                            onChange={(e) => setVehicleSearchText(e.target.value)}
+                            placeholder="Buscar máquina, placa ou operador..."
+                            className="w-full bg-transparent text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-none"
+                            autoFocus
+                          />
+                          {vehicleSearchText && (
+                            <button
+                              type="button"
+                              onClick={() => setVehicleSearchText('')}
+                              className="text-stone-400 hover:text-stone-600 text-[10px]"
+                            >
+                              Limpar
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Lista com Rolagem */}
+                        <div className="max-h-56 overflow-y-auto divide-y divide-stone-100 dark:divide-stone-700/50">
+                          {filteredVehicles.length === 0 ? (
+                            <div className="p-3 text-center text-xs text-stone-400">
+                              Nenhuma máquina encontrada.
+                            </div>
+                          ) : (
+                            filteredVehicles.map((v) => {
+                              const isSelected = v.id === machineryId;
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleSelecaoVeiculo(v.id);
+                                    setIsVehicleDropdownOpen(false);
+                                  }}
+                                  className={`w-full text-left p-2.5 transition flex items-center justify-between cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500'
+                                      : 'hover:bg-stone-50 dark:hover:bg-stone-750'
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0 pr-2">
+                                    {/* Nome da Máquina + Placa em Destaque */}
+                                    <div className="flex items-center space-x-1.5 flex-wrap">
+                                      <span className={`text-xs sm:text-sm font-bold truncate ${isSelected ? 'text-amber-900 dark:text-amber-200' : 'text-stone-900 dark:text-stone-100'}`}>
+                                        {v.nome}
+                                      </span>
+                                      {v.licensePlateOrSerial && (
+                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-stone-100 dark:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-600 shrink-0">
+                                          {v.licensePlateOrSerial}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Texto menor secundário: Motorista/Operador associado */}
+                                    <div className="text-[10px] text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                                      👤 Motorista / Operador: <span className="font-medium text-stone-600 dark:text-stone-300">{v.operatorOrDriver ? v.operatorOrDriver.split(',')[0].trim() : 'Sem operador associado'}</span>
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <Check className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Select nativo oculto para sincronização e acessibilidade */}
                     <select
+                      id="select-veiculo-maquina"
                       value={machineryId}
                       onChange={(e) => handleSelecaoVeiculo(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 pointer-events-auto cursor-pointer"
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
                     >
                       <option value="">Selecione o veículo...</option>
                       {availableMachineries.map((v) => (
@@ -933,13 +1129,49 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                   {/* CASO 1: Tanque Interno da Fazenda */}
                   {fuelOrigin === 'Tanque Interno (Fazenda)' && (
-                    <div className="py-2 px-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-start space-x-2">
-                      <span className="text-base shrink-0 mt-0.5">🚜</span>
-                      <div className="text-[11px] leading-snug">
-                        <strong className="block font-bold">Tanque Interno da Fazenda (Estoque Próprio)</strong>
-                        <span className="text-emerald-800/90 dark:text-emerald-300/90">
-                          Realiza baixa automática de litros no estoque de combustível e distribui o custo no DRE do veículo. No financeiro, não gera dívida pendente (consta como compensado pelo estoque).
-                        </span>
+                    <div className="space-y-2 pt-1 border-t border-stone-200 dark:border-stone-700/60">
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-0.5 flex items-center space-x-1.5">
+                          <Warehouse className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Tanque da Fazenda (Tabela tanques_combustivel) <span className="text-rose-500">*</span></span>
+                        </label>
+                        <select
+                          id="select-tanque-combustivel"
+                          value={selectedTanqueId}
+                          onChange={(e) => {
+                            const tId = e.target.value;
+                            setSelectedTanqueId(tId);
+                            const t = tanques.find(item => item.id === tId);
+                            if (t) {
+                              setSupplierStation(t.nome);
+                              if (t.tipo_combustivel?.toLowerCase().includes('s500')) {
+                                setFuelType('Diesel Comum');
+                              } else if (t.tipo_combustivel?.toLowerCase().includes('s10')) {
+                                setFuelType('Diesel S10');
+                              }
+                            }
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-amber-400 dark:border-amber-700 bg-amber-50/40 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs cursor-pointer"
+                        >
+                          {tanques.map((t) => {
+                            const pct = t.capacidade_total > 0 ? ((t.quantidade_atual / t.capacidade_total) * 100).toFixed(1) : '0.0';
+                            return (
+                              <option key={t.id} value={t.id}>
+                                {t.nome} - Saldo: {t.quantidade_atual.toLocaleString('pt-BR')} L / {t.capacidade_total.toLocaleString('pt-BR')} L ({pct}%)
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div className="py-2 px-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-start space-x-2">
+                        <span className="text-base shrink-0 mt-0.5">🚜</span>
+                        <div className="text-[11px] leading-snug">
+                          <strong className="block font-bold">Tanque Selecionado: {selectedTanque?.nome || 'Principal'}</strong>
+                          <span className="text-emerald-800/90 dark:text-emerald-300/90">
+                            Subtrai os litros abastecidos diretamente da coluna <code className="font-mono bg-emerald-100/80 dark:bg-emerald-900/60 px-1 rounded">quantidade_atual</code> da tabela <code className="font-mono bg-emerald-100/80 dark:bg-emerald-900/60 px-1 rounded">tanques_combustivel</code> e salva o <code className="font-mono bg-emerald-100/80 dark:bg-emerald-900/60 px-1 rounded">tanque_id</code> no registro. No financeiro, não gera dívida pendente (compensado pelo estoque).
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1165,21 +1397,41 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
             {/* Visualizador do Tanque à Direita (Compactado e sem rolagem) */}
             <div className="lg:col-span-5 lg:sticky lg:top-0">
-              <FuelTankVisualizer 
-                machinery={selectedMachinery}
-                dbTankLevel={dbTankLevel}
-                addedLitersInput={liters}
-                currentHourMeterInput={currentHourMeter}
-                previousHourMeterInput={previousHourMeter}
-                currentKmInput={currentKm}
-                previousKmInput={previousKm}
-                liveLitersPerHour={calculatedMetrics.litersPerHour}
-                liveKmPerLiter={calculatedMetrics.kmPerLiter}
-                historicalAvgLitersPerHour={historicalAvgLitersPerHour}
-                historicalAvgKmPerLiter={historicalAvgKmPerLiter}
-                isFirstRecord={isFirstRecord}
-                onCalculationChange={setLatestCalculation}
-              />
+              {fuelOrigin === 'Tanque Interno (Fazenda)' ? (
+                <TanqueIndustrialVisualizer
+                  tanque={selectedTanque}
+                  addedLitersInput={liters}
+                  tanques={tanques}
+                  onTanqueChange={(tId) => {
+                    setSelectedTanqueId(tId);
+                    const t = tanques.find(item => item.id === tId);
+                    if (t) {
+                      setSupplierStation(t.nome);
+                      if (t.tipo_combustivel?.toLowerCase().includes('s500')) {
+                        setFuelType('Diesel Comum');
+                      } else if (t.tipo_combustivel?.toLowerCase().includes('s10')) {
+                        setFuelType('Diesel S10');
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <FuelTankVisualizer 
+                  machinery={selectedMachinery}
+                  dbTankLevel={dbTankLevel}
+                  addedLitersInput={liters}
+                  currentHourMeterInput={currentHourMeter}
+                  previousHourMeterInput={previousHourMeter}
+                  currentKmInput={currentKm}
+                  previousKmInput={previousKm}
+                  liveLitersPerHour={calculatedMetrics.litersPerHour}
+                  liveKmPerLiter={calculatedMetrics.kmPerLiter}
+                  historicalAvgLitersPerHour={historicalAvgLitersPerHour}
+                  historicalAvgKmPerLiter={historicalAvgKmPerLiter}
+                  isFirstRecord={isFirstRecord}
+                  onCalculationChange={setLatestCalculation}
+                />
+              )}
             </div>
 
           </div>

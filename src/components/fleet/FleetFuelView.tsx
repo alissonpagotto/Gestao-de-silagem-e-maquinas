@@ -214,7 +214,7 @@ export const FleetFuelView: React.FC<FleetFuelViewProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 font-bold text-stone-900 dark:text-stone-100">
-                      {log.machineryPlateOrName}
+                      {(log.machineryPlateOrName || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim()}
                     </td>
 
                     <td className="py-3.5 px-4">

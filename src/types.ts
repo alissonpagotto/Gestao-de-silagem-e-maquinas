@@ -690,6 +690,19 @@ export interface CropSeason {
 
 export type FuelOrigin = 'Tanque Interno (Fazenda)' | 'Posto Conveniado (Faturado)' | 'Posto de Viagem (Pago na Hora)';
 
+export interface TanqueCombustivel {
+  id: string;
+  nome: string;
+  tipo_combustivel: string; // ex: 'Diesel S10', 'Diesel S500'
+  capacidade_total: number;
+  quantidade_atual: number;
+  localizacao?: string;
+  empresa_id?: string;
+  company_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface FuelLog {
   id: string;
   date: string; // YYYY-MM-DD
@@ -719,6 +732,9 @@ export interface FuelLog {
   driverName?: string; // Nome do motorista (compatibilidade)
   driverIds?: string[];
   supplierStation?: string; // Posto / Fazenda
+  tanque_id?: string; // ID do tanque de combustível (tanques_combustivel)
+  tanqueId?: string; // Alias de compatibilidade
+  tanqueNome?: string; // Nome do tanque
   notes?: string;
   expenseId?: string; // Linked financial expense
   fuelOrigin?: FuelOrigin; // 'Tanque Interno (Fazenda)' | 'Posto Conveniado (Faturado)' | 'Posto de Viagem (Pago na Hora)'

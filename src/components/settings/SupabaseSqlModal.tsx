@@ -177,6 +177,30 @@ CREATE TABLE IF NOT EXISTS public.gestao_frotas (
 -- Migração automática para tabelas existentes
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS fleet_number TEXT;
 
+-- ==============================================================================
+-- 7.1. TABELA: tanques_combustivel (Tanques Aéreos da Fazenda)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.tanques_combustivel (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    tipo_combustivel TEXT NOT NULL DEFAULT 'Diesel S10',
+    capacidade_total NUMERIC(15,2) NOT NULL DEFAULT 15000,
+    quantidade_atual NUMERIC(15,2) NOT NULL DEFAULT 0,
+    localizacao TEXT,
+    company_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Inserção dos tanques padrão da fazenda caso não existam:
+INSERT INTO public.tanques_combustivel (id, nome, tipo_combustivel, capacidade_total, quantidade_atual, localizacao)
+VALUES 
+    ('tanque_diesel_s10', 'Tanque Principal Diesel S10', 'Diesel S10', 15000.00, 11200.00, 'Pátio Central / Barracão de Abastecimento'),
+    ('tanque_diesel_s500', 'Tanque Secundário Diesel S500', 'Diesel S500', 10000.00, 6500.00, 'Oficina / Setor Agrícola')
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.abastecimentos ADD COLUMN IF NOT EXISTS tanque_id TEXT;
+
 -- 8. TABELA: agendamentos (Agenda Operacional por Máquinas)
 CREATE TABLE IF NOT EXISTS public.agendamentos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -254,9 +278,12 @@ ALTER TABLE public.rh_funcionarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gestao_frotas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agendamentos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.frentes_colheita ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tanques_combustivel ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
+    DROP POLICY IF EXISTS "Permissao Total Tanques" ON public.tanques_combustivel;
+    CREATE POLICY "Permissao Total Tanques" ON public.tanques_combustivel FOR ALL USING (true) WITH CHECK (true);
     DROP POLICY IF EXISTS "Permissao Total Agendamentos" ON public.agendamentos;
     CREATE POLICY "Permissao Total Agendamentos" ON public.agendamentos FOR ALL USING (true) WITH CHECK (true);
     DROP POLICY IF EXISTS "Permissao Total Frentes" ON public.frentes_colheita;

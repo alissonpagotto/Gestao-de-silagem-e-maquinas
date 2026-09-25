@@ -30,7 +30,8 @@ import {
   upsertAbastecimento, 
   deleteAbastecimento,
   insertContaAPagarAbastecimento,
-  upsertEstoqueItem
+  upsertEstoqueItem,
+  subtrairCombustivelTanque
 } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
@@ -353,13 +354,21 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
     // Automatically create expense and financial integration
     if (createExpense && onAddExpense && !editingFuelLog) {
-      const machName = targetVehicle
+      const rawMachName = targetVehicle
         ? (targetVehicle.licensePlateOrSerial ? `[${targetVehicle.licensePlateOrSerial}] - ${targetVehicle.model || targetVehicle.name}` : targetVehicle.name)
         : (fuelLog.machineryPlateOrName || 'Veículo');
+      const machName = rawMachName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
 
       const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
 
       if (origin === 'Tanque Interno (Fazenda)') {
+        // Baixa direta no tanque de combustível da fazenda (tabela tanques_combustivel)
+        if (fuelLog.tanque_id || fuelLog.tanqueId) {
+          const tId = fuelLog.tanque_id || fuelLog.tanqueId!;
+          subtrairCombustivelTanque(tId, fuelLog.liters).catch(tErr => {
+            console.warn('[tanques_combustivel] Erro ao subtrair:', tErr);
+          });
+        }
         // 1. NÃO cria lançamento de dívida pendente em contas_a_pagar.
         // 2. Registra apenas a movimentação de baixa de litros no estoque de combustível
         const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();

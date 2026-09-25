@@ -32,7 +32,8 @@ import {
   MaintenanceCategoryDefinition,
   ServiceAppointment,
   DocumentoEntradaRecord,
-  DocumentoEntradaItem
+  DocumentoEntradaItem,
+  TanqueCombustivel
 } from '../types';
 import { 
   INITIAL_VEHICLE_TYPES, 
@@ -108,7 +109,47 @@ const STORAGE_KEYS = {
   VEHICLE_OWNERSHIP_REGIMES: 'silagem_facil_clean_v1_vehicle_ownership_regimes',
   APPOINTMENTS: 'silagem_facil_clean_v1_service_appointments',
   MANUAL_ENTRY_DOCUMENT_TYPES: 'silagem_facil_clean_v1_manual_entry_doc_types',
+  TANQUES_COMBUSTIVEL: 'silagem_facil_clean_v1_tanques_combustivel',
 };
+
+export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
+  {
+    id: 'tanque_diesel_s10',
+    nome: 'Tanque Principal Diesel S10',
+    tipo_combustivel: 'Diesel S10',
+    capacidade_total: 15000,
+    quantidade_atual: 11200,
+    localizacao: 'Pátio Central / Barracão de Abastecimento'
+  },
+  {
+    id: 'tanque_diesel_s500',
+    nome: 'Tanque Secundário Diesel S500',
+    tipo_combustivel: 'Diesel S500',
+    capacidade_total: 10000,
+    quantidade_atual: 6500,
+    localizacao: 'Oficina / Setor Agrícola'
+  }
+];
+
+export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL);
+    if (!raw) return DEFAULT_TANQUES_COMBUSTIVEL;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TANQUES_COMBUSTIVEL;
+  } catch (e) {
+    console.error('Failed to load tanques_combustivel', e);
+    return DEFAULT_TANQUES_COMBUSTIVEL;
+  }
+}
+
+export function saveStoredTanquesCombustivel(tanques: TanqueCombustivel[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL, JSON.stringify(tanques));
+  } catch (e) {
+    console.error('Failed to save tanques_combustivel', e);
+  }
+}
 
 export function getStoredExpenses(): Expense[] {
   try {
