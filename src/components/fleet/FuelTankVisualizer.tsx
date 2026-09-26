@@ -49,21 +49,27 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   // Flag efetiva de primeiro abastecimento
   const isFirstRecordEffective = Boolean(isFirstRecord);
 
-  // 2. NÍVEL ATUAL: Reflete estritamente o valor que vem do banco de dados antes deste abastecimento
+  // 2. NÍVEL ATUAL: Reflete estritamente o volume real que vem do banco de dados antes deste abastecimento
   const nivelAtual = useMemo(() => {
     if (isFirstRecordEffective) return 0;
     if (dbTankLevel !== undefined && dbTankLevel !== null && !isNaN(Number(dbTankLevel)) && Number(dbTankLevel) >= 0) {
       return Number(dbTankLevel);
     }
-    const machLiters = (machinery as any)?.currentFuelLiters ?? (machinery as any)?.current_fuel_liters;
+    const machLiters = (machinery as any)?.currentFuelLiters ?? 
+                       (machinery as any)?.current_fuel_liters ?? 
+                       (machinery as any)?.current_fuel_level ?? 
+                       (machinery as any)?.nivel_combustivel ?? 
+                       (machinery as any)?.saldo_combustivel;
     if (machLiters !== undefined && machLiters !== null && !isNaN(Number(machLiters)) && Number(machLiters) >= 0) {
       return Number(machLiters);
     }
-    if (machinery?.currentFuelPercentage !== undefined && machinery.currentFuelPercentage !== null && tankCapacity > 0) {
-      const p = Number(machinery.currentFuelPercentage);
+    const machPct = (machinery as any)?.currentFuelPercentage ?? (machinery as any)?.current_fuel_percentage;
+    if (machPct !== undefined && machPct !== null && tankCapacity > 0) {
+      const p = Number(machPct);
       if (!isNaN(p)) return parseFloat(((p / 100) * tankCapacity).toFixed(1));
     }
-    return tankCapacity > 0 ? tankCapacity : 0;
+    // NUNCA espelha a capacidade máxima se não houver saldo no banco (retorna 0)
+    return 0;
   }, [dbTankLevel, machinery, tankCapacity, isFirstRecordEffective]);
 
   // 3. Litros Abastecidos (digitado pelo usuário no input 'Litros Abastecidos')
@@ -73,7 +79,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     return !isNaN(parsed) && parsed > 0 ? parsed : 0;
   }, [addedLitersInput]);
 
-  // 4. PROJEÇÃO: Soma matemática estrita: (Nível Atual vindo do banco + Litros Digitados)
+  // 4. PROJEÇÃO REAL: Soma matemática estrita em tempo real: (Nível Atual do Veículo + Litros Abastecidos digitados)
   const projecaoLiters = useMemo(() => {
     if (isFirstRecordEffective) return addedLiters;
     return parseFloat((nivelAtual + addedLiters).toFixed(2));
@@ -105,8 +111,8 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
   }, [isOverflowing, projecaoLiters, tankCapacity]);
 
   const isReserve = useMemo(() => {
-    return !isFirstRecordEffective && tankCapacity > 0 && (nivelAtual / tankCapacity) <= 0.20;
-  }, [isFirstRecordEffective, tankCapacity, nivelAtual]);
+    return !isFirstRecordEffective && tankCapacity > 0 && (projecaoLiters / tankCapacity) <= 0.20;
+  }, [isFirstRecordEffective, tankCapacity, projecaoLiters]);
 
   // 7. Leituras de Horímetro e Odômetro
   const currH = parseFloat(String(currentHourMeterInput || '').trim().replace(',', '.'));
@@ -324,14 +330,14 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
 
         {tankCapacity > 0 ? (
           <div className="flex items-center space-x-1 shrink-0">
-            {liveKmPerLiter ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/40">
+            {addedLiters > 0 && liveKmPerLiter && liveKmPerLiter > 0 ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/40 font-mono">
                 {liveKmPerLiter.toFixed(2).replace('.', ',')} km/L
               </span>
             ) : null}
 
-            {liveLitersPerHour ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/40">
+            {addedLiters > 0 && liveLitersPerHour && liveLitersPerHour > 0 ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/40 font-mono">
                 {liveLitersPerHour.toFixed(2).replace('.', ',')} L/h
               </span>
             ) : null}
@@ -481,7 +487,7 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
           </div>
         ) : (
           <>
-            {/* Grid dos 3 Cards: NÍVEL ATUAL, + ABASTECIDO, PROJEÇÃO / NOVO NÍVEL */}
+            {/* Grid dos 3 Cards: NÍVEL ATUAL, + ABASTECIDO, PROJEÇÃO REAL */}
             <div className="grid grid-cols-3 gap-1.5 text-center">
               
               {/* Card 1: NÍVEL ATUAL */}
@@ -489,8 +495,8 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
                 <span className="text-[9px] font-bold text-zinc-500 dark:text-zinc-300 block uppercase leading-tight">
                   Nível Atual
                 </span>
-                <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight mt-0.5 block">
-                  {nivelAtual.toFixed(0)} L
+                <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight mt-0.5 block font-mono">
+                  {Number(nivelAtual.toFixed(1)).toLocaleString('pt-BR')} L
                 </span>
                 <span className="text-[9px] text-zinc-500 dark:text-zinc-300 block font-mono leading-tight">
                   ({Math.round(nivelAtualPorcentagem)}%)
@@ -502,15 +508,15 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
                 <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 block uppercase leading-tight">
                   + Abastecido
                 </span>
-                <span className="text-xs font-black text-amber-800 dark:text-amber-300 leading-tight mt-0.5 block">
-                  {addedLiters > 0 ? `+${addedLiters.toFixed(1)} L` : '--'}
+                <span className="text-xs font-black text-amber-800 dark:text-amber-300 leading-tight mt-0.5 block font-mono">
+                  {addedLiters > 0 ? `+${Number(addedLiters.toFixed(1)).toLocaleString('pt-BR')} L` : '0 L'}
                 </span>
                 <span className="text-[9px] text-amber-700/90 dark:text-amber-300/90 block font-mono leading-tight">
-                  {addedLiters > 0 ? `+${Math.round(adicionadoPorcentagem)}%` : '0 L'}
+                  {addedLiters > 0 ? `+${Math.round(adicionadoPorcentagem)}%` : '0%'}
                 </span>
               </div>
 
-              {/* Card 3: PROJEÇÃO */}
+              {/* Card 3: PROJEÇÃO REAL */}
               <div className={`py-1 px-1.5 rounded-lg border shadow-2xs ${
                 isOverflowing
                   ? 'bg-rose-50 dark:bg-rose-500/20 border-rose-200 dark:border-rose-500/45'
@@ -521,10 +527,10 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
                 }`}>
                   Projeção Real
                 </span>
-                <span className={`text-xs font-black leading-tight mt-0.5 block ${
+                <span className={`text-xs font-black leading-tight mt-0.5 block font-mono ${
                   isOverflowing ? 'text-rose-800 dark:text-rose-200' : 'text-emerald-800 dark:text-emerald-300'
                 }`}>
-                  {projecaoLiters.toFixed(0)} L
+                  {Number(projecaoLiters.toFixed(1)).toLocaleString('pt-BR')} L
                 </span>
                 <span className={`text-[9px] block font-mono leading-tight ${
                   isOverflowing ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'

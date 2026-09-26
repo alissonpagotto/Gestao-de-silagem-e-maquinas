@@ -111,13 +111,11 @@ export function calculateTankLevelMetrics(input: FuelCalculationInput): FuelCalc
   // Distância percorrida ou horas trabalhadas
   const distanciaOuTempo = atual > anterior ? parseFloat((atual - anterior).toFixed(2)) : 0;
 
-  // 1. Nível Atual: Reflete estritamente o valor que vem do banco de dados
+  // 1. Nível Atual: Reflete estritamente o valor que vem do banco de dados (não espelha a capacidade máxima)
   let nivelAtual = 0;
   if (!isFirstRecord) {
     if (input.nivelAnterior !== undefined && input.nivelAnterior !== null && !isNaN(Number(input.nivelAnterior))) {
       nivelAtual = Math.max(0, Number(input.nivelAnterior));
-    } else if (capacidadeTanque > 0) {
-      nivelAtual = capacidadeTanque;
     }
   }
 
@@ -186,7 +184,8 @@ export function getTankColorTheme(percentage: number, isOverflowing = false) {
     };
   }
 
-  if (percentage <= 20) {
+  // Reserva crítica muito baixa (abaixo de 10%)
+  if (percentage <= 10 && percentage > 0) {
     return {
       gradient: 'from-rose-500 via-rose-600 to-rose-700',
       waveFront: 'fill-rose-500',
@@ -199,32 +198,7 @@ export function getTankColorTheme(percentage: number, isOverflowing = false) {
     };
   }
 
-  if (percentage < 50) {
-    return {
-      gradient: 'from-amber-400 via-amber-500 to-amber-600',
-      waveFront: 'fill-amber-400',
-      waveBack: 'fill-amber-600',
-      border: 'border-amber-400',
-      text: 'text-amber-600 dark:text-amber-400',
-      badgeBg: 'bg-amber-100/80 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-      statusText: 'Nível Regular',
-      glow: 'shadow-[inset_0_2px_10px_rgba(251,191,36,0.8),inset_0_-8px_20px_rgba(180,83,9,0.5)]',
-    };
-  }
-
-  if (percentage < 85) {
-    return {
-      gradient: 'from-yellow-400 via-amber-400 to-yellow-500',
-      waveFront: 'fill-yellow-400',
-      waveBack: 'fill-amber-500',
-      border: 'border-yellow-400',
-      text: 'text-yellow-600 dark:text-yellow-400',
-      badgeBg: 'bg-yellow-100/80 dark:bg-yellow-950/60 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-800',
-      statusText: 'Nível Operacional Seguro',
-      glow: 'shadow-[inset_0_2px_10px_rgba(250,204,21,0.8),inset_0_-8px_20px_rgba(202,138,4,0.5)]',
-    };
-  }
-
+  // Padrão gráfico verde esmeralda dinâmico do tanque do veículo
   return {
     gradient: 'from-emerald-400 via-emerald-500 to-teal-600',
     waveFront: 'fill-emerald-400',
@@ -232,7 +206,7 @@ export function getTankColorTheme(percentage: number, isOverflowing = false) {
     border: 'border-emerald-400',
     text: 'text-emerald-600 dark:text-emerald-400',
     badgeBg: 'bg-emerald-100/80 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
-    statusText: 'Tanque Completo',
+    statusText: percentage >= 95 ? 'Tanque Completo' : (percentage > 0 ? 'Nível Operacional' : 'Tanque Vazio'),
     glow: 'shadow-[inset_0_2px_10px_rgba(52,211,153,0.8),inset_0_-8px_20px_rgba(5,150,105,0.5)]',
   };
 }

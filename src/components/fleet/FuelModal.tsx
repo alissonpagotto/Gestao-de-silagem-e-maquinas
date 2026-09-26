@@ -346,14 +346,19 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
     // 1. Se estiver editando um registro existente, pega o saldo antes desse abastecimento
     if (editingLog) {
-      const prevL = (editingLog as any).previousFuelLiters ?? (editingLog as any).nivel_anterior;
+      const prevL = (editingLog as any).previousFuelLiters ?? (editingLog as any).nivel_anterior ?? (editingLog as any).previous_fuel_liters;
       if (prevL !== undefined && prevL !== null && !isNaN(Number(prevL)) && Number(prevL) >= 0) {
         return Number(prevL);
       }
     }
 
-    // 2. Saldo explícito do veículo registrado no banco de dados
-    const machLiters = (selectedMachinery as any)?.currentFuelLiters ?? (selectedMachinery as any)?.current_fuel_liters;
+    // 2. Saldo explícito do veículo registrado no banco de dados (public.gestao_frotas / estado local)
+    const machLiters = (selectedMachinery as any)?.currentFuelLiters ?? 
+                       (selectedMachinery as any)?.current_fuel_liters ?? 
+                       (selectedMachinery as any)?.current_fuel_level ?? 
+                       (selectedMachinery as any)?.nivel_combustivel ?? 
+                       (selectedMachinery as any)?.saldo_combustivel ?? 
+                       (selectedMachinery as any)?.fuel_level;
     if (machLiters !== undefined && machLiters !== null && !isNaN(Number(machLiters)) && Number(machLiters) >= 0) {
       return Number(machLiters);
     }
@@ -364,22 +369,51 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || String(b.id).localeCompare(String(a.id)));
     const lastLog = prevLogs[0];
     if (lastLog) {
-      const lFuelLiters = (lastLog as any).currentFuelLiters ?? (lastLog as any).current_fuel_liters ?? (lastLog as any).novo_nivel;
+      const lFuelLiters = (lastLog as any).currentFuelLiters ?? 
+                          (lastLog as any).current_fuel_liters ?? 
+                          (lastLog as any).novo_nivel ?? 
+                          (lastLog as any).novoNivel ?? 
+                          (lastLog as any).nivel_atual;
       if (lFuelLiters !== undefined && lFuelLiters !== null && !isNaN(Number(lFuelLiters)) && Number(lFuelLiters) >= 0) {
-        return Number(lFuelLiters);
+        let remaining = Number(lFuelLiters);
+
+        // Projeção de consumo decorrido caso o horímetro ou km atual tenha avançado
+        const curH = parseFloat(String(currentHourMeter).trim().replace(',', '.'));
+        const lastH = (lastLog as any).currentHourMeter ?? (lastLog as any).horas_atual ?? (lastLog as any).horimetro_atual;
+        if (!isNaN(curH) && lastH !== undefined && !isNaN(Number(lastH)) && curH > Number(lastH)) {
+          const deltaHours = curH - Number(lastH);
+          const avgH = historicalAvgLitersPerHour || selectedMachinery?.averageConsumptionLitersPerHour || 22;
+          if (avgH > 0) {
+            remaining = Math.max(0, remaining - (deltaHours * avgH));
+          }
+        } else {
+          const curK = parseFloat(String(currentKm).trim().replace(',', '.'));
+          const lastK = (lastLog as any).currentKm ?? (lastLog as any).km_atual;
+          if (!isNaN(curK) && lastK !== undefined && !isNaN(Number(lastK)) && curK > Number(lastK)) {
+            const deltaKm = curK - Number(lastK);
+            const avgK = historicalAvgKmPerLiter || selectedMachinery?.averageConsumptionKmPerLiter || 2.8;
+            if (avgK > 0) {
+              remaining = Math.max(0, remaining - (deltaKm / avgK));
+            }
+          }
+        }
+
+        return parseFloat(remaining.toFixed(1));
       }
     }
 
     // 4. Porcentagem de combustível cadastrada no veículo
-    if (selectedMachinery?.currentFuelPercentage !== undefined && selectedMachinery?.currentFuelPercentage !== null && tankCap > 0) {
-      const pct = Number(selectedMachinery.currentFuelPercentage);
+    const machPct = (selectedMachinery as any)?.currentFuelPercentage ?? (selectedMachinery as any)?.current_fuel_percentage;
+    if (machPct !== undefined && machPct !== null && tankCap > 0) {
+      const pct = Number(machPct);
       if (!isNaN(pct)) {
         return parseFloat(((pct / 100) * tankCap).toFixed(1));
       }
     }
 
-    return tankCap > 0 ? tankCap : 0;
-  }, [selectedMachinery, machineryId, activeFuelLogs, editingLog, isFirstRecord]);
+    // 5. NUNCA espelha a capacidade máxima se não houver saldo no banco (retorna 0)
+    return 0;
+  }, [selectedMachinery, machineryId, activeFuelLogs, editingLog, isFirstRecord, currentHourMeter, currentKm, historicalAvgLitersPerHour, historicalAvgKmPerLiter]);
 
   // Alerta de excesso de capacidade teórica (apenas visual, sem travar o botão Salvar)
   const isOverCapacity = useMemo(() => {
@@ -683,21 +717,20 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   };
 
   // 2. CÁLCULO DE MÉDIAS EM TEMPO REAL
-  // Se isFirstRecord for verdadeiro, o sistema NÃO tenta calcular a diferença nem subtrair consumo do nível do tanque.
-  // O consumo e médias são definidos temporariamente como nulos / 0 para este lançamento.
+  // Se Litros Abastecidos for vazio ou 0, ou se isFirstRecord for verdadeiro:
+  // o sistema NÃO calcula médias, evitando divisões por zero ou congelamento em médias antigas.
   const calculatedMetrics = useMemo(() => {
-    if (isFirstRecord) {
+    const l = parseFloat(String(liters).trim().replace(',', '.')) || 0;
+    if (l <= 0 || isFirstRecord) {
       return { kmPerLiter: null, litersPerHour: null };
     }
 
-    const l = parseFloat(String(liters).trim().replace(',', '.')) || 0;
-    
     // Média KM: km/L
     let kmPerLiter: number | null = null;
     if (!isFirstRecordKm) {
       const cKm = parseFloat(String(currentKm).trim().replace(',', '.'));
       const pKm = parseFloat(String(previousKm).trim().replace(',', '.'));
-      if (!isNaN(cKm) && !isNaN(pKm) && cKm > pKm && l > 0) {
+      if (!isNaN(cKm) && !isNaN(pKm) && cKm > pKm) {
         kmPerLiter = parseFloat(((cKm - pKm) / l).toFixed(2));
       }
     }
@@ -707,7 +740,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     if (!isFirstRecordHour) {
       const cHour = parseFloat(String(currentHourMeter).trim().replace(',', '.'));
       const pHour = parseFloat(String(previousHourMeter).trim().replace(',', '.'));
-      if (!isNaN(cHour) && !isNaN(pHour) && cHour > pHour && l > 0) {
+      if (!isNaN(cHour) && !isNaN(pHour) && cHour > pHour) {
         litersPerHour = parseFloat((l / (cHour - pHour)).toFixed(2));
       }
     }
@@ -715,8 +748,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     return { kmPerLiter, litersPerHour };
   }, [isFirstRecord, isFirstRecordKm, isFirstRecordHour, liters, currentKm, previousKm, currentHourMeter, previousHourMeter]);
 
-  const displayLitersPerHour = isFirstRecord || isFirstRecordHour ? null : calculatedMetrics.litersPerHour;
-  const displayKmPerLiter = isFirstRecord || isFirstRecordKm ? null : calculatedMetrics.kmPerLiter;
+  const litersNumber = parseFloat(String(liters).trim().replace(',', '.')) || 0;
+  const displayLitersPerHour = (isFirstRecord || isFirstRecordHour || litersNumber <= 0) ? null : calculatedMetrics.litersPerHour;
+  const displayKmPerLiter = (isFirstRecord || isFirstRecordKm || litersNumber <= 0) ? null : calculatedMetrics.kmPerLiter;
 
   const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) {
@@ -1047,9 +1081,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         <span className="text-[9px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-1.5 py-0.2 rounded">
                           Registro Inicial
                         </span>
-                      ) : displayKmPerLiter !== null ? (
-                        <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 px-1.5 py-0.2 rounded">
-                          Média: {displayKmPerLiter} km/L
+                      ) : (litersNumber > 0 && displayKmPerLiter !== null) ? (
+                        <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/40 px-1.5 py-0.2 rounded font-mono">
+                          Média: {displayKmPerLiter.toFixed(2).replace('.', ',')} km/L
                         </span>
                       ) : null}
                     </div>
@@ -1111,9 +1145,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                         <span className="text-[9px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 px-1.5 py-0.2 rounded">
                           Registro Inicial
                         </span>
-                      ) : displayLitersPerHour !== null ? (
-                        <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 px-1.5 py-0.2 rounded">
-                          Média: {displayLitersPerHour} L/h
+                      ) : (litersNumber > 0 && displayLitersPerHour !== null) ? (
+                        <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
+                          Média: {displayLitersPerHour.toFixed(2).replace('.', ',')} L/h
                         </span>
                       ) : null}
                     </div>

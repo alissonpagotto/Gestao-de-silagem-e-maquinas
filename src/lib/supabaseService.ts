@@ -1228,7 +1228,9 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
         preco_venda: sale,
         wholesalePrice: Number(row.preco_venda_atacado ?? 0),
         promoPrice: Number(row.preco_venda_promo ?? 0),
-        location: row.localizacao || 'Depósito Principal',
+        location: row.localizacao_fisica || row.localizacao || 'Depósito Principal',
+        localizacao_fisica: row.localizacao_fisica || row.localizacao || 'Depósito Principal',
+        capacidade_total: row.capacidade_total !== undefined && row.capacidade_total !== null ? Number(row.capacidade_total) : (row.categoria === 'Combustível & Arla' ? 15000 : undefined),
         brand: row.marca || undefined,
         barcode: row.codigo_barras || row.gtin || undefined,
         hasNoGtin: Boolean(row.sem_gtin),
@@ -1520,54 +1522,36 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
     const grupoFiscalStr = item.grupo_fiscal || item.fiscalGroup ? String(item.grupo_fiscal || item.fiscalGroup).trim() : null;
     const grupoIpiStr = item.grupo_ipi || item.ipiGroup ? String(item.grupo_ipi || item.ipiGroup).trim() : null;
 
-    // Payload unificado com as colunas reais da tabela 'estoque_produtos' e retrocompatibilidade
-    const payload: Record<string, any> = {
+    // Payload estrito com os nomes de colunas exatos da tabela 'public.estoque_produtos'
+    // Evita colunas inexistentes (como 'quantidade', 'custo_nominal', 'preco_venda') que causam HTTP 400
+    const payloadOfficial: Record<string, any> = {
       id: toValidUUID(itemId),
       company_id: activeCompanyId,
       codigo_produto: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
-      // Colunas reais solicitadas
       nome_comercial: nomeStr,
+      categoria: categoriaStr,
+      unidade_medida: unidadeStr,
       quantidade_atual: quantidadeFloat,
       preco_custo_inicial: custoNominalFloat,
       preco_venda_varejo: precoVendaFloat,
-      // Nomes legados da tabela para suporte retroativo
-      nome: nomeStr,
-      descricao: nomeStr,
-      categoria: categoriaStr,
-      unidade_medida: unidadeStr,
-      unidade: unidadeStr,
+      localizacao_fisica: item.localizacao_fisica || item.location || (categoriaStr === 'Combustível & Arla' ? 'Tanque Fazenda (Pátio Central)' : 'Depósito Principal'),
+      capacidade_total: item.capacidade_total ? Number(item.capacidade_total) : (categoriaStr === 'Combustível & Arla' ? 15000 : null),
+      quantidade_minima: parseNumericFloat(item.minQuantity ?? item.quantidade_minima),
       marca: marcaStr,
       codigo_barras: barcodeStr,
-      gtin: barcodeStr,
-      sem_gtin: semGtinBool,
-      ref_fabrica: refFabricaStr,
-      referencia_fabrica: refFabricaStr,
       codigo_ncm: ncmStr,
-      ncm: ncmStr,
-      grupo_fiscal: grupoFiscalStr,
-      grupo_ipi: grupoIpiStr,
-      custo_nominal: custoNominalFloat,
-      preco_custo: custoNominalFloat,
-      preco_venda: precoVendaFloat,
-      preco_venda_final: precoVendaFloat,
-      preco_venda_atacado: parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado),
-      preco_venda_promo: item.promoPrice || item.preco_venda_promo ? parseNumericFloat(item.promoPrice ?? item.preco_venda_promo) : null,
-      margem_lucro_sugerida: margemFloat,
-      margem_lucro: margemFloat,
-      localizacao: item.location || item.localizacao || 'Depósito Principal',
-      quantidade_minima: parseNumericFloat(item.minQuantity ?? item.quantidade_minima),
       updated_at: new Date().toISOString()
     };
 
-    // 1. Tenta gravar prioritariamente na tabela real 'estoque_produtos'
+    // 1. Tenta gravar prioritariamente na tabela oficial 'estoque_produtos' com as colunas reais
     let result = await supabase
       .from('estoque_produtos')
-      .upsert(payload, { onConflict: 'id' });
+      .upsert(payloadOfficial, { onConflict: 'id' });
 
-    // Se falhar na 'estoque_produtos' por company_id ou coluna
+    // Se falhar na 'estoque_produtos' por company_id
     if (result.error) {
       if (result.error.message?.includes('company_id')) {
-        const payloadNoComp = { ...payload };
+        const payloadNoComp = { ...payloadOfficial };
         delete payloadNoComp.company_id;
         const retryComp = await supabase.from('estoque_produtos').upsert(payloadNoComp, { onConflict: 'id' });
         if (!retryComp.error) {
@@ -1576,9 +1560,18 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       }
     }
 
-    // 2. Grava ou sincroniza também na tabela 'estoque' para máxima compatibilidade
+    // 2. Fallback resiliente para a tabela legada 'estoque' caso exista no banco
     try {
-      await supabase.from('estoque').upsert(payload, { onConflict: 'id' });
+      await supabase.from('estoque').upsert({
+        ...payloadOfficial,
+        nome: nomeStr,
+        descricao: nomeStr,
+        unidade: unidadeStr,
+        quantidade: quantidadeFloat,
+        custo_nominal: custoNominalFloat,
+        preco_venda: precoVendaFloat,
+        localizacao: payloadOfficial.localizacao_fisica
+      }, { onConflict: 'id' });
     } catch {
       // Ignora erro na tabela secundária
     }
@@ -1587,6 +1580,99 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
   } catch (err) {
     console.warn('Supabase upsertEstoqueItem err:', err);
     return false;
+  }
+}
+
+/**
+ * Executa requisição PATCH direta na tabela oficial 'public.estoque_produtos'.
+ * Utiliza estritamente os nomes de colunas exatos do banco de dados:
+ *   - 'quantidade_atual' (e não quantidade)
+ *   - 'preco_custo_inicial' (e não custo_nominal)
+ *   - 'preco_venda_varejo' (e não preco_venda)
+ */
+export async function patchEstoqueProdutoEntrada(
+  produtoId: string,
+  dados: {
+    quantidadeAdicionar: number;
+    precoCusto?: number;
+    precoVenda?: number;
+  },
+  companyId?: string
+): Promise<{ success: boolean; novoSaldoEstoque?: number }> {
+  const { quantidadeAdicionar, precoCusto, precoVenda } = dados;
+  if (!produtoId || isNaN(quantidadeAdicionar)) {
+    return { success: false };
+  }
+
+  // 1. Atualização imediata no storage local
+  const currentInventory = getStoredInventory();
+  let novoSaldo = 0;
+  const updatedInventory = currentInventory.map(item => {
+    if (item.id === produtoId) {
+      novoSaldo = Number(((Number(item.quantidade_atual ?? item.quantity) || 0) + quantidadeAdicionar).toFixed(2));
+      const updatedItem: InventoryItem = {
+        ...item,
+        quantity: novoSaldo,
+        quantidade_atual: novoSaldo,
+        unitCost: (precoCusto !== undefined && precoCusto > 0) ? precoCusto : item.unitCost,
+        preco_custo_inicial: (precoCusto !== undefined && precoCusto > 0) ? precoCusto : item.preco_custo_inicial,
+        salePrice: (precoVenda !== undefined && precoVenda > 0) ? precoVenda : item.salePrice,
+        preco_venda_varejo: (precoVenda !== undefined && precoVenda > 0) ? precoVenda : item.preco_venda_varejo,
+        updatedAt: new Date().toISOString()
+      };
+      return updatedItem;
+    }
+    return item;
+  });
+  saveStoredInventory(updatedInventory);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+  }
+
+  if (!isSupabaseConfigured) {
+    return { success: true, novoSaldoEstoque: novoSaldo };
+  }
+
+  try {
+    // 2. Busca o saldo atual do produto no Supabase
+    let finalQty = novoSaldo;
+    const { data: dbItem } = await supabase
+      .from('estoque_produtos')
+      .select('id, quantidade_atual, preco_custo_inicial, preco_venda_varejo')
+      .eq('id', produtoId)
+      .maybeSingle();
+
+    if (dbItem && dbItem.quantidade_atual !== undefined && dbItem.quantidade_atual !== null) {
+      finalQty = Number(((Number(dbItem.quantidade_atual) || 0) + quantidadeAdicionar).toFixed(2));
+    }
+
+    // 3. Monta payload de PATCH estritamente com os nomes de colunas exatos do banco
+    const patchPayload: Record<string, any> = {
+      quantidade_atual: finalQty,
+      updated_at: new Date().toISOString()
+    };
+    if (precoCusto !== undefined && precoCusto > 0) {
+      patchPayload.preco_custo_inicial = precoCusto;
+    }
+    if (precoVenda !== undefined && precoVenda > 0) {
+      patchPayload.preco_venda_varejo = precoVenda;
+    }
+
+    const { error } = await supabase
+      .from('estoque_produtos')
+      .update(patchPayload)
+      .eq('id', produtoId);
+
+    if (error) {
+      console.warn('Erro PATCH estoque_produtos:', error);
+      return { success: false, novoSaldoEstoque: novoSaldo };
+    }
+
+    return { success: true, novoSaldoEstoque: finalQty };
+  } catch (err) {
+    console.warn('Exceção PATCH estoque_produtos:', err);
+    return { success: true, novoSaldoEstoque: novoSaldo };
   }
 }
 
@@ -2406,6 +2492,10 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         tank_capacity: tankCapacityNumber,
         tankCapacity: tankCapacityNumber,
         fuelCapacityLiters: tankCapacityNumber,
+        currentFuelLiters: row.current_fuel_liters !== undefined && row.current_fuel_liters !== null ? Number(row.current_fuel_liters) : (row.currentFuelLiters !== undefined && row.currentFuelLiters !== null ? Number(row.currentFuelLiters) : (row.nivel_combustivel !== undefined && row.nivel_combustivel !== null ? Number(row.nivel_combustivel) : undefined)),
+        current_fuel_liters: row.current_fuel_liters !== undefined && row.current_fuel_liters !== null ? Number(row.current_fuel_liters) : (row.currentFuelLiters !== undefined && row.currentFuelLiters !== null ? Number(row.currentFuelLiters) : (row.nivel_combustivel !== undefined && row.nivel_combustivel !== null ? Number(row.nivel_combustivel) : undefined)),
+        currentFuelPercentage: row.current_fuel_percentage !== undefined && row.current_fuel_percentage !== null ? Number(row.current_fuel_percentage) : (row.currentFuelPercentage !== undefined && row.currentFuelPercentage !== null ? Number(row.currentFuelPercentage) : undefined),
+        current_fuel_percentage: row.current_fuel_percentage !== undefined && row.current_fuel_percentage !== null ? Number(row.current_fuel_percentage) : (row.currentFuelPercentage !== undefined && row.currentFuelPercentage !== null ? Number(row.currentFuelPercentage) : undefined),
       };
     }) as Machinery[];
   } catch (err) {
@@ -2939,7 +3029,16 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           custo_nominal: cost,
           salePrice: Number(row.preco_venda_varejo ?? row.salePrice ?? 0),
           preco_venda_varejo: Number(row.preco_venda_varejo ?? row.salePrice ?? 0),
-          location: row.localizacao || 'Tanque da Fazenda',
+          location: row.localizacao_fisica || row.localizacao || 'Tanque da Fazenda',
+          localizacao_fisica: row.localizacao_fisica || row.localizacao || (
+            nomeComercial.toLowerCase().includes('s500') ? 'Tanque Fazenda (Oficina)' :
+            nomeComercial.toLowerCase().includes('arla') ? 'Reservatório Arla (Barracão)' :
+            'Tanque Fazenda (Pátio Central)'
+          ),
+          capacidade_total: Number(row.capacidade_total || (
+            nomeComercial.toLowerCase().includes('s500') ? 5000 :
+            nomeComercial.toLowerCase().includes('arla') ? 5000 : 15000
+          )),
           createdAt: row.created_at || undefined,
           updatedAt: row.updated_at || undefined,
         };

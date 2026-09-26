@@ -463,7 +463,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_custo_inicial: effectiveCost,
       salePrice: isMockS10 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
       preco_venda_varejo: isMockS10 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
-      location: existing.location || 'Tanque Fazenda (Pátio Central)'
+      location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
+      localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
+      capacidade_total: existing.capacidade_total || 15000,
     };
   } else {
     currentList.unshift({
@@ -487,6 +489,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_venda: 0,
       profitMargin: 0,
       location: 'Tanque Fazenda (Pátio Central)',
+      localizacao_fisica: 'Tanque Fazenda (Pátio Central)',
+      capacidade_total: 15000,
     });
   }
 
@@ -518,7 +522,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_custo_inicial: effectiveCost,
       salePrice: isMockS500 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
       preco_venda_varejo: isMockS500 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
-      location: existing.location || 'Tanque Fazenda (Oficina)'
+      location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
+      localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
+      capacidade_total: existing.capacidade_total || 5000,
     };
   } else {
     const insertPos = currentList.findIndex(i => i.name === 'Diesel S10') + 1;
@@ -543,6 +549,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_venda: 0,
       profitMargin: 0,
       location: 'Tanque Fazenda (Oficina)',
+      localizacao_fisica: 'Tanque Fazenda (Oficina)',
+      capacidade_total: 5000,
     });
   }
 
@@ -569,7 +577,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
       preco_venda_varejo: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
-      location: existing.location || 'Barracão de Abastecimento'
+      location: existing.localizacao_fisica || existing.location || 'Reservatório Arla (Barracão)',
+      localizacao_fisica: existing.localizacao_fisica || existing.location || 'Reservatório Arla (Barracão)',
+      capacidade_total: existing.capacidade_total || 1000,
     };
   } else {
     currentList.push({
@@ -592,7 +602,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_venda_varejo: 0,
       preco_venda: 0,
       profitMargin: 0,
-      location: 'Barracão de Abastecimento',
+      location: 'Reservatório Arla (Barracão)',
+      localizacao_fisica: 'Reservatório Arla (Barracão)',
+      capacidade_total: 1000,
     });
   }
 

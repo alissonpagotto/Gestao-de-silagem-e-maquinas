@@ -488,6 +488,8 @@ export interface InventoryItem {
   quantidade_atual?: number; // Coluna real da tabela estoque_produtos
   preco_custo_inicial?: number; // Coluna real da tabela estoque_produtos
   preco_venda_varejo?: number; // Coluna real da tabela estoque_produtos
+  localizacao_fisica?: string; // Coluna real da tabela estoque_produtos: localização física do tanque/estoque
+  capacidade_total?: number; // Coluna real da tabela estoque_produtos: capacidade máxima em litros
   nome?: string;
   categoria?: string;
   unidade_medida?: string;
