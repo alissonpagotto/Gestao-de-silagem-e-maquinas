@@ -117,8 +117,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
     for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = d.getFullYear();
       const monthNum = d.getMonth() + 1;
       const monthPrefix = `${year}-${String(monthNum).padStart(2, '0')}`;

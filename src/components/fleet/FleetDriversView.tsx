@@ -24,7 +24,8 @@ import { formatDateBR, checkCnhStatus, getActiveCompanyId } from '../../lib/stor
 import { 
   saveFleetDriverToSupabase, 
   deleteFleetDriverFromSupabase, 
-  fetchRhFuncionarios, 
+  fetchRhFuncionarios,
+  fetchFleetDriversFromSupabase, 
   upsertGestaoFrota, 
   isSupabaseConfigured, 
   toValidUUID 
@@ -56,9 +57,27 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   const [filterCnh, setFilterCnh] = useState<'todos' | 'em_dia' | 'vencendo' | 'vencidas'>('todos');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Realtime multi-dispositivos para a tabela rh_funcionarios
+  const [dbDrivers, setDbDrivers] = useState<Employee[]>([]);
+
+  // 2. LISTAGEM FILTRADA E TEMPO REAL:
+  // Busca direta em public.rh_funcionarios filtrando por cargo 'Motorista'
+  const loadDriversFromSupabase = React.useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const activeCid = companyProfile?.id || getActiveCompanyId();
+      const fresh = await fetchFleetDriversFromSupabase(activeCid);
+      if (fresh && Array.isArray(fresh)) {
+        setDbDrivers(fresh);
+      }
+    } catch (err) {
+      console.warn('Erro ao sincronizar motoristas do Supabase:', err);
+    }
+  }, [companyProfile?.id]);
+
+  // Realtime multi-dispositivos para a tabela rh_funcionarios e carregamento inicial
   React.useEffect(() => {
+    loadDriversFromSupabase();
+
     if (!isSupabaseConfigured) return;
 
     const channelId = `fleet_drivers_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -67,17 +86,9 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_funcionarios' },
-        async (payload) => {
+        (payload) => {
           console.info('📡 [Realtime Frotas - Motoristas] Alteração em rh_funcionarios:', payload.eventType);
-          try {
-            const activeCid = companyProfile?.id || getActiveCompanyId();
-            const fresh = await fetchRhFuncionarios(activeCid);
-            if (fresh && Array.isArray(fresh) && fresh.length > 0) {
-              onSaveEmployees(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar motoristas via Realtime:', err);
-          }
+          loadDriversFromSupabase();
         }
       )
       .subscribe();
@@ -85,7 +96,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [onSaveEmployees, companyProfile?.id]);
+  }, [loadDriversFromSupabase]);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,7 +104,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
   // Form State
   const [name, setName] = useState('');
-  const [role, setRole] = useState('Motorista de Caminhão');
+  const [role, setRole] = useState('Motorista');
   const [phone, setPhone] = useState('');
   const [cnhNumber, setCnhNumber] = useState('');
   const [cnhCategory, setCnhCategory] = useState('E');
@@ -101,7 +112,21 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [status, setStatus] = useState<Employee['status']>('ativo');
 
-  const cnhReport = checkCnhStatus(employees);
+  // Mescla os motoristas buscados de rh_funcionarios com os colaboradores existentes
+  const allDriversMerged = useMemo(() => {
+    const map = new Map<string, Employee>();
+    dbDrivers.forEach(d => {
+      if (d.id) map.set(d.id, d);
+    });
+    employees.forEach(e => {
+      if (e.id && !map.has(e.id)) {
+        map.set(e.id, e);
+      }
+    });
+    return Array.from(map.values());
+  }, [dbDrivers, employees]);
+
+  const cnhReport = checkCnhStatus(allDriversMerged);
 
   // Helper to find any machinery/vehicle linked to a driver/operator
   const findAssignedMachinery = (driver: Employee) => {
@@ -147,7 +172,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       }
     });
 
-    return employees.filter(e => {
+    return allDriversMerged.filter(e => {
       const roleLower = (e.role || '').toLowerCase();
       const isLinkedToVehicle = 
         linkedEmployeeIds.has(e.id) || 
@@ -184,12 +209,12 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
       return true;
     });
-  }, [employees, machineries, searchTerm, filterCnh, cnhReport]);
+  }, [allDriversMerged, machineries, searchTerm, filterCnh, cnhReport]);
 
   const openNewDriverModal = () => {
     setEditingDriver(null);
     setName('');
-    setRole('Motorista de Caminhão');
+    setRole('Motorista');
     setPhone('');
     setCnhNumber('');
     setCnhCategory('E');
@@ -202,7 +227,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   const openEditDriverModal = (driver: Employee) => {
     setEditingDriver(driver);
     setName(driver.name);
-    setRole(driver.role);
+    setRole(driver.role || 'Motorista');
     setPhone(driver.phone);
     setCnhNumber(driver.cnhNumber || '');
     setCnhCategory(driver.cnhCategory || 'E');
@@ -215,7 +240,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    const driver = employees.find(e => e.id === id);
+    const driver = allDriversMerged.find(e => e.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Motorista / Operador',
       message: driver?.name 
@@ -226,7 +251,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      // 1. Atualização imediata no estado da aplicação
+      // 1. Atualização imediata no estado da aplicação e lista reativa
+      setDbDrivers(prev => prev.filter(e => e.id !== id && toValidUUID(e.id) !== toValidUUID(id)));
       onSaveEmployees(employees.filter(e => e.id !== id && toValidUUID(e.id) !== toValidUUID(id)));
 
       // 2. Exclusão física no Supabase (rh_funcionarios)
@@ -245,7 +271,7 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
     setIsSaving(true);
     const trimmedName = name.trim();
-    const trimmedRole = role.trim() || 'Motorista de Caminhão';
+    const trimmedRole = 'Motorista'; // Valor fixo 'Motorista' conforme especificação do usuário
     const trimmedPhone = phone.trim();
     const trimmedCnh = cnhNumber.trim();
     const safeExpiry = cnhExpiration.trim() ? cnhExpiration.trim() : undefined;
@@ -263,14 +289,22 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       cnhExpiration: safeExpiry,
       status,
       admissionDate: editingDriver?.admissionDate || new Date().toISOString().split('T')[0],
+      companyId: activeCid,
     };
 
-    // 1. Atualização otimista imediata na UI
-    if (editingDriver) {
-      onSaveEmployees(employees.map(emp => (emp.id === editingDriver.id || toValidUUID(emp.id) === toValidUUID(editingDriver.id)) ? driverPayload : emp));
-    } else {
-      onSaveEmployees([driverPayload, ...employees]);
-    }
+    // 1. Atualização otimista imediata na UI reativa e contexto global
+    setDbDrivers(prev => {
+      const exists = prev.some(d => d.id === targetId || toValidUUID(d.id) === toValidUUID(targetId));
+      if (exists) {
+        return prev.map(d => (d.id === targetId || toValidUUID(d.id) === toValidUUID(targetId)) ? driverPayload : d);
+      }
+      return [driverPayload, ...prev];
+    });
+
+    const updatedEmployees = employees.some(e => e.id === targetId || toValidUUID(e.id) === toValidUUID(targetId))
+      ? employees.map(emp => (emp.id === targetId || toValidUUID(emp.id) === toValidUUID(targetId)) ? driverPayload : emp)
+      : [driverPayload, ...employees];
+    onSaveEmployees(updatedEmployees);
 
     // 2. Persistência física direta no Supabase (public.rh_funcionarios)
     // Mapeia estritamente com as colunas físicas reais sem propriedades locais não aceitas
@@ -291,11 +325,14 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       if (res.success && res.data) {
         // Sincroniza com a linha física gravada no Supabase
         const savedEmp = res.data;
-        onSaveEmployees(
-          editingDriver
-            ? employees.map(emp => (emp.id === editingDriver.id || toValidUUID(emp.id) === toValidUUID(editingDriver.id)) ? savedEmp : emp)
-            : [savedEmp, ...employees.filter(e => e.id !== targetId && toValidUUID(e.id) !== toValidUUID(targetId))]
+        setDbDrivers(prev => {
+          const filtered = prev.filter(d => d.id !== targetId && toValidUUID(d.id) !== toValidUUID(targetId));
+          return [savedEmp, ...filtered];
+        });
+        const finalEmployees = updatedEmployees.map(emp => 
+          (emp.id === targetId || toValidUUID(emp.id) === toValidUUID(targetId)) ? savedEmp : emp
         );
+        onSaveEmployees(finalEmployees);
       }
     } catch (saveErr) {
       console.warn('Aviso ao persistir motorista no Supabase:', saveErr);

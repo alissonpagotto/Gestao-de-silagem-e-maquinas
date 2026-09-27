@@ -2213,6 +2213,51 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
 }
 
 /**
+ * 2. LISTAGEM FILTRADA E TEMPO REAL DE MOTORISTAS:
+ * Busca dados diretamente de 'public.rh_funcionarios' no Supabase,
+ * aplicando filtro para trazer apenas os registros onde o cargo/função (role)
+ * seja igual a 'Motorista' ou contenha 'Motorista'.
+ */
+export async function fetchFleetDriversFromSupabase(companyId?: string): Promise<Employee[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    let query = supabase
+      .from('rh_funcionarios')
+      .select('*')
+      .or('role.eq.Motorista,role.ilike.%Motorista%');
+
+    if (activeCompanyId) {
+      const validUuid = toValidUUID(activeCompanyId);
+      const companyFilter = `company_id.eq.${activeCompanyId}${validUuid && validUuid !== activeCompanyId ? `,company_id.eq.${validUuid}` : ''},company_id.is.null`;
+      query = query.or(companyFilter);
+    }
+
+    let { data, error } = await query.order('name', { ascending: true });
+
+    // Fallback: se o filtro por company_id não retornou registros, busca os motoristas sem restrição de tenant
+    if ((!data || data.length === 0) && (!error || error.code !== '42P01')) {
+      const fallbackRes = await supabase
+        .from('rh_funcionarios')
+        .select('*')
+        .or('role.eq.Motorista,role.ilike.%Motorista%')
+        .order('name', { ascending: true });
+      if (fallbackRes.data && fallbackRes.data.length > 0) {
+        data = fallbackRes.data;
+      }
+    }
+
+    if (Array.isArray(data)) {
+      return data.map(mapRowToEmployee);
+    }
+    return [];
+  } catch (err) {
+    console.warn('Erro ao buscar motoristas de rh_funcionarios:', err);
+    return [];
+  }
+}
+
+/**
  * 1. SALVAMENTO DE MOTORISTAS (Persistência no Supabase):
  * Salva ou atualiza motorista diretamente em public.rh_funcionarios.
  * Mapeia todos os campos para as colunas físicas reais (driver_license, license_category, license_expiry, etc.),
@@ -2244,10 +2289,11 @@ export async function saveFleetDriverToSupabase(
     const safeExpiry = formatIsoDateOnly(driver.cnhExpiration) || null;
 
     // Payload estritamente mapeado com as colunas físicas reais da tabela rh_funcionarios
+    // Define cargo/função (role) com o valor fixo 'Motorista' conforme especificação
     const payload: Record<string, any> = {
       id: validId,
       name: String(driver.name || '').trim(),
-      role: String(driver.role || 'Motorista de Caminhão').trim(),
+      role: 'Motorista',
       cpf: '',
       phone: String(driver.phone || '').trim(),
       email: '',

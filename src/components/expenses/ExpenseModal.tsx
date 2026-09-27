@@ -422,12 +422,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     if (isInstallment && installmentCount > 1 && !editingExpense) {
       const installmentAmount = +(numAmount / installmentCount).toFixed(2);
       const installments: Expense[] = [];
-      const baseDueDate = new Date(dueDate + 'T12:00:00');
+      const [bYear, bMonth, bDay] = dueDate.split('-').map(Number);
 
       for (let i = 0; i < installmentCount; i++) {
-        const itemDueDate = new Date(baseDueDate);
-        itemDueDate.setMonth(baseDueDate.getMonth() + i);
-        const dateStr = itemDueDate.toISOString().split('T')[0];
+        const totalMonths = (bMonth - 1) + i;
+        const targetYear = bYear + Math.floor(totalMonths / 12);
+        const targetMonth = ((totalMonths % 12) + 12) % 12;
+        const maxDays = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const targetDay = Math.min(bDay || 1, maxDays);
+        const yyyy = targetYear;
+        const mm = String(targetMonth + 1).padStart(2, '0');
+        const dd = String(targetDay).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
 
         installments.push({
           id: `exp_${Date.now()}_${i + 1}`,

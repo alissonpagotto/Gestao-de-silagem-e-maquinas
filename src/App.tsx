@@ -1371,18 +1371,7 @@ export default function App() {
     const newIds = new Set(deduplicatedEmployees.map(e => e.id));
 
     try {
-      // 3. Remove colaboradores excluídos
-      const deletePromises: Promise<any>[] = [];
-      for (const oldId of oldIds) {
-        if (!newIds.has(oldId)) {
-          deletePromises.push(deleteRhFuncionario(oldId, activeTenantId));
-        }
-      }
-      if (deletePromises.length > 0) {
-        await Promise.allSettled(deletePromises);
-      }
-
-      // 4. Salva ou atualiza colaboradores com garantia de tipos e conversão de colunas
+      // 3. Salva ou atualiza colaboradores com garantia de tipos e conversão de colunas
       const upsertPromises = deduplicatedEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId));
       await Promise.allSettled(upsertPromises);
 
