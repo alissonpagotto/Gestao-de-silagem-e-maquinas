@@ -41,6 +41,7 @@ import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { PrintDocumentOptions } from '../../lib/printService';
 import { PrintableEmployeeSheet } from './PrintableEmployeeSheet';
 import { generateEmployeeSheetHtml, generateEmployeeWhatsAppText } from './employeePrintUtils';
+import { EmployeeAvatar, isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 
 
 const STORAGE_KEYS = {
@@ -438,7 +439,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setRg((emp.rg || '').toUpperCase());
     setBirthDate(emp.birthDate || '');
     setPis((emp.pis || '').toUpperCase());
-    setPhotoUrl(emp.photoUrl || '');
+    setPhotoUrl(emp.photoUrl && !isBrokenAvatarUrl(emp.photoUrl) ? emp.photoUrl : '');
     setPhone(emp.phone || '');
     setBaseSalary(emp.baseSalary !== undefined ? formatCurrencyInputDisplay(emp.baseSalary) : (emp.salary !== undefined ? formatCurrencyInputDisplay(emp.salary) : '0,00'));
     setContractType(emp.contractType || (emp as any).regime || 'Registrado (CLT)');
@@ -1083,30 +1084,40 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 return (
                   <tr key={uniqueRowKey} className="hover:bg-slate-50 transition">
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="font-bold text-black uppercase">
-                        {emp.name}
-                      </div>
-                      {emp.active === false || emp.status === 'inativo' ? (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-black font-bold">
-                          INATIVO
-                        </span>
-                      ) : (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold">
-                          ATIVO
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-black/75 font-medium mt-0.5">
-                      {emp.cpf && (
-                        <span className="font-mono text-[11px]">CPF: {emp.cpf}</span>
-                      )}
-                      {emp.phone && (
-                        <div className="flex items-center space-x-1 text-black/75">
-                          <Phone className="w-3 h-3 text-black/60" />
-                          <span>{emp.phone}</span>
+                    <div className="flex items-center space-x-3">
+                      <EmployeeAvatar
+                        photoUrl={emp.photoUrl}
+                        name={emp.name}
+                        size="sm"
+                        className="shrink-0 rounded-xl"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <div className="font-bold text-black uppercase">
+                            {emp.name}
+                          </div>
+                          {emp.active === false || emp.status === 'inativo' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-black font-bold">
+                              INATIVO
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold">
+                              ATIVO
+                            </span>
+                          )}
                         </div>
-                      )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-black/75 font-medium mt-0.5">
+                          {emp.cpf && (
+                            <span className="font-mono text-[11px]">CPF: {emp.cpf}</span>
+                          )}
+                          {emp.phone && (
+                            <div className="flex items-center space-x-1 text-black/75">
+                              <Phone className="w-3 h-3 text-black/60" />
+                              <span>{emp.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </td>
 
@@ -1274,7 +1285,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   
                   {/* Photo Upload Thumbnail */}
                   <div className="sm:col-span-3 flex flex-col items-center justify-center p-3 border border-dashed border-stone-300 rounded-xl bg-white text-center">
-                    {photoUrl ? (
+                    {photoUrl && !isBrokenAvatarUrl(photoUrl) ? (
                       <div className="relative group">
                         <img 
                           src={photoUrl} 

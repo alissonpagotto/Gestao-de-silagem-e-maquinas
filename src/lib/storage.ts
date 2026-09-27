@@ -296,7 +296,7 @@ export function getStoredMachineries(): Machinery[] {
       return !isMock && !isMockId;
     }).map(m => {
       const img = m.imageUrl || m.photoUrl;
-      if (img && (img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
+      if (img && (img.includes('wix_mp.com') || img.includes('wix_mp') || img.includes('static.wixstatic.com') || img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {
         return { ...m, imageUrl: undefined, photoUrl: undefined, foto_url: undefined };
       }
       return m;
@@ -356,7 +356,21 @@ export function getStoredEmployees(): Employee[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     if (!raw) return INITIAL_EMPLOYEES;
-    return JSON.parse(raw);
+    const parsed: Employee[] = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
+    let modified = false;
+    const cleaned = parsed.map(emp => {
+      const p = emp.photoUrl || (emp as any).foto_url;
+      if (p && (p.includes('wix_mp.com') || p.includes('wix_mp') || p.includes('static.wixstatic.com') || p.includes('/_upload/') || p.includes('/upload/') || (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p)))) {
+        modified = true;
+        return { ...emp, photoUrl: undefined, foto_url: undefined };
+      }
+      return emp;
+    });
+    if (modified) {
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (e) {
     return INITIAL_EMPLOYEES;
   }

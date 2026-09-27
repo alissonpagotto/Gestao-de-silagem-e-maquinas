@@ -1,6 +1,7 @@
 import React from 'react';
 import { Employee, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
+import { isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 
 interface PrintableEmployeeSheetProps {
   employee: Partial<Employee> | null;
@@ -143,12 +144,15 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
       <div style={{ display: 'flex', gap: '14px', marginBottom: '10px' }}>
         {/* Espaço para Foto */}
         <div style={{ width: '100px', flexShrink: 0, textAlign: 'center' }}>
-          {employee.photoUrl ? (
+          {employee.photoUrl && !isBrokenAvatarUrl(employee.photoUrl) ? (
             <div style={{ width: '95px', height: '120px', border: '1px solid #94a3b8', borderRadius: '4px', overflow: 'hidden', margin: '0 auto' }}>
               <img 
                 src={employee.photoUrl} 
                 alt={employee.name || 'Foto'} 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
               />
             </div>
           ) : (

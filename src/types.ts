@@ -361,6 +361,7 @@ export interface Employee {
   birthDate?: string; // Data de Nascimento
   pis?: string; // Número do PIS
   photoUrl?: string; // Foto de perfil
+  foto_url?: string; // Alias banco Supabase (foto_url)
   phone: string;
   baseSalary?: number; // Salário Base (R$)
   contractType?: 'Registrado (CLT)' | 'Diarista / Safrista' | 'PJ / Prestador de Serviço' | 'Autônomo' | 'Comissionado' | string;

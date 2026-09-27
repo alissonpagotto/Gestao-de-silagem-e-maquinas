@@ -30,6 +30,7 @@ import { getStoredCompanyProfile, formatDateBR } from '../../lib/storage';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { sendViaWhatsApp } from '../../lib/printService';
 import { useConfirm } from '../../context/ConfirmContext';
+import { EmployeeAvatar } from '../common/EmployeeAvatar';
 
 interface FleetTeamViewProps {
 
@@ -781,6 +782,12 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
                             >
                               <div className="flex items-center space-x-2 min-w-0 flex-1">
                                 <GripVertical className="w-3.5 h-3.5 text-black/40 group-hover:text-black shrink-0" />
+                                <EmployeeAvatar
+                                  photoUrl={member.photoUrl}
+                                  name={member.name}
+                                  size="xs"
+                                  className="shrink-0 rounded-lg bg-black/10 text-black border-black/20"
+                                />
                                 <div className="truncate">
                                   <span className="font-bold text-xs text-black block truncate">
                                     {member.name}
@@ -861,6 +868,12 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
                             <div className="flex items-start justify-between">
                               <div className="flex items-center space-x-2">
                                 <GripVertical className="w-4 h-4 text-stone-400 shrink-0" />
+                                <EmployeeAvatar
+                                  photoUrl={member.photoUrl}
+                                  name={member.name}
+                                  size="sm"
+                                  className="shrink-0 rounded-lg"
+                                />
                                 <div>
                                   <h5 className="font-bold text-xs text-stone-900 dark:text-stone-100">
                                     {member.name}
@@ -900,18 +913,10 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
         </div>
       </div>
 
-      {/* Interactive Helper Banner (Dica de Gestão & Busca) */}
-      <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
-        <div className="flex items-center space-x-2.5">
-          <span className="text-base">💡</span>
-          <div>
-            <span className="font-bold">Dica de Gestão: </span>
-            <span>Clique e arraste qualquer funcionário com o mouse para a coluna da equipe desejada. Você pode renomear as equipes, trocar as cores ou adicionar mais frentes de colheita.</span>
-          </div>
-        </div>
-
-        {/* Quick Search */}
-        <div className="relative w-full sm:w-64 shrink-0">
+      {/* Interactive Helper Banner (Busca na Esquerda & Dica de Gestão na Direita) */}
+      <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+        {/* Quick Search na Esquerda */}
+        <div className="relative w-full sm:w-72 shrink-0">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
@@ -920,6 +925,15 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
             placeholder="Filtrar por nome ou função..."
             className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800 rounded-xl text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
+        </div>
+
+        {/* Dica de Gestão na Direita */}
+        <div className="flex items-center space-x-2.5 sm:justify-end text-left sm:text-right">
+          <span className="text-base shrink-0 sm:order-2">💡</span>
+          <div className="sm:order-1">
+            <span className="font-bold">Dica de Gestão: </span>
+            <span>Clique e arraste qualquer funcionário com o mouse para a coluna da equipe desejada. Você pode renomear as equipes, trocar as cores ou adicionar mais frentes de colheita.</span>
+          </div>
         </div>
       </div>
 
@@ -984,6 +998,12 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
                   >
                     <div className="flex items-center space-x-2 min-w-0">
                       <GripVertical className="w-4 h-4 text-stone-400 shrink-0" />
+                      <EmployeeAvatar
+                        photoUrl={member.photoUrl}
+                        name={member.name}
+                        size="xs"
+                        className="shrink-0 rounded-lg"
+                      />
                       <div className="truncate">
                         <span className="font-bold text-xs text-stone-900 dark:text-stone-100 block truncate">
                           {member.name}

@@ -22,6 +22,7 @@ import {
 import { Employee, Machinery } from '../../types';
 import { formatDateBR, checkCnhStatus } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { EmployeeAvatar } from '../common/EmployeeAvatar';
 
 interface FleetDriversViewProps {
 
@@ -397,9 +398,13 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                       {/* Motorista / Cargo */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-9 h-9 rounded-xl bg-zinc-800 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
-                            {driver.name.substring(0, 2).toUpperCase()}
-                          </div>
+                          <EmployeeAvatar
+                            photoUrl={driver.photoUrl}
+                            name={driver.name}
+                            size="sm"
+                            showInitials
+                            className="bg-zinc-800 text-white border-zinc-700"
+                          />
                           <div>
                             <div className="font-bold text-zinc-900 text-sm">
                               {driver.name}
@@ -533,9 +538,13 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
               <div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-xl bg-zinc-800 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                      {driver.name.substring(0, 2).toUpperCase()}
-                    </div>
+                    <EmployeeAvatar
+                      photoUrl={driver.photoUrl}
+                      name={driver.name}
+                      size="md"
+                      showInitials
+                      className="bg-zinc-800 text-white border-zinc-700"
+                    />
                     <div>
                       <h4 className="text-sm font-bold text-zinc-900">
                         {driver.name}

@@ -2028,6 +2028,14 @@ export function mapRowToEmployee(row: any): Employee {
     bankPixKey: row.bank_pix_key || row.chave_pix || undefined,
     bankAgency: row.bank_agency || row.agencia || undefined,
     bankAccount: row.bank_account || row.conta || undefined,
+    photoUrl: (() => {
+      const raw = row.photo_url || row.photoUrl || row.foto_url || row.fotoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
+      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com') && !raw.includes('/_upload/') && !raw.includes('/upload/')) ? raw.trim() : undefined;
+    })(),
+    foto_url: (() => {
+      const raw = row.photo_url || row.photoUrl || row.foto_url || row.fotoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
+      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com') && !raw.includes('/_upload/') && !raw.includes('/upload/')) ? raw.trim() : undefined;
+    })(),
   };
 }
 
@@ -2456,7 +2464,7 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
             : (row.hourmeter !== undefined ? Number(row.hourmeter) : (row.hourMeter !== undefined ? Number(row.hourMeter) : undefined)));
 
       const rawPhoto = row.foto_url || row.fotoUrl || row.imageUrl;
-      const validPhoto = (rawPhoto && !rawPhoto.includes('/_upload/') && !rawPhoto.includes('/upload/')) ? rawPhoto : undefined;
+      const validPhoto = (rawPhoto && typeof rawPhoto === 'string' && !rawPhoto.includes('wix_mp.com') && !rawPhoto.includes('wix_mp') && !rawPhoto.includes('static.wixstatic.com') && !rawPhoto.includes('/_upload/') && !rawPhoto.includes('/upload/')) ? rawPhoto.trim() : undefined;
 
       // Sanitiza nome removendo permanentemente o prefixo fixo 'AGRÍCOLA'
       const rawNome = row.nome || row.name || '';
