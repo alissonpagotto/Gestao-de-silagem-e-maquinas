@@ -633,29 +633,6 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
         </div>
       </div>
 
-      {/* Interactive Helper Banner */}
-      <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
-        <div className="flex items-center space-x-2.5">
-          <span className="text-base">💡</span>
-          <div>
-            <span className="font-bold">Dica de Gestão: </span>
-            <span>Clique e arraste qualquer funcionário com o mouse para a coluna da equipe desejada. Você pode renomear as equipes, trocar as cores ou adicionar mais frentes de colheita.</span>
-          </div>
-        </div>
-
-        {/* Quick Search */}
-        <div className="relative w-full sm:w-64 shrink-0">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Filtrar por nome ou função..."
-            className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800 rounded-xl text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-        </div>
-      </div>
-
       {/* MAIN TEAMS BOARD CONTAINER (EXACT STYLE OF SPREADSHEET IN PRINT) */}
       <div className="overflow-x-auto pb-4">
         
@@ -920,6 +897,29 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
             })}
           </div>
           )}
+        </div>
+      </div>
+
+      {/* Interactive Helper Banner (Dica de Gestão & Busca) */}
+      <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+        <div className="flex items-center space-x-2.5">
+          <span className="text-base">💡</span>
+          <div>
+            <span className="font-bold">Dica de Gestão: </span>
+            <span>Clique e arraste qualquer funcionário com o mouse para a coluna da equipe desejada. Você pode renomear as equipes, trocar as cores ou adicionar mais frentes de colheita.</span>
+          </div>
+        </div>
+
+        {/* Quick Search */}
+        <div className="relative w-full sm:w-64 shrink-0">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Filtrar por nome ou função..."
+            className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800 rounded-xl text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
         </div>
       </div>
 

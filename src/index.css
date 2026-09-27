@@ -747,9 +747,14 @@ input[type=number] {
 /* 1. Fundo Geral da Aplicação */
 html:not(.dark),
 html:not(.dark) body,
-html:not(.dark) #root,
-html:not(.dark) main#crm-main-content {
+html:not(.dark) #root {
   background-color: #f4f4f5 !important; /* zinc-100 */
+  color: #18181b;
+}
+
+html:not(.dark) main#crm-main-content,
+html:not(.dark) div#root > div > div > main#crm-main-content {
+  background-color: #cdcdcd !important;
   color: #18181b;
 }
 
@@ -759,9 +764,20 @@ html.dark main#crm-main-content {
 
 /* 2. Janela de Categorias (Menu Principal / Sidebar Esquerda) */
 html:not(.dark) aside#main-sidebar,
-html:not(.dark) aside#main-sidebar > div {
-  background-color: #e4e4e7 !important; /* zinc-200 */
-  border-color: #d4d4d8 !important;     /* zinc-300 */
+html:not(.dark) aside#main-sidebar > div,
+html:not(.dark) aside#main-sidebar > div:nth-of-type(1),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(1),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(1) > nav:nth-of-type(1),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(2),
+html:not(.dark) aside#main-sidebar > div:nth-of-type(2),
+html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(1),
+html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1) > nav:nth-of-type(1),
+html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1) > div:nth-of-type(2),
+html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(1),
+html:not(.dark) div#root > div > aside#main-sidebar,
+html:not(.dark) div#root > div > aside#main-sidebar > div:nth-of-type(2) {
+  background-color: #bbbbbb !important;
+  border-color: #a8a8a8 !important;
 }
 
 /* 3. Cards de Indicadores e Painéis Globais (.crm-card) */
