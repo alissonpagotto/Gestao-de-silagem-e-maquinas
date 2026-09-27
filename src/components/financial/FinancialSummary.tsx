@@ -39,7 +39,7 @@ import {
   BankTransaction,
   PaymentMethod
 } from '../../types';
-import { formatCurrencyBRL, getStoredBankTransactions, saveStoredBankTransactions, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements } from '../../lib/storage';
+import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements } from '../../lib/storage';
 import { BankAccountsTab } from './BankAccountsTab';
 import { PayablesTab } from './PayablesTab';
 import { ReceivablesTab } from './ReceivablesTab';
@@ -424,7 +424,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
   // Filter Data for Current Month (Row 1)
   const currentMonthStart = `${currentYear}-${String(currentMonthNum + 1).padStart(2, '0')}-01`;
-  const currentMonthEnd = `${currentYear}-${String(currentMonthNum + 1).padStart(2, '0')}-31`;
+  const currentMonthEnd = getLastDayOfMonth(currentYear, currentMonthNum);
 
   const currentMonthRevenue = useMemo(() => {
     const ordersRev = orders

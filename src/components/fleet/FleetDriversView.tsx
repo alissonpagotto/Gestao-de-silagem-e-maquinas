@@ -19,16 +19,26 @@ import {
   Table as TableIcon,
   LayoutGrid
 } from 'lucide-react';
-import { Employee, Machinery } from '../../types';
-import { formatDateBR, checkCnhStatus } from '../../lib/storage';
+import { Employee, Machinery, CompanyProfile } from '../../types';
+import { formatDateBR, checkCnhStatus, getActiveCompanyId } from '../../lib/storage';
+import { 
+  saveFleetDriverToSupabase, 
+  deleteFleetDriverFromSupabase, 
+  fetchRhFuncionarios, 
+  upsertGestaoFrota, 
+  isSupabaseConfigured, 
+  toValidUUID 
+} from '../../lib/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
 import { useConfirm } from '../../context/ConfirmContext';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
 
 interface FleetDriversViewProps {
-
   employees: Employee[];
   machineries: Machinery[];
   onSaveEmployees: (employees: Employee[]) => void;
+  onSaveMachineries?: (machineries: Machinery[]) => void;
+  companyProfile?: CompanyProfile;
   onNavigateToVehicle?: (vehicleId: string) => void;
 }
 
@@ -36,6 +46,8 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
   employees,
   machineries,
   onSaveEmployees,
+  onSaveMachineries,
+  companyProfile,
   onNavigateToVehicle,
 }) => {
   const { confirm } = useConfirm();
@@ -43,6 +55,37 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
 
   const [filterCnh, setFilterCnh] = useState<'todos' | 'em_dia' | 'vencendo' | 'vencidas'>('todos');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Realtime multi-dispositivos para a tabela rh_funcionarios
+  React.useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const channelId = `fleet_drivers_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_funcionarios' },
+        async (payload) => {
+          console.info('📡 [Realtime Frotas - Motoristas] Alteração em rh_funcionarios:', payload.eventType);
+          try {
+            const activeCid = companyProfile?.id || getActiveCompanyId();
+            const fresh = await fetchRhFuncionarios(activeCid);
+            if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+              onSaveEmployees(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar motoristas via Realtime:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [onSaveEmployees, companyProfile?.id]);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -183,46 +226,103 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveEmployees(employees.filter(e => e.id !== id));
+      // 1. Atualização imediata no estado da aplicação
+      onSaveEmployees(employees.filter(e => e.id !== id && toValidUUID(e.id) !== toValidUUID(id)));
+
+      // 2. Exclusão física no Supabase (rh_funcionarios)
+      try {
+        const activeCid = companyProfile?.id || getActiveCompanyId();
+        await deleteFleetDriverFromSupabase(id, activeCid);
+      } catch (delErr) {
+        console.warn('Aviso ao excluir motorista do Supabase:', delErr);
+      }
     }
   };
 
-
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
+    setIsSaving(true);
+    const trimmedName = name.trim();
+    const trimmedRole = role.trim() || 'Motorista de Caminhão';
+    const trimmedPhone = phone.trim();
+    const trimmedCnh = cnhNumber.trim();
+    const safeExpiry = cnhExpiration.trim() ? cnhExpiration.trim() : undefined;
+    const targetId = editingDriver?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : toValidUUID(`emp_drv_${Date.now()}`));
+    const activeCid = companyProfile?.id || getActiveCompanyId();
+
+    const driverPayload: Employee = {
+      ...(editingDriver || {}),
+      id: targetId,
+      name: trimmedName,
+      role: trimmedRole,
+      phone: trimmedPhone,
+      cnhNumber: trimmedCnh || undefined,
+      cnhCategory: cnhCategory || 'E',
+      cnhExpiration: safeExpiry,
+      status,
+      admissionDate: editingDriver?.admissionDate || new Date().toISOString().split('T')[0],
+    };
+
+    // 1. Atualização otimista imediata na UI
     if (editingDriver) {
-      const updated = employees.map(emp =>
-        emp.id === editingDriver.id
-          ? {
-              ...emp,
-              name: name.trim(),
-              role: role.trim(),
-              phone: phone.trim(),
-              cnhNumber: cnhNumber.trim() || undefined,
-              cnhCategory: cnhCategory || undefined,
-              cnhExpiration: cnhExpiration || undefined,
-              status,
-            }
-          : emp
-      );
-      onSaveEmployees(updated);
+      onSaveEmployees(employees.map(emp => (emp.id === editingDriver.id || toValidUUID(emp.id) === toValidUUID(editingDriver.id)) ? driverPayload : emp));
     } else {
-      const newDriver: Employee = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_drv_${Date.now()}`,
-        name: name.trim(),
-        role: role.trim() || 'Motorista de Caminhão',
-        phone: phone.trim(),
-        cnhNumber: cnhNumber.trim() || undefined,
-        cnhCategory: cnhCategory || 'E',
-        cnhExpiration: cnhExpiration || undefined,
-        status,
-        admissionDate: new Date().toISOString().split('T')[0],
-      };
-      onSaveEmployees([newDriver, ...employees]);
+      onSaveEmployees([driverPayload, ...employees]);
     }
 
+    // 2. Persistência física direta no Supabase (public.rh_funcionarios)
+    // Mapeia estritamente com as colunas físicas reais sem propriedades locais não aceitas
+    try {
+      const res = await saveFleetDriverToSupabase({
+        id: targetId,
+        name: trimmedName,
+        role: trimmedRole,
+        phone: trimmedPhone,
+        cnhNumber: trimmedCnh,
+        cnhCategory,
+        cnhExpiration: safeExpiry,
+        status,
+        admissionDate: driverPayload.admissionDate,
+        companyId: activeCid,
+      }, activeCid);
+
+      if (res.success && res.data) {
+        // Sincroniza com a linha física gravada no Supabase
+        const savedEmp = res.data;
+        onSaveEmployees(
+          editingDriver
+            ? employees.map(emp => (emp.id === editingDriver.id || toValidUUID(emp.id) === toValidUUID(editingDriver.id)) ? savedEmp : emp)
+            : [savedEmp, ...employees.filter(e => e.id !== targetId && toValidUUID(e.id) !== toValidUUID(targetId))]
+        );
+      }
+    } catch (saveErr) {
+      console.warn('Aviso ao persistir motorista no Supabase:', saveErr);
+    }
+
+    // 3. Vinculação com o veículo titular selecionado (se fornecido)
+    if (assignedVehicle && onSaveMachineries) {
+      const targetVehicle = machineries.find(m => m.id === assignedVehicle);
+      if (targetVehicle) {
+        const updatedVehicles = machineries.map(m => {
+          if (m.id === assignedVehicle) {
+            const updated: Machinery = {
+              ...m,
+              operatorOrDriver: trimmedName,
+              assignedDriverIds: Array.from(new Set([...(m.assignedDriverIds || []), targetId])),
+              assignedDrivers: Array.from(new Set([...(m.assignedDrivers || []), trimmedName]))
+            };
+            upsertGestaoFrota(updated).catch(err => console.warn('Erro ao atualizar titular do veículo:', err));
+            return updated;
+          }
+          return m;
+        });
+        onSaveMachineries(updatedVehicles);
+      }
+    }
+
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
@@ -738,20 +838,40 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-700 uppercase tracking-wider mb-1">
+                  Caminhão / Veículo Vinculado (Opcional)
+                </label>
+                <select
+                  value={assignedVehicle}
+                  onChange={(e) => setAssignedVehicle(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 transition-colors shadow-xs cursor-pointer"
+                >
+                  <option value="">Sem veículo titular fixo</option>
+                  {machineries.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.model ? `- ${m.model}` : ''} {m.licensePlateOrSerial ? `(${m.licensePlateOrSerial})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="pt-4 border-t border-zinc-200 flex items-center justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition cursor-pointer"
+                  disabled={isSaving}
+                  className="px-4 py-2.5 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition active:scale-98 flex items-center space-x-2 cursor-pointer"
+                  disabled={isSaving}
+                  className="px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition active:scale-98 flex items-center space-x-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>Salvar Motorista</span>
+                  <Save className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
+                  <span>{isSaving ? 'Gravando...' : 'Salvar Motorista'}</span>
                 </button>
               </div>
             </form>

@@ -28,6 +28,7 @@ import { ReportsDashboardTab } from './ReportsDashboardTab';
 import { ReportsResumoTab } from './ReportsResumoTab';
 import { ReportsExportTab } from './ReportsExportTab';
 import { ReportsCortesTab } from './ReportsCortesTab';
+import { getLastDayOfMonth } from '../../lib/storage';
 import { ReportsVendasTab } from './ReportsVendasTab';
 import { ReportsDespesasTab } from './ReportsDespesasTab';
 import { ReportsConsumoTab } from './ReportsConsumoTab';
@@ -71,7 +72,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   // Custom Date range
   const pad = (n: number) => String(n).padStart(2, '0');
   const defaultStart = `${selectedYear}-${pad(selectedMonth + 1)}-01`;
-  const defaultEnd = `${selectedYear}-${pad(selectedMonth + 1)}-31`;
+  const defaultEnd = getLastDayOfMonth(selectedYear, selectedMonth);
   const [startDate, setStartDate] = useState<string>(defaultStart);
   const [endDate, setEndDate] = useState<string>(defaultEnd);
 
@@ -88,7 +89,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const handleMonthChange = (monthIdx: number) => {
     setSelectedMonth(monthIdx);
     const s = `${selectedYear}-${pad(monthIdx + 1)}-01`;
-    const e = `${selectedYear}-${pad(monthIdx + 1)}-31`;
+    const e = getLastDayOfMonth(selectedYear, monthIdx);
     setStartDate(s);
     setEndDate(e);
     setQuickPeriod('mes_atual');

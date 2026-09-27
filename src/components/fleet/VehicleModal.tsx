@@ -1181,11 +1181,15 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       const [bYear, bMonth, bDay] = baseDueDate.split('-').map(Number);
 
       for (let i = 1; i <= numInstallments; i++) {
-        // Calculate each month's date cleanly
-        const targetDate = new Date(bYear, (bMonth - 1) + (i - 1), bDay || 10);
-        const yyyy = targetDate.getFullYear();
-        const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(targetDate.getDate()).padStart(2, '0');
+        // Calculate each month's date cleanly ensuring day caps (e.g. 30 in September, 28/29 in Feb)
+        const totalMonths = (bMonth - 1) + (i - 1);
+        const targetYear = bYear + Math.floor(totalMonths / 12);
+        const targetMonth = ((totalMonths % 12) + 12) % 12;
+        const maxDays = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const targetDay = Math.min(bDay || 10, maxDays);
+        const yyyy = targetYear;
+        const mm = String(targetMonth + 1).padStart(2, '0');
+        const dd = String(targetDay).padStart(2, '0');
         const instDueDate = `${yyyy}-${mm}-${dd}`;
 
         onAddExpense({

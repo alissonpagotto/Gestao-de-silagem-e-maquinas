@@ -877,6 +877,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           employees={employees}
           machineries={machineries}
           onSaveEmployees={onSaveEmployees}
+          onSaveMachineries={onSaveMachineries}
+          companyProfile={companyProfile}
           onNavigateToVehicle={(vId) => {
             setActiveSubTab('veiculos');
           }}

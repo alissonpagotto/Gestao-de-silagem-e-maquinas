@@ -22,7 +22,7 @@ import {
   Legend 
 } from 'recharts';
 import { Expense, SilageOrder, ServiceOrder, FuelLog } from '../../types';
-import { formatCurrencyBRL } from '../../lib/storage';
+import { formatCurrencyBRL, getLastDayOfMonth } from '../../lib/storage';
 
 interface ReportsDashboardTabProps {
   expenses: Expense[];
@@ -55,7 +55,7 @@ export const ReportsDashboardTab: React.FC<ReportsDashboardTabProps> = ({
 }) => {
   // Current Month Data (Row 1)
   const currentMonthStart = `${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
-  const currentMonthEnd = `${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}-31`;
+  const currentMonthEnd = getLastDayOfMonth(selectedYear, new Date().getMonth());
 
   const currentMonthEntradas = useMemo(() => {
     const ordersRev = orders

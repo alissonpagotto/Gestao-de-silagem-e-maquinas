@@ -11,7 +11,8 @@ import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
 import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile } from '../../lib/storage';
-import { fetchGestaoFrotas, fetchCloudFuelLogs, isSupabaseConfigured } from '../../lib/supabaseService';
+import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured } from '../../lib/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface FleetVehiclesViewProps {
   machineries: Machinery[];
@@ -338,6 +339,35 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setIsPrintModalOpen(true);
   };
 
+  // Sincronização em tempo real de frotas (multi-dispositivos) escutando 'gestao_frotas'
+  React.useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const channelId = `fleet_vehicles_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'gestao_frotas' },
+        async (payload) => {
+          console.info('📡 [Realtime Frotas - Veículos] Alteração em gestao_frotas:', payload.eventType);
+          try {
+            const fresh = await fetchGestaoFrotas(companyProfile?.id);
+            if (fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineries) {
+              onSaveMachineries(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar frotas via Realtime:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [onSaveMachineries, companyProfile?.id]);
+
   // Automated Meter Synchronization Handler via direct HTTP REST
   const handleSyncMeters = async () => {
     setIsSyncing(true);
@@ -350,12 +380,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       let currentMachines = [...machineries];
       let currentFuel = [...fuelLogs];
 
-      // 1. Busca forçada via REST das tabelas no Supabase (contornando falha de WebSocket)
+      // 1. Busca forçada via REST das tabelas no Supabase
       if (isSupabaseConfigured) {
         try {
           const [remoteMachines, remoteFuel] = await Promise.all([
-            fetchGestaoFrotas(),
-            fetchCloudFuelLogs()
+            fetchGestaoFrotas(companyProfile?.id),
+            fetchCloudFuelLogs(companyProfile?.id)
           ]);
 
           if (remoteMachines && remoteMachines.length > 0) {
@@ -369,6 +399,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                   ...remote,
                   hourMeter: Math.max(local.hourMeter || 0, remote.hourMeter || 0),
                   currentKm: Math.max(local.currentKm || 0, remote.currentKm || 0),
+                  horimetro_ou_km_atual: Math.max(local.horimetro_ou_km_atual || 0, remote.horimetro_ou_km_atual || 0),
                 };
               }
               return local;
@@ -397,9 +428,19 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         orders
       );
 
-      // 3. Atualiza estado e banco de dados
+      // 3. Atualiza estado e banco de dados via PATCH com apenas colunas numéricas válidas
       if (onSaveMachineries) {
         onSaveMachineries(updatedMachineries);
+      }
+
+      // 3.1 Dispara PATCH direto com apenas as colunas numéricas válidas no Supabase
+      if (isSupabaseConfigured && updatedCount > 0) {
+        const patchPromises = updatedMachineries.map(m => {
+          const isByKm = m.controlBy === 'km' || m.controla_por === 'km';
+          const meterNum = isByKm ? (m.currentKm || 0) : (m.hourMeter || 0);
+          return patchGestaoFrotaMeter(m.id, meterNum, companyProfile?.id);
+        });
+        await Promise.allSettled(patchPromises);
       }
 
       // 4. Notifica o restante da aplicação para recarregar módulos via REST
@@ -440,20 +481,39 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setQuickMeterFeedback(null);
   };
 
-  const handleSaveQuickMeter = (e: React.FormEvent) => {
+  const handleSaveQuickMeter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickMeterVehicle) return;
 
-    const parsedHour = quickHourMeter.trim() ? parseFloat(quickHourMeter.replace(',', '.')) : quickMeterVehicle.hourMeter;
-    const parsedKm = quickKm.trim() ? parseFloat(quickKm.replace(',', '.')) : quickMeterVehicle.currentKm;
+    const parsedHour = quickHourMeter.trim() ? parseFloat(quickHourMeter.replace(',', '.')) : (quickMeterVehicle.hourMeter || 0);
+    const parsedKm = quickKm.trim() ? parseFloat(quickKm.replace(',', '.')) : (quickMeterVehicle.currentKm || 0);
+
+    const safeHour = isNaN(parsedHour) ? 0 : Math.max(0, parsedHour);
+    const safeKm = isNaN(parsedKm) ? 0 : Math.max(0, parsedKm);
+
+    const isByKm = quickMeterVehicle.controlBy === 'km' || quickMeterVehicle.controla_por === 'km';
+    const effectiveMeter = isByKm ? safeKm : safeHour;
 
     const updatedVehicle: Machinery = {
       ...quickMeterVehicle,
-      hourMeter: parsedHour !== undefined && !isNaN(parsedHour) ? parsedHour : quickMeterVehicle.hourMeter,
-      currentKm: parsedKm !== undefined && !isNaN(parsedKm) ? parsedKm : quickMeterVehicle.currentKm,
+      hourMeter: safeHour,
+      currentKm: safeKm,
+      horimetro_ou_km_atual: effectiveMeter,
     };
 
-    onEditVehicle(updatedVehicle);
+    // 1. Atualiza lista de máquinas no estado
+    if (onSaveMachineries) {
+      const updatedMachineries = machineries.map(m => m.id === quickMeterVehicle.id ? updatedVehicle : m);
+      onSaveMachineries(updatedMachineries);
+    }
+
+    // 2. Dispara PATCH limpo no Supabase com apenas a coluna numérica horimetro_ou_km_atual
+    try {
+      await patchGestaoFrotaMeter(quickMeterVehicle.id, effectiveMeter, companyProfile?.id);
+    } catch (patchErr) {
+      console.warn('Aviso ao atualizar leitura do veículo via PATCH:', patchErr);
+    }
+
     setQuickMeterFeedback('✅ Leitura atualizada com sucesso!');
     setTimeout(() => {
       setQuickMeterVehicle(null);

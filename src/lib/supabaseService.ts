@@ -2152,46 +2152,47 @@ export function resetRhCommissionColumnsCache(): void {
 export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
-  if (!activeCompanyId) return [];
 
   try {
     // 1. Tenta buscar da tabela principal 'rh_funcionarios'
-    let { data, error } = await supabase
-      .from('rh_funcionarios')
-      .select('*')
-      .eq('company_id', activeCompanyId)
-      .order('name', { ascending: true });
+    let data: any[] | null = null;
+    let error: any = null;
 
-    // Fallback com UUID alternativo se vazio
-    if ((!data || data.length === 0) && activeCompanyId && (!error || error.code !== '42P01')) {
-      const altUuid = toValidUUID(activeCompanyId);
-      if (altUuid && altUuid !== activeCompanyId) {
-        const retry = await supabase
-          .from('rh_funcionarios')
-          .select('*')
-          .eq('company_id', altUuid)
-          .order('name', { ascending: true });
-        if (retry.data && retry.data.length > 0) {
-          data = retry.data;
-          error = null;
-        }
+    if (activeCompanyId) {
+      const validUuid = toValidUUID(activeCompanyId);
+      const res = await supabase
+        .from('rh_funcionarios')
+        .select('*')
+        .or(`company_id.eq.${activeCompanyId}${validUuid && validUuid !== activeCompanyId ? `,company_id.eq.${validUuid}` : ''},company_id.is.null`)
+        .order('name', { ascending: true });
+      data = res.data;
+      error = res.error;
+    }
+
+    // Fallback: se vazio ou se activeCompanyId não fornecido, busca sem filtro restritivo para não ocultar cadastros
+    if ((!data || data.length === 0) && (!error || error.code !== '42P01')) {
+      const allRes = await supabase
+        .from('rh_funcionarios')
+        .select('*')
+        .order('name', { ascending: true });
+      if (allRes.data && allRes.data.length > 0) {
+        data = allRes.data;
+        error = null;
       }
     }
 
     // 2. Se a tabela 'rh_funcionarios' não existir, tenta 'funcionarios'
     if (error && (error.code === '42P01' || error.message?.includes('does not exist'))) {
-      let funcQuery = await supabase
-        .from('funcionarios')
-        .select('*')
-        .eq('company_id', activeCompanyId);
-      if (!funcQuery.error && Array.isArray(funcQuery.data) && funcQuery.data.length > 0) {
-        return funcQuery.data.map(mapRowToEmployee);
+      const funcRes = activeCompanyId
+        ? await supabase.from('funcionarios').select('*').eq('company_id', activeCompanyId)
+        : await supabase.from('funcionarios').select('*');
+      if (!funcRes.error && Array.isArray(funcRes.data) && funcRes.data.length > 0) {
+        return funcRes.data.map(mapRowToEmployee);
       }
     }
 
     if (error) {
       console.warn('Supabase fetchRhFuncionarios notice:', error.message);
-      // Tenta 'funcionarios' como fallback secundário
       try {
         const funcFallback = await supabase.from('funcionarios').select('*');
         if (!funcFallback.error && Array.isArray(funcFallback.data) && funcFallback.data.length > 0) {
@@ -2209,6 +2210,100 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
     console.warn('Supabase fetchRhFuncionarios err:', err);
     return [];
   }
+}
+
+/**
+ * 1. SALVAMENTO DE MOTORISTAS (Persistência no Supabase):
+ * Salva ou atualiza motorista diretamente em public.rh_funcionarios.
+ * Mapeia todos os campos para as colunas físicas reais (driver_license, license_category, license_expiry, etc.),
+ * garantindo ausência de propriedades locais que gerem erro HTTP 400 (Bad Request).
+ */
+export async function saveFleetDriverToSupabase(
+  driver: {
+    id?: string;
+    name: string;
+    role?: string;
+    phone?: string;
+    cnhNumber?: string;
+    cnhCategory?: string;
+    cnhExpiration?: string;
+    status?: string;
+    admissionDate?: string;
+    companyId?: string;
+  },
+  companyId?: string
+): Promise<{ success: boolean; data?: Employee; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase não configurado' };
+
+  try {
+    const activeCompanyId = driver.companyId || companyId || getActiveCompanyId();
+    const validId = driver.id ? toValidUUID(driver.id) : (crypto?.randomUUID ? crypto.randomUUID() : toValidUUID(`emp_drv_${Date.now()}`));
+
+    // Tratamento rigoroso de datas (DATE em PostgreSQL requer 'YYYY-MM-DD' ou null; strings vazias geram erro 22007)
+    const safeAdmission = formatIsoDateOnly(driver.admissionDate) || new Date().toISOString().split('T')[0];
+    const safeExpiry = formatIsoDateOnly(driver.cnhExpiration) || null;
+
+    // Payload estritamente mapeado com as colunas físicas reais da tabela rh_funcionarios
+    const payload: Record<string, any> = {
+      id: validId,
+      name: String(driver.name || '').trim(),
+      role: String(driver.role || 'Motorista de Caminhão').trim(),
+      cpf: '',
+      phone: String(driver.phone || '').trim(),
+      email: '',
+      status: String(driver.status || 'ativo').trim().toLowerCase(),
+      registration_type: 'Funcionário',
+      salary: 0,
+      admission_date: safeAdmission,
+      driver_license: String(driver.cnhNumber || '').trim(),
+      license_category: String(driver.cnhCategory || 'E').trim(),
+      license_expiry: safeExpiry,
+      comissao_hora: 0,
+      comissao_alqueire: 0,
+      comissao_hectare: 0,
+      recebe_comissao: false,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (activeCompanyId) {
+      payload.company_id = String(activeCompanyId).trim();
+    }
+
+    let { data, error } = await supabase
+      .from('rh_funcionarios')
+      .upsert(payload, { onConflict: 'id' })
+      .select();
+
+    // Se houve erro de restrição de company_id (23503), retenta sem company_id
+    if (error && (error.code === '23503' || error.message?.includes('company_id'))) {
+      delete payload.company_id;
+      const retry = await supabase
+        .from('rh_funcionarios')
+        .upsert(payload, { onConflict: 'id' })
+        .select();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (error) {
+      console.warn('Erro ao persistir motorista em rh_funcionarios:', error.message);
+      return { success: false, error };
+    }
+
+    const savedRow = data && data[0] ? data[0] : payload;
+    const mapped = mapRowToEmployee(savedRow);
+    return { success: true, data: mapped };
+  } catch (err) {
+    console.error('Exceção ao persistir motorista em rh_funcionarios:', err);
+    return { success: false, error: err };
+  }
+}
+
+export async function deleteFleetDriverFromSupabase(
+  driverId: string,
+  companyId?: string
+): Promise<boolean> {
+  return deleteRhFuncionario(driverId, companyId);
 }
 
 /**
@@ -2711,35 +2806,100 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
   }
 }
 
+/**
+ * 3. AJUSTE DE COLUNAS E REQUISIÇÕES DE VEÍCULOS:
+ * Atualização direta de horímetro/quilometragem da frota via PATCH.
+ * Limpa rigorosamente o payload enviado para que use apenas as colunas numéricas válidas
+ * da tabela 'gestao_frotas' (horimetro_ou_km_atual), evitando o envio de strings vazias, nulas ou NaN.
+ */
+export async function patchGestaoFrotaMeter(
+  vehicleId: string,
+  meterValue: number | string | null | undefined,
+  companyId?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !vehicleId) return false;
+  try {
+    const validId = toValidUUID(vehicleId);
+    let cleanVal = 0;
+    if (typeof meterValue === 'number') {
+      cleanVal = isNaN(meterValue) ? 0 : Math.max(0, meterValue);
+    } else if (typeof meterValue === 'string' && meterValue.trim() !== '') {
+      const parsed = parseFloat(meterValue.trim().replace(',', '.'));
+      cleanVal = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    }
+
+    // Payload estritamente limpo: usa apenas colunas físicas válidas
+    const payload = {
+      horimetro_ou_km_atual: cleanVal,
+      updated_at: new Date().toISOString()
+    };
+
+    let { error, data } = await supabase
+      .from('gestao_frotas')
+      .update(payload)
+      .eq('id', validId)
+      .select('id');
+
+    if (error) {
+      console.warn('Supabase patchGestaoFrotaMeter notice:', error.message);
+      return false;
+    }
+
+    if (!data || data.length === 0) {
+      if (vehicleId !== validId) {
+        await supabase.from('gestao_frotas').update(payload).eq('id', vehicleId);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase patchGestaoFrotaMeter err:', err);
+    return false;
+  }
+}
+
 export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = vehicle.companyId || companyId || getActiveCompanyId();
-    const tankCapacityVal = (vehicle.tank_capacity !== undefined && vehicle.tank_capacity !== null)
-      ? Number(vehicle.tank_capacity)
-      : ((vehicle.tankCapacity !== undefined && vehicle.tankCapacity !== null)
-          ? Number(vehicle.tankCapacity)
-          : (vehicle.fuelCapacityLiters !== undefined && vehicle.fuelCapacityLiters !== null ? Number(vehicle.fuelCapacityLiters) : 0));
 
-    const currentMeter = (vehicle.hourMeter !== undefined && vehicle.hourMeter !== null)
-      ? Number(vehicle.hourMeter)
-      : ((vehicle.currentKm !== undefined && vehicle.currentKm !== null)
-          ? Number(vehicle.currentKm)
-          : (vehicle.horimetro_ou_km_atual !== undefined ? Number(vehicle.horimetro_ou_km_atual) : 0));
+    // Tratamento estrito de valores numéricos para evitar envio de strings vazias ou nulas
+    let tankCapacityNumber = 0;
+    const rawTank: any = vehicle.tank_capacity ?? vehicle.tankCapacity ?? vehicle.fuelCapacityLiters;
+    if (typeof rawTank === 'number' && !isNaN(rawTank)) {
+      tankCapacityNumber = Math.max(0, rawTank);
+    } else if (typeof rawTank === 'string' && rawTank.trim() !== '') {
+      const p = parseFloat(rawTank.trim().replace(',', '.'));
+      tankCapacityNumber = isNaN(p) ? 0 : Math.max(0, p);
+    }
+
+    let currentMeter = 0;
+    const rawMeter: any = vehicle.horimetro_ou_km_atual ?? vehicle.hourMeter ?? vehicle.currentKm;
+    if (typeof rawMeter === 'number' && !isNaN(rawMeter)) {
+      currentMeter = Math.max(0, rawMeter);
+    } else if (typeof rawMeter === 'string' && rawMeter.trim() !== '') {
+      const p = parseFloat(rawMeter.trim().replace(',', '.'));
+      currentMeter = isNaN(p) ? 0 : Math.max(0, p);
+    }
+
+    let cleanAno: number | null = null;
+    if (vehicle.year !== undefined && vehicle.year !== null) {
+      const parsedAno = parseInt(String(vehicle.year), 10);
+      cleanAno = isNaN(parsedAno) ? null : parsedAno;
+    }
 
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
       company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
       tipo: vehicle.categoryType || vehicle.tipo || 'veiculo',
-      nome: vehicle.name || vehicle.nome || 'Veículo',
+      nome: String(vehicle.name || vehicle.nome || 'Veículo').trim(),
       modelo: vehicle.model || vehicle.modelo || null,
       placa_ou_serie: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
-      ano: vehicle.year ? Number(vehicle.year) : null,
-      horimetro_ou_km_atual: isNaN(currentMeter) ? 0 : currentMeter,
+      ano: cleanAno,
+      horimetro_ou_km_atual: currentMeter,
       status: vehicle.status || 'ativo',
       manutencao_status: vehicle.maintenanceStatus || vehicle.manutencao_status || 'ok',
       foto_url: vehicle.imageUrl || vehicle.photoUrl || vehicle.foto_url || null,
-      tank_capacity: isNaN(tankCapacityVal) ? 0 : tankCapacityVal,
+      tank_capacity: tankCapacityNumber,
       updated_at: new Date().toISOString()
     };
 

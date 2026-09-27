@@ -1910,15 +1910,30 @@ export function saveStoredManualEntryDocumentTypes(types: string[]): void {
   }
 }
 
+export function getLastDayOfMonth(year: number, monthIndex0: number): string {
+  // O dia 0 do mês seguinte é exatamente o último dia do mês atual na API nativa Date do JavaScript
+  const lastDate = new Date(year, monthIndex0 + 1, 0);
+  const y = lastDate.getFullYear();
+  const m = String(lastDate.getMonth() + 1).padStart(2, '0');
+  const d = String(lastDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function calculateDefaultDueDate(dateStr?: string, days = 30): string {
   try {
     if (!dateStr) {
       const now = new Date();
       now.setDate(now.getDate() + days);
-      return now.toISOString().split('T')[0];
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dayStr}`;
     }
     const [year, month, day] = dateStr.split('-').map(Number);
-    const d = new Date(year, month - 1, day);
+    // Valida dia dentro do mês de origem para evitar overflow de dias
+    const maxDaysInOrigin = new Date(year, month, 0).getDate();
+    const safeDay = Math.min(day || 1, maxDaysInOrigin);
+    const d = new Date(year, month - 1, safeDay);
     d.setDate(d.getDate() + days);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -1927,7 +1942,10 @@ export function calculateDefaultDueDate(dateStr?: string, days = 30): string {
   } catch {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dayStr}`;
   }
 }
 
