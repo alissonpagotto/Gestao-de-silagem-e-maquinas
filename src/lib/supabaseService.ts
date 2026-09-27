@@ -2382,6 +2382,205 @@ export async function deleteRhFuncionario(id: string, _companyId?: string): Prom
 }
 
 // ===========================================================================
+// 6.1 Frentes de Trabalho & Escalação de Equipes (Tabelas: frentes_trabalho e frentes_trabalho_membros)
+// ===========================================================================
+
+export interface FrenteTrabalhoRow {
+  id: string;
+  nome: string;
+  cor?: string | null;
+  company_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FrenteTrabalhoMembroRow {
+  id?: string;
+  frente_id: string;
+  funcionario_id: string;
+  created_at?: string;
+}
+
+/**
+ * 1. LEITURA INICIAL (GET) DO SUPABASE:
+ * Busca as equipes cadastradas em public.frentes_trabalho
+ */
+export async function fetchFrentesTrabalho(companyId?: string): Promise<FrenteTrabalhoRow[]> {
+  if (!isSupabaseConfigured) return [];
+  const activeCompanyId = companyId || getActiveCompanyId();
+  try {
+    const validCompUuid = activeCompanyId ? toValidUUID(activeCompanyId) : null;
+    if (validCompUuid) {
+      const { data, error } = await supabase
+        .from('frentes_trabalho')
+        .select('*')
+        .or(`company_id.eq.${validCompUuid},company_id.is.null`)
+        .order('created_at', { ascending: true });
+      if (!error && Array.isArray(data) && data.length > 0) return data;
+    }
+
+    const { data, error } = await supabase.from('frentes_trabalho').select('*').order('created_at', { ascending: true });
+    if (error) {
+      const fallback = await supabase.from('frentes_trabalho').select('*');
+      return fallback.data || [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('Supabase fetchFrentesTrabalho err:', err);
+    return [];
+  }
+}
+
+/**
+ * 1. LEITURA INICIAL (GET) DO SUPABASE:
+ * Busca as alocações de funcionários em public.frentes_trabalho_membros
+ */
+export async function fetchFrentesTrabalhoMembros(): Promise<FrenteTrabalhoMembroRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const { data, error } = await supabase.from('frentes_trabalho_membros').select('*');
+    if (error) {
+      console.warn('Supabase fetchFrentesTrabalhoMembros notice:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('Supabase fetchFrentesTrabalhoMembros err:', err);
+    return [];
+  }
+}
+
+/**
+ * 2. SALVAMENTO AUTOMÁTICO DE CRIAÇÃO:
+ * Cria nova equipe na tabela public.frentes_trabalho
+ */
+export async function createFrenteTrabalho(
+  team: { name: string; cor?: string; companyId?: string }
+): Promise<FrenteTrabalhoRow | null> {
+  if (!isSupabaseConfigured) return null;
+  const activeCompanyId = team.companyId || getActiveCompanyId();
+  try {
+    const validCompUuid = activeCompanyId ? toValidUUID(activeCompanyId) : null;
+    const payload: any = {
+      nome: team.name.trim(),
+      cor: team.cor || '#eab308',
+    };
+    if (validCompUuid) {
+      payload.company_id = validCompUuid;
+    }
+    const { data, error } = await supabase.from('frentes_trabalho').insert([payload]).select();
+    if (error) {
+      console.warn('Supabase createFrenteTrabalho notice with company_id:', error.message);
+      // Fallback sem company_id caso haja restrição
+      delete payload.company_id;
+      const retry = await supabase.from('frentes_trabalho').insert([payload]).select();
+      if (!retry.error && retry.data?.[0]) {
+        return retry.data[0];
+      }
+      return null;
+    }
+    return data?.[0] || null;
+  } catch (err) {
+    console.warn('Supabase createFrenteTrabalho err:', err);
+    return null;
+  }
+}
+
+/**
+ * 2. ATUALIZAÇÃO DE EQUIPE:
+ * Atualiza nome e cor na tabela public.frentes_trabalho
+ */
+export async function updateFrenteTrabalho(
+  teamId: string,
+  team: { name?: string; cor?: string }
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !teamId) return false;
+  try {
+    const updatePayload: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (team.name !== undefined) updatePayload.nome = team.name.trim();
+    if (team.cor !== undefined) updatePayload.cor = team.cor;
+    const { error } = await supabase.from('frentes_trabalho').update(updatePayload).eq('id', teamId);
+    if (error) {
+      console.warn('Supabase updateFrenteTrabalho error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase updateFrenteTrabalho err:', err);
+    return false;
+  }
+}
+
+/**
+ * 2. EXCLUSÃO DE EQUIPE:
+ * Deleta a equipe de public.frentes_trabalho e desvincula seus membros em public.frentes_trabalho_membros
+ */
+export async function deleteFrenteTrabalho(teamId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !teamId) return false;
+  try {
+    // 1. Remove os membros vinculados a esta frente
+    await supabase.from('frentes_trabalho_membros').delete().eq('frente_id', teamId);
+    // 2. Remove a frente
+    const { error } = await supabase.from('frentes_trabalho').delete().eq('id', teamId);
+    if (error) {
+      console.warn('Supabase deleteFrenteTrabalho error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteFrenteTrabalho err:', err);
+    return false;
+  }
+}
+
+/**
+ * 3. PERSISTÊNCIA DO DRAG AND DROP (Arrastar e Soltar):
+ * Aloca o funcionário na equipe especificada em public.frentes_trabalho_membros
+ */
+export async function alocarFuncionarioFrente(
+  funcionarioId: string,
+  frenteId: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !funcionarioId || !frenteId) return false;
+  try {
+    // Remove qualquer alocação anterior do funcionário para garantir consistência
+    await supabase.from('frentes_trabalho_membros').delete().eq('funcionario_id', funcionarioId);
+    // Insere a nova alocação
+    const { error } = await supabase.from('frentes_trabalho_membros').insert([{
+      frente_id: frenteId,
+      funcionario_id: funcionarioId,
+    }]);
+    if (error) {
+      console.warn('Supabase alocarFuncionarioFrente error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase alocarFuncionarioFrente err:', err);
+    return false;
+  }
+}
+
+/**
+ * 3. PERSISTÊNCIA DO DRAG AND DROP (Arrastar de volta para o Banco de Disponíveis):
+ * Deleta a linha do funcionário em public.frentes_trabalho_membros
+ */
+export async function desalocarFuncionarioFrente(funcionarioId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !funcionarioId) return false;
+  try {
+    const { error } = await supabase.from('frentes_trabalho_membros').delete().eq('funcionario_id', funcionarioId);
+    if (error) {
+      console.warn('Supabase desalocarFuncionarioFrente error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase desalocarFuncionarioFrente err:', err);
+    return false;
+  }
+}
+
+// ===========================================================================
 // 7. Gestão de Frotas (Tabela: public.gestao_frotas)
 // ===========================================================================
 export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {

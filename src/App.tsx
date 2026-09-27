@@ -157,7 +157,9 @@ import {
   fetchAllClientModulesFromSupabase,
   fetchAbastecimentos,
   saveCloudFuelLogs,
-  getAbastecimentosTableName
+  getAbastecimentosTableName,
+  fetchFrentesTrabalho,
+  fetchFrentesTrabalhoMembros
 } from './lib/supabaseService';
 import { supabase } from './lib/supabaseClient';
 
@@ -468,6 +470,37 @@ export default function App() {
           saveStoredFuelLogs(cloudFuels);
         }
 
+        // 4. Carrega frentes de trabalho e alocações de equipe em nuvem (tabelas frentes_trabalho e frentes_trabalho_membros)
+        try {
+          const cloudFrentes = await fetchFrentesTrabalho(activeTenantId);
+          if (cloudFrentes && cloudFrentes.length > 0 && isMounted) {
+            const mappedTeams = cloudFrentes.map(f => ({
+              id: String(f.id),
+              name: f.nome,
+              headerBg: f.cor || '#eab308',
+              headerBgColor: f.cor || '#eab308',
+              borderColor: '#ca8a04',
+              columnBgColor: '#fefce8',
+              companyId: f.company_id || undefined,
+            }));
+            setFleetTeams(mappedTeams);
+            saveStoredFleetTeams(mappedTeams);
+          }
+          const membrosData = await fetchFrentesTrabalhoMembros();
+          if (membrosData && isMounted) {
+            const membrosMap = new Map<string, string>();
+            membrosData.forEach(m => {
+              if (m.funcionario_id && m.frente_id) {
+                membrosMap.set(String(m.funcionario_id), String(m.frente_id));
+              }
+            });
+            setEmployees(prev => prev.map(emp => {
+              const assigned = membrosMap.get(emp.id) || (emp.id ? membrosMap.get(String(emp.id)) : undefined);
+              return { ...emp, teamId: assigned || undefined };
+            }));
+          }
+        } catch (_) {}
+
         setLastSyncedAt(new Date());
       } catch (e) {
         console.warn('Notice fetching cloud data from Supabase:', e);
@@ -713,6 +746,56 @@ export default function App() {
       });
     });
 
+    const unsubFrentes = subscribeToCloudTable('frentes_trabalho', () => {
+      Promise.all([
+        fetchFrentesTrabalho(activeTenantId),
+        fetchFrentesTrabalhoMembros()
+      ]).then(([cloudFrentes, membrosData]) => {
+        if (cloudFrentes && isMounted) {
+          const mappedTeams = cloudFrentes.map(f => ({
+            id: String(f.id),
+            name: f.nome,
+            headerBg: f.cor || '#eab308',
+            headerBgColor: f.cor || '#eab308',
+            borderColor: '#ca8a04',
+            columnBgColor: '#fefce8',
+            companyId: f.company_id || undefined,
+          }));
+          setFleetTeams(mappedTeams);
+          saveStoredFleetTeams(mappedTeams);
+        }
+        if (membrosData && isMounted) {
+          const membrosMap = new Map<string, string>();
+          membrosData.forEach(m => {
+            if (m.funcionario_id && m.frente_id) {
+              membrosMap.set(String(m.funcionario_id), String(m.frente_id));
+            }
+          });
+          setEmployees(prev => prev.map(emp => {
+            const assigned = membrosMap.get(emp.id) || (emp.id ? membrosMap.get(String(emp.id)) : undefined);
+            return { ...emp, teamId: assigned || undefined };
+          }));
+        }
+      }).catch(() => {});
+    });
+
+    const unsubMembros = subscribeToCloudTable('frentes_trabalho_membros', () => {
+      fetchFrentesTrabalhoMembros().then(membrosData => {
+        if (membrosData && isMounted) {
+          const membrosMap = new Map<string, string>();
+          membrosData.forEach(m => {
+            if (m.funcionario_id && m.frente_id) {
+              membrosMap.set(String(m.funcionario_id), String(m.frente_id));
+            }
+          });
+          setEmployees(prev => prev.map(emp => {
+            const assigned = membrosMap.get(emp.id) || (emp.id ? membrosMap.get(String(emp.id)) : undefined);
+            return { ...emp, teamId: assigned || undefined };
+          }));
+        }
+      }).catch(() => {});
+    });
+
     // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
     // Escuta as alterações no banco de dados na tabela 'abastecimentos' e em 'site_settings'
     const fuelTable = getAbastecimentosTableName() || 'abastecimentos';
@@ -795,6 +878,8 @@ export default function App() {
       unsubFrotas();
       unsubContas();
       unsubSettings();
+      unsubFrentes();
+      unsubMembros();
       supabase.removeChannel(canalAbastecimentos);
       clearInterval(pollAbastecimentosInterval);
       document.removeEventListener('visibilitychange', handleFocusSync);

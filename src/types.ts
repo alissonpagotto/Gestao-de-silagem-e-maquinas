@@ -407,6 +407,11 @@ export interface FleetTeam {
   headerBgColor: string; // Cor do cabeçalho da coluna
   columnBgColor: string; // Cor de fundo da coluna
   borderColor?: string;
+  headerBg?: string;
+  columnBg?: string;
+  border?: string;
+  colorSchemeId?: string;
+  companyId?: string;
   machineryId?: string; // Máquina vinculada (opcional)
   machineryName?: string;
   leaderId?: string; // Líder / Encarregado

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { 
   Users, 
   Plus, 
@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Clock,
   Car,
-  MessageCircle
+  MessageCircle,
+  Loader2
 } from 'lucide-react';
 import { Employee, Machinery, FleetTeam, CompanyProfile } from '../../types';
 import { getStoredCompanyProfile, formatDateBR } from '../../lib/storage';
@@ -31,6 +32,17 @@ import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { sendViaWhatsApp } from '../../lib/printService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
+import { supabase } from '../../lib/supabase';
+import { 
+  fetchFrentesTrabalho, 
+  fetchFrentesTrabalhoMembros, 
+  createFrenteTrabalho, 
+  updateFrenteTrabalho, 
+  deleteFrenteTrabalho, 
+  alocarFuncionarioFrente, 
+  desalocarFuncionarioFrente,
+  FrenteTrabalhoRow 
+} from '../../lib/supabaseService';
 
 interface FleetTeamViewProps {
 
@@ -54,6 +66,31 @@ export const TEAM_COLOR_PALETTES = [
   { id: 'slate_gray', name: 'Cinza Metálico', headerBg: '#e2e8f0', columnBg: '#f8fafc', border: '#64748b' },
 ];
 
+// Helper para mapear linha da tabela frentes_trabalho para o objeto FleetTeam usado na UI
+function mapDbFrenteToFleetTeam(row: FrenteTrabalhoRow, machineries: Machinery[]): FleetTeam {
+  const hex = row.cor || '#eab308';
+  const matchingPalette = TEAM_COLOR_PALETTES.find(p => p.headerBg === hex || p.border === hex) || TEAM_COLOR_PALETTES[0];
+  const mach = machineries.find(m => 
+    m.name?.toLowerCase() === row.nome?.toLowerCase() || 
+    (m.fleetNumber && row.nome?.toLowerCase().includes(m.fleetNumber.toLowerCase()))
+  );
+
+  return {
+    id: String(row.id),
+    name: row.nome || 'Equipe',
+    companyId: row.company_id || undefined,
+    colorSchemeId: matchingPalette.id,
+    headerBg: hex,
+    headerBgColor: hex,
+    columnBg: matchingPalette.columnBg,
+    columnBgColor: matchingPalette.columnBg,
+    border: matchingPalette.border,
+    borderColor: matchingPalette.border,
+    machineryId: mach?.id,
+    machineryName: mach ? `${mach.name} (${mach.licensePlateOrSerial || mach.model})` : undefined,
+  };
+}
+
 export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
   employees,
   machineries,
@@ -62,17 +99,15 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
   onSaveEmployees,
   onSaveTeams,
 }) => {
-  // Local fallback if no teams provided
-  const defaultInitialTeams: FleetTeam[] = [];
-
-  const teams = (externalTeams && externalTeams.length > 0) ? externalTeams : defaultInitialTeams;
+  // Estado local gerenciado em tempo real com Supabase
+  const [teams, setTeams] = useState<FleetTeam[]>(() => externalTeams || []);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
 
   // View mode: 'table' (like the uploaded spreadsheet print) or 'cards' (rich Kanban cards)
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [isUnassignedOpen, setIsUnassignedOpen] = useState(true);
-
 
   // Drag and Drop state
   const [draggedEmployeeId, setDraggedEmployeeId] = useState<string | null>(null);
@@ -101,6 +136,27 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
   // Quick Move Dropdown menu on employee
   const [openMoveMenuEmpId, setOpenMoveMenuEmpId] = useState<string | null>(null);
 
+  // Refs de segurança para evitar loops infinitos e manter referências sempre atualizadas
+  const employeesRef = useRef(employees);
+  useEffect(() => {
+    employeesRef.current = employees;
+  }, [employees]);
+
+  const machineriesRef = useRef(machineries);
+  useEffect(() => {
+    machineriesRef.current = machineries;
+  }, [machineries]);
+
+  const onSaveEmployeesRef = useRef(onSaveEmployees);
+  useEffect(() => {
+    onSaveEmployeesRef.current = onSaveEmployees;
+  }, [onSaveEmployees]);
+
+  const onSaveTeamsRef = useRef(onSaveTeams);
+  useEffect(() => {
+    onSaveTeamsRef.current = onSaveTeams;
+  }, [onSaveTeams]);
+
   // Trigger temporary notification
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -108,6 +164,112 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       setToastMessage(null);
     }, 3000);
   };
+
+  // 1. LEITURA INICIAL (GET) DO SUPABASE:
+  const loadFrentesFromSupabase = useCallback(async () => {
+    try {
+      setIsLoadingTeams(true);
+      const [frentesData, membrosData] = await Promise.all([
+        fetchFrentesTrabalho(companyProfile?.id),
+        fetchFrentesTrabalhoMembros()
+      ]);
+
+      const currentMachineries = machineriesRef.current;
+      const currentEmployees = employeesRef.current;
+
+      if (frentesData && frentesData.length > 0) {
+        const mappedTeams = frentesData.map(f => mapDbFrenteToFleetTeam(f, currentMachineries));
+        setTeams(mappedTeams);
+        if (onSaveTeamsRef.current) {
+          onSaveTeamsRef.current(mappedTeams);
+        }
+
+        // Mapeia a posição de cada funcionário conforme frentes_trabalho_membros
+        const membrosMap = new Map<string, string>();
+        (membrosData || []).forEach(m => {
+          if (m.funcionario_id && m.frente_id) {
+            membrosMap.set(String(m.funcionario_id), String(m.frente_id));
+          }
+        });
+
+        const updatedEmployees = currentEmployees.map(emp => {
+          const assignedFrenteId = membrosMap.get(emp.id) || (emp.id ? membrosMap.get(String(emp.id)) : undefined);
+          return {
+            ...emp,
+            teamId: assignedFrenteId || undefined,
+          };
+        });
+
+        if (onSaveEmployeesRef.current) {
+          onSaveEmployeesRef.current(updatedEmployees);
+        }
+      } else {
+        // Se ainda não houver frentes no Supabase, mas temos equipes locais herdadas que ainda não foram sincronizadas,
+        // sincroniza-as no Supabase para nunca perder dados no F5
+        if (externalTeams && externalTeams.length > 0) {
+          const createdTeams: FleetTeam[] = [];
+          for (const localTeam of externalTeams) {
+            const row = await createFrenteTrabalho({
+              name: localTeam.name,
+              cor: localTeam.headerBgColor || localTeam.headerBg || '#fef08a',
+              companyId: companyProfile?.id,
+            });
+            if (row) {
+              const mapped = mapDbFrenteToFleetTeam(row, currentMachineries);
+              createdTeams.push(mapped);
+              const matchingEmployees = currentEmployees.filter(e => e.teamId === localTeam.id);
+              for (const emp of matchingEmployees) {
+                await alocarFuncionarioFrente(emp.id, String(row.id));
+              }
+            }
+          }
+          if (createdTeams.length > 0) {
+            setTeams(createdTeams);
+            if (onSaveTeamsRef.current) onSaveTeamsRef.current(createdTeams);
+            return;
+          }
+        }
+        setTeams([]);
+        if (onSaveTeamsRef.current) {
+          onSaveTeamsRef.current([]);
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar frentes de trabalho do Supabase:', err);
+    } finally {
+      setIsLoadingTeams(false);
+    }
+  }, [companyProfile?.id, externalTeams]);
+
+  // 4. SINCRONIZAÇÃO EM TEMPO REAL (Multi-dispositivos):
+  useEffect(() => {
+    loadFrentesFromSupabase();
+
+    const channelId = `frentes_trabalho_realtime_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'frentes_trabalho' },
+        () => {
+          loadFrentesFromSupabase();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'frentes_trabalho_membros' },
+        () => {
+          loadFrentesFromSupabase();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
+    };
+  }, [loadFrentesFromSupabase]);
 
   // Group employees by team
   const { teamEmployeesMap, unassignedEmployees } = useMemo(() => {
@@ -141,12 +303,13 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
 
   // Save Teams Handler
   const handleSaveTeamsList = (newTeams: FleetTeam[]) => {
+    setTeams(newTeams);
     if (onSaveTeams) {
       onSaveTeams(newTeams);
     }
   };
 
-  // --- DRAG AND DROP HANDLERS ---
+  // --- DRAG AND DROP HANDLERS (Com Persistência Imediata) ---
   const handleDragStart = (e: React.DragEvent, empId: string) => {
     e.dataTransfer.setData('text/plain', empId);
     e.dataTransfer.effectAllowed = 'move';
@@ -167,13 +330,13 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
   };
 
   const handleDragLeave = (e: React.DragEvent, teamId: string) => {
-    // Only clear if actually leaving the container
     if (dragOverTeamId === teamId) {
       setDragOverTeamId(null);
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetTeamId: string) => {
+  // 3. PERSISTÊNCIA DO DRAG AND DROP (Arrastar e Soltar):
+  const handleDrop = async (e: React.DragEvent, targetTeamId: string) => {
     e.preventDefault();
     const empId = e.dataTransfer.getData('text/plain') || draggedEmployeeId;
     setDragOverTeamId(null);
@@ -187,19 +350,26 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     const newTeamId = targetTeamId === 'unassigned' ? undefined : targetTeamId;
     if (targetEmp.teamId === newTeamId) return; // already in this team
 
+    // Atualização otimista imediata na UI
     const updatedEmployees = employees.map(emp =>
       emp.id === empId ? { ...emp, teamId: newTeamId } : emp
     );
-
     onSaveEmployees(updatedEmployees);
 
     const targetTeamObj = teams.find(t => t.id === targetTeamId);
     const destinationName = targetTeamId === 'unassigned' ? 'Banco de Disponíveis' : targetTeamObj?.name || 'Nova Equipe';
     showToast(`✅ ${targetEmp.name} transferido para ${destinationName}`);
+
+    // Persistência imediata no Supabase
+    if (newTeamId) {
+      await alocarFuncionarioFrente(empId, newTeamId);
+    } else {
+      await desalocarFuncionarioFrente(empId);
+    }
   };
 
-  // Direct move button
-  const handleDirectMove = (empId: string, targetTeamId: string) => {
+  // 3. PERSISTÊNCIA DO BOTÃO DE MOVIMENTAÇÃO DIRETA:
+  const handleDirectMove = async (empId: string, targetTeamId: string) => {
     const targetEmp = employees.find(emp => emp.id === empId);
     if (!targetEmp) return;
 
@@ -214,9 +384,16 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     const targetTeamObj = teams.find(t => t.id === targetTeamId);
     const destinationName = targetTeamId === 'unassigned' ? 'Banco de Disponíveis' : targetTeamObj?.name || 'Nova Equipe';
     showToast(`✅ ${targetEmp.name} transferido para ${destinationName}`);
+
+    // Persistência imediata no Supabase
+    if (newTeamId) {
+      await alocarFuncionarioFrente(empId, newTeamId);
+    } else {
+      await desalocarFuncionarioFrente(empId);
+    }
   };
 
-  // --- TEAM CRUD HANDLERS ---
+  // --- TEAM CRUD HANDLERS (Com POST e DELETE Imediatos no Supabase) ---
   const openNewTeamModal = () => {
     setEditingTeam(null);
     const nextNum = (teams.length + 1).toString().padStart(2, '0');
@@ -243,13 +420,20 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     setIsTeamModalOpen(true);
   };
 
-  const handleSaveTeamForm = (e: React.FormEvent) => {
+  // 2. SALVAMENTO AUTOMÁTICO DE CRIAÇÃO E ATUALIZAÇÃO NO SUPABASE:
+  const handleSaveTeamForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teamFormName.trim()) return;
 
     const linkedMachinery = machineries.find(m => m.id === teamFormMachineryId);
 
     if (editingTeam) {
+      // Atualização no Supabase
+      await updateFrenteTrabalho(editingTeam.id, {
+        name: teamFormName.trim(),
+        cor: teamFormHeaderBg,
+      });
+
       const updated = teams.map(t =>
         t.id === editingTeam.id
           ? {
@@ -257,8 +441,11 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
               name: teamFormName.trim(),
               machineryId: teamFormMachineryId || undefined,
               machineryName: linkedMachinery ? `${linkedMachinery.name} (${linkedMachinery.licensePlateOrSerial || linkedMachinery.model})` : undefined,
+              headerBg: teamFormHeaderBg,
               headerBgColor: teamFormHeaderBg,
+              columnBg: teamFormColumnBg,
               columnBgColor: teamFormColumnBg,
+              border: teamFormBorderColor,
               borderColor: teamFormBorderColor,
               notes: teamFormNotes.trim() || undefined,
             }
@@ -267,25 +454,37 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       handleSaveTeamsList(updated);
       showToast(`Equipe "${teamFormName}" atualizada com sucesso!`);
     } else {
+      // 2. Criação imediata (POST) na tabela public.frentes_trabalho
+      const createdRow = await createFrenteTrabalho({
+        name: teamFormName.trim(),
+        cor: teamFormHeaderBg,
+        companyId: companyProfile?.id,
+      });
+
+      const newId = createdRow ? String(createdRow.id) : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `team_${Date.now()}`);
       const newTeam: FleetTeam = {
-        id: `team_${Date.now()}`,
+        id: newId,
         name: teamFormName.trim(),
         machineryId: teamFormMachineryId || undefined,
         machineryName: linkedMachinery ? `${linkedMachinery.name} (${linkedMachinery.licensePlateOrSerial || linkedMachinery.model})` : undefined,
+        headerBg: teamFormHeaderBg,
         headerBgColor: teamFormHeaderBg,
+        columnBg: teamFormColumnBg,
         columnBgColor: teamFormColumnBg,
+        border: teamFormBorderColor,
         borderColor: teamFormBorderColor,
         notes: teamFormNotes.trim() || undefined,
         order: teams.length + 1,
         createdAt: new Date().toISOString(),
       };
       handleSaveTeamsList([...teams, newTeam]);
-      showToast(`Equipe "${teamFormName}" criada com sucesso!`);
+      showToast(`Equipe "${teamFormName}" criada e salva no Supabase!`);
     }
 
     setIsTeamModalOpen(false);
   };
 
+  // 2. EXCLUSÃO AUTOMÁTICA NO SUPABASE:
   const handleDeleteTeam = async (teamId: string, teamName: string) => {
     const isConfirmed = await confirm({
       title: 'Excluir Equipe de Frota',
@@ -296,7 +495,10 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     });
     if (!isConfirmed) return;
 
-    // Unassign members
+    // Envia DELETE imediato para o Supabase (remove equipe e desvincula membros)
+    await deleteFrenteTrabalho(teamId);
+
+    // Unassign members in memory
     const updatedEmployees = employees.map(emp =>
       emp.teamId === teamId ? { ...emp, teamId: undefined } : emp
     );
@@ -330,13 +532,14 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     setIsEmployeeModalOpen(true);
   };
 
-  const handleSaveEmployeeForm = (e: React.FormEvent) => {
+  const handleSaveEmployeeForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empFormName.trim()) return;
 
     if (editingEmployee) {
+      const targetEmpId = editingEmployee.id;
       const updated = employees.map(emp =>
-        emp.id === editingEmployee.id
+        emp.id === targetEmpId
           ? {
               ...emp,
               name: empFormName.trim(),
@@ -349,9 +552,16 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       );
       onSaveEmployees(updated);
       showToast(`Funcionário "${empFormName}" atualizado.`);
+
+      if (empFormTeamId) {
+        await alocarFuncionarioFrente(targetEmpId, empFormTeamId);
+      } else {
+        await desalocarFuncionarioFrente(targetEmpId);
+      }
     } else {
+      const newEmpId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}`;
       const newEmp: Employee = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}`,
+        id: newEmpId,
         name: empFormName.trim(),
         role: empFormRole.trim() || 'Ajudante Geral',
         phone: empFormPhone.trim(),
@@ -361,6 +571,10 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       };
       onSaveEmployees([newEmp, ...employees]);
       showToast(`Novo funcionário "${empFormName}" adicionado.`);
+
+      if (empFormTeamId) {
+        await alocarFuncionarioFrente(newEmpId, empFormTeamId);
+      }
     }
 
     setIsEmployeeModalOpen(false);
@@ -376,6 +590,7 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     });
     if (!isConfirmed) return;
 
+    await desalocarFuncionarioFrente(empId);
     onSaveEmployees(employees.filter(emp => emp.id !== empId));
     showToast(`Funcionário "${empName}" excluído.`);
   };
@@ -646,7 +861,14 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
               Equipes de Silagem & Colheita
             </h3>
             <span className="absolute right-4 text-xs font-bold text-stone-600 dark:text-amber-300 hidden sm:inline">
-              Total: {employees.length} Integrantes em {teams.length} Frentes
+              {isLoadingTeams ? (
+                <span className="inline-flex items-center space-x-1.5 text-amber-700 dark:text-amber-300">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Sincronizando em tempo real...</span>
+                </span>
+              ) : (
+                `Total: ${employees.length} Integrantes em ${teams.length} Frentes`
+              )}
             </span>
           </div>
 
