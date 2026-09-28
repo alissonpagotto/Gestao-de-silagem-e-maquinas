@@ -1269,7 +1269,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
         {/* Tabs Bar with Sticky Vehicle Plate Tag & Print Action Buttons */}
         <div 
-          className="p-2 sm:p-2.5 bg-zinc-100/95 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2 shrink-0"
+          className="p-2 sm:p-2.5 bg-[#cdcdcd] dark:bg-zinc-800 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2 shrink-0"
         >
           {/* Central Tabs & Persistent Plate Tag */}
           <div className="flex flex-wrap items-center gap-2">
@@ -1354,7 +1354,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         {activeTab === 'dados' && (
           <form 
             onSubmit={handleSubmit} 
-            className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5 bg-zinc-50"
+            className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5 bg-[#cdcdcd] dark:bg-stone-900"
           >
             
             {/* SEÇÃO 1: IDENTIFICAÇÃO BÁSICA (CARD BRANCO COMPACTO) */}
