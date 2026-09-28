@@ -164,7 +164,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   const renderSingleLabelHtml = (
     item: InventoryItem, 
     preset: LabelPresetConfig, 
-    metrics: ReturnType<typeof getLabelDesignMetrics>
+    metrics: ReturnType<typeof getLabelDesignMetrics>,
+    effectiveHeightMm?: number
   ): string => {
     const barcodeValue = resolveBarcodeCode(item);
     const addressValue = resolveAddress(item);
@@ -174,20 +175,21 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     const unit = item.unidade_medida || item.unit || 'UN';
     const salePrice = item.salePrice ?? item.preco_venda_varejo ?? item.preco_venda;
 
+    const labelHeightMm = effectiveHeightMm ?? preset.heightMm;
     const isA4 = preset.category === 'a4';
     const isA4FourCols = isA4 && preset.columns >= 4;
-    const isCompact = preset.heightMm <= 22;
-    const isSmallPad = preset.heightMm <= 25 || preset.widthMm <= 40;
+    const isCompact = labelHeightMm <= 22;
+    const isSmallPad = labelHeightMm <= 25 || preset.widthMm <= 40;
 
     const barcodeNarrowWidth = isA4FourCols ? 1.0 : metrics.narrowWidth;
-    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 18) : metrics.barcodeHeight;
+    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 16) : (isCompact ? Math.min(metrics.barcodeHeight, 14) : metrics.barcodeHeight);
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       height: barcodeHeight,
       narrowWidth: barcodeNarrowWidth,
       wideWidth: barcodeNarrowWidth * 2.2,
       showText: true,
-      fontSize: Math.max(6, Math.round(metrics.codeFontSizePt * 1.1)),
+      fontSize: Math.max(6, Math.round(metrics.codeFontSizePt * 1.05)),
       textColor: '#000000',
       barColor: '#000000'
     });
@@ -197,11 +199,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         width: ${isA4 ? '100%' : `${preset.widthMm}mm`};
         max-width: 100%;
         min-width: 0;
-        height: ${preset.heightMm}mm;
-        max-height: ${preset.heightMm}mm;
+        height: ${labelHeightMm}mm;
+        max-height: ${labelHeightMm}mm;
         box-sizing: border-box;
-        border: 0.4px dashed #999999;
+        border: 0.5px dashed #999999;
         background: #ffffff;
+        color: #000000;
         padding: ${isSmallPad ? '1mm 1.5mm' : '1.5mm 2mm'};
         display: flex;
         flex-direction: column;
@@ -209,13 +212,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         position: relative;
         overflow: hidden;
       ">
-        <!-- Topo: Código Interno no topo esquerdo e Descrição no topo direito -->
+        <!-- Topo: Linha superior inteira dedicada exclusivamente ao Nome/Descrição do Produto em fundo branco e texto preto -->
         <div class="label-header" style="
           display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 2px;
-          line-height: 1.05;
+          align-items: center;
+          justify-content: center;
+          line-height: 1.1;
+          background: #ffffff;
+          color: #000000;
           border-bottom: 0.5px solid #000000;
           padding-bottom: 1px;
           margin-bottom: 1px;
@@ -224,33 +228,19 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           overflow: hidden;
           box-sizing: border-box;
         ">
-          ${showInternalCode ? `
-            <div class="label-internal-code" style="
-              font-size: ${isA4FourCols ? Math.min(metrics.codeFontSizePt, 6.5) : metrics.codeFontSizePt}pt;
-              font-family: 'Courier New', Courier, monospace;
-              font-weight: 800;
-              white-space: nowrap;
-              background: #f1f5f9;
-              padding: 0.5px 2px;
-              border-radius: 2px;
-              border: 0.4px solid #000000;
-              line-height: 1;
-              flex-shrink: 0;
-            ">
-              CÓD: <strong>${internalCode}</strong>
-            </div>
-          ` : '<div></div>'}
           <div class="label-product-name" style="
-            font-size: ${isA4FourCols ? Math.min(metrics.nameFontSizePt, 7.0) : metrics.nameFontSizePt}pt;
+            font-size: ${isA4FourCols ? Math.min(metrics.nameFontSizePt + 0.5, 7.5) : metrics.nameFontSizePt + 0.5}pt;
             font-weight: 800;
+            color: #000000;
+            background: #ffffff;
             text-transform: uppercase;
-            text-align: right;
+            text-align: center;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            flex: 1;
+            width: 100%;
             min-width: 0;
-            line-height: 1.1;
+            line-height: 1.15;
           " title="${prodName}">
             ${prodName}${prodBrand}
           </div>
@@ -267,16 +257,17 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           overflow: hidden;
           margin: 0.5px 0;
           box-sizing: border-box;
+          background: #ffffff;
         ">
           ${barcodeSvg}
         </div>
 
-        <!-- Rodapé: Endereço Formatado em Destaque logo abaixo do código de barras -->
-        ${showAddress ? `
+        <!-- Rodapé: Código do Produto (ID) discreto logo acima do Endereço Formatado (Fundo Branco #FFFFFF e Texto Preto #000000) -->
+        ${(showAddress || showInternalCode) ? `
           <div class="label-address-box" style="
-            border: 1px solid #000000;
-            background: #000000;
-            color: #ffffff;
+            border: 0.5px solid #000000;
+            background: #ffffff;
+            color: #000000;
             border-radius: 2px;
             padding: 1px 2px;
             text-align: center;
@@ -286,51 +277,57 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             overflow: hidden;
             box-sizing: border-box;
           ">
-            ${!isCompact ? `
-              <div class="address-title" style="
-                font-size: ${isA4FourCols ? 3.5 : metrics.addressLegendFontSizePt}pt;
+            ${showInternalCode ? `
+              <div class="label-internal-code" style="
+                font-size: ${isA4FourCols ? Math.min(metrics.codeFontSizePt, 5.5) : Math.max(5.5, metrics.codeFontSizePt * 0.85)}pt;
+                font-family: 'Courier New', Courier, monospace;
                 font-weight: 700;
                 letter-spacing: 0.2px;
-                text-transform: uppercase;
-                line-height: 1;
-                color: #d1d5db;
+                line-height: 1.05;
+                color: #000000;
+                background: #ffffff;
                 white-space: nowrap;
                 overflow: hidden;
+                text-overflow: ellipsis;
               ">
-                ENDEREÇO NA GÔNDOLA
+                CÓD: ${internalCode}
               </div>
             ` : ''}
-            <div class="address-code" style="
-              font-size: ${isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 8.5) : metrics.addressCodeFontSizePt}pt;
-              font-weight: 900;
-              font-family: 'Courier New', Courier, monospace;
-              letter-spacing: ${isA4FourCols ? '0.3px' : '0.8px'};
-              line-height: 1.05;
-              color: #ffffff;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            ">
-              ${addressValue}
-            </div>
-            ${!isCompact ? `
-              <div class="address-legend" style="
-                font-size: ${isA4FourCols ? 3.2 : metrics.addressLegendFontSizePt}pt;
-                font-weight: 600;
-                letter-spacing: 0.1px;
-                color: #9ca3af;
-                line-height: 1;
+            ${showAddress ? `
+              <div class="address-code" style="
+                font-size: ${isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 8.0) : metrics.addressCodeFontSizePt}pt;
+                font-weight: 900;
+                font-family: 'Courier New', Courier, monospace;
+                letter-spacing: ${isA4FourCols ? '0.3px' : '0.8px'};
+                line-height: 1.05;
+                color: #000000;
+                background: #ffffff;
                 white-space: nowrap;
                 overflow: hidden;
+                text-overflow: ellipsis;
               ">
-                SETOR . RUA . ESTANTE . NÍVEL . BOX
+                ${addressValue}
               </div>
+              ${!isCompact ? `
+                <div class="address-legend" style="
+                  font-size: ${isA4FourCols ? 3.2 : metrics.addressLegendFontSizePt}pt;
+                  font-weight: 600;
+                  letter-spacing: 0.1px;
+                  color: #000000;
+                  background: #ffffff;
+                  line-height: 1;
+                  white-space: nowrap;
+                  overflow: hidden;
+                ">
+                  SETOR . RUA . ESTANTE . NÍVEL . BOX
+                </div>
+              ` : ''}
             ` : ''}
           </div>
         ` : ''}
 
         <!-- Preço Opcional -->
-        ${showPrice && salePrice && salePrice > 0 && preset.heightMm >= 28 ? `
+        ${showPrice && salePrice && salePrice > 0 && labelHeightMm >= 25 ? `
           <div class="label-price-tag" style="
             position: absolute;
             bottom: 1.5px;
@@ -361,51 +358,69 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       const slotsPerSheet = currentPreset.totalPerSheet || 30;
       const safeStartPos = Math.max(1, Math.min(startPosition, slotsPerSheet));
       const cols = currentPreset.columns || 4;
+      const rows = currentPreset.rows || Math.ceil(slotsPerSheet / cols);
+      const gapMm = rows >= 12 ? 2 : 2.5;
+      // Garante que todas as linhas da grade A4 caibam em 1 única folha A4 (297mm - 20mm de margem body = 277mm úteis)
+      const maxSheetHeightMm = 275;
+      const maxRowHeightMm = Number(((maxSheetHeightMm - (rows - 1) * gapMm) / rows).toFixed(2));
+      const effectiveHeightMm = Math.min(currentPreset.heightMm, maxRowHeightMm);
 
       pageCss = `
         @page { 
+          margin: 0; 
           size: A4; 
-          margin: 10mm 5mm 10mm 5mm; 
         }
         *, *::before, *::after {
           box-sizing: border-box;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        html, body {
+        html {
           margin: 0;
           padding: 0;
-          width: 100%;
           background: #ffffff;
           box-sizing: border-box;
         }
+        body {
+          margin: 10mm;
+          padding: 0;
+          background: #ffffff;
+          color: #000000;
+          box-sizing: border-box;
+        }
+        header, footer, .no-print, .print-metadata {
+          display: none !important;
+        }
         .a4-sheet {
-          width: 210mm;
+          width: 100%;
           max-width: 100%;
           box-sizing: border-box;
           margin: 0 auto;
           padding: 0;
           display: grid;
-          grid-template-columns: repeat(${cols}, 1fr);
-          gap: 3mm; /* Adiciona o espaçamento essencial entre as etiquetas para não colarem uma na outra */
-          width: 100%;
+          grid-template-columns: repeat(${cols}, minmax(0, 1fr));
+          gap: ${gapMm}mm;
           page-break-after: always;
           break-after: page;
+          page-break-inside: avoid;
+          break-inside: avoid;
           overflow: hidden;
         }
-        .a4-sheet:last-child {
-          page-break-after: avoid;
-          break-after: avoid;
+        .a4-sheet:last-of-type {
+          page-break-after: avoid !important;
+          break-after: avoid !important;
         }
         .gondola-label,
         .a4-slot {
           width: 100% !important;
           max-width: 100% !important;
           min-width: 0 !important;
-          height: ${currentPreset.heightMm}mm !important;
-          max-height: ${currentPreset.heightMm}mm !important;
+          height: ${effectiveHeightMm}mm !important;
+          max-height: ${effectiveHeightMm}mm !important;
           box-sizing: border-box !important;
           overflow: hidden !important;
+          background: #ffffff !important;
+          color: #000000 !important;
         }
         .a4-slot.empty-slot {
           visibility: hidden !important;
@@ -420,32 +435,27 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           margin: 0 auto !important;
         }
         @media print {
-          @page { 
-            size: A4; 
-            margin: 10mm 5mm 10mm 5mm; 
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-            background: #ffffff !important;
+          @page { margin: 0; size: A4; }
+          body { margin: 10mm; }
+          header, footer, .no-print, .print-metadata {
+            display: none !important;
           }
           .a4-sheet {
-            width: 210mm !important;
+            width: 100% !important;
             max-width: 100% !important;
             box-sizing: border-box !important;
             margin: 0 auto !important;
             padding: 0 !important;
             display: grid !important;
-            grid-template-columns: repeat(${cols}, 1fr) !important;
-            gap: 3mm !important; /* Adiciona o espaçamento essencial entre as etiquetas para não colarem uma na outra */
-            width: 100% !important;
+            grid-template-columns: repeat(${cols}, minmax(0, 1fr)) !important;
+            gap: ${gapMm}mm !important;
             page-break-after: always !important;
             break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
             overflow: hidden !important;
           }
-          .a4-sheet:last-child {
+          .a4-sheet:last-of-type {
             page-break-after: avoid !important;
             break-after: avoid !important;
           }
@@ -454,11 +464,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
-            height: ${currentPreset.heightMm}mm !important;
-            max-height: ${currentPreset.heightMm}mm !important;
+            height: ${effectiveHeightMm}mm !important;
+            max-height: ${effectiveHeightMm}mm !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
-            border: none !important;
+            background: #ffffff !important;
+            color: #000000 !important;
           }
           .a4-slot.empty-slot {
             visibility: hidden !important;
@@ -476,10 +487,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         const isFirstSheet = sheetNum === 1;
         const initialOffset = isFirstSheet ? safeStartPos - 1 : 0;
 
-        // Adiciona slots em branco para posições puladas (reaproveitamento da folha A4)
+        // Adiciona slots em branco apenas para posições iniciais puladas (reaproveitamento da folha A4)
         for (let s = 0; s < initialOffset; s++) {
           slotsHtml.push(`
-            <div class="a4-slot empty-slot" style="width:100%;max-width:100%;min-width:0;height:${currentPreset.heightMm}mm;box-sizing:border-box;visibility:hidden;"></div>
+            <div class="a4-slot empty-slot" style="width:100%;max-width:100%;min-width:0;height:${effectiveHeightMm}mm;box-sizing:border-box;visibility:hidden;"></div>
           `);
         }
 
@@ -487,14 +498,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         const slotsAvailable = slotsPerSheet - initialOffset;
         for (let s = 0; s < slotsAvailable && currentFlatIdx < flatLabelsList.length; s++) {
           const item = flatLabelsList[currentFlatIdx++];
-          slotsHtml.push(renderSingleLabelHtml(item, currentPreset, metrics));
-        }
-
-        // Preenche o restante da folha com slots invisíveis para travar a geometria da grade CSS
-        while (slotsHtml.length < slotsPerSheet) {
-          slotsHtml.push(`
-            <div class="a4-slot empty-slot" style="width:100%;max-width:100%;min-width:0;height:${currentPreset.heightMm}mm;box-sizing:border-box;visibility:hidden;"></div>
-          `);
+          slotsHtml.push(renderSingleLabelHtml(item, currentPreset, metrics, effectiveHeightMm));
         }
 
         sheetsHtml.push(`
@@ -518,6 +522,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             margin: 0;
             padding: 0;
             background: #ffffff;
+            color: #000000;
+          }
+          header, footer, .no-print, .print-metadata {
+            display: none !important;
           }
           .thermal-page {
             width: ${currentPreset.widthMm}mm;
@@ -527,9 +535,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             break-after: page;
             overflow: hidden;
           }
-          .thermal-page:last-child {
-            page-break-after: avoid;
-            break-after: avoid;
+          .thermal-page:last-of-type {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           @media print {
             .gondola-label {
@@ -556,6 +564,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             margin: 0;
             padding: 0;
             background: #ffffff;
+            color: #000000;
+          }
+          header, footer, .no-print, .print-metadata {
+            display: none !important;
           }
           .thermal-row-page {
             width: 100%;
@@ -568,9 +580,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             break-after: page;
             overflow: hidden;
           }
-          .thermal-row-page:last-child {
-            page-break-after: avoid;
-            break-after: avoid;
+          .thermal-row-page:last-of-type {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           @media print {
             .gondola-label {
@@ -603,7 +615,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Impressão de Etiquetas - ${currentPreset.name}</title>
+  <title></title>
   <style>
     ${pageCss}
     *, *::before, *::after {
@@ -614,11 +626,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #000000;
+      background: #ffffff;
     }
   </style>
-</head>
-<body>
-  ${bodyContent}
   <script>
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
@@ -631,6 +641,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       }, 350);
     });
   </script>
+</head>
+<body>
+  ${bodyContent}
 </body>
 </html>`;
   };
@@ -894,27 +907,18 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   }}
                 >
                   
-                  {/* Topo da Etiqueta: Código no topo esquerdo e Descrição no topo direito */}
-                  <div className="flex items-start justify-between border-b border-black pb-1 gap-2 leading-tight">
-                    {showInternalCode && (
-                      <div className="bg-stone-100 border border-black rounded px-1.5 py-0.5 font-mono font-black text-[11px] shrink-0">
-                        CÓD: {previewProduct.code || `PRD-${previewProduct.id.slice(-6).toUpperCase()}`}
-                      </div>
-                    )}
-                    <div className="text-right flex-1 min-w-0">
-                      <div className="font-black text-xs uppercase truncate" title={previewProduct.nome_comercial || previewProduct.name}>
+                  {/* Topo da Etiqueta: Linha inteira dedicada exclusivamente ao Nome/Descrição do Produto */}
+                  <div className="flex items-center justify-center bg-white text-black border-b border-black pb-1.5 leading-tight w-full">
+                    <div className="text-center w-full min-w-0">
+                      <div className="font-black text-xs sm:text-sm uppercase text-black truncate" title={previewProduct.nome_comercial || previewProduct.name}>
                         {previewProduct.nome_comercial || previewProduct.name}
+                        {(previewProduct.brand || previewProduct.marca) ? ` • ${previewProduct.brand || previewProduct.marca}` : ''}
                       </div>
-                      {(previewProduct.brand || previewProduct.marca) && (
-                        <div className="text-[10px] font-bold text-stone-600 truncate">
-                          {previewProduct.brand || previewProduct.marca}
-                        </div>
-                      )}
                     </div>
                   </div>
 
                   {/* Centro da Etiqueta: Código de Barras centralizado com numeração */}
-                  <div className="py-1 flex flex-col items-center justify-center">
+                  <div className="py-1 flex flex-col items-center justify-center bg-white">
                     {livePreviewBars && (
                       <svg 
                         viewBox={`0 0 ${livePreviewBars.totalWidth} 44`} 
@@ -938,18 +942,24 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     )}
                   </div>
 
-                  {/* Abaixo do Código de Barras: Endereço Formatado em Destaque */}
-                  {showAddress && (
-                    <div className="bg-black text-white rounded p-1.5 text-center shadow-xs">
-                      <div className="text-[8px] font-bold uppercase tracking-wider text-stone-300 leading-none">
-                        ENDEREÇO NA GÔNDOLA
-                      </div>
-                      <div className="text-sm sm:text-base font-black font-mono tracking-widest leading-tight text-white my-0.5">
-                        {resolveAddress(previewProduct)}
-                      </div>
-                      <div className="text-[7.5px] font-semibold text-stone-300 leading-none">
-                        SETOR • RUA • ESTANTE • NÍVEL • BOX
-                      </div>
+                  {/* Abaixo do Código de Barras: Código Interno discreto logo acima do Endereço Formatado em fundo branco e texto preto */}
+                  {(showAddress || showInternalCode) && (
+                    <div className="bg-white text-black border border-black rounded p-1.5 text-center space-y-0.5">
+                      {showInternalCode && (
+                        <div className="text-[10px] font-mono font-bold text-black leading-tight truncate">
+                          CÓD: {previewProduct.code || `ID:${previewProduct.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
+                        </div>
+                      )}
+                      {showAddress && (
+                        <>
+                          <div className="text-sm sm:text-base font-black font-mono tracking-widest leading-tight text-black my-0.5">
+                            {resolveAddress(previewProduct)}
+                          </div>
+                          <div className="text-[7.5px] font-semibold text-black leading-none">
+                            SETOR • RUA • ESTANTE • NÍVEL • BOX
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 

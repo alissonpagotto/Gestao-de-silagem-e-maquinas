@@ -973,8 +973,12 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
   }
 
   @page {
-    margin: 6mm 8mm;
-    size: A4 portrait;
+    margin: 0;
+    size: A4;
+  }
+
+  body {
+    margin: 10mm !important;
   }
 }
 
