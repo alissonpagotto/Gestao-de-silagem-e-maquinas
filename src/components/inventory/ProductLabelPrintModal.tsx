@@ -139,6 +139,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     return `PRD-${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
   };
 
+  const ADDRESS_LEGEND_LABELS = ['SETOR', 'RUA', 'ESTANTE', 'NÍVEL', 'BOX'] as const;
+
   // Resolve o endereço formatado
   const resolveAddress = (item: InventoryItem): string => {
     if (item.endereco_formatado && item.endereco_formatado.trim()) {
@@ -160,6 +162,23 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     return item.location || item.localizacao_fisica || '00.00.00.00.00';
   };
 
+  // Divide o endereço formatado nos 5 blocos (SETOR, RUA, ESTANTE, NÍVEL, BOX)
+  const resolveAddressParts = (item: InventoryItem): string[] => {
+    const raw = resolveAddress(item);
+    if (raw && raw.includes('.')) {
+      const parts = raw.split('.').map(p => p.trim() || '00');
+      while (parts.length < 5) parts.push('00');
+      return parts.slice(0, 5);
+    }
+    return [
+      item.estoque_setor || '00',
+      item.estoque_rua || '00',
+      item.estoque_estante || '00',
+      item.estoque_nivel || '00',
+      item.estoque_box || '00'
+    ];
+  };
+
   // Renderiza o HTML individual de uma etiqueta compatível com CSS print
   const renderSingleLabelHtml = (
     item: InventoryItem, 
@@ -168,7 +187,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     effectiveHeightMm?: number
   ): string => {
     const barcodeValue = resolveBarcodeCode(item);
-    const addressValue = resolveAddress(item);
+    const addressParts = resolveAddressParts(item);
     const internalCode = item.code || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
     const prodName = item.nome_comercial || item.name || 'Produto sem descrição';
     const prodBrand = item.brand || item.marca ? ` • ${item.brand || item.marca}` : '';
@@ -182,17 +201,78 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     const isSmallPad = labelHeightMm <= 25 || preset.widthMm <= 40;
 
     const barcodeNarrowWidth = isA4FourCols ? 1.0 : metrics.narrowWidth;
-    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 16) : (isCompact ? Math.min(metrics.barcodeHeight, 14) : metrics.barcodeHeight);
+    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 14) : (isCompact ? Math.min(metrics.barcodeHeight, 12) : metrics.barcodeHeight);
+    const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 10.0) : metrics.addressCodeFontSizePt;
+    const addressLegendFontPt = isA4FourCols ? 3.5 : metrics.addressLegendFontSizePt;
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       height: barcodeHeight,
       narrowWidth: barcodeNarrowWidth,
       wideWidth: barcodeNarrowWidth * 2.2,
       showText: true,
-      fontSize: Math.max(6, Math.round(metrics.codeFontSizePt * 1.05)),
+      fontSize: Math.max(6, Math.round(metrics.codeFontSizePt * 1.0)),
       textColor: '#000000',
       barColor: '#000000'
     });
+
+    const addressColumnsHtml = addressParts.map((part, idx) => `
+      <div class="address-col" style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-width: ${isA4FourCols ? '15px' : '24px'};
+      ">
+        <div class="address-code" style="
+          font-size: ${addressNumFontPt}pt;
+          font-weight: 900;
+          font-family: 'Courier New', Courier, monospace;
+          line-height: 0.95;
+          color: #000000;
+          background: #ffffff;
+          white-space: nowrap;
+        ">
+          ${part}
+        </div>
+        <div class="address-legend" style="
+          font-size: ${addressLegendFontPt}pt;
+          font-weight: 800;
+          letter-spacing: 0px;
+          color: #000000;
+          background: #ffffff;
+          line-height: 1;
+          margin-top: 1px;
+          white-space: nowrap;
+          text-align: center;
+        ">
+          ${ADDRESS_LEGEND_LABELS[idx]}
+        </div>
+      </div>
+      ${idx < addressParts.length - 1 ? `
+        <div class="address-sep" style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          padding: 0 0.5px;
+        ">
+          <div style="
+            font-size: ${addressNumFontPt}pt;
+            font-weight: 900;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 0.85;
+            color: #000000;
+          ">.</div>
+          <div style="
+            font-size: ${addressLegendFontPt}pt;
+            font-weight: 800;
+            line-height: 1;
+            margin-top: 1px;
+            color: #000000;
+          ">.</div>
+        </div>
+      ` : ''}
+    `).join('');
 
     return `
       <div class="gondola-label" style="
@@ -205,7 +285,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         border: 0.5px dashed #999999;
         background: #ffffff;
         color: #000000;
-        padding: ${isSmallPad ? '1mm 1.5mm' : '1.5mm 2mm'};
+        padding: ${isSmallPad ? '1mm 1.5mm' : '1.2mm 2mm'};
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -222,7 +302,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           color: #000000;
           border-bottom: 0.5px solid #000000;
           padding-bottom: 1px;
-          margin-bottom: 1px;
+          margin-bottom: 0.5px;
           width: 100%;
           max-width: 100%;
           overflow: hidden;
@@ -262,14 +342,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           ${barcodeSvg}
         </div>
 
-        <!-- Rodapé: Código do Produto (ID) discreto logo acima do Endereço Formatado (Fundo Branco #FFFFFF e Texto Preto #000000) -->
+        <!-- Rodapé: Código do Produto (ID) discreto logo acima do Endereço Formatado em colunas alinhadas -->
         ${(showAddress || showInternalCode) ? `
           <div class="label-address-box" style="
             border: 0.5px solid #000000;
             background: #ffffff;
             color: #000000;
             border-radius: 2px;
-            padding: 1px 2px;
+            padding: 1px 2px 1.5px 2px;
             text-align: center;
             margin-top: 0.5px;
             width: 100%;
@@ -279,11 +359,12 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           ">
             ${showInternalCode ? `
               <div class="label-internal-code" style="
-                font-size: ${isA4FourCols ? Math.min(metrics.codeFontSizePt, 5.5) : Math.max(5.5, metrics.codeFontSizePt * 0.85)}pt;
+                font-size: ${isA4FourCols ? 5.0 : Math.max(5.5, metrics.codeFontSizePt * 0.8)}pt;
                 font-family: 'Courier New', Courier, monospace;
                 font-weight: 700;
                 letter-spacing: 0.2px;
-                line-height: 1.05;
+                line-height: 1;
+                margin-bottom: 1px;
                 color: #000000;
                 background: #ffffff;
                 white-space: nowrap;
@@ -294,34 +375,17 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
             ` : ''}
             ${showAddress ? `
-              <div class="address-code" style="
-                font-size: ${isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 8.0) : metrics.addressCodeFontSizePt}pt;
-                font-weight: 900;
-                font-family: 'Courier New', Courier, monospace;
-                letter-spacing: ${isA4FourCols ? '0.3px' : '0.8px'};
-                line-height: 1.05;
-                color: #000000;
+              <div class="address-columns-row" style="
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                gap: ${isA4FourCols ? '1px' : '2.5px'};
+                width: 100%;
                 background: #ffffff;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                color: #000000;
               ">
-                ${addressValue}
+                ${addressColumnsHtml}
               </div>
-              ${!isCompact ? `
-                <div class="address-legend" style="
-                  font-size: ${isA4FourCols ? 3.2 : metrics.addressLegendFontSizePt}pt;
-                  font-weight: 600;
-                  letter-spacing: 0.1px;
-                  color: #000000;
-                  background: #ffffff;
-                  line-height: 1;
-                  white-space: nowrap;
-                  overflow: hidden;
-                ">
-                  SETOR . RUA . ESTANTE . NÍVEL . BOX
-                </div>
-              ` : ''}
             ` : ''}
           </div>
         ` : ''}
@@ -942,23 +1006,39 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     )}
                   </div>
 
-                  {/* Abaixo do Código de Barras: Código Interno discreto logo acima do Endereço Formatado em fundo branco e texto preto */}
+                  {/* Abaixo do Código de Barras: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
                   {(showAddress || showInternalCode) && (
-                    <div className="bg-white text-black border border-black rounded p-1.5 text-center space-y-0.5">
+                    <div className="bg-white text-black border border-black rounded px-2 py-1.5 text-center space-y-1">
                       {showInternalCode && (
-                        <div className="text-[10px] font-mono font-bold text-black leading-tight truncate">
+                        <div className="text-[10px] font-mono font-bold text-black leading-none truncate">
                           CÓD: {previewProduct.code || `ID:${previewProduct.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
                         </div>
                       )}
                       {showAddress && (
-                        <>
-                          <div className="text-sm sm:text-base font-black font-mono tracking-widest leading-tight text-black my-0.5">
-                            {resolveAddress(previewProduct)}
-                          </div>
-                          <div className="text-[7.5px] font-semibold text-black leading-none">
-                            SETOR • RUA • ESTANTE • NÍVEL • BOX
-                          </div>
-                        </>
+                        <div className="flex items-start justify-center gap-1 sm:gap-2 pt-0.5">
+                          {resolveAddressParts(previewProduct).map((part, idx, arr) => (
+                            <React.Fragment key={idx}>
+                              <div className="flex flex-col items-center justify-start min-w-[34px] sm:min-w-[42px]">
+                                <span className="text-xl sm:text-2xl font-black font-mono leading-none text-black">
+                                  {part}
+                                </span>
+                                <span className="text-[7.5px] sm:text-[8.5px] font-extrabold text-black leading-none mt-1 uppercase tracking-tight">
+                                  {ADDRESS_LEGEND_LABELS[idx]}
+                                </span>
+                              </div>
+                              {idx < arr.length - 1 && (
+                                <div className="flex flex-col items-center justify-start">
+                                  <span className="text-xl sm:text-2xl font-black font-mono leading-none text-black">
+                                    .
+                                  </span>
+                                  <span className="text-[7.5px] sm:text-[8.5px] font-extrabold text-black leading-none mt-1">
+                                    .
+                                  </span>
+                                </div>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}

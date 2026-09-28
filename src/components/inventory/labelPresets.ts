@@ -281,11 +281,11 @@ export function getLabelDesignMetrics(preset: LabelPresetConfig) {
 
   if (isNarrowVertical) {
     return {
-      barcodeHeight: 18,
+      barcodeHeight: 16,
       narrowWidth: 1.0,
       codeFontSizePt: 5.5,
       nameFontSizePt: 6.0,
-      addressCodeFontSizePt: 6.5,
+      addressCodeFontSizePt: 8.5,
       addressLegendFontSizePt: 3.5,
       priceFontSizePt: 6.5,
       isNarrowVertical: true
@@ -294,12 +294,12 @@ export function getLabelDesignMetrics(preset: LabelPresetConfig) {
 
   if (isCompact) {
     return {
-      barcodeHeight: 16,
+      barcodeHeight: 14,
       narrowWidth: 1.2,
       codeFontSizePt: 6.0,
       nameFontSizePt: 6.5,
-      addressCodeFontSizePt: 7.5,
-      addressLegendFontSizePt: 3.8,
+      addressCodeFontSizePt: 10.5,
+      addressLegendFontSizePt: 4.0,
       priceFontSizePt: 6.5,
       isNarrowVertical: false
     };
@@ -307,12 +307,12 @@ export function getLabelDesignMetrics(preset: LabelPresetConfig) {
 
   if (isMedium) {
     return {
-      barcodeHeight: 22,
+      barcodeHeight: 18,
       narrowWidth: 1.5,
-      codeFontSizePt: 7.5,
+      codeFontSizePt: 7.0,
       nameFontSizePt: 8.0,
-      addressCodeFontSizePt: 9.5,
-      addressLegendFontSizePt: 4.2,
+      addressCodeFontSizePt: 13.5,
+      addressLegendFontSizePt: 4.5,
       priceFontSizePt: 7.5,
       isNarrowVertical: false
     };
@@ -320,12 +320,12 @@ export function getLabelDesignMetrics(preset: LabelPresetConfig) {
 
   // isLarge
   return {
-    barcodeHeight: 28,
+    barcodeHeight: 24,
     narrowWidth: 1.8,
-    codeFontSizePt: 8.5,
+    codeFontSizePt: 8.0,
     nameFontSizePt: 9.0,
-    addressCodeFontSizePt: 11.0,
-    addressLegendFontSizePt: 4.8,
+    addressCodeFontSizePt: 16.5,
+    addressLegendFontSizePt: 5.2,
     priceFontSizePt: 8.5,
     isNarrowVertical: false
   };
