@@ -11,6 +11,7 @@ import {
   Trash2, 
   Edit3,
   Eye,
+  EyeOff,
   ArrowUpRight,
   ArrowDownRight,
   History,
@@ -44,6 +45,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSpecialPrices, setShowSpecialPrices] = useState(false);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -323,16 +325,41 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Buscar produto no estoque por nome ou categoria..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 outline-none"
-        />
+      {/* Search & Toggle Preços Especiais */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Buscar produto no estoque por nome ou categoria..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-sky-500 outline-none"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowSpecialPrices(prev => !prev)}
+          className={`inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer shrink-0 ${
+            showSpecialPrices
+              ? 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 shadow-2xs'
+              : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50 dark:hover:bg-stone-800'
+          }`}
+          title={showSpecialPrices ? "Ocultar colunas de Atacado e Promoção" : "Exibir colunas de Atacado e Promoção"}
+        >
+          {showSpecialPrices ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span>Ocultar Preços Especiais (Atacado / Promo)</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5 text-zinc-500 dark:text-stone-400" />
+              <span>Ver Preços Especiais (Atacado / Promo)</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Inventory Table */}
@@ -377,24 +404,32 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                 </th>
 
                 {/* 8. % ATAC. */}
-                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
-                  % ATAC.
-                </th>
+                {showSpecialPrices && (
+                  <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                    % ATAC.
+                  </th>
+                )}
 
                 {/* 9. V. ATACADO (R$) */}
-                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
-                  V. ATACADO (R$)
-                </th>
+                {showSpecialPrices && (
+                  <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                    V. ATACADO (R$)
+                  </th>
+                )}
 
                 {/* 10. % PROMO. */}
-                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
-                  % PROMO.
-                </th>
+                {showSpecialPrices && (
+                  <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                    % PROMO.
+                  </th>
+                )}
 
                 {/* 11. V. PROMO (R$) */}
-                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
-                  V. PROMO (R$)
-                </th>
+                {showSpecialPrices && (
+                  <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                    V. PROMO (R$)
+                  </th>
+                )}
 
                 {/* 12. AÇÕES */}
                 <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[7%] min-w-[75px]">
@@ -405,7 +440,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 bg-white dark:bg-stone-900 text-zinc-900 dark:text-white">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-8 text-center text-black/70 dark:text-stone-400 font-bold">
+                  <td colSpan={showSpecialPrices ? 12 : 8} className="py-8 text-center text-black/70 dark:text-stone-400 font-bold">
                     Nenhum item encontrado no estoque.
                   </td>
                 </tr>
@@ -518,64 +553,72 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                       </td>
 
                       {/* 8. % ATAC. (Input Rápido de Margem Atacado) */}
-                      <td className="py-1 px-1 text-right align-middle bg-cyan-50/40 dark:bg-cyan-950/20 border-l border-cyan-200/60 dark:border-cyan-800/40">
-                        <div className="flex items-center justify-end space-x-0.5">
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={curWholesaleMargin}
-                            onChange={(e) => handlePricingChange(item.id, 'wholesaleMargin', e.target.value)}
-                            placeholder="0"
-                            className="w-full max-w-[46px] h-6 px-0.5 text-[10px] text-right rounded border border-cyan-300 dark:border-cyan-700 bg-cyan-50/90 dark:bg-stone-900 text-cyan-950 dark:text-cyan-200 font-mono font-bold focus:ring-1 focus:ring-cyan-500 ml-auto block"
-                            title="Margem Atacado (%): V. Atacado = Custo + (Custo * % / 100)"
-                          />
-                          <span className="text-[8.5px] font-black text-cyan-900 dark:text-cyan-300 shrink-0">%</span>
-                        </div>
-                      </td>
+                      {showSpecialPrices && (
+                        <td className="py-1 px-1 text-right align-middle bg-cyan-50/40 dark:bg-cyan-950/20 border-l border-cyan-200/60 dark:border-cyan-800/40">
+                          <div className="flex items-center justify-end space-x-0.5">
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={curWholesaleMargin}
+                              onChange={(e) => handlePricingChange(item.id, 'wholesaleMargin', e.target.value)}
+                              placeholder="0"
+                              className="w-full max-w-[46px] h-6 px-0.5 text-[10px] text-right rounded border border-cyan-300 dark:border-cyan-700 bg-cyan-50/90 dark:bg-stone-900 text-cyan-950 dark:text-cyan-200 font-mono font-bold focus:ring-1 focus:ring-cyan-500 ml-auto block"
+                              title="Margem Atacado (%): V. Atacado = Custo + (Custo * % / 100)"
+                            />
+                            <span className="text-[8.5px] font-black text-cyan-900 dark:text-cyan-300 shrink-0">%</span>
+                          </div>
+                        </td>
+                      )}
 
                       {/* 9. V. ATACADO (R$) */}
-                      <td className="py-1 px-1.5 text-right align-middle">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={curWholesalePrice}
-                          onChange={(e) => handlePricingChange(item.id, 'wholesalePrice', e.target.value)}
-                          placeholder="0.00"
-                          className="w-full max-w-[68px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-medium focus:ring-1 focus:ring-[#0963cb] ml-auto block"
-                          title="Preço de Atacado (R$)"
-                        />
-                      </td>
-
-                      {/* 10. % PROMO. (Input Rápido de Margem Promoção) */}
-                      <td className="py-1 px-1 text-right align-middle bg-orange-50/40 dark:bg-orange-950/20 border-l border-orange-200/60 dark:border-orange-800/40">
-                        <div className="flex items-center justify-end space-x-0.5">
+                      {showSpecialPrices && (
+                        <td className="py-1 px-1.5 text-right align-middle">
                           <input
                             type="number"
-                            step="0.1"
-                            value={curPromoMargin}
-                            onChange={(e) => handlePricingChange(item.id, 'promoMargin', e.target.value)}
-                            placeholder="0"
-                            className="w-full max-w-[46px] h-6 px-0.5 text-[10px] text-right rounded border border-orange-300 dark:border-orange-700 bg-orange-50/90 dark:bg-stone-900 text-orange-950 dark:text-orange-200 font-mono font-bold focus:ring-1 focus:ring-orange-500 ml-auto block"
-                            title="Margem Promocional (%): V. Promo = Custo + (Custo * % / 100)"
+                            step="0.01"
+                            min="0"
+                            value={curWholesalePrice}
+                            onChange={(e) => handlePricingChange(item.id, 'wholesalePrice', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full max-w-[68px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-medium focus:ring-1 focus:ring-[#0963cb] ml-auto block"
+                            title="Preço de Atacado (R$)"
                           />
-                          <span className="text-[8.5px] font-black text-orange-900 dark:text-orange-300 shrink-0">%</span>
-                        </div>
-                      </td>
+                        </td>
+                      )}
+
+                      {/* 10. % PROMO. (Input Rápido de Margem Promoção) */}
+                      {showSpecialPrices && (
+                        <td className="py-1 px-1 text-right align-middle bg-orange-50/40 dark:bg-orange-950/20 border-l border-orange-200/60 dark:border-orange-800/40">
+                          <div className="flex items-center justify-end space-x-0.5">
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={curPromoMargin}
+                              onChange={(e) => handlePricingChange(item.id, 'promoMargin', e.target.value)}
+                              placeholder="0"
+                              className="w-full max-w-[46px] h-6 px-0.5 text-[10px] text-right rounded border border-orange-300 dark:border-orange-700 bg-orange-50/90 dark:bg-stone-900 text-orange-950 dark:text-orange-200 font-mono font-bold focus:ring-1 focus:ring-orange-500 ml-auto block"
+                              title="Margem Promocional (%): V. Promo = Custo + (Custo * % / 100)"
+                            />
+                            <span className="text-[8.5px] font-black text-orange-900 dark:text-orange-300 shrink-0">%</span>
+                          </div>
+                        </td>
+                      )}
 
                       {/* 11. V. PROMO (R$) */}
-                      <td className="py-1 px-1.5 text-right align-middle">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={curPromoPrice}
-                          onChange={(e) => handlePricingChange(item.id, 'promoPrice', e.target.value)}
-                          placeholder="0.00"
-                          className="w-full max-w-[68px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-medium focus:ring-1 focus:ring-[#0963cb] ml-auto block"
-                          title="Preço Promocional (R$)"
-                        />
-                      </td>
+                      {showSpecialPrices && (
+                        <td className="py-1 px-1.5 text-right align-middle">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={curPromoPrice}
+                            onChange={(e) => handlePricingChange(item.id, 'promoPrice', e.target.value)}
+                            placeholder="0.00"
+                            className="w-full max-w-[68px] h-6 px-1 text-[10px] text-right rounded border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900 text-black dark:text-stone-100 font-mono font-medium focus:ring-1 focus:ring-[#0963cb] ml-auto block"
+                            title="Preço Promocional (R$)"
+                          />
+                        </td>
+                      )}
 
                       {/* 12. AÇÕES (Olho, Lápis, Lixeira) */}
                       <td className="py-1 px-2 text-right align-middle">
