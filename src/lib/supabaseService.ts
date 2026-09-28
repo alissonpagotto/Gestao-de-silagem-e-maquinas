@@ -571,26 +571,8 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
     }
 
     if (!error && data && Array.isArray(data)) {
-      const map = new Map<string, DocumentoEntradaRecord>();
-      
-      data.forEach((d: any) => {
-        const norm = normalizeDocumentoEntradaFromRow(d);
-        map.set(norm.id, norm);
-      });
+      const merged = data.map((d: any) => normalizeDocumentoEntradaFromRow(d));
 
-      // Se houver registros no localList que NÃO estão no Supabase (ex: criados antes desta correção ou offline),
-      // envia-os em background para sincronizar na nuvem e torná-los visíveis na outra aba instantaneamente
-      localList.forEach(localDoc => {
-        if (!map.has(localDoc.id)) {
-          map.set(localDoc.id, localDoc);
-          // Tenta persistir no Supabase sem travar a renderização atual
-          insertDocumentoEntrada(localDoc, activeCompanyId).catch(err => {
-            console.warn('Auto-sync documento_entrada local para nuvem erro:', err);
-          });
-        }
-      });
-
-      const merged = Array.from(map.values());
       // Ordena decrescente por data/criação
       merged.sort((a, b) => {
         const tA = a.data ? new Date(a.data).getTime() : 0;
@@ -876,14 +858,10 @@ export async function fetchDocumentosEntradaItens(documentoEntradaId: string): P
       .order('created_at', { ascending: true });
 
     if (!error && data && Array.isArray(data)) {
-      const map = new Map<string, DocumentoEntradaItem>();
-      (data as any[]).forEach(i => {
-        const norm = normalizeDocumentoEntradaItemFromRow(i);
-        map.set(norm.id, norm);
-      });
-      localList.forEach(i => { if (!map.has(i.id)) map.set(i.id, i); });
-      const merged = Array.from(map.values());
-      return merged;
+      const items = (data as any[]).map(i => normalizeDocumentoEntradaItemFromRow(i));
+      const otherItems = getStoredDocumentosEntradaItens().filter(i => i.documento_entrada_id !== documentoEntradaId);
+      saveStoredDocumentosEntradaItens([...items, ...otherItems]);
+      return items;
     }
   } catch (e) {
     console.warn('fetchDocumentosEntradaItens err:', e);
@@ -3424,11 +3402,6 @@ export async function fetchAbastecimentos(companyId?: string): Promise<FuelLog[]
     if (!error && Array.isArray(data)) {
       if (data.length > 0) {
         return data.map(mapRowToFuelLog);
-      }
-      // Se a tabela física retornou vazia, verifica se há dados salvos na nuvem via site_settings
-      const cloudLogs = await fetchCloudFuelLogs(cId);
-      if (cloudLogs && cloudLogs.length > 0) {
-        return cloudLogs;
       }
       return [];
     }

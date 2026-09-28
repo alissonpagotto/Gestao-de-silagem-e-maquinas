@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   ArrowDownRight, 
   ArrowUpRight,
@@ -22,7 +22,8 @@ import {
   Fuel,
   Sprout,
   Layers,
-  Activity
+  Activity,
+  RotateCcw
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -45,7 +46,24 @@ import {
   FuelLog,
   CropSeason
 } from '../../types';
-import { formatCurrencyBRL, formatDateBR, checkCnhStatus } from '../../lib/storage';
+import { 
+  formatCurrencyBRL, 
+  formatDateBR, 
+  checkCnhStatus,
+  saveStoredExpenses,
+  saveStoredFuelLogs,
+  getActiveCompanyId
+} from '../../lib/storage';
+import { supabase } from '../../lib/supabaseClient';
+import {
+  isSupabaseConfigured,
+  subscribeToCloudTable,
+  fetchContasAPagar,
+  fetchAbastecimentos,
+  saveCloudExpenses,
+  saveCloudFuelLogs,
+  getAbastecimentosTableName
+} from '../../lib/supabaseService';
 
 interface MainDashboardProps {
   expenses: Expense[];
@@ -61,36 +79,270 @@ interface MainDashboardProps {
   onNewExpense: () => void;
   onOpenAiParser: () => void;
   onOpenIntegration: () => void;
+  onExpensesChange?: (expenses: Expense[]) => void;
 }
 
 export const MainDashboard: React.FC<MainDashboardProps> = ({
-  expenses,
+  expenses: propExpenses,
   clients,
   machineries,
   employees,
   orders,
   services = [],
   inventory = [],
-  fuelLogs = [],
+  fuelLogs: propFuelLogs = [],
   seasons = [],
   onNavigate,
   onNewExpense,
   onOpenAiParser,
   onOpenIntegration,
+  onExpensesChange,
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'mes_atual' | 'todos'>('todos');
+  const [activeExpenses, setActiveExpenses] = useState<Expense[]>(() => propExpenses || []);
+  const [activeFuelLogs, setActiveFuelLogs] = useState<FuelLog[]>(() => propFuelLogs || []);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Sincroniza se a prop externa mudar
+  useEffect(() => {
+    setActiveExpenses(propExpenses || []);
+  }, [propExpenses]);
+
+  useEffect(() => {
+    setActiveFuelLogs(propFuelLogs || []);
+  }, [propFuelLogs]);
+
+  // Função central de busca e reconciliação com o Supabase
+  // Zera imediatamente o estado se o banco de dados tiver sido esvaziado (0 registros)
+  const refreshDashboardData = useCallback(async (showIndicator = false) => {
+    if (showIndicator) setIsSyncing(true);
+    if (!isSupabaseConfigured) {
+      if (showIndicator) setIsSyncing(false);
+      return;
+    }
+
+    try {
+      const activeCompanyId = getActiveCompanyId();
+      const [cloudContas, cloudFuels] = await Promise.all([
+        fetchContasAPagar(activeCompanyId),
+        fetchAbastecimentos(activeCompanyId)
+      ]);
+
+      // 1. Reconciliação de Contas a Pagar / Despesas
+      if (cloudContas !== null && Array.isArray(cloudContas)) {
+        if (cloudContas.length === 0) {
+          // Banco esvaziado / sem registros de contas a pagar: ZERA IMEDIATAMENTE
+          setActiveExpenses([]);
+          saveStoredExpenses([]);
+          if (activeCompanyId) {
+            saveCloudExpenses([], activeCompanyId).catch(() => {});
+          }
+          onExpensesChange?.([]);
+        } else {
+          const mapped: Expense[] = cloudContas.map((d: any) => ({
+            id: d.id,
+            title: d.centro_custo || 'Parcela Fornecedor',
+            description: d.centro_custo || 'Parcela Fornecedor',
+            amount: Number(d.valor_parcela) || 0,
+            dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+            status: d.status_pago ? 'pago' : 'pendente',
+            categoryId: 'despesa_geral',
+            categoryColor: '#10b981',
+            category: 'despesa_geral',
+            categoryName: d.centro_custo || 'Geral',
+            paymentMethod: d.forma_pagamento || 'Boleto',
+            supplier: 'Fornecedor',
+            createdAt: d.created_at || new Date().toISOString()
+          } as unknown as Expense));
+          setActiveExpenses(mapped);
+          saveStoredExpenses(mapped);
+          onExpensesChange?.(mapped);
+        }
+      }
+
+      // 2. Reconciliação de Abastecimentos / Combustível
+      if (cloudFuels !== null && Array.isArray(cloudFuels)) {
+        setActiveFuelLogs(cloudFuels);
+        saveStoredFuelLogs(cloudFuels);
+        if (cloudFuels.length === 0 && activeCompanyId) {
+          saveCloudFuelLogs([], activeCompanyId).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('Dashboard real-time refresh exception:', err);
+    } finally {
+      if (showIndicator) {
+        setTimeout(() => setIsSyncing(false), 400);
+      }
+    }
+  }, [onExpensesChange]);
+
+  // Supabase Realtime Listener para eventos DELETE, INSERT e UPDATE
+  useEffect(() => {
+    let isMounted = true;
+    // Carga inicial para validar se o banco não foi esvaziado
+    refreshDashboardData(false);
+
+    // 1. Canal Supabase Realtime dedicado escutando eventos de DELETE, INSERT e UPDATE
+    let channel: any = null;
+    if (isSupabaseConfigured) {
+      const channelId = `dashboard_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const fuelTable = getAbastecimentosTableName() || 'abastecimentos';
+      const tablesToListen = [
+        'contas_a_pagar',
+        fuelTable,
+        'abastecimentos',
+        'documentos_entrada',
+        'documentos_entrada_itens',
+        'notas_fiscais',
+        'notas_entradas',
+        'entradas_mercadorias',
+        'gestao_frotas',
+        'site_settings'
+      ];
+
+      try {
+        channel = supabase.channel(channelId);
+
+        tablesToListen.forEach((table) => {
+          channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table },
+            (payload: any) => {
+              if (!isMounted) return;
+              // Se for evento de DELETE, remove imediatamente pelo ID no estado do React para resposta instantânea
+              if (payload.eventType === 'DELETE') {
+                const deletedId = payload.old?.id;
+                const oldNotaId = payload.old?.nota_fiscal_id;
+                if (deletedId || oldNotaId) {
+                  setActiveExpenses(prev => {
+                    const filtered = prev.filter(e => {
+                      if (deletedId && (e.id === deletedId || (e as any).nota_fiscal_id === deletedId)) return false;
+                      if (oldNotaId && (e.id === oldNotaId || (e as any).nota_fiscal_id === oldNotaId)) return false;
+                      return true;
+                    });
+                    saveStoredExpenses(filtered);
+                    onExpensesChange?.(filtered);
+                    return filtered;
+                  });
+                  setActiveFuelLogs(prev => {
+                    const filtered = prev.filter(f => f.id !== deletedId);
+                    saveStoredFuelLogs(filtered);
+                    return filtered;
+                  });
+                }
+              }
+
+              // Reconcilia com o banco para garantir sincronismo total e zerar se não houver mais registros
+              refreshDashboardData(false);
+            }
+          );
+        });
+
+        channel.subscribe();
+      } catch (err) {
+        console.warn('Dashboard Realtime channel initialization notice:', err);
+      }
+    }
+
+    // 2. Fallbacks de Realtime via subscribeToCloudTable
+    const unsubContas = subscribeToCloudTable('contas_a_pagar', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubFuel = subscribeToCloudTable(getAbastecimentosTableName() || 'abastecimentos', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubDocs = subscribeToCloudTable('documentos_entrada', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubNotas = subscribeToCloudTable('notas_fiscais', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubNotasEntradas = subscribeToCloudTable('notas_entradas', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubSettings = subscribeToCloudTable('site_settings', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+
+    // 3. Comunicação instantânea entre abas via BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('silagem_dashboard_sync_channel');
+        bc.onmessage = () => {
+          if (isMounted) refreshDashboardData(false);
+        };
+      } catch (_) {}
+    }
+
+    // 4. Listeners para evento de storage (localStorage cross-tab), foco da janela e visibilidade
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'silagem_facil_despesas_v1' || e.key === 'silagem_facil_fuel_logs_v1' || e.key === 'silagem_facil_documentos_entrada_v1') {
+        if (isMounted) refreshDashboardData(false);
+      }
+    };
+    const handleFocus = () => {
+      if (isMounted) refreshDashboardData(false);
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isMounted) {
+        refreshDashboardData(false);
+      }
+    };
+    const handleCustomSync = () => {
+      if (isMounted) refreshDashboardData(false);
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('silagem_documentos_entrada_updated', handleCustomSync);
+
+    // 5. Polling de segurança a cada 8 segundos enquanto a aba estiver visível
+    const pollInterval = setInterval(() => {
+      if (isMounted && document.visibilityState === 'visible') {
+        refreshDashboardData(false);
+      }
+    }, 8000);
+
+    return () => {
+      isMounted = false;
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      }
+      unsubContas();
+      unsubFuel();
+      unsubDocs();
+      unsubNotas();
+      unsubNotasEntradas();
+      unsubFrotas();
+      unsubSettings();
+      if (bc) {
+        try { bc.close(); } catch (_) {}
+      }
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('silagem_documentos_entrada_updated', handleCustomSync);
+      clearInterval(pollInterval);
+    };
+  }, [refreshDashboardData, onExpensesChange]);
 
   // Calculate current month expenses
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   
-  const currentMonthExpenses = expenses.filter(e => e.dueDate?.startsWith(currentMonthStr));
+  const currentMonthExpenses = activeExpenses.filter(e => e.dueDate?.startsWith(currentMonthStr));
   const currentMonthTotal = currentMonthExpenses.reduce((acc, curr) => acc + curr.amount, 0);
   const currentMonthCount = currentMonthExpenses.length;
 
   // Total expenses
-  const totalExpensesAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalExpensesCount = expenses.length;
+  const totalExpensesAmount = activeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpensesCount = activeExpenses.length;
 
   // Clients count
   const clientsCount = clients.length;
@@ -104,7 +356,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
   // Categories breakdown for chart view
   const categoryTotals: { [name: string]: { total: number; color: string } } = {};
-  expenses.forEach(e => {
+  activeExpenses.forEach(e => {
     if (!categoryTotals[e.categoryName]) {
       categoryTotals[e.categoryName] = { total: 0, color: e.categoryColor || '#10b981' };
     }
@@ -134,11 +386,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         
       const revenue = ordersRev + servicesRev;
       
-      const expensesTotal = expenses
+      const expensesTotal = activeExpenses
         .filter(e => e.dueDate?.startsWith(monthPrefix))
         .reduce((sum, e) => sum + (e.amount || 0), 0);
 
-      const dieselTotal = expenses
+      const dieselTotal = activeExpenses
         .filter(e => e.dueDate?.startsWith(monthPrefix) && (
           e.categoryName?.toLowerCase().includes('combust') || 
           e.categoryName?.toLowerCase().includes('diesel') ||
@@ -160,7 +412,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     }
     
     return months;
-  }, [orders, services, expenses]);
+  }, [orders, services, activeExpenses]);
 
   // 2. Consumo de Diesel por Ensiladeira e Maquinário (apenas registros reais)
   const dieselByMachinery = useMemo(() => {
@@ -181,8 +433,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       }
     });
 
-    if (fuelLogs && fuelLogs.length > 0) {
-      fuelLogs.forEach(fl => {
+    if (activeFuelLogs && activeFuelLogs.length > 0) {
+      activeFuelLogs.forEach(fl => {
         const name = fl.vehicleName || 'Outro Veículo';
         if (!machineMap[name]) {
           machineMap[name] = { liters: 0, cost: 0, type: 'Frota' };
@@ -205,7 +457,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       return [];
     }
     return items;
-  }, [machineries, fuelLogs]);
+  }, [machineries, activeFuelLogs]);
 
   // 3. Tabela de Custos & Rentabilidade por Safra (retorna apenas safras reais ou lista vazia)
   const seasonsSummary = useMemo(() => {
@@ -219,11 +471,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     const totalAreaHectares = services.reduce((acc, s) => acc + (s.areaHectares || 0), 0);
     const totalTons = services.reduce((acc, s) => acc + (s.tonsEstimated || 0), 0) + orders.reduce((acc, o) => acc + (o.quantityTons || 0), 0);
     
-    const dieselExpenses = expenses
+    const dieselExpenses = activeExpenses
       .filter(e => e.categoryName?.toLowerCase().includes('combust') || e.categoryName?.toLowerCase().includes('diesel'))
       .reduce((sum, e) => sum + e.amount, 0);
 
-    const otherExpenses = expenses
+    const otherExpenses = activeExpenses
       .filter(e => !e.categoryName?.toLowerCase().includes('combust') && !e.categoryName?.toLowerCase().includes('diesel'))
       .reduce((sum, e) => sum + e.amount, 0);
 
@@ -243,7 +495,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           : 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
       };
     });
-  }, [seasons, services, orders, expenses]);
+  }, [seasons, services, orders, activeExpenses]);
 
   // Indicadores de topo do bloco analítico
   const totalSafraFaturamento = seasonsSummary.reduce((sum, s) => sum + s.faturamento, 0);
@@ -727,14 +979,26 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               {/* 4. Distribuição de Despesas Operacionais por Categoria (Compacta) */}
               <div className="pt-1">
                 <div className="flex items-center justify-between mb-1.5">
-                  <div>
-                    <h4 className="text-xs font-bold text-black dark:text-white font-['Outfit'] flex items-center space-x-1.5">
-                      <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                      <span>Distribuição de Despesas por Categoria</span>
-                    </h4>
-                    <p className="text-[10px] text-black/75 dark:text-stone-400">
-                      Detalhamento proporcional dos custos na produção, corte e logística
-                    </p>
+                  <div className="flex items-center space-x-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-black dark:text-white font-['Outfit'] flex items-center space-x-1.5">
+                        <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                        <span>Distribuição de Despesas por Categoria</span>
+                      </h4>
+                      <p className="text-[10px] text-black/75 dark:text-stone-400">
+                        Detalhamento proporcional dos custos na produção, corte e logística
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => refreshDashboardData(true)}
+                      disabled={isSyncing}
+                      title="Sincronizar em tempo real com a nuvem"
+                      className="inline-flex items-center space-x-1 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 hover:text-sky-600 dark:text-stone-400 dark:hover:text-sky-400 bg-stone-100 dark:bg-stone-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-md border border-stone-200 dark:border-stone-700 transition cursor-pointer"
+                    >
+                      <RotateCcw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin text-sky-600' : ''}`} />
+                      <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
+                    </button>
                   </div>
                   <span className="text-xs font-bold text-black dark:text-stone-200">
                     Total: {formatCurrencyBRL(totalExpensesAmount)}
@@ -789,24 +1053,30 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {expenses.slice(0, 4).map((exp) => (
-                    <div 
-                      key={exp.id} 
-                      className="flex items-center justify-between p-1.5 px-2 rounded-lg bg-slate-50 dark:bg-stone-800/50 border border-slate-200 dark:border-stone-800 text-[11px]"
-                    >
-                      <div className="min-w-0 pr-1.5">
-                        <p className="font-bold text-black dark:text-white truncate">
-                          {exp.description}
-                        </p>
-                        <span className="text-[10px] text-black/75 dark:text-stone-400 font-medium">
-                          {exp.supplier || 'Sem fornecedor'} • {formatDateBR(exp.dueDate)}
+                  {activeExpenses.length > 0 ? (
+                    activeExpenses.slice(0, 4).map((exp) => (
+                      <div 
+                        key={exp.id} 
+                        className="flex items-center justify-between p-1.5 px-2 rounded-lg bg-slate-50 dark:bg-stone-800/50 border border-slate-200 dark:border-stone-800 text-[11px]"
+                      >
+                        <div className="min-w-0 pr-1.5">
+                          <p className="font-bold text-black dark:text-white truncate">
+                            {exp.description}
+                          </p>
+                          <span className="text-[10px] text-black/75 dark:text-stone-400 font-medium">
+                            {exp.supplier || 'Sem fornecedor'} • {formatDateBR(exp.dueDate)}
+                          </span>
+                        </div>
+                        <span className="font-black text-black dark:text-white shrink-0">
+                          {formatCurrencyBRL(exp.amount)}
                         </span>
                       </div>
-                      <span className="font-black text-black dark:text-white shrink-0">
-                        {formatCurrencyBRL(exp.amount)}
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-black/70 dark:text-stone-400 col-span-1 sm:col-span-2 py-2">
+                      Nenhum lançamento registrado.
+                    </p>
+                  )}
                 </div>
               </div>
 

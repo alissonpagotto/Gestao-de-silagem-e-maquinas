@@ -389,24 +389,31 @@ export default function App() {
             lastSyncedState.current.rel_machineries = JSON.stringify(cloudData.gestao_frotas);
             setMachineries(cloudData.gestao_frotas);
           }
-          if (cloudData.contas_a_pagar && cloudData.contas_a_pagar.length > 0) {
-            const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => ({
-              id: d.id,
-              title: d.centro_custo || 'Parcela Fornecedor',
-              description: d.centro_custo || 'Parcela Fornecedor',
-              amount: Number(d.valor_parcela) || 0,
-              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-              status: d.status_pago ? 'pago' : 'pendente',
-              categoryId: 'despesa_geral',
-              categoryColor: '#10b981',
-              category: 'despesa_geral',
-              categoryName: d.centro_custo || 'Geral',
-              paymentMethod: d.forma_pagamento || 'Boleto',
-              supplier: 'Fornecedor',
-              createdAt: d.created_at || new Date().toISOString()
-            } as unknown as Expense));
-            lastSyncedState.current.rel_expenses = JSON.stringify(mappedExpenses);
-            setExpenses(mappedExpenses);
+          if (cloudData.contas_a_pagar !== undefined && Array.isArray(cloudData.contas_a_pagar)) {
+            if (cloudData.contas_a_pagar.length === 0) {
+              lastSyncedState.current.rel_expenses = '[]';
+              setExpenses([]);
+              saveStoredExpenses([]);
+            } else {
+              const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => ({
+                id: d.id,
+                title: d.centro_custo || 'Parcela Fornecedor',
+                description: d.centro_custo || 'Parcela Fornecedor',
+                amount: Number(d.valor_parcela) || 0,
+                dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+                status: d.status_pago ? 'pago' : 'pendente',
+                categoryId: 'despesa_geral',
+                categoryColor: '#10b981',
+                category: 'despesa_geral',
+                categoryName: d.centro_custo || 'Geral',
+                paymentMethod: d.forma_pagamento || 'Boleto',
+                supplier: 'Fornecedor',
+                createdAt: d.created_at || new Date().toISOString()
+              } as unknown as Expense));
+              lastSyncedState.current.rel_expenses = JSON.stringify(mappedExpenses);
+              setExpenses(mappedExpenses);
+              saveStoredExpenses(mappedExpenses);
+            }
           }
         }
 
@@ -454,9 +461,14 @@ export default function App() {
               return merged;
             });
           }
-          if (Array.isArray(cloudModules.expenses) && cloudModules.expenses.length > 0) {
-            lastSyncedState.current.expenses = JSON.stringify(cloudModules.expenses);
-            setExpenses(cloudModules.expenses);
+          if (Array.isArray(cloudModules.expenses)) {
+            if (cloudModules.expenses.length === 0 && (!cloudData?.contas_a_pagar || cloudData.contas_a_pagar.length === 0)) {
+              setExpenses([]);
+              saveStoredExpenses([]);
+            } else if (cloudModules.expenses.length > 0) {
+              lastSyncedState.current.expenses = JSON.stringify(cloudModules.expenses);
+              setExpenses(cloudModules.expenses);
+            }
           }
           if (Array.isArray(cloudModules.terminations) && cloudModules.terminations.length > 0) {
             saveStoredTerminations(cloudModules.terminations);
@@ -465,10 +477,16 @@ export default function App() {
 
         // 3. Carrega abastecimentos sincronizados em nuvem (tabela abastecimentos / site_settings)
         const cloudFuels = await fetchAbastecimentos(activeTenantId);
-        if (cloudFuels && cloudFuels.length > 0 && isMounted) {
-          lastSyncedState.current.fuelLogs = JSON.stringify(cloudFuels);
-          setFuelLogs(cloudFuels);
-          saveStoredFuelLogs(cloudFuels);
+        if (cloudFuels !== null && Array.isArray(cloudFuels) && isMounted) {
+          if (cloudFuels.length === 0) {
+            lastSyncedState.current.fuelLogs = '[]';
+            setFuelLogs([]);
+            saveStoredFuelLogs([]);
+          } else {
+            lastSyncedState.current.fuelLogs = JSON.stringify(cloudFuels);
+            setFuelLogs(cloudFuels);
+            saveStoredFuelLogs(cloudFuels);
+          }
         }
 
         // 4. Carrega frentes de trabalho e alocações de equipe em nuvem (tabelas frentes_trabalho e frentes_trabalho_membros)
@@ -694,21 +712,28 @@ export default function App() {
           const ser = JSON.stringify(fresh);
           if (ser !== lastSyncedState.current.rel_expenses) {
             lastSyncedState.current.rel_expenses = ser;
-            setExpenses(fresh.map((d: any) => ({
-              id: d.id,
-              title: d.centro_custo || 'Parcela Fornecedor',
-              description: d.centro_custo || 'Parcela Fornecedor',
-              amount: Number(d.valor_parcela) || 0,
-              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-              status: d.status_pago ? 'pago' : 'pendente',
-              categoryId: 'despesa_geral',
-              categoryColor: '#10b981',
-              category: 'despesa_geral',
-              categoryName: d.centro_custo || 'Geral',
-              paymentMethod: d.forma_pagamento || 'Boleto',
-              supplier: 'Fornecedor',
-              createdAt: d.created_at || new Date().toISOString()
-            } as unknown as Expense)));
+            if (fresh.length === 0) {
+              setExpenses([]);
+              saveStoredExpenses([]);
+            } else {
+              const mapped = fresh.map((d: any) => ({
+                id: d.id,
+                title: d.centro_custo || 'Parcela Fornecedor',
+                description: d.centro_custo || 'Parcela Fornecedor',
+                amount: Number(d.valor_parcela) || 0,
+                dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+                status: d.status_pago ? 'pago' : 'pendente',
+                categoryId: 'despesa_geral',
+                categoryColor: '#10b981',
+                category: 'despesa_geral',
+                categoryName: d.centro_custo || 'Geral',
+                paymentMethod: d.forma_pagamento || 'Boleto',
+                supplier: 'Fornecedor',
+                createdAt: d.created_at || new Date().toISOString()
+              } as unknown as Expense));
+              setExpenses(mapped);
+              saveStoredExpenses(mapped);
+            }
           }
         }
       });
@@ -2287,6 +2312,7 @@ export default function App() {
               }}
               onOpenAiParser={() => setIsAiParserOpen(true)}
               onOpenIntegration={() => setIsIntegrationModalOpen(true)}
+              onExpensesChange={setExpenses}
             />
           )}
 
