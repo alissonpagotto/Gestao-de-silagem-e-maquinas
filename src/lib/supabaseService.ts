@@ -357,8 +357,9 @@ export async function deleteNotaFiscal(notaId: string): Promise<boolean> {
 // ===========================================================================
 // 2.1 Documentos de Entrada Manuais (Tabela: public.documentos_entrada)
 // Para cadastros de Romaneios, Recibos, Notas de Produtor e Outros sem XML
-// Colunas: id, company_id, fornecedor, fornecedor_id, data, tipo_documento,
-//          valor_total, observacoes, created_at, updated_at
+// Colunas na tabela Supabase: id, company_id, tipo_entrada, tipo_documento,
+//          numero_documento, chave_acesso, fornecedor_id, fornecedor_nome,
+//          data_emissao, valor_total, observacoes, created_at, updated_at, status
 // ===========================================================================
 export interface DocumentoEntradaInput {
   id?: string;
@@ -370,6 +371,49 @@ export interface DocumentoEntradaInput {
   valor_total: number;
   observacoes?: string;
   status?: 'Rascunho' | 'Finalizado' | string;
+}
+
+/**
+ * Notifica atualização de Documentos de Entrada para outras abas e componentes
+ */
+export function notifyDocumentosEntradaSync(): void {
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('silagem_documentos_entrada_updated'));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('silagem_documentos_entrada_channel');
+        bc.postMessage({ type: 'SYNC_DOCS', timestamp: Date.now() });
+        bc.close();
+      }
+    } catch (_) {}
+  }
+}
+
+/**
+ * Normaliza uma linha retornada pelo Supabase para DocumentoEntradaRecord garantindo
+ * preenchimento consistente de fornecedor, data, data_emissao e fornecedor_nome.
+ */
+function normalizeDocumentoEntradaFromRow(d: any): DocumentoEntradaRecord {
+  const fornecedorNome = d.fornecedor_nome || d.fornecedor || 'Fornecedor';
+  const dataVal = d.data_emissao || d.data || d.data_entrada || (d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+  return {
+    id: d.id,
+    company_id: d.company_id || undefined,
+    fornecedor: fornecedorNome,
+    fornecedor_nome: fornecedorNome,
+    fornecedor_id: d.fornecedor_id || null,
+    data: dataVal,
+    data_emissao: dataVal,
+    data_entrada: d.data_entrada || dataVal,
+    data_vencimento: d.data_vencimento || undefined,
+    tipo_documento: d.tipo_documento || 'Romaneio',
+    valor_total: Number(d.valor_total) || 0,
+    observacoes: d.observacoes || '',
+    status: d.status || 'Finalizado',
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+    itens: d.itens || []
+  };
 }
 
 /**
@@ -404,29 +448,31 @@ export async function insertDocumentoEntrada(
 
   // Salva no armazenamento local primeiro para sincronismo imediato
   saveLocalDocumentoEntrada(localRecord);
+  notifyDocumentosEntradaSync();
 
   if (!isSupabaseConfigured) {
     return localRecord;
   }
 
   try {
+    // Alinha com as colunas reais da tabela public.documentos_entrada do Supabase:
+    // fornecedor_nome, data_emissao, tipo_documento, valor_total, observacoes, status
     const payload: Record<string, any> = {
       id: uuid,
-      company_id: activeCompanyId,
-      fornecedor: doc.fornecedor.trim(),
+      tipo_entrada: 'Manual',
+      tipo_documento: doc.tipo_documento || 'Romaneio',
       fornecedor_nome: doc.fornecedor.trim(),
       fornecedor_id: doc.fornecedor_id ? toValidUUID(doc.fornecedor_id) : null,
-      data: doc.data,
-      data_emissao: doc.data,
-      data_entrada: doc.data,
-      tipo_documento: doc.tipo_documento,
+      data_emissao: doc.data || new Date().toISOString().split('T')[0],
       valor_total: Number(doc.valor_total) || 0,
       observacoes: doc.observacoes?.trim() || '',
       status: doc.status || 'Finalizado',
       updated_at: now
     };
-    if (doc.data_vencimento) {
-      payload.data_vencimento = doc.data_vencimento;
+
+    const companyUuid = activeCompanyId ? toValidUUID(activeCompanyId) : null;
+    if (companyUuid) {
+      payload.company_id = companyUuid;
     }
 
     let { data, error } = await supabase
@@ -436,44 +482,50 @@ export async function insertDocumentoEntrada(
 
     if (error) {
       logPostgresError('insertDocumentoEntrada', error, { table: 'documentos_entrada', action: 'INSERT', payload });
-      // Se houver incompatibilidade de colunas (ex: fornecedor_nome ou data_emissao não existirem), reenvia com payload enxuto
-      const cleanPayload: Record<string, any> = {
+      // Se houver incompatibilidade com schema alternativo (ex: usa 'fornecedor' e 'data')
+      const altPayload: Record<string, any> = {
         id: uuid,
+        tipo_documento: doc.tipo_documento || 'Romaneio',
         fornecedor: doc.fornecedor.trim(),
-        data: doc.data,
-        tipo_documento: doc.tipo_documento,
+        fornecedor_id: doc.fornecedor_id ? toValidUUID(doc.fornecedor_id) : null,
+        data: doc.data || new Date().toISOString().split('T')[0],
         valor_total: Number(doc.valor_total) || 0,
         observacoes: doc.observacoes?.trim() || '',
+        status: doc.status || 'Finalizado'
       };
-      if (activeCompanyId) cleanPayload.company_id = activeCompanyId;
+      if (companyUuid) altPayload.company_id = companyUuid;
 
       const retry = await supabase
         .from('documentos_entrada')
-        .insert([cleanPayload])
+        .insert([altPayload])
         .select();
 
       if (!retry.error && retry.data && retry.data[0]) {
-        const returned = retry.data[0] as DocumentoEntradaRecord;
+        const returned = normalizeDocumentoEntradaFromRow(retry.data[0]);
         saveLocalDocumentoEntrada(returned);
+        notifyDocumentosEntradaSync();
         return returned;
       }
 
       // Se der erro de company_id, tenta uma terceira vez sem company_id
       if (retry.error && (retry.error.message.includes('company_id') || retry.error.code === '42703')) {
-        delete cleanPayload.company_id;
+        delete payload.company_id;
+        delete altPayload.company_id;
         const retryNoCompany = await supabase
           .from('documentos_entrada')
-          .insert([cleanPayload])
+          .insert([payload])
           .select();
         if (!retryNoCompany.error && retryNoCompany.data && retryNoCompany.data[0]) {
-          const returned = retryNoCompany.data[0] as DocumentoEntradaRecord;
+          const returned = normalizeDocumentoEntradaFromRow(retryNoCompany.data[0]);
           saveLocalDocumentoEntrada(returned);
+          notifyDocumentosEntradaSync();
           return returned;
         }
       }
     } else if (data && data[0]) {
-      const returned = data[0] as DocumentoEntradaRecord;
+      const returned = normalizeDocumentoEntradaFromRow(data[0]);
       saveLocalDocumentoEntrada(returned);
+      notifyDocumentosEntradaSync();
       return returned;
     }
   } catch (err) {
@@ -488,6 +540,7 @@ export async function insertDocumentoEntrada(
  */
 export async function fetchDocumentosEntrada(companyId?: string): Promise<DocumentoEntradaRecord[]> {
   const activeCompanyId = companyId || getActiveCompanyId();
+  const companyUuid = activeCompanyId ? toValidUUID(activeCompanyId) : null;
   const localList = getStoredDocumentosEntrada();
 
   if (!isSupabaseConfigured) {
@@ -495,39 +548,56 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
   }
 
   try {
+    // Ordena por created_at (coluna garantida na tabela)
     let query = supabase
       .from('documentos_entrada')
       .select('*')
-      .order('data', { ascending: false });
+      .order('created_at', { ascending: false });
 
-    if (activeCompanyId) {
-      query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+    if (companyUuid) {
+      query = query.or(`company_id.eq.${companyUuid},company_id.is.null`);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
     if (error) {
-      // Tenta busca simples sem filtro
+      // Se falhar a cláusula OR ou company_id, busca simples sem filtro ordenado por created_at
       const fallbackQuery = await supabase
         .from('documentos_entrada')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (!fallbackQuery.error && fallbackQuery.data && fallbackQuery.data.length > 0) {
-        const map = new Map<string, DocumentoEntradaRecord>();
-        (fallbackQuery.data as DocumentoEntradaRecord[]).forEach(d => map.set(d.id, d));
-        localList.forEach(d => { if (!map.has(d.id)) map.set(d.id, d); });
-        const merged = Array.from(map.values());
-        saveStoredDocumentosEntrada(merged);
-        return merged;
-      }
-      return localList;
+      data = fallbackQuery.data;
+      error = fallbackQuery.error;
     }
 
-    if (data && Array.isArray(data)) {
+    if (!error && data && Array.isArray(data)) {
       const map = new Map<string, DocumentoEntradaRecord>();
-      (data as DocumentoEntradaRecord[]).forEach(d => map.set(d.id, d));
-      localList.forEach(d => { if (!map.has(d.id)) map.set(d.id, d); });
+      
+      data.forEach((d: any) => {
+        const norm = normalizeDocumentoEntradaFromRow(d);
+        map.set(norm.id, norm);
+      });
+
+      // Se houver registros no localList que NÃO estão no Supabase (ex: criados antes desta correção ou offline),
+      // envia-os em background para sincronizar na nuvem e torná-los visíveis na outra aba instantaneamente
+      localList.forEach(localDoc => {
+        if (!map.has(localDoc.id)) {
+          map.set(localDoc.id, localDoc);
+          // Tenta persistir no Supabase sem travar a renderização atual
+          insertDocumentoEntrada(localDoc, activeCompanyId).catch(err => {
+            console.warn('Auto-sync documento_entrada local para nuvem erro:', err);
+          });
+        }
+      });
+
       const merged = Array.from(map.values());
+      // Ordena decrescente por data/criação
+      merged.sort((a, b) => {
+        const tA = a.data ? new Date(a.data).getTime() : 0;
+        const tB = b.data ? new Date(b.data).getTime() : 0;
+        return tB - tA;
+      });
+
       saveStoredDocumentosEntrada(merged);
       return merged;
     }
@@ -543,6 +613,8 @@ export async function fetchDocumentosEntrada(companyId?: string): Promise<Docume
  */
 export async function deleteDocumentoEntrada(id: string): Promise<boolean> {
   deleteLocalDocumentoEntrada(id);
+  notifyDocumentosEntradaSync();
+
   if (!isSupabaseConfigured) return true;
 
   try {
@@ -569,6 +641,7 @@ export async function updateDocumentoEntradaTotal(id: string, novoValorTotal: nu
   const current = getStoredDocumentosEntrada();
   const updated = current.map(d => d.id === id ? { ...d, valor_total: novoValorTotal } : d);
   saveStoredDocumentosEntrada(updated);
+  notifyDocumentosEntradaSync();
 
   if (!isSupabaseConfigured) return true;
   try {
@@ -607,6 +680,7 @@ export async function updateDocumentoEntrada(
     return d;
   });
   saveStoredDocumentosEntrada(updatedList);
+  notifyDocumentosEntradaSync();
 
   if (!isSupabaseConfigured) return true;
 
@@ -615,17 +689,11 @@ export async function updateDocumentoEntrada(
     const payload: Record<string, any> = {
       updated_at: new Date().toISOString()
     };
-    if (updates.fornecedor !== undefined) {
-      payload.fornecedor = updates.fornecedor.trim();
-      payload.fornecedor_nome = updates.fornecedor.trim();
+    if (updates.fornecedor !== undefined || updates.fornecedor_nome !== undefined) {
+      payload.fornecedor_nome = (updates.fornecedor || updates.fornecedor_nome || '').trim();
     }
-    if (updates.data !== undefined) {
-      payload.data = updates.data;
-      payload.data_emissao = updates.data;
-      payload.data_entrada = updates.data;
-    }
-    if (updates.data_vencimento !== undefined) {
-      payload.data_vencimento = updates.data_vencimento;
+    if (updates.data !== undefined || updates.data_emissao !== undefined) {
+      payload.data_emissao = updates.data || updates.data_emissao;
     }
     if (updates.tipo_documento !== undefined) {
       payload.tipo_documento = updates.tipo_documento;
@@ -646,21 +714,24 @@ export async function updateDocumentoEntrada(
       .eq('id', uuid);
 
     if (error) {
-      // Se houver incompatibilidade de colunas (ex: status ou data_vencimento inexistentes na tabela do Supabase)
-      const safePayload = { ...payload };
-      delete safePayload.status;
-      delete safePayload.data_vencimento;
-      delete safePayload.fornecedor_nome;
-      delete safePayload.data_emissao;
-      delete safePayload.data_entrada;
+      // Se houver incompatibilidade com schema alternativo (ex: usa 'fornecedor' e 'data')
+      const altPayload: Record<string, any> = { ...payload };
+      if (payload.fornecedor_nome) {
+        altPayload.fornecedor = payload.fornecedor_nome;
+        delete altPayload.fornecedor_nome;
+      }
+      if (payload.data_emissao) {
+        altPayload.data = payload.data_emissao;
+        delete altPayload.data_emissao;
+      }
 
       const retry = await supabase
         .from('documentos_entrada')
-        .update(safePayload)
+        .update(altPayload)
         .eq('id', uuid);
 
       if (retry.error && id !== uuid) {
-        await supabase.from('documentos_entrada').update(safePayload).eq('id', id);
+        await supabase.from('documentos_entrada').update(altPayload).eq('id', id);
       }
     } else if (id !== uuid) {
       await supabase.from('documentos_entrada').update(payload).eq('id', id);
@@ -674,12 +745,12 @@ export async function updateDocumentoEntrada(
 
 // ===========================================================================
 // 2.2 Itens de Documentos de Entrada (Tabela: public.documentos_entrada_itens)
-// Colunas: id, documento_entrada_id, produto_id, descricao, quantidade,
-//          unidade, valor_unitario, valor_total, created_at
+// Colunas na tabela Supabase: id, documento_entrada_id, produto_id, produto_nome,
+//                   quantidade, valor_unitario, valor_total, created_at
 // ===========================================================================
 export interface DocumentoEntradaItemInput {
   id?: string;
-  documento_entrada_id: string;
+  documento_entrada_id?: string;
   produto_id?: string;
   descricao: string;
   quantidade: number;
@@ -689,40 +760,64 @@ export interface DocumentoEntradaItemInput {
 }
 
 /**
- * Insere um item de entrada via POST na tabela public.documentos_entrada_itens.
- * Salva localmente com fallback e atualiza integridade.
+ * Normaliza um item retornado pelo Supabase
  */
-export async function insertDocumentoEntradaItem(item: DocumentoEntradaItemInput): Promise<DocumentoEntradaItem> {
+function normalizeDocumentoEntradaItemFromRow(i: any): DocumentoEntradaItem {
+  return {
+    id: i.id,
+    documento_entrada_id: i.documento_entrada_id,
+    produto_id: i.produto_id || undefined,
+    descricao: i.produto_nome || i.descricao || 'Item de Entrada',
+    quantidade: Number(i.quantidade) || 1,
+    unidade: i.unidade || 'UN',
+    valor_unitario: Number(i.valor_unitario) || 0,
+    valor_total: Number(i.valor_total) || 0
+  };
+}
+
+/**
+ * Insere um item de entrada via POST na tabela public.documentos_entrada_itens.
+ * Suporta assinatura sobrecarregada (documentoEntradaId, item) ou (item).
+ */
+export async function insertDocumentoEntradaItem(
+  docIdOrItem: string | DocumentoEntradaItemInput,
+  itemArg?: DocumentoEntradaItemInput
+): Promise<DocumentoEntradaItem> {
+  const item: DocumentoEntradaItemInput = typeof docIdOrItem === 'string' 
+    ? { ...itemArg!, documento_entrada_id: docIdOrItem }
+    : docIdOrItem;
+
+  const docUuid = toValidUUID(item.documento_entrada_id || '');
   const uuid = toValidUUID(item.id || generateUUID());
-  const docUuid = toValidUUID(item.documento_entrada_id);
   const now = new Date().toISOString();
+  const prodDesc = (item.descricao || (item as any).produto_nome || 'Item de Entrada').trim();
 
   const record: DocumentoEntradaItem = {
     id: uuid,
-    documento_entrada_id: item.documento_entrada_id,
-    produto_id: item.produto_id || undefined,
-    descricao: item.descricao.trim(),
+    documento_entrada_id: item.documento_entrada_id || docUuid,
+    produto_id: item.produto_id ? toValidUUID(item.produto_id) : undefined,
+    descricao: prodDesc,
     quantidade: Number(item.quantidade) || 0,
     unidade: item.unidade || 'UN',
     valor_unitario: Number(item.valor_unitario) || 0,
-    valor_total: Number(item.valor_total) || 0,
-    created_at: now
+    valor_total: Number(item.valor_total) || 0
   };
 
   saveLocalDocumentoEntradaItem(record);
+  notifyDocumentosEntradaSync();
 
   if (!isSupabaseConfigured) {
     return record;
   }
 
   try {
+    // Alinha com as colunas reais da tabela public.documentos_entrada_itens: produto_nome
     const payload: Record<string, any> = {
       id: uuid,
       documento_entrada_id: docUuid,
       produto_id: item.produto_id ? toValidUUID(item.produto_id) : null,
-      descricao: item.descricao.trim(),
+      produto_nome: prodDesc,
       quantidade: Number(item.quantidade) || 0,
-      unidade: item.unidade || 'UN',
       valor_unitario: Number(item.valor_unitario) || 0,
       valor_total: Number(item.valor_total) || 0,
       created_at: now
@@ -734,16 +829,11 @@ export async function insertDocumentoEntradaItem(item: DocumentoEntradaItemInput
       .select();
 
     if (error) {
-      // Tenta fallback com produto_id como string direta
+      // Fallback com descricao e unidade caso a tabela suporte
       const fallbackPayload: Record<string, any> = {
-        id: uuid,
-        documento_entrada_id: docUuid,
-        produto_id: item.produto_id || null,
-        descricao: item.descricao.trim(),
-        quantidade: Number(item.quantidade) || 0,
-        unidade: item.unidade || 'UN',
-        valor_unitario: Number(item.valor_unitario) || 0,
-        valor_total: Number(item.valor_total) || 0
+        ...payload,
+        descricao: prodDesc,
+        unidade: item.unidade || 'UN'
       };
 
       const retry = await supabase
@@ -752,13 +842,15 @@ export async function insertDocumentoEntradaItem(item: DocumentoEntradaItemInput
         .select();
 
       if (!retry.error && retry.data && retry.data[0]) {
-        const returned = retry.data[0] as DocumentoEntradaItem;
+        const returned = normalizeDocumentoEntradaItemFromRow(retry.data[0]);
         saveLocalDocumentoEntradaItem(returned);
+        notifyDocumentosEntradaSync();
         return returned;
       }
     } else if (data && data[0]) {
-      const returned = data[0] as DocumentoEntradaItem;
+      const returned = normalizeDocumentoEntradaItemFromRow(data[0]);
       saveLocalDocumentoEntradaItem(returned);
+      notifyDocumentosEntradaSync();
       return returned;
     }
   } catch (err) {
@@ -785,7 +877,10 @@ export async function fetchDocumentosEntradaItens(documentoEntradaId: string): P
 
     if (!error && data && Array.isArray(data)) {
       const map = new Map<string, DocumentoEntradaItem>();
-      (data as DocumentoEntradaItem[]).forEach(i => map.set(i.id, i));
+      (data as any[]).forEach(i => {
+        const norm = normalizeDocumentoEntradaItemFromRow(i);
+        map.set(norm.id, norm);
+      });
       localList.forEach(i => { if (!map.has(i.id)) map.set(i.id, i); });
       const merged = Array.from(map.values());
       return merged;
@@ -802,6 +897,8 @@ export async function fetchDocumentosEntradaItens(documentoEntradaId: string): P
  */
 export async function deleteDocumentoEntradaItem(itemId: string): Promise<boolean> {
   deleteLocalDocumentoEntradaItem(itemId);
+  notifyDocumentosEntradaSync();
+
   if (!isSupabaseConfigured) return true;
   try {
     const uuid = toValidUUID(itemId);
@@ -4487,14 +4584,16 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
       estoque,
       rh_funcionarios,
       gestao_frotas,
-      contas_a_pagar
+      contas_a_pagar,
+      documentos_entrada
     ] = await Promise.all([
       fetchClientes(activeCompanyId),
       fetchFornecedores(activeCompanyId),
       fetchEstoque(activeCompanyId),
       fetchRhFuncionarios(activeCompanyId),
       fetchGestaoFrotas(activeCompanyId),
-      fetchContasAPagar(activeCompanyId)
+      fetchContasAPagar(activeCompanyId),
+      fetchDocumentosEntrada(activeCompanyId)
     ]);
 
     const formattedExpenses: Expense[] = (contas_a_pagar || []).map((d: any) => {
@@ -4530,7 +4629,8 @@ export async function fetchAllDataFromSupabase(companyId?: string) {
       notas_fiscais: [],
       contas_a_pagar: formattedExpenses,
       rh_funcionarios: rh_funcionarios || [],
-      gestao_frotas: gestao_frotas || []
+      gestao_frotas: gestao_frotas || [],
+      documentos_entrada: documentos_entrada || []
     };
   } catch (err) {
     console.warn('Supabase fetchAllDataFromSupabase notice:', err);

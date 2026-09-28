@@ -575,6 +575,15 @@ DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE 
+            public.documentos_entrada,
+            public.documentos_entrada_itens,
+            public.notas_fiscais,
+            public.contas_a_pagar,
+            public.fornecedores,
+            public.estoque,
+            public.clientes,
+            public.rh_funcionarios,
+            public.gestao_frotas,
             public.assinantes,
             public.subscribers;
     END IF;

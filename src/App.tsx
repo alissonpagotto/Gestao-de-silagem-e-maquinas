@@ -159,7 +159,8 @@ import {
   saveCloudFuelLogs,
   getAbastecimentosTableName,
   fetchFrentesTrabalho,
-  fetchFrentesTrabalhoMembros
+  fetchFrentesTrabalhoMembros,
+  notifyDocumentosEntradaSync
 } from './lib/supabaseService';
 import { supabase } from './lib/supabaseClient';
 
@@ -819,6 +820,14 @@ export default function App() {
       }).catch(() => {});
     });
 
+    const unsubDocsEntrada = subscribeToCloudTable('documentos_entrada', () => {
+      notifyDocumentosEntradaSync();
+    });
+
+    const unsubNotasFiscais = subscribeToCloudTable('notas_fiscais', () => {
+      notifyDocumentosEntradaSync();
+    });
+
     // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
     // Escuta as alterações no banco de dados na tabela 'abastecimentos' e em 'site_settings'
     const fuelTable = getAbastecimentosTableName() || 'abastecimentos';
@@ -903,6 +912,8 @@ export default function App() {
       unsubSettings();
       unsubFrentes();
       unsubMembros();
+      unsubDocsEntrada();
+      unsubNotasFiscais();
       supabase.removeChannel(canalAbastecimentos);
       clearInterval(pollAbastecimentosInterval);
       document.removeEventListener('visibilitychange', handleFocusSync);

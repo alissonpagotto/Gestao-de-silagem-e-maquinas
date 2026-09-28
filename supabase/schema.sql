@@ -641,6 +641,8 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE 
             public.fornecedores, 
             public.notas_fiscais, 
+            public.documentos_entrada,
+            public.documentos_entrada_itens,
             public.contas_a_pagar, 
             public.estoque,
             public.clientes,

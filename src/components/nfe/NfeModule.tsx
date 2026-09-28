@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   Upload,
   UploadCloud, 
@@ -68,8 +68,10 @@ import {
   saveStoredManualEntryDocumentTypes,
   DEFAULT_INVENTORY_CATEGORIES,
   getStoredInventoryCategories,
-  saveStoredInventoryCategories
+  saveStoredInventoryCategories,
+  getActiveCompanyId
 } from '../../lib/storage';
+import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { SupplierModal } from '../suppliers/SupplierModal';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
@@ -100,7 +102,10 @@ import {
   identificarTipoDiesel,
   searchEstoqueProdutos,
   syncEssentialFuelProductsToSupabase,
-  sincronizarEntradaCombustivelSupabase
+  sincronizarEntradaCombustivelSupabase,
+  isSupabaseConfigured,
+  subscribeToCloudTable,
+  notifyDocumentosEntradaSync
 } from '../../lib/supabaseService';
 
 interface ParsedNfeItem {
@@ -1020,17 +1025,139 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [documentosEntrada, setDocumentosEntrada] = useState<DocumentoEntradaRecord[]>(() => {
     return getStoredDocumentosEntrada();
   });
+  const [isSyncingDocs, setIsSyncingDocs] = useState(false);
 
-  // Carrega entradas manuais do Supabase
-  useEffect(() => {
-    let isMounted = true;
-    fetchDocumentosEntrada().then(data => {
-      if (isMounted && data && Array.isArray(data)) {
+  // Carrega e sincroniza entradas manuais do Supabase em tempo real com garantia multi-abas
+  const reloadDocumentosEntrada = useCallback(async (showIndicator = false) => {
+    if (showIndicator) setIsSyncingDocs(true);
+    try {
+      const activeCompanyId = companyProfile?.companyId || companyProfile?.id || getActiveCompanyId(companyProfile);
+      const data = await fetchDocumentosEntrada(activeCompanyId);
+      if (data && Array.isArray(data)) {
         setDocumentosEntrada(data);
       }
+    } catch (err) {
+      console.warn('Erro ao sincronizar documentos de entrada:', err);
+    } finally {
+      if (showIndicator) {
+        setTimeout(() => setIsSyncingDocs(false), 400);
+      }
+    }
+  }, [companyProfile]);
+
+  const handleManualSync = () => {
+    reloadDocumentosEntrada(true);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    reloadDocumentosEntrada(false);
+
+    // 1. Canal Supabase Realtime dedicado escutando eventos postgres_changes
+    let channel: any = null;
+    if (isSupabaseConfigured) {
+      const channelId = `nfe_doc_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      try {
+        channel = supabase
+          .channel(channelId)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'documentos_entrada' },
+            () => {
+              if (isMounted) reloadDocumentosEntrada(false);
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'documentos_entrada_itens' },
+            () => {
+              if (isMounted) reloadDocumentosEntrada(false);
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'notas_fiscais' },
+            () => {
+              if (isMounted) reloadDocumentosEntrada(false);
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn('Falha ao inicializar canal Supabase Realtime NFe:', err);
+      }
+    }
+
+    // 2. Inscrições resilientes via subscribeToCloudTable
+    const unsubDocs = subscribeToCloudTable('documentos_entrada', () => {
+      if (isMounted) reloadDocumentosEntrada(false);
     });
-    return () => { isMounted = false; };
-  }, []);
+    const unsubItens = subscribeToCloudTable('documentos_entrada_itens', () => {
+      if (isMounted) reloadDocumentosEntrada(false);
+    });
+    const unsubNotas = subscribeToCloudTable('notas_fiscais', () => {
+      if (isMounted) reloadDocumentosEntrada(false);
+    });
+
+    // 3. BroadcastChannel para comunicação instantânea entre abas no mesmo navegador
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('silagem_documentos_entrada_channel');
+        bc.onmessage = () => {
+          if (isMounted) reloadDocumentosEntrada(false);
+        };
+      } catch (_) {}
+    }
+
+    // 4. Listeners para evento storage (localStorage cross-tab) e foco da janela
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'silagem_facil_documentos_entrada_v1') {
+        if (isMounted) reloadDocumentosEntrada(false);
+      }
+    };
+    const handleCustomSyncEvent = () => {
+      if (isMounted) reloadDocumentosEntrada(false);
+    };
+    const handleFocus = () => {
+      if (isMounted) reloadDocumentosEntrada(false);
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('silagem_documentos_entrada_updated', handleCustomSyncEvent);
+    window.addEventListener('focus', handleFocus);
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isMounted) {
+        reloadDocumentosEntrada(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 5. Polling de segurança a cada 6 segundos quando a aba estiver visível
+    const pollInterval = setInterval(() => {
+      if (isMounted && document.visibilityState === 'visible') {
+        reloadDocumentosEntrada(false);
+      }
+    }, 6000);
+
+    return () => {
+      isMounted = false;
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      }
+      unsubDocs();
+      unsubItens();
+      unsubNotas();
+      if (bc) {
+        try { bc.close(); } catch (_) {}
+      }
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('silagem_documentos_entrada_updated', handleCustomSyncEvent);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(pollInterval);
+    };
+  }, [reloadDocumentosEntrada]);
 
   // Fornecedores locais e sincronização
   const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => {
@@ -4924,10 +5051,22 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {/* 3. HISTÓRICO UNIFICADO DE NOTAS E ENTRADAS (XML & REGISTROS MANUAIS) */}
       <div id="painel-historico-notas-nfe" className="space-y-1.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
-            <ReceiptText className="w-3.5 h-3.5 text-sky-600" />
-            <span>Histórico de Notas e Entradas ({unifiedEntries.length})</span>
-          </h3>
+          <div className="flex items-center space-x-2">
+            <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
+              <ReceiptText className="w-3.5 h-3.5 text-sky-600" />
+              <span>Histórico de Notas e Entradas ({unifiedEntries.length})</span>
+            </h3>
+            <button
+              type="button"
+              onClick={handleManualSync}
+              disabled={isSyncingDocs}
+              title="Sincronizar em tempo real com a nuvem"
+              className="inline-flex items-center space-x-1 px-2 py-0.5 text-[11px] font-medium text-stone-500 hover:text-sky-600 dark:text-stone-400 dark:hover:text-sky-400 bg-stone-100 dark:bg-stone-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 rounded-md border border-stone-200 dark:border-stone-700 transition cursor-pointer"
+            >
+              <RotateCcw className={`w-3 h-3 ${isSyncingDocs ? 'animate-spin text-sky-600' : ''}`} />
+              <span>{isSyncingDocs ? 'Sincronizando...' : 'Sincronizar'}</span>
+            </button>
+          </div>
           {unifiedEntries.length > 0 && (
             <span className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-400">
               Clique em uma linha para visualizar ou editar os detalhes.
