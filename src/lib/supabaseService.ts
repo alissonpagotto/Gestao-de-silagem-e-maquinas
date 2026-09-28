@@ -1304,8 +1304,27 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
         salePrice: sale,
         preco_venda_varejo: sale,
         preco_venda: sale,
-        wholesalePrice: Number(row.preco_venda_atacado ?? 0),
-        promoPrice: Number(row.preco_venda_promo ?? 0),
+        wholesalePrice: Number(row.preco_venda_atacado ?? row.preco_atacado ?? 0),
+        promoPrice: Number(row.preco_venda_promo ?? row.preco_promocional ?? 0),
+        preco_venda_atacado: Number(row.preco_venda_atacado ?? row.preco_atacado ?? 0),
+        preco_venda_promo: Number(row.preco_venda_promo ?? row.preco_promocional ?? 0),
+        wholesaleMargin: row.margem_atacado !== undefined && row.margem_atacado !== null 
+          ? Number(row.margem_atacado) 
+          : (row.wholesale_margin !== undefined && row.wholesale_margin !== null ? Number(row.wholesale_margin) : undefined),
+        promoMargin: row.margem_promo !== undefined && row.margem_promo !== null 
+          ? Number(row.margem_promo) 
+          : (row.promo_margin !== undefined && row.promo_margin !== null ? Number(row.promo_margin) : undefined),
+        estoque_setor: row.estoque_setor || undefined,
+        estoque_rua: row.estoque_rua || undefined,
+        estoque_estante: row.estoque_estante || undefined,
+        estoque_nivel: row.estoque_nivel || undefined,
+        estoque_box: row.estoque_box || undefined,
+        endereco_formatado: row.endereco_formatado || undefined,
+        setor: row.estoque_setor || undefined,
+        rua: row.estoque_rua || undefined,
+        estante: row.estoque_estante || undefined,
+        nivel: row.estoque_nivel || undefined,
+        box: row.estoque_box || undefined,
         location: row.localizacao_fisica || row.localizacao || 'Depósito Principal',
         localizacao_fisica: row.localizacao_fisica || row.localizacao || 'Depósito Principal',
         capacidade_total: row.capacidade_total !== undefined && row.capacidade_total !== null ? Number(row.capacidade_total) : (row.categoria === 'Combustível & Arla' ? 15000 : undefined),
@@ -1578,6 +1597,18 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
     // Tratamento estrito de valores numéricos como floats válidos
     const custoNominalFloat = parseNumericFloat(item.preco_custo_inicial ?? item.custo_nominal ?? item.unitCost ?? item.preco_custo);
     const precoVendaFloat = parseNumericFloat(item.preco_venda_varejo ?? item.preco_venda ?? item.salePrice ?? item.preco_venda_final);
+    const precoAtacadoFloat = parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado ?? item.preco_atacado);
+    const precoPromoFloat = parseNumericFloat(item.promoPrice ?? item.preco_venda_promo ?? item.preco_promocional);
+    const margemAtacadoFloat = (item.wholesaleMargin !== undefined && item.wholesaleMargin !== null && item.wholesaleMargin !== '')
+      ? parseNumericFloat(item.wholesaleMargin)
+      : (item.margem_atacado !== undefined && item.margem_atacado !== null && item.margem_atacado !== '')
+        ? parseNumericFloat(item.margem_atacado)
+        : null;
+    const margemPromoFloat = (item.promoMargin !== undefined && item.promoMargin !== null && item.promoMargin !== '')
+      ? parseNumericFloat(item.promoMargin)
+      : (item.margem_promocional !== undefined && item.margem_promocional !== null && item.margem_promocional !== '')
+        ? parseNumericFloat(item.margem_promocional)
+        : null;
     const quantidadeFloat = parseNumericFloat(item.quantidade_atual ?? item.quantity);
     const margemFloat = (item.margem_lucro_sugerida !== undefined && item.margem_lucro_sugerida !== null && item.margem_lucro_sugerida !== '')
       ? parseNumericFloat(item.margem_lucro_sugerida)
@@ -1618,6 +1649,16 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       marca: marcaStr,
       codigo_barras: barcodeStr,
       codigo_ncm: ncmStr,
+      estoque_setor: item.estoque_setor || item.setor || null,
+      estoque_rua: item.estoque_rua || item.rua || null,
+      estoque_estante: item.estoque_estante || item.estante || null,
+      estoque_nivel: item.estoque_nivel || item.nivel || null,
+      estoque_box: item.estoque_box || item.box || null,
+      endereco_formatado: item.endereco_formatado || null,
+      ...(precoAtacadoFloat > 0 ? { preco_venda_atacado: precoAtacadoFloat } : {}),
+      ...(precoPromoFloat > 0 ? { preco_venda_promo: precoPromoFloat } : {}),
+      ...(margemAtacadoFloat !== null ? { margem_atacado: margemAtacadoFloat } : {}),
+      ...(margemPromoFloat !== null ? { margem_promo: margemPromoFloat } : {}),
       updated_at: new Date().toISOString()
     };
 
@@ -1626,15 +1667,21 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       .from('estoque_produtos')
       .upsert(payloadOfficial, { onConflict: 'id' });
 
-    // Se falhar na 'estoque_produtos' por company_id
+    // Se falhar na 'estoque_produtos' por company_id ou coluna inexistente
     if (result.error) {
+      let retryPayload = { ...payloadOfficial };
+      if (result.error.code === '42703' || result.error.message?.includes('column')) {
+        delete retryPayload.preco_venda_atacado;
+        delete retryPayload.preco_venda_promo;
+        delete retryPayload.margem_atacado;
+        delete retryPayload.margem_promo;
+      }
       if (result.error.message?.includes('company_id')) {
-        const payloadNoComp = { ...payloadOfficial };
-        delete payloadNoComp.company_id;
-        const retryComp = await supabase.from('estoque_produtos').upsert(payloadNoComp, { onConflict: 'id' });
-        if (!retryComp.error) {
-          result = retryComp;
-        }
+        delete retryPayload.company_id;
+      }
+      const retryComp = await supabase.from('estoque_produtos').upsert(retryPayload, { onConflict: 'id' });
+      if (!retryComp.error) {
+        result = retryComp;
       }
     }
 
@@ -1648,6 +1695,9 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
         quantidade: quantidadeFloat,
         custo_nominal: custoNominalFloat,
         preco_venda: precoVendaFloat,
+        preco_venda_final: precoVendaFloat,
+        preco_venda_atacado: precoAtacadoFloat > 0 ? precoAtacadoFloat : null,
+        preco_venda_promo: precoPromoFloat > 0 ? precoPromoFloat : null,
         localizacao: payloadOfficial.localizacao_fisica
       }, { onConflict: 'id' });
     } catch {

@@ -509,6 +509,26 @@ export interface InventoryItem {
   custo_nominal?: number;
   preco_venda?: number;
   margem_lucro_sugerida?: number;
+  preco_venda_atacado?: number;
+  preco_venda_promo?: number;
+  preco_atacado?: number;
+  preco_promocional?: number;
+  margem_atacado?: number;
+  margem_promocional?: number;
+  desconto_atacado_percent?: number;
+  desconto_promo_percent?: number;
+  // Endereçamento de Almoxarifado / Gôndola
+  estoque_setor?: string;
+  estoque_rua?: string;
+  estoque_estante?: string;
+  estoque_nivel?: string;
+  estoque_box?: string;
+  endereco_formatado?: string;
+  setor?: string;
+  rua?: string;
+  estante?: string;
+  nivel?: string;
+  box?: string;
   createdAt?: string;
   updatedAt?: string;
 }

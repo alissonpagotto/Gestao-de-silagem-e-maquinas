@@ -22,7 +22,8 @@ import {
   BarChart3,
   Calendar,
   CheckCircle2,
-  Clock
+  Clock,
+  Printer
 } from 'lucide-react';
 import { InventoryItem, MaintenanceLog, FuelLog } from '../../types';
 import { 
@@ -33,6 +34,7 @@ import {
 } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ProductFormModal } from './ProductFormModal';
+import { ProductLabelPrintModal } from './ProductLabelPrintModal';
 
 interface InventoryModuleProps {
   inventory: InventoryItem[];
@@ -51,6 +53,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  const [labelPrintItem, setLabelPrintItem] = useState<InventoryItem | null>(null);
+  const [promptNewLabelItem, setPromptNewLabelItem] = useState<InventoryItem | null>(null);
 
   // Logs para histórico
   const maintenanceLogs = useMemo<MaintenanceLog[]>(() => {
@@ -643,7 +647,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* 3. Botão Excluir (Lixeira) */}
+                          {/* 3. Botão Imprimir Etiqueta (Impressora) */}
+                          <button
+                            type="button"
+                            onClick={() => setLabelPrintItem(item)}
+                            className="p-1 text-sky-800/90 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 hover:bg-sky-100/60 dark:hover:bg-sky-950/60 rounded transition cursor-pointer"
+                            title="Imprimir etiqueta de gôndola / almoxarifado"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* 4. Botão Excluir (Lixeira) */}
                           <button
                             type="button"
                             onClick={() => handleDelete(item.id)}
@@ -672,6 +686,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             const updated = [...inventory, newProduct];
             onSaveInventory(updated);
             setIsCreateModalOpen(false);
+            setPromptNewLabelItem(newProduct);
           }}
         />
       )}
@@ -717,14 +732,25 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setViewingItem(null)}
-                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                title="Fechar"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setLabelPrintItem(viewingItem)}
+                  className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+                  title="Imprimir Etiqueta de Gôndola"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir Etiqueta</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingItem(null)}
+                  className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Content Body */}
@@ -959,6 +985,62 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* Diálogo de Pergunta: Deseja Imprimir Etiqueta do Produto Recém-Cadastrado? */}
+      {promptNewLabelItem && (
+        <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden p-5 animate-in zoom-in-95 duration-150 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start space-x-3.5">
+              <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
+                <Printer className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white leading-tight">
+                  Deseja imprimir a etiqueta deste produto?
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
+                  O produto <strong className="text-stone-900 dark:text-stone-100">"{promptNewLabelItem.nome_comercial || promptNewLabelItem.name}"</strong> foi salvo no estoque com sucesso. Deseja imprimir sua etiqueta de gôndola com código de barras e endereço?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setPromptNewLabelItem(null)}
+                className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+              >
+                Agora Não
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = promptNewLabelItem;
+                  setPromptNewLabelItem(null);
+                  setLabelPrintItem(target);
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-1.5 cursor-pointer active:scale-98"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Sim, Imprimir Etiqueta</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Impressão de Etiquetas de Gôndola / Almoxarifado */}
+      {labelPrintItem && (
+        <ProductLabelPrintModal
+          isOpen={!!labelPrintItem}
+          onClose={() => setLabelPrintItem(null)}
+          product={labelPrintItem}
+          zIndexClass="z-50"
+        />
       )}
 
     </div>

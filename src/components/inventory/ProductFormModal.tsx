@@ -8,7 +8,9 @@ import {
   Layers, 
   Check, 
   Loader2,
-  Droplets
+  Droplets,
+  Printer,
+  MapPin
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { 
@@ -18,6 +20,7 @@ import {
 } from '../../lib/storage';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 import { cadastrarProduto, parseNumericFloat } from '../../lib/supabaseService';
+import { ProductLabelPrintModal } from './ProductLabelPrintModal';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -27,6 +30,14 @@ interface ProductFormModalProps {
   companyId?: string;
   showStockBalanceFields?: boolean;
   zIndexClass?: string;
+}
+
+// Formatação padronizada de partes do endereçamento de gôndola/almoxarifado
+export function formatEnderecoPart(val: string): string {
+  const clean = (val || '').trim();
+  if (!clean) return '';
+  if (/^\d$/.test(clean)) return `0${clean}`;
+  return clean.toUpperCase();
 }
 
 // Máscara NCM: 0000.00.00 (8 dígitos numéricos)
@@ -84,12 +95,42 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [custoNominalDisplay, setCustoNominalDisplay] = useState('0,00');
   const [precoVendaDisplay, setPrecoVendaDisplay] = useState('0,00');
   const [margemLucroSugerida, setMargemLucroSugerida] = useState('');
+  
+  // Atacado e Promoção (Novos campos de precificação e desconto)
+  const [porcentagemAtacado, setPorcentagemAtacado] = useState('');
+  const [valorAtacadoDisplay, setValorAtacadoDisplay] = useState('0,00');
+  const [porcentagemPromo, setPorcentagemPromo] = useState('');
+  const [valorPromoDisplay, setValorPromoDisplay] = useState('0,00');
 
   // COLUNA 3: CONTROLE E ALMOXARIFADO
   const [quantidadeAtual, setQuantidadeAtual] = useState<number | ''>('');
   const [minQuantity, setMinQuantity] = useState<number | ''>('');
-  const [localizacao, setLocalizacao] = useState('Depósito Principal');
   const [capacidadeGalao, setCapacidadeGalao] = useState<number | ''>(20);
+
+  // Endereçamento de Almoxarifado / Gôndola (Setor, Rua, Estante, Nível, Box)
+  const [setor, setSetor] = useState('');
+  const [rua, setRua] = useState('');
+  const [estante, setEstante] = useState('');
+  const [nivel, setNivel] = useState('');
+  const [box, setBox] = useState('');
+
+  // Modal de Impressão de Etiquetas
+  const [isLabelPrintModalOpen, setIsLabelPrintModalOpen] = useState(false);
+
+  // Endereço Formatado Calculado Automaticamente (ex: 02.05.08.07.02)
+  const enderecoFormatado = useMemo(() => {
+    const pSetor = formatEnderecoPart(setor);
+    const pRua = formatEnderecoPart(rua);
+    const pEstante = formatEnderecoPart(estante);
+    const pNivel = formatEnderecoPart(nivel);
+    const pBox = formatEnderecoPart(box);
+
+    if (!pSetor && !pRua && !pEstante && !pNivel && !pBox) {
+      return '';
+    }
+
+    return `${pSetor || '00'}.${pRua || '00'}.${pEstante || '00'}.${pNivel || '00'}.${pBox || '00'}`;
+  }, [setor, rua, estante, nivel, box]);
 
   // Estado de envio
   const [isSaving, setIsSaving] = useState(false);
@@ -179,10 +220,76 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setMargemLucroSugerida('30');
       }
 
+      // Atacado & Promoção
+      const initialWholesalePrice = parseNumericFloat(
+        initialData?.wholesalePrice ?? 
+        initialData?.preco_venda_atacado ?? 
+        initialData?.preco_atacado ?? 
+        0
+      );
+      setValorAtacadoDisplay(initialWholesalePrice > 0 ? formatCurrencyPtBr(initialWholesalePrice) : '0,00');
+
+      if (initialData?.wholesaleMargin !== undefined && initialData?.wholesaleMargin !== null) {
+        setPorcentagemAtacado(String(initialData.wholesaleMargin));
+      } else if (initialData?.margem_atacado !== undefined && initialData?.margem_atacado !== null) {
+        setPorcentagemAtacado(String(initialData.margem_atacado));
+      } else if (initialData?.desconto_atacado_percent !== undefined && initialData?.desconto_atacado_percent !== null) {
+        setPorcentagemAtacado(String(initialData.desconto_atacado_percent));
+      } else if (initialWholesalePrice > 0 && custo > 0) {
+        setPorcentagemAtacado((((initialWholesalePrice - custo) / custo) * 100).toFixed(2));
+      } else if (initialWholesalePrice > 0 && venda > 0) {
+        setPorcentagemAtacado((((venda - initialWholesalePrice) / venda) * 100).toFixed(2));
+      } else {
+        setPorcentagemAtacado('');
+      }
+
+      const initialPromoPrice = parseNumericFloat(
+        initialData?.promoPrice ?? 
+        initialData?.preco_venda_promo ?? 
+        initialData?.preco_promocional ?? 
+        0
+      );
+      setValorPromoDisplay(initialPromoPrice > 0 ? formatCurrencyPtBr(initialPromoPrice) : '0,00');
+
+      if (initialData?.promoMargin !== undefined && initialData?.promoMargin !== null) {
+        setPorcentagemPromo(String(initialData.promoMargin));
+      } else if (initialData?.margem_promocional !== undefined && initialData?.margem_promocional !== null) {
+        setPorcentagemPromo(String(initialData.margem_promocional));
+      } else if (initialData?.desconto_promo_percent !== undefined && initialData?.desconto_promo_percent !== null) {
+        setPorcentagemPromo(String(initialData.desconto_promo_percent));
+      } else if (initialPromoPrice > 0 && custo > 0) {
+        setPorcentagemPromo((((initialPromoPrice - custo) / custo) * 100).toFixed(2));
+      } else if (initialPromoPrice > 0 && venda > 0) {
+        setPorcentagemPromo((((venda - initialPromoPrice) / venda) * 100).toFixed(2));
+      } else {
+        setPorcentagemPromo('');
+      }
+
       // Estoque e Almoxarifado
       setQuantidadeAtual(initialData?.quantity !== undefined ? initialData.quantity : '');
       setMinQuantity(initialData?.minQuantity !== undefined ? initialData.minQuantity : '');
-      setLocalizacao(initialData?.location || 'Depósito Principal');
+
+      const initialSetor = initialData?.estoque_setor || initialData?.setor || '';
+      const initialRua = initialData?.estoque_rua || initialData?.rua || '';
+      const initialEstante = initialData?.estoque_estante || initialData?.estante || '';
+      const initialNivel = initialData?.estoque_nivel || initialData?.nivel || '';
+      const initialBox = initialData?.estoque_box || initialData?.box || '';
+
+      const rawAddr = (initialData?.endereco_formatado || initialData?.localizacao_fisica || initialData?.location || '').trim();
+      if (!initialSetor && !initialRua && rawAddr && rawAddr.includes('.')) {
+        const splitted = rawAddr.split('.');
+        setSetor(splitted[0] || '');
+        setRua(splitted[1] || '');
+        setEstante(splitted[2] || '');
+        setNivel(splitted[3] || '');
+        setBox(splitted[4] || '');
+      } else {
+        setSetor(initialSetor);
+        setRua(initialRua);
+        setEstante(initialEstante);
+        setNivel(initialNivel);
+        setBox(initialBox);
+      }
 
       const initialGallonCap = initialData?.gallonSizeLiters ?? initialData?.volume_litros_embalagem;
       setCapacidadeGalao(initialGallonCap !== undefined && initialGallonCap !== null ? Number(initialGallonCap) : 20);
@@ -206,6 +313,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     if (floatVal > 0 && !isNaN(marginNum) && marginNum >= 0) {
       const calculatedSale = Math.round(floatVal * (1 + marginNum / 100) * 100) / 100;
       setPrecoVendaDisplay(formatCurrencyPtBr(calculatedSale));
+    }
+
+    // Atualização sincronizada de Atacado caso haja porcentagem informada
+    const atacadoMarginNum = parseFloat(porcentagemAtacado.replace(',', '.'));
+    if (floatVal > 0 && !isNaN(atacadoMarginNum)) {
+      const calculatedAtacado = Math.round(floatVal * (1 + atacadoMarginNum / 100) * 100) / 100;
+      setValorAtacadoDisplay(formatCurrencyPtBr(calculatedAtacado));
+    }
+
+    // Atualização sincronizada de Promoção caso haja porcentagem informada
+    const promoMarginNum = parseFloat(porcentagemPromo.replace(',', '.'));
+    if (floatVal > 0 && !isNaN(promoMarginNum)) {
+      const calculatedPromo = Math.round(floatVal * (1 + promoMarginNum / 100) * 100) / 100;
+      setValorPromoDisplay(formatCurrencyPtBr(calculatedPromo));
     }
   };
 
@@ -235,6 +356,86 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   };
 
+  // Tratamento de Porcentagem de Desconto Atacado (%) -> % ATAC.
+  const handlePorcentagemAtacadoChange = (raw: string) => {
+    const cleaned = raw.replace(/[^0-9.,-]/g, '');
+    setPorcentagemAtacado(cleaned);
+
+    const pctNum = parseFloat(cleaned.replace(',', '.'));
+    const costFloat = parseCurrencyPtBr(custoNominalDisplay);
+    const saleFloat = parseCurrencyPtBr(precoVendaDisplay);
+
+    if (!isNaN(pctNum)) {
+      if (costFloat > 0) {
+        const calculated = Math.round(costFloat * (1 + pctNum / 100) * 100) / 100;
+        setValorAtacadoDisplay(formatCurrencyPtBr(calculated));
+      } else if (saleFloat > 0) {
+        const calculated = Math.round(saleFloat * (1 - pctNum / 100) * 100) / 100;
+        setValorAtacadoDisplay(formatCurrencyPtBr(calculated));
+      }
+    }
+  };
+
+  // Tratamento de Valor de Atacado (R$) -> V. ATACADO (R$)
+  const handleValorAtacadoChange = (raw: string) => {
+    const cleanDigits = raw.replace(/\D/g, '');
+    const floatVal = cleanDigits ? Number(cleanDigits) / 100 : 0;
+    setValorAtacadoDisplay(formatCurrencyPtBr(floatVal));
+
+    const costFloat = parseCurrencyPtBr(custoNominalDisplay);
+    const saleFloat = parseCurrencyPtBr(precoVendaDisplay);
+
+    if (floatVal > 0) {
+      if (costFloat > 0) {
+        const calculatedMargin = (((floatVal - costFloat) / costFloat) * 100).toFixed(2);
+        setPorcentagemAtacado(calculatedMargin);
+      } else if (saleFloat > 0) {
+        const calculatedDiscount = (((saleFloat - floatVal) / saleFloat) * 100).toFixed(2);
+        setPorcentagemAtacado(calculatedDiscount);
+      }
+    }
+  };
+
+  // Tratamento de Porcentagem de Desconto Promoção (%) -> % PROMO.
+  const handlePorcentagemPromoChange = (raw: string) => {
+    const cleaned = raw.replace(/[^0-9.,-]/g, '');
+    setPorcentagemPromo(cleaned);
+
+    const pctNum = parseFloat(cleaned.replace(',', '.'));
+    const costFloat = parseCurrencyPtBr(custoNominalDisplay);
+    const saleFloat = parseCurrencyPtBr(precoVendaDisplay);
+
+    if (!isNaN(pctNum)) {
+      if (costFloat > 0) {
+        const calculated = Math.round(costFloat * (1 + pctNum / 100) * 100) / 100;
+        setValorPromoDisplay(formatCurrencyPtBr(calculated));
+      } else if (saleFloat > 0) {
+        const calculated = Math.round(saleFloat * (1 - pctNum / 100) * 100) / 100;
+        setValorPromoDisplay(formatCurrencyPtBr(calculated));
+      }
+    }
+  };
+
+  // Tratamento de Valor Promocional (R$) -> V. PROMO (R$)
+  const handleValorPromoChange = (raw: string) => {
+    const cleanDigits = raw.replace(/\D/g, '');
+    const floatVal = cleanDigits ? Number(cleanDigits) / 100 : 0;
+    setValorPromoDisplay(formatCurrencyPtBr(floatVal));
+
+    const costFloat = parseCurrencyPtBr(custoNominalDisplay);
+    const saleFloat = parseCurrencyPtBr(precoVendaDisplay);
+
+    if (floatVal > 0) {
+      if (costFloat > 0) {
+        const calculatedMargin = (((floatVal - costFloat) / costFloat) * 100).toFixed(2);
+        setPorcentagemPromo(calculatedMargin);
+      } else if (saleFloat > 0) {
+        const calculatedDiscount = (((saleFloat - floatVal) / saleFloat) * 100).toFixed(2);
+        setPorcentagemPromo(calculatedDiscount);
+      }
+    }
+  };
+
   // Submissão do Formulário
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,6 +453,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       custoNominalFloat > 0 && precoVendaFloat > 0 
         ? Number((((precoVendaFloat - custoNominalFloat) / custoNominalFloat) * 100).toFixed(2)) 
         : 0
+    );
+
+    const valorAtacadoFloat = parseCurrencyPtBr(valorAtacadoDisplay);
+    const valorPromoFloat = parseCurrencyPtBr(valorPromoDisplay);
+    const margemAtacadoFloat = porcentagemAtacado !== '' ? parseFloat(porcentagemAtacado.replace(',', '.')) : (
+      custoNominalFloat > 0 && valorAtacadoFloat > 0 
+        ? Number((((valorAtacadoFloat - custoNominalFloat) / custoNominalFloat) * 100).toFixed(2)) 
+        : undefined
+    );
+    const margemPromoFloat = porcentagemPromo !== '' ? parseFloat(porcentagemPromo.replace(',', '.')) : (
+      custoNominalFloat > 0 && valorPromoFloat > 0 
+        ? Number((((valorPromoFloat - custoNominalFloat) / custoNominalFloat) * 100).toFixed(2)) 
+        : undefined
     );
 
     setIsSaving(true);
@@ -295,10 +509,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         preco_venda_varejo: precoVendaFloat,
         profitMargin: margemFloat,
         margem_lucro_sugerida: margemFloat,
+        wholesaleMargin: isNaN(margemAtacadoFloat as number) ? undefined : margemAtacadoFloat,
+        wholesalePrice: valorAtacadoFloat > 0 ? valorAtacadoFloat : undefined,
+        promoMargin: isNaN(margemPromoFloat as number) ? undefined : margemPromoFloat,
+        promoPrice: valorPromoFloat > 0 ? valorPromoFloat : undefined,
+        preco_venda_atacado: valorAtacadoFloat > 0 ? valorAtacadoFloat : undefined,
+        preco_venda_promo: valorPromoFloat > 0 ? valorPromoFloat : undefined,
+        preco_atacado: valorAtacadoFloat > 0 ? valorAtacadoFloat : undefined,
+        preco_promocional: valorPromoFloat > 0 ? valorPromoFloat : undefined,
+        margem_atacado: isNaN(margemAtacadoFloat as number) ? undefined : margemAtacadoFloat,
+        margem_promocional: isNaN(margemPromoFloat as number) ? undefined : margemPromoFloat,
+        desconto_atacado_percent: isNaN(margemAtacadoFloat as number) ? undefined : margemAtacadoFloat,
+        desconto_promo_percent: isNaN(margemPromoFloat as number) ? undefined : margemPromoFloat,
         quantity: typeof quantidadeAtual === 'number' ? quantidadeAtual : 0,
         quantidade_atual: typeof quantidadeAtual === 'number' ? quantidadeAtual : 0,
         minQuantity: typeof minQuantity === 'number' ? minQuantity : 0,
-        location: localizacao.trim() || 'Depósito Principal',
+        estoque_setor: formatEnderecoPart(setor) || undefined,
+        estoque_rua: formatEnderecoPart(rua) || undefined,
+        estoque_estante: formatEnderecoPart(estante) || undefined,
+        estoque_nivel: formatEnderecoPart(nivel) || undefined,
+        estoque_box: formatEnderecoPart(box) || undefined,
+        endereco_formatado: enderecoFormatado || undefined,
+        setor: formatEnderecoPart(setor) || undefined,
+        rua: formatEnderecoPart(rua) || undefined,
+        estante: formatEnderecoPart(estante) || undefined,
+        nivel: formatEnderecoPart(nivel) || undefined,
+        box: formatEnderecoPart(box) || undefined,
+        location: enderecoFormatado || 'Depósito Principal',
+        localizacao_fisica: enderecoFormatado || 'Depósito Principal',
         gallonSizeLiters: parsedGallonLiters,
         volume_litros_embalagem: parsedGallonLiters,
         createdAt: initialData?.createdAt || new Date().toISOString(),
@@ -316,6 +554,75 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setIsSaving(false);
     }
   };
+
+  // Objeto reativo do produto atual formatado para pré-visualização e impressão de etiquetas
+  const currentProductForPrint = useMemo<InventoryItem>(() => {
+    const cleanNome = nome.trim() || 'Novo Produto';
+    const cleanBarcode = semGtin ? 'SEM GTIN' : (codigoBarras.trim() || undefined);
+    const custo = parseCurrencyPtBr(custoNominalDisplay);
+    const venda = parseCurrencyPtBr(precoVendaDisplay);
+    const atacado = parseCurrencyPtBr(valorAtacadoDisplay);
+    const promo = parseCurrencyPtBr(valorPromoDisplay);
+    const pSetor = formatEnderecoPart(setor);
+    const pRua = formatEnderecoPart(rua);
+    const pEstante = formatEnderecoPart(estante);
+    const pNivel = formatEnderecoPart(nivel);
+    const pBox = formatEnderecoPart(box);
+    const endFmt = enderecoFormatado || '00.00.00.00.00';
+
+    return {
+      id: initialData?.id || `preview_${Date.now()}`,
+      code: codigoInterno.trim() || undefined,
+      name: cleanNome,
+      nome: cleanNome,
+      nome_comercial: cleanNome,
+      category: categoria || 'outro',
+      categoria: categoria || 'outro',
+      unit: unidadeMedida.trim() || 'UN',
+      unidade_medida: unidadeMedida.trim() || 'UN',
+      brand: marca.trim() || undefined,
+      marca: marca.trim() || undefined,
+      barcode: cleanBarcode,
+      codigo_barras: cleanBarcode,
+      unitCost: custo,
+      salePrice: venda,
+      preco_venda_varejo: venda,
+      preco_venda: venda,
+      wholesalePrice: atacado > 0 ? atacado : undefined,
+      promoPrice: promo > 0 ? promo : undefined,
+      estoque_setor: pSetor,
+      estoque_rua: pRua,
+      estoque_estante: pEstante,
+      estoque_nivel: pNivel,
+      estoque_box: pBox,
+      endereco_formatado: endFmt,
+      location: endFmt,
+      localizacao_fisica: endFmt,
+      quantity: typeof quantidadeAtual === 'number' ? quantidadeAtual : 0,
+      minQuantity: typeof minQuantity === 'number' ? minQuantity : 0,
+    };
+  }, [
+    initialData?.id,
+    codigoInterno,
+    nome,
+    categoria,
+    unidadeMedida,
+    marca,
+    semGtin,
+    codigoBarras,
+    custoNominalDisplay,
+    precoVendaDisplay,
+    valorAtacadoDisplay,
+    valorPromoDisplay,
+    setor,
+    rua,
+    estante,
+    nivel,
+    box,
+    enderecoFormatado,
+    quantidadeAtual,
+    minQuantity
+  ]);
 
   return (
     <>
@@ -338,7 +645,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 dark:text-white tracking-tight font-['Outfit']">
-                  Cadastrar Novo Produto no Estoque
+                  {initialData?.id ? 'Editar Produto no Estoque' : 'Cadastrar Novo Produto no Estoque'}
                 </h3>
                 <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
                   Identificação, parametrização fiscal, formação de preços e controle de almoxarifado
@@ -372,8 +679,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           )}
 
-          {/* Formulário em 3 Colunas Horizontais Paralelas (Sem Barra de Rolagem Vertical) */}
-          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
+          {/* Formulário em 3 Colunas Horizontais Paralelas */}
+          <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 overflow-y-auto max-h-[calc(90vh-60px)]">
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
               
@@ -714,6 +1021,108 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Linha 5: Atacado (Porcentagem de Desconto Atacado e Valor de Atacado) */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch pt-0.5">
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate" title="Porcentagem de Desconto Atacado (%) - % ATAC.">
+                            % Desconto Atacado (%)
+                          </label>
+                          <span className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1 rounded">
+                            % ATAC.
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={porcentagemAtacado}
+                            onChange={(e) => handlePorcentagemAtacadoChange(e.target.value)}
+                            placeholder="Ex: 15"
+                            className="w-full h-9 pr-7 pl-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          />
+                          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-cyan-600 dark:text-cyan-400 font-bold text-xs">
+                            %
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate" title="Valor de Atacado (R$) - V. ATACADO (R$)">
+                            Valor de Atacado (R$)
+                          </label>
+                          <span className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-1 rounded">
+                            V. ATACADO
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-cyan-600 dark:text-cyan-400 font-bold text-xs">
+                            R$
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={valorAtacadoDisplay}
+                            onChange={(e) => handleValorAtacadoChange(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Linha 6: Promoção (Porcentagem de Desconto Promoção e Valor Promocional) */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch pt-0.5">
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate" title="Porcentagem de Desconto Promoção (%) - % PROMO.">
+                            % Desconto Promoção (%)
+                          </label>
+                          <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1 rounded">
+                            % PROMO.
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={porcentagemPromo}
+                            onChange={(e) => handlePorcentagemPromoChange(e.target.value)}
+                            placeholder="Ex: 10"
+                            className="w-full h-9 pr-7 pl-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          />
+                          <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-orange-600 dark:text-orange-400 font-bold text-xs">
+                            %
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate" title="Valor Promocional (R$) - V. PROMO (R$)">
+                            Valor Promocional (R$)
+                          </label>
+                          <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1 rounded">
+                            V. PROMO
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-orange-600 dark:text-orange-400 font-bold text-xs">
+                            R$
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={valorPromoDisplay}
+                            onChange={(e) => handleValorPromoChange(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -731,62 +1140,161 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <span className="text-[10px] text-stone-400">Saldo & Local</span>
                   </div>
 
-                  <div className="space-y-2">
-                    {/* Linha 1: Quantidade Inicial */}
-                    <div className="flex flex-col justify-end">
-                      <div className="flex items-center justify-between h-4 mb-1">
-                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
-                          Quantidade Inicial ({unidadeMedida || 'UN'})
-                        </label>
+                  <div className="space-y-2.5">
+                    {/* Linha 1: Quantidade Inicial + Estoque Mínimo (2 Colunas) */}
+                    <div className="grid grid-cols-12 gap-2 items-stretch">
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Qtd. Inicial ({unidadeMedida || 'UN'})
+                          </label>
+                        </div>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={quantidadeAtual}
+                          onChange={(e) => setQuantidadeAtual(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
                       </div>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={quantidadeAtual}
-                        onChange={(e) => setQuantidadeAtual(e.target.value === '' ? '' : Number(e.target.value))}
-                        placeholder="0"
-                        className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-                      />
+
+                      <div className="col-span-6 flex flex-col justify-end">
+                        <div className="flex items-center justify-between h-4 mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
+                            Estoque Mínimo
+                          </label>
+                        </div>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={minQuantity}
+                          onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                        />
+                      </div>
                     </div>
 
-                    {/* Linha 2: Estoque Mínimo */}
-                    <div className="flex flex-col justify-end">
-                      <div className="flex items-center justify-between h-4 mb-1">
-                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
-                          Estoque Mínimo
+                    {/* Linha 2: Endereçamento no Almoxarifado / Gôndola (5 Campos Menores) */}
+                    <div className="pt-1 border-t border-stone-200/80 dark:border-stone-700/60">
+                      <div className="flex items-center justify-between h-4 mb-1.5">
+                        <label className="flex items-center space-x-1 text-[11px] font-bold text-stone-700 dark:text-stone-300">
+                          <MapPin className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <span>Endereçamento Físico (Manual)</span>
                         </label>
+                        <span className="text-[9px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 py-0.5 rounded">
+                          Gôndola / Prateleira
+                        </span>
                       </div>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={minQuantity}
-                        onChange={(e) => setMinQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                        placeholder="0"
-                        className="w-full h-9 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-                      />
+
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {/* 1. Setor */}
+                        <div className="flex flex-col">
+                          <label className="block text-[9.5px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Setor">
+                            SETOR
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={setor}
+                            onChange={(e) => setSetor(e.target.value.toUpperCase())}
+                            onBlur={(e) => setSetor(formatEnderecoPart(e.target.value))}
+                            placeholder="02"
+                            className="w-full h-8 px-1 py-1 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            title="Setor do Almoxarifado"
+                          />
+                        </div>
+
+                        {/* 2. Rua */}
+                        <div className="flex flex-col">
+                          <label className="block text-[9.5px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Rua">
+                            RUA
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={rua}
+                            onChange={(e) => setRua(e.target.value.toUpperCase())}
+                            onBlur={(e) => setRua(formatEnderecoPart(e.target.value))}
+                            placeholder="05"
+                            className="w-full h-8 px-1 py-1 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            title="Rua / Corredor"
+                          />
+                        </div>
+
+                        {/* 3. Estante */}
+                        <div className="flex flex-col">
+                          <label className="block text-[9.5px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Estante">
+                            ESTANTE
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={estante}
+                            onChange={(e) => setEstante(e.target.value.toUpperCase())}
+                            onBlur={(e) => setEstante(formatEnderecoPart(e.target.value))}
+                            placeholder="08"
+                            className="w-full h-8 px-1 py-1 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            title="Estante / Módulo"
+                          />
+                        </div>
+
+                        {/* 4. Nível */}
+                        <div className="flex flex-col">
+                          <label className="block text-[9.5px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Nível">
+                            NÍVEL
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={nivel}
+                            onChange={(e) => setNivel(e.target.value.toUpperCase())}
+                            onBlur={(e) => setNivel(formatEnderecoPart(e.target.value))}
+                            placeholder="07"
+                            className="w-full h-8 px-1 py-1 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            title="Nível / Prateleira"
+                          />
+                        </div>
+
+                        {/* 5. Box */}
+                        <div className="flex flex-col">
+                          <label className="block text-[9.5px] font-extrabold text-stone-600 dark:text-stone-400 text-center mb-0.5 truncate" title="Box">
+                            BOX
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={box}
+                            onChange={(e) => setBox(e.target.value.toUpperCase())}
+                            onBlur={(e) => setBox(formatEnderecoPart(e.target.value))}
+                            placeholder="02"
+                            className="w-full h-8 px-1 py-1 text-xs font-mono font-black text-center uppercase rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                            title="Box / Gaveta / Vão"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Caixa de Endereço Formatado Calculado Automaticamente */}
+                      <div className="mt-2 p-2 rounded-lg bg-stone-900 dark:bg-stone-950 border border-stone-800 text-white flex flex-col items-center justify-center shadow-inner">
+                        <div className="flex items-center space-x-1.5 text-[9px] font-bold text-stone-400 uppercase tracking-wider">
+                          <Barcode className="w-3 h-3 text-emerald-400" />
+                          <span>Endereço Formatado Automático</span>
+                        </div>
+                        <div className="text-sm font-black font-mono tracking-widest text-emerald-400 py-0.5">
+                          {enderecoFormatado || '00.00.00.00.00'}
+                        </div>
+                        <div className="text-[8px] font-semibold text-stone-400 tracking-wider">
+                          SETOR . RUA . ESTANTE . NÍVEL . BOX
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Linha 3: Localização Física */}
-                    <div className="flex flex-col justify-end">
-                      <div className="flex items-center justify-between h-4 mb-1">
-                        <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
-                          Localização Física
-                        </label>
-                      </div>
-                      <input
-                        type="text"
-                        value={localizacao}
-                        onChange={(e) => setLocalizacao(e.target.value)}
-                        placeholder="Ex: Barracão Principal, Tanque 1..."
-                        className="w-full h-9 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-                      />
-                    </div>
-
-                    {/* Linha 4 (Dinâmica): Capacidade do Galão (L) - aparece somente se unidade for galão ou nome contiver 'Galão' */}
+                    {/* Linha 3 (Dinâmica): Capacidade do Galão (L) - aparece somente se unidade for galão ou nome contiver 'Galão' */}
                     {showGallonCapacity && (
-                      <div className="flex flex-col justify-end animate-in fade-in duration-150">
+                      <div className="flex flex-col justify-end animate-in fade-in duration-150 pt-1 border-t border-stone-200/80 dark:border-stone-700/60">
                         <div className="flex items-center justify-between h-4 mb-1">
                           <label className="flex items-center space-x-1 text-[11px] font-bold text-sky-700 dark:text-sky-300">
                             <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
@@ -811,34 +1319,48 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
             </div>
 
-            {/* Footer Compacto do Modal */}
-            <div className="pt-2.5 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end space-x-2.5 shrink-0">
+            {/* Footer Compacto do Modal com Botão de Imprimir Etiqueta */}
+            <div className="pt-2.5 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-2 shrink-0">
+              {/* Botão de Impressão de Etiquetas à esquerda */}
               <button
                 type="button"
-                onClick={onClose}
-                disabled={isSaving}
-                className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer disabled:opacity-50"
+                onClick={() => setIsLabelPrintModalOpen(true)}
+                className="px-3.5 py-2 text-xs font-bold text-stone-700 dark:text-stone-200 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-700 rounded-xl shadow-xs transition flex items-center space-x-1.5 cursor-pointer hover:border-sky-500"
+                title="Imprimir Etiqueta de Gôndola / Almoxarifado com Código de Barras e Endereço"
               >
-                Cancelar
+                <Printer className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                <span>Imprimir Etiqueta</span>
               </button>
 
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-1.5 cursor-pointer active:scale-98 disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Salvando no Supabase...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Salvar Produto no Estoque</span>
-                  </>
-                )}
-              </button>
+              {/* Botões Cancelar e Salvar à direita */}
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSaving}
+                  className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-1.5 cursor-pointer active:scale-98 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando no Supabase...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Salvar Produto no Estoque</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </form>
@@ -860,6 +1382,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               setCategoria(newCategories[0] || 'Outros Insumos');
             }
           }}
+          zIndexClass="z-[9999]"
+        />
+      )}
+
+      {/* Sub-modal: Impressão de Etiquetas de Gôndola */}
+      {isLabelPrintModalOpen && (
+        <ProductLabelPrintModal
+          isOpen={isLabelPrintModalOpen}
+          onClose={() => setIsLabelPrintModalOpen(false)}
+          product={currentProductForPrint}
           zIndexClass="z-[9999]"
         />
       )}

@@ -37,7 +37,8 @@ import {
   UserPlus,
   Settings,
   Save,
-  Eye
+  Eye,
+  Printer
 } from 'lucide-react';
 import { 
   Expense, 
@@ -77,6 +78,7 @@ import { SupplierModal } from '../suppliers/SupplierModal';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 import { ManageDocumentTypesModal } from './ManageDocumentTypesModal';
 import { ProductFormModal } from '../inventory/ProductFormModal';
+import { ProductLabelPrintModal, LabelProductItem } from '../inventory/ProductLabelPrintModal';
 import { NfeInstallmentsModal, NfeDetailedInstallment } from './NfeInstallmentsModal';
 import { 
   upsertNotaFiscal, 
@@ -1018,6 +1020,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [showExtraPrices, setShowExtraPrices] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Estado para perguntar e imprimir etiquetas de gôndola/almoxarifado após entrada de notas ou peças manuais
+  const [printPromptState, setPrintPromptState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    items: LabelProductItem[];
+  } | null>(null);
+
+  const [activeLabelPrintModal, setActiveLabelPrintModal] = useState<{
+    isOpen: boolean;
+    items: LabelProductItem[];
+    title: string;
+  } | null>(null);
 
   // ---------------------------------------------------------------------------
   // ENTRADAS MANUAIS (public.documentos_entrada: Romaneios, Recibos, etc.)
@@ -2250,6 +2266,45 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         `Entrada manual concluída com sucesso! ${totalParcs} parcela(s) lançada(s) no Contas a Pagar (${formatCurrencyBRL(finalAmount)}).`
       );
       setTimeout(() => setSuccessMessage(''), 5000);
+
+      // Pergunta se o usuário deseja imprimir as etiquetas correspondentes aos itens da entrada manual
+      const labelsToPrint: LabelProductItem[] = (manualDocItems || []).map(item => {
+        const matched = localInventory.find(p => 
+          (item.produto_id && p.id === item.produto_id) ||
+          (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.descricao.toLowerCase().trim()) ||
+          p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+        );
+
+        const invItem: InventoryItem = matched || {
+          id: item.produto_id || `manual_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          name: item.descricao,
+          nome: item.descricao,
+          nome_comercial: item.descricao,
+          category: 'Outros Insumos',
+          unit: item.unidade || 'UN',
+          unidade_medida: item.unidade || 'UN',
+          quantity: Number(item.quantidade) || 0,
+          minQuantity: 0,
+          unitCost: Number(item.valor_unitario) || 0,
+          salePrice: Number(item.valor_unitario * 1.3),
+          endereco_formatado: '00.00.00.00.00',
+          location: 'Barracão Principal'
+        };
+
+        return {
+          product: invItem,
+          quantity: Math.max(1, Math.round(Number(item.quantidade) || 1))
+        };
+      });
+
+      if (labelsToPrint.length > 0) {
+        setPrintPromptState({
+          isOpen: true,
+          title: 'Deseja imprimir as etiquetas de gôndola?',
+          description: `A entrada manual (${manualDocumentType}) foi finalizada e ${labelsToPrint.length} item(ns) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
+          items: labelsToPrint
+        });
+      }
     } catch (err) {
       console.error('Erro ao confirmar parcelas da entrada manual:', err);
       setManualFormError('Erro ao concluir a entrada e lançar no financeiro. Tente novamente.');
@@ -3938,6 +3993,49 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ? `Nota Fiscal ${cleanInvoiceNumber} atualizada com sucesso! Registro consolidado mantido no Fiscal e ${totalParcs} parcela(s) no Contas a Pagar.`
         : `Nota Fiscal ${cleanInvoiceNumber} importada com sucesso! Registro único gravado no Histórico Fiscal (${formatCurrencyBRL(parsedData.totalAmount)}) e ${totalParcs} parcela(s) gerada(s) em Contas a Pagar.`
     );
+
+    // Pergunta se o usuário deseja imprimir as etiquetas correspondentes aos produtos que deram entrada na NF-e
+    const itemsForLabels: LabelProductItem[] = (parsedData.items || []).map(item => {
+      const matched = updatedInventory.find(p => 
+        p.id === item.linkedInventoryId ||
+        (item.barcode && p.barcode && p.barcode !== 'SEM GTIN' && p.barcode.trim() === item.barcode.trim()) ||
+        (item.code && p.code && p.code.trim().toUpperCase() === item.code.trim().toUpperCase()) ||
+        (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.description.toLowerCase().trim()) ||
+        p.name.toLowerCase().trim() === item.description.toLowerCase().trim()
+      );
+      const invItem: InventoryItem = matched || {
+        id: `nfe_prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        code: item.code || undefined,
+        name: item.description,
+        nome: item.description,
+        nome_comercial: item.description,
+        category: 'Outros Insumos',
+        unit: item.unit || 'UN',
+        unidade_medida: item.unit || 'UN',
+        barcode: item.barcode || undefined,
+        codigo_barras: item.barcode || undefined,
+        quantity: Number(item.quantity) || 0,
+        minQuantity: 0,
+        unitCost: Number(item.unitPrice) || 0,
+        salePrice: Number(item.salePrice || item.unitPrice * 1.3),
+        endereco_formatado: '00.00.00.00.00',
+        location: 'Barracão Principal'
+      };
+      return {
+        product: invItem,
+        quantity: Math.max(1, Math.round(Number(item.quantity) || 1))
+      };
+    });
+
+    if (itemsForLabels.length > 0) {
+      setPrintPromptState({
+        isOpen: true,
+        title: 'Deseja imprimir as etiquetas de gôndola?',
+        description: `A Nota Fiscal Nº ${cleanInvoiceNumber} foi importada com sucesso e ${itemsForLabels.length} produto(s) deram entrada no estoque. Deseja imprimir as etiquetas correspondentes com código de barras e endereço?`,
+        items: itemsForLabels
+      });
+    }
+
     setParsedData(null);
     setXmlContent('');
     setSearchNfeNumber('');
@@ -6923,6 +7021,89 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         onSelectItem={(cat) => setQuickProductCategory(cat)}
         zIndexClass="z-[9999]"
       />
+
+      {/* ========================================================================= */}
+      {/* DIÁLOGO DE CONFIRMAÇÃO: DESEJA IMPRIMIR AS ETIQUETAS DE GÔNDOLA? */}
+      {/* ========================================================================= */}
+      {printPromptState && printPromptState.isOpen && (
+        <div className="fixed inset-0 z-[9999] bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div 
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden p-5 animate-in zoom-in-95 duration-150 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start space-x-3.5">
+              <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
+                <Printer className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-white leading-tight">
+                  {printPromptState.title}
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
+                  {printPromptState.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 p-2.5 space-y-1.5 text-xs">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1 flex items-center justify-between">
+                <span>Produtos da Entrada</span>
+                <span>{printPromptState.items.length} item(ns)</span>
+              </div>
+              {printPromptState.items.map((it, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-1.5 rounded-lg bg-white dark:bg-stone-800/80 border border-stone-200/80 dark:border-stone-700/60 font-medium">
+                  <span className="truncate pr-2 text-stone-800 dark:text-stone-200 font-semibold">
+                    {it.product.nome_comercial || it.product.name}
+                  </span>
+                  <span className="font-mono font-bold text-sky-600 dark:text-sky-400 shrink-0">
+                    {it.quantity} un
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+              <button
+                type="button"
+                onClick={() => setPrintPromptState(null)}
+                className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition cursor-pointer"
+              >
+                Agora Não
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const items = printPromptState.items;
+                  const title = printPromptState.title;
+                  setPrintPromptState(null);
+                  setActiveLabelPrintModal({
+                    isOpen: true,
+                    items,
+                    title
+                  });
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-xl shadow-md transition flex items-center space-x-1.5 cursor-pointer active:scale-98"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Sim, Imprimir Etiquetas</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL DE IMPRESSÃO DE ETIQUETAS EM LOTE PARA ENTRADAS */}
+      {/* ========================================================================= */}
+      {activeLabelPrintModal && activeLabelPrintModal.isOpen && (
+        <ProductLabelPrintModal
+          isOpen={activeLabelPrintModal.isOpen}
+          onClose={() => setActiveLabelPrintModal(null)}
+          batchProducts={activeLabelPrintModal.items}
+          entryTitle={activeLabelPrintModal.title}
+          zIndexClass="z-[9999]"
+        />
+      )}
 
     </div>
   );
