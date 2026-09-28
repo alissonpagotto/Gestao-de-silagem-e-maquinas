@@ -2,20 +2,31 @@ import React, { useState, useMemo } from 'react';
 import { 
   X, 
   Printer, 
-  Copy, 
-  Check, 
-  Layers, 
-  Sliders, 
   MapPin, 
   Barcode, 
   Info,
   Tag,
-  Eye
+  Eye,
+  LayoutGrid,
+  FileText,
+  RotateCcw,
+  Sparkles,
+  HelpCircle,
+  Copy
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { generateBarcodeSvgString, generateBarcodeBars } from './barcodeGenerator';
 import { executePrint } from '../../lib/printService';
 import { formatCurrencyBRL } from '../../lib/storage';
+import { 
+  type LabelSizePreset, 
+  type LabelPresetConfig, 
+  A4_PRESETS, 
+  THERMAL_PRESETS, 
+  ALL_PRESETS, 
+  getLabelPresetConfig, 
+  getLabelDesignMetrics 
+} from './labelPresets';
 
 export interface LabelProductItem {
   product: InventoryItem;
@@ -31,7 +42,7 @@ interface ProductLabelPrintModalProps {
   zIndexClass?: string;
 }
 
-export type LabelSizePreset = 'gondola_100x35' | 'gondola_80x30' | 'termica_60x40' | 'a4_grade';
+export type { LabelSizePreset };
 
 export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   isOpen,
@@ -41,15 +52,24 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   entryTitle,
   zIndexClass = 'z-50'
 }) => {
-  // Configurações da Etiqueta
-  const [labelSize, setLabelSize] = useState<LabelSizePreset>('gondola_100x35');
+  // Configurações do Formato de Impressão
+  const [labelSize, setLabelSize] = useState<LabelSizePreset>('termica_gondola_60x30');
+  const [startPosition, setStartPosition] = useState<number>(1);
   const [showPrice, setShowPrice] = useState(true);
   const [showInternalCode, setShowInternalCode] = useState(true);
   const [showAddress, setShowAddress] = useState(true);
   const [defaultCopies, setDefaultCopies] = useState<number>(1);
   const [customCopies, setCustomCopies] = useState<Record<string, number>>({});
   const [isPrinting, setIsPrinting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [previewTab, setPreviewTab] = useState<'label' | 'sheet'>('label');
+
+  // Obtém o preset ativo
+  const currentPreset = useMemo<LabelPresetConfig>(() => {
+    return getLabelPresetConfig(labelSize);
+  }, [labelSize]);
+
+  const isA4 = currentPreset.category === 'a4';
+  const totalSlotsPerSheet = currentPreset.totalPerSheet || 30;
 
   // Lista normalizada de produtos para impressão
   const itemsToPrint = useMemo<LabelProductItem[]>(() => {
@@ -62,10 +82,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     return [];
   }, [product, batchProducts]);
 
-  // Primeiro produto selecionado para o preview ao vivo
+  // Primeiro produto para pré-visualização ao vivo
   const previewProduct = itemsToPrint[0]?.product;
-
-  if (!isOpen || itemsToPrint.length === 0) return null;
 
   // Obter quantidade de cópias de um item
   const getItemCopies = (prodId: string, fallbackQty: number = 1): number => {
@@ -80,10 +98,35 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     }));
   };
 
-  // Cálculo do total de etiquetas a serem geradas
+  // Aplica quantidade padrão para todos os itens da lista
+  const handleApplyGlobalCopies = (qty: number) => {
+    const valid = Math.max(1, qty);
+    setDefaultCopies(valid);
+    const updated: Record<string, number> = {};
+    itemsToPrint.forEach(({ product: item }) => {
+      updated[item.id] = valid;
+    });
+    setCustomCopies(updated);
+  };
+
+  // Total de etiquetas a serem geradas
   const totalLabelsCount = itemsToPrint.reduce((acc, curr) => {
     return acc + getItemCopies(curr.product.id, curr.quantity);
   }, 0);
+
+  // Lista expandida de todos os itens considerando a quantidade de cada um
+  const flatLabelsList = useMemo<InventoryItem[]>(() => {
+    const list: InventoryItem[] = [];
+    itemsToPrint.forEach(({ product: item, quantity = 1 }) => {
+      const copies = getItemCopies(item.id, quantity);
+      for (let i = 0; i < copies; i++) {
+        list.push(item);
+      }
+    });
+    return list;
+  }, [itemsToPrint, customCopies, defaultCopies]);
+
+  if (!isOpen || itemsToPrint.length === 0) return null;
 
   // Formata o código de barras padrão
   const resolveBarcodeCode = (item: InventoryItem): string => {
@@ -117,82 +160,360 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     return item.location || item.localizacao_fisica || '00.00.00.00.00';
   };
 
-  // Gerador do HTML de impressão de todas as etiquetas
-  const generateLabelsHtml = (): string => {
-    let sizeCss = '';
-    let pageCss = '';
+  // Renderiza o HTML individual de uma etiqueta compatível com CSS print
+  const renderSingleLabelHtml = (
+    item: InventoryItem, 
+    preset: LabelPresetConfig, 
+    metrics: ReturnType<typeof getLabelDesignMetrics>
+  ): string => {
+    const barcodeValue = resolveBarcodeCode(item);
+    const addressValue = resolveAddress(item);
+    const internalCode = item.code || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
+    const prodName = item.nome_comercial || item.name || 'Produto sem descrição';
+    const prodBrand = item.brand || item.marca ? ` • ${item.brand || item.marca}` : '';
+    const unit = item.unidade_medida || item.unit || 'UN';
+    const salePrice = item.salePrice ?? item.preco_venda_varejo ?? item.preco_venda;
 
-    if (labelSize === 'gondola_100x35') {
-      pageCss = '@page { size: 100mm 35mm; margin: 0; }';
-      sizeCss = 'width: 98mm; height: 33mm; padding: 2mm 3mm;';
-    } else if (labelSize === 'gondola_80x30') {
-      pageCss = '@page { size: 80mm 30mm; margin: 0; }';
-      sizeCss = 'width: 78mm; height: 28mm; padding: 1.5mm 2mm;';
-    } else if (labelSize === 'termica_60x40') {
-      pageCss = '@page { size: 60mm 40mm; margin: 0; }';
-      sizeCss = 'width: 58mm; height: 38mm; padding: 2mm 2mm;';
-    } else {
-      pageCss = '@page { size: A4 portrait; margin: 8mm 6mm; }';
-      sizeCss = 'width: 95mm; height: 33mm; padding: 2mm 3mm; margin: 1.5mm; display: inline-block; vertical-align: top;';
-    }
+    const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
+      height: metrics.barcodeHeight,
+      narrowWidth: metrics.narrowWidth,
+      wideWidth: metrics.narrowWidth * 2.3,
+      showText: true,
+      fontSize: Math.max(7, Math.round(metrics.codeFontSizePt * 1.2)),
+      textColor: '#000000',
+      barColor: '#000000'
+    });
 
-    const labelsHtmlArray: string[] = [];
+    const isCompact = preset.heightMm <= 22;
+    const isSmallPad = preset.heightMm <= 25 || preset.widthMm <= 40;
 
-    itemsToPrint.forEach(({ product: item, quantity = 1 }) => {
-      const copies = getItemCopies(item.id, quantity);
-      const barcodeValue = resolveBarcodeCode(item);
-      const addressValue = resolveAddress(item);
-      const internalCode = item.code || `ID:${item.id.slice(-6)}`;
-      const prodName = item.nome_comercial || item.name || 'Produto sem descrição';
-      const prodBrand = item.brand || item.marca ? ` • ${item.brand || item.marca}` : '';
-      const unit = item.unidade_medida || item.unit || 'UN';
-      const salePrice = item.salePrice ?? item.preco_venda_varejo ?? item.preco_venda;
-
-      const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
-        height: labelSize === 'termica_60x40' ? 32 : 28,
-        narrowWidth: 1.8,
-        wideWidth: 4.2,
-        showText: true,
-        fontSize: 10,
-        textColor: '#000000',
-        barColor: '#000000'
-      });
-
-      for (let i = 0; i < copies; i++) {
-        labelsHtmlArray.push(`
-          <div class="gondola-label" style="${sizeCss}">
-            <div class="label-header">
-              ${showInternalCode ? `<div class="label-internal-code">CÓD: <strong>${internalCode}</strong></div>` : '<div></div>'}
-              <div class="label-product-name" title="${prodName}">${prodName}${prodBrand}</div>
+    return `
+      <div class="gondola-label" style="
+        width: ${preset.widthMm}mm;
+        height: ${preset.heightMm}mm;
+        box-sizing: border-box;
+        border: 0.4px dashed #999999;
+        background: #ffffff;
+        padding: ${isSmallPad ? '1mm 1.5mm' : '1.5mm 2.5mm'};
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+      ">
+        <!-- Topo: Código Interno no topo esquerdo e Descrição no topo direito -->
+        <div class="label-header" style="
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 2px;
+          line-height: 1.05;
+          border-bottom: 0.5px solid #000000;
+          padding-bottom: 1px;
+          margin-bottom: 1px;
+        ">
+          ${showInternalCode ? `
+            <div class="label-internal-code" style="
+              font-size: ${metrics.codeFontSizePt}pt;
+              font-family: 'Courier New', Courier, monospace;
+              font-weight: 800;
+              white-space: nowrap;
+              background: #f1f5f9;
+              padding: 0.5px 2px;
+              border-radius: 2px;
+              border: 0.4px solid #000000;
+              line-height: 1;
+            ">
+              CÓD: <strong>${internalCode}</strong>
             </div>
+          ` : '<div></div>'}
+          <div class="label-product-name" style="
+            font-size: ${metrics.nameFontSizePt}pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            line-height: 1.1;
+          " title="${prodName}">
+            ${prodName}${prodBrand}
+          </div>
+        </div>
 
-            <div class="label-barcode-container">
-              ${barcodeSvg}
-            </div>
+        <!-- Centro: Código de Barras centralizado -->
+        <div class="label-barcode-container" style="
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex: 1;
+          overflow: hidden;
+          margin: 0.5px 0;
+        ">
+          ${barcodeSvg}
+        </div>
 
-            ${showAddress ? `
-              <div class="label-address-box">
-                <div class="address-title">ENDEREÇO NA GÔNDOLA</div>
-                <div class="address-code">${addressValue}</div>
-                <div class="address-legend">SETOR . RUA . ESTANTE . NÍVEL . BOX</div>
+        <!-- Rodapé: Endereço Formatado em Destaque logo abaixo do código de barras -->
+        ${showAddress ? `
+          <div class="label-address-box" style="
+            border: 1px solid #000000;
+            background: #000000;
+            color: #ffffff;
+            border-radius: 2px;
+            padding: 1px 2px;
+            text-align: center;
+            margin-top: 0.5px;
+          ">
+            ${!isCompact ? `
+              <div class="address-title" style="
+                font-size: ${metrics.addressLegendFontSizePt}pt;
+                font-weight: 700;
+                letter-spacing: 0.3px;
+                text-transform: uppercase;
+                line-height: 1;
+                color: #d1d5db;
+              ">
+                ENDEREÇO NA GÔNDOLA
               </div>
             ` : ''}
-
-            ${showPrice && salePrice && salePrice > 0 ? `
-              <div class="label-price-tag">
-                ${formatCurrencyBRL(salePrice)} <span class="unit">/${unit}</span>
+            <div class="address-code" style="
+              font-size: ${metrics.addressCodeFontSizePt}pt;
+              font-weight: 900;
+              font-family: 'Courier New', Courier, monospace;
+              letter-spacing: 0.8px;
+              line-height: 1.05;
+              color: #ffffff;
+            ">
+              ${addressValue}
+            </div>
+            ${!isCompact ? `
+              <div class="address-legend" style="
+                font-size: ${metrics.addressLegendFontSizePt}pt;
+                font-weight: 600;
+                letter-spacing: 0.2px;
+                color: #9ca3af;
+                line-height: 1;
+              ">
+                SETOR . RUA . ESTANTE . NÍVEL . BOX
               </div>
             ` : ''}
           </div>
+        ` : ''}
+
+        <!-- Preço Opcional -->
+        ${showPrice && salePrice && salePrice > 0 && preset.heightMm >= 28 ? `
+          <div class="label-price-tag" style="
+            position: absolute;
+            bottom: 1.5px;
+            right: 2px;
+            font-size: ${metrics.priceFontSizePt}pt;
+            font-weight: 900;
+            color: #000000;
+            background: #ffffff;
+            padding: 0 2px;
+            border: 0.5px solid #000000;
+            border-radius: 2px;
+            line-height: 1.1;
+          ">
+            ${formatCurrencyBRL(salePrice)} <span style="font-size: ${metrics.priceFontSizePt * 0.75}pt; font-weight: normal;">/${unit}</span>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  };
+
+  // Gerador do HTML de impressão de todas as etiquetas
+  const generateLabelsHtml = (): string => {
+    const metrics = getLabelDesignMetrics(currentPreset);
+    let pageCss = '';
+    let bodyContent = '';
+
+    if (currentPreset.category === 'a4') {
+      const slotsPerSheet = currentPreset.totalPerSheet || 30;
+      const safeStartPos = Math.max(1, Math.min(startPosition, slotsPerSheet));
+
+      pageCss = `
+        @page { 
+          size: A4 portrait; 
+          margin: 0; 
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+        }
+        .a4-sheet {
+          width: 210mm;
+          height: 297mm;
+          box-sizing: border-box;
+          padding-top: ${currentPreset.paddingTopMm}mm;
+          padding-left: ${currentPreset.paddingLeftMm}mm;
+          padding-right: ${currentPreset.paddingRightMm ?? currentPreset.paddingLeftMm}mm;
+          padding-bottom: ${currentPreset.paddingBottomMm ?? currentPreset.paddingTopMm}mm;
+          display: grid;
+          grid-template-columns: repeat(${currentPreset.columns}, ${currentPreset.widthMm}mm);
+          grid-template-rows: repeat(${currentPreset.rows}, ${currentPreset.heightMm}mm);
+          column-gap: ${currentPreset.gapXMm}mm;
+          row-gap: ${currentPreset.gapYMm}mm;
+          page-break-after: always;
+          break-after: page;
+          overflow: hidden;
+        }
+        .a4-sheet:last-child {
+          page-break-after: avoid;
+          break-after: avoid;
+        }
+        .a4-slot.empty-slot {
+          width: ${currentPreset.widthMm}mm;
+          height: ${currentPreset.heightMm}mm;
+          box-sizing: border-box;
+          visibility: hidden;
+        }
+        @media print {
+          .gondola-label {
+            border: none !important;
+          }
+        }
+      `;
+
+      const sheetsHtml: string[] = [];
+      let currentFlatIdx = 0;
+      let sheetNum = 1;
+
+      while (currentFlatIdx < flatLabelsList.length) {
+        const slotsHtml: string[] = [];
+        const isFirstSheet = sheetNum === 1;
+        const initialOffset = isFirstSheet ? safeStartPos - 1 : 0;
+
+        // Adiciona slots em branco para posições puladas (reaproveitamento da folha A4)
+        for (let s = 0; s < initialOffset; s++) {
+          slotsHtml.push(`
+            <div class="a4-slot empty-slot" style="width:${currentPreset.widthMm}mm;height:${currentPreset.heightMm}mm;"></div>
+          `);
+        }
+
+        // Preenche com as etiquetas reais
+        const slotsAvailable = slotsPerSheet - initialOffset;
+        for (let s = 0; s < slotsAvailable && currentFlatIdx < flatLabelsList.length; s++) {
+          const item = flatLabelsList[currentFlatIdx++];
+          slotsHtml.push(renderSingleLabelHtml(item, currentPreset, metrics));
+        }
+
+        // Preenche o restante da folha com slots invisíveis para travar a geometria da grade CSS
+        while (slotsHtml.length < slotsPerSheet) {
+          slotsHtml.push(`
+            <div class="a4-slot empty-slot" style="width:${currentPreset.widthMm}mm;height:${currentPreset.heightMm}mm;"></div>
+          `);
+        }
+
+        sheetsHtml.push(`
+          <div class="a4-sheet">
+            ${slotsHtml.join('\n')}
+          </div>
         `);
+        sheetNum++;
       }
-    });
+
+      bodyContent = sheetsHtml.join('\n');
+    } else {
+      // IMPRESSORAS TÉRMICAS
+      if (currentPreset.columns === 1) {
+        pageCss = `
+          @page { 
+            size: ${currentPreset.pageSize}; 
+            margin: 0; 
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+          }
+          .thermal-page {
+            width: ${currentPreset.widthMm}mm;
+            height: ${currentPreset.heightMm}mm;
+            box-sizing: border-box;
+            page-break-after: always;
+            break-after: page;
+            overflow: hidden;
+          }
+          .thermal-page:last-child {
+            page-break-after: avoid;
+            break-after: avoid;
+          }
+          @media print {
+            .gondola-label {
+              border: none !important;
+            }
+          }
+        `;
+
+        const pagesHtml = flatLabelsList.map(item => `
+          <div class="thermal-page">
+            ${renderSingleLabelHtml(item, currentPreset, metrics)}
+          </div>
+        `);
+        bodyContent = pagesHtml.join('\n');
+      } else {
+        // Rolo térmico multi-colunas (Dupla, Tripla ou Mini)
+        const cols = currentPreset.columns;
+        pageCss = `
+          @page { 
+            size: ${currentPreset.pageSize}; 
+            margin: 0; 
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+          }
+          .thermal-row-page {
+            width: 100%;
+            height: ${currentPreset.heightMm}mm;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(${cols}, ${currentPreset.widthMm}mm);
+            column-gap: ${currentPreset.gapXMm}mm;
+            page-break-after: always;
+            break-after: page;
+            overflow: hidden;
+          }
+          .thermal-row-page:last-child {
+            page-break-after: avoid;
+            break-after: avoid;
+          }
+          @media print {
+            .gondola-label {
+              border: none !important;
+            }
+          }
+        `;
+
+        const rowsHtml: string[] = [];
+        for (let i = 0; i < flatLabelsList.length; i += cols) {
+          const chunk = flatLabelsList.slice(i, i + cols);
+          const colsHtml = chunk.map(item => renderSingleLabelHtml(item, currentPreset, metrics));
+          while (colsHtml.length < cols) {
+            colsHtml.push(`
+              <div class="empty-slot" style="width:${currentPreset.widthMm}mm;height:${currentPreset.heightMm}mm;visibility:hidden;"></div>
+            `);
+          }
+
+          rowsHtml.push(`
+            <div class="thermal-row-page">
+              ${colsHtml.join('\n')}
+            </div>
+          `);
+        }
+        bodyContent = rowsHtml.join('\n');
+      }
+    }
 
     return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Impressão de Etiquetas de Gôndola</title>
+  <title>Impressão de Etiquetas - ${currentPreset.name}</title>
   <style>
     ${pageCss}
     *, *::before, *::after {
@@ -201,124 +522,13 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       print-color-adjust: exact !important;
     }
     body {
-      margin: 0;
-      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #000000;
-      background: #ffffff;
-    }
-    .gondola-label {
-      box-sizing: border-box;
-      border: 1px dashed #000000;
-      background: #ffffff;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      page-break-inside: avoid;
-      break-inside: avoid;
-    }
-    .label-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 4px;
-      line-height: 1.1;
-      border-bottom: 1px solid #000000;
-      padding-bottom: 2px;
-      margin-bottom: 2px;
-    }
-    .label-internal-code {
-      font-size: 8pt;
-      font-family: 'Courier New', Courier, monospace;
-      font-weight: 800;
-      white-space: nowrap;
-      background: #f0f0f0;
-      padding: 1px 3px;
-      border-radius: 2px;
-      border: 0.5px solid #000000;
-    }
-    .label-product-name {
-      font-size: 8.5pt;
-      font-weight: 800;
-      text-transform: uppercase;
-      text-align: right;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex: 1;
-    }
-    .label-barcode-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 1px 0;
-    }
-    .label-barcode-container svg {
-      max-width: 95%;
-      height: auto;
-    }
-    .label-address-box {
-      border: 1.5px solid #000000;
-      background: #000000;
-      color: #ffffff;
-      border-radius: 3px;
-      padding: 1.5px 2px;
-      text-align: center;
-      margin-top: 1px;
-    }
-    .address-title {
-      font-size: 5.5pt;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      line-height: 1;
-      color: #e0e0e0;
-    }
-    .address-code {
-      font-size: 11pt;
-      font-weight: 900;
-      font-family: 'Courier New', Courier, monospace;
-      letter-spacing: 1.5px;
-      line-height: 1.1;
-      color: #ffffff;
-    }
-    .address-legend {
-      font-size: 4.8pt;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      color: #cccccc;
-      line-height: 1;
-    }
-    .label-price-tag {
-      position: absolute;
-      bottom: 2px;
-      right: 3px;
-      font-size: 8pt;
-      font-weight: 900;
-      color: #000000;
-      background: #ffffff;
-      padding: 0 2px;
-      border: 0.5px solid #000000;
-      border-radius: 2px;
-    }
-    .label-price-tag .unit {
-      font-size: 6pt;
-      font-weight: normal;
-    }
-    @media print {
-      body {
-        background: transparent !important;
-      }
-      .gondola-label {
-        border: none !important;
-      }
     }
   </style>
 </head>
 <body>
-  ${labelsHtmlArray.join('\n')}
+  ${bodyContent}
   <script>
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
@@ -328,7 +538,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         } catch(e) {
           console.error(e);
         }
-      }, 300);
+      }, 350);
     });
   </script>
 </body>
@@ -352,21 +562,22 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   const livePreviewBars = useMemo(() => {
     if (!previewProduct) return null;
     const barcodeCode = resolveBarcodeCode(previewProduct);
+    const metrics = getLabelDesignMetrics(currentPreset);
     return generateBarcodeBars(barcodeCode, {
-      height: 32,
-      narrowWidth: 1.8,
-      wideWidth: 4.2
+      height: metrics.barcodeHeight * 1.1,
+      narrowWidth: metrics.narrowWidth,
+      wideWidth: metrics.narrowWidth * 2.3
     });
-  }, [previewProduct]);
+  }, [previewProduct, currentPreset]);
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}>
+    <div className={`fixed inset-0 ${zIndexClass} bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}>
       <div 
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="px-5 py-3.5 bg-sky-700 text-white flex items-center justify-between shadow-sm">
+        <div className="px-5 py-3.5 bg-sky-700 text-white flex items-center justify-between shadow-sm shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold">
               <Barcode className="w-4 h-4 stroke-[2.2]" />
@@ -376,7 +587,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 Impressão de Etiquetas de Gôndola / Almoxarifado
               </h3>
               <p className="text-[11px] text-sky-100">
-                {entryTitle || `${itemsToPrint.length} produto(s) selecionado(s) • Total de ${totalLabelsCount} etiqueta(s)`}
+                {entryTitle || `${itemsToPrint.length} produto(s) • Total de ${totalLabelsCount} etiqueta(s)`} • Formato: {currentPreset.badge}
               </p>
             </div>
           </div>
@@ -393,23 +604,205 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         {/* Corpo do Modal */}
         <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
           
-          {/* Seção 1: Pré-visualização do Modelo de Gôndola */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-sky-600" />
-                Modelo Visual da Etiqueta (Gôndola / Prateleira)
-              </span>
-              <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded">
-                100mm × 35mm
-              </span>
+          {/* Seletor Principal: Modelo e Tamanho da Etiqueta */}
+          <div className="p-3.5 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-700/80 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              
+              {/* Dropdown com os 12 modelos exatos */}
+              <div className="md:col-span-8">
+                <label className="block text-[11px] font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider mb-1 flex items-center space-x-1.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Modelo e Tamanho da Etiqueta</span>
+                </label>
+                <select
+                  value={labelSize}
+                  onChange={(e) => {
+                    const next = e.target.value as LabelSizePreset;
+                    setLabelSize(next);
+                    const cfg = getLabelPresetConfig(next);
+                    if (cfg.category === 'a4') {
+                      setStartPosition(1);
+                    }
+                  }}
+                  className="w-full h-10 px-3 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer shadow-xs"
+                >
+                  <optgroup label="1. IMPRESSORAS COMUNS (Folhas Adesivas A4 - Grades com Margens)">
+                    {A4_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="2. IMPRESSORAS TÉRMICAS (Rolos - Largura x Altura)">
+                    {THERMAL_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Quantidade Global de Cópias */}
+              <div className="md:col-span-4">
+                <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1 flex items-center space-x-1">
+                  <Copy className="w-3 h-3 text-stone-500" />
+                  <span>Quantidade de Etiquetas</span>
+                </label>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyGlobalCopies(Math.max(1, defaultCopies - 1))}
+                    className="w-10 h-10 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-sm"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    value={defaultCopies}
+                    onChange={(e) => handleApplyGlobalCopies(parseInt(e.target.value, 10) || 1)}
+                    className="w-full h-10 text-center font-mono font-black text-sm border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyGlobalCopies(defaultCopies + 1)}
+                    className="w-10 h-10 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 transition cursor-pointer flex items-center justify-center text-sm"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
             </div>
 
-            {previewProduct && (
-              <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex justify-center">
-                
-                {/* Card Físico da Etiqueta */}
-                <div className="w-full max-w-[420px] bg-white text-black border-2 border-dashed border-stone-400 rounded-lg p-3 shadow-md space-y-2 font-sans select-none">
+            {/* Configurações Avançadas e Reaproveitamento para A4 */}
+            {isA4 && (
+              <div className="pt-2.5 border-t border-stone-200 dark:border-stone-700/60 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                <div className="sm:col-span-7">
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Reaproveitamento de Folhas A4</span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                    Defina em qual etiqueta da folha a impressão deve começar para reaproveitar folhas que já tiveram adesivos destacados.
+                  </p>
+                </div>
+
+                <div className="sm:col-span-5 flex items-center justify-end space-x-2">
+                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                    Iniciar na posição:
+                  </label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max={totalSlotsPerSheet}
+                      value={startPosition}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) {
+                          setStartPosition(Math.max(1, Math.min(val, totalSlotsPerSheet)));
+                        }
+                      }}
+                      className="w-16 h-8 text-center font-mono font-extrabold text-xs rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/40 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                    <span className="text-[11px] font-semibold text-stone-400 font-mono">
+                      / {totalSlotsPerSheet}
+                    </span>
+                    {startPosition > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setStartPosition(1)}
+                        className="p-1.5 rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950 transition cursor-pointer text-[10px] font-bold"
+                        title="Resetar para a 1ª posição"
+                      >
+                        Resetar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Alternância de Abas de Pré-visualização se for A4 */}
+            <div className="pt-2 border-t border-stone-200 dark:border-stone-700/60 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab('label')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                    previewTab === 'label'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-stone-200/70 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-300'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Modelo da Etiqueta</span>
+                </button>
+                {isA4 && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('sheet')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                      previewTab === 'sheet'
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'bg-stone-200/70 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-300'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Grade da Folha A4 ({currentPreset.columns}x{currentPreset.rows})</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Checkboxes de Elementos Visíveis */}
+              <div className="flex items-center space-x-3 text-xs font-semibold">
+                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showAddress}
+                    onChange={(e) => setShowAddress(e.target.checked)}
+                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                  />
+                  <span>Endereço</span>
+                </label>
+                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showInternalCode}
+                    onChange={(e) => setShowInternalCode(e.target.checked)}
+                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                  />
+                  <span>Código</span>
+                </label>
+                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showPrice}
+                    onChange={(e) => setShowPrice(e.target.checked)}
+                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                  />
+                  <span>Preço</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Seção de Visualização: Modelo Individual ou Folha A4 Completa */}
+          {previewTab === 'label' || !isA4 ? (
+            <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col items-center justify-center">
+              
+              {/* Card Físico da Etiqueta em Preview Proporcional */}
+              {previewProduct && (
+                <div 
+                  className="w-full bg-white text-black border-2 border-dashed border-stone-400 rounded-lg p-3 shadow-md space-y-2 font-sans select-none"
+                  style={{
+                    maxWidth: currentPreset.widthMm >= 80 ? '480px' : '380px'
+                  }}
+                >
                   
                   {/* Topo da Etiqueta: Código no topo esquerdo e Descrição no topo direito */}
                   <div className="flex items-start justify-between border-b border-black pb-1 gap-2 leading-tight">
@@ -434,15 +827,15 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   <div className="py-1 flex flex-col items-center justify-center">
                     {livePreviewBars && (
                       <svg 
-                        viewBox={`0 0 ${livePreviewBars.totalWidth} 46`} 
-                        className="w-full max-h-[38px] block"
+                        viewBox={`0 0 ${livePreviewBars.totalWidth} 44`} 
+                        className="w-full max-h-[36px] block"
                       >
                         {livePreviewBars.bars.map((b, idx) => (
-                          <rect key={idx} x={b.x} y="0" width={b.width} height={32} fill="#000000" />
+                          <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
                         ))}
                         <text 
                           x={livePreviewBars.totalWidth / 2} 
-                          y={44} 
+                          y={42} 
                           textAnchor="middle" 
                           fontFamily="Courier New, monospace" 
                           fontSize="10px" 
@@ -461,7 +854,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                       <div className="text-[8px] font-bold uppercase tracking-wider text-stone-300 leading-none">
                         ENDEREÇO NA GÔNDOLA
                       </div>
-                      <div className="text-base font-black font-mono tracking-widest leading-tight text-white my-0.5">
+                      <div className="text-sm sm:text-base font-black font-mono tracking-widest leading-tight text-white my-0.5">
                         {resolveAddress(previewProduct)}
                       </div>
                       <div className="text-[7.5px] font-semibold text-stone-300 leading-none">
@@ -481,68 +874,92 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   ) : null}
 
                 </div>
+              )}
 
+              <div className="text-[10px] text-stone-500 dark:text-stone-400 mt-2 font-mono">
+                Dimensões reais de corte: {currentPreset.widthMm}mm × {currentPreset.heightMm}mm ({currentPreset.name.split('(')[0].trim()})
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* Visualização Interativa da Grade A4 com clique na posição inicial */
+            <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col items-center">
+              <div className="w-full max-w-xl flex items-center justify-between text-xs mb-2">
+                <span className="font-bold text-stone-700 dark:text-stone-300 flex items-center space-x-1.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Clique em qualquer posição para começar a impressão</span>
+                </span>
+                <span className="text-[11px] font-mono font-semibold text-stone-500">
+                  Folha A4: {currentPreset.columns} colunas × {currentPreset.rows} linhas ({totalSlotsPerSheet} un)
+                </span>
+              </div>
 
-          {/* Seção 2: Controles de Configuração e Tamanho */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-stone-50 dark:bg-stone-800/40 rounded-xl border border-stone-200 dark:border-stone-700/60">
-            
-            {/* Formato da Etiqueta */}
-            <div>
-              <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
-                Formato / Tipo de Etiqueta
-              </label>
-              <select
-                value={labelSize}
-                onChange={(e) => setLabelSize(e.target.value as any)}
-                className="w-full h-9 px-2.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+              {/* Simulação da Folha A4 em Escala */}
+              <div 
+                className="w-full max-w-xl bg-white dark:bg-stone-900 border-2 border-stone-400 dark:border-stone-700 rounded-xl p-3 shadow-md overflow-x-auto"
               >
-                <option value="gondola_100x35">Gôndola / Prateleira (100mm × 35mm) - Padrão</option>
-                <option value="gondola_80x30">Gôndola Estreita (80mm × 30mm)</option>
-                <option value="termica_60x40">Térmica Compacta (60mm × 40mm)</option>
-                <option value="a4_grade">Folha A4 (Grade de Etiquetas 3 Colunas)</option>
-              </select>
-            </div>
+                <div 
+                  className="grid gap-1 select-none"
+                  style={{
+                    gridTemplateColumns: `repeat(${currentPreset.columns}, minmax(0, 1fr))`
+                  }}
+                >
+                  {Array.from({ length: totalSlotsPerSheet }).map((_, idx) => {
+                    const slotNum = idx + 1;
+                    const isSkipped = slotNum < startPosition;
+                    const isPrinted = slotNum >= startPosition && slotNum < startPosition + totalLabelsCount;
+                    const targetItem = isPrinted ? flatLabelsList[slotNum - startPosition] : null;
 
-            {/* Opções de Elementos na Etiqueta */}
-            <div>
-              <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 uppercase mb-1">
-                Elementos Visíveis
-              </label>
-              <div className="flex items-center space-x-3 h-9">
-                <label className="inline-flex items-center space-x-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showAddress}
-                    onChange={(e) => setShowAddress(e.target.checked)}
-                    className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
-                  />
-                  <span>Endereço</span>
-                </label>
-                <label className="inline-flex items-center space-x-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showInternalCode}
-                    onChange={(e) => setShowInternalCode(e.target.checked)}
-                    className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
-                  />
-                  <span>Código</span>
-                </label>
-                <label className="inline-flex items-center space-x-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showPrice}
-                    onChange={(e) => setShowPrice(e.target.checked)}
-                    className="rounded border-stone-300 dark:border-stone-600 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
-                  />
-                  <span>Preço</span>
-                </label>
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setStartPosition(slotNum)}
+                        className={`h-11 rounded border text-left p-1 transition cursor-pointer flex flex-col justify-between overflow-hidden ${
+                          isSkipped
+                            ? 'bg-stone-100 dark:bg-stone-800/40 border-stone-300 dark:border-stone-700 text-stone-400 opacity-60'
+                            : isPrinted
+                            ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-500 text-sky-950 dark:text-sky-100 ring-1 ring-sky-500'
+                            : 'bg-white dark:bg-stone-800 border-dashed border-stone-300 dark:border-stone-700 text-stone-500 hover:border-sky-400'
+                        }`}
+                        title={`Posição ${slotNum}: ${isSkipped ? 'Ignorado (já usado)' : isPrinted ? targetItem?.name : 'Disponível'}`}
+                      >
+                        <div className="flex items-center justify-between text-[9px] font-mono leading-none font-bold">
+                          <span>#{slotNum}</span>
+                          {isSkipped && <span className="text-[8px] text-stone-400">Pulado</span>}
+                          {isPrinted && <span className="text-[8px] text-sky-600 dark:text-sky-400 font-black">✓ Imprimir</span>}
+                        </div>
+                        {isPrinted && targetItem && (
+                          <div className="text-[8.5px] font-black truncate leading-tight uppercase">
+                            {targetItem.nome_comercial || targetItem.name}
+                          </div>
+                        )}
+                        {isSkipped && (
+                          <div className="text-[8px] italic text-stone-400 truncate">
+                            Posição usada
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4 text-[11px] font-semibold text-stone-600 dark:text-stone-400 mt-2">
+                <span className="flex items-center space-x-1">
+                  <span className="w-3 h-3 rounded bg-stone-200 border border-stone-400 inline-block"></span>
+                  <span>Pulado / Já destacado</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <span className="w-3 h-3 rounded bg-sky-100 border border-sky-500 inline-block"></span>
+                  <span>Será impresso nesta folha</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <span className="w-3 h-3 rounded bg-white border border-dashed border-stone-400 inline-block"></span>
+                  <span>Disponível</span>
+                </span>
               </div>
             </div>
-
-          </div>
+          )}
 
           {/* Seção 3: Lista de Produtos e Cópias */}
           <div className="space-y-1.5">
@@ -551,11 +968,11 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 Quantidade de Cópias por Produto
               </span>
               <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-                {totalLabelsCount} etiqueta(s) a imprimir
+                {totalLabelsCount} etiqueta(s) no total • {isA4 ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} folha(s) A4` : 'Rolo Contínuo'}
               </span>
             </div>
 
-            <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-stone-100 dark:divide-stone-800/80 max-h-48 overflow-y-auto bg-white dark:bg-stone-900">
+            <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-stone-100 dark:divide-stone-800/80 max-h-44 overflow-y-auto bg-white dark:bg-stone-900">
               {itemsToPrint.map(({ product: item, quantity = 1 }) => {
                 const copies = getItemCopies(item.id, quantity);
                 const address = resolveAddress(item);
