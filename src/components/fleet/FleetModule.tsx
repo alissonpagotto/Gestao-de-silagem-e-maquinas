@@ -45,6 +45,7 @@ import {
   saveStoredInventory,
   getStoredBankAccounts,
   saveStoredBankAccounts,
+  saveStoredMachineries,
   calculateDefaultDueDate
 } from '../../lib/storage';
 
@@ -211,6 +212,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         return m;
       });
       onSaveMachineries(updated);
+      saveStoredMachineries(updated);
+      saveCloudMachineries(updated).catch(console.error);
       if (updatedMergedVehicle) {
         upsertGestaoFrota(updatedMergedVehicle).catch(console.error);
       }
@@ -244,7 +247,10 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         totalMaintenanceExpenses: 0,
         notes: vehicleData.notes || '',
       };
-      onSaveMachineries([newVehicle, ...machineries]);
+      const updatedList = [newVehicle, ...machineries];
+      onSaveMachineries(updatedList);
+      saveStoredMachineries(updatedList);
+      saveCloudMachineries(updatedList).catch(console.error);
       upsertGestaoFrota(newVehicle).catch(console.error);
     }
     setIsVehicleModalOpen(false);

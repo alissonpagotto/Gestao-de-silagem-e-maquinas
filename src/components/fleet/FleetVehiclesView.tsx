@@ -11,7 +11,7 @@ import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
 import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile } from '../../lib/storage';
-import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured } from '../../lib/supabaseService';
+import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 
 interface FleetVehiclesViewProps {
@@ -349,16 +349,10 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'gestao_frotas' },
-        async (payload) => {
+        (payload) => {
           console.info('📡 [Realtime Frotas - Veículos] Alteração em gestao_frotas:', payload.eventType);
-          try {
-            const fresh = await fetchGestaoFrotas(companyProfile?.id);
-            if (fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineries) {
-              onSaveMachineries(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar frotas via Realtime:', err);
-          }
+          // O listener central em App.tsx atualiza o estado machineries via setMachineries()
+          // de forma idempotente, sem disparar re-upsert em loop.
         }
       )
       .subscribe();
@@ -366,7 +360,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [onSaveMachineries, companyProfile?.id]);
+  }, []);
 
   // Automated Meter Synchronization Handler via direct HTTP REST
   const handleSyncMeters = async () => {
@@ -756,9 +750,20 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
                     const totalFuel = getVehicleTotalFuel(vehicle.id);
                     const totalMaint = getVehicleTotalMaintenance(vehicle.id);
                     const totalCost = totalFuel + totalMaint;
-                    const driversList = vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0
+                    let driversList = vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0
                       ? vehicle.assignedDrivers
-                      : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()) : []);
+                      : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()).filter(Boolean) : []);
+                    if (driversList.length === 0 && (vehicle.assignedDriverIds?.length || (vehicle as any).user_id || (vehicle as any).driver_id)) {
+                      const candidateIds = vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0
+                        ? vehicle.assignedDriverIds
+                        : [((vehicle as any).driver_id || (vehicle as any).user_id)];
+                      const resolved = candidateIds
+                        .map(id => employees.find(e => e.id === id || toValidUUID(e.id) === toValidUUID(id))?.name)
+                        .filter(Boolean) as string[];
+                      if (resolved.length > 0) {
+                        driversList = resolved;
+                      }
+                    }
 
                     const isCavalo = vehicle.compositionType === 'cavalo';
                     const isReboque = vehicle.compositionType === 'reboque' || (vehicle.categoryType || '').trim().toLowerCase() === 'reboque';
@@ -1067,9 +1072,20 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             const totalFuel = getVehicleTotalFuel(vehicle.id);
             const totalMaint = getVehicleTotalMaintenance(vehicle.id);
             const totalCost = totalFuel + totalMaint;
-            const driversList = vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0
+            let driversList = vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0
               ? vehicle.assignedDrivers
-              : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()) : []);
+              : (vehicle.operatorOrDriver ? vehicle.operatorOrDriver.split(',').map(s => s.trim()).filter(Boolean) : []);
+            if (driversList.length === 0 && (vehicle.assignedDriverIds?.length || (vehicle as any).user_id || (vehicle as any).driver_id)) {
+              const candidateIds = vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0
+                ? vehicle.assignedDriverIds
+                : [((vehicle as any).driver_id || (vehicle as any).user_id)];
+              const resolved = candidateIds
+                .map(id => employees.find(e => e.id === id || toValidUUID(e.id) === toValidUUID(id))?.name)
+                .filter(Boolean) as string[];
+              if (resolved.length > 0) {
+                driversList = resolved;
+              }
+            }
 
             const isCavalo = vehicle.compositionType === 'cavalo';
             const isReboque = vehicle.compositionType === 'reboque' || (vehicle.categoryType || '').trim().toLowerCase() === 'reboque';

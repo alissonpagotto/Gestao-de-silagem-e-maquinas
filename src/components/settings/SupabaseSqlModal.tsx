@@ -176,6 +176,11 @@ CREATE TABLE IF NOT EXISTS public.gestao_frotas (
 
 -- Migração automática para tabelas existentes
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS fleet_number TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS driver_id UUID;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS motorista TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS operator_or_driver TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS assigned_driver_ids JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS assigned_drivers JSONB DEFAULT '[]'::jsonb;
 
 -- ==============================================================================
 -- 7.1. TABELA: tanques_combustivel (Tanques Aéreos da Fazenda)

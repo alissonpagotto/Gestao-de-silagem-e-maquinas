@@ -44,6 +44,7 @@ import {
   getStoredMachineries
 } from '../../lib/storage';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
+import { toValidUUID } from '../../lib/supabaseService';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
 import { VehicleOwnershipModal } from './VehicleOwnershipModal';
 import { VehicleHistoryDreTab } from './VehicleHistoryDreTab';
@@ -693,6 +694,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
           .filter(emp => existingNames.includes(emp.name.toLowerCase()))
           .map(emp => emp.id);
         setSelectedDriverIds(matchedIds);
+      } else if ((editingVehicle as any).user_id || (editingVehicle as any).driver_id) {
+        const uid = (editingVehicle as any).user_id || (editingVehicle as any).driver_id;
+        const matched = employees.find(emp => emp.id === uid || toValidUUID(emp.id) === toValidUUID(uid));
+        if (matched) {
+          setSelectedDriverIds([matched.id]);
+        } else {
+          setSelectedDriverIds([]);
+        }
       } else {
         setSelectedDriverIds([]);
       }

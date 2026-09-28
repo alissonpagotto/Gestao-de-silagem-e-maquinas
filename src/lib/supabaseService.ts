@@ -44,7 +44,10 @@ import {
   DEFAULT_TANQUES_COMBUSTIVEL,
   getStoredInventory,
   saveStoredInventory,
-  ensureDieselProductsInInventory
+  ensureDieselProductsInInventory,
+  getStoredMachineries,
+  saveStoredMachineries,
+  getStoredEmployees
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -2724,6 +2727,8 @@ export async function desalocarFuncionarioFrente(funcionarioId: string): Promise
 // ===========================================================================
 // 7. Gestão de Frotas (Tabela: public.gestao_frotas)
 // ===========================================================================
+const unsupportedGestaoFrotaCols = new Set<string>();
+
 export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
@@ -2762,6 +2767,10 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       console.warn('Supabase fetchGestaoFrotas notice:', error.message);
       return [];
     }
+
+    const storedMachineries = getStoredMachineries();
+    const storedEmployees = getStoredEmployees();
+
     return (data as any[] || []).map(row => {
       const tankCapacityNumber = row.tank_capacity !== undefined && row.tank_capacity !== null
         ? Number(row.tank_capacity)
@@ -2812,6 +2821,40 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       const rawModel = row.modelo || row.model || '';
       const cleanModel = rawModel.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
 
+      // Mapeamento de Motoristas: recupera colunas oficiais e faz fallback seguro para user_id e storage
+      const driverId = row.driver_id || row.motorista_id || (row.user_id && row.user_id.length > 20 ? row.user_id : undefined);
+      const explicitDriverName = row.motorista || row.operator_or_driver || row.driver || undefined;
+      
+      let resolvedDriverName = explicitDriverName;
+      if (!resolvedDriverName && driverId) {
+        const foundEmp = storedEmployees.find(e => e.id === driverId || toValidUUID(e.id) === toValidUUID(driverId));
+        if (foundEmp?.name) {
+          resolvedDriverName = foundEmp.name;
+        }
+      }
+
+      const assignedIds: string[] = Array.isArray(row.assigned_driver_ids)
+        ? row.assigned_driver_ids
+        : (driverId ? [driverId] : []);
+
+      const assignedNames: string[] = Array.isArray(row.assigned_drivers)
+        ? row.assigned_drivers
+        : (resolvedDriverName ? [resolvedDriverName] : []);
+
+      // Preservação resiliente: evita que o veículo perca motoristas atribuídos caso o banco físico não tenha colunas
+      const matchedLocal = storedMachineries.find(m => m.id === row.id || toValidUUID(m.id) === toValidUUID(row.id));
+      const finalAssignedDrivers = (assignedNames.length > 0)
+        ? assignedNames
+        : (matchedLocal?.assignedDrivers && matchedLocal.assignedDrivers.length > 0
+            ? matchedLocal.assignedDrivers
+            : (matchedLocal?.operatorOrDriver ? matchedLocal.operatorOrDriver.split(',').map((s: string) => s.trim()) : []));
+      const finalAssignedDriverIds = (assignedIds.length > 0)
+        ? assignedIds
+        : (matchedLocal?.assignedDriverIds && matchedLocal.assignedDriverIds.length > 0
+            ? matchedLocal.assignedDriverIds
+            : (driverId ? [driverId] : []));
+      const finalOperatorOrDriver = resolvedDriverName || matchedLocal?.operatorOrDriver || (finalAssignedDrivers.length > 0 ? finalAssignedDrivers.join(', ') : '');
+
       return {
         ...row,
         id: row.id,
@@ -2844,6 +2887,11 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         current_fuel_liters: row.current_fuel_liters !== undefined && row.current_fuel_liters !== null ? Number(row.current_fuel_liters) : (row.currentFuelLiters !== undefined && row.currentFuelLiters !== null ? Number(row.currentFuelLiters) : (row.nivel_combustivel !== undefined && row.nivel_combustivel !== null ? Number(row.nivel_combustivel) : undefined)),
         currentFuelPercentage: row.current_fuel_percentage !== undefined && row.current_fuel_percentage !== null ? Number(row.current_fuel_percentage) : (row.currentFuelPercentage !== undefined && row.currentFuelPercentage !== null ? Number(row.currentFuelPercentage) : undefined),
         current_fuel_percentage: row.current_fuel_percentage !== undefined && row.current_fuel_percentage !== null ? Number(row.current_fuel_percentage) : (row.currentFuelPercentage !== undefined && row.currentFuelPercentage !== null ? Number(row.currentFuelPercentage) : undefined),
+        operatorOrDriver: finalOperatorOrDriver,
+        assignedDrivers: finalAssignedDrivers,
+        assignedDriverIds: finalAssignedDriverIds,
+        driver_id: driverId,
+        user_id: driverId,
       };
     }) as Machinery[];
   } catch (err) {
@@ -2933,6 +2981,15 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       cleanAno = isNaN(parsedAno) ? null : parsedAno;
     }
 
+    // Identificação do motorista: primeiro ID de motorista e nome compilado
+    const firstDriverId = (vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0)
+      ? toValidUUID(vehicle.assignedDriverIds[0])
+      : ((vehicle as any).user_id ? toValidUUID((vehicle as any).user_id) : ((vehicle as any).driver_id ? toValidUUID((vehicle as any).driver_id) : null));
+    
+    const driverString = (vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0)
+      ? vehicle.assignedDrivers.join(', ')
+      : (vehicle.operatorOrDriver ? String(vehicle.operatorOrDriver).trim() : null);
+
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
       company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
@@ -2946,23 +3003,78 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       manutencao_status: vehicle.maintenanceStatus || vehicle.manutencao_status || 'ok',
       foto_url: vehicle.imageUrl || vehicle.photoUrl || vehicle.foto_url || null,
       tank_capacity: tankCapacityNumber,
+      user_id: firstDriverId, // user_id existe fisicamente em gestao_frotas e persiste o UUID do motorista sem erro de RLS
       updated_at: new Date().toISOString()
     };
+
+    // Adiciona colunas dedicadas de motoristas se suportadas pela tabela
+    if (!unsupportedGestaoFrotaCols.has('driver_id') && firstDriverId) {
+      payload.driver_id = firstDriverId;
+    }
+    if (!unsupportedGestaoFrotaCols.has('motorista') && driverString) {
+      payload.motorista = driverString;
+    }
+    if (!unsupportedGestaoFrotaCols.has('operator_or_driver') && driverString) {
+      payload.operator_or_driver = driverString;
+    }
+    if (!unsupportedGestaoFrotaCols.has('assigned_driver_ids') && vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0) {
+      payload.assigned_driver_ids = vehicle.assignedDriverIds;
+    }
+    if (!unsupportedGestaoFrotaCols.has('assigned_drivers') && vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0) {
+      payload.assigned_drivers = vehicle.assignedDrivers;
+    }
 
     let { error } = await supabase
       .from('gestao_frotas')
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      logPostgresError('upsertGestaoFrota', error, { table: 'gestao_frotas', action: 'UPSERT', payload });
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('tank_capacity') || error.message.includes('column')))) {
-        delete payload.company_id;
-        delete payload.tank_capacity;
+      // Se deu erro de coluna inexistente no schema cache (PGRST204), remove a coluna e retenta sem estourar 400
+      if (error.code === 'PGRST204' || (error.message && (error.message.includes('column') || error.message.includes('schema cache')))) {
+        const colMatch = error.message.match(/column '([^']+)'|column ([a-zA-Z0-9_]+) of|'([^']+)' column/i);
+        const badCol = colMatch ? (colMatch[1] || colMatch[2] || colMatch[3]) : null;
+        if (badCol) {
+          unsupportedGestaoFrotaCols.add(badCol);
+          delete payload[badCol];
+        } else {
+          delete payload.driver_id;
+          delete payload.motorista;
+          delete payload.operator_or_driver;
+          delete payload.assigned_driver_ids;
+          delete payload.assigned_drivers;
+        }
         const retry = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
-        if (!retry.error) return true;
+        if (retry.error) {
+          if (retry.error.code === '23503' || (retry.error.message && (retry.error.message.includes('company_id') || retry.error.message.includes('user_id') || retry.error.message.includes('tank_capacity')))) {
+            delete payload.company_id;
+            delete payload.user_id;
+            delete payload.tank_capacity;
+            const retry2 = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
+            if (retry2.error) {
+              logPostgresError('upsertGestaoFrota', retry2.error, { table: 'gestao_frotas', action: 'UPSERT', payload });
+            }
+          }
+        }
+      } else {
+        logPostgresError('upsertGestaoFrota', error, { table: 'gestao_frotas', action: 'UPSERT', payload });
+        if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('tank_capacity')))) {
+          delete payload.company_id;
+          delete payload.tank_capacity;
+          await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
+        }
       }
-      return false;
     }
+
+    // Persistência espelhada: atualiza a lista completa em localStorage e site_settings
+    try {
+      const stored = getStoredMachineries();
+      const updatedList = stored.some(m => m.id === vehicle.id)
+        ? stored.map(m => m.id === vehicle.id ? { ...m, ...vehicle, operatorOrDriver: driverString || m.operatorOrDriver, assignedDrivers: vehicle.assignedDrivers || m.assignedDrivers, assignedDriverIds: vehicle.assignedDriverIds || m.assignedDriverIds } : m)
+        : [{ ...vehicle, operatorOrDriver: driverString || '', assignedDrivers: vehicle.assignedDrivers || [], assignedDriverIds: vehicle.assignedDriverIds || [] }, ...stored];
+      saveStoredMachineries(updatedList);
+      saveCloudMachineries(updatedList, activeCompanyId).catch(() => {});
+    } catch (_) {}
+
     return true;
   } catch (err) {
     console.warn('Supabase upsertGestaoFrota err:', err);

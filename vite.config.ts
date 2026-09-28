@@ -28,6 +28,29 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       {
+        name: 'script-mime-type-middleware',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            const cleanUrl = (req.url || '').split('?')[0];
+            const isScript =
+              cleanUrl.endsWith('.js') ||
+              cleanUrl.endsWith('.mjs') ||
+              cleanUrl.endsWith('.cjs') ||
+              cleanUrl.endsWith('.ts') ||
+              cleanUrl.endsWith('.tsx') ||
+              cleanUrl.endsWith('.jsx') ||
+              req.headers['sec-fetch-dest'] === 'script' ||
+              req.headers['accept']?.includes('text/javascript');
+            if (isScript) {
+              res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            } else if (cleanUrl.endsWith('.wasm')) {
+              res.setHeader('Content-Type', 'application/wasm');
+            }
+            next();
+          });
+        },
+      },
+      {
         name: 'upload-fallback-middleware',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {

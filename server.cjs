@@ -31,7 +31,11 @@ const MIME_TYPES = {
   '.wasm': 'application/wasm',
   '.xml': 'application/xml',
   '.pdf': 'application/pdf',
-  '.txt': 'text/plain; charset=utf-8'
+  '.txt': 'text/plain; charset=utf-8',
+  '.ts': 'text/javascript; charset=utf-8',
+  '.tsx': 'text/javascript; charset=utf-8',
+  '.jsx': 'text/javascript; charset=utf-8',
+  '.map': 'application/json; charset=utf-8'
 };
 
 const server = http.createServer((req, res) => {
@@ -52,8 +56,28 @@ const server = http.createServer((req, res) => {
   fs.stat(filePath, (err, stats) => {
     if (!err && stats.isFile()) {
       const ext = path.extname(filePath).toLowerCase();
-      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': contentType });
+      let contentType = MIME_TYPES[ext];
+      if (!contentType) {
+        const isScriptReq =
+          req.headers['sec-fetch-dest'] === 'script' ||
+          (req.headers['accept'] && req.headers['accept'].includes('text/javascript')) ||
+          filePath.endsWith('.js') ||
+          filePath.endsWith('.mjs') ||
+          filePath.endsWith('.cjs') ||
+          filePath.endsWith('.ts') ||
+          filePath.endsWith('.tsx');
+        if (isScriptReq) {
+          contentType = 'text/javascript; charset=utf-8';
+        } else if (filePath.endsWith('.wasm')) {
+          contentType = 'application/wasm';
+        } else {
+          contentType = 'application/octet-stream';
+        }
+      }
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'X-Content-Type-Options': 'nosniff'
+      });
       fs.createReadStream(filePath).pipe(res);
     } else {
       // SPA fallback: serve index.html for client-side routing

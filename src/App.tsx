@@ -655,11 +655,34 @@ export default function App() {
     const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
       fetchGestaoFrotas(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
-          const ser = JSON.stringify(fresh);
-          if (ser !== lastSyncedState.current.rel_machineries) {
-            lastSyncedState.current.rel_machineries = ser;
-            setMachineries(fresh);
-          }
+          setMachineries(prev => {
+            const merged = fresh.map(f => {
+              const existing = prev.find(p => p.id === f.id || toValidUUID(p.id) === toValidUUID(f.id));
+              if (existing) {
+                const assignedDrivers = (f.assignedDrivers && f.assignedDrivers.length > 0)
+                  ? f.assignedDrivers
+                  : (existing.assignedDrivers || []);
+                const assignedDriverIds = (f.assignedDriverIds && f.assignedDriverIds.length > 0)
+                  ? f.assignedDriverIds
+                  : (existing.assignedDriverIds || []);
+                const operatorOrDriver = f.operatorOrDriver || existing.operatorOrDriver || (assignedDrivers.length > 0 ? assignedDrivers.join(', ') : '');
+                return {
+                  ...existing,
+                  ...f,
+                  assignedDrivers,
+                  assignedDriverIds,
+                  operatorOrDriver,
+                };
+              }
+              return f;
+            });
+            const ser = JSON.stringify(merged);
+            if (ser !== lastSyncedState.current.rel_machineries) {
+              lastSyncedState.current.rel_machineries = ser;
+              saveStoredMachineries(merged);
+            }
+            return merged;
+          });
         }
       });
     });
@@ -1329,6 +1352,7 @@ export default function App() {
       upsertGestaoFrota(m, activeTenantId).catch(err => console.warn('Supabase upsertGestaoFrota notice:', err));
     }
     saveCloudMachineries(newMachineries, activeTenantId).catch(err => console.warn('Supabase saveCloudMachineries notice:', err));
+    saveStoredMachineries(newMachineries);
 
     setMachineries(newMachineries);
   };
