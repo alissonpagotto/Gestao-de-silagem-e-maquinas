@@ -97,7 +97,7 @@ export function generateBarcodeSvgString(rawCode: string, options: BarcodeRender
   const { bars, totalWidth, height, displayCode } = generateBarcodeBars(rawCode, options);
   const barColor = options.barColor || '#000000';
   const showText = options.showText !== false;
-  const fontSize = options.fontSize || 12;
+  const fontSize = options.fontSize || 18;
   const svgHeight = showText ? height + fontSize + 6 : height;
 
   const rectsSvg = bars
@@ -105,7 +105,7 @@ export function generateBarcodeSvgString(rawCode: string, options: BarcodeRender
     .join('');
 
   const textSvg = showText
-    ? `<text x="${totalWidth / 2}" y="${height + fontSize}" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="${fontSize}px" font-weight="bold" fill="${options.textColor || '#000000'}">${displayCode}</text>`
+    ? `<text x="${totalWidth / 2}" y="${height + fontSize}" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="${fontSize}px" font-weight="800" fill="${options.textColor || '#000000'}">${displayCode}</text>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${svgHeight}" width="${totalWidth}" height="${svgHeight}" style="display:block;margin:0 auto;max-width:100%;">${rectsSvg}${textSvg}</svg>`;

@@ -201,7 +201,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     const isSmallPad = labelHeightMm <= 25 || preset.widthMm <= 40;
 
     const barcodeNarrowWidth = isA4FourCols ? 1.0 : metrics.narrowWidth;
-    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 14) : (isCompact ? Math.min(metrics.barcodeHeight, 12) : metrics.barcodeHeight);
+    const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 13) : (isCompact ? Math.min(metrics.barcodeHeight, 11) : metrics.barcodeHeight);
+    const barcodeDigitsFontPt = isA4FourCols ? 7.5 : (isCompact ? 8.5 : Math.max(10.0, metrics.codeFontSizePt * 1.35));
     const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 10.0) : metrics.addressCodeFontSizePt;
     const addressLegendFontPt = isA4FourCols ? 3.5 : metrics.addressLegendFontSizePt;
 
@@ -209,8 +210,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
       height: barcodeHeight,
       narrowWidth: barcodeNarrowWidth,
       wideWidth: barcodeNarrowWidth * 2.2,
-      showText: true,
-      fontSize: Math.max(6, Math.round(metrics.codeFontSizePt * 1.0)),
+      showText: false,
+      fontSize: 18,
       textColor: '#000000',
       barColor: '#000000'
     });
@@ -326,9 +327,10 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           </div>
         </div>
 
-        <!-- Centro: Código de Barras centralizado -->
+        <!-- Centro: Código de Barras centralizado com dígitos em destaque logo abaixo -->
         <div class="label-barcode-container" style="
           display: flex;
+          flex-direction: column;
           justify-content: center;
           align-items: center;
           flex: 1;
@@ -340,6 +342,20 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           background: #ffffff;
         ">
           ${barcodeSvg}
+          <div class="barcode-digits-text" style="
+            font-size: ${barcodeDigitsFontPt}pt;
+            font-weight: 800;
+            font-family: 'Courier New', Courier, monospace;
+            color: #000000;
+            background: #ffffff;
+            text-align: center;
+            letter-spacing: 0.6px;
+            line-height: 1.05;
+            margin-top: 1px;
+            white-space: nowrap;
+          ">
+            ${barcodeValue}
+          </div>
         </div>
 
         <!-- Rodapé: Código do Produto (ID) discreto logo acima do Endereço Formatado em colunas alinhadas -->
@@ -981,28 +997,22 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Centro da Etiqueta: Código de Barras centralizado com numeração */}
+                  {/* Centro da Etiqueta: Código de Barras centralizado com numeração legível e destacada */}
                   <div className="py-1 flex flex-col items-center justify-center bg-white">
                     {livePreviewBars && (
-                      <svg 
-                        viewBox={`0 0 ${livePreviewBars.totalWidth} 44`} 
-                        className="w-full max-h-[36px] block"
-                      >
-                        {livePreviewBars.bars.map((b, idx) => (
-                          <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
-                        ))}
-                        <text 
-                          x={livePreviewBars.totalWidth / 2} 
-                          y={42} 
-                          textAnchor="middle" 
-                          fontFamily="Courier New, monospace" 
-                          fontSize="10px" 
-                          fontWeight="bold" 
-                          fill="#000000"
+                      <>
+                        <svg 
+                          viewBox={`0 0 ${livePreviewBars.totalWidth} 30`} 
+                          className="w-full max-h-[30px] block"
                         >
+                          {livePreviewBars.bars.map((b, idx) => (
+                            <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
+                          ))}
+                        </svg>
+                        <span className="text-sm sm:text-base font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-1">
                           {livePreviewBars.displayCode}
-                        </text>
-                      </svg>
+                        </span>
+                      </>
                     )}
                   </div>
 
