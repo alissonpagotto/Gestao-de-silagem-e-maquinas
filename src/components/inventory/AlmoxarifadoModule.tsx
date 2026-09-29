@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Wrench,
   PackageMinus,
@@ -26,7 +26,10 @@ import {
   Settings,
   Lock,
   Unlock,
-  ListPlus
+  ListPlus,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp
 } from 'lucide-react';
 import {
   InventoryItem,
@@ -269,6 +272,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const [isVeiculoFixado, setIsVeiculoFixado] = useState<boolean>(false);
   const [cestaPecasVeiculo, setCestaPecasVeiculo] = useState<CestaPecaVeiculoItem[]>([]);
   const [pecaProdutoId, setPecaProdutoId] = useState<string>('');
+  const [pecaComboSearch, setPecaComboSearch] = useState<string>('');
+  const [isPecaComboOpen, setIsPecaComboOpen] = useState<boolean>(false);
+  const pecaComboContainerRef = useRef<HTMLDivElement | null>(null);
   const [pecaQuantidade, setPecaQuantidade] = useState<string>('1');
   const [pecaOperadorAlmox, setPecaOperadorAlmox] = useState<string>('');
   const [pecaRetiradoPor, setPecaRetiradoPor] = useState<string>('');
@@ -279,11 +285,29 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const [isSavingRetiradaPeca, setIsSavingRetiradaPeca] = useState<boolean>(false);
   const [saldoRealDbSelecionado, setSaldoRealDbSelecionado] = useState<number | null>(null);
 
-  // Estado de Edição de Retirada de Peça (Botão Lápis)
+  // Estado de Edição de Retirada de Peça Individual ou Lote Completo (Botão Lápis)
   const [editingRetiradaPeca, setEditingRetiradaPeca] = useState<RetiradaPecaRecord | null>(null);
+  const [editingLoteKey, setEditingLoteKey] = useState<string | null>(null);
+
+  // Estado de Pedidos / Lotes Expandidos no Histórico (Accordion / Collapsible)
+  const [expandedLotes, setExpandedLotes] = useState<Record<string, boolean>>({});
 
   // Estado de Impressão de Cupom de Retirada / Cautela em Lote
   const [cupomLotePrint, setCupomLotePrint] = useState<CupomLotePrintData | null>(null);
+
+  // Fecha o dropdown pesquisável de peças ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (ev: MouseEvent) => {
+      if (
+        pecaComboContainerRef.current &&
+        !pecaComboContainerRef.current.contains(ev.target as Node)
+      ) {
+        setIsPecaComboOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Lê estritamente o ID do produto selecionado na tabela 'public.estoque_produtos' sem filtros inválidos
   useEffect(() => {
@@ -310,6 +334,54 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       ) || null
     );
   }, [allProducts, pecaProdutoId]);
+
+  // Filtro reativo do Combobox de Peças por Nome, Código Interno, Referência ou Código de Barras
+  const filteredEstoqueComboItems = useMemo(() => {
+    const q = String(pecaComboSearch || '').toLowerCase().trim();
+    if (!q) return allProducts;
+    return allProducts.filter(item => {
+      const anyItem = item as any;
+      const nome = String(
+        item.nome_comercial || item.name || anyItem.nome || anyItem.descricao || ''
+      ).toLowerCase();
+      const codigoInterno = String(
+        item.code ?? item.codigo_produto ?? anyItem.codigo_interno ?? anyItem.codigo ?? ''
+      ).toLowerCase();
+      const codigoFabrica = String(
+        anyItem.codigo_fabrica ??
+          anyItem.ref_fabrica ??
+          anyItem.factoryRef ??
+          anyItem.referencia_fabrica ??
+          ''
+      ).toLowerCase();
+      const codigoBarras = String(
+        anyItem.codigo_barras ?? anyItem.barcode ?? anyItem.gtin ?? ''
+      ).toLowerCase();
+
+      return (
+        nome.includes(q) ||
+        codigoInterno.includes(q) ||
+        codigoFabrica.includes(q) ||
+        codigoBarras.includes(q)
+      );
+    });
+  }, [allProducts, pecaComboSearch]);
+
+  const handleSelectProductFromCombobox = (item: InventoryItem) => {
+    const anyItem = item as any;
+    const codigo = item.code ?? item.codigo_produto ?? anyItem.codigo_interno ?? '';
+    const prefix = codigo !== '' ? `[${codigo}] ` : '';
+    const nome = item.nome_comercial || item.name || 'Peça';
+    setPecaProdutoId(item.id);
+    setPecaComboSearch(`${prefix}${nome}`);
+    setIsPecaComboOpen(false);
+  };
+
+  const handleClearProductCombobox = () => {
+    setPecaProdutoId('');
+    setPecaComboSearch('');
+    setIsPecaComboOpen(true);
+  };
 
   const selectedVehicleForWithdrawal = useMemo(() => {
     if (!pecaVeiculoId) return undefined;
@@ -346,7 +418,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       return;
     }
     if (!pecaProdutoId || !selectedProductForWithdrawal) {
-      showFeedback('error', 'Selecione uma peça ou item do estoque para adicionar à lista.');
+      showFeedback('error', 'Pesquise e selecione uma peça do estoque para adicionar à lista.');
       return;
     }
     if (qtdRetiradaNumerica <= 0) {
@@ -390,6 +462,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
     setIsVeiculoFixado(true);
     setPecaProdutoId('');
+    setPecaComboSearch('');
+    setIsPecaComboOpen(false);
     setPecaQuantidade('1');
   };
 
@@ -411,10 +485,14 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const handleLimparCestaPedido = () => {
     setCestaPecasVeiculo([]);
     setPecaProdutoId('');
+    setPecaComboSearch('');
+    setIsPecaComboOpen(false);
     setPecaQuantidade('1');
+    setEditingLoteKey(null);
   };
 
   const handleIniciarEdicaoRetirada = (item: RetiradaPecaRecord) => {
+    setEditingLoteKey(null);
     setEditingRetiradaPeca(item);
     const matchedVeh = frotasList.find(
       m =>
@@ -433,6 +511,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     setPecaVeiculoId(matchedVeh?.id || item.veiculo_id || '');
     setIsVeiculoFixado(true);
     setPecaProdutoId(matchedProd?.id || item.produto_id || '');
+    const codigo = matchedProd?.code ?? matchedProd?.codigo_produto ?? item.produto_codigo ?? '';
+    const prefix = codigo !== '' ? `[${codigo}] ` : '';
+    setPecaComboSearch(`${prefix}${matchedProd?.nome_comercial || matchedProd?.name || item.produto_nome || ''}`);
     setPecaQuantidade(String(item.quantidade || 1));
     setPecaOperadorAlmox(item.operador_almoxarifado || '');
     setPecaRetiradoPor(item.retirado_por || '');
@@ -443,17 +524,88 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     );
   };
 
+  const handleIniciarEdicaoLote = (loteKey: string, items: RetiradaPecaRecord[]) => {
+    if (!items || items.length === 0) return;
+    const first = items[0];
+    setEditingRetiradaPeca(null);
+    setEditingLoteKey(loteKey);
+
+    const matchedVeh = frotasList.find(
+      m =>
+        m.id === first.veiculo_id ||
+        (first.veiculo_id && toValidUUID(m.id) === toValidUUID(first.veiculo_id)) ||
+        (first.veiculo_nome &&
+          String(m.name || '').toLowerCase() === String(first.veiculo_nome || '').toLowerCase())
+    );
+
+    setPecaVeiculoId(matchedVeh?.id || first.veiculo_id || '');
+    setIsVeiculoFixado(true);
+    setPecaOperadorAlmox(first.operador_almoxarifado || '');
+    setPecaRetiradoPor(first.retirado_por || '');
+    setPecaDataRetirada(
+      first.data_retirada
+        ? String(first.data_retirada).split('T')[0]
+        : new Date().toISOString().split('T')[0]
+    );
+    setPecaProdutoId('');
+    setPecaComboSearch('');
+    setPecaQuantidade('1');
+
+    const mappedBasket: CestaPecaVeiculoItem[] = items.map(rec => {
+      const matchedProd = allProducts.find(
+        p =>
+          p.id === rec.produto_id ||
+          (rec.produto_id && toValidUUID(p.id) === toValidUUID(rec.produto_id)) ||
+          (rec.produto_nome &&
+            String(p.nome_comercial || p.name || '').toLowerCase() ===
+              String(rec.produto_nome || '').toLowerCase())
+      );
+      const saldo = Number(matchedProd?.quantidade_atual ?? matchedProd?.quantity ?? 0);
+      return {
+        produto_id: matchedProd?.id || rec.produto_id || rec.id,
+        produto_nome:
+          matchedProd?.nome_comercial || matchedProd?.name || rec.produto_nome || 'Peça do Estoque',
+        produto_codigo: String(
+          matchedProd?.code ?? matchedProd?.codigo_produto ?? rec.produto_codigo ?? ''
+        ),
+        produto_unidade: String(
+          matchedProd?.unidade_medida || matchedProd?.unit || rec.produto_unidade || 'UN'
+        ),
+        quantidade: Number(rec.quantidade) || 1,
+        saldo_estoque: saldo,
+        produto: matchedProd,
+      };
+    });
+
+    setCestaPecasVeiculo(mappedBasket);
+    showFeedback(
+      'success',
+      `Pedido ${loteKey} carregado na cesta à esquerda (${mappedBasket.length} peça(s)). Ajuste os itens e clique em Salvar!`
+    );
+  };
+
   const handleCancelarEdicaoRetirada = () => {
     setEditingRetiradaPeca(null);
+    setEditingLoteKey(null);
+    setCestaPecasVeiculo([]);
     setPecaProdutoId('');
+    setPecaComboSearch('');
+    setIsPecaComboOpen(false);
     setPecaQuantidade('1');
     setPecaDataRetirada(new Date().toISOString().split('T')[0]);
   };
 
-  const handleAbrirCupomLote = (item: RetiradaPecaRecord, autoPrint = false) => {
-    const batchItems = item.lote_id
-      ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
-      : [item];
+  const handleAbrirCupomLote = (
+    item: RetiradaPecaRecord,
+    autoPrint = false,
+    explicitItems?: RetiradaPecaRecord[]
+  ) => {
+    const batchItems =
+      explicitItems && explicitItems.length > 0
+        ? explicitItems
+        : item.lote_id
+          ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
+          : [item];
     const listToPrint = batchItems.length > 0 ? batchItems : [item];
     const first = listToPrint[0] || item;
     setCupomLotePrint({
@@ -473,10 +625,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     }
   };
 
-  const handleLancarLoteNaManutencaoOS = (item: RetiradaPecaRecord) => {
-    const batchItems = item.lote_id
-      ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
-      : [item];
+  const handleLancarLoteNaManutencaoOS = (
+    item: RetiradaPecaRecord,
+    explicitItems?: RetiradaPecaRecord[]
+  ) => {
+    const batchItems =
+      explicitItems && explicitItems.length > 0
+        ? explicitItems
+        : item.lote_id
+          ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
+          : [item];
     const itemsToLaunch = batchItems.length > 0 ? batchItems : [item];
 
     const matchedVeh = frotasList.find(
@@ -517,6 +675,39 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         `Lote ${loteKey} (${itemsToLaunch.length} peça(s)) marcado como pronto para Ordem de Serviço!`
       );
     }
+  };
+
+  const handleToggleExpandLote = (loteKey: string) => {
+    setExpandedLotes(prev => ({
+      ...prev,
+      [loteKey]: !prev[loteKey],
+    }));
+  };
+
+  const handleExcluirLoteCompleto = async (
+    loteKey: string,
+    pedidoLabel: string,
+    items: RetiradaPecaRecord[]
+  ) => {
+    if (!items || items.length === 0) return;
+    const ok = await confirm({
+      title: 'Excluir Pedido / Lote Completo',
+      message: `Deseja excluir o Pedido ${pedidoLabel} (${loteKey}) contendo ${items.length} peça(s) vinculada(s) ao veículo "${items[0]?.veiculo_nome || 'Veículo'}"?`,
+      confirmLabel: 'Sim, Excluir Pedido',
+      cancelLabel: 'Cancelar',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    for (const item of items) {
+      await deleteRetiradaPeca(item.id, false, item.produto_id, item.quantidade);
+    }
+    if (editingLoteKey === loteKey) {
+      handleCancelarEdicaoRetirada();
+    }
+    const idsToRemove = new Set(items.map(i => i.id));
+    setRetiradasPecas(prev => prev.filter(r => !idsToRemove.has(r.id)));
+    showFeedback('success', `Pedido ${pedidoLabel} (${items.length} peça(s)) excluído do histórico.`);
   };
 
   const handleSalvarRetiradaPeca = async (e: React.FormEvent) => {
@@ -568,6 +759,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         showFeedback('success', 'Lançamento de retirada atualizado com sucesso!');
         setEditingRetiradaPeca(null);
         setPecaProdutoId('');
+        setPecaComboSearch('');
         setPecaQuantidade('1');
         return;
       }
@@ -594,12 +786,28 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         return;
       }
 
+      // Se estava editando um Pedido/Lote existente, remove os itens antigos antes de regravar o lote atualizado
+      let oldLoteIdsToRemove = new Set<string>();
+      if (editingLoteKey) {
+        const oldItems = retiradasPecas.filter(r => {
+          const rKey =
+            r.lote_id ||
+            `${String(r.data_retirada || '').split('T')[0]}__${r.veiculo_id || r.veiculo_nome || ''}__${r.retirado_por || ''}`;
+          return rKey === editingLoteKey || r.lote_id === editingLoteKey || r.id === editingLoteKey;
+        });
+        for (const oldItem of oldItems) {
+          oldLoteIdsToRemove.add(oldItem.id);
+          await deleteRetiradaPeca(oldItem.id, false, oldItem.produto_id, oldItem.quantidade);
+        }
+      }
+
       const resLote = await registrarPedidoRetiradaPecasLote({
         veiculo_id: pecaVeiculoId,
         veiculo: selectedVehicleForWithdrawal,
         operador_almoxarifado: pecaOperadorAlmox.trim(),
         retirado_por: pecaRetiradoPor.trim(),
         data_retirada: pecaDataRetirada,
+        lote_id: editingLoteKey && editingLoteKey.startsWith('LOTE-') ? editingLoteKey : undefined,
         items: itensParaSalvar.map(item => ({
           produto_id: item.produto_id,
           quantidade: item.quantidade,
@@ -614,17 +822,25 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
       const savedRecords = resLote.records;
       const savedIds = new Set(savedRecords.map(r => r.id));
-      setRetiradasPecas(prev => [...savedRecords, ...prev.filter(r => !savedIds.has(r.id))]);
+      setRetiradasPecas(prev => [
+        ...savedRecords,
+        ...prev.filter(r => !savedIds.has(r.id) && !oldLoteIdsToRemove.has(r.id)),
+      ]);
 
       showFeedback(
         'success',
-        `Pedido ${resLote.loteId} confirmado (${savedRecords.length} peça(s)) com status "Aguardando Manutenção"! Abrindo cupom para impressão...`
+        editingLoteKey
+          ? `Pedido ${resLote.loteId} atualizado com sucesso (${savedRecords.length} peça(s))!`
+          : `Pedido ${resLote.loteId} confirmado (${savedRecords.length} peça(s)) com status "Aguardando Manutenção"! Abrindo cupom para impressão...`
       );
 
       // Limpa a cesta de peças e abre automaticamente o Cupom de Retirada / Cautela para impressão
+      setEditingLoteKey(null);
       setCestaPecasVeiculo([]);
       setPecaProdutoId('');
+      setPecaComboSearch('');
       setPecaQuantidade('1');
+      setExpandedLotes(prev => ({ ...prev, [resLote.loteId]: true }));
       setCupomLotePrint({
         loteId: resLote.loteId,
         veiculoNome: selectedVehicleForWithdrawal?.name || savedRecords[0]?.veiculo_nome || 'Veículo da Frota',
@@ -645,8 +861,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
   const handleExcluirRetiradaPeca = async (item: RetiradaPecaRecord) => {
     const ok = await confirm({
-      title: 'Excluir Registro de Retirada',
-      message: `Deseja excluir o registro da peça "${item.produto_nome || 'Peça'}" (${item.quantidade} ${item.produto_unidade || 'UN'}) do lote ${item.lote_id || ''}?`,
+      title: 'Excluir Peça do Pedido',
+      message: `Deseja excluir a peça "${item.produto_nome || 'Peça'}" (${item.quantidade} ${item.produto_unidade || 'UN'}) deste pedido?`,
       confirmLabel: 'Sim, Excluir',
       cancelLabel: 'Cancelar',
       variant: 'danger',
@@ -658,7 +874,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       handleCancelarEdicaoRetirada();
     }
     setRetiradasPecas(prev => prev.filter(r => r.id !== item.id));
-    showFeedback('success', 'Item removido do histórico de retiradas.');
+    showFeedback('success', 'Peça removida do pedido.');
   };
 
   const filteredRetiradasPecas = useMemo(() => {
@@ -677,6 +893,122 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       );
     });
   }, [retiradasPecas, pecaSearchFilter]);
+
+  // Agrupamento inteligente por Pedido / Lote (numero_pedido / lote_id) para a tabela expansível
+  const groupedPedidosLotes = useMemo(() => {
+    const groupsMap = new Map<
+      string,
+      {
+        loteKey: string;
+        loteCodigo: string;
+        dataRetirada: string;
+        createdAt: string;
+        veiculoId: string;
+        veiculoNome: string;
+        veiculoModelo: string;
+        veiculoPlaca: string;
+        veiculoDisplayCompleto: string;
+        operadorAlmoxarifado: string;
+        retiradoPor: string;
+        status: string;
+        items: RetiradaPecaRecord[];
+        totalItens: number;
+        totalQuantidade: number;
+      }
+    >();
+
+    for (const r of retiradasPecas) {
+      const anyR = r as any;
+      const rawNumeroPedido = String(anyR.numero_pedido || r.lote_id || '').trim();
+      const datePart = String(r.data_retirada || '').split('T')[0];
+      const groupKey =
+        rawNumeroPedido ||
+        `${datePart}__${r.veiculo_id || r.veiculo_nome || 'veh'}__${(r.retirado_por || '').trim().toLowerCase()}`;
+
+      if (!groupsMap.has(groupKey)) {
+        const matchedVeh = frotasList.find(
+          m =>
+            m.id === r.veiculo_id ||
+            (r.veiculo_id && toValidUUID(m.id) === toValidUUID(r.veiculo_id)) ||
+            (r.veiculo_nome &&
+              String(m.name || '').toLowerCase() === String(r.veiculo_nome || '').toLowerCase())
+        );
+
+        const vNome = matchedVeh?.name || r.veiculo_nome || 'Veículo da Frota';
+        const vModelo = String(matchedVeh?.model || '').trim();
+        const vPlaca = String(matchedVeh?.plateOrSerial || r.veiculo_placa || '').trim();
+
+        const nomeComModelo =
+          vModelo && !vNome.toLowerCase().includes(vModelo.toLowerCase())
+            ? `${vNome} (${vModelo})`
+            : vNome;
+        const displayCompleto = vPlaca ? `${nomeComModelo} - ${vPlaca}` : nomeComModelo;
+
+        groupsMap.set(groupKey, {
+          loteKey: groupKey,
+          loteCodigo: rawNumeroPedido || `LOTE-${r.id.slice(0, 6).toUpperCase()}`,
+          dataRetirada: r.data_retirada || new Date().toISOString().split('T')[0],
+          createdAt: r.created_at || r.data_retirada || '',
+          veiculoId: matchedVeh?.id || r.veiculo_id || '',
+          veiculoNome: nomeComModelo,
+          veiculoModelo: vModelo,
+          veiculoPlaca: vPlaca,
+          veiculoDisplayCompleto: displayCompleto,
+          operadorAlmoxarifado: r.operador_almoxarifado || '—',
+          retiradoPor: r.retirado_por || '—',
+          status: r.status || 'Aguardando Manutenção',
+          items: [],
+          totalItens: 0,
+          totalQuantidade: 0,
+        });
+      }
+
+      const grp = groupsMap.get(groupKey)!;
+      grp.items.push(r);
+      grp.totalItens = grp.items.length;
+      grp.totalQuantidade = Number(
+        (grp.totalQuantidade + (Number(r.quantidade) || 0)).toFixed(2)
+      );
+      if (r.status && r.status !== 'Aguardando Manutenção') {
+        grp.status = r.status;
+      }
+    }
+
+    const allGroups = Array.from(groupsMap.values());
+    // Numeração sequencial de pedidos (#1001, #1002...) do mais antigo para o mais recente
+    const chronological = [...allGroups].sort((a, b) =>
+      String(a.createdAt || a.dataRetirada).localeCompare(String(b.createdAt || b.dataRetirada))
+    );
+    const pedidoNumMap = new Map<string, string>();
+    chronological.forEach((g, idx) => {
+      pedidoNumMap.set(g.loteKey, `#${1001 + idx}`);
+    });
+
+    const enriched = allGroups.map(g => ({
+      ...g,
+      numeroPedido: pedidoNumMap.get(g.loteKey) || '#1001',
+    }));
+
+    const q = String(pecaSearchFilter || '').toLowerCase().trim();
+    if (!q) return enriched;
+
+    return enriched.filter(g => {
+      const headerMatch =
+        g.numeroPedido.toLowerCase().includes(q) ||
+        g.loteCodigo.toLowerCase().includes(q) ||
+        g.veiculoDisplayCompleto.toLowerCase().includes(q) ||
+        g.veiculoPlaca.toLowerCase().includes(q) ||
+        g.operadorAlmoxarifado.toLowerCase().includes(q) ||
+        g.retiradoPor.toLowerCase().includes(q) ||
+        g.status.toLowerCase().includes(q);
+      if (headerMatch) return true;
+      return g.items.some(
+        it =>
+          String(it.produto_nome || '').toLowerCase().includes(q) ||
+          String(it.produto_codigo ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [retiradasPecas, frotasList, pecaSearchFilter]);
 
   // =========================================================================
   // ESTADOS DA ABA 2: MOVIMENTAÇÃO E CAUTELA DE FERRAMENTAS
@@ -1302,7 +1634,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           {/* Formulário Esquerdo: Pedido / Lista de Peças por Veículo */}
           <div
             className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-xl p-3 shadow-xs flex flex-col min-h-0 overflow-hidden transition ${
-              editingRetiradaPeca
+              editingRetiradaPeca || editingLoteKey
                 ? 'border-amber-500 dark:border-amber-500 ring-2 ring-amber-500/20'
                 : 'border-zinc-200 dark:border-stone-800'
             }`}
@@ -1312,12 +1644,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               <div className="flex items-center gap-2 min-w-0">
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    editingRetiradaPeca
+                    editingRetiradaPeca || editingLoteKey
                       ? 'bg-amber-500 text-stone-950'
                       : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                   }`}
                 >
-                  {editingRetiradaPeca ? (
+                  {editingRetiradaPeca || editingLoteKey ? (
                     <Pencil className="w-3.5 h-3.5 stroke-[2.4]" />
                   ) : (
                     <ListPlus className="w-4 h-4" />
@@ -1327,11 +1659,15 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <h2 className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white leading-tight truncate">
                     {editingRetiradaPeca
                       ? 'Editar Lançamento de Peça'
-                      : 'Pedido / Lista de Peças por Veículo'}
+                      : editingLoteKey
+                        ? `Editando Pedido (${editingLoteKey})`
+                        : 'Pedido / Lista de Peças por Veículo'}
                   </h2>
                   <p className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
                     {editingRetiradaPeca ? (
                       <span>Atualiza o registro selecionado em <code className="font-mono">retiradas_pecas</code></span>
+                    ) : editingLoteKey ? (
+                      <span>Altere as peças na cesta ou inclua novos itens no lote</span>
                     ) : (
                       <span>Monte a cesta do veículo • Baixa híbrida na Ordem de Serviço (OS)</span>
                     )}
@@ -1339,7 +1675,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 </div>
               </div>
 
-              {editingRetiradaPeca && (
+              {(editingRetiradaPeca || editingLoteKey) && (
                 <button
                   type="button"
                   onClick={handleCancelarEdicaoRetirada}
@@ -1403,7 +1739,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   </select>
                 </div>
 
-                {/* 2. SELETOR DE PEÇAS PARA ADICIONAR SEQUENCIALMENTE À CESTA DO VEÍCULO */}
+                {/* 2. COMBOBOX PESQUISÁVEL DE PEÇAS (BUSCA INTELIGENTE POR NOME, CÓDIGO INTERNO OU CÓD. BARRAS) */}
                 <div className="p-2 rounded-lg border border-zinc-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
@@ -1420,27 +1756,115 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   </div>
 
                   <div className="grid grid-cols-12 gap-1.5 items-center">
-                    <div className={editingRetiradaPeca ? 'col-span-8' : 'col-span-7'}>
-                      <select
-                        value={pecaProdutoId}
-                        onChange={e => setPecaProdutoId(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      >
-                        <option value="">Escolha a peça no estoque...</option>
-                        {allProducts.map(item => {
-                          const qtd = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                          const un = item.unidade_medida || item.unit || 'UN';
-                          const codigo =
-                            item.code || item.codigo_produto
-                              ? `[${item.code || item.codigo_produto}] `
-                              : '';
-                          return (
-                            <option key={item.id} value={item.id}>
-                              {codigo}{item.nome_comercial || item.name} (Saldo: {qtd} {un})
-                            </option>
-                          );
-                        })}
-                      </select>
+                    <div
+                      ref={pecaComboContainerRef}
+                      className={`relative ${editingRetiradaPeca ? 'col-span-8' : 'col-span-7'}`}
+                    >
+                      <div className="relative flex items-center">
+                        <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={pecaComboSearch}
+                          onFocus={() => setIsPecaComboOpen(true)}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setPecaComboSearch(val);
+                            setIsPecaComboOpen(true);
+                            if (!val.trim()) {
+                              setPecaProdutoId('');
+                            }
+                          }}
+                          placeholder="Digite nome, cód. interno ou cód. barras..."
+                          className={`w-full pl-8 pr-12 py-1.5 rounded-lg border text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 transition ${
+                            pecaProdutoId
+                              ? 'border-amber-400 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/30 text-zinc-900 dark:text-white'
+                              : 'border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-zinc-900 dark:text-white'
+                          }`}
+                        />
+                        <div className="absolute right-1.5 flex items-center gap-0.5">
+                          {(pecaComboSearch || pecaProdutoId) && (
+                            <button
+                              type="button"
+                              onClick={handleClearProductCombobox}
+                              title="Limpar seleção"
+                              className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-stone-700 text-zinc-400 hover:text-zinc-700 dark:hover:text-white cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setIsPecaComboOpen(prev => !prev)}
+                            title="Abrir lista de peças do estoque"
+                            className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-stone-700 text-zinc-500 dark:text-stone-400 cursor-pointer"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Lista flutuante filtrada reativamente de public.estoque_produtos */}
+                      {isPecaComboOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-56 overflow-y-auto rounded-xl border border-zinc-200 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-xl divide-y divide-zinc-100 dark:divide-stone-800">
+                          {filteredEstoqueComboItems.length === 0 ? (
+                            <div className="px-3 py-3 text-center text-[11px] text-zinc-500 dark:text-stone-400">
+                              Nenhuma peça encontrada para &ldquo;{pecaComboSearch}&rdquo; em{' '}
+                              <code className="font-mono">estoque_produtos</code>.
+                            </div>
+                          ) : (
+                            filteredEstoqueComboItems.map(item => {
+                              const anyItem = item as any;
+                              const qtd = Number(item.quantidade_atual ?? item.quantity ?? 0);
+                              const un = item.unidade_medida || item.unit || 'UN';
+                              const codigo = String(
+                                item.code ?? item.codigo_produto ?? anyItem.codigo_interno ?? ''
+                              );
+                              const codBarras = String(
+                                anyItem.codigo_barras ?? anyItem.barcode ?? anyItem.ref_fabrica ?? ''
+                              );
+                              const isSelected = item.id === pecaProdutoId;
+
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleSelectProductFromCombobox(item)}
+                                  className={`w-full text-left px-2.5 py-2 flex items-center justify-between gap-2 transition cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-950 dark:text-amber-200'
+                                      : 'hover:bg-zinc-50 dark:hover:bg-stone-800/70 text-zinc-900 dark:text-white'
+                                  }`}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-extrabold truncate leading-tight">
+                                      {item.nome_comercial || item.name}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-zinc-500 dark:text-stone-400 font-mono">
+                                      {codigo && (
+                                        <span className="px-1 py-0.2 rounded bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 font-bold">
+                                          Cód: {codigo}
+                                        </span>
+                                      )}
+                                      {codBarras && <span>Ref/Barras: {codBarras}</span>}
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <span
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black ${
+                                        qtd > 0
+                                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                          : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                                      }`}
+                                    >
+                                      Saldo: {qtd} {un}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className={editingRetiradaPeca ? 'col-span-4' : 'col-span-2'}>
@@ -1617,7 +2041,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
               {/* 5. BOTÃO PRINCIPAL PRETO: CONFIRMAR PEDIDO E IMPRIMIR CUPOM */}
               <div className="flex items-center gap-2 pt-1.5 shrink-0">
-                {editingRetiradaPeca && (
+                {(editingRetiradaPeca || editingLoteKey) && (
                   <button
                     type="button"
                     onClick={handleCancelarEdicaoRetirada}
@@ -1630,12 +2054,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   type="submit"
                   disabled={isSavingRetiradaPeca}
                   className={`flex-1 py-2 px-3.5 rounded-lg font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 ${
-                    editingRetiradaPeca
+                    editingRetiradaPeca || editingLoteKey
                       ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
                       : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-800 dark:border dark:border-stone-700 text-white'
                   }`}
                 >
-                  {editingRetiradaPeca ? (
+                  {editingRetiradaPeca || editingLoteKey ? (
                     <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   ) : (
                     <Printer className="w-3.5 h-3.5 stroke-[2.3]" />
@@ -1645,38 +2069,46 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       ? 'Confirmando Pedido e Gerando Cupom...'
                       : editingRetiradaPeca
                         ? 'Salvar Alterações do Lançamento'
-                        : 'Confirmar Pedido e Imprimir Cupom'}
+                        : editingLoteKey
+                          ? 'Salvar Alterações do Pedido e Imprimir'
+                          : 'Confirmar Pedido e Imprimir Cupom'}
                   </span>
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Lista / Histórico de Retiradas de Peças (Lotes para Manutenção) */}
+          {/* Lista / Histórico Agrupado por Pedido / Lote Expansível (Accordion / Collapsible) */}
           <div className="lg:col-span-7 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
             <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 mb-2 border-b border-zinc-200 dark:border-stone-800">
               <div>
-                <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
-                  Histórico de Saídas e Lotes de Peças para Manutenção
-                </h2>
-                <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
-                  Clique na <strong>engrenagem</strong> em Ação para puxar o lote completo para uma nova Ordem de Serviço (OS)
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
+                    Histórico de Saídas e Lotes de Peças para Manutenção
+                  </h2>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                    {groupedPedidosLotes.length}{' '}
+                    {groupedPedidosLotes.length === 1 ? 'Pedido' : 'Pedidos'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
+                  Clique em qualquer linha de <strong>Pedido</strong> para expandir as peças do lote ou gerencie pelas ações à direita
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-60">
+              <div className="relative w-full sm:w-64">
                 <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={pecaSearchFilter}
                   onChange={e => setPecaSearchFilter(e.target.value)}
-                  placeholder="Buscar lote, veículo, peça..."
+                  placeholder="Buscar #pedido, placa, veículo, peça..."
                   className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
             </div>
 
-            {filteredRetiradasPecas.length === 0 ? (
+            {groupedPedidosLotes.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
                 <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-2">
                   <PackageMinus className="w-5 h-5" />
@@ -1693,127 +2125,253 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 bg-white dark:bg-stone-900 z-10">
                     <tr className="border-b border-zinc-200 dark:border-stone-800 text-[10px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                      <th className="py-2 px-2">Data / Lote</th>
-                      <th className="py-2 px-2">Veículo / Máquina</th>
-                      <th className="py-2 px-2">Peça / Status</th>
-                      <th className="py-2 px-2 text-center">Qtd.</th>
-                      <th className="py-2 px-2">Almoxarife / Mecânico</th>
-                      <th className="py-2 px-2 text-right">Ação</th>
+                      <th className="py-2 px-2">Data / Pedido</th>
+                      <th className="py-2 px-2">Veículo Destino (Modelo / Placa)</th>
+                      <th className="py-2 px-2">Status / Lote</th>
+                      <th className="py-2 px-2">Quem Retirou / Almox.</th>
+                      <th className="py-2 px-2 text-right">Ações do Pedido</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">
-                    {filteredRetiradasPecas.map(item => {
-                      const loteCount = item.lote_id
-                        ? retiradasPecas.filter(r => r.lote_id === item.lote_id).length
-                        : 1;
-                      const statusLabel = item.status || 'Aguardando Manutenção';
-                      const isAguardando = statusLabel.toLowerCase().includes('aguardando');
+                    {groupedPedidosLotes.map(grupo => {
+                      const isExpanded = Boolean(expandedLotes[grupo.loteKey]);
+                      const isAguardando = grupo.status.toLowerCase().includes('aguardando');
+                      const firstRecord = grupo.items[0];
+                      const isEditingThisBatch =
+                        editingLoteKey === grupo.loteKey ||
+                        (editingRetiradaPeca &&
+                          grupo.items.some(it => it.id === editingRetiradaPeca.id));
 
                       return (
-                        <tr
-                          key={item.id}
-                          className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/40 transition"
-                        >
-                          <td className="py-2 px-2 whitespace-nowrap">
-                            <div className="font-bold text-zinc-700 dark:text-stone-300 leading-tight">
-                              {formatDateOnlyPtBr(item.data_retirada)}
-                            </div>
-                            {item.lote_id && (
-                              <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
-                                {item.lote_id} ({loteCount})
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 px-2">
-                            <div className="font-extrabold text-zinc-900 dark:text-white leading-tight">
-                              {item.veiculo_nome || 'Veículo da Frota'}
-                            </div>
-                            {item.veiculo_placa && (
-                              <span className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
-                                {item.veiculo_placa}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 px-2">
-                            <div className="font-bold text-zinc-900 dark:text-white leading-tight">
-                              {item.produto_nome || 'Item do Estoque'}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                              {item.produto_codigo && (
-                                <span className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
-                                  Cód: {item.produto_codigo}
+                        <React.Fragment key={grupo.loteKey}>
+                          {/* LINHA PRINCIPAL DO PEDIDO FECHADO (CLICÁVEL PARA EXPANDIR) */}
+                          <tr
+                            onClick={() => handleToggleExpandLote(grupo.loteKey)}
+                            className={`cursor-pointer transition select-none ${
+                              isEditingThisBatch
+                                ? 'bg-amber-50/90 dark:bg-amber-950/40'
+                                : isExpanded
+                                  ? 'bg-zinc-50 dark:bg-stone-800/60'
+                                  : 'hover:bg-zinc-50/80 dark:hover:bg-stone-800/40'
+                            }`}
+                          >
+                            {/* 1. Data e Número do Pedido (#1024 + código do lote) */}
+                            <td className="py-2.5 px-2 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center transition shrink-0 ${
+                                    isExpanded
+                                      ? 'bg-amber-500 text-stone-950'
+                                      : 'bg-zinc-100 dark:bg-stone-800 text-zinc-600 dark:text-stone-300'
+                                  }`}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  ) : (
+                                    <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  )}
                                 </span>
-                              )}
-                              <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold leading-none ${
-                                  isAguardando
-                                    ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
-                                    : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                                }`}
-                              >
-                                {statusLabel}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-2 px-2 text-center whitespace-nowrap">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md font-black text-[11px] bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                              {item.quantidade} {item.produto_unidade || 'UN'}
-                            </span>
-                          </td>
-                          <td className="py-2 px-2">
-                            <div className="text-zinc-800 dark:text-stone-200 font-bold leading-tight">
-                              Retirou: <span className="font-semibold">{item.retirado_por}</span>
-                            </div>
-                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight">
-                              Almox.: {item.operador_almoxarifado}
-                            </div>
-                          </td>
-                          <td className="py-2 px-2 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1">
-                              {/* Botão de Engrenagem: Puxa o lote completo e lança direto em uma Nova OS */}
-                              <button
-                                type="button"
-                                onClick={() => handleLancarLoteNaManutencaoOS(item)}
-                                title={`Puxar lote completo (${loteCount} peça(s)) e abrir Nova Ordem de Serviço (OS)`}
-                                className="p-1.5 rounded-lg text-amber-600 hover:text-amber-950 bg-amber-50 hover:bg-amber-400 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-500 dark:hover:text-stone-950 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
-                              >
-                                <Settings className="w-3.5 h-3.5" />
-                              </button>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-black text-zinc-900 dark:text-white text-xs">
+                                      Pedido {grupo.numeroPedido}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400">
+                                      • {formatDateOnlyPtBr(grupo.dataRetirada)}
+                                    </span>
+                                  </div>
+                                  <div className="text-[9px] font-mono font-bold text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
+                                    {grupo.loteCodigo}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
 
-                              {/* Botão de Impressão do Cupom em Lote */}
-                              <button
-                                type="button"
-                                onClick={() => handleAbrirCupomLote(item, false)}
-                                title={`Imprimir Cupom de Retirada / Cautela do lote (${loteCount} peça(s))`}
-                                className="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition cursor-pointer"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </button>
+                            {/* 2. Veículo Destino com modelo e PLACA de forma clara */}
+                            <td className="py-2.5 px-2">
+                              <div className="font-black text-zinc-900 dark:text-white leading-tight flex flex-wrap items-center gap-1.5">
+                                <span>{grupo.veiculoNome}</span>
+                                {grupo.veiculoPlaca && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-900 text-white dark:bg-stone-700 dark:text-amber-300 font-mono text-[10px] font-black tracking-wider">
+                                    {grupo.veiculoPlaca}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-zinc-500 dark:text-stone-400 truncate max-w-[230px] mt-0.5">
+                                {grupo.items
+                                  .slice(0, 2)
+                                  .map(i => i.produto_nome)
+                                  .join(', ')}
+                                {grupo.items.length > 2 ? ` +${grupo.items.length - 2}` : ''}
+                              </div>
+                            </td>
 
-                              <button
-                                type="button"
-                                onClick={() => handleIniciarEdicaoRetirada(item)}
-                                title="Editar lançamento"
-                                className={`p-1.5 rounded-lg transition cursor-pointer ${
-                                  editingRetiradaPeca?.id === item.id
-                                    ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60'
-                                    : 'text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-amber-950/40'
-                                }`}
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
+                            {/* 3. Status Geral e Contagem de Peças do Lote */}
+                            <td className="py-2.5 px-2 whitespace-nowrap">
+                              <div className="flex flex-col items-start gap-1">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold leading-none ${
+                                    isAguardando
+                                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  }`}
+                                >
+                                  {grupo.status}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-zinc-600 dark:text-stone-300">
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 font-black">
+                                    {grupo.totalItens} {grupo.totalItens === 1 ? 'peça' : 'peças'}
+                                  </span>
+                                  <span className="text-zinc-400">•</span>
+                                  <span>{grupo.totalQuantidade} un. total</span>
+                                </span>
+                              </div>
+                            </td>
 
-                              <button
-                                type="button"
-                                onClick={() => handleExcluirRetiradaPeca(item)}
-                                title="Excluir item do histórico"
-                                className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            {/* 4. Identificação de "Quem retirou" e Operador na linha principal */}
+                            <td className="py-2.5 px-2">
+                              <div className="text-zinc-900 dark:text-white font-extrabold leading-tight">
+                                Retirou:{' '}
+                                <span className="font-bold text-amber-700 dark:text-amber-400">
+                                  {grupo.retiradoPor}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
+                                Almox.: {grupo.operadorAlmoxarifado}
+                              </div>
+                            </td>
+
+                            {/* 5. Botões de AÇÃO na linha principal do Pedido */}
+                            <td
+                              className="py-2.5 px-2 text-right whitespace-nowrap"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <div className="inline-flex items-center justify-end gap-1">
+                                {/* Engrenagem: Puxar Lote Completo para Nova Ordem de Serviço */}
+                                {firstRecord && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleLancarLoteNaManutencaoOS(firstRecord, grupo.items)}
+                                    title={`Puxar Pedido ${grupo.numeroPedido} (${grupo.totalItens} peça(s)) para Nova Ordem de Serviço (OS)`}
+                                    className="p-1.5 rounded-lg text-amber-600 hover:text-amber-950 bg-amber-50 hover:bg-amber-400 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-500 dark:hover:text-stone-950 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
+                                  >
+                                    <Settings className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+
+                                {/* Lápis: Carregar Pedido / Lote Completo na cesta à esquerda para edição */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleIniciarEdicaoLote(grupo.loteKey, grupo.items)}
+                                  title={`Editar Pedido ${grupo.numeroPedido} completo na cesta à esquerda`}
+                                  className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                    editingLoteKey === grupo.loteKey
+                                      ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60'
+                                      : 'text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-amber-950/40'
+                                  }`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+
+                                {/* Impressora de Cupom do Lote */}
+                                {firstRecord && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbrirCupomLote(firstRecord, false, grupo.items)}
+                                    title={`Imprimir Cupom de Retirada / Cautela do Pedido ${grupo.numeroPedido}`}
+                                    className="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition cursor-pointer"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+
+                                {/* Lixeira: Excluir Pedido / Lote Completo */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleExcluirLoteCompleto(
+                                      grupo.loteKey,
+                                      grupo.numeroPedido,
+                                      grupo.items
+                                    )
+                                  }
+                                  title={`Excluir Pedido ${grupo.numeroPedido} completo`}
+                                  className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* PAINEL EXPANSÍVEL (ACCORDION / COLLAPSIBLE): LISTA DE PEÇAS E QUANTIDADES DO PEDIDO */}
+                          {isExpanded && (
+                            <tr className="bg-zinc-50/90 dark:bg-stone-950/60">
+                              <td colSpan={5} className="px-3 py-2.5 border-l-4 border-amber-500">
+                                <div className="rounded-lg border border-zinc-200 dark:border-stone-800 bg-white dark:bg-stone-900 overflow-hidden shadow-2xs">
+                                  <div className="px-3 py-1.5 bg-zinc-100/80 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-stone-300">
+                                      Itens contidos no Pedido {grupo.numeroPedido} ({grupo.loteCodigo}) •{' '}
+                                      {grupo.veiculoDisplayCompleto}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-zinc-500 dark:text-stone-400">
+                                      {grupo.totalItens} {grupo.totalItens === 1 ? 'item' : 'itens'} no lote
+                                    </span>
+                                  </div>
+
+                                  <div className="divide-y divide-zinc-100 dark:divide-stone-800">
+                                    {grupo.items.map((peca, idx) => (
+                                      <div
+                                        key={peca.id}
+                                        className="px-3 py-1.5 flex items-center justify-between gap-2 text-xs hover:bg-zinc-50/70 dark:hover:bg-stone-800/40"
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="w-5 h-5 rounded-full bg-zinc-100 dark:bg-stone-800 text-zinc-600 dark:text-stone-400 font-mono text-[10px] font-black flex items-center justify-center shrink-0">
+                                            {idx + 1}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <div className="font-bold text-zinc-900 dark:text-white truncate">
+                                              {peca.produto_nome || 'Peça do Estoque'}
+                                            </div>
+                                            {peca.produto_codigo && (
+                                              <div className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
+                                                Código Interno / Barras: {peca.produto_codigo}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-black text-[11px] bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                            {peca.quantidade} {peca.produto_unidade || 'UN'}
+                                          </span>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleIniciarEdicaoRetirada(peca)}
+                                            title="Editar apenas esta peça"
+                                            className="p-1 rounded text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 cursor-pointer"
+                                          >
+                                            <Pencil className="w-3 h-3" />
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleExcluirRetiradaPeca(peca)}
+                                            title="Remover apenas esta peça do lote"
+                                            className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
