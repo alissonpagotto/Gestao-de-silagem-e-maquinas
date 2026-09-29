@@ -179,6 +179,19 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     ];
   };
 
+  // Resolve o preço de venda para exibição na etiqueta
+  const resolveProductPrice = (item: InventoryItem): number => {
+    const directSale = Number(item.salePrice ?? item.preco_venda_varejo ?? item.preco_venda ?? 0);
+    if (directSale > 0) return directSale;
+    const cost = Number(item.unitCost ?? item.preco_custo_inicial ?? item.custo_nominal ?? 0);
+    const margin = Number(item.profitMargin ?? item.margem_lucro_sugerida ?? 0);
+    if (cost > 0 && margin > 0) {
+      return Math.round(cost * (1 + margin / 100) * 100) / 100;
+    }
+    if (cost > 0) return cost;
+    return 0;
+  };
+
   // Renderiza o HTML individual de uma etiqueta compatível com CSS print
   const renderSingleLabelHtml = (
     item: InventoryItem, 
@@ -191,8 +204,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     const internalCode = item.code || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
     const prodName = item.nome_comercial || item.name || 'Produto sem descrição';
     const prodBrand = item.brand || item.marca ? ` • ${item.brand || item.marca}` : '';
-    const unit = item.unidade_medida || item.unit || 'UN';
-    const salePrice = item.salePrice ?? item.preco_venda_varejo ?? item.preco_venda;
+    const unit = (item.unidade_medida || item.unit || 'UN').toUpperCase();
+    const salePrice = resolveProductPrice(item);
 
     const labelHeightMm = effectiveHeightMm ?? preset.heightMm;
     const isA4 = preset.category === 'a4';
@@ -200,11 +213,13 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     const isCompact = labelHeightMm <= 22;
     const isSmallPad = labelHeightMm <= 25 || preset.widthMm <= 40;
 
-    const barcodeNarrowWidth = isA4FourCols ? 1.0 : metrics.narrowWidth;
+    const barcodeNarrowWidth = isA4FourCols ? 0.95 : metrics.narrowWidth;
     const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 13) : (isCompact ? Math.min(metrics.barcodeHeight, 11) : metrics.barcodeHeight);
-    const barcodeDigitsFontPt = isA4FourCols ? 7.5 : (isCompact ? 8.5 : Math.max(10.0, metrics.codeFontSizePt * 1.35));
-    const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 10.0) : metrics.addressCodeFontSizePt;
-    const addressLegendFontPt = isA4FourCols ? 3.5 : metrics.addressLegendFontSizePt;
+    const barcodeDigitsFontPt = isA4FourCols ? 7.0 : (isCompact ? 8.0 : Math.max(9.5, metrics.codeFontSizePt * 1.3));
+    const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 9.0) : Math.min(metrics.addressCodeFontSizePt, 12.5);
+    const addressLegendFontPt = isA4FourCols ? 3.3 : metrics.addressLegendFontSizePt;
+    const priceMainFontPt = isA4FourCols ? 6.8 : (isCompact ? 7.8 : (preset.widthMm >= 80 ? 11.5 : 9.2));
+    const priceUnitFontPt = isA4FourCols ? 5.0 : (isCompact ? 5.5 : 6.5);
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       height: barcodeHeight,
@@ -222,7 +237,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        min-width: ${isA4FourCols ? '15px' : '24px'};
+        min-width: ${isA4FourCols ? '12px' : '18px'};
       ">
         <div class="address-code" style="
           font-size: ${addressNumFontPt}pt;
@@ -327,103 +342,166 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           </div>
         </div>
 
-        <!-- Centro: Código de Barras centralizado com dígitos em destaque logo abaixo -->
-        <div class="label-barcode-container" style="
+        <!-- Metade Inferior em Duas Colunas (Esquerda 73%: Código de Barras + Endereço | Direita 27%: Preço + Unidade) -->
+        <div class="label-lower-columns" style="
           display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
+          flex-direction: row;
+          align-items: stretch;
+          justify-content: space-between;
+          gap: 2px;
           flex: 1;
           width: 100%;
           max-width: 100%;
+          min-height: 0;
           overflow: hidden;
-          margin: 0.5px 0;
           box-sizing: border-box;
-          background: #ffffff;
         ">
-          ${barcodeSvg}
-          <div class="barcode-digits-text" style="
-            font-size: ${barcodeDigitsFontPt}pt;
-            font-weight: 800;
-            font-family: 'Courier New', Courier, monospace;
-            color: #000000;
-            background: #ffffff;
-            text-align: center;
-            letter-spacing: 0.6px;
-            line-height: 1.05;
-            margin-top: 1px;
-            white-space: nowrap;
-          ">
-            ${barcodeValue}
-          </div>
-        </div>
-
-        <!-- Rodapé: Código do Produto (ID) discreto logo acima do Endereço Formatado em colunas alinhadas -->
-        ${(showAddress || showInternalCode) ? `
-          <div class="label-address-box" style="
-            border: 0.5px solid #000000;
-            background: #ffffff;
-            color: #000000;
-            border-radius: 2px;
-            padding: 1px 2px 1.5px 2px;
-            text-align: center;
-            margin-top: 0.5px;
-            width: 100%;
-            max-width: 100%;
+          <!-- Coluna Esquerda (~73%): Código de Barras + Bloco de Endereçamento alinhados à esquerda -->
+          <div class="label-left-col" style="
+            width: ${showPrice ? '73%' : '100%'};
+            max-width: ${showPrice ? '73%' : '100%'};
+            flex: 0 0 ${showPrice ? '73%' : '100%'};
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: stretch;
+            min-width: 0;
             overflow: hidden;
             box-sizing: border-box;
           ">
-            ${showInternalCode ? `
-              <div class="label-internal-code" style="
-                font-size: ${isA4FourCols ? 5.0 : Math.max(5.5, metrics.codeFontSizePt * 0.8)}pt;
+            <!-- Código de Barras centralizado na coluna esquerda com dígitos em destaque logo abaixo -->
+            <div class="label-barcode-container" style="
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              flex: 1;
+              width: 100%;
+              max-width: 100%;
+              overflow: hidden;
+              margin: 0.5px 0;
+              box-sizing: border-box;
+              background: #ffffff;
+            ">
+              ${barcodeSvg}
+              <div class="barcode-digits-text" style="
+                font-size: ${barcodeDigitsFontPt}pt;
+                font-weight: 800;
                 font-family: 'Courier New', Courier, monospace;
-                font-weight: 700;
-                letter-spacing: 0.2px;
-                line-height: 1;
-                margin-bottom: 1px;
                 color: #000000;
                 background: #ffffff;
+                text-align: center;
+                letter-spacing: 0.6px;
+                line-height: 1.05;
+                margin-top: 1px;
                 white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
               ">
-                CÓD: ${internalCode}
+                ${barcodeValue}
               </div>
-            ` : ''}
-            ${showAddress ? `
-              <div class="address-columns-row" style="
-                display: flex;
-                align-items: flex-start;
-                justify-content: center;
-                gap: ${isA4FourCols ? '1px' : '2.5px'};
-                width: 100%;
+            </div>
+
+            <!-- Bloco de Endereçamento na coluna esquerda -->
+            ${(showAddress || showInternalCode) ? `
+              <div class="label-address-box" style="
+                border: 0.5px solid #000000;
                 background: #ffffff;
                 color: #000000;
+                border-radius: 2px;
+                padding: 1px 1.5px 1.5px 1.5px;
+                text-align: center;
+                margin-top: 0.5px;
+                width: 100%;
+                max-width: 100%;
+                overflow: hidden;
+                box-sizing: border-box;
               ">
-                ${addressColumnsHtml}
+                ${showInternalCode ? `
+                  <div class="label-internal-code" style="
+                    font-size: ${isA4FourCols ? 4.8 : Math.max(5.2, metrics.codeFontSizePt * 0.78)}pt;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-weight: 700;
+                    letter-spacing: 0.2px;
+                    line-height: 1;
+                    margin-bottom: 1px;
+                    color: #000000;
+                    background: #ffffff;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                  ">
+                    CÓD: ${internalCode}
+                  </div>
+                ` : ''}
+                ${showAddress ? `
+                  <div class="address-columns-row" style="
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: center;
+                    gap: ${isA4FourCols ? '0.5px' : '1.5px'};
+                    width: 100%;
+                    background: #ffffff;
+                    color: #000000;
+                  ">
+                    ${addressColumnsHtml}
+                  </div>
+                ` : ''}
               </div>
             ` : ''}
           </div>
-        ` : ''}
 
-        <!-- Preço Opcional -->
-        ${showPrice && salePrice && salePrice > 0 && labelHeightMm >= 25 ? `
-          <div class="label-price-tag" style="
-            position: absolute;
-            bottom: 1.5px;
-            right: 2px;
-            font-size: ${metrics.priceFontSizePt}pt;
-            font-weight: 900;
-            color: #000000;
-            background: #ffffff;
-            padding: 0 2px;
-            border: 0.5px solid #000000;
-            border-radius: 2px;
-            line-height: 1.1;
-          ">
-            ${formatCurrencyBRL(salePrice)} <span style="font-size: ${metrics.priceFontSizePt * 0.75}pt; font-weight: normal;">/${unit}</span>
-          </div>
-        ` : ''}
+          <!-- Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado verticalmente em relação ao bloco de endereçamento -->
+          ${showPrice ? `
+            <div class="label-right-price-col" style="
+              flex: 1;
+              min-width: 0;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: flex-end;
+              background: #ffffff;
+              color: #000000;
+              box-sizing: border-box;
+              overflow: hidden;
+            ">
+              <div class="label-price-box" style="
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                border: 0.5px solid #000000;
+                border-radius: 2px;
+                padding: 2px 1.5px;
+                background: #ffffff;
+                color: #000000;
+                box-sizing: border-box;
+              ">
+                <div class="label-price-value" style="
+                  font-size: ${priceMainFontPt}pt;
+                  font-weight: 900;
+                  color: #000000;
+                  background: #ffffff;
+                  line-height: 1.05;
+                  white-space: nowrap;
+                ">
+                  ${formatCurrencyBRL(salePrice)}
+                </div>
+                <div class="label-price-unit" style="
+                  font-size: ${priceUnitFontPt}pt;
+                  font-weight: 700;
+                  color: #000000;
+                  background: #ffffff;
+                  line-height: 1;
+                  margin-top: 1px;
+                  white-space: nowrap;
+                ">
+                  / ${unit}
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
       </div>
     `;
   };
@@ -997,71 +1075,81 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Centro da Etiqueta: Código de Barras centralizado com numeração legível e destacada */}
-                  <div className="py-1 flex flex-col items-center justify-center bg-white">
-                    {livePreviewBars && (
-                      <>
-                        <svg 
-                          viewBox={`0 0 ${livePreviewBars.totalWidth} 30`} 
-                          className="w-full max-h-[30px] block"
-                        >
-                          {livePreviewBars.bars.map((b, idx) => (
-                            <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
-                          ))}
-                        </svg>
-                        <span className="text-sm sm:text-base font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-1">
-                          {livePreviewBars.displayCode}
-                        </span>
-                      </>
+                  {/* Metade Inferior em Duas Colunas (Esquerda 73%: Código de Barras + Endereço | Direita 27%: Preço + Unidade) */}
+                  <div className="flex items-stretch justify-between gap-2 w-full">
+                    {/* Coluna Esquerda (~73%): Código de Barras e Endereço */}
+                    <div className={`${showPrice ? 'w-[73%]' : 'w-full'} shrink-0 flex flex-col justify-between space-y-1.5 min-w-0`}>
+                      {/* Código de Barras centralizado com numeração legível e destacada */}
+                      <div className="py-0.5 flex flex-col items-center justify-center bg-white w-full">
+                        {livePreviewBars && (
+                          <>
+                            <svg 
+                              viewBox={`0 0 ${livePreviewBars.totalWidth} 30`} 
+                              className="w-full max-h-[28px] block"
+                            >
+                              {livePreviewBars.bars.map((b, idx) => (
+                                <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
+                              ))}
+                            </svg>
+                            <span className="text-xs sm:text-sm font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-0.5">
+                              {livePreviewBars.displayCode}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Bloco de Endereçamento: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
+                      {(showAddress || showInternalCode) && (
+                        <div className="bg-white text-black border border-black rounded px-1.5 py-1 text-center space-y-0.5 w-full">
+                          {showInternalCode && (
+                            <div className="text-[9.5px] font-mono font-bold text-black leading-none truncate">
+                              CÓD: {previewProduct.code || `ID:${previewProduct.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
+                            </div>
+                          )}
+                          {showAddress && (
+                            <div className="flex items-start justify-center gap-0.5 sm:gap-1 pt-0.5">
+                              {resolveAddressParts(previewProduct).map((part, idx, arr) => (
+                                <React.Fragment key={idx}>
+                                  <div className="flex flex-col items-center justify-start min-w-[26px] sm:min-w-[32px]">
+                                    <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
+                                      {part}
+                                    </span>
+                                    <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5 uppercase tracking-tight">
+                                      {ADDRESS_LEGEND_LABELS[idx]}
+                                    </span>
+                                  </div>
+                                  {idx < arr.length - 1 && (
+                                    <div className="flex flex-col items-center justify-start">
+                                      <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
+                                        .
+                                      </span>
+                                      <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5">
+                                        .
+                                      </span>
+                                    </div>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado em relação ao bloco de endereçamento */}
+                    {showPrice && (
+                      <div className="flex-1 min-w-0 flex flex-col justify-end items-center">
+                        <div className="w-full border border-black rounded px-1.5 py-2 bg-white text-black flex flex-col items-center justify-center text-center">
+                          <span className="text-xs sm:text-sm font-black text-black leading-tight whitespace-nowrap">
+                            {formatCurrencyBRL(resolveProductPrice(previewProduct))}
+                          </span>
+                          <span className="text-[9.5px] font-bold text-black leading-none mt-1 uppercase">
+                            / {(previewProduct.unidade_medida || previewProduct.unit || 'UN').toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
-
-                  {/* Abaixo do Código de Barras: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
-                  {(showAddress || showInternalCode) && (
-                    <div className="bg-white text-black border border-black rounded px-2 py-1.5 text-center space-y-1">
-                      {showInternalCode && (
-                        <div className="text-[10px] font-mono font-bold text-black leading-none truncate">
-                          CÓD: {previewProduct.code || `ID:${previewProduct.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
-                        </div>
-                      )}
-                      {showAddress && (
-                        <div className="flex items-start justify-center gap-1 sm:gap-2 pt-0.5">
-                          {resolveAddressParts(previewProduct).map((part, idx, arr) => (
-                            <React.Fragment key={idx}>
-                              <div className="flex flex-col items-center justify-start min-w-[34px] sm:min-w-[42px]">
-                                <span className="text-xl sm:text-2xl font-black font-mono leading-none text-black">
-                                  {part}
-                                </span>
-                                <span className="text-[7.5px] sm:text-[8.5px] font-extrabold text-black leading-none mt-1 uppercase tracking-tight">
-                                  {ADDRESS_LEGEND_LABELS[idx]}
-                                </span>
-                              </div>
-                              {idx < arr.length - 1 && (
-                                <div className="flex flex-col items-center justify-start">
-                                  <span className="text-xl sm:text-2xl font-black font-mono leading-none text-black">
-                                    .
-                                  </span>
-                                  <span className="text-[7.5px] sm:text-[8.5px] font-extrabold text-black leading-none mt-1">
-                                    .
-                                  </span>
-                                </div>
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Preço de Venda Varejo (opcional no rodapé) */}
-                  {showPrice && (previewProduct.salePrice ?? previewProduct.preco_venda_varejo) ? (
-                    <div className="flex items-center justify-end pt-0.5 border-t border-stone-200">
-                      <span className="text-[11px] font-black text-black">
-                        {formatCurrencyBRL(previewProduct.salePrice ?? previewProduct.preco_venda_varejo ?? 0)}
-                        <span className="text-[9px] font-normal text-stone-600"> / {previewProduct.unidade_medida || previewProduct.unit || 'UN'}</span>
-                      </span>
-                    </div>
-                  ) : null}
 
                 </div>
               )}
