@@ -58,6 +58,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   // Configurações do Formato de Impressão
   const [labelSize, setLabelSize] = useState<LabelSizePreset>('termica_gondola_60x30');
   const [startPosition, setStartPosition] = useState<number>(1);
+  const [showBarcode, setShowBarcode] = useState(true);
   const [showPrice, setShowPrice] = useState(true);
   const [showInternalCode, setShowInternalCode] = useState(true);
   const [showAddress, setShowAddress] = useState(true);
@@ -374,98 +375,103 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           overflow: hidden;
           box-sizing: border-box;
         ">
-          <!-- Coluna Esquerda (~73%): Código de Barras + Bloco de Endereçamento alinhados à esquerda -->
-          <div class="label-left-col" style="
-            width: ${showPrice ? '73%' : '100%'};
-            max-width: ${showPrice ? '73%' : '100%'};
-            flex: 0 0 ${showPrice ? '73%' : '100%'};
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: stretch;
-            min-width: 0;
-            overflow: hidden;
-            box-sizing: border-box;
-          ">
-            <!-- Código de Barras centralizado na coluna esquerda com dígitos em destaque logo abaixo -->
-            <div class="label-barcode-container" style="
+          ${(showBarcode || showAddress || showInternalCode) ? `
+            <!-- Coluna Esquerda (~73%): Código de Barras + Bloco de Endereçamento alinhados à esquerda -->
+            <div class="label-left-col" style="
+              width: ${showPrice ? '73%' : '100%'};
+              max-width: ${showPrice ? '73%' : '100%'};
+              flex: 0 0 ${showPrice ? '73%' : '100%'};
               display: flex;
               flex-direction: column;
-              justify-content: center;
-              align-items: center;
-              flex: 1;
-              width: 100%;
-              max-width: 100%;
+              justify-content: ${showBarcode ? 'space-between' : 'center'};
+              align-items: stretch;
+              min-width: 0;
               overflow: hidden;
-              margin: 0.5px 0;
               box-sizing: border-box;
-              background: #ffffff;
             ">
-              ${barcodeSvg}
-              <div class="barcode-digits-text" style="
-                font-size: ${barcodeDigitsFontPt}pt;
-                font-weight: 800;
-                font-family: 'Courier New', Courier, monospace;
-                color: #000000;
-                background: #ffffff;
-                text-align: center;
-                letter-spacing: 0.6px;
-                line-height: 1.05;
-                margin-top: 1px;
-                white-space: nowrap;
-              ">
-                ${barcodeValue}
-              </div>
-            </div>
-
-            <!-- Bloco de Endereçamento na coluna esquerda -->
-            ${(showAddress || showInternalCode) ? `
-              <div class="label-address-box" style="
-                border: 0.5px solid #000000;
-                background: #ffffff;
-                color: #000000;
-                border-radius: 2px;
-                padding: 1px 1.5px 1.5px 1.5px;
-                text-align: center;
-                margin-top: 0.5px;
-                width: 100%;
-                max-width: 100%;
-                overflow: hidden;
-                box-sizing: border-box;
-              ">
-                ${showInternalCode ? `
-                  <div class="label-internal-code" style="
-                    font-size: ${isA4FourCols ? 4.8 : Math.max(5.2, metrics.codeFontSizePt * 0.78)}pt;
+              ${showBarcode ? `
+                <!-- Código de Barras centralizado na coluna esquerda com dígitos em destaque logo abaixo -->
+                <div class="label-barcode-container" style="
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: center;
+                  align-items: center;
+                  flex: 1;
+                  width: 100%;
+                  max-width: 100%;
+                  overflow: hidden;
+                  margin: 0.5px 0;
+                  box-sizing: border-box;
+                  background: #ffffff;
+                ">
+                  ${barcodeSvg}
+                  <div class="barcode-digits-text" style="
+                    font-size: ${barcodeDigitsFontPt}pt;
+                    font-weight: 800;
                     font-family: 'Courier New', Courier, monospace;
-                    font-weight: 700;
-                    letter-spacing: 0.2px;
-                    line-height: 1;
-                    margin-bottom: 1px;
                     color: #000000;
                     background: #ffffff;
+                    text-align: center;
+                    letter-spacing: 0.6px;
+                    line-height: 1.05;
+                    margin-top: 1px;
                     white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
                   ">
-                    CÓD: ${internalCode}
+                    ${barcodeValue}
                   </div>
-                ` : ''}
-                ${showAddress ? `
-                  <div class="address-columns-row" style="
-                    display: flex;
-                    align-items: flex-start;
-                    justify-content: center;
-                    gap: ${isA4FourCols ? '0.5px' : '1.5px'};
-                    width: 100%;
-                    background: #ffffff;
-                    color: #000000;
-                  ">
-                    ${addressColumnsHtml}
-                  </div>
-                ` : ''}
-              </div>
-            ` : ''}
-          </div>
+                </div>
+              ` : ''}
+
+              <!-- Bloco de Endereçamento na coluna esquerda -->
+              ${(showAddress || showInternalCode) ? `
+                <div class="label-address-box" style="
+                  border: 0.5px solid #000000;
+                  background: #ffffff;
+                  color: #000000;
+                  border-radius: 2px;
+                  padding: ${showBarcode ? '1px 1.5px 1.5px 1.5px' : '2.5px 2px'};
+                  text-align: center;
+                  margin-top: 0.5px;
+                  width: 100%;
+                  max-width: 100%;
+                  ${!showBarcode ? 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;' : ''}
+                  overflow: hidden;
+                  box-sizing: border-box;
+                ">
+                  ${showInternalCode ? `
+                    <div class="label-internal-code" style="
+                      font-size: ${isA4FourCols ? 4.8 : Math.max(5.2, metrics.codeFontSizePt * (showBarcode ? 0.78 : 0.9))}pt;
+                      font-family: 'Courier New', Courier, monospace;
+                      font-weight: 700;
+                      letter-spacing: 0.2px;
+                      line-height: 1;
+                      margin-bottom: ${showBarcode ? '1px' : '2px'};
+                      color: #000000;
+                      background: #ffffff;
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    ">
+                      CÓD: ${internalCode}
+                    </div>
+                  ` : ''}
+                  ${showAddress ? `
+                    <div class="address-columns-row" style="
+                      display: flex;
+                      align-items: flex-start;
+                      justify-content: center;
+                      gap: ${isA4FourCols ? '0.5px' : '1.5px'};
+                      width: 100%;
+                      background: #ffffff;
+                      color: #000000;
+                    ">
+                      ${addressColumnsHtml}
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
 
           <!-- Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado verticalmente em relação ao bloco de endereçamento -->
           ${showPrice ? `
@@ -475,7 +481,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               display: flex;
               flex-direction: column;
               align-items: center;
-              justify-content: flex-end;
+              justify-content: ${showBarcode ? 'flex-end' : 'center'};
               background: #ffffff;
               color: #000000;
               box-sizing: border-box;
@@ -483,6 +489,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             ">
               <div class="label-price-box" style="
                 width: 100%;
+                ${!showBarcode ? 'flex: 1; margin-top: 0.5px;' : ''}
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -877,68 +884,72 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           {/* Metade Inferior em Duas Colunas (Esquerda 73%: Código de Barras + Endereço | Direita 27%: Preço + Unidade) */}
           <div className="flex items-stretch justify-between gap-2 w-full">
             {/* Coluna Esquerda (~73%): Código de Barras e Endereço */}
-            <div className={`${showPrice ? 'w-[73%]' : 'w-full'} shrink-0 flex flex-col justify-between space-y-1.5 min-w-0`}>
-              {/* Código de Barras centralizado com numeração legível e destacada */}
-              <div className="py-0.5 flex flex-col items-center justify-center bg-white w-full">
-                {itemBars && (
-                  <>
-                    <svg 
-                      viewBox={`0 0 ${itemBars.totalWidth} 30`} 
-                      className="w-full max-h-[28px] block"
-                    >
-                      {itemBars.bars.map((b, idx) => (
-                        <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
-                      ))}
-                    </svg>
-                    <span className="text-xs sm:text-sm font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-0.5">
-                      {itemBars.displayCode}
-                    </span>
-                  </>
+            {(showBarcode || showAddress || showInternalCode) && (
+              <div className={`${showPrice ? 'w-[73%]' : 'w-full'} shrink-0 flex flex-col ${showBarcode ? 'justify-between space-y-1.5' : 'justify-center'} min-w-0`}>
+                {/* Código de Barras centralizado com numeração legível e destacada (renderizado condicionalmente por showBarcode) */}
+                {showBarcode && (
+                  <div className="py-0.5 flex flex-col items-center justify-center bg-white w-full">
+                    {itemBars && (
+                      <>
+                        <svg 
+                          viewBox={`0 0 ${itemBars.totalWidth} 30`} 
+                          className="w-full max-h-[28px] block"
+                        >
+                          {itemBars.bars.map((b, idx) => (
+                            <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
+                          ))}
+                        </svg>
+                        <span className="text-xs sm:text-sm font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-0.5">
+                          {itemBars.displayCode}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 )}
-              </div>
 
-              {/* Bloco de Endereçamento: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
-              {(showAddress || showInternalCode) && (
-                <div className="bg-white text-black border border-black rounded px-1.5 py-1 text-center space-y-0.5 w-full">
-                  {showInternalCode && (
-                    <div className="text-[9.5px] font-mono font-bold text-black leading-none truncate">
-                      CÓD: {item.code || item.codigo_produto || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
-                    </div>
-                  )}
-                  {showAddress && (
-                    <div className="flex items-start justify-center gap-0.5 sm:gap-1 pt-0.5">
-                      {resolveAddressParts(item).map((part, idx, arr) => (
-                        <React.Fragment key={idx}>
-                          <div className="flex flex-col items-center justify-start min-w-[26px] sm:min-w-[32px]">
-                            <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
-                              {part}
-                            </span>
-                            <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5 uppercase tracking-tight">
-                              {ADDRESS_LEGEND_LABELS[idx]}
-                            </span>
-                          </div>
-                          {idx < arr.length - 1 && (
-                            <div className="flex flex-col items-center justify-start">
+                {/* Bloco de Endereçamento: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
+                {(showAddress || showInternalCode) && (
+                  <div className={`bg-white text-black border border-black rounded px-1.5 ${showBarcode ? 'py-1' : 'py-2.5 flex-1 flex flex-col justify-center'} text-center space-y-0.5 w-full`}>
+                    {showInternalCode && (
+                      <div className="text-[9.5px] font-mono font-bold text-black leading-none truncate">
+                        CÓD: {item.code || item.codigo_produto || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
+                      </div>
+                    )}
+                    {showAddress && (
+                      <div className="flex items-start justify-center gap-0.5 sm:gap-1 pt-0.5">
+                        {resolveAddressParts(item).map((part, idx, arr) => (
+                          <React.Fragment key={idx}>
+                            <div className="flex flex-col items-center justify-start min-w-[26px] sm:min-w-[32px]">
                               <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
-                                .
+                                {part}
                               </span>
-                              <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5">
-                                .
+                              <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5 uppercase tracking-tight">
+                                {ADDRESS_LEGEND_LABELS[idx]}
                               </span>
                             </div>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                            {idx < arr.length - 1 && (
+                              <div className="flex flex-col items-center justify-start">
+                                <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
+                                  .
+                                </span>
+                                <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5">
+                                  .
+                                </span>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado em relação ao bloco de endereçamento */}
             {showPrice && (
-              <div className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                <div className="w-full border border-black rounded px-1.5 py-2 bg-white text-black flex flex-col items-center justify-center text-center">
+              <div className={`flex-1 min-w-0 flex flex-col ${showBarcode ? 'justify-end' : 'justify-center'} items-center`}>
+                <div className={`w-full border border-black rounded px-1.5 ${showBarcode ? 'py-2' : 'py-2.5 h-full'} bg-white text-black flex flex-col items-center justify-center text-center`}>
                   <span className="text-xs sm:text-sm font-black text-black leading-tight whitespace-nowrap">
                     {formatCurrencyBRL(resolveProductPrice(item))}
                   </span>
@@ -1142,7 +1153,16 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
 
               {/* Checkboxes de Elementos Visíveis */}
-              <div className="flex items-center space-x-3 text-xs font-semibold">
+              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold">
+                <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showBarcode}
+                    onChange={(e) => setShowBarcode(e.target.checked)}
+                    className="rounded border-stone-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                  />
+                  <span>Código de Barras</span>
+                </label>
                 <label className="inline-flex items-center space-x-1 text-stone-700 dark:text-stone-300 cursor-pointer select-none">
                   <input
                     type="checkbox"
