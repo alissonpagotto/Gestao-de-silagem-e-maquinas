@@ -431,16 +431,16 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         // 1. NÃO cria lançamento de dívida pendente em contas_a_pagar.
         // 2. Registra apenas a movimentação de baixa de litros no estoque de combustível
         const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
-        const isS500 = fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500');
-        const prodSearch = isS500 ? 'Diesel S500' : 'Diesel S10';
+        const isArla = fuelLog.tanque_id?.toLowerCase().includes('arla') || fuelLog.fuelType?.toLowerCase().includes('arla');
+        const isS500 = !isArla && (fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500'));
+        const prodSearch = isArla ? 'Arla 32' : (isS500 ? 'Diesel S500' : 'Diesel S10');
         const fuelItem = currentInventory.find(i => 
           (i.nome_comercial && i.nome_comercial.toLowerCase().includes(prodSearch.toLowerCase())) ||
           (i.name && i.name.toLowerCase().includes(prodSearch.toLowerCase()))
         ) || currentInventory.find(i => 
-          i.category === 'Combustível & Arla' || 
-          i.categoria === 'Combustível & Arla' || 
-          i.category === 'combustivel' || 
-          i.name.toLowerCase().includes('diesel')
+          isArla 
+            ? ((i.category === 'Combustível & Arla' || i.categoria === 'Combustível & Arla') && (i.name.toLowerCase().includes('arla') || (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla'))))
+            : (i.category === 'Combustível & Arla' || i.categoria === 'Combustível & Arla' || i.category === 'combustivel' || i.name.toLowerCase().includes('diesel'))
         );
         if (fuelItem) {
           const currentQty = Number(fuelItem.quantidade_atual ?? fuelItem.quantity ?? 0);

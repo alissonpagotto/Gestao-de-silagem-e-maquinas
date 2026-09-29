@@ -575,6 +575,48 @@ export default function App() {
       });
     });
 
+    const unsubEstoqueProdutos = subscribeToCloudTable('estoque_produtos', () => {
+      fetchEstoque(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_inventory) {
+            lastSyncedState.current.rel_inventory = ser;
+            setInventory(fresh);
+          }
+        }
+      });
+    });
+
+    const unsubTanquesCombustivel = subscribeToCloudTable('tanques_combustivel', () => {
+      fetchEstoque(activeTenantId).then(fresh => {
+        if (fresh && isMounted) {
+          const ser = JSON.stringify(fresh);
+          if (ser !== lastSyncedState.current.rel_inventory) {
+            lastSyncedState.current.rel_inventory = ser;
+            setInventory(fresh);
+          }
+        }
+      });
+    });
+
+    const handleInventoryChanged = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail) && isMounted) {
+        setInventory(e.detail);
+      } else {
+        fetchEstoque(activeTenantId).then(fresh => {
+          if (fresh && isMounted) setInventory(fresh);
+        });
+      }
+    };
+    window.addEventListener('silagem_inventory_changed', handleInventoryChanged);
+
+    const handleTanksChanged = () => {
+      fetchEstoque(activeTenantId).then(fresh => {
+        if (fresh && isMounted) setInventory(fresh);
+      });
+    };
+    window.addEventListener('silagem_tanks_changed', handleTanksChanged);
+
     const unsubRH = subscribeToCloudTable('rh_funcionarios', () => {
       fetchRhFuncionarios(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
@@ -936,9 +978,13 @@ export default function App() {
     return () => { 
       isMounted = false; 
       window.removeEventListener('silagem_force_rest_sync', handleForceRestSync);
+      window.removeEventListener('silagem_inventory_changed', handleInventoryChanged);
+      window.removeEventListener('silagem_tanks_changed', handleTanksChanged);
       unsubClientes();
       unsubFornecedores();
       unsubEstoque();
+      unsubEstoqueProdutos();
+      unsubTanquesCombustivel();
       unsubRH();
       unsubFuncionarios();
       unsubFrotas();

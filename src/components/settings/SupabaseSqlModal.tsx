@@ -208,8 +208,9 @@ CREATE TABLE IF NOT EXISTS public.tanques_combustivel (
 -- Inserção dos tanques padrão da fazenda caso não existam:
 INSERT INTO public.tanques_combustivel (id, nome, tipo_combustivel, capacidade_total, quantidade_atual, localizacao)
 VALUES 
-    ('tanque_diesel_s10', 'Tanque Principal Diesel S10', 'Diesel S10', 15000.00, 11200.00, 'Pátio Central / Barracão de Abastecimento'),
-    ('tanque_diesel_s500', 'Tanque Secundário Diesel S500', 'Diesel S500', 10000.00, 6500.00, 'Oficina / Setor Agrícola')
+    ('tanque_diesel_s10', 'Tanque Principal Diesel S10', 'Diesel S10', 15000.00, 5580.00, 'Pátio Central / Barracão de Abastecimento'),
+    ('tanque_diesel_s500', 'Tanque Secundário Diesel S500', 'Diesel S500', 10000.00, 3200.00, 'Oficina / Setor Agrícola'),
+    ('tanque_arla_32', 'Reservatório / Tanque Arla 32', 'Arla 32', 5000.00, 1800.00, 'Barracão de Abastecimento / Oficina')
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE public.tanques_combustivel ADD COLUMN IF NOT EXISTS produto_id TEXT;

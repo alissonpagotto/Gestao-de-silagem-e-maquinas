@@ -132,6 +132,16 @@ export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
     capacidade_total: 10000,
     quantidade_atual: 0,
     localizacao: 'Oficina / Setor Agrícola'
+  },
+  {
+    id: 'tanque_arla_32',
+    nome: 'Reservatório / Tanque Arla 32',
+    tipo_combustivel: 'Arla 32',
+    produto_id: 'prod_arla_32',
+    produtoId: 'prod_arla_32',
+    capacidade_total: 5000,
+    quantidade_atual: 0,
+    localizacao: 'Barracão de Abastecimento / Oficina'
   }
 ];
 
@@ -151,6 +161,26 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
         }
         return t;
       });
+
+      // Garante que o tanque de Arla 32 sempre exista
+      const hasArla = sanitized.some(t => 
+        t.id === 'tanque_arla_32' || 
+        t.tipo_combustivel?.toLowerCase().includes('arla') || 
+        t.nome?.toLowerCase().includes('arla')
+      );
+      if (!hasArla) {
+        sanitized.push({
+          id: 'tanque_arla_32',
+          nome: 'Reservatório / Tanque Arla 32',
+          tipo_combustivel: 'Arla 32',
+          produto_id: 'prod_arla_32',
+          produtoId: 'prod_arla_32',
+          capacidade_total: 5000,
+          quantidade_atual: 0,
+          localizacao: 'Barracão de Abastecimento / Oficina'
+        });
+      }
+
       return sanitized;
     }
     return DEFAULT_TANQUES_COMBUSTIVEL;
@@ -445,9 +475,11 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   const tanks = getStoredTanquesCombustivel();
   const tankS10 = tanks.find(t => t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'));
   const tankS500 = tanks.find(t => t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'));
+  const tankArla = tanks.find(t => t.id === 'tanque_arla_32' || t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla'));
 
   const s10Qty = tankS10?.quantidade_atual !== undefined ? Number(tankS10.quantidade_atual) : 0;
   const s500Qty = tankS500?.quantidade_atual !== undefined ? Number(tankS500.quantidade_atual) : 0;
+  const arlaQty = tankArla?.quantidade_atual !== undefined ? Number(tankArla.quantidade_atual) : 0;
 
   // 1. Verifica Diesel S10
   const s10Idx = currentList.findIndex(i => 
@@ -458,10 +490,10 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   if (s10Idx >= 0) {
     const existing = currentList[s10Idx];
-    // Se ainda possuir os valores de teste legados (11200 L ou R$ 5,85), zera para começar limpo com R$ 0,00 e 0 L
-    const isMockS10 = (existing.quantity === 11200 || existing.quantidade_atual === 11200) || (existing.unitCost === 5.85 || existing.preco_custo_inicial === 5.85);
-    const effectiveQty = isMockS10 ? 0 : (existing.quantidade_atual !== undefined ? existing.quantidade_atual : (existing.quantity ?? s10Qty));
-    const effectiveCost = isMockS10 ? 0 : (existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0));
+    const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
+    // Unificação real de saldo: se o tanque tiver saldo (ex: 5580L), unifica no estoque; caso contrário preserva o estoque
+    const effectiveQty = s10Qty > 0 ? s10Qty : currentProdQty;
+    const effectiveCost = existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0);
 
     currentList[s10Idx] = {
       ...existing,
@@ -475,11 +507,11 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       quantidade_atual: effectiveQty,
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
-      salePrice: isMockS10 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
-      preco_venda_varejo: isMockS10 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
+      salePrice: existing.preco_venda_varejo || existing.salePrice || 0,
+      preco_venda_varejo: existing.preco_venda_varejo || existing.salePrice || 0,
       location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
-      capacidade_total: existing.capacidade_total || 15000,
+      capacidade_total: existing.capacidade_total || (tankS10?.capacidade_total || 15000),
     };
   } else {
     currentList.unshift({
@@ -490,8 +522,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       nome_comercial: 'Diesel S10',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
-      quantity: 0,
-      quantidade_atual: 0,
+      quantity: s10Qty,
+      quantidade_atual: s10Qty,
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 2000,
@@ -504,7 +536,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       profitMargin: 0,
       location: 'Tanque Fazenda (Pátio Central)',
       localizacao_fisica: 'Tanque Fazenda (Pátio Central)',
-      capacidade_total: 15000,
+      capacidade_total: tankS10?.capacidade_total || 15000,
     });
   }
 
@@ -517,10 +549,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   if (s500Idx >= 0) {
     const existing = currentList[s500Idx];
-    // Se ainda possuir os valores de teste legados (6500 L ou R$ 5,60), zera para começar limpo com R$ 0,00 e 0 L
-    const isMockS500 = (existing.quantity === 6500 || existing.quantidade_atual === 6500) || (existing.unitCost === 5.60 || existing.preco_custo_inicial === 5.60);
-    const effectiveQty = isMockS500 ? 0 : (existing.quantidade_atual !== undefined ? existing.quantidade_atual : (existing.quantity ?? s500Qty));
-    const effectiveCost = isMockS500 ? 0 : (existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0));
+    const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
+    const effectiveQty = s500Qty > 0 ? s500Qty : currentProdQty;
+    const effectiveCost = existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0);
 
     currentList[s500Idx] = {
       ...existing,
@@ -534,11 +565,11 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       quantidade_atual: effectiveQty,
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
-      salePrice: isMockS500 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
-      preco_venda_varejo: isMockS500 ? 0 : (existing.preco_venda_varejo || existing.salePrice || 0),
+      salePrice: existing.preco_venda_varejo || existing.salePrice || 0,
+      preco_venda_varejo: existing.preco_venda_varejo || existing.salePrice || 0,
       location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
-      capacidade_total: existing.capacidade_total || 5000,
+      capacidade_total: existing.capacidade_total || (tankS500?.capacidade_total || 10000),
     };
   } else {
     const insertPos = currentList.findIndex(i => i.name === 'Diesel S10') + 1;
@@ -550,8 +581,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       nome_comercial: 'Diesel S500',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
-      quantity: 0,
-      quantidade_atual: 0,
+      quantity: s500Qty,
+      quantidade_atual: s500Qty,
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 1500,
@@ -564,48 +595,52 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       profitMargin: 0,
       location: 'Tanque Fazenda (Oficina)',
       localizacao_fisica: 'Tanque Fazenda (Oficina)',
-      capacidade_total: 5000,
+      capacidade_total: tankS500?.capacidade_total || 10000,
     });
   }
 
-  // 3. Verifica 'Arla 32 (Granel / Litro)'
+  // 3. Verifica 'Arla 32 (Granel / Litro)' ou 'Arla 32'
   const arlaGranelIdx = currentList.findIndex(i => 
+    i.id === 'prod_arla_32' ||
     i.id === 'prod_arla_32_granel' ||
-    (i.name && i.name.toLowerCase().includes('arla 32') && (i.name.toLowerCase().includes('granel') || i.name.toLowerCase().includes('litro'))) ||
-    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla 32') && (i.nome_comercial.toLowerCase().includes('granel') || i.nome_comercial.toLowerCase().includes('litro')))
+    (i.name && i.name.toLowerCase().includes('arla 32') && !i.name.toLowerCase().includes('galão') && !i.name.toLowerCase().includes('galao')) ||
+    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla 32') && !i.nome_comercial.toLowerCase().includes('galão') && !i.nome_comercial.toLowerCase().includes('galao'))
   );
 
   if (arlaGranelIdx >= 0) {
     const existing = currentList[arlaGranelIdx];
+    const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
+    const effectiveQty = arlaQty > 0 ? arlaQty : currentProdQty;
+
     currentList[arlaGranelIdx] = {
       ...existing,
-      name: 'Arla 32 (Granel / Litro)',
-      nome_comercial: 'Arla 32 (Granel / Litro)',
+      name: 'Arla 32',
+      nome_comercial: 'Arla 32',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
       unit: 'L',
       unidade_medida: 'L',
-      quantity: existing.quantidade_atual !== undefined ? existing.quantidade_atual : (existing.quantity ?? 0),
-      quantidade_atual: existing.quantidade_atual !== undefined ? existing.quantidade_atual : (existing.quantity ?? 0),
+      quantity: effectiveQty,
+      quantidade_atual: effectiveQty,
       unitCost: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
       preco_venda_varejo: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
       location: existing.localizacao_fisica || existing.location || 'Reservatório Arla (Barracão)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Reservatório Arla (Barracão)',
-      capacidade_total: existing.capacidade_total || 1000,
+      capacidade_total: existing.capacidade_total || (tankArla?.capacidade_total || 5000),
     };
   } else {
     currentList.push({
-      id: 'prod_arla_32_granel',
-      code: 'ARLA-GRANEL',
-      name: 'Arla 32 (Granel / Litro)',
-      nome: 'Arla 32 (Granel / Litro)',
-      nome_comercial: 'Arla 32 (Granel / Litro)',
+      id: 'prod_arla_32',
+      code: 'ARLA-32',
+      name: 'Arla 32',
+      nome: 'Arla 32',
+      nome_comercial: 'Arla 32',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
-      quantity: 0,
-      quantidade_atual: 0,
+      quantity: arlaQty,
+      quantidade_atual: arlaQty,
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 100,
@@ -618,7 +653,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       profitMargin: 0,
       location: 'Reservatório Arla (Barracão)',
       localizacao_fisica: 'Reservatório Arla (Barracão)',
-      capacidade_total: 1000,
+      capacidade_total: tankArla?.capacidade_total || 5000,
     });
   }
 

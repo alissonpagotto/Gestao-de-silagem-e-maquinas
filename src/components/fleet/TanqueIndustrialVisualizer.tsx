@@ -39,6 +39,13 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
     return !isNaN(parsed) && parsed > 0 ? parsed : 0;
   }, [addedLitersInput]);
 
+  // Identifica se o tanque é de Arla 32 (solução de ureia técnica, com cor azul celeste)
+  const isArla = useMemo(() => {
+    const tTipo = String(tanque?.tipo_combustivel || '').toLowerCase();
+    const tNome = String(tanque?.nome || '').toLowerCase();
+    return tTipo.includes('arla') || tNome.includes('arla') || tanque?.id === 'tanque_arla_32';
+  }, [tanque]);
+
   // Nível Atual em Porcentagem (0% - 100%)
   const nivelAtualPorcentagem = useMemo(() => {
     if (capacidadeTotal <= 0) return 0;
@@ -71,20 +78,30 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
       <div className="relative z-10 space-y-1 pb-1.5 border-b border-zinc-200 dark:border-zinc-700">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center space-x-2 min-w-0">
-            <div className="w-6.5 h-6.5 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-              <Warehouse className="w-3.5 h-3.5" />
+            <div className={`w-6.5 h-6.5 rounded-lg border flex items-center justify-center shrink-0 ${
+              isArla 
+                ? 'bg-sky-500/15 dark:bg-sky-500/20 border-sky-500/30 dark:border-sky-500/40 text-sky-600 dark:text-sky-400' 
+                : 'bg-amber-500/15 dark:bg-amber-500/20 border-amber-500/30 dark:border-amber-500/40 text-amber-600 dark:text-amber-400'
+            }`}>
+              {isArla ? <Droplets className="w-3.5 h-3.5" /> : <Warehouse className="w-3.5 h-3.5" />}
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
-                <h4 className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider font-['Outfit'] truncate">
-                  1. MONITORAMENTO DO ESTOQUE (ORIGEM)
+                <h4 className={`text-xs font-black uppercase tracking-wider font-['Outfit'] truncate ${
+                  isArla ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'
+                }`}>
+                  1. MONITORAMENTO DO ESTOQUE ({isArla ? 'ARLA' : 'ORIGEM'})
                 </h4>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-amber-800 dark:text-amber-300 border border-zinc-300 dark:border-amber-500/40 font-mono shrink-0">
-                  {tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : (tanque?.tipo_combustivel?.toLowerCase().includes('arla') ? 'ARLA 32' : 'S10')}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border font-mono shrink-0 ${
+                  isArla
+                    ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-500/40'
+                    : 'bg-zinc-200 dark:bg-zinc-700 text-amber-800 dark:text-amber-300 border-zinc-300 dark:border-amber-500/40'
+                }`}>
+                  {isArla ? 'ARLA 32' : (tanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'S500' : 'S10')}
                 </span>
               </div>
               <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">
-                {tanque?.nome || 'Tanque Principal Diesel S10'}
+                {tanque?.nome || (isArla ? 'Reservatório Arla 32' : 'Tanque Principal Diesel S10')}
               </p>
             </div>
           </div>
@@ -92,7 +109,9 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
           {/* Volume Disponível e Porcentagem em Destaque */}
           <div className="text-right shrink-0">
             <div className="flex items-baseline justify-end space-x-1">
-              <span className="text-sm font-black text-amber-600 dark:text-amber-400 font-mono">
+              <span className={`text-sm font-black font-mono ${
+                isArla ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'
+              }`}>
                 {quantidadeAtual.toLocaleString('pt-BR')} L
               </span>
               <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 font-mono">
@@ -123,7 +142,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
           </div>
         </div>
 
-        {/* Seletor rápido de tanques cadastrados (S10 vs S500) */}
+        {/* Seletor rápido de tanques cadastrados (S10 vs S500 vs Arla) */}
         {tanques.length > 1 && onTanqueChange && (
           <div className="flex items-center space-x-2 pt-0.5">
             <span className="text-[10px] text-zinc-500 dark:text-zinc-300 font-semibold shrink-0">Tanques:</span>
@@ -131,8 +150,8 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
               {tanques.map((t) => {
                 const isSelected = t.id === tanque?.id;
                 const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla');
-                const badge = isS500 ? 'S500' : (isArla ? 'ARLA' : 'S10');
+                const isTArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
+                const badge = isTArla ? 'ARLA' : (isS500 ? 'S500' : 'S10');
                 return (
                   <button
                     key={t.id}
@@ -140,7 +159,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                     onClick={() => onTanqueChange(t.id)}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition whitespace-nowrap cursor-pointer flex items-center space-x-1 ${
                       isSelected
-                        ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                        ? (isTArla ? 'bg-sky-500 text-zinc-950 shadow-xs' : 'bg-amber-500 text-zinc-950 shadow-xs')
                         : 'bg-white dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 shadow-2xs'
                     }`}
                   >
@@ -176,6 +195,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                 <stop offset="100%" stopColor="#3f3f46" />
               </linearGradient>
 
+              {/* Gradiente Diesel (Âmbar / Dourado) */}
               <linearGradient id="dieselLiquidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="#fef3c7" stopOpacity="0.95" />
                 <stop offset="15%" stopColor="#f59e0b" stopOpacity="0.92" />
@@ -186,6 +206,19 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
               <linearGradient id="dieselDiffGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.45" />
                 <stop offset="100%" stopColor="#d97706" stopOpacity="0.3" />
+              </linearGradient>
+
+              {/* Gradiente Arla 32 (Azul Celeste Cristalino) */}
+              <linearGradient id="arlaLiquidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.95" />
+                <stop offset="15%" stopColor="#38bdf8" stopOpacity="0.92" />
+                <stop offset="60%" stopColor="#0284c7" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#0369a1" stopOpacity="0.98" />
+              </linearGradient>
+
+              <linearGradient id="arlaDiffGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#0284c7" stopOpacity="0.3" />
               </linearGradient>
 
               <linearGradient id="saddleSupportGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -227,7 +260,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
 
             {/* Válvula Inferior de Dreno */}
             <rect x="190" y="108" width="16" height="14" fill="#71717a" stroke="#3f3f46" strokeWidth="1" />
-            <circle cx="198" cy="120" r="3.5" fill="#f59e0b" stroke="#92400e" strokeWidth="1" />
+            <circle cx="198" cy="120" r="3.5" fill={isArla ? '#0284c7' : '#f59e0b'} stroke={isArla ? '#0369a1' : '#92400e'} strokeWidth="1" />
 
             {/* Boca de Visita Superior */}
             <rect x="178" y="14" width="40" height="12" fill="#71717a" stroke="#3f3f46" strokeWidth="1.5" rx="2.5" />
@@ -261,7 +294,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
             <line x1="232" y1="25" x2="232" y2="107" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
             <line x1="301" y1="25" x2="301" y2="107" stroke="#52525b" strokeWidth="1.5" opacity="0.6" />
 
-            {/* Câmara Interna com Líquido Diesel */}
+            {/* Câmara Interna com Líquido (Diesel ou Arla) */}
             <g clipPath="url(#tankInnerChamberClip)">
               <rect x="24" y="24" width="348" height="84" fill="#3f3f46" opacity="0.55" />
 
@@ -275,7 +308,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                   y={24 + (84 * (1 - nivelAtualPorcentagem / 100))}
                   width="348"
                   height={84 * ((nivelAtualPorcentagem - nivelProjetadoPorcentagem) / 100)}
-                  fill="url(#dieselDiffGrad)"
+                  fill={isArla ? 'url(#arlaDiffGrad)' : 'url(#dieselDiffGrad)'}
                   className="animate-pulse"
                 />
               )}
@@ -287,7 +320,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                     y={24 + (84 * (1 - alturaLiquidoEfetiva / 100))}
                     width="348"
                     height={84 * (alturaLiquidoEfetiva / 100)}
-                    fill="url(#dieselLiquidGrad)"
+                    fill={isArla ? 'url(#arlaLiquidGrad)' : 'url(#dieselLiquidGrad)'}
                     style={{
                       transition: 'y 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
@@ -297,11 +330,10 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                     y1={24 + (84 * (1 - alturaLiquidoEfetiva / 100))}
                     x2="372"
                     y2={24 + (84 * (1 - alturaLiquidoEfetiva / 100))}
-                    stroke="#fef08a"
-                    strokeWidth="2"
-                    style={{
-                      transition: 'y 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
+                    stroke={isArla ? '#e0f2fe' : '#fef08a'}
+                    strokeWidth="1.8"
+                    strokeDasharray="6,2"
+                    opacity="0.9"
                   />
                 </g>
               )}
@@ -322,14 +354,14 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
               strokeWidth="2.5"
             />
 
-            {/* Placa ONU 1202 DIESEL */}
+            {/* Placa de Identificação do Tanque */}
             <g transform="translate(180, 76)">
-              <rect x="0" y="0" width="36" height="19" rx="2" fill="#f97316" stroke="#c2410c" strokeWidth="1" />
-              <text x="18" y="8.5" fontSize="6.5" fontWeight="bold" textAnchor="middle" fill="#18181b" fontFamily="sans-serif">
-                1202
+              <rect x="0" y="0" width="36" height="19" rx="2" fill={isArla ? '#0284c7' : '#f97316'} stroke={isArla ? '#0369a1' : '#c2410c'} strokeWidth="1" />
+              <text x="18" y="8.5" fontSize="6.5" fontWeight="bold" textAnchor="middle" fill="#ffffff" fontFamily="sans-serif">
+                {isArla ? 'ARLA' : '1202'}
               </text>
-              <text x="18" y="16" fontSize="5.5" fontWeight="bold" textAnchor="middle" fill="#18181b" fontFamily="sans-serif">
-                DIESEL
+              <text x="18" y="16" fontSize="5.5" fontWeight="bold" textAnchor="middle" fill="#ffffff" fontFamily="sans-serif">
+                {isArla ? '32' : 'DIESEL'}
               </text>
             </g>
 
@@ -344,7 +376,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                 y={34 + (64 * (1 - alturaLiquidoEfetiva / 100))}
                 width="3"
                 height={64 * (alturaLiquidoEfetiva / 100)}
-                fill="#f59e0b"
+                fill={isArla ? '#38bdf8' : '#f59e0b'}
                 rx="1"
                 style={{
                   transition: 'y 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -356,7 +388,9 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
           {/* Badge Central Sobreposto */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="bg-white/95 dark:bg-zinc-800/90 backdrop-blur-xs px-3 py-1 rounded-xl border border-zinc-200 dark:border-zinc-600 shadow-md flex flex-col items-center">
-              <span className="text-[9px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider leading-tight">
+              <span className={`text-[9px] uppercase font-bold tracking-wider leading-tight ${
+                isArla ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'
+              }`}>
                 Nível do Tanque
               </span>
               <div className="flex items-baseline space-x-1">
@@ -364,7 +398,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                   {alturaLiquidoEfetiva.toFixed(1)}%
                 </span>
                 <span className="text-[10px] text-zinc-500 dark:text-zinc-300 font-semibold">
-                  {tanque?.tipo_combustivel || 'Diesel S10'}
+                  {isArla ? 'Arla 32' : (tanque?.tipo_combustivel || 'Diesel S10')}
                 </span>
               </div>
             </div>
@@ -381,7 +415,7 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
         <div className="space-y-0.5">
           <div className="flex justify-between text-[10px] font-semibold">
             <span className="text-zinc-600 dark:text-zinc-300 flex items-center space-x-1">
-              <Droplets className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              <Droplets className={`w-3 h-3 ${isArla ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}`} />
               <span>Volume Disponível</span>
             </span>
             <span className="text-zinc-900 dark:text-zinc-100 font-mono font-bold">
@@ -396,6 +430,8 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
                   ? 'bg-rose-500'
                   : isNivelBaixo
                   ? 'bg-amber-500'
+                  : isArla
+                  ? 'bg-gradient-to-r from-sky-600 via-sky-500 to-sky-400'
                   : 'bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400'
               }`}
               style={{ width: `${Math.min(100, Math.max(0, nivelAtualPorcentagem))}%` }}
@@ -405,13 +441,17 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
 
         {/* Quadro Dinâmico: Saída e Saldo Restante */}
         {litrosDigitados > 0 ? (
-          <div className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-700/60 border border-amber-300 dark:border-amber-500/40 space-y-1 shadow-2xs animate-in fade-in">
+          <div className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-700/60 border space-y-1 shadow-2xs animate-in fade-in ${
+            isArla ? 'border-sky-300 dark:border-sky-500/40' : 'border-amber-300 dark:border-amber-500/40'
+          }`}>
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-amber-700 dark:text-amber-300 font-semibold flex items-center space-x-1">
-                <ArrowDownRight className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              <span className={`font-semibold flex items-center space-x-1 ${
+                isArla ? 'text-sky-700 dark:text-sky-300' : 'text-amber-700 dark:text-amber-300'
+              }`}>
+                <ArrowDownRight className={`w-3 h-3 ${isArla ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}`} />
                 <span>Saída Solicitada:</span>
               </span>
-              <span className="font-mono font-black text-amber-600 dark:text-amber-400">
+              <span className={`font-mono font-black ${isArla ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}`}>
                 - {litrosDigitados.toLocaleString('pt-BR')} L
               </span>
             </div>
@@ -438,10 +478,10 @@ export const TanqueIndustrialVisualizer: React.FC<TanqueIndustrialVisualizerProp
         ) : (
           <div className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-700/55 border border-zinc-200 dark:border-zinc-600/80 flex items-center justify-between text-[11px] shadow-2xs">
             <span className="text-zinc-700 dark:text-zinc-200 font-medium flex items-center space-x-1">
-              <Fuel className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              {isArla ? <Droplets className="w-3 h-3 text-sky-600 dark:text-sky-400" /> : <Fuel className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
               <span>Saldo Livre para Uso:</span>
             </span>
-            <span className="font-mono font-bold text-amber-600 dark:text-amber-300 text-xs">
+            <span className={`font-mono font-bold text-xs ${isArla ? 'text-sky-600 dark:text-sky-300' : 'text-amber-600 dark:text-amber-300'}`}>
               {quantidadeAtual.toLocaleString('pt-BR')} L
             </span>
           </div>

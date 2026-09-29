@@ -1675,7 +1675,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   <span className="flex items-center text-amber-600 dark:text-amber-400 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1" />
                     {fuelOrigin === 'Tanque Interno (Fazenda)' 
-                      ? (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10') 
+                      ? (selectedTanque?.tipo_combustivel?.toLowerCase().includes('arla') || selectedTanque?.nome?.toLowerCase().includes('arla')
+                          ? 'Estoque Arla 32'
+                          : (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10'))
                       : 'Origem Externa'}
                   </span>
                   <ArrowDown className="w-3 h-3 text-zinc-400 dark:text-zinc-300 animate-bounce" />
