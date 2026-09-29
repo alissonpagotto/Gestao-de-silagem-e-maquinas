@@ -100,6 +100,7 @@ import { RHModule } from './components/rh/RHModule';
 import { ServicesModule } from './components/services/ServicesModule';
 import { VendaModule } from './components/vendas/VendaModule';
 import { InventoryModule } from './components/inventory/InventoryModule';
+import { AlmoxarifadoModule } from './components/inventory/AlmoxarifadoModule';
 import { SuppliersModule } from './components/suppliers/SuppliersModule';
 import { ReportsModule } from './components/reports/ReportsModule';
 import { CompanySettingsView } from './components/settings/CompanySettingsView';
@@ -236,6 +237,14 @@ export default function App() {
               valid.splice(finIndex + 1, 0, 'fiscal');
             } else {
               valid.push('fiscal');
+            }
+          }
+          if (!valid.includes('almoxarifado')) {
+            const estIndex = valid.indexOf('estoque');
+            if (estIndex !== -1) {
+              valid.splice(estIndex + 1, 0, 'almoxarifado');
+            } else {
+              valid.push('almoxarifado');
             }
           }
           const missing = ALL_MENU_ITEMS.filter(m => !valid.includes(m.id)).map(m => m.id);
@@ -2409,6 +2418,20 @@ export default function App() {
             <InventoryModule
               inventory={inventory}
               onSaveInventory={handleSaveInventory}
+              onOpenAlmoxarifado={() => setActiveTab('almoxarifado')}
+            />
+          )}
+
+          {/* TAB: Gestão e Controle do Almoxarifado */}
+          {activeTab === 'almoxarifado' && (
+            <AlmoxarifadoModule
+              inventory={inventory}
+              machineries={machineries}
+              employees={employees}
+              companyProfile={companyProfile}
+              onSaveInventory={handleSaveInventory}
+              onSaveMachineries={handleSaveMachineries}
+              onNavigateToEstoque={() => setActiveTab('estoque')}
             />
           )}
 

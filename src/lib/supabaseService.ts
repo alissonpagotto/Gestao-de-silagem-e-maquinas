@@ -17,9 +17,20 @@ import {
   TerminationRecord,
   DocumentoEntradaRecord,
   DocumentoEntradaItem,
-  TanqueCombustivel
+  TanqueCombustivel,
+  RetiradaPecaRecord,
+  MovimentacaoFerramentaRecord,
+  CaixaFerramentaVeiculoRecord
 } from '../types';
-export type { CompanyProfile, DocumentoEntradaRecord, DocumentoEntradaItem, TanqueCombustivel };
+export type {
+  CompanyProfile,
+  DocumentoEntradaRecord,
+  DocumentoEntradaItem,
+  TanqueCombustivel,
+  RetiradaPecaRecord,
+  MovimentacaoFerramentaRecord,
+  CaixaFerramentaVeiculoRecord
+};
 import {
   SiteConfig,
   PlanDefinition,
@@ -8502,5 +8513,953 @@ export async function fetchCloudManualEntryDocumentTypes(companyId?: string): Pr
     return null;
   }
 }
+
+// ===========================================================================
+// MÓDULO: GESTÃO E CONTROLE DO ALMOXARIFADO
+// Tabelas Oficiais no Supabase:
+//   1. public.retiradas_pecas
+//   2. public.movimentacao_ferramentas
+//   3. public.caixa_ferramentas_veiculo
+// ===========================================================================
+
+const LOCAL_RETIRADAS_PECAS_KEY = 'silagem_almox_retiradas_pecas_v1';
+const LOCAL_MOVIMENTACAO_FERRAMENTAS_KEY = 'silagem_almox_mov_ferramentas_v1';
+const LOCAL_CAIXA_FERRAMENTAS_VEICULO_KEY = 'silagem_almox_caixa_veiculo_v1';
+
+function getLocalRetiradasPecas(): RetiradaPecaRecord[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_RETIRADAS_PECAS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalRetiradasPecas(list: RetiradaPecaRecord[]): void {
+  try {
+    localStorage.setItem(LOCAL_RETIRADAS_PECAS_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function getLocalMovimentacoesFerramentas(): MovimentacaoFerramentaRecord[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_MOVIMENTACAO_FERRAMENTAS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalMovimentacoesFerramentas(list: MovimentacaoFerramentaRecord[]): void {
+  try {
+    localStorage.setItem(LOCAL_MOVIMENTACAO_FERRAMENTAS_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function getLocalCaixaFerramentasVeiculo(): CaixaFerramentaVeiculoRecord[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_CAIXA_FERRAMENTAS_KEY_SAFE());
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function LOCAL_CAIXA_FERRAMENTAS_KEY_SAFE(): string {
+  return LOCAL_CAIXA_FERRAMENTAS_VEICULO_KEY;
+}
+
+function saveLocalCaixaFerramentasVeiculo(list: CaixaFerramentaVeiculoRecord[]): void {
+  try {
+    localStorage.setItem(LOCAL_CAIXA_FERRAMENTAS_VEICULO_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+/**
+ * ABA 1: Busca o histórico de retiradas de peças da tabela 'public.retiradas_pecas'
+ */
+export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
+  const localList = getLocalRetiradasPecas();
+  const machineries = getStoredMachineries();
+  const inventory = ensureDieselProductsInInventory(getStoredInventory());
+
+  if (!isSupabaseConfigured) return localList;
+
+  try {
+    let { data, error } = await supabase
+      .from('retiradas_pecas')
+      .select('*, gestao_frotas(*), estoque_produtos(*)')
+      .order('data_retirada', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      const fallback = await supabase
+        .from('retiradas_pecas')
+        .select('*')
+        .order('data_retirada', { ascending: false })
+        .order('created_at', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      logPostgresError('fetchRetiradasPecas', error, { table: 'retiradas_pecas', action: 'SELECT' });
+      return localList;
+    }
+
+    const mapped: RetiradaPecaRecord[] = (data || []).map((row: any) => {
+      const frotaRow = row.gestao_frotas;
+      const prodRow = row.estoque_produtos;
+
+      const matchedVehicle = machineries.find(
+        m => m.id === row.veiculo_id || toValidUUID(m.id) === row.veiculo_id
+      );
+      const matchedProduct = inventory.find(
+        p => p.id === row.produto_id || toValidUUID(p.id) === row.produto_id
+      );
+
+      const localMatch = localList.find(l => l.id === row.id);
+
+      const veiculoNome =
+        frotaRow?.nome ||
+        frotaRow?.name ||
+        frotaRow?.modelo ||
+        matchedVehicle?.name ||
+        localMatch?.veiculo_nome ||
+        'Veículo / Máquina';
+
+      const veiculoPlaca =
+        frotaRow?.placa_ou_serie ||
+        frotaRow?.plate_or_serial ||
+        matchedVehicle?.plateOrSerial ||
+        localMatch?.veiculo_placa ||
+        '';
+
+      const produtoNome =
+        prodRow?.nome_comercial ||
+        prodRow?.nome_fiscal ||
+        prodRow?.nome ||
+        matchedProduct?.nome_comercial ||
+        matchedProduct?.name ||
+        localMatch?.produto_nome ||
+        'Peça / Item do Estoque';
+
+      const produtoCodigo =
+        prodRow?.codigo_interno ||
+        prodRow?.codigo_barras ||
+        prodRow?.codigo_fabrica ||
+        matchedProduct?.code ||
+        localMatch?.produto_codigo ||
+        '';
+
+      const produtoUnidade =
+        prodRow?.unidade_medida ||
+        matchedProduct?.unidade_medida ||
+        matchedProduct?.unit ||
+        localMatch?.produto_unidade ||
+        'UN';
+
+      return {
+        id: String(row.id),
+        created_at: row.created_at,
+        veiculo_id: row.veiculo_id || null,
+        produto_id: row.produto_id || null,
+        quantidade: Number(row.quantidade) || 0,
+        operador_almoxarifado: String(row.operador_almoxarifado || ''),
+        retirado_por: String(row.retirado_por || ''),
+        data_retirada: row.data_retirada
+          ? String(row.data_retirada).split('T')[0]
+          : new Date().toISOString().split('T')[0],
+        veiculo_nome: veiculoNome,
+        veiculo_placa: veiculoPlaca,
+        produto_nome: produtoNome,
+        produto_codigo: produtoCodigo,
+        produto_unidade: produtoUnidade,
+      };
+    });
+
+    saveLocalRetiradasPecas(mapped);
+    return mapped;
+  } catch (err) {
+    console.warn('fetchRetiradasPecas err:', err);
+    return localList;
+  }
+}
+
+/**
+ * ABA 1: Registra uma nova retirada de peça em 'public.retiradas_pecas'
+ * E abate automaticamente a quantidade correspondente na tabela 'public.estoque_produtos'.
+ */
+export async function registrarRetiradaPeca(params: {
+  veiculo_id: string;
+  produto_id: string;
+  quantidade: number;
+  operador_almoxarifado: string;
+  retirado_por: string;
+  data_retirada: string;
+  veiculo?: Machinery;
+  produto?: InventoryItem;
+}): Promise<{
+  success: boolean;
+  record?: RetiradaPecaRecord;
+  novoSaldoEstoque?: number;
+  updatedInventory?: InventoryItem[];
+  errorMessage?: string;
+}> {
+  const qtdRetirada = Number(params.quantidade);
+  if (!params.produto_id || isNaN(qtdRetirada) || qtdRetirada <= 0) {
+    return { success: false, errorMessage: 'Informe um item do estoque e uma quantidade válida maior que zero.' };
+  }
+
+  const validVeiculoUuid = params.veiculo_id ? toValidUUID(params.veiculo_id) : null;
+  const validProdutoUuid = toValidUUID(params.produto_id);
+  const dataRetiradaIso = params.data_retirada || new Date().toISOString().split('T')[0];
+  const operador = params.operador_almoxarifado.trim();
+  const retiradoPor = params.retirado_por.trim();
+
+  // 1. Localiza o produto no estado local e calcula o saldo atualizado
+  const currentInventory = ensureDieselProductsInInventory(getStoredInventory());
+  const targetProdLocal =
+    params.produto ||
+    currentInventory.find(i => i.id === params.produto_id || toValidUUID(i.id) === validProdutoUuid);
+
+  let saldoBase = Number(targetProdLocal?.quantidade_atual ?? targetProdLocal?.quantity ?? 0);
+
+  if (isSupabaseConfigured) {
+    try {
+      // Consulta o saldo real atual no Supabase em public.estoque_produtos
+      const { data: prodDb } = await supabase
+        .from('estoque_produtos')
+        .select('id, quantidade_atual, nome_comercial, codigo_interno, unidade_medida')
+        .eq('id', validProdutoUuid)
+        .maybeSingle();
+
+      if (prodDb && prodDb.quantidade_atual !== undefined && prodDb.quantidade_atual !== null) {
+        saldoBase = Number(prodDb.quantidade_atual);
+      } else if (targetProdLocal) {
+        // Caso o item ainda não exista fisicamente em public.estoque_produtos, garante o upsert prévio
+        await upsertEstoqueItem({ ...targetProdLocal, id: validProdutoUuid });
+      }
+    } catch (err) {
+      console.warn('Notice querying estoque_produtos before withdrawal:', err);
+    }
+  }
+
+  const novoSaldo = Math.max(0, Number((saldoBase - qtdRetirada).toFixed(3)));
+
+  // 2. Insere o registro na tabela 'public.retiradas_pecas'
+  let insertedRow: any = null;
+
+  if (isSupabaseConfigured) {
+    const payload: Record<string, any> = {
+      veiculo_id: validVeiculoUuid,
+      produto_id: validProdutoUuid,
+      quantidade: qtdRetirada,
+      operador_almoxarifado: operador,
+      retirado_por: retiradoPor,
+      data_retirada: dataRetiradaIso,
+    };
+
+    let { data, error } = await supabase
+      .from('retiradas_pecas')
+      .insert(payload)
+      .select('*')
+      .maybeSingle();
+
+    // Tratamento defensivo de FK (23503): se o veículo ou produto ainda não estiver sincronizado no banco
+    if (error && error.code === '23503') {
+      if (params.veiculo && validVeiculoUuid) {
+        try {
+          await upsertGestaoFrota({ ...params.veiculo, id: validVeiculoUuid });
+        } catch {}
+      }
+      if (targetProdLocal) {
+        try {
+          await upsertEstoqueItem({ ...targetProdLocal, id: validProdutoUuid });
+        } catch {}
+      }
+
+      // Retenta com os registros pai garantidos
+      const retry1 = await supabase
+        .from('retiradas_pecas')
+        .insert(payload)
+        .select('*')
+        .maybeSingle();
+
+      data = retry1.data;
+      error = retry1.error;
+
+      // Se ainda houver FK em veiculo_id (ex: veículo apenas em memória sem company_id correspondente)
+      if (error && error.code === '23503') {
+        const errDetails = String(error.details || error.message || '');
+        if (errDetails.includes('veiculo_id')) {
+          const retryNoVehicleFk = await supabase
+            .from('retiradas_pecas')
+            .insert({ ...payload, veiculo_id: null })
+            .select('*')
+            .maybeSingle();
+          data = retryNoVehicleFk.data;
+          error = retryNoVehicleFk.error;
+        }
+      }
+    }
+
+    if (error) {
+      logPostgresError('registrarRetiradaPeca:insert', error, {
+        table: 'retiradas_pecas',
+        action: 'INSERT',
+        payload,
+      });
+      return {
+        success: false,
+        errorMessage: `Erro ao gravar retirada no Supabase: ${error.message || 'Falha na operação'}`,
+      };
+    }
+
+    insertedRow = data;
+
+    // 3. REQUISITO OBRIGATÓRIO: Abate automaticamente a quantidade em 'public.estoque_produtos'
+    const nowIso = new Date().toISOString();
+    const { error: updErr } = await supabase
+      .from('estoque_produtos')
+      .update({
+        quantidade_atual: novoSaldo,
+        updated_at: nowIso,
+      })
+      .eq('id', validProdutoUuid);
+
+    if (updErr) {
+      await supabase
+        .from('estoque_produtos')
+        .update({ quantidade_atual: novoSaldo })
+        .eq('id', validProdutoUuid);
+    }
+
+    // Também mantém a tabela secundária 'public.estoque' sincronizada caso exista
+    try {
+      await supabase
+        .from('estoque')
+        .update({ quantidade_atual: novoSaldo, quantidade: novoSaldo })
+        .eq('id', validProdutoUuid);
+    } catch {}
+  }
+
+  // 4. Atualiza o estoque local para refletir instantaneamente em toda a aplicação
+  const updatedInventory = currentInventory.map(item => {
+    if (item.id === params.produto_id || toValidUUID(item.id) === validProdutoUuid) {
+      return {
+        ...item,
+        quantity: novoSaldo,
+        quantidade_atual: novoSaldo,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return item;
+  });
+  saveStoredInventory(updatedInventory);
+
+  const newRecord: RetiradaPecaRecord = {
+    id: insertedRow?.id ? String(insertedRow.id) : toValidUUID(`ret_${Date.now()}`),
+    created_at: insertedRow?.created_at || new Date().toISOString(),
+    veiculo_id: validVeiculoUuid,
+    produto_id: validProdutoUuid,
+    quantidade: qtdRetirada,
+    operador_almoxarifado: operador,
+    retirado_por: retiradoPor,
+    data_retirada: dataRetiradaIso,
+    veiculo_nome: params.veiculo?.name || 'Veículo / Máquina',
+    veiculo_placa: params.veiculo?.plateOrSerial || '',
+    produto_nome: targetProdLocal?.nome_comercial || targetProdLocal?.name || 'Item do Estoque',
+    produto_codigo: targetProdLocal?.code || targetProdLocal?.codigo_produto || '',
+    produto_unidade: targetProdLocal?.unidade_medida || targetProdLocal?.unit || 'UN',
+  };
+
+  const updatedRetiradas = [newRecord, ...getLocalRetiradasPecas().filter(r => r.id !== newRecord.id)];
+  saveLocalRetiradasPecas(updatedRetiradas);
+
+  return {
+    success: true,
+    record: newRecord,
+    novoSaldoEstoque: novoSaldo,
+    updatedInventory,
+  };
+}
+
+/**
+ * ABA 1: Exclui um registro de retirada de peça (com opção de estornar a quantidade ao estoque)
+ */
+export async function deleteRetiradaPeca(
+  retiradaId: string,
+  estornarEstoque: boolean = true,
+  produtoId?: string | null,
+  quantidadeEstorno?: number
+): Promise<{ success: boolean; updatedInventory?: InventoryItem[] }> {
+  let updatedInventory: InventoryItem[] | undefined;
+
+  if (estornarEstoque && produtoId && quantidadeEstorno && quantidadeEstorno > 0) {
+    const validProdUuid = toValidUUID(produtoId);
+    const currentInventory = ensureDieselProductsInInventory(getStoredInventory());
+    const target = currentInventory.find(
+      i => i.id === produtoId || toValidUUID(i.id) === validProdUuid
+    );
+    let saldoAtual = Number(target?.quantidade_atual ?? target?.quantity ?? 0);
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data: prodDb } = await supabase
+          .from('estoque_produtos')
+          .select('quantidade_atual')
+          .eq('id', validProdUuid)
+          .maybeSingle();
+        if (prodDb && prodDb.quantidade_atual !== undefined && prodDb.quantidade_atual !== null) {
+          saldoAtual = Number(prodDb.quantidade_atual);
+        }
+      } catch {}
+    }
+
+    const novoSaldo = Number((saldoAtual + Number(quantidadeEstorno)).toFixed(3));
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('estoque_produtos')
+          .update({ quantidade_atual: novoSaldo, updated_at: new Date().toISOString() })
+          .eq('id', validProdUuid);
+      } catch {}
+    }
+
+    updatedInventory = currentInventory.map(item => {
+      if (item.id === produtoId || toValidUUID(item.id) === validProdUuid) {
+        return {
+          ...item,
+          quantity: novoSaldo,
+          quantidade_atual: novoSaldo,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return item;
+    });
+    saveStoredInventory(updatedInventory);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('retiradas_pecas').delete().eq('id', retiradaId);
+    } catch (err) {
+      console.warn('deleteRetiradaPeca err:', err);
+    }
+  }
+
+  const remaining = getLocalRetiradasPecas().filter(r => r.id !== retiradaId);
+  saveLocalRetiradasPecas(remaining);
+
+  return { success: true, updatedInventory };
+}
+
+/**
+ * ABA 2: Busca as movimentações e cautelas de ferramentas da tabela 'public.movimentacao_ferramentas'
+ */
+export async function fetchMovimentacoesFerramentas(): Promise<MovimentacaoFerramentaRecord[]> {
+  const localList = getLocalMovimentacoesFerramentas();
+  if (!isSupabaseConfigured) return localList;
+
+  try {
+    const { data, error } = await supabase
+      .from('movimentacao_ferramentas')
+      .select('*')
+      .order('data_retirada', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      logPostgresError('fetchMovimentacoesFerramentas', error, {
+        table: 'movimentacao_ferramentas',
+        action: 'SELECT',
+      });
+      return localList;
+    }
+
+    const mapped: MovimentacaoFerramentaRecord[] = (data || []).map((row: any) => ({
+      id: String(row.id),
+      created_at: row.created_at,
+      codigo_ferramenta: String(row.codigo_ferramenta || ''),
+      nome_ferramenta: String(row.nome_ferramenta || ''),
+      operador_almoxarifado: String(row.operador_almoxarifado || ''),
+      retirado_por: String(row.retirado_por || ''),
+      data_retirada: row.data_retirada || row.created_at || new Date().toISOString(),
+      data_devolucao: row.data_devolucao || null,
+      conferido_por: row.conferido_por || null,
+      status: row.data_devolucao ? 'Devolvido' : String(row.status || 'Retirado'),
+    }));
+
+    saveLocalMovimentacoesFerramentas(mapped);
+    return mapped;
+  } catch (err) {
+    console.warn('fetchMovimentacoesFerramentas err:', err);
+    return localList;
+  }
+}
+
+/**
+ * ABA 2: Registra nova cautela / empréstimo de ferramenta em 'public.movimentacao_ferramentas'
+ */
+export async function registrarRetiradaFerramenta(params: {
+  codigo_ferramenta: string;
+  nome_ferramenta: string;
+  operador_almoxarifado: string;
+  retirado_por: string;
+  data_retirada?: string;
+}): Promise<{ success: boolean; record?: MovimentacaoFerramentaRecord; errorMessage?: string }> {
+  const codigo = params.codigo_ferramenta.trim();
+  const nome = params.nome_ferramenta.trim();
+  const operador = params.operador_almoxarifado.trim();
+  const retiradoPor = params.retirado_por.trim();
+  const dataRetiradaIso = params.data_retirada
+    ? new Date(params.data_retirada).toISOString()
+    : new Date().toISOString();
+
+  if (!codigo || !nome || !operador || !retiradoPor) {
+    return {
+      success: false,
+      errorMessage: 'Preencha todos os campos obrigatórios da cautela de ferramenta.',
+    };
+  }
+
+  let insertedRow: any = null;
+
+  if (isSupabaseConfigured) {
+    const payload = {
+      codigo_ferramenta: codigo,
+      nome_ferramenta: nome,
+      operador_almoxarifado: operador,
+      retirado_por: retiradoPor,
+      data_retirada: dataRetiradaIso,
+      status: 'Retirado',
+    };
+
+    const { data, error } = await supabase
+      .from('movimentacao_ferramentas')
+      .insert(payload)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      logPostgresError('registrarRetiradaFerramenta', error, {
+        table: 'movimentacao_ferramentas',
+        action: 'INSERT',
+        payload,
+      });
+      return {
+        success: false,
+        errorMessage: `Erro ao registrar cautela no Supabase: ${error.message}`,
+      };
+    }
+
+    insertedRow = data;
+  }
+
+  const newRecord: MovimentacaoFerramentaRecord = {
+    id: insertedRow?.id ? String(insertedRow.id) : toValidUUID(`fer_${Date.now()}`),
+    created_at: insertedRow?.created_at || new Date().toISOString(),
+    codigo_ferramenta: codigo,
+    nome_ferramenta: nome,
+    operador_almoxarifado: operador,
+    retirado_por: retiradoPor,
+    data_retirada: insertedRow?.data_retirada || dataRetiradaIso,
+    data_devolucao: null,
+    conferido_por: null,
+    status: 'Retirado',
+  };
+
+  const updated = [
+    newRecord,
+    ...getLocalMovimentacoesFerramentas().filter(r => r.id !== newRecord.id),
+  ];
+  saveLocalMovimentacoesFerramentas(updated);
+
+  return { success: true, record: newRecord };
+}
+
+/**
+ * ABA 2: Registra a devolução de uma ferramenta em 'public.movimentacao_ferramentas'
+ * Preenchendo 'data_devolucao', 'conferido_por' e atualizando 'status' para 'Devolvido'
+ */
+export async function registrarDevolucaoFerramenta(
+  id: string,
+  dados: { conferido_por: string; data_devolucao?: string }
+): Promise<{ success: boolean; record?: MovimentacaoFerramentaRecord; errorMessage?: string }> {
+  const conferidoPor = dados.conferido_por.trim();
+  if (!conferidoPor) {
+    return {
+      success: false,
+      errorMessage: 'Informe o nome de quem conferiu a devolução da ferramenta.',
+    };
+  }
+
+  const dataDevolucaoIso = dados.data_devolucao
+    ? new Date(dados.data_devolucao).toISOString()
+    : new Date().toISOString();
+
+  let updatedRow: any = null;
+
+  if (isSupabaseConfigured) {
+    const payload = {
+      data_devolucao: dataDevolucaoIso,
+      conferido_por: conferidoPor,
+      status: 'Devolvido',
+    };
+
+    const { data, error } = await supabase
+      .from('movimentacao_ferramentas')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      logPostgresError('registrarDevolucaoFerramenta', error, {
+        table: 'movimentacao_ferramentas',
+        action: 'UPDATE',
+        payload,
+      });
+      return {
+        success: false,
+        errorMessage: `Erro ao registrar devolução no Supabase: ${error.message}`,
+      };
+    }
+
+    updatedRow = data;
+  }
+
+  const currentList = getLocalMovimentacoesFerramentas();
+  let updatedRecord: MovimentacaoFerramentaRecord | undefined;
+
+  const newList = currentList.map(item => {
+    if (item.id === id) {
+      updatedRecord = {
+        ...item,
+        data_devolucao: updatedRow?.data_devolucao || dataDevolucaoIso,
+        conferido_por: conferidoPor,
+        status: 'Devolvido',
+      };
+      return updatedRecord;
+    }
+    return item;
+  });
+
+  saveLocalMovimentacoesFerramentas(newList);
+  return { success: true, record: updatedRecord };
+}
+
+/**
+ * ABA 2: Exclui um registro de movimentação de ferramenta
+ */
+export async function deleteMovimentacaoFerramenta(id: string): Promise<boolean> {
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('movimentacao_ferramentas').delete().eq('id', id);
+    } catch (err) {
+      console.warn('deleteMovimentacaoFerramenta err:', err);
+    }
+  }
+  const remaining = getLocalMovimentacoesFerramentas().filter(r => r.id !== id);
+  saveLocalMovimentacoesFerramentas(remaining);
+  return true;
+}
+
+/**
+ * ABA 3: Busca os itens da caixa de ferramentas fixa por veículo em 'public.caixa_ferramentas_veiculo'
+ */
+export async function fetchCaixaFerramentasVeiculo(
+  veiculoId?: string
+): Promise<CaixaFerramentaVeiculoRecord[]> {
+  const localList = getLocalCaixaFerramentasVeiculo();
+  const machineries = getStoredMachineries();
+
+  if (!isSupabaseConfigured) {
+    if (!veiculoId) return localList;
+    const validUuid = toValidUUID(veiculoId);
+    return localList.filter(i => i.veiculo_id === veiculoId || i.veiculo_id === validUuid);
+  }
+
+  try {
+    let query = supabase
+      .from('caixa_ferramentas_veiculo')
+      .select('*, gestao_frotas(*)')
+      .order('nome_ferramenta', { ascending: true });
+
+    if (veiculoId) {
+      const validUuid = toValidUUID(veiculoId);
+      query = query.eq('veiculo_id', validUuid);
+    }
+
+    let { data, error } = await query;
+
+    if (error) {
+      let fallbackQuery = supabase
+        .from('caixa_ferramentas_veiculo')
+        .select('*')
+        .order('nome_ferramenta', { ascending: true });
+      if (veiculoId) {
+        fallbackQuery = fallbackQuery.eq('veiculo_id', toValidUUID(veiculoId));
+      }
+      const fallback = await fallbackQuery;
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      logPostgresError('fetchCaixaFerramentasVeiculo', error, {
+        table: 'caixa_ferramentas_veiculo',
+        action: 'SELECT',
+      });
+      return localList;
+    }
+
+    const mapped: CaixaFerramentaVeiculoRecord[] = (data || []).map((row: any) => {
+      const frotaRow = row.gestao_frotas;
+      const matchedVehicle = machineries.find(
+        m => m.id === row.veiculo_id || toValidUUID(m.id) === row.veiculo_id
+      );
+
+      return {
+        id: String(row.id),
+        created_at: row.created_at,
+        veiculo_id: row.veiculo_id || null,
+        codigo_item_ferramenta: String(row.codigo_item_ferramenta || ''),
+        nome_ferramenta: String(row.nome_ferramenta || ''),
+        quantidade_esperada: Number(row.quantidade_esperada ?? 1),
+        quantidade_atual: Number(row.quantidade_atual ?? 0),
+        ultima_conferencia: row.ultima_conferencia || null,
+        conferido_por: row.conferido_por || null,
+        veiculo_nome: frotaRow?.nome || frotaRow?.name || matchedVehicle?.name || undefined,
+        veiculo_placa:
+          frotaRow?.placa_ou_serie || frotaRow?.plate_or_serial || matchedVehicle?.plateOrSerial || undefined,
+      };
+    });
+
+    if (!veiculoId) {
+      saveLocalCaixaFerramentasVeiculo(mapped);
+    } else {
+      const validUuid = toValidUUID(veiculoId);
+      const others = localList.filter(
+        i => i.veiculo_id !== veiculoId && i.veiculo_id !== validUuid
+      );
+      saveLocalCaixaFerramentasVeiculo([...others, ...mapped]);
+    }
+
+    return mapped;
+  } catch (err) {
+    console.warn('fetchCaixaFerramentasVeiculo err:', err);
+    return localList;
+  }
+}
+
+/**
+ * ABA 3: Adiciona ou atualiza uma ferramenta fixa na caixa de um veículo em 'public.caixa_ferramentas_veiculo'
+ */
+export async function upsertItemCaixaFerramentaVeiculo(params: {
+  id?: string;
+  veiculo_id: string;
+  codigo_item_ferramenta: string;
+  nome_ferramenta: string;
+  quantidade_esperada: number;
+  quantidade_atual: number;
+  ultima_conferencia?: string | null;
+  conferido_por?: string | null;
+  veiculo?: Machinery;
+}): Promise<{ success: boolean; record?: CaixaFerramentaVeiculoRecord; errorMessage?: string }> {
+  const validVeiculoUuid = toValidUUID(params.veiculo_id);
+  const codigo = params.codigo_item_ferramenta.trim();
+  const nome = params.nome_ferramenta.trim();
+  const qtdEsperada = Math.max(0, Number(params.quantidade_esperada ?? 1));
+  const qtdAtual = Math.max(0, Number(params.quantidade_atual ?? qtdEsperada));
+
+  if (!params.veiculo_id || !codigo || !nome) {
+    return {
+      success: false,
+      errorMessage: 'Selecione o veículo e informe o código e nome da ferramenta.',
+    };
+  }
+
+  let savedRow: any = null;
+
+  if (isSupabaseConfigured) {
+    const payload: Record<string, any> = {
+      veiculo_id: validVeiculoUuid,
+      codigo_item_ferramenta: codigo,
+      nome_ferramenta: nome,
+      quantidade_esperada: qtdEsperada,
+      quantidade_atual: qtdAtual,
+      ...(params.ultima_conferencia !== undefined ? { ultima_conferencia: params.ultima_conferencia } : {}),
+      ...(params.conferido_por !== undefined ? { conferido_por: params.conferido_por } : {}),
+    };
+
+    if (params.id) {
+      payload.id = toValidUUID(params.id);
+    }
+
+    let { data, error } = params.id
+      ? await supabase
+          .from('caixa_ferramentas_veiculo')
+          .upsert(payload, { onConflict: 'id' })
+          .select('*')
+          .maybeSingle()
+      : await supabase
+          .from('caixa_ferramentas_veiculo')
+          .insert(payload)
+          .select('*')
+          .maybeSingle();
+
+    // Se ocorrer erro de chave estrangeira (veículo ainda não salvo em public.gestao_frotas), garante o upsert do veículo antes
+    if (error && error.code === '23503' && params.veiculo) {
+      try {
+        await upsertGestaoFrota({ ...params.veiculo, id: validVeiculoUuid });
+        const retry = params.id
+          ? await supabase
+              .from('caixa_ferramentas_veiculo')
+              .upsert(payload, { onConflict: 'id' })
+              .select('*')
+              .maybeSingle()
+          : await supabase
+              .from('caixa_ferramentas_veiculo')
+              .insert(payload)
+              .select('*')
+              .maybeSingle();
+        data = retry.data;
+        error = retry.error;
+      } catch {}
+    }
+
+    if (error) {
+      logPostgresError('upsertItemCaixaFerramentaVeiculo', error, {
+        table: 'caixa_ferramentas_veiculo',
+        action: params.id ? 'UPSERT' : 'INSERT',
+        payload,
+      });
+      return {
+        success: false,
+        errorMessage: `Erro ao salvar ferramenta na caixa do veículo: ${error.message}`,
+      };
+    }
+
+    savedRow = data;
+  }
+
+  const record: CaixaFerramentaVeiculoRecord = {
+    id: savedRow?.id ? String(savedRow.id) : (params.id || toValidUUID(`cx_${Date.now()}`)),
+    created_at: savedRow?.created_at || new Date().toISOString(),
+    veiculo_id: validVeiculoUuid,
+    codigo_item_ferramenta: codigo,
+    nome_ferramenta: nome,
+    quantidade_esperada: qtdEsperada,
+    quantidade_atual: qtdAtual,
+    ultima_conferencia: savedRow?.ultima_conferencia ?? params.ultima_conferencia ?? null,
+    conferido_por: savedRow?.conferido_por ?? params.conferido_por ?? null,
+    veiculo_nome: params.veiculo?.name,
+    veiculo_placa: params.veiculo?.plateOrSerial,
+  };
+
+  const currentList = getLocalCaixaFerramentasVeiculo();
+  const exists = currentList.some(i => i.id === record.id);
+  const updatedList = exists
+    ? currentList.map(i => (i.id === record.id ? record : i))
+    : [...currentList, record];
+  saveLocalCaixaFerramentasVeiculo(updatedList);
+
+  return { success: true, record };
+}
+
+/**
+ * ABA 3: Realiza a Conferência de Caixa de Ferramentas de um Veículo,
+ * atualizando as quantidades atuais, a data/hora da última conferência e o nome de quem conferiu.
+ */
+export async function realizarConferenciaCaixaVeiculo(params: {
+  veiculo_id: string;
+  conferido_por: string;
+  ultima_conferencia?: string;
+  itens: {
+    id: string;
+    quantidade_atual: number;
+    quantidade_esperada?: number;
+  }[];
+}): Promise<{ success: boolean; errorMessage?: string }> {
+  const conferidoPor = params.conferido_por.trim();
+  if (!conferidoPor) {
+    return {
+      success: false,
+      errorMessage: 'Informe o nome do operador responsável pela conferência.',
+    };
+  }
+
+  const dataConferenciaIso = params.ultima_conferencia
+    ? new Date(params.ultima_conferencia).toISOString()
+    : new Date().toISOString();
+
+  if (isSupabaseConfigured) {
+    for (const item of params.itens) {
+      const updatePayload: Record<string, any> = {
+        quantidade_atual: Math.max(0, Number(item.quantidade_atual) || 0),
+        conferido_por: conferidoPor,
+        ultima_conferencia: dataConferenciaIso,
+      };
+      if (item.quantidade_esperada !== undefined) {
+        updatePayload.quantidade_esperada = Math.max(0, Number(item.quantidade_esperada) || 0);
+      }
+
+      const { error } = await supabase
+        .from('caixa_ferramentas_veiculo')
+        .update(updatePayload)
+        .eq('id', item.id);
+
+      if (error) {
+        logPostgresError('realizarConferenciaCaixaVeiculo', error, {
+          table: 'caixa_ferramentas_veiculo',
+          action: 'UPDATE',
+          payload: updatePayload,
+        });
+        return {
+          success: false,
+          errorMessage: `Erro ao gravar conferência no Supabase: ${error.message}`,
+        };
+      }
+    }
+  }
+
+  const currentList = getLocalCaixaFerramentasVeiculo();
+  const itemMap = new Map(params.itens.map(i => [i.id, i]));
+  const updatedList = currentList.map(row => {
+    const conf = itemMap.get(row.id);
+    if (!conf) return row;
+    return {
+      ...row,
+      quantidade_atual: Math.max(0, Number(conf.quantidade_atual) || 0),
+      ...(conf.quantidade_esperada !== undefined
+        ? { quantidade_esperada: Math.max(0, Number(conf.quantidade_esperada) || 0) }
+        : {}),
+      conferido_por: conferidoPor,
+      ultima_conferencia: dataConferenciaIso,
+    };
+  });
+  saveLocalCaixaFerramentasVeiculo(updatedList);
+
+  return { success: true };
+}
+
+/**
+ * ABA 3: Remove uma ferramenta fixa da caixa de ferramentas do veículo
+ */
+export async function deleteItemCaixaFerramentaVeiculo(id: string): Promise<boolean> {
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('caixa_ferramentas_veiculo').delete().eq('id', id);
+    } catch (err) {
+      console.warn('deleteItemCaixaFerramentaVeiculo err:', err);
+    }
+  }
+  const remaining = getLocalCaixaFerramentasVeiculo().filter(i => i.id !== id);
+  saveLocalCaixaFerramentasVeiculo(remaining);
+  return true;
+}
+
 
 

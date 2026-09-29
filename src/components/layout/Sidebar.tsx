@@ -66,6 +66,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               valid.push('fiscal');
             }
           }
+          if (!valid.includes('almoxarifado')) {
+            const estIndex = valid.indexOf('estoque');
+            if (estIndex !== -1) {
+              valid.splice(estIndex + 1, 0, 'almoxarifado');
+            } else {
+              valid.push('almoxarifado');
+            }
+          }
           const missing = ALL_MENU_ITEMS.filter(m => !valid.includes(m.id)).map(m => m.id);
           return [...valid, ...missing];
         }

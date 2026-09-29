@@ -40,11 +40,13 @@ import { PrintQueueManagerModal } from './PrintQueueManagerModal';
 interface InventoryModuleProps {
   inventory: InventoryItem[];
   onSaveInventory: (inventory: InventoryItem[]) => void;
+  onOpenAlmoxarifado?: () => void;
 }
 
 export const InventoryModule: React.FC<InventoryModuleProps> = ({
   inventory,
   onSaveInventory,
+  onOpenAlmoxarifado,
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
@@ -299,6 +301,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenAlmoxarifado && (
+            <button
+              type="button"
+              onClick={onOpenAlmoxarifado}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-xs transition active:scale-95 cursor-pointer"
+            >
+              <Wrench className="w-3.5 h-3.5 stroke-[2.2]" />
+              <span>Gestão e Controle do Almoxarifado</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsPrintQueueModalOpen(true)}

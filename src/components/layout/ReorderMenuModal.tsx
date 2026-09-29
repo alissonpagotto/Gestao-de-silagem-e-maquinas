@@ -19,6 +19,7 @@ import {
   Settings,
   ReceiptText,
   ShoppingCart,
+  Wrench,
   LucideIcon
 } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'servicos', label: 'Serviços', icon: Tractor },
   { id: 'venda', label: 'Venda', icon: ShoppingCart },
   { id: 'estoque', label: 'Estoque', icon: Package },
+  { id: 'almoxarifado', label: 'Almoxarifado', icon: Wrench },
   { id: 'financeiro', label: 'Financeiro', icon: TrendingUp },
   { id: 'fiscal', label: 'Notas e Entradas', icon: ReceiptText },
   { id: 'rh', label: 'RH', icon: HeartHandshake },

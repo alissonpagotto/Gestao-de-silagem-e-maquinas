@@ -1497,3 +1497,53 @@ export interface DocumentoEntradaItem {
   created_at?: string;
 }
 
+// ==============================================================================
+// MÓDULO GESTÃO E CONTROLE DO ALMOXARIFADO
+// ==============================================================================
+
+export interface RetiradaPecaRecord {
+  id: string;
+  created_at?: string;
+  veiculo_id: string | null;
+  produto_id: string | null;
+  quantidade: number;
+  operador_almoxarifado: string;
+  retirado_por: string;
+  data_retirada: string; // YYYY-MM-DD
+  // Dados enriquecidos / joins opcionais para exibição
+  veiculo_nome?: string;
+  veiculo_placa?: string;
+  produto_nome?: string;
+  produto_codigo?: string;
+  produto_unidade?: string;
+}
+
+export interface MovimentacaoFerramentaRecord {
+  id: string;
+  created_at?: string;
+  codigo_ferramenta: string;
+  nome_ferramenta: string;
+  operador_almoxarifado: string;
+  retirado_por: string;
+  data_retirada: string; // ISO timestamptz
+  data_devolucao?: string | null; // ISO timestamptz
+  conferido_por?: string | null;
+  status: 'Retirado' | 'Devolvido' | string;
+}
+
+export interface CaixaFerramentaVeiculoRecord {
+  id: string;
+  created_at?: string;
+  veiculo_id: string | null;
+  codigo_item_ferramenta: string;
+  nome_ferramenta: string;
+  quantidade_esperada: number;
+  quantidade_atual: number;
+  ultima_conferencia?: string | null;
+  conferido_por?: string | null;
+  // Dados enriquecidos opcionais
+  veiculo_nome?: string;
+  veiculo_placa?: string;
+}
+
+
