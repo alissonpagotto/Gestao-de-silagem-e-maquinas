@@ -3030,6 +3030,53 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
             : (driverId ? [driverId] : []));
       const finalOperatorOrDriver = resolvedDriverName || matchedLocal?.operatorOrDriver || (finalAssignedDrivers.length > 0 ? finalAssignedDrivers.join(', ') : '');
 
+      // Vínculo físico de reboque / implemento da tabela gestao_frotas
+      const rawRowTrailerId = row.reboque_vinculado_id || row.reboque_id || row.coupled_trailer_id || row.coupledTrailerId;
+      const cleanTrailerId = (rawRowTrailerId && String(rawRowTrailerId).trim() !== '' && String(rawRowTrailerId).toLowerCase() !== 'null')
+        ? String(rawRowTrailerId).trim()
+        : undefined;
+
+      const hasTrailerFlag = row.has_coupled_trailer !== undefined && row.has_coupled_trailer !== null
+        ? Boolean(row.has_coupled_trailer)
+        : Boolean(cleanTrailerId);
+
+      const effectiveHasCoupledTrailer = Boolean(cleanTrailerId && hasTrailerFlag);
+      const effectiveCoupledTrailerId = effectiveHasCoupledTrailer ? cleanTrailerId : undefined;
+
+      // Resolução dos dados descritivos do implemento/reboque vinculado
+      const matchedTrailer = effectiveCoupledTrailerId
+        ? (data as any[] || []).find((r: any) => r.id === effectiveCoupledTrailerId || toValidUUID(r.id) === toValidUUID(effectiveCoupledTrailerId)) ||
+          storedMachineries.find((m) => m.id === effectiveCoupledTrailerId || toValidUUID(m.id) === toValidUUID(effectiveCoupledTrailerId))
+        : null;
+
+      const effectiveTrailerPlate = effectiveHasCoupledTrailer
+        ? (row.trailer_plate || row.trailerPlate || matchedTrailer?.licensePlateOrSerial || matchedTrailer?.placa_ou_serie || undefined)
+        : undefined;
+
+      const effectiveTrailerModel = effectiveHasCoupledTrailer
+        ? (row.trailer_model || row.trailerModel || matchedTrailer?.model || matchedTrailer?.modelo || matchedTrailer?.name || matchedTrailer?.nome || undefined)
+        : undefined;
+
+      const effectiveCoupledTrailerType = effectiveHasCoupledTrailer
+        ? (row.coupled_trailer_type || row.coupledTrailerType || matchedTrailer?.trailerType || undefined)
+        : undefined;
+
+      let effectiveCoupledTrailerName = effectiveHasCoupledTrailer
+        ? (row.coupled_trailer_name || row.coupledTrailerName)
+        : undefined;
+
+      if (effectiveHasCoupledTrailer && !effectiveCoupledTrailerName) {
+        if (effectiveTrailerPlate && effectiveTrailerModel) {
+          effectiveCoupledTrailerName = `${effectiveTrailerPlate} - ${effectiveTrailerModel}`;
+        } else if (effectiveTrailerPlate) {
+          effectiveCoupledTrailerName = effectiveTrailerPlate;
+        } else if (effectiveTrailerModel) {
+          effectiveCoupledTrailerName = effectiveTrailerModel;
+        } else {
+          effectiveCoupledTrailerName = 'Reboque vinculado';
+        }
+      }
+
       return {
         ...row,
         id: row.id,
@@ -3071,6 +3118,16 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         quantidade_pneus: row.quantidade_pneus !== undefined && row.quantidade_pneus !== null ? Number(row.quantidade_pneus) : (row.quantidadePneus !== undefined && row.quantidadePneus !== null ? Number(row.quantidadePneus) : undefined),
         numeroEixos: row.numero_eixos !== undefined && row.numero_eixos !== null ? Number(row.numero_eixos) : (row.numeroEixos !== undefined && row.numeroEixos !== null ? Number(row.numeroEixos) : undefined),
         quantidadePneus: row.quantidade_pneus !== undefined && row.quantidade_pneus !== null ? Number(row.quantidade_pneus) : (row.quantidadePneus !== undefined && row.quantidadePneus !== null ? Number(row.quantidadePneus) : undefined),
+        // Vínculo físico de reboque / implemento
+        hasCoupledTrailer: effectiveHasCoupledTrailer,
+        coupledTrailerId: effectiveCoupledTrailerId,
+        reboque_vinculado_id: effectiveCoupledTrailerId || null,
+        reboque_id: effectiveCoupledTrailerId || null,
+        trailerPlate: effectiveTrailerPlate,
+        trailerModel: effectiveTrailerModel,
+        coupledTrailerType: effectiveCoupledTrailerType,
+        coupledTrailerName: effectiveCoupledTrailerName,
+        compositionType: row.composition_type || row.compositionType || (effectiveHasCoupledTrailer ? 'cavalo' : (row.tipo === 'reboque' ? 'reboque' : 'veiculo_simples')),
       };
     }) as Machinery[];
   } catch (err) {
@@ -3213,6 +3270,48 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     }
     if (!unsupportedGestaoFrotaCols.has('quantidade_pneus') && cleanQtdPneus !== null && !isNaN(cleanQtdPneus)) {
       payload.quantidade_pneus = cleanQtdPneus;
+    }
+
+    // Vínculo físico de reboque / implemento na tabela public.gestao_frotas
+    // Se o switch estiver como "NÃO" (hasCoupledTrailer === false ou coupledTrailerId ausente), o campo no banco deve ser gravado estritamente como NULL
+    const hasTrailerSwitchOn = Boolean(vehicle.hasCoupledTrailer);
+    const rawTrailerId = (hasTrailerSwitchOn && vehicle.coupledTrailerId)
+      ? String(vehicle.coupledTrailerId).trim()
+      : ((hasTrailerSwitchOn && (vehicle.reboque_vinculado_id || vehicle.reboque_id))
+          ? String(vehicle.reboque_vinculado_id || vehicle.reboque_id).trim()
+          : null);
+
+    const finalTrailerId = (hasTrailerSwitchOn && rawTrailerId && rawTrailerId.toLowerCase() !== 'null')
+      ? (toValidUUID(rawTrailerId) || rawTrailerId)
+      : null;
+    const finalHasTrailer = Boolean(hasTrailerSwitchOn && finalTrailerId);
+
+    if (!unsupportedGestaoFrotaCols.has('reboque_vinculado_id')) {
+      payload.reboque_vinculado_id = finalTrailerId;
+    }
+    if (!unsupportedGestaoFrotaCols.has('reboque_id')) {
+      payload.reboque_id = finalTrailerId;
+    }
+    if (!unsupportedGestaoFrotaCols.has('coupled_trailer_id')) {
+      payload.coupled_trailer_id = finalTrailerId;
+    }
+    if (!unsupportedGestaoFrotaCols.has('has_coupled_trailer')) {
+      payload.has_coupled_trailer = finalHasTrailer;
+    }
+    if (!unsupportedGestaoFrotaCols.has('coupled_trailer_name')) {
+      payload.coupled_trailer_name = finalHasTrailer ? (vehicle.coupledTrailerName || null) : null;
+    }
+    if (!unsupportedGestaoFrotaCols.has('coupled_trailer_type')) {
+      payload.coupled_trailer_type = finalHasTrailer ? (vehicle.coupledTrailerType || null) : null;
+    }
+    if (!unsupportedGestaoFrotaCols.has('trailer_plate')) {
+      payload.trailer_plate = finalHasTrailer ? (vehicle.trailerPlate || null) : null;
+    }
+    if (!unsupportedGestaoFrotaCols.has('trailer_model')) {
+      payload.trailer_model = finalHasTrailer ? (vehicle.trailerModel || null) : null;
+    }
+    if (!unsupportedGestaoFrotaCols.has('composition_type')) {
+      payload.composition_type = vehicle.compositionType || (finalHasTrailer ? 'cavalo' : 'veiculo_simples');
     }
 
     let { error } = await supabase

@@ -274,6 +274,8 @@ export interface Machinery {
   purchaseInstallmentIntervalDays?: number; // Intervalo de dias selecionado (ex: 30 = Mensal, 90 = Trimestral, 180 = Semestral, 365 = Anual)
 
   // Supabase gestao_frotas compatibility fields
+  reboque_vinculado_id?: string | null; // ID do reboque físico gravado em public.gestao_frotas
+  reboque_id?: string | null; // Alias compatível de reboque_vinculado_id
   numero_eixos?: number; // Número de Eixos
   quantidade_pneus?: number; // Quantidade de Pneus
   numeroEixos?: number;

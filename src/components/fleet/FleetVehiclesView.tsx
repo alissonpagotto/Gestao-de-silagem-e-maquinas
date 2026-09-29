@@ -343,24 +343,47 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   React.useEffect(() => {
     if (!isSupabaseConfigured) return;
 
+    let isMounted = true;
     const channelId = `fleet_vehicles_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'gestao_frotas' },
-        (payload) => {
-          console.info('📡 [Realtime Frotas - Veículos] Alteração em gestao_frotas:', payload.eventType);
-          // O listener central em App.tsx atualiza o estado machineries via setMachineries()
-          // de forma idempotente, sem disparar re-upsert em loop.
+        async (payload: any) => {
+          console.info('📡 [Realtime Frotas - Veículos] Alteração detectada em gestao_frotas:', payload.eventType, payload);
+
+          // Atualização reativa imediata: recarrega todos os registros de frotas via REST do Supabase
+          try {
+            const fresh = await fetchGestaoFrotas(companyProfile?.id);
+            if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineries) {
+              onSaveMachineries(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar frota em tempo real via listener:', err);
+          }
         }
       )
       .subscribe();
 
+    const handleForceSync = async () => {
+      try {
+        const fresh = await fetchGestaoFrotas(companyProfile?.id);
+        if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineries) {
+          onSaveMachineries(fresh);
+        }
+      } catch (err) {
+        console.warn('Erro ao atualizar frotas via evento local:', err);
+      }
+    };
+    window.addEventListener('silagem_force_rest_sync', handleForceSync);
+
     return () => {
+      isMounted = false;
+      window.removeEventListener('silagem_force_rest_sync', handleForceSync);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [companyProfile?.id, onSaveMachineries]);
 
   // Automated Meter Synchronization Handler via direct HTTP REST
   const handleSyncMeters = async () => {
@@ -767,9 +790,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
                     const isCavalo = vehicle.compositionType === 'cavalo';
                     const isReboque = vehicle.compositionType === 'reboque' || (vehicle.categoryType || '').trim().toLowerCase() === 'reboque';
-                    const hasCoupledTrailer = Boolean(vehicle.hasCoupledTrailer || vehicle.trailerPlate || vehicle.coupledTrailerName || vehicle.coupledTrailerId);
-                    const trailerPlateDisplay = vehicle.trailerPlate || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-')[0].trim() : '');
-                    const trailerModelDisplay = vehicle.trailerModel || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-').slice(1).join('-').trim() : vehicle.coupledTrailerName);
+                    const hasCoupledTrailer = vehicle.hasCoupledTrailer === false
+                      ? false
+                      : Boolean(vehicle.hasCoupledTrailer && (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id || vehicle.trailerPlate || vehicle.coupledTrailerName));
+
+                    const coupledMach = (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id)
+                      ? machineries.find(m => m.id === (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id) || toValidUUID(m.id) === toValidUUID(vehicle.coupledTrailerId || vehicle.reboque_vinculado_id))
+                      : null;
+
+                    const trailerPlateDisplay = vehicle.trailerPlate || coupledMach?.licensePlateOrSerial || coupledMach?.placa_ou_serie || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-')[0].trim() : (vehicle.coupledTrailerName || ''));
+                    const trailerModelDisplay = vehicle.trailerModel || coupledMach?.model || coupledMach?.modelo || coupledMach?.name || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-').slice(1).join('-').trim() : (vehicle.coupledTrailerName || ''));
                     const pbt = (vehicle.taraWeightKg && vehicle.capacityLoadKg)
                       ? (vehicle.taraWeightKg + vehicle.capacityLoadKg)
                       : vehicle.grossWeightKg;
@@ -1089,9 +1119,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
             const isCavalo = vehicle.compositionType === 'cavalo';
             const isReboque = vehicle.compositionType === 'reboque' || (vehicle.categoryType || '').trim().toLowerCase() === 'reboque';
-            const hasCoupledTrailer = Boolean(vehicle.hasCoupledTrailer || vehicle.trailerPlate || vehicle.coupledTrailerName || vehicle.coupledTrailerId);
-            const trailerPlateDisplay = vehicle.trailerPlate || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-')[0].trim() : '');
-            const trailerModelDisplay = vehicle.trailerModel || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-').slice(1).join('-').trim() : vehicle.coupledTrailerName);
+            const hasCoupledTrailer = vehicle.hasCoupledTrailer === false
+              ? false
+              : Boolean(vehicle.hasCoupledTrailer && (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id || vehicle.trailerPlate || vehicle.coupledTrailerName));
+
+            const coupledMach = (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id)
+              ? machineries.find(m => m.id === (vehicle.coupledTrailerId || vehicle.reboque_vinculado_id) || toValidUUID(m.id) === toValidUUID(vehicle.coupledTrailerId || vehicle.reboque_vinculado_id))
+              : null;
+
+            const trailerPlateDisplay = vehicle.trailerPlate || coupledMach?.licensePlateOrSerial || coupledMach?.placa_ou_serie || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-')[0].trim() : (vehicle.coupledTrailerName || ''));
+            const trailerModelDisplay = vehicle.trailerModel || coupledMach?.model || coupledMach?.modelo || coupledMach?.name || (vehicle.coupledTrailerName && vehicle.coupledTrailerName.includes('-') ? vehicle.coupledTrailerName.split('-').slice(1).join('-').trim() : (vehicle.coupledTrailerName || ''));
             const pbt = (vehicle.taraWeightKg && vehicle.capacityLoadKg)
               ? (vehicle.taraWeightKg + vehicle.capacityLoadKg)
               : vehicle.grossWeightKg;

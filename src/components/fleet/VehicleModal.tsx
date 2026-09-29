@@ -1138,6 +1138,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       trailerCapacityM3: !isReboqueCategory && hasCoupledTrailer && trailerCapacityM3 ? parseFloat(trailerCapacityM3) : undefined,
       compositionType: isReboqueCategory ? 'reboque' : (hasCoupledTrailer ? 'cavalo' : compositionType),
       coupledTrailerId: !isReboqueCategory && hasCoupledTrailer ? finalCoupledId : undefined,
+      reboque_vinculado_id: !isReboqueCategory && hasCoupledTrailer ? (finalCoupledId || null) : null,
+      reboque_id: !isReboqueCategory && hasCoupledTrailer ? (finalCoupledId || null) : null,
       coupledTrailerName: !isReboqueCategory && hasCoupledTrailer ? finalCoupledName : undefined,
       vehicleTypeDetailed: vehicleTypeDetailed.trim() || undefined,
 

@@ -181,6 +181,14 @@ ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS motorista TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS operator_or_driver TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS assigned_driver_ids JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS assigned_drivers JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS reboque_vinculado_id TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS reboque_id TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS has_coupled_trailer BOOLEAN DEFAULT false;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS coupled_trailer_name TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS coupled_trailer_type TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS trailer_plate TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS trailer_model TEXT;
+ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS composition_type TEXT;
 
 -- ==============================================================================
 -- 7.1. TABELA: tanques_combustivel (Tanques Aéreos da Fazenda)

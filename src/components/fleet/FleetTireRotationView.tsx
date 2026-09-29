@@ -79,18 +79,183 @@ import { TireReturnReformModal } from './TireReturnReformModal';
 // FUNÇÕES AUXILIARES DE INTEGRAÇÃO SUPABASE & CHASSI
 // ========================================================
 
+export function isCaminhao(rowOrVehicle: any): boolean {
+  if (!rowOrVehicle) return false;
+  const tipoLower = String(rowOrVehicle.tipo || rowOrVehicle.type || rowOrVehicle.categoryType || rowOrVehicle.categoria || '').toLowerCase().trim();
+  const compLower = String(rowOrVehicle.compositionType || '').toLowerCase().trim();
+  const nomeLower = String(rowOrVehicle.nome || rowOrVehicle.name || '').toLowerCase().trim();
+  const modeloLower = String(rowOrVehicle.modelo || rowOrVehicle.model || '').toLowerCase().trim();
+  const fullText = `${tipoLower} ${compLower} ${nomeLower} ${modeloLower}`;
+
+  // Se explicitamente marcado como cavalo mecânico ou composição cavalo
+  if (
+    compLower === 'cavalo' || 
+    tipoLower.includes('cavalo') || 
+    fullText.includes('cavalo mecânico') || 
+    fullText.includes('cavalo mecanico')
+  ) {
+    return true;
+  }
+
+  // Se tiver 'caminhão' ou 'caminhao' (inclui 'caminhão trator', 'caminhão (basculante / graneleiro)', 'caminhão toco', etc.)
+  if (tipoLower.includes('caminh') || tipoLower.includes('caminhao') || fullText.includes('caminhão') || fullText.includes('caminhao')) {
+    return true;
+  }
+
+  // Tração rodoviária / caminhão-trator
+  if (tipoLower.includes('tração caminhão') || tipoLower.includes('tracao caminhao')) {
+    return true;
+  }
+
+  // Termos típicos de caminhão rodoviário
+  if (
+    tipoLower.includes('truck') || 
+    tipoLower.includes('bitruck') || 
+    tipoLower.includes('toco') || 
+    tipoLower.includes('graneleiro') || 
+    tipoLower.includes('basculante')
+  ) {
+    return true;
+  }
+
+  // Modelos conhecidos de cavalos mecânicos e caminhões rodoviários (ex: Axor 2540 S, Actros, Constellation, Meteor, Scania, Volvo FH)
+  if (
+    fullText.includes('axor') ||
+    fullText.includes('actros') ||
+    fullText.includes('constellation') ||
+    fullText.includes('meteor') ||
+    fullText.includes('scania') ||
+    fullText.includes('volvo fh') ||
+    fullText.includes('iveco stralis') ||
+    fullText.includes('iveco s-way') ||
+    fullText.includes('vw delivery')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function isEnsiladeira(rowOrVehicle: any): boolean {
+  if (!rowOrVehicle) return false;
+  const tipoLower = String(rowOrVehicle.tipo || rowOrVehicle.type || rowOrVehicle.categoryType || rowOrVehicle.categoria || '').toLowerCase().trim();
+  const nomeLower = String(rowOrVehicle.nome || rowOrVehicle.name || '').toLowerCase().trim();
+  const modeloLower = String(rowOrVehicle.modelo || rowOrVehicle.model || '').toLowerCase().trim();
+  const fullText = `${tipoLower} ${nomeLower} ${modeloLower}`;
+
+  return (
+    tipoLower.includes('ensilad') ||
+    tipoLower.includes('forrageir') ||
+    tipoLower.includes('colhedora') ||
+    fullText.includes('jaguar') ||
+    fullText.includes('claas')
+  );
+}
+
+export function isReboque(rowOrVehicle: any): boolean {
+  if (!rowOrVehicle) return false;
+  const tipoLower = String(rowOrVehicle.tipo || rowOrVehicle.type || rowOrVehicle.categoryType || rowOrVehicle.categoria || '').toLowerCase().trim();
+  const compLower = String(rowOrVehicle.compositionType || '').toLowerCase().trim();
+  const nomeLower = String(rowOrVehicle.nome || rowOrVehicle.name || '').toLowerCase().trim();
+  const modeloLower = String(rowOrVehicle.modelo || rowOrVehicle.model || '').toLowerCase().trim();
+  const fullText = `${tipoLower} ${compLower} ${nomeLower} ${modeloLower}`;
+
+  return (
+    compLower === 'reboque' ||
+    tipoLower.includes('reboque') ||
+    tipoLower.includes('prancha') ||
+    tipoLower.includes('transbordo') ||
+    tipoLower.includes('carreta') ||
+    tipoLower.includes('implemento') ||
+    fullText.includes('prancha') ||
+    fullText.includes('transbordo') ||
+    fullText.includes('treminhão') ||
+    fullText.includes('treminhao')
+  );
+}
+
+export function isTratorAgricola(rowOrVehicle: any): boolean {
+  if (!rowOrVehicle) return false;
+
+  // REGRA CRÍTICA: Se for Caminhão Trator / Cavalo Mecânico / Caminhão rodoviário, NUNCA é trator agrícola!
+  if (isCaminhao(rowOrVehicle)) {
+    return false;
+  }
+
+  // Não pode ser ensiladeira ou reboque
+  if (isEnsiladeira(rowOrVehicle) || isReboque(rowOrVehicle)) {
+    return false;
+  }
+
+  const tipoLower = String(rowOrVehicle.tipo || rowOrVehicle.type || rowOrVehicle.categoryType || rowOrVehicle.categoria || '').toLowerCase().trim();
+  const nomeLower = String(rowOrVehicle.nome || rowOrVehicle.name || '').toLowerCase().trim();
+  const modeloLower = String(rowOrVehicle.modelo || rowOrVehicle.model || '').toLowerCase().trim();
+  const fullText = `${tipoLower} ${nomeLower} ${modeloLower}`;
+
+  // Deve ser trator agrícola (de pneu, esteira, lavoura, etc.)
+  return (
+    tipoLower.includes('trator') ||
+    tipoLower.includes('agrícola') ||
+    tipoLower.includes('agricola') ||
+    tipoLower.includes('esteira') ||
+    fullText.includes('trator de pneu') ||
+    fullText.includes('trator de esteira') ||
+    fullText.includes('trator agrícola') ||
+    fullText.includes('trator agricola') ||
+    fullText.includes('trator lavoura')
+  );
+}
+
+export function matchVehicleCategory(v: any, categoryFilter: string): boolean {
+  if (!categoryFilter || categoryFilter === 'todos') return true;
+  if (categoryFilter === 'caminhao') return isCaminhao(v);
+  if (categoryFilter === 'trator' || categoryFilter === 'trator_agricola') return isTratorAgricola(v);
+  if (categoryFilter === 'ensiladeira') return isEnsiladeira(v);
+  if (categoryFilter === 'reboque') return isReboque(v);
+  return true;
+}
+
+export function getVehicleAxleConfigName(v: any, vTypes: VehicleTypeDefinition[]): string {
+  if (!v) return 'Configuração de Eixos';
+
+  // 1. Valores explícitos de eixos e pneus salvos no banco de dados (tabela gestao_frotas)
+  const vEixos = Number(v.numero_eixos ?? v.numeroEixos);
+  const vPneus = Number(v.quantidade_pneus ?? v.quantidadePneus);
+  if (vEixos > 0 && vPneus > 0) {
+    return `${vEixos} Eixos / ${vPneus} Rodas`;
+  }
+
+  // 2. Resolução através da configuração padrão ou associada ao tipo
+  const resolved = resolveVehicleAxleConfig(v, null, vTypes);
+  if (resolved) {
+    if (resolved.totalAxles > 0 && resolved.totalTires > 0) {
+      return `${resolved.totalAxles} Eixos / ${resolved.totalTires} Rodas`;
+    }
+    if (resolved.name) {
+      const match = resolved.name.match(/^(\d+\s*Eixos?\s*\/\s*\d+\s*Rodas?)/i);
+      if (match) return match[1];
+      return resolved.name;
+    }
+  }
+
+  return 'Configuração de Eixos';
+}
+
 function mapSupabaseRowToMachinery(row: any, fallbackMachineries: Machinery[]): Machinery {
   const matchLocal = fallbackMachineries.find((m) => m.id === row.id);
   const tipoLower = String(row.tipo || row.type || row.categoryType || '').toLowerCase();
   const nomeLower = String(row.nome || row.name || row.modelo || row.model || '').toLowerCase();
+  
+  // Maquinário agrícola autopropelido/lavoura (excluindo rigorosamente caminhão-trator rodoviário)
   const isAgricola = 
-    tipoLower.includes('trator') || 
-    tipoLower.includes('ensilad') || 
-    tipoLower.includes('forrageir') || 
-    tipoLower.includes('maquina') ||
-    nomeLower.includes('claas') || 
-    nomeLower.includes('jaguar') || 
-    nomeLower.includes('maq');
+    !isCaminhao(row) &&
+    (isTratorAgricola(row) || 
+     isEnsiladeira(row) || 
+     tipoLower.includes('forrageir') || 
+     tipoLower.includes('maquina') ||
+     nomeLower.includes('claas') || 
+     nomeLower.includes('jaguar') || 
+     nomeLower.includes('maq'));
 
   const cleanNome = (row.nome || row.name || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
   const cleanModel = (row.modelo || row.model || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
@@ -178,12 +343,10 @@ function resolveVehicleAxleConfig(
       tipoStr.includes(vtCat) ||
       vtName.includes(tipoStr) ||
       tipoStr.includes(vtName) ||
-      (combined.includes('ensilad') && (vtName.includes('ensilad') || vtCat.includes('ensilad'))) ||
-      (combined.includes('jaguar') && (vtName.includes('ensilad') || vtCat.includes('ensilad'))) ||
-      (combined.includes('reboque') && (vtName.includes('reboque') || vtCat.includes('reboque'))) ||
-      (combined.includes('prancha') && (vtName.includes('reboque') || vtCat.includes('reboque'))) ||
-      (combined.includes('trator') && (vtName.includes('trator') || vtCat.includes('trator'))) ||
-      (combined.includes('caminh') && (vtName.includes('caminh') || vtCat.includes('caminh')))
+      (isEnsiladeira(vehicleRow) && (vtName.includes('ensilad') || vtCat.includes('ensilad'))) ||
+      (isReboque(vehicleRow) && (vtName.includes('reboque') || vtCat.includes('reboque'))) ||
+      (isTratorAgricola(vehicleRow) && (vtName.includes('trator') || vtCat.includes('trator'))) ||
+      (isCaminhao(vehicleRow) && (vtName.includes('caminh') || vtCat.includes('caminh')))
     );
   });
 
@@ -192,13 +355,20 @@ function resolveVehicleAxleConfig(
   }
 
   // 4. Prioridade D: Reconhecimento categórico das configurações padrão
-  if (combined.includes('ensilad') || combined.includes('forrageir') || combined.includes('jaguar') || combined.includes('maq 02') || combined.includes('maq02')) {
+  if (isEnsiladeira(vehicleRow) || combined.includes('ensilad') || combined.includes('forrageir') || combined.includes('jaguar') || combined.includes('maq 02') || combined.includes('maq02')) {
     return AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R; // 2 Eixos e 4 Pneus (rodado simples)
   }
-  if (combined.includes('reboque') || combined.includes('prancha') || combined.includes('carreta') || combined.includes('transbordo')) {
+  if (isReboque(vehicleRow) || combined.includes('reboque') || combined.includes('prancha') || combined.includes('carreta') || combined.includes('transbordo')) {
     return AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R; // 3 Eixos e 12 Pneus (rodado duplo)
   }
-  if (combined.includes('trator')) {
+  // Se for Caminhão (incluindo Caminhão Trator / Cavalo Mecânico como Axor 2540 S)
+  if (isCaminhao(vehicleRow)) {
+    if (combined.includes('toco') || combined.includes('4x2')) {
+      return AXLE_CONFIG_CAMINHAO_TOCO_2E_6R; // 2 Eixos e 6 Rodas
+    }
+    return AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R; // 3 Eixos e 10 Rodas (Padrão Cavalo Trucado 6x2 / 6x4 Axor)
+  }
+  if (isTratorAgricola(vehicleRow) || combined.includes('trator')) {
     return AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R; // 2 Eixos e 4 Pneus
   }
 
@@ -337,10 +507,10 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     const fetchVehiclesByFilter = async () => {
       if (!isSupabaseConfigured) {
         // Fallback local caso Supabase não esteja disponível
-        if (categoryFilter === 'todos') {
-          setDbVehicles(machineries);
-        } else {
-          setDbVehicles(machineries.filter((m) => m.categoryType === categoryFilter));
+        const localFiltered = machineries.filter((m) => matchVehicleCategory(m, categoryFilter));
+        setDbVehicles(localFiltered);
+        if (localFiltered.length > 0 && !localFiltered.some((v) => v.id === selectedVehicleId)) {
+          setSelectedVehicleId(localFiltered[0].id);
         }
         return;
       }
@@ -348,37 +518,68 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       setIsLoadingList(true);
       try {
         if (categoryFilter !== 'todos') {
-          const catMap: Record<string, string> = {
-            caminhao: 'Caminhão',
-            trator: 'Trator',
-            ensiladeira: 'Ensiladeira',
-            reboque: 'Reboque',
-          };
-          const catLabel = catMap[categoryFilter] || categoryFilter;
+          let rows: any[] = [];
 
-          // 1. Tenta consulta filtrando por .eq('categoria', catLabel)
-          let res = await supabase
-            .from('gestao_frotas')
-            .select('*')
-            .eq('categoria', catLabel);
+          if (categoryFilter === 'caminhao') {
+            // Caminhões e Cavalos Mecânicos (incluindo Caminhão-Trator / Axor 2540 S)
+            let q = supabase
+              .from('gestao_frotas')
+              .select('*')
+              .or('tipo.ilike.%caminh%,tipo.ilike.%cavalo%,tipo.ilike.%tração%,tipo.ilike.%tracao%,tipo.ilike.%truck%,tipo.ilike.%toco%,tipo.ilike.%bitruck%,nome.ilike.%axor%,modelo.ilike.%axor%');
 
-          // 2. Se a coluna 'categoria' não existir ou der erro no schema, aplica filtro por 'tipo' correspondente
-          if (res.error) {
-            let tipoQuery = supabase.from('gestao_frotas').select('*');
-            if (categoryFilter === 'caminhao') {
-              tipoQuery = tipoQuery.or('tipo.ilike.%caminh%,tipo.ilike.%cavalo%,tipo.ilike.%tração%');
-            } else if (categoryFilter === 'trator') {
-              tipoQuery = tipoQuery.or('tipo.ilike.%trator%,tipo.ilike.%agricola%');
-            } else if (categoryFilter === 'ensiladeira') {
-              tipoQuery = tipoQuery.or('tipo.ilike.%ensilad%,tipo.ilike.%forrageir%,tipo.ilike.%jaguar%');
-            } else if (categoryFilter === 'reboque') {
-              tipoQuery = tipoQuery.or('tipo.ilike.%reboque%,tipo.ilike.%prancha%,tipo.ilike.%transbordo%,tipo.ilike.%carreta%');
+            let res = await q;
+            if (res.error) {
+              res = await supabase.from('gestao_frotas').select('*');
             }
-            res = await tipoQuery;
+            if (res.data) {
+              rows = res.data.filter((r: any) => isCaminhao(r));
+            }
+          } else if (categoryFilter === 'trator' || categoryFilter === 'trator_agricola') {
+            // Tratores exclusivamente agrícolas (de lavoura / pneu ou esteira), excluindo rigorosamente qualquer caminhão-trator
+            let q = supabase
+              .from('gestao_frotas')
+              .select('*')
+              .or('tipo.ilike.%trator%,tipo.ilike.%agricola%,tipo.ilike.%agrícola%,tipo.ilike.%esteira%,tipo.ilike.%lavoura%')
+              .not('tipo', 'ilike', '%caminh%')
+              .not('tipo', 'ilike', '%cavalo%');
+
+            let res = await q;
+            if (res.error) {
+              res = await supabase.from('gestao_frotas').select('*');
+            }
+            if (res.data) {
+              rows = res.data.filter((r: any) => isTratorAgricola(r));
+            }
+          } else if (categoryFilter === 'ensiladeira') {
+            let q = supabase
+              .from('gestao_frotas')
+              .select('*')
+              .or('tipo.ilike.%ensilad%,tipo.ilike.%forrageir%,tipo.ilike.%colhedora%,tipo.ilike.%jaguar%,nome.ilike.%claas%,nome.ilike.%jaguar%');
+
+            let res = await q;
+            if (res.error) {
+              res = await supabase.from('gestao_frotas').select('*');
+            }
+            if (res.data) {
+              rows = res.data.filter((r: any) => isEnsiladeira(r));
+            }
+          } else if (categoryFilter === 'reboque') {
+            let q = supabase
+              .from('gestao_frotas')
+              .select('*')
+              .or('tipo.ilike.%reboque%,tipo.ilike.%prancha%,tipo.ilike.%transbordo%,tipo.ilike.%carreta%,tipo.ilike.%implemento%');
+
+            let res = await q;
+            if (res.error) {
+              res = await supabase.from('gestao_frotas').select('*');
+            }
+            if (res.data) {
+              rows = res.data.filter((r: any) => isReboque(r));
+            }
           }
 
-          if (!isCancelled && res.data) {
-            const mapped = res.data.map((row: any) => mapSupabaseRowToMachinery(row, machineries));
+          if (!isCancelled) {
+            const mapped = rows.map((row: any) => mapSupabaseRowToMachinery(row, machineries));
             setDbVehicles(mapped);
             // Se o veículo atualmente selecionado não fizer parte do filtro, seleciona o primeiro retornado
             if (mapped.length > 0 && !mapped.some((v: Machinery) => v.id === selectedVehicleId)) {
@@ -399,6 +600,13 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
         }
       } catch (err) {
         console.warn('Error querying gestao_frotas with category filter:', err);
+        if (!isCancelled) {
+          const localFiltered = machineries.filter((m) => matchVehicleCategory(m, categoryFilter));
+          setDbVehicles(localFiltered);
+          if (localFiltered.length > 0 && !localFiltered.some((v) => v.id === selectedVehicleId)) {
+            setSelectedVehicleId(localFiltered[0].id);
+          }
+        }
       } finally {
         if (!isCancelled) setIsLoadingList(false);
       }
@@ -522,8 +730,10 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
   // Filtro de Veículos da coluna esquerda baseado no resultado do banco
   const filteredVehicles = useMemo(() => {
-    const source = dbVehicles.length > 0 ? dbVehicles : machineries;
-    return source.filter((m) => {
+    const baseSource = (dbVehicles.length > 0 ? dbVehicles : machineries).filter((m) =>
+      matchVehicleCategory(m, categoryFilter)
+    );
+    return baseSource.filter((m) => {
       const matchSearch = 
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -531,7 +741,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
       return matchSearch;
     });
-  }, [dbVehicles, machineries, searchQuery]);
+  }, [dbVehicles, machineries, categoryFilter, searchQuery]);
 
   // ----------------------------------------------------
   // FUNÇÕES DE ATUALIZAÇÃO DO VEÍCULO ATUAL
@@ -963,7 +1173,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
               {[
                 { key: 'todos', label: 'Todos' },
                 { key: 'caminhao', label: 'Caminhão' },
-                { key: 'trator', label: 'Trator' },
+                { key: 'trator', label: 'Trator Agrícola' },
                 { key: 'ensiladeira', label: 'Ensiladeira' },
                 { key: 'reboque', label: 'Reboque' },
               ].map(({ key, label }) => (
@@ -998,6 +1208,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   const isSelected = vehicle.id === selectedVehicleId;
                   const vTires = vehicle.installedTires || [];
                   const mountedCount = vTires.filter((t) => t.status === 'em_uso' && t.position).length;
+                  const axleConfigLabel = getVehicleAxleConfigName(vehicle, vehicleTypes);
 
                   return (
                     <button
@@ -1025,8 +1236,11 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                         <div className="flex items-center space-x-2 text-[10px] text-stone-400">
                           <span>{vehicle.currentKm ? `${vehicle.currentKm.toLocaleString()} km` : `${vehicle.currentHourMeter || 0} h`}</span>
                           <span>•</span>
-                          <span className="font-semibold text-sky-600 dark:text-sky-400">
-                            {mountedCount > 0 ? `${mountedCount} pneus` : 'Chassi padrão'}
+                          <span 
+                            className="font-semibold text-sky-600 dark:text-sky-400 truncate"
+                            title={axleConfigLabel}
+                          >
+                            {mountedCount > 0 ? `${axleConfigLabel} (${mountedCount} pneus)` : axleConfigLabel}
                           </span>
                         </div>
                       </div>

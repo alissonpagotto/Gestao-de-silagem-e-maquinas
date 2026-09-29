@@ -199,28 +199,55 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     }
   };
 
-  const handleSaveVehicle = (vehicleData: Partial<Machinery>) => {
+  const handleSaveVehicle = async (vehicleData: Partial<Machinery>) => {
+    let savedTargetVehicle: Machinery | null = null;
+    let updatedList: Machinery[] = [];
+
     if (editingVehicle) {
-      let updatedMergedVehicle: Machinery | null = null;
-      const updated = machineries.map(m => {
+      updatedList = machineries.map(m => {
         if (m.id === editingVehicle.id) {
           const merged = { ...m, ...vehicleData } as Machinery;
+
+          // Se o usuário desativou o reboque (switch NÃO), limpa estritamente todos os dados de vínculo
+          if (!vehicleData.hasCoupledTrailer) {
+            merged.hasCoupledTrailer = false;
+            merged.coupledTrailerId = undefined;
+            merged.reboque_vinculado_id = null;
+            merged.reboque_id = null;
+            merged.coupledTrailerName = undefined;
+            merged.coupledTrailerType = undefined;
+            merged.trailerPlate = undefined;
+            merged.trailerModel = undefined;
+            if (merged.compositionType === 'cavalo') {
+              merged.compositionType = 'veiculo_simples';
+            }
+          } else {
+            merged.hasCoupledTrailer = true;
+            merged.reboque_vinculado_id = vehicleData.coupledTrailerId || null;
+            merged.reboque_id = vehicleData.coupledTrailerId || null;
+          }
+
           const calculated = updateVehicleWithCalculatedMetrics(merged, fuelLogs);
-          updatedMergedVehicle = calculated;
+          savedTargetVehicle = calculated;
           return calculated;
         }
         return m;
       });
-      onSaveMachineries(updated);
-      saveStoredMachineries(updated);
-      saveCloudMachineries(updated).catch(console.error);
-      if (updatedMergedVehicle) {
-        upsertGestaoFrota(updatedMergedVehicle).catch(console.error);
+      onSaveMachineries(updatedList);
+      saveStoredMachineries(updatedList);
+      saveCloudMachineries(updatedList).catch(console.error);
+      if (savedTargetVehicle) {
+        try {
+          await upsertGestaoFrota(savedTargetVehicle);
+        } catch (err) {
+          console.error('Erro ao salvar veículo no Supabase gestao_frotas:', err);
+        }
       }
     } else {
+      const hasTrailer = Boolean(vehicleData.hasCoupledTrailer && vehicleData.coupledTrailerId);
       const newVehicle: Machinery = {
         ...vehicleData,
-        id: `mach_${Date.now()}`,
+        id: vehicleData.id || `mach_${Date.now()}`,
         name: vehicleData.name || vehicleData.model || 'Novo Veículo',
         model: vehicleData.model || 'Modelo',
         brand: vehicleData.brand || 'Agrícola',
@@ -250,14 +277,33 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         totalFuelExpenses: 0,
         totalMaintenanceExpenses: 0,
         notes: vehicleData.notes || '',
+        hasCoupledTrailer: hasTrailer,
+        coupledTrailerId: hasTrailer ? vehicleData.coupledTrailerId : undefined,
+        reboque_vinculado_id: hasTrailer ? (vehicleData.coupledTrailerId || null) : null,
+        reboque_id: hasTrailer ? (vehicleData.coupledTrailerId || null) : null,
+        coupledTrailerName: hasTrailer ? vehicleData.coupledTrailerName : undefined,
+        coupledTrailerType: hasTrailer ? vehicleData.coupledTrailerType : undefined,
+        trailerPlate: hasTrailer ? vehicleData.trailerPlate : undefined,
+        trailerModel: hasTrailer ? vehicleData.trailerModel : undefined,
+        compositionType: vehicleData.compositionType || (hasTrailer ? 'cavalo' : 'veiculo_simples'),
       };
-      const updatedList = [newVehicle, ...machineries];
+      const calculatedNew = updateVehicleWithCalculatedMetrics(newVehicle, fuelLogs);
+      savedTargetVehicle = calculatedNew;
+      updatedList = [calculatedNew, ...machineries];
       onSaveMachineries(updatedList);
       saveStoredMachineries(updatedList);
       saveCloudMachineries(updatedList).catch(console.error);
-      upsertGestaoFrota(newVehicle).catch(console.error);
+      try {
+        await upsertGestaoFrota(calculatedNew);
+      } catch (err) {
+        console.error('Erro ao salvar novo veículo no Supabase gestao_frotas:', err);
+      }
     }
     setIsVehicleModalOpen(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_force_rest_sync'));
+    }
   };
 
   // --- FUEL HANDLERS ---
