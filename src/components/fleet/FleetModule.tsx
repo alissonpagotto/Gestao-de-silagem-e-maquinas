@@ -223,8 +223,12 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
             }
           } else {
             merged.hasCoupledTrailer = true;
-            merged.reboque_vinculado_id = vehicleData.coupledTrailerId || null;
-            merged.reboque_id = vehicleData.coupledTrailerId || null;
+            merged.reboque_vinculado_id = vehicleData.reboque_vinculado_id || vehicleData.coupledTrailerId || null;
+            merged.coupledTrailerId = vehicleData.coupledTrailerId || vehicleData.reboque_vinculado_id || undefined;
+            merged.trailerPlate = vehicleData.trailerPlate;
+            merged.trailerModel = vehicleData.trailerModel;
+            merged.coupledTrailerType = vehicleData.coupledTrailerType;
+            merged.coupledTrailerName = vehicleData.coupledTrailerName;
           }
 
           const calculated = updateVehicleWithCalculatedMetrics(merged, fuelLogs);
@@ -278,9 +282,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         totalMaintenanceExpenses: 0,
         notes: vehicleData.notes || '',
         hasCoupledTrailer: hasTrailer,
-        coupledTrailerId: hasTrailer ? vehicleData.coupledTrailerId : undefined,
-        reboque_vinculado_id: hasTrailer ? (vehicleData.coupledTrailerId || null) : null,
-        reboque_id: hasTrailer ? (vehicleData.coupledTrailerId || null) : null,
+        coupledTrailerId: hasTrailer ? (vehicleData.coupledTrailerId || vehicleData.reboque_vinculado_id || undefined) : undefined,
+        reboque_vinculado_id: hasTrailer ? (vehicleData.reboque_vinculado_id || vehicleData.coupledTrailerId || null) : null,
         coupledTrailerName: hasTrailer ? vehicleData.coupledTrailerName : undefined,
         coupledTrailerType: hasTrailer ? vehicleData.coupledTrailerType : undefined,
         trailerPlate: hasTrailer ? vehicleData.trailerPlate : undefined,

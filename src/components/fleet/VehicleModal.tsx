@@ -52,33 +52,29 @@ import { VehicleCategoriesModal } from './VehicleCategoriesModal';
 
 function isCandidateTrailer(v: any): boolean {
   if (!v) return false;
-  const comp = String(v.compositionType || v.composition_type || '').toLowerCase().trim();
-  const cat = String(v.categoryType || v.categoria || '').toLowerCase().trim();
-  const tipo = String(v.tipo || v.type || '').toLowerCase().trim();
-  const nome = String(v.nome || v.name || '').toLowerCase().trim();
-  const mod = String(v.modelo || v.model || '').toLowerCase().trim();
-  const plate = String(v.licensePlateOrSerial || v.placa_ou_serie || v.plate || '').toLowerCase().trim();
-  const full = `${comp} ${cat} ${tipo} ${nome} ${mod} ${plate}`;
+  const cat = String(v.categoria || v.category || v.categoryType || v.category_type || '').trim().toLowerCase();
+  const tipo = String(v.tipo_veiculo || v.tipo || v.type || '').trim().toLowerCase();
+  const comp = String(v.compositionType || v.composition_type || '').trim().toLowerCase();
+  const nome = String(v.nome || v.name || '').trim().toLowerCase();
+  const mod = String(v.modelo || v.model || '').trim().toLowerCase();
 
-  if (comp === 'reboque' || comp === 'implemento') return true;
-  if (cat.includes('reboque') || cat.includes('implemento') || cat.includes('carreta') || cat.includes('prancha') || cat.includes('semirreboque') || cat.includes('dolly') || cat.includes('vagao') || cat.includes('vacao')) return true;
-  if (tipo.includes('reboque') || tipo.includes('prancha') || tipo.includes('carreta') || tipo.includes('transbordo') || tipo.includes('implemento') || tipo.includes('semirreboque') || tipo.includes('dolly')) return true;
+  // 1. Exclusão estrita: NUNCA permitir máquinas autopropelidas, forrageiras, ensiladeiras (como JAGUAR 860), tratores, pulverizadores ou caminhões mecânicos
   if (
-    full.includes('prancha') || 
-    full.includes('transbordo') || 
-    full.includes('treminhão') || 
-    full.includes('treminhao') || 
-    full.includes('semirreboque') || 
-    full.includes('semi-reboque') || 
-    full.includes('sr/wm') || 
-    full.includes('sr/') || 
-    full.includes('sr ') || 
-    full.includes('reboque') ||
-    full.includes('carreta')
+    cat.includes('forrageir') || cat.includes('ensilad') || cat.includes('trator') || cat.includes('caminh') || cat.includes('onibus') || cat.includes('utilit') || cat.includes('colhedor') || cat.includes('maquin') || cat.includes('pulveriz') ||
+    tipo.includes('forrageir') || tipo.includes('ensilad') || tipo.includes('trator') || tipo.includes('caminh') || tipo.includes('cavalo') || tipo.includes('onibus') || tipo.includes('utilit') || tipo.includes('colhedor') || tipo.includes('maquin') || tipo.includes('pulveriz') ||
+    comp === 'cavalo' || comp === 'veiculo_simples' || comp === 'maquina' ||
+    nome.includes('jaguar') || nome.includes('axor') || nome.includes('claas') || nome.includes('caminhão') || nome.includes('caminhao') || nome.includes('trator') || nome.includes('colhedora') || nome.includes('ensiladeira') || nome.includes('forrageira') ||
+    mod.includes('jaguar') || mod.includes('axor') || mod.includes('claas') || mod.includes('caminhão') || mod.includes('caminhao') || mod.includes('trator') || mod.includes('colhedora') || mod.includes('ensiladeira') || mod.includes('forrageira')
   ) {
-    return true;
+    return false;
   }
-  return false;
+
+  // 2. Filtro estrito: apenas registros cujo campo 'categoria' ou 'tipo_veiculo' / 'tipo' seja estritamente igual a 'Reboque' ou 'Implemento'
+  const isTrailerCat = cat === 'reboque' || cat === 'implemento' || cat === 'semirreboque' || cat.startsWith('reboque') || cat.startsWith('implemento');
+  const isTrailerTipo = tipo === 'reboque' || tipo === 'implemento' || tipo === 'semirreboque' || tipo.startsWith('reboque') || tipo.startsWith('implemento');
+  const isTrailerComp = comp === 'reboque' || comp === 'implemento' || comp === 'semirreboque';
+
+  return isTrailerCat || isTrailerTipo || isTrailerComp;
 }
 import { VehicleOwnershipModal } from './VehicleOwnershipModal';
 import { VehicleHistoryDreTab } from './VehicleHistoryDreTab';
@@ -246,8 +242,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setCoupledTrailerName('');
       return;
     }
-    const found = candidateTrailers.find(t => t.id === trailerId || toValidUUID(t.id) === toValidUUID(trailerId)) ||
-                  otherFleetVehicles.find(t => t.id === trailerId || toValidUUID(t.id) === toValidUUID(trailerId));
+    const found = candidateTrailers.find(t => t.id === trailerId || toValidUUID(t.id) === toValidUUID(trailerId));
     if (found) {
       const foundPlate = (found.licensePlateOrSerial || (found as any).placa_ou_serie || (found as any).plate || '').toUpperCase();
       const foundModel = (found.model || (found as any).modelo || found.name || (found as any).nome || '').toUpperCase();
@@ -359,15 +354,63 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       try {
         const results: Machinery[] = [];
 
-        // 1. Busca na tabela gestao_frotas
+        // 1. Busca na tabela gestao_frotas trazendo APENAS registros cujo campo 'categoria' ou 'tipo_veiculo' / 'tipo' seja estritamente igual a 'Reboque' ou 'Implemento'
         const activeCompanyId = getActiveCompanyId();
-        let query = supabase.from('gestao_frotas').select('*');
-        if (activeCompanyId) {
-          query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+
+        // Detecta colunas reais disponíveis em gestao_frotas para evitar erro 400 (PGRST204)
+        const cols = new Set<string>();
+        try {
+          const { data: sampleCols } = await supabase.from('gestao_frotas').select('*').limit(1);
+          if (sampleCols && Array.isArray(sampleCols) && sampleCols.length > 0 && sampleCols[0]) {
+            Object.keys(sampleCols[0]).forEach(k => cols.add(k));
+          }
+        } catch (_) {}
+
+        // Monta os filtros da query do Supabase para trazer APENAS Reboque ou Implemento
+        const filterClauses: string[] = [];
+        if (cols.has('categoria')) {
+          filterClauses.push('categoria.ilike.reboque', 'categoria.ilike.implemento');
         }
-        const { data: frotasData, error: frotasErr } = await query;
-        if (!frotasErr && Array.isArray(frotasData)) {
+        if (cols.has('tipo_veiculo')) {
+          filterClauses.push('tipo_veiculo.ilike.reboque', 'tipo_veiculo.ilike.implemento');
+        }
+        if (cols.has('tipo')) {
+          filterClauses.push('tipo.ilike.reboque', 'tipo.ilike.implemento');
+        }
+        if (cols.has('type')) {
+          filterClauses.push('type.ilike.reboque', 'type.ilike.implemento');
+        }
+        if (cols.has('composition_type')) {
+          filterClauses.push('composition_type.ilike.reboque', 'composition_type.ilike.implemento');
+        }
+
+        let frotasData: any[] | null = null;
+        if (filterClauses.length > 0) {
+          let filteredQuery = supabase.from('gestao_frotas').select('*');
+          if (activeCompanyId && (cols.size === 0 || cols.has('company_id'))) {
+            filteredQuery = filteredQuery.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+          }
+          const { data: qData, error: qErr } = await filteredQuery.or(filterClauses.join(','));
+          if (!qErr && Array.isArray(qData)) {
+            frotasData = qData;
+          }
+        }
+
+        // Se cols ainda não tinha sido carregado ou a query com filtros não retornou, faz a query base
+        if (!frotasData) {
+          let query = supabase.from('gestao_frotas').select('*');
+          if (activeCompanyId) {
+            query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+          }
+          const { data, error } = await query;
+          if (!error && Array.isArray(data)) {
+            frotasData = data;
+          }
+        }
+
+        if (Array.isArray(frotasData)) {
           for (const row of frotasData) {
+            // Filtro estrito: APENAS reboques e implementos reais (exclui ensiladeiras, caminhões mecânicos e tratores)
             if (isCandidateTrailer(row)) {
               results.push({
                 id: row.id,
@@ -440,12 +483,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const candidateTrailers = useMemo(() => {
     const map = new Map<string, Machinery>();
 
-    // 1. Reboques vindos do Supabase
+    // 1. Reboques vindos do Supabase (estritamente reboques ou implementos)
     supabaseTrailers.forEach(t => {
-      if (t.id) map.set(t.id, t);
+      if (t.id && isCandidateTrailer(t)) map.set(t.id, t);
     });
 
-    // 2. Machineries filtrados por isCandidateTrailer
+    // 2. Machineries da frota filtrados estritamente por isCandidateTrailer
     machineries.forEach(m => {
       if (isCandidateTrailer(m) && m.id) {
         map.set(m.id, { ...(map.get(m.id) || {}), ...m });
@@ -455,26 +498,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const list = Array.from(map.values());
     return list.filter(m => 
       m.id !== editingVehicle?.id && 
-      toValidUUID(m.id) !== toValidUUID(editingVehicle?.id)
+      toValidUUID(m.id) !== toValidUUID(editingVehicle?.id) &&
+      isCandidateTrailer(m)
     );
   }, [machineries, supabaseTrailers, editingVehicle]);
-
-  // Outros veículos da frota (para caso algum implemento tenha sido cadastrado com outra categoria)
-  const otherFleetVehicles = useMemo(() => {
-    return machineries.filter(m => 
-      m.id !== editingVehicle?.id && 
-      toValidUUID(m.id) !== toValidUUID(editingVehicle?.id) &&
-      !candidateTrailers.some(t => t.id === m.id || toValidUUID(t.id) === toValidUUID(m.id))
-    );
-  }, [machineries, editingVehicle, candidateTrailers]);
 
   // Efeito de reconciliação reativa: se os reboques carregarem após a abertura do modal
   useEffect(() => {
     if (!isOpen || !hasCoupledTrailer) return;
 
     if (coupledTrailerId && (!trailerPlate || !trailerModel)) {
-      const found = candidateTrailers.find(t => t.id === coupledTrailerId || toValidUUID(t.id) === toValidUUID(coupledTrailerId)) ||
-                    otherFleetVehicles.find(t => t.id === coupledTrailerId || toValidUUID(t.id) === toValidUUID(coupledTrailerId));
+      const found = candidateTrailers.find(t => t.id === coupledTrailerId || toValidUUID(t.id) === toValidUUID(coupledTrailerId));
       if (found) {
         const foundPlate = (found.licensePlateOrSerial || (found as any).placa_ou_serie || (found as any).plate || '').toUpperCase();
         const foundModel = (found.model || (found as any).modelo || found.name || (found as any).nome || '').toUpperCase();
@@ -495,13 +529,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       }
     } else if (!coupledTrailerId && trailerPlate) {
       const cleanPlate = trailerPlate.trim().toUpperCase();
-      const found = candidateTrailers.find(t => (t.licensePlateOrSerial || (t as any).placa_ou_serie || '').toUpperCase() === cleanPlate) ||
-                    otherFleetVehicles.find(t => (t.licensePlateOrSerial || (t as any).placa_ou_serie || '').toUpperCase() === cleanPlate);
+      const found = candidateTrailers.find(t => (t.licensePlateOrSerial || (t as any).placa_ou_serie || '').toUpperCase() === cleanPlate);
       if (found) {
         setCoupledTrailerId(found.id);
       }
     }
-  }, [isOpen, hasCoupledTrailer, coupledTrailerId, trailerPlate, candidateTrailers, otherFleetVehicles]);
+  }, [isOpen, hasCoupledTrailer, coupledTrailerId, trailerPlate, candidateTrailers]);
 
   // Calculate real-time consumption metrics from fuel logs
   const consumptionMetrics = useMemo(() => {
@@ -1336,9 +1369,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       trailerCapacityLoadKg: !isReboqueCategory && hasCoupledTrailer && trailerCapacityLoadKg ? parseFloat(trailerCapacityLoadKg) : undefined,
       trailerCapacityM3: !isReboqueCategory && hasCoupledTrailer && trailerCapacityM3 ? parseFloat(trailerCapacityM3) : undefined,
       compositionType: isReboqueCategory ? 'reboque' : (hasCoupledTrailer ? 'cavalo' : compositionType),
-      coupledTrailerId: !isReboqueCategory && hasCoupledTrailer ? finalCoupledId : undefined,
-      reboque_vinculado_id: !isReboqueCategory && hasCoupledTrailer ? (finalCoupledId || null) : null,
-      reboque_id: !isReboqueCategory && hasCoupledTrailer ? (finalCoupledId || null) : null,
+      coupledTrailerId: (!isReboqueCategory && hasCoupledTrailer && coupledTrailerId) ? coupledTrailerId : undefined,
+      reboque_vinculado_id: (!isReboqueCategory && hasCoupledTrailer && coupledTrailerId) ? coupledTrailerId : null,
       coupledTrailerName: !isReboqueCategory && hasCoupledTrailer ? finalCoupledName : undefined,
       vehicleTypeDetailed: vehicleTypeDetailed.trim() || undefined,
 
@@ -2011,34 +2043,17 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       className="w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
                     >
                       <option value="">-- Selecione o reboque cadastrado no sistema --</option>
-                      {candidateTrailers.length > 0 && (
-                        <optgroup label="Reboques & Implementos Cadastrados">
-                          {candidateTrailers.map((t) => {
-                            const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
-                            const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
-                            const capKg = t.capacityLoadKg ? ` (${Number(t.capacityLoadKg).toLocaleString('pt-BR')} kg)` : '';
-                            return (
-                              <option key={t.id} value={t.id} className="uppercase font-medium">
-                                {plateStr} - {modelStr}{capKg}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      )}
-                      {otherFleetVehicles.length > 0 && (
-                        <optgroup label="Outros Veículos da Frota">
-                          {otherFleetVehicles.map((t) => {
-                            const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
-                            const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
-                            return (
-                              <option key={t.id} value={t.id} className="uppercase font-medium">
-                                {plateStr} - {modelStr}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      )}
-                      {candidateTrailers.length === 0 && otherFleetVehicles.length === 0 && (
+                      {candidateTrailers.map((t) => {
+                        const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
+                        const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
+                        const capKg = t.capacityLoadKg ? ` (${Number(t.capacityLoadKg).toLocaleString('pt-BR')} kg)` : '';
+                        return (
+                          <option key={t.id} value={t.id} className="uppercase font-medium">
+                            {plateStr} - {modelStr}{capKg}
+                          </option>
+                        );
+                      })}
+                      {candidateTrailers.length === 0 && (
                         <option value="" disabled>
                           {isLoadingTrailers ? 'Carregando reboques do Supabase...' : 'Nenhum reboque cadastrado no sistema'}
                         </option>

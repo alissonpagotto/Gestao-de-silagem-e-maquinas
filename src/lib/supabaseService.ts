@@ -2903,6 +2903,7 @@ export async function desalocarFuncionarioFrente(funcionarioId: string): Promise
 // 7. Gestão de Frotas (Tabela: public.gestao_frotas)
 // ===========================================================================
 const unsupportedGestaoFrotaCols = new Set<string>();
+export const knownGestaoFrotaCols = new Set<string>();
 
 export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
   if (!isSupabaseConfigured) return null;
@@ -2922,6 +2923,10 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         .eq('company_id', activeCompanyId);
       data = fallbackOrder.data;
       error = fallbackOrder.error;
+    }
+
+    if (data && Array.isArray(data) && data.length > 0 && data[0]) {
+      Object.keys(data[0]).forEach(k => knownGestaoFrotaCols.add(k));
     }
 
     if ((!data || data.length === 0) && activeCompanyId) {
@@ -3272,46 +3277,64 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       payload.quantidade_pneus = cleanQtdPneus;
     }
 
-    // Vínculo físico de reboque / implemento na tabela public.gestao_frotas
-    // Se o switch estiver como "NÃO" (hasCoupledTrailer === false ou coupledTrailerId ausente), o campo no banco deve ser gravado estritamente como NULL
+    // Mapeamento direto e estrito para a coluna física 'reboque_vinculado_id':
+    // Se o switch estiver como "SIM" e um reboque for selecionado: grava o ID do reboque
+    // Se o switch estiver como "NÃO" ou sem reboque: grava estritamente como NULL
     const hasTrailerSwitchOn = Boolean(vehicle.hasCoupledTrailer);
-    const rawTrailerId = (hasTrailerSwitchOn && vehicle.coupledTrailerId)
-      ? String(vehicle.coupledTrailerId).trim()
-      : ((hasTrailerSwitchOn && (vehicle.reboque_vinculado_id || vehicle.reboque_id))
-          ? String(vehicle.reboque_vinculado_id || vehicle.reboque_id).trim()
-          : null);
-
-    const finalTrailerId = (hasTrailerSwitchOn && rawTrailerId && rawTrailerId.toLowerCase() !== 'null')
-      ? (toValidUUID(rawTrailerId) || rawTrailerId)
+    const selectedTrailerId = (hasTrailerSwitchOn && (vehicle.reboque_vinculado_id || vehicle.coupledTrailerId))
+      ? String(vehicle.reboque_vinculado_id || vehicle.coupledTrailerId).trim()
       : null;
-    const finalHasTrailer = Boolean(hasTrailerSwitchOn && finalTrailerId);
 
-    if (!unsupportedGestaoFrotaCols.has('reboque_vinculado_id')) {
-      payload.reboque_vinculado_id = finalTrailerId;
+    let finalReboqueId: string | null = null;
+    if (hasTrailerSwitchOn && selectedTrailerId && selectedTrailerId.toLowerCase() !== 'null' && selectedTrailerId !== '') {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      finalReboqueId = uuidRegex.test(selectedTrailerId) ? selectedTrailerId : (toValidUUID(selectedTrailerId) || selectedTrailerId);
+    } else {
+      finalReboqueId = null;
     }
-    if (!unsupportedGestaoFrotaCols.has('reboque_id')) {
-      payload.reboque_id = finalTrailerId;
+
+    payload.reboque_vinculado_id = finalReboqueId;
+
+    // Detecta as colunas reais da tabela gestao_frotas para evitar erro 400 (PGRST204)
+    if (knownGestaoFrotaCols.size === 0) {
+      try {
+        const { data: sampleCols } = await supabase.from('gestao_frotas').select('*').limit(1);
+        if (sampleCols && Array.isArray(sampleCols) && sampleCols.length > 0 && sampleCols[0]) {
+          Object.keys(sampleCols[0]).forEach(k => knownGestaoFrotaCols.add(k));
+        }
+      } catch (_) {}
     }
-    if (!unsupportedGestaoFrotaCols.has('coupled_trailer_id')) {
-      payload.coupled_trailer_id = finalTrailerId;
+    // Garante que a coluna física criada pelo usuário seja sempre permitida
+    knownGestaoFrotaCols.add('reboque_vinculado_id');
+
+    // Mapeamento resiliente de compatibilidade PT/EN conforme o schema do Supabase
+    if (knownGestaoFrotaCols.has('name') && !knownGestaoFrotaCols.has('nome')) {
+      payload.name = payload.nome;
     }
-    if (!unsupportedGestaoFrotaCols.has('has_coupled_trailer')) {
-      payload.has_coupled_trailer = finalHasTrailer;
+    if (knownGestaoFrotaCols.has('type') && !knownGestaoFrotaCols.has('tipo')) {
+      payload.type = payload.tipo;
     }
-    if (!unsupportedGestaoFrotaCols.has('coupled_trailer_name')) {
-      payload.coupled_trailer_name = finalHasTrailer ? (vehicle.coupledTrailerName || null) : null;
+    if (knownGestaoFrotaCols.has('model') && !knownGestaoFrotaCols.has('modelo')) {
+      payload.model = payload.modelo;
     }
-    if (!unsupportedGestaoFrotaCols.has('coupled_trailer_type')) {
-      payload.coupled_trailer_type = finalHasTrailer ? (vehicle.coupledTrailerType || null) : null;
+    if (knownGestaoFrotaCols.has('plate_or_serial') && !knownGestaoFrotaCols.has('placa_ou_serie')) {
+      payload.plate_or_serial = payload.placa_ou_serie;
     }
-    if (!unsupportedGestaoFrotaCols.has('trailer_plate')) {
-      payload.trailer_plate = finalHasTrailer ? (vehicle.trailerPlate || null) : null;
+    if (knownGestaoFrotaCols.has('hourmeter') && !knownGestaoFrotaCols.has('horimetro_ou_km_atual')) {
+      payload.hourmeter = currentMeter;
     }
-    if (!unsupportedGestaoFrotaCols.has('trailer_model')) {
-      payload.trailer_model = finalHasTrailer ? (vehicle.trailerModel || null) : null;
+    if (knownGestaoFrotaCols.has('year') && !knownGestaoFrotaCols.has('ano')) {
+      payload.year = cleanAno;
     }
-    if (!unsupportedGestaoFrotaCols.has('composition_type')) {
-      payload.composition_type = vehicle.compositionType || (finalHasTrailer ? 'cavalo' : 'veiculo_simples');
+
+    // Filtra o payload para enviar apenas colunas que realmente existem no schema físico do banco
+    if (knownGestaoFrotaCols.size > 0) {
+      for (const key of Object.keys(payload)) {
+        if (key === 'id' || key === 'reboque_vinculado_id' || key === 'updated_at') continue;
+        if (!knownGestaoFrotaCols.has(key)) {
+          delete payload[key];
+        }
+      }
     }
 
     let { error } = await supabase
@@ -3319,39 +3342,27 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      // Se deu erro de coluna inexistente no schema cache (PGRST204), remove a coluna e retenta sem estourar 400
-      if (error.code === 'PGRST204' || (error.message && (error.message.includes('column') || error.message.includes('schema cache')))) {
-        const colMatch = error.message.match(/column '([^']+)'|column ([a-zA-Z0-9_]+) of|'([^']+)' column/i);
-        const badCol = colMatch ? (colMatch[1] || colMatch[2] || colMatch[3]) : null;
-        if (badCol) {
-          unsupportedGestaoFrotaCols.add(badCol);
-          delete payload[badCol];
-        } else {
-          delete payload.driver_id;
-          delete payload.motorista;
-          delete payload.operator_or_driver;
-          delete payload.assigned_driver_ids;
-          delete payload.assigned_drivers;
-        }
-        const retry = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
-        if (retry.error) {
-          if (retry.error.code === '23503' || (retry.error.message && (retry.error.message.includes('company_id') || retry.error.message.includes('user_id') || retry.error.message.includes('tank_capacity')))) {
-            delete payload.company_id;
-            delete payload.user_id;
-            delete payload.tank_capacity;
-            const retry2 = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
-            if (retry2.error) {
-              logPostgresError('upsertGestaoFrota', retry2.error, { table: 'gestao_frotas', action: 'UPSERT', payload });
-            }
-          }
-        }
-      } else {
-        logPostgresError('upsertGestaoFrota', error, { table: 'gestao_frotas', action: 'UPSERT', payload });
-        if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('tank_capacity')))) {
-          delete payload.company_id;
-          delete payload.tank_capacity;
-          await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
-        }
+      console.warn('Supabase upsertGestaoFrota notice:', error.message);
+      // Se deu erro de coluna inexistente no schema cache (PGRST204) ou restrição, limpa e retenta
+      delete payload.driver_id;
+      delete payload.motorista;
+      delete payload.operator_or_driver;
+      delete payload.assigned_driver_ids;
+      delete payload.assigned_drivers;
+      delete payload.tank_capacity;
+      delete payload.user_id;
+      delete payload.company_id;
+
+      const retryRes = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
+      if (retryRes.error) {
+        // Fallback direcionado: atualiza estritamente reboque_vinculado_id pelo ID do veículo
+        await supabase
+          .from('gestao_frotas')
+          .update({
+            reboque_vinculado_id: finalReboqueId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', payload.id);
       }
     }
 
