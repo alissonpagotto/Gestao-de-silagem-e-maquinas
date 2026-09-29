@@ -3,6 +3,7 @@ import { X, Fuel, Save, Calculator, Gauge, Clock, History, AlertTriangle, Sparkl
 import { FuelLog, Machinery, Employee, Supplier, BankAccount, FuelOrigin, TanqueCombustivel, InventoryItem } from '../../types';
 import { FuelTankVisualizer } from './FuelTankVisualizer';
 import { TanqueIndustrialVisualizer } from './TanqueIndustrialVisualizer';
+import { ArlaGalaoVisualizer } from './ArlaGalaoVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
@@ -245,8 +246,26 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     };
   }, [isOpen]);
 
+  // Identifica se o combustível atualmente selecionado é o Arla 32 em Galão 20L
+  const isArlaGalaoSelected = useMemo(() => {
+    const prod = fuelStockProducts.find(p => p.id === selectedFuelProductId);
+    const name = ((prod?.nome_comercial || prod?.name || fuelType) + '').toLowerCase();
+    return name.includes('arla') && (name.includes('galão') || name.includes('galao'));
+  }, [selectedFuelProductId, fuelStockProducts, fuelType]);
+
+  // Produto Galão de Arla 32 correspondente no estoque (Almoxarifado Principal)
+  const selectedGalaoProduct = useMemo(() => {
+    if (!isArlaGalaoSelected) return null;
+    return fuelStockProducts.find(p => p.id === selectedFuelProductId) ||
+      getStoredInventory().find(i => 
+        i.id === 'prod_arla_32_galao_20l' ||
+        (i.name && i.name.toLowerCase().includes('arla') && (i.name.toLowerCase().includes('galão') || i.name.toLowerCase().includes('galao')))
+      ) || null;
+  }, [isArlaGalaoSelected, selectedFuelProductId, fuelStockProducts]);
+
   // Tanque Selecionado (Vinculado dinamicamente ao produto de combustível selecionado)
   const selectedTanque = useMemo(() => {
+    if (isArlaGalaoSelected) return null;
     if (selectedFuelProductId) {
       const byProdId = tanques.find(t => t.produto_id === selectedFuelProductId);
       if (byProdId) return byProdId;
@@ -257,13 +276,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === pName) ||
           (pName.includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
           ((pName.includes('s500') || pName.includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
-          (pName.includes('arla') && (t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla')))
+          (pName.includes('arla') && (t.id === 'tanque_arla_32' || t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla')))
         );
         if (byType) return byType;
       }
     }
     return tanques.find(t => t.id === selectedTanqueId) || tanques[0] || null;
-  }, [tanques, selectedTanqueId, selectedFuelProductId, fuelStockProducts]);
+  }, [tanques, selectedTanqueId, selectedFuelProductId, fuelStockProducts, isArlaGalaoSelected]);
 
   // Filtro de busca para dropdown de veículos
   const filteredVehicles = useMemo(() => {

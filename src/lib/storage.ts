@@ -135,11 +135,11 @@ export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
   },
   {
     id: 'tanque_arla_32',
-    nome: 'Reservatório / Tanque Arla 32',
+    nome: 'Tanque Arla 32',
     tipo_combustivel: 'Arla 32',
     produto_id: 'prod_arla_32',
     produtoId: 'prod_arla_32',
-    capacidade_total: 5000,
+    capacidade_total: 1000,
     quantidade_atual: 0,
     localizacao: 'Barracão de Abastecimento / Oficina'
   }
@@ -151,13 +151,16 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
     if (!raw) return DEFAULT_TANQUES_COMBUSTIVEL;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Limpeza de saldos de teste legados (11200 e 6500)
+      // Limpeza de saldos de teste legados (11200 e 6500) e ajuste de capacidade para Tanque Arla 32 (1000 L)
       const sanitized = parsed.map(t => {
         if (t.id === 'tanque_diesel_s10' && t.quantidade_atual === 11200) {
           return { ...t, quantidade_atual: 0 };
         }
         if (t.id === 'tanque_diesel_s500' && t.quantidade_atual === 6500) {
           return { ...t, quantidade_atual: 0 };
+        }
+        if (t.id === 'tanque_arla_32' && (t.capacidade_total === 5000 || !t.capacidade_total)) {
+          return { ...t, capacidade_total: 1000, nome: 'Tanque Arla 32' };
         }
         return t;
       });
@@ -171,11 +174,11 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
       if (!hasArla) {
         sanitized.push({
           id: 'tanque_arla_32',
-          nome: 'Reservatório / Tanque Arla 32',
+          nome: 'Tanque Arla 32',
           tipo_combustivel: 'Arla 32',
           produto_id: 'prod_arla_32',
           produtoId: 'prod_arla_32',
-          capacidade_total: 5000,
+          capacidade_total: 1000,
           quantidade_atual: 0,
           localizacao: 'Barracão de Abastecimento / Oficina'
         });
@@ -599,12 +602,12 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     });
   }
 
-  // 3. Verifica 'Arla 32 (Granel / Litro)' ou 'Arla 32'
+  // 3. Verifica 'Arla 32 (Granel/Litro)'
   const arlaGranelIdx = currentList.findIndex(i => 
     i.id === 'prod_arla_32' ||
     i.id === 'prod_arla_32_granel' ||
-    (i.name && i.name.toLowerCase().includes('arla 32') && !i.name.toLowerCase().includes('galão') && !i.name.toLowerCase().includes('galao')) ||
-    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla 32') && !i.nome_comercial.toLowerCase().includes('galão') && !i.nome_comercial.toLowerCase().includes('galao'))
+    (i.name && i.name.toLowerCase().includes('arla') && (i.name.toLowerCase().includes('granel') || (!i.name.toLowerCase().includes('galão') && !i.name.toLowerCase().includes('galao')))) ||
+    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla') && (i.nome_comercial.toLowerCase().includes('granel') || (!i.nome_comercial.toLowerCase().includes('galão') && !i.nome_comercial.toLowerCase().includes('galao'))))
   );
 
   if (arlaGranelIdx >= 0) {
@@ -614,8 +617,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
     currentList[arlaGranelIdx] = {
       ...existing,
-      name: 'Arla 32',
-      nome_comercial: 'Arla 32',
+      name: 'Arla 32 (Granel/Litro)',
+      nome_comercial: 'Arla 32 (Granel/Litro)',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
       unit: 'L',
@@ -626,17 +629,17 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
       preco_venda_varejo: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
-      location: existing.localizacao_fisica || existing.location || 'Reservatório Arla (Barracão)',
-      localizacao_fisica: existing.localizacao_fisica || existing.location || 'Reservatório Arla (Barracão)',
-      capacidade_total: existing.capacidade_total || (tankArla?.capacidade_total || 5000),
+      location: existing.localizacao_fisica || existing.location || 'Tanque Arla (Barracão)',
+      localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Arla (Barracão)',
+      capacidade_total: existing.capacidade_total || (tankArla?.capacidade_total || 1000),
     };
   } else {
     currentList.push({
       id: 'prod_arla_32',
-      code: 'ARLA-32',
-      name: 'Arla 32',
-      nome: 'Arla 32',
-      nome_comercial: 'Arla 32',
+      code: 'ARLA-GRANEL',
+      name: 'Arla 32 (Granel/Litro)',
+      nome: 'Arla 32 (Granel/Litro)',
+      nome_comercial: 'Arla 32 (Granel/Litro)',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
       quantity: arlaQty,
@@ -651,9 +654,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_venda_varejo: 0,
       preco_venda: 0,
       profitMargin: 0,
-      location: 'Reservatório Arla (Barracão)',
-      localizacao_fisica: 'Reservatório Arla (Barracão)',
-      capacidade_total: tankArla?.capacidade_total || 5000,
+      location: 'Tanque Arla (Barracão)',
+      localizacao_fisica: 'Tanque Arla (Barracão)',
+      capacidade_total: tankArla?.capacidade_total || 1000,
     });
   }
 

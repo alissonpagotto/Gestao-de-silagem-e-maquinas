@@ -421,30 +421,38 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
 
       if (origin === 'Tanque Interno (Fazenda)') {
+        const isArlaGalao = fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+        const isArlaGranel = !isArlaGalao && (fuelLog.tanque_id?.toLowerCase().includes('arla') || fuelLog.fuelType?.toLowerCase().includes('arla'));
+        const isS500 = !isArlaGalao && !isArlaGranel && (fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500'));
+
         // Baixa direta no tanque de combustível da fazenda (tabela tanques_combustivel)
-        if (fuelLog.tanque_id || fuelLog.tanqueId) {
+        // IMPORTANTE: NÃO subtrai do tanque se for Arla em Galão (Almoxarifado)!
+        if (!isArlaGalao && (fuelLog.tanque_id || fuelLog.tanqueId)) {
           const tId = fuelLog.tanque_id || fuelLog.tanqueId!;
           subtrairCombustivelTanque(tId, fuelLog.liters).catch(tErr => {
             console.warn('[tanques_combustivel] Erro ao subtrair:', tErr);
           });
         }
         // 1. NÃO cria lançamento de dívida pendente em contas_a_pagar.
-        // 2. Registra apenas a movimentação de baixa de litros no estoque de combustível
+        // 2. Registra apenas a movimentação de baixa no estoque de produtos
         const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
-        const isArla = fuelLog.tanque_id?.toLowerCase().includes('arla') || fuelLog.fuelType?.toLowerCase().includes('arla');
-        const isS500 = !isArla && (fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500'));
-        const prodSearch = isArla ? 'Arla 32' : (isS500 ? 'Diesel S500' : 'Diesel S10');
-        const fuelItem = currentInventory.find(i => 
-          (i.nome_comercial && i.nome_comercial.toLowerCase().includes(prodSearch.toLowerCase())) ||
-          (i.name && i.name.toLowerCase().includes(prodSearch.toLowerCase()))
-        ) || currentInventory.find(i => 
-          isArla 
-            ? ((i.category === 'Combustível & Arla' || i.categoria === 'Combustível & Arla') && (i.name.toLowerCase().includes('arla') || (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla'))))
-            : (i.category === 'Combustível & Arla' || i.categoria === 'Combustível & Arla' || i.category === 'combustivel' || i.name.toLowerCase().includes('diesel'))
-        );
+        const fuelItem = currentInventory.find(i => {
+          if (fuelLog.produto_id && i.id === fuelLog.produto_id) return true;
+          const nm = (i.nome_comercial || i.name || '').toLowerCase();
+          if (isArlaGalao) return nm.includes('arla') && (nm.includes('galão') || nm.includes('galao'));
+          if (isArlaGranel) return nm.includes('arla') && (nm.includes('granel') || (!nm.includes('galão') && !nm.includes('galao')));
+          if (isS500) return nm.includes('s500') || nm.includes('comum');
+          return nm.includes('s10') || nm.includes('diesel');
+        });
+
         if (fuelItem) {
           const currentQty = Number(fuelItem.quantidade_atual ?? fuelItem.quantity ?? 0);
-          const newQty = Math.max(0, Number((currentQty - fuelLog.liters).toFixed(2)));
+          // Se for galão, a unidade é 'un': calcula quantos galões foram usados
+          let amountToDeduct = fuelLog.liters;
+          if (isArlaGalao) {
+            amountToDeduct = fuelLog.liters >= 20 ? Math.ceil(fuelLog.liters / 20) : Math.max(1, Math.round(fuelLog.liters));
+          }
+          const newQty = Math.max(0, Number((currentQty - amountToDeduct).toFixed(2)));
           const updatedInventory = currentInventory.map(item => 
             item.id === fuelItem.id ? { 
               ...item, 
@@ -467,14 +475,18 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           id: `exp_fuel_${fuelLog.id}`,
           date: fuelLog.date,
           category: 'Combustível & Arla',
-          description: `Abastecimento Tanque Interno - ${machName} (${fuelLog.liters}L) [Compensado pelo Estoque]`,
+          description: isArlaGalao
+            ? `Consumo Galão Arla 32 - ${machName} [Almoxarifado]`
+            : `Abastecimento Tanque Interno - ${machName} (${fuelLog.liters}L) [Compensado pelo Estoque]`,
           amount: fuelLog.totalAmount,
           paymentMethod: 'outro',
-          supplier: 'Tanque da Fazenda (Estoque Interno)',
+          supplier: isArlaGalao ? 'Almoxarifado Principal' : 'Tanque da Fazenda (Estoque Interno)',
           status: 'compensado_estoque',
           costCenterId: targetVehicle?.id,
           costCenterName: machName,
-          notes: `Baixa interna de ${fuelLog.liters}L no tanque da fazenda. Custo no DRE do veículo sem geração de dívida pendente a pagar. Motorista: ${fuelLog.driverOrOperator || 'N/A'}`,
+          notes: isArlaGalao
+            ? `Baixa no estoque do Almoxarifado Principal de Arla 32 (Galão 20L). Motorista: ${fuelLog.driverOrOperator || 'N/A'}`
+            : `Baixa interna de ${fuelLog.liters}L no tanque da fazenda. Custo no DRE do veículo sem geração de dívida pendente a pagar. Motorista: ${fuelLog.driverOrOperator || 'N/A'}`,
         });
       } else if (origin === 'Posto Conveniado (Faturado)') {
         // 1. POST na tabela 'public.contas_a_pagar' com status 'A Pagar' (Pendente), vinculando ao Fornecedor/Posto selecionado
