@@ -432,7 +432,7 @@ export default function App() {
             lastSyncedState.current.orders = JSON.stringify(cloudModules.orders);
             setOrders(cloudModules.orders);
           }
-          if (Array.isArray(cloudModules.inventory) && cloudModules.inventory.length > 0) {
+          if ((!cloudData?.estoque || cloudData.estoque.length === 0) && Array.isArray(cloudModules.inventory) && cloudModules.inventory.length > 0) {
             lastSyncedState.current.inventory = JSON.stringify(cloudModules.inventory);
             setInventory(cloudModules.inventory);
           }
@@ -814,7 +814,7 @@ export default function App() {
               setOrders(fresh.orders);
             }
           }
-          if (Array.isArray(fresh.inventory) && fresh.inventory.length > 0) {
+          if (!lastSyncedState.current.rel_inventory && Array.isArray(fresh.inventory) && fresh.inventory.length > 0) {
             const ser = JSON.stringify(fresh.inventory);
             if (ser !== lastSyncedState.current.inventory) {
               lastSyncedState.current.inventory = ser;
@@ -1587,19 +1587,26 @@ export default function App() {
 
   // Estoque Handlers (Multi-Tenant Persistência no Supabase)
   const handleSaveInventory = (newInventory: InventoryItem[]) => {
-    const oldIds = new Set(inventory.map(i => i.id));
+    const oldMap = new Map<string, string>(inventory.map(i => [i.id, JSON.stringify(i)]));
     const newIds = new Set(newInventory.map(i => i.id));
 
-    for (const oldId of oldIds) {
+    for (const oldId of oldMap.keys()) {
       if (!newIds.has(oldId)) {
         deleteEstoqueItem(oldId, activeTenantId).catch(err => console.warn('Supabase deleteEstoqueItem notice:', err));
       }
     }
 
     for (const item of newInventory) {
-      upsertEstoqueItem(item, activeTenantId).catch(err => console.warn('Supabase upsertEstoqueItem notice:', err));
+      const prevSer = oldMap.get(item.id);
+      if (!prevSer || prevSer !== JSON.stringify(item)) {
+        upsertEstoqueItem(item, activeTenantId).catch(err => console.warn('Supabase upsertEstoqueItem notice:', err));
+      }
     }
 
+    const ser = JSON.stringify(newInventory);
+    lastSyncedState.current.inventory = ser;
+    lastSyncedState.current.rel_inventory = ser;
+    saveStoredInventory(newInventory);
     setInventory(newInventory);
   };
 

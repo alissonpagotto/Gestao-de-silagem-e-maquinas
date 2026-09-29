@@ -480,9 +480,13 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   const tankS500 = tanks.find(t => t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'));
   const tankArla = tanks.find(t => t.id === 'tanque_arla_32' || t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla'));
 
-  const s10Qty = tankS10?.quantidade_atual !== undefined ? Number(tankS10.quantidade_atual) : 0;
-  const s500Qty = tankS500?.quantidade_atual !== undefined ? Number(tankS500.quantidade_atual) : 0;
-  const arlaQty = tankArla?.quantidade_atual !== undefined ? Number(tankArla.quantidade_atual) : 0;
+  // Helper para ler estritamente o saldo do próprio item de estoque (permitindo 0 sem fallback para tanques)
+  const extractProductQty = (item: any): number => {
+    const raw = item?.quantidade_atual ?? item?.estoque_atual ?? item?.quantidade ?? item?.quantity;
+    if (raw === undefined || raw === null || raw === '') return 0;
+    const num = Number(raw);
+    return isNaN(num) ? 0 : num;
+  };
 
   // 1. Verifica Diesel S10
   const s10Idx = currentList.findIndex(i => 
@@ -493,9 +497,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   if (s10Idx >= 0) {
     const existing = currentList[s10Idx];
-    const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
-    // Unificação real de saldo: se o tanque tiver saldo (ex: 5580L), unifica no estoque; caso contrário preserva o estoque
-    const effectiveQty = s10Qty > 0 ? s10Qty : currentProdQty;
+    const effectiveQty = extractProductQty(existing);
     const effectiveCost = existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0);
 
     currentList[s10Idx] = {
@@ -525,8 +527,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       nome_comercial: 'Diesel S10',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
-      quantity: s10Qty,
-      quantidade_atual: s10Qty,
+      quantity: 0,
+      quantidade_atual: 0,
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 2000,
@@ -552,8 +554,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   if (s500Idx >= 0) {
     const existing = currentList[s500Idx];
-    const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
-    const effectiveQty = s500Qty > 0 ? s500Qty : currentProdQty;
+    const effectiveQty = extractProductQty(existing);
     const effectiveCost = existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0);
 
     currentList[s500Idx] = {
@@ -584,8 +585,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       nome_comercial: 'Diesel S500',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
-      quantity: s500Qty,
-      quantidade_atual: s500Qty,
+      quantity: 0,
+      quantidade_atual: 0,
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 1500,
@@ -628,8 +629,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   if (arlaGranelIdx >= 0) {
     const existing = currentList[arlaGranelIdx];
-    const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
-    const effectiveQty = arlaQty > 0 ? arlaQty : currentProdQty;
+    const effectiveQty = extractProductQty(existing);
     const safeGranelId = existing.id === 'prod_arla_32_galao_20l' ? 'prod_arla_32_granel' : (existing.id || 'prod_arla_32_granel');
 
     currentList[arlaGranelIdx] = {
@@ -662,8 +662,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       nome_comercial: 'Arla 32 (Granel/Litro)',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
-      quantity: arlaQty,
-      quantidade_atual: arlaQty,
+      quantity: 0,
+      quantidade_atual: 0,
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 100,
@@ -689,6 +689,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   if (arlaGalaoIdx >= 0) {
     const existing = currentList[arlaGalaoIdx];
+    const effectiveGalaoQty = extractProductQty(existing);
     const safeGalaoId = (!existing.id || existing.id === granelId || existing.id === 'prod_arla_32')
       ? 'prod_arla_32_galao_20l'
       : existing.id;
@@ -704,8 +705,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unidade_medida: 'un',
       gallonSizeLiters: existing.gallonSizeLiters || 20,
       volume_litros_embalagem: existing.volume_litros_embalagem || 20,
-      quantity: existing.quantidade_atual !== undefined ? existing.quantidade_atual : (existing.quantity ?? 0),
-      quantidade_atual: existing.quantidade_atual !== undefined ? existing.quantidade_atual : (existing.quantity ?? 0),
+      quantity: effectiveGalaoQty,
+      quantidade_atual: effectiveGalaoQty,
       unitCost: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),

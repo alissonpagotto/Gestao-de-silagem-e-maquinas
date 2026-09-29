@@ -207,7 +207,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     const num = sanitized === '' ? undefined : parseFloat(sanitized);
     const validNum = num === undefined || isNaN(num) ? undefined : num;
 
-    const updated = inventory.map(item => {
+    const updated = allItems.map(item => {
       if (item.id !== itemId) return item;
       const copy: InventoryItem = { ...item };
       const unit = copy.unitCost || 0;
@@ -705,7 +705,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={(newProduct) => {
-            const updated = [...inventory, newProduct];
+            const updated = [...allItems, newProduct];
             onSaveInventory(updated);
             setIsCreateModalOpen(false);
             setPromptNewLabelItem(newProduct);
@@ -720,7 +720,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           initialData={editingItem}
           onClose={() => setEditingItem(null)}
           onSuccess={(updatedProduct) => {
-            const updated = inventory.map(i => i.id === updatedProduct.id ? updatedProduct : i);
+            const targetNameNorm = (updatedProduct.nome_comercial || updatedProduct.name || '').toLowerCase().trim();
+            const origNameNorm = (editingItem.nome_comercial || editingItem.name || '').toLowerCase().trim();
+            let foundMatch = false;
+            const updated = allItems.map(i => {
+              const iNameNorm = (i.nome_comercial || i.name || '').toLowerCase().trim();
+              const isSameId = i.id === updatedProduct.id || i.id === editingItem.id;
+              const isSameFuel = (targetNameNorm === 'diesel s10' || targetNameNorm === 'diesel s500' || targetNameNorm.includes('arla 32')) &&
+                (iNameNorm === targetNameNorm || iNameNorm === origNameNorm);
+              if (isSameId || isSameFuel) {
+                foundMatch = true;
+                return {
+                  ...i,
+                  ...updatedProduct,
+                  quantity: Number(updatedProduct.quantidade_atual ?? updatedProduct.quantity ?? 0),
+                  quantidade_atual: Number(updatedProduct.quantidade_atual ?? updatedProduct.quantity ?? 0),
+                };
+              }
+              return i;
+            });
+            if (!foundMatch) {
+              updated.push(updatedProduct);
+            }
             onSaveInventory(updated);
             setEditingItem(null);
           }}

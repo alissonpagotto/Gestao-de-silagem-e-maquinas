@@ -1277,10 +1277,11 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
       return localItems;
     }
 
-    const mapped: InventoryItem[] = rows.map(row => {
-      // Mapeamento das colunas reais do banco
+    const rawMapped: InventoryItem[] = rows.map(row => {
+      // Mapeamento estrito das colunas reais do banco (respeitando 0 sem fallback para tanques)
       const name = String(row.nome_comercial || row.nome || row.descricao || 'Produto sem descrição').trim();
-      const qty = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+      const rawQty = row.quantidade_atual ?? row.estoque_atual ?? row.quantidade ?? row.quantity;
+      const qty = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Number(rawQty) : 0;
       const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? 0);
       const sale = Number(row.preco_venda_varejo ?? row.preco_venda ?? row.preco_venda_final ?? 0);
 
@@ -1357,10 +1358,25 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
       };
     });
 
+    // Deduplica itens de mesmo nome comercial mantendo o registro mais recentemente atualizado
+    const mapped: InventoryItem[] = [];
+    for (const item of rawMapped) {
+      const normName = (item.nome_comercial || item.name || '').toLowerCase().trim();
+      const existingIdx = mapped.findIndex(m => (m.nome_comercial || m.name || '').toLowerCase().trim() === normName);
+      if (existingIdx >= 0) {
+        const existing = mapped[existingIdx];
+        const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        if (itemTime >= existingTime) {
+          mapped[existingIdx] = item;
+        }
+      } else {
+        mapped.push(item);
+      }
+    }
+
     const finalizedList = ensureDieselProductsInInventory(mapped);
     saveStoredInventory(finalizedList);
-    // Dispara reconciliação automática para unificar saldos de estoque_produtos e tanques_combustivel
-    void reconciliarEstoqueETanquesCombustivel(activeCompanyId);
     return finalizedList;
   } catch (err) {
     console.warn('Supabase fetchEstoque err:', err);
@@ -1473,7 +1489,8 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
     if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
       mapped = res.data.map(row => {
         const nomeComercial = String(row.nome_comercial || row.nome || row.descricao || 'Produto sem descrição').trim();
-        const qty = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+        const rawQty = row.quantidade_atual ?? row.estoque_atual ?? row.quantidade ?? row.quantity;
+        const qty = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Number(rawQty) : 0;
         const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? 0);
         const sale = Number(row.preco_venda_varejo ?? row.preco_venda ?? 0);
         const unit = normalizeUnit(row.unidade_medida || row.unidade);
@@ -1620,16 +1637,62 @@ export function parseNumericFloat(val: any): number {
 export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: string): Promise<boolean> {
   const currentInv = getStoredInventory();
   const itemId = item.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-  const itemWithId = { ...item, id: itemId };
+  const quantidadeFloat = parseNumericFloat(item.quantidade_atual ?? item.estoque_atual ?? item.quantidade ?? item.quantity);
+  const nomeStr = String(item.nome_comercial || item.nome || item.name || item.descricao || 'Produto sem descrição').trim();
+  const categoriaStr = String(item.categoria || item.category || 'outro').trim();
+  const unidadeStr = String(item.unidade_medida || item.unit || 'UN').trim().toUpperCase();
+
+  const itemWithId = {
+    ...item,
+    id: itemId,
+    quantity: quantidadeFloat,
+    quantidade_atual: quantidadeFloat,
+  };
   
-  const existingIdx = currentInv.findIndex(i => i.id === itemId);
+  const normTargetName = nomeStr.toLowerCase();
+  const existingIdx = currentInv.findIndex(i => 
+    i.id === itemId || 
+    toValidUUID(i.id) === toValidUUID(itemId) ||
+    String(i.nome_comercial || i.name || '').toLowerCase().trim() === normTargetName
+  );
   let updatedInv: InventoryItem[];
   if (existingIdx >= 0) {
-    updatedInv = currentInv.map(i => i.id === itemId ? { ...i, ...itemWithId } : i);
+    updatedInv = currentInv.map((i, idx) => idx === existingIdx ? { ...i, ...itemWithId } : i);
   } else {
     updatedInv = [itemWithId, ...currentInv];
   }
   saveStoredInventory(updatedInv);
+
+  // Identifica se é combustível a granel/tanque (Diesel S10, Diesel S500 ou Arla 32 Granel)
+  const isArlaGalao = nomeStr.toLowerCase().includes('galão') || 
+                      nomeStr.toLowerCase().includes('galao') || 
+                      nomeStr.toLowerCase().includes('20l') || 
+                      unidadeStr.toLowerCase() === 'un';
+  const isCombustivelOrArla = !isArlaGalao && (
+                              categoriaStr === 'Combustível & Arla' || 
+                              categoriaStr.toLowerCase().includes('combust') || 
+                              nomeStr.toLowerCase().includes('diesel') || 
+                              nomeStr.toLowerCase().includes('arla')
+                              );
+
+  // Sincronização imediata de mão única no storage local dos tanques (estoque_produtos -> tanques_combustivel)
+  if (isCombustivelOrArla) {
+    const isArla = nomeStr.toLowerCase().includes('arla') && !isArlaGalao;
+    const isS500 = !isArla && (nomeStr.toLowerCase().includes('s500') || nomeStr.toLowerCase().includes('comum'));
+    const targetTankId = isArla ? 'tanque_arla_32' : (isS500 ? 'tanque_diesel_s500' : 'tanque_diesel_s10');
+    const localTanks = getStoredTanquesCombustivel();
+    const updatedTanks = localTanks.map(t => {
+      const isMatch = t.id === targetTankId ||
+        (isArla && (t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome?.toLowerCase().includes('arla'))) ||
+        (isS500 && (t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome?.toLowerCase().includes('s500'))) ||
+        (!isArla && !isS500 && (t.tipo_combustivel?.toLowerCase().includes('s10') || t.nome?.toLowerCase().includes('s10')));
+      if (isMatch) {
+        return { ...t, quantidade_atual: quantidadeFloat, produto_id: toValidUUID(itemId) };
+      }
+      return t;
+    });
+    saveStoredTanquesCombustivel(updatedTanks);
+  }
 
   if (!isSupabaseConfigured) return true;
   try {
@@ -1650,7 +1713,6 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       : (item.margem_promocional !== undefined && item.margem_promocional !== null && item.margem_promocional !== '')
         ? parseNumericFloat(item.margem_promocional)
         : null;
-    const quantidadeFloat = parseNumericFloat(item.quantidade_atual ?? item.quantity);
     const margemFloat = (item.margem_lucro_sugerida !== undefined && item.margem_lucro_sugerida !== null && item.margem_lucro_sugerida !== '')
       ? parseNumericFloat(item.margem_lucro_sugerida)
       : (item.profitMargin !== undefined && item.profitMargin !== null && item.profitMargin !== '')
@@ -1661,9 +1723,6 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
               ? Number((((precoVendaFloat - custoNominalFloat) / custoNominalFloat) * 100).toFixed(2)) 
               : null);
 
-    const nomeStr = String(item.nome_comercial || item.nome || item.name || item.descricao || 'Produto sem descrição').trim();
-    const categoriaStr = String(item.categoria || item.category || 'outro').trim();
-    const unidadeStr = String(item.unidade_medida || item.unit || 'UN').trim().toUpperCase();
     const marcaStr = item.marca || item.brand ? String(item.marca || item.brand).trim() : null;
     const semGtinBool = Boolean(item.sem_gtin ?? item.hasNoGtin ?? (item.codigo_barras === 'SEM GTIN'));
     const barcodeStr = semGtinBool ? 'SEM GTIN' : (item.codigo_barras || item.barcode || item.gtin ? String(item.codigo_barras || item.barcode || item.gtin).trim() : null);
@@ -1677,6 +1736,7 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
     const custoComImpostoFloat = parseNumericFloat(item.custo_com_imposto ?? item.custoComImposto ?? (custoNominalFloat > 0 ? custoNominalFloat : 0));
     const freteDiluidoFloat = parseNumericFloat(item.frete_diluido_item ?? item.freteDiluidoItem ?? 0);
     const finalCustoNominal = custoComImpostoFloat > 0 ? custoComImpostoFloat : custoNominalFloat;
+    const nowIso = new Date().toISOString();
 
     // Payload estrito com os nomes de colunas exatos da tabela 'public.estoque_produtos'
     // Evita colunas inexistentes (como 'quantidade', 'preco_venda') que causam HTTP 400
@@ -1711,30 +1771,83 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       ...(precoPromoFloat > 0 ? { preco_venda_promo: precoPromoFloat } : {}),
       ...(margemAtacadoFloat !== null ? { margem_atacado: margemAtacadoFloat } : {}),
       ...(margemPromoFloat !== null ? { margem_promo: margemPromoFloat } : {}),
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     };
 
-    // 1. Tenta gravar prioritariamente na tabela oficial 'estoque_produtos' com as colunas reais
-    let result = await supabase
-      .from('estoque_produtos')
-      .upsert(payloadOfficial, { onConflict: 'id' });
+    // 1. Tenta gravar prioritariamente na tabela oficial 'estoque_produtos' com resiliência dinâmica de colunas
+    let currentPayload: Record<string, any> = { ...payloadOfficial };
+    let result: any = { error: null };
+    for (let attempt = 0; attempt < 12; attempt++) {
+      result = await supabase
+        .from('estoque_produtos')
+        .upsert(currentPayload, { onConflict: 'id' });
 
-    // Se falhar na 'estoque_produtos' por company_id ou coluna inexistente
-    if (result.error) {
-      let retryPayload = { ...payloadOfficial };
-      if (result.error.code === '42703' || result.error.message?.includes('column')) {
-        delete retryPayload.preco_venda_atacado;
-        delete retryPayload.preco_venda_promo;
-        delete retryPayload.margem_atacado;
-        delete retryPayload.margem_promo;
+      if (!result.error) break;
+
+      const errMsg = String(result.error.message || '');
+      const errCode = String(result.error.code || '');
+
+      const matchMissingCol =
+        errMsg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
+        errMsg.match(/column "?([a-zA-Z0-9_]+)"? of relation/i) ||
+        errMsg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i) ||
+        errMsg.match(/column ([a-zA-Z0-9_]+) does not exist/i);
+
+      if (matchMissingCol && matchMissingCol[1]) {
+        const badCol = matchMissingCol[1];
+        delete currentPayload[badCol];
+        continue;
       }
-      if (result.error.message?.includes('company_id')) {
-        delete retryPayload.company_id;
+
+      if (errCode === '23503' || errMsg.includes('company_id')) {
+        delete currentPayload.company_id;
+        continue;
       }
-      const retryComp = await supabase.from('estoque_produtos').upsert(retryPayload, { onConflict: 'id' });
-      if (!retryComp.error) {
-        result = retryComp;
+
+      if (errCode === '42703' || errCode === 'PGRST204' || errMsg.includes('column') || errMsg.includes('schema cache')) {
+        // Fallback enxuto apenas com as colunas essenciais da tabela estoque_produtos
+        currentPayload = {
+          id: toValidUUID(itemId),
+          nome_comercial: nomeStr,
+          categoria: categoriaStr,
+          unidade_medida: unidadeStr,
+          quantidade_atual: quantidadeFloat,
+          preco_custo_inicial: finalCustoNominal,
+          preco_venda_varejo: precoVendaFloat,
+          updated_at: nowIso
+        };
+        result = await supabase
+          .from('estoque_produtos')
+          .upsert(currentPayload, { onConflict: 'id' });
       }
+      break;
+    }
+
+    // Garante atualização direta por ID e por nome_comercial em 'estoque_produtos' (inclusive quando zerado = 0)
+    try {
+      await supabase
+        .from('estoque_produtos')
+        .update({
+          quantidade_atual: quantidadeFloat,
+          preco_custo_inicial: finalCustoNominal,
+          preco_venda_varejo: precoVendaFloat,
+          updated_at: nowIso
+        })
+        .eq('id', toValidUUID(itemId));
+    } catch {}
+
+    if (isCombustivelOrArla || isArlaGalao) {
+      try {
+        await supabase
+          .from('estoque_produtos')
+          .update({
+            quantidade_atual: quantidadeFloat,
+            preco_custo_inicial: finalCustoNominal,
+            preco_venda_varejo: precoVendaFloat,
+            updated_at: nowIso
+          })
+          .ilike('nome_comercial', nomeStr);
+      } catch {}
     }
 
     // 2. Fallback resiliente para a tabela legada 'estoque' caso exista no banco
@@ -1756,48 +1869,77 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       // Ignora erro na tabela secundária
     }
 
-    // Sincronização automática bidirecional com a tabela tanques_combustivel (exceto Arla em Galão do Almoxarifado)
-    const isArlaGalao = nomeStr.toLowerCase().includes('galão') || 
-                        nomeStr.toLowerCase().includes('galao') || 
-                        nomeStr.toLowerCase().includes('20l') || 
-                        unidadeStr.toLowerCase() === 'un';
-    const isCombustivelOrArla = !isArlaGalao && (
-                                categoriaStr === 'Combustível & Arla' || 
-                                categoriaStr.toLowerCase().includes('combust') || 
-                                nomeStr.toLowerCase().includes('diesel') || 
-                                nomeStr.toLowerCase().includes('arla')
-                                );
+    // 3. Sincronização de Mão Única (Ajustes Manuais no Estoque -> public.tanques_combustivel)
+    // Se o usuário ajustar manualmente o combustível para ZERO ou qualquer outro valor,
+    // atualiza simultaneamente a coluna 'quantidade_atual' correspondente em 'public.tanques_combustivel'.
     if (isCombustivelOrArla) {
       const isArla = nomeStr.toLowerCase().includes('arla') && !isArlaGalao;
       const isS500 = !isArla && (nomeStr.toLowerCase().includes('s500') || nomeStr.toLowerCase().includes('comum'));
       const targetTankId = isArla ? 'tanque_arla_32' : (isS500 ? 'tanque_diesel_s500' : 'tanque_diesel_s10');
-      
-      void (async () => {
-        try {
-          await supabase
+      const validProdUuid = toValidUUID(itemId);
+
+      try {
+        // Localiza todos os tanques correspondentes no Supabase (por id, produto_id, tipo_combustivel ou nome)
+        const { data: allDbTanks } = await supabase
+          .from('tanques_combustivel')
+          .select('id, nome, tipo_combustivel, produto_id');
+
+        const matchingTankIds = new Set<string>([targetTankId]);
+        if (Array.isArray(allDbTanks)) {
+          for (const t of allDbTanks) {
+            const tTipo = String(t.tipo_combustivel || '').toLowerCase();
+            const tNome = String(t.nome || '').toLowerCase();
+            const isMatch =
+              t.id === targetTankId ||
+              t.produto_id === validProdUuid ||
+              t.produto_id === itemId ||
+              (isArla && (tTipo.includes('arla') || tNome.includes('arla'))) ||
+              (isS500 && (tTipo.includes('s500') || tNome.includes('s500'))) ||
+              (!isArla && !isS500 && (tTipo.includes('s10') || tNome.includes('s10')));
+            if (isMatch && t.id) {
+              matchingTankIds.add(String(t.id));
+            }
+          }
+        }
+
+        for (const tId of matchingTankIds) {
+          const { error: tankUpdErr } = await supabase
             .from('tanques_combustivel')
             .update({
               quantidade_atual: quantidadeFloat,
-              produto_id: toValidUUID(itemId),
-              updated_at: new Date().toISOString()
+              produto_id: validProdUuid,
+              updated_at: nowIso
             })
-            .eq('id', targetTankId);
+            .eq('id', tId);
 
-          const localTanks = getStoredTanquesCombustivel();
-          const updatedTanks = localTanks.map(t => {
-            if (t.id === targetTankId) {
-              return { ...t, quantidade_atual: quantidadeFloat, produto_id: toValidUUID(itemId) };
+          if (tankUpdErr) {
+            // Fallback caso a coluna produto_id ou updated_at não exista no schema físico de tanques_combustivel
+            const { error: fallbackErr } = await supabase
+              .from('tanques_combustivel')
+              .update({
+                quantidade_atual: quantidadeFloat
+              })
+              .eq('id', tId);
+            if (fallbackErr) {
+              console.warn('[tanques_combustivel] fallback update warning:', fallbackErr);
             }
-            return t;
-          });
-          saveStoredTanquesCombustivel(updatedTanks);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedTanks }));
           }
-        } catch (tErr) {
-          console.warn('[tanques_combustivel] auto-sync err:', tErr);
         }
-      })();
+
+        const localTanks = getStoredTanquesCombustivel();
+        const updatedTanks = localTanks.map(t => {
+          if (matchingTankIds.has(t.id)) {
+            return { ...t, quantidade_atual: quantidadeFloat, produto_id: validProdUuid };
+          }
+          return t;
+        });
+        saveStoredTanquesCombustivel(updatedTanks);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('silagem_tanks_changed', { detail: updatedTanks }));
+        }
+      } catch (tErr) {
+        console.warn('[tanques_combustivel] one-way sync err:', tErr);
+      }
     }
 
     return !result.error;
@@ -3917,39 +4059,22 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
         return pName.includes(fuel.key);
       });
 
-      const tankQty = tank && tank.quantidade_atual !== undefined && tank.quantidade_atual !== null ? Number(tank.quantidade_atual) : 0;
-      const prodQty = prod && prod.quantidade_atual !== undefined && prod.quantidade_atual !== null ? Number(prod.quantidade_atual) : 0;
+      const prodQty = prod && (prod.quantidade_atual !== undefined || prod.estoque_atual !== undefined || prod.quantidade !== undefined)
+        ? Number(prod.quantidade_atual ?? prod.estoque_atual ?? prod.quantidade ?? 0)
+        : 0;
 
-      // Unifica: se um tem saldo positivo e o outro está zerado, adota o saldo positivo!
-      let unifiedQty = 0;
-      if (tankQty > 0 && prodQty === 0) {
-        unifiedQty = tankQty;
-      } else if (prodQty > 0 && tankQty === 0) {
-        unifiedQty = prodQty;
-      } else if (tankQty > 0 && prodQty > 0) {
-        unifiedQty = tankQty; // Prioriza o saldo do tanque da fazenda
-      }
+      // Sincronização estrita de mão única: 'public.estoque_produtos' é a fonte da verdade (inclusive quando zerado = 0).
+      // NUNCA sobrescreve 'estoque_produtos' com o saldo antigo de 'tanques_combustivel'.
+      const unifiedQty = prod ? prodQty : 0;
 
-      // Se o produto no estoque divergia, atualiza no Supabase
-      if (prod && Number(prod.quantidade_atual ?? 0) !== unifiedQty) {
-        prod.quantidade_atual = unifiedQty;
-        prod.quantity = unifiedQty;
-        await supabase
-          .from('estoque_produtos')
-          .update({
-            quantidade_atual: unifiedQty,
-            quantity: unifiedQty,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', prod.id);
-      } else if (!prod) {
-        // Se o produto não existe na tabela estoque_produtos, cria
+      if (!prod) {
+        // Se o produto ainda não existe na tabela estoque_produtos, cria com saldo 0
         const newProd = {
           id: toValidUUID(fuel.idProd),
           nome_comercial: fuel.name,
           categoria: 'Combustível & Arla',
           unidade_medida: 'L',
-          quantidade_atual: unifiedQty,
+          quantidade_atual: 0,
           preco_custo_inicial: fuel.defaultCost,
           capacidade_total: fuel.defaultCap,
           company_id: cId || null,
@@ -3966,7 +4091,7 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
         }
       }
 
-      // Se o tanque divergia ou apontava para outro produto (ex: galão), atualiza no Supabase
+      // Atualiza o tanque na tabela 'tanques_combustivel' para refletir exatamente o saldo de 'estoque_produtos'
       const targetProdId = prod?.id || toValidUUID(fuel.idProd);
       if (tank && (Number(tank.quantidade_atual ?? 0) !== unifiedQty || tank.produto_id !== targetProdId || (fuel.idTank === 'tanque_arla_32' && Number(tank.capacidade_total) === 5000))) {
         tank.quantidade_atual = unifiedQty;
@@ -3975,7 +4100,7 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
           tank.capacidade_total = 1000;
           tank.nome = 'Tanque Arla 32';
         }
-        await supabase
+        const { error: updTankErr } = await supabase
           .from('tanques_combustivel')
           .update({
             quantidade_atual: unifiedQty,
@@ -3985,6 +4110,15 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
             updated_at: new Date().toISOString()
           })
           .eq('id', tank.id);
+
+        if (updTankErr) {
+          await supabase
+            .from('tanques_combustivel')
+            .update({
+              quantidade_atual: unifiedQty
+            })
+            .eq('id', tank.id);
+        }
       } else if (!tank) {
         // Se o tanque não existia (ex: tanque_arla_32), insere
         const newTank = {
@@ -4093,7 +4227,8 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
         const nomeComercial = rawNomeLower.includes('arla')
           ? (isGalao ? 'Arla 32 (Galão 20L)' : 'Arla 32 (Granel/Litro)')
           : rawNome;
-        const qty = Number(row.quantidade_atual ?? row.quantidade ?? 0);
+        const rawQtyVal = row.quantidade_atual ?? row.estoque_atual ?? row.quantidade ?? row.quantity;
+        const qty = rawQtyVal !== undefined && rawQtyVal !== null && rawQtyVal !== '' ? Number(rawQtyVal) : 0;
         const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? row.custo ?? row.unit_cost ?? row.valor_unitario ?? 0);
         const unit = isGalao ? 'un' : (rawNomeLower.includes('arla') ? 'L' : String(row.unidade_medida || row.unidade || 'L').trim());
 
@@ -4132,14 +4267,16 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
         };
       });
 
-      // Deduplica mantendo o registro mais completo/com saldo para cada tipo e garante os 4 itens essenciais
+      // Deduplica mantendo o registro mais recentemente atualizado para cada tipo (respeitando saldo 0)
       const mapped: InventoryItem[] = [];
       for (const item of mappedRaw) {
         const normName = (item.nome_comercial || item.name || '').toLowerCase().trim();
         const existingIdx = mapped.findIndex(m => (m.nome_comercial || m.name || '').toLowerCase().trim() === normName);
         if (existingIdx >= 0) {
           const existing = mapped[existingIdx];
-          if ((Number(item.quantidade_atual) || 0) > (Number(existing.quantidade_atual) || 0)) {
+          const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+          const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+          if (itemTime >= existingTime) {
             mapped[existingIdx] = item;
           }
         } else {
@@ -4172,8 +4309,8 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           nome_comercial: 'Diesel S10',
           category: 'Combustível & Arla',
           categoria: 'Combustível & Arla',
-          quantity: s10Tank?.quantidade_atual || 0,
-          quantidade_atual: s10Tank?.quantidade_atual || 0,
+          quantity: 0,
+          quantidade_atual: 0,
           minQuantity: 2000,
           unit: 'L',
           unidade_medida: 'L',
@@ -4190,8 +4327,8 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           nome_comercial: 'Diesel S500',
           category: 'Combustível & Arla',
           categoria: 'Combustível & Arla',
-          quantity: s500Tank?.quantidade_atual || 0,
-          quantidade_atual: s500Tank?.quantidade_atual || 0,
+          quantity: 0,
+          quantidade_atual: 0,
           minQuantity: 1500,
           unit: 'L',
           unidade_medida: 'L',
@@ -4208,8 +4345,8 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           nome_comercial: 'Arla 32 (Granel/Litro)',
           category: 'Combustível & Arla',
           categoria: 'Combustível & Arla',
-          quantity: arlaTank?.quantidade_atual || 0,
-          quantidade_atual: arlaTank?.quantidade_atual || 0,
+          quantity: 0,
+          quantidade_atual: 0,
           minQuantity: 500,
           unit: 'L',
           unidade_medida: 'L',
@@ -4315,12 +4452,12 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
 
           if (matchingProd) {
             prodId = matchingProd.id;
-            // Se o tanque estava com saldo zerado mas o estoque já recebeu combustível via nota manual/XML, sincroniza o saldo!
-            if (qtdAtual === 0 && Number(matchingProd.quantidade_atual) > 0) {
-              qtdAtual = Number(matchingProd.quantidade_atual);
+            const prodSaldo = Number(matchingProd.quantidade_atual ?? matchingProd.quantity ?? 0);
+            if (qtdAtual !== prodSaldo) {
+              qtdAtual = prodSaldo;
             }
 
-            // Atualiza em background no Supabase com produto_id e quantidade_atual
+            // Atualiza em background no Supabase com produto_id e quantidade_atual (sincronização de mão única estoque -> tanque)
             void (async () => {
               try {
                 const { error: updErr } = await supabase
@@ -4337,8 +4474,7 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
                   await supabase
                     .from('tanques_combustivel')
                     .update({
-                      quantidade_atual: qtdAtual,
-                      updated_at: new Date().toISOString()
+                      quantidade_atual: qtdAtual
                     })
                     .eq('id', row.id);
                 }
@@ -4346,21 +4482,32 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
             })();
           }
         } else {
-          // Se já tem produto_id, reconcilia caso o tanque esteja zerado mas o estoque_produtos tenha saldo
+          // Se já tem produto_id, sincroniza de mão única o saldo de estoque_produtos -> tanques_combustivel (inclusive se foi zerado = 0)
           const matchingProd = fuelProds.find(p => p.id === prodId);
-          if (matchingProd && qtdAtual === 0 && Number(matchingProd.quantidade_atual) > 0) {
-            qtdAtual = Number(matchingProd.quantidade_atual);
-            void (async () => {
-              try {
-                await supabase
-                  .from('tanques_combustivel')
-                  .update({
-                    quantidade_atual: qtdAtual,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', row.id);
-              } catch {}
-            })();
+          if (matchingProd) {
+            const prodSaldo = Number(matchingProd.quantidade_atual ?? matchingProd.quantity ?? 0);
+            if (qtdAtual !== prodSaldo) {
+              qtdAtual = prodSaldo;
+              void (async () => {
+                try {
+                  const { error: syncErr } = await supabase
+                    .from('tanques_combustivel')
+                    .update({
+                      quantidade_atual: qtdAtual,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', row.id);
+                  if (syncErr) {
+                    await supabase
+                      .from('tanques_combustivel')
+                      .update({
+                        quantidade_atual: qtdAtual
+                      })
+                      .eq('id', row.id);
+                  }
+                } catch {}
+              })();
+            }
           }
         }
 
@@ -7829,7 +7976,14 @@ export async function fetchCloudInventory(companyId?: string): Promise<Inventory
   try {
     const cId = companyId || getActiveCompanyId();
 
-    // 1. Tenta carregar o snapshot em site_settings
+    // 1. Prioriza estritamente a tabela oficial 'public.estoque_produtos' (via fetchEstoque)
+    // para evitar que snapshots antigos em site_settings sobrescrevam saldos zerados manualmente
+    const fromEstoque = await fetchEstoque(cId);
+    if (fromEstoque && fromEstoque.length > 0) {
+      return fromEstoque;
+    }
+
+    // 2. Fallback para snapshot em site_settings apenas se a tabela relacional estiver vazia
     const { data: snapshotData } = await supabase
       .from('site_settings')
       .select('hero_title')
@@ -7841,12 +7995,6 @@ export async function fetchCloudInventory(companyId?: string): Promise<Inventory
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed as InventoryItem[];
       }
-    }
-
-    // 2. Fallback na tabela oficial 'estoque'
-    const fromEstoque = await fetchEstoque();
-    if (fromEstoque && fromEstoque.length > 0) {
-      return fromEstoque;
     }
 
     return null;
