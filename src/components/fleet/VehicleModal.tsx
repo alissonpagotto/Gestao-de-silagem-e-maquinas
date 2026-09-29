@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Landmark,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Lock
 } from 'lucide-react';
 import { Machinery, Employee, FuelLog, MaintenanceLog, Expense, ServiceOrder, SilageOrder, PaymentMethod } from '../../types';
 import { 
@@ -41,11 +42,44 @@ import {
   getStoredVehicleOwnershipRegimes,
   saveStoredVehicleOwnershipRegimes,
   getStoredCompanyProfile,
-  getStoredMachineries
+  getStoredMachineries,
+  getActiveCompanyId
 } from '../../lib/storage';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { toValidUUID } from '../../lib/supabaseService';
+import { toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
+
+function isCandidateTrailer(v: any): boolean {
+  if (!v) return false;
+  const comp = String(v.compositionType || v.composition_type || '').toLowerCase().trim();
+  const cat = String(v.categoryType || v.categoria || '').toLowerCase().trim();
+  const tipo = String(v.tipo || v.type || '').toLowerCase().trim();
+  const nome = String(v.nome || v.name || '').toLowerCase().trim();
+  const mod = String(v.modelo || v.model || '').toLowerCase().trim();
+  const plate = String(v.licensePlateOrSerial || v.placa_ou_serie || v.plate || '').toLowerCase().trim();
+  const full = `${comp} ${cat} ${tipo} ${nome} ${mod} ${plate}`;
+
+  if (comp === 'reboque' || comp === 'implemento') return true;
+  if (cat.includes('reboque') || cat.includes('implemento') || cat.includes('carreta') || cat.includes('prancha') || cat.includes('semirreboque') || cat.includes('dolly') || cat.includes('vagao') || cat.includes('vacao')) return true;
+  if (tipo.includes('reboque') || tipo.includes('prancha') || tipo.includes('carreta') || tipo.includes('transbordo') || tipo.includes('implemento') || tipo.includes('semirreboque') || tipo.includes('dolly')) return true;
+  if (
+    full.includes('prancha') || 
+    full.includes('transbordo') || 
+    full.includes('treminhão') || 
+    full.includes('treminhao') || 
+    full.includes('semirreboque') || 
+    full.includes('semi-reboque') || 
+    full.includes('sr/wm') || 
+    full.includes('sr/') || 
+    full.includes('sr ') || 
+    full.includes('reboque') ||
+    full.includes('carreta')
+  ) {
+    return true;
+  }
+  return false;
+}
 import { VehicleOwnershipModal } from './VehicleOwnershipModal';
 import { VehicleHistoryDreTab } from './VehicleHistoryDreTab';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
@@ -200,23 +234,37 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     }
   };
 
-  // Preenchimento rápido a partir de reboque existente na frota
+  // Preenchimento rápido e bloqueado a partir de reboque selecionado no dropdown
   const handleSelectCandidateTrailer = (trailerId: string) => {
     setCoupledTrailerId(trailerId);
-    if (trailerId && trailerId !== 'outro') {
-      const found = candidateTrailers.find(t => t.id === trailerId);
-      if (found) {
-        setTrailerPlate((found.licensePlateOrSerial || '').toUpperCase());
-        setTrailerModel((found.model || found.name || '').toUpperCase());
-        setCoupledTrailerType(found.trailerType || '');
-        if (found.capacityLoadKg) {
-          setTrailerCapacityLoadKg(String(found.capacityLoadKg));
-        }
-        if (found.capacityM3) {
-          setTrailerCapacityM3(String(found.capacityM3));
-        }
-        setCoupledTrailerName(`${found.licensePlateOrSerial || ''} - ${(found.model || found.name || '').toUpperCase()}`.trim());
-      }
+    if (!trailerId) {
+      setTrailerPlate('');
+      setTrailerModel('');
+      setCoupledTrailerType('');
+      setTrailerCapacityLoadKg('');
+      setTrailerCapacityM3('');
+      setCoupledTrailerName('');
+      return;
+    }
+    const found = candidateTrailers.find(t => t.id === trailerId || toValidUUID(t.id) === toValidUUID(trailerId)) ||
+                  otherFleetVehicles.find(t => t.id === trailerId || toValidUUID(t.id) === toValidUUID(trailerId));
+    if (found) {
+      const foundPlate = (found.licensePlateOrSerial || (found as any).placa_ou_serie || (found as any).plate || '').toUpperCase();
+      const foundModel = (found.model || (found as any).modelo || found.name || (found as any).nome || '').toUpperCase();
+      const foundType = (found as any).trailerType || (found as any).tipo || (found as any).type || 'Reboque';
+      const foundLoad = found.capacityLoadKg !== undefined && found.capacityLoadKg !== null 
+        ? String(found.capacityLoadKg) 
+        : ((found as any).capacidade_carga_kg !== undefined ? String((found as any).capacidade_carga_kg) : '');
+      const foundM3 = found.capacityM3 !== undefined && found.capacityM3 !== null 
+        ? String(found.capacityM3) 
+        : ((found as any).capacidade_m3 !== undefined ? String((found as any).capacidade_m3) : '');
+
+      setTrailerPlate(foundPlate);
+      setTrailerModel(foundModel);
+      setCoupledTrailerType(foundType);
+      setTrailerCapacityLoadKg(foundLoad);
+      setTrailerCapacityM3(foundM3);
+      setCoupledTrailerName(foundModel ? `${foundPlate} - ${foundModel}` : foundPlate);
     }
   };
 
@@ -297,13 +345,163 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [revisionStatus, setRevisionStatus] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Candidate trailers from machineries (reboques, carretas, implementos)
+  // Carregamento reativo de reboques do Supabase (gestao_frotas e reboques) ao abrir o modal
+  const [supabaseTrailers, setSupabaseTrailers] = useState<Machinery[]>([]);
+  const [isLoadingTrailers, setIsLoadingTrailers] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    const loadTrailersFromSupabase = async () => {
+      if (!isSupabaseConfigured) return;
+      setIsLoadingTrailers(true);
+      try {
+        const results: Machinery[] = [];
+
+        // 1. Busca na tabela gestao_frotas
+        const activeCompanyId = getActiveCompanyId();
+        let query = supabase.from('gestao_frotas').select('*');
+        if (activeCompanyId) {
+          query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+        }
+        const { data: frotasData, error: frotasErr } = await query;
+        if (!frotasErr && Array.isArray(frotasData)) {
+          for (const row of frotasData) {
+            if (isCandidateTrailer(row)) {
+              results.push({
+                id: row.id,
+                name: row.nome || row.name || 'Reboque',
+                model: row.modelo || row.model || '',
+                brand: row.marca || row.brand || '',
+                licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || '',
+                fleetNumber: row.fleet_number || row.fleetNumber,
+                type: row.tipo || row.type || 'Reboque',
+                categoryType: 'reboque',
+                compositionType: 'reboque',
+                trailerType: row.coupled_trailer_type || row.tipo || 'Reboque',
+                capacityLoadKg: row.capacidade_carga_kg !== undefined && row.capacidade_carga_kg !== null 
+                  ? Number(row.capacidade_carga_kg) 
+                  : (row.capacityLoadKg !== undefined && row.capacityLoadKg !== null ? Number(row.capacityLoadKg) : undefined),
+                capacityM3: row.capacidade_m3 !== undefined && row.capacidade_m3 !== null 
+                  ? Number(row.capacidade_m3) 
+                  : (row.capacityM3 !== undefined && row.capacityM3 !== null ? Number(row.capacityM3) : undefined),
+                status: row.status || 'operacional',
+              } as Machinery);
+            }
+          }
+        }
+
+        // 2. Tenta também na tabela dedicada 'reboques' caso exista no banco
+        try {
+          const { data: rebData, error: rebErr } = await supabase.from('reboques').select('*');
+          if (!rebErr && Array.isArray(rebData)) {
+            for (const r of rebData) {
+              if (!results.some(existing => existing.id === r.id || toValidUUID(existing.id) === toValidUUID(r.id))) {
+                results.push({
+                  id: r.id,
+                  name: r.nome || r.name || r.modelo || 'Reboque',
+                  model: r.modelo || r.model || '',
+                  brand: r.marca || r.brand || '',
+                  licensePlateOrSerial: r.placa || r.plate || r.placa_ou_serie || '',
+                  fleetNumber: r.prefixo || r.fleet_number,
+                  type: 'Reboque',
+                  categoryType: 'reboque',
+                  compositionType: 'reboque',
+                  trailerType: r.tipo || r.trailer_type || 'Reboque',
+                  capacityLoadKg: r.capacidade_carga_kg !== undefined ? Number(r.capacidade_carga_kg) : (r.capacidade !== undefined ? Number(r.capacidade) : undefined),
+                  capacityM3: r.capacidade_m3 !== undefined ? Number(r.capacidade_m3) : undefined,
+                  status: 'operacional',
+                } as Machinery);
+              }
+            }
+          }
+        } catch (_) {}
+
+        if (isMounted && results.length > 0) {
+          setSupabaseTrailers(results);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar reboques do Supabase:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingTrailers(false);
+        }
+      }
+    };
+
+    loadTrailersFromSupabase();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  // Lista unificada e enriquecida de reboques candidatos (Supabase + Machineries)
   const candidateTrailers = useMemo(() => {
+    const map = new Map<string, Machinery>();
+
+    // 1. Reboques vindos do Supabase
+    supabaseTrailers.forEach(t => {
+      if (t.id) map.set(t.id, t);
+    });
+
+    // 2. Machineries filtrados por isCandidateTrailer
+    machineries.forEach(m => {
+      if (isCandidateTrailer(m) && m.id) {
+        map.set(m.id, { ...(map.get(m.id) || {}), ...m });
+      }
+    });
+
+    const list = Array.from(map.values());
+    return list.filter(m => 
+      m.id !== editingVehicle?.id && 
+      toValidUUID(m.id) !== toValidUUID(editingVehicle?.id)
+    );
+  }, [machineries, supabaseTrailers, editingVehicle]);
+
+  // Outros veículos da frota (para caso algum implemento tenha sido cadastrado com outra categoria)
+  const otherFleetVehicles = useMemo(() => {
     return machineries.filter(m => 
       m.id !== editingVehicle?.id && 
-      (m.compositionType === 'reboque' || m.categoryType === 'reboque' || m.categoryType === 'outro')
+      toValidUUID(m.id) !== toValidUUID(editingVehicle?.id) &&
+      !candidateTrailers.some(t => t.id === m.id || toValidUUID(t.id) === toValidUUID(m.id))
     );
-  }, [machineries, editingVehicle]);
+  }, [machineries, editingVehicle, candidateTrailers]);
+
+  // Efeito de reconciliação reativa: se os reboques carregarem após a abertura do modal
+  useEffect(() => {
+    if (!isOpen || !hasCoupledTrailer) return;
+
+    if (coupledTrailerId && (!trailerPlate || !trailerModel)) {
+      const found = candidateTrailers.find(t => t.id === coupledTrailerId || toValidUUID(t.id) === toValidUUID(coupledTrailerId)) ||
+                    otherFleetVehicles.find(t => t.id === coupledTrailerId || toValidUUID(t.id) === toValidUUID(coupledTrailerId));
+      if (found) {
+        const foundPlate = (found.licensePlateOrSerial || (found as any).placa_ou_serie || (found as any).plate || '').toUpperCase();
+        const foundModel = (found.model || (found as any).modelo || found.name || (found as any).nome || '').toUpperCase();
+        const foundType = (found as any).trailerType || (found as any).tipo || (found as any).type || 'Reboque';
+        const foundLoad = found.capacityLoadKg !== undefined && found.capacityLoadKg !== null 
+          ? String(found.capacityLoadKg) 
+          : ((found as any).capacidade_carga_kg !== undefined ? String((found as any).capacidade_carga_kg) : '');
+        const foundM3 = found.capacityM3 !== undefined && found.capacityM3 !== null 
+          ? String(found.capacityM3) 
+          : ((found as any).capacidade_m3 !== undefined ? String((found as any).capacidade_m3) : '');
+
+        if (!trailerPlate && foundPlate) setTrailerPlate(foundPlate);
+        if (!trailerModel && foundModel) setTrailerModel(foundModel);
+        if (!coupledTrailerType && foundType) setCoupledTrailerType(foundType);
+        if (!trailerCapacityLoadKg && foundLoad) setTrailerCapacityLoadKg(foundLoad);
+        if (!trailerCapacityM3 && foundM3) setTrailerCapacityM3(foundM3);
+        setCoupledTrailerName(foundModel ? `${foundPlate} - ${foundModel}` : foundPlate);
+      }
+    } else if (!coupledTrailerId && trailerPlate) {
+      const cleanPlate = trailerPlate.trim().toUpperCase();
+      const found = candidateTrailers.find(t => (t.licensePlateOrSerial || (t as any).placa_ou_serie || '').toUpperCase() === cleanPlate) ||
+                    otherFleetVehicles.find(t => (t.licensePlateOrSerial || (t as any).placa_ou_serie || '').toUpperCase() === cleanPlate);
+      if (found) {
+        setCoupledTrailerId(found.id);
+      }
+    }
+  }, [isOpen, hasCoupledTrailer, coupledTrailerId, trailerPlate, candidateTrailers, otherFleetVehicles]);
 
   // Calculate real-time consumption metrics from fuel logs
   const consumptionMetrics = useMemo(() => {
@@ -583,11 +781,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       );
       
       // Vínculo de Reboque & Composição
+      const initialTrailerId = editingVehicle.coupledTrailerId || (editingVehicle as any).reboque_vinculado_id || (editingVehicle as any).reboque_id || '';
       const hasTrailer = Boolean(
         editingVehicle.hasCoupledTrailer ||
+        initialTrailerId ||
         editingVehicle.trailerPlate ||
         editingVehicle.trailerModel ||
-        editingVehicle.coupledTrailerId ||
         editingVehicle.coupledTrailerName
       );
       setHasCoupledTrailer(hasTrailer);
@@ -596,8 +795,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setCoupledTrailerType(editingVehicle.coupledTrailerType || '');
       setTrailerCapacityLoadKg(editingVehicle.trailerCapacityLoadKg !== undefined ? String(editingVehicle.trailerCapacityLoadKg) : '');
       setTrailerCapacityM3(editingVehicle.trailerCapacityM3 !== undefined ? String(editingVehicle.trailerCapacityM3) : '');
-      setCompositionType(editingVehicle.compositionType || 'veiculo_simples');
-      setCoupledTrailerId(editingVehicle.coupledTrailerId || '');
+      setCompositionType(editingVehicle.compositionType || (hasTrailer ? 'cavalo' : 'veiculo_simples'));
+      setCoupledTrailerId(initialTrailerId);
       setCoupledTrailerName(editingVehicle.coupledTrailerName || '');
       setCustomTrailerText('');
       setVehicleTypeDetailed(editingVehicle.vehicleTypeDetailed || '');
@@ -1793,36 +1992,62 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                         Dados do Reboque
                       </h5>
                     </div>
-                    {candidateTrailers.length > 0 && (
-                      <span className="text-[10px] text-zinc-500 font-medium">
-                        Preenchimento manual ou vínculo rápido
+                    {isLoadingTrailers && (
+                      <span className="text-[10px] text-zinc-400 font-medium animate-pulse">
+                        Sincronizando com Supabase...
                       </span>
                     )}
                   </div>
 
-                  {/* Seletor Opcional de Reboques Cadastrados */}
-                  {candidateTrailers.length > 0 && (
-                    <div>
-                      <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
-                        Vincular a partir da Frota Existente (Opcional):
-                      </label>
-                      <select
-                        value={coupledTrailerId}
-                        onChange={(e) => handleSelectCandidateTrailer(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
-                      >
-                        <option value="">-- Preencher dados manualmente ou selecionar reboque da frota --</option>
-                        {candidateTrailers.map((t) => (
-                          <option key={t.id} value={t.id} className="uppercase">
-                            {t.licensePlateOrSerial || t.fleetNumber || 'S/N'} — {(t.model || t.name || '').toUpperCase()} {t.capacityLoadKg ? `(${t.capacityLoadKg} kg)` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  {/* Seletor Conectado de Reboques Cadastrados (Supabase / Frota) */}
+                  <div>
+                    <label htmlFor="coupledTrailerSelect" className="block text-[11px] font-bold mb-1 text-zinc-700">
+                      Selecione o Reboque / Implemento Cadastrado:
+                    </label>
+                    <select
+                      id="coupledTrailerSelect"
+                      value={coupledTrailerId}
+                      onChange={(e) => handleSelectCandidateTrailer(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs cursor-pointer"
+                    >
+                      <option value="">-- Selecione o reboque cadastrado no sistema --</option>
+                      {candidateTrailers.length > 0 && (
+                        <optgroup label="Reboques & Implementos Cadastrados">
+                          {candidateTrailers.map((t) => {
+                            const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
+                            const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
+                            const capKg = t.capacityLoadKg ? ` (${Number(t.capacityLoadKg).toLocaleString('pt-BR')} kg)` : '';
+                            return (
+                              <option key={t.id} value={t.id} className="uppercase font-medium">
+                                {plateStr} - {modelStr}{capKg}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      )}
+                      {otherFleetVehicles.length > 0 && (
+                        <optgroup label="Outros Veículos da Frota">
+                          {otherFleetVehicles.map((t) => {
+                            const plateStr = (t.licensePlateOrSerial || (t as any).placa_ou_serie || t.fleetNumber || 'S/N').toUpperCase();
+                            const modelStr = (t.model || (t as any).modelo || t.name || '').toUpperCase();
+                            return (
+                              <option key={t.id} value={t.id} className="uppercase font-medium">
+                                {plateStr} - {modelStr}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      )}
+                      {candidateTrailers.length === 0 && otherFleetVehicles.length === 0 && (
+                        <option value="" disabled>
+                          {isLoadingTrailers ? 'Carregando reboques do Supabase...' : 'Nenhum reboque cadastrado no sistema'}
+                        </option>
+                      )}
+                    </select>
+                  </div>
 
-                  {/* Grid Proporcional de Campos do Reboque */}
-                  <div className="grid grid-cols-2 sm:grid-cols-[120px_repeat(4,minmax(0,1fr))] gap-2">
+                  {/* Grid de Campos do Reboque (Somente Leitura - Bloqueio de Digitação Manual) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-[120px_repeat(4,minmax(0,1fr))] gap-2 pt-1">
                     {/* 1º: Placa do Reboque */}
                     <div className="col-span-1">
                       <label className="block text-[11px] font-bold mb-0.5 text-zinc-700">
@@ -1830,11 +2055,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="ABC-1D23"
-                        maxLength={8}
+                        readOnly
+                        disabled
+                        placeholder="Automático"
                         value={trailerPlate}
-                        onChange={(e) => setTrailerPlate(e.target.value.toUpperCase())}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-mono font-bold uppercase cursor-not-allowed select-none shadow-2xs"
                       />
                     </div>
 
@@ -1845,10 +2070,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="Ex: Randon"
+                        readOnly
+                        disabled
+                        placeholder="Automático"
                         value={trailerModel}
-                        onChange={(e) => setTrailerModel(e.target.value.toUpperCase())}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold uppercase cursor-not-allowed select-none shadow-2xs"
                       />
                     </div>
 
@@ -1859,10 +2085,11 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="Ex: Basculante"
+                        readOnly
+                        disabled
+                        placeholder="Automático"
                         value={coupledTrailerType}
-                        onChange={(e) => setCoupledTrailerType(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shadow-2xs"
                       />
                     </div>
 
@@ -1873,14 +2100,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       </label>
                       <div className="relative">
                         <input
-                          type="number"
-                          step="any"
-                          placeholder="Ex: 25000"
-                          value={trailerCapacityLoadKg}
-                          onChange={(e) => setTrailerCapacityLoadKg(e.target.value)}
-                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                          type="text"
+                          readOnly
+                          disabled
+                          placeholder="—"
+                          value={trailerCapacityLoadKg ? (isNaN(Number(trailerCapacityLoadKg)) ? trailerCapacityLoadKg : Number(trailerCapacityLoadKg).toLocaleString('pt-BR')) : ''}
+                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shadow-2xs"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 pointer-events-none">
                           kg
                         </span>
                       </div>
@@ -1893,18 +2120,24 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       </label>
                       <div className="relative">
                         <input
-                          type="number"
-                          step="any"
-                          placeholder="Ex: 40"
-                          value={trailerCapacityM3}
-                          onChange={(e) => setTrailerCapacityM3(e.target.value)}
-                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                          type="text"
+                          readOnly
+                          disabled
+                          placeholder="—"
+                          value={trailerCapacityM3 ? (isNaN(Number(trailerCapacityM3)) ? trailerCapacityM3 : Number(trailerCapacityM3).toLocaleString('pt-BR')) : ''}
+                          className="w-full px-2.5 py-1.5 pr-7 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-800 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shadow-2xs"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 pointer-events-none">
                           m³
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Aviso informativo de campos bloqueados para digitação manual */}
+                  <div className="flex items-center space-x-1.5 text-[10px] sm:text-[11px] text-zinc-500 pt-0.5">
+                    <Lock className="w-3 h-3 text-zinc-400 shrink-0" />
+                    <span>Campos bloqueados para digitação: preenchidos automaticamente pelo reboque selecionado no menu acima.</span>
                   </div>
                 </div>
               )}
