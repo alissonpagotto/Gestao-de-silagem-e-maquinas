@@ -1515,12 +1515,18 @@ export interface RetiradaPecaRecord {
   status?: 'Aguardando Manutenção' | 'Em Manutenção' | 'Concluído' | string;
   os_id?: string;
   os_number?: string;
-  // Dados enriquecidos / joins opcionais para exibição
+  // Dados enriquecidos / joins opcionais para exibição e Lista de Separação
   veiculo_nome?: string;
   veiculo_placa?: string;
   produto_nome?: string;
   produto_codigo?: string;
   produto_unidade?: string;
+  endereco_formatado?: string;
+  estoque_setor?: string;
+  estoque_rua?: string;
+  estoque_estante?: string;
+  estoque_nivel?: string;
+  estoque_box?: string;
 }
 
 export interface MovimentacaoFerramentaRecord {

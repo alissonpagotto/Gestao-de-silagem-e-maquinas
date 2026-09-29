@@ -8492,6 +8492,128 @@ export async function fetchSaldoRealProdutoEstoque(produtoId?: string | null): P
 }
 
 /**
+ * Resolve e formata o endereço físico do item de estoque (Ex: 04.10.45.03.01)
+ * a partir de 'endereco_formatado' ou das colunas individuais (estoque_setor, estoque_rua, estoque_estante, estoque_nivel, estoque_box).
+ */
+export function resolverEnderecoProdutoEstoque(
+  prod?: Partial<InventoryItem> | Record<string, any> | null,
+  fallback?: Partial<RetiradaPecaRecord> | null
+): {
+  endereco_formatado: string;
+  estoque_setor: string;
+  estoque_rua: string;
+  estoque_estante: string;
+  estoque_nivel: string;
+  estoque_box: string;
+} {
+  const rawSetor = String(prod?.estoque_setor ?? fallback?.estoque_setor ?? '').trim();
+  const rawRua = String(prod?.estoque_rua ?? fallback?.estoque_rua ?? '').trim();
+  const rawEstante = String(prod?.estoque_estante ?? fallback?.estoque_estante ?? '').trim();
+  const rawNivel = String(prod?.estoque_nivel ?? fallback?.estoque_nivel ?? '').trim();
+  const rawBox = String(prod?.estoque_box ?? fallback?.estoque_box ?? '').trim();
+
+  const explicitFormatado = String(
+    prod?.endereco_formatado ?? fallback?.endereco_formatado ?? ''
+  ).trim();
+
+  const parts = [rawSetor, rawRua, rawEstante, rawNivel, rawBox].filter(Boolean);
+  const builtFromParts = parts.length > 0 ? parts.join('.') : '';
+  const fallbackLocation = String((prod as any)?.location ?? '').trim();
+
+  const enderecoFormatado = explicitFormatado || builtFromParts || fallbackLocation || '';
+
+  // Se o endereço veio apenas em 'endereco_formatado' (ex: "04.10.45.03.01"), extrai segmentos para ordenação de rota
+  const splitSegments = enderecoFormatado
+    ? enderecoFormatado.split(/[.\-/]/).map(s => s.trim())
+    : [];
+
+  return {
+    endereco_formatado: enderecoFormatado,
+    estoque_setor: rawSetor || splitSegments[0] || '',
+    estoque_rua: rawRua || splitSegments[1] || '',
+    estoque_estante: rawEstante || splitSegments[2] || '',
+    estoque_nivel: rawNivel || splitSegments[3] || '',
+    estoque_box: rawBox || splitSegments[4] || '',
+  };
+}
+
+/**
+ * Busca em tempo real no Supabase ('public.estoque_produtos') os dados de endereçamento físico
+ * ('endereco_formatado', 'estoque_setor', 'estoque_rua', 'estoque_estante', 'estoque_nivel', 'estoque_box')
+ * para uma lista de IDs de produtos de um lote/cupom.
+ */
+export async function fetchEnderecosReaisProdutosEstoque(
+  produtoIds: Array<string | null | undefined>
+): Promise<
+  Record<
+    string,
+    {
+      endereco_formatado: string;
+      estoque_setor: string;
+      estoque_rua: string;
+      estoque_estante: string;
+      estoque_nivel: string;
+      estoque_box: string;
+    }
+  >
+> {
+  const resultMap: Record<
+    string,
+    {
+      endereco_formatado: string;
+      estoque_setor: string;
+      estoque_rua: string;
+      estoque_estante: string;
+      estoque_nivel: string;
+      estoque_box: string;
+    }
+  > = {};
+
+  const localInventory = ensureDieselProductsInInventory(getStoredInventory());
+  const validUuids: string[] = [];
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  for (const rawId of produtoIds) {
+    if (!rawId || typeof rawId !== 'string' || !rawId.trim()) continue;
+    const trimmed = rawId.trim();
+    const valid = toValidUUID(trimmed);
+    const localProd = localInventory.find(p => p.id === trimmed || toValidUUID(p.id) === valid);
+    if (localProd) {
+      const resolved = resolverEnderecoProdutoEstoque(localProd);
+      resultMap[trimmed] = resolved;
+      resultMap[valid] = resolved;
+    }
+    if (uuidRegex.test(valid) && !validUuids.includes(valid)) {
+      validUuids.push(valid);
+    }
+  }
+
+  if (!isSupabaseConfigured || validUuids.length === 0) {
+    return resultMap;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('estoque_produtos')
+      .select('*')
+      .in('id', validUuids);
+
+    if (!error && Array.isArray(data)) {
+      for (const row of data) {
+        const rowId = String(row.id);
+        const localProd = localInventory.find(p => p.id === rowId || toValidUUID(p.id) === rowId);
+        const resolved = resolverEnderecoProdutoEstoque(row, localProd as any);
+        resultMap[rowId] = resolved;
+      }
+    }
+  } catch (err) {
+    console.warn('fetchEnderecosReaisProdutosEstoque err:', err);
+  }
+
+  return resultMap;
+}
+
+/**
  * ABA 1: Busca o histórico de retiradas de peças da tabela 'public.retiradas_pecas'
  */
 export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
@@ -8514,6 +8636,12 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
       logPostgresError('fetchRetiradasPecas', error, { table: 'retiradas_pecas', action: 'SELECT' });
       return localList;
     }
+
+    // Cruzamento em tempo real com 'public.estoque_produtos' para obter o endereçamento físico atualizado
+    const produtoIds = Array.from(
+      new Set((data || []).map((r: any) => r.produto_id).filter(Boolean))
+    );
+    const enderecosMap = await fetchEnderecosReaisProdutosEstoque(produtoIds);
 
     const mapped: RetiradaPecaRecord[] = (data || []).map((row: any) => {
       const rowId = String(row.id);
@@ -8570,6 +8698,12 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
         'Aguardando Manutenção'
       );
 
+      const addrFromDb =
+        (row.produto_id &&
+          (enderecosMap[String(row.produto_id)] ||
+            enderecosMap[toValidUUID(String(row.produto_id))])) ||
+        resolverEnderecoProdutoEstoque(matchedProduct, localMatch);
+
       return {
         id: rowId,
         created_at: row.created_at,
@@ -8590,6 +8724,12 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
         produto_nome: produtoNome,
         produto_codigo: produtoCodigo,
         produto_unidade: produtoUnidade,
+        endereco_formatado: addrFromDb.endereco_formatado,
+        estoque_setor: addrFromDb.estoque_setor,
+        estoque_rua: addrFromDb.estoque_rua,
+        estoque_estante: addrFromDb.estoque_estante,
+        estoque_nivel: addrFromDb.estoque_nivel,
+        estoque_box: addrFromDb.estoque_box,
       };
     });
 
@@ -8651,6 +8791,10 @@ export async function registrarPedidoRetiradaPecasLote(params: {
       await upsertGestaoFrota({ ...params.veiculo, id: validVeiculoUuid });
     } catch {}
   }
+
+  const enderecosLoteMap = await fetchEnderecosReaisProdutosEstoque(
+    params.items.map(it => it.produto_id)
+  );
 
   for (let i = 0; i < params.items.length; i++) {
     const item = params.items[i];
@@ -8734,6 +8878,11 @@ export async function registrarPedidoRetiradaPecasLote(params: {
       status: 'Aguardando Manutenção',
     };
 
+    const addrResolved =
+      enderecosLoteMap[item.produto_id] ||
+      enderecosLoteMap[validProdutoUuid] ||
+      resolverEnderecoProdutoEstoque(targetProdLocal);
+
     const newRecord: RetiradaPecaRecord = {
       id: recordId,
       created_at: insertedRow?.created_at || new Date().toISOString(),
@@ -8750,6 +8899,12 @@ export async function registrarPedidoRetiradaPecasLote(params: {
       produto_nome: String(targetProdLocal?.nome_comercial || targetProdLocal?.name || 'Item do Estoque'),
       produto_codigo: String(targetProdLocal?.code ?? targetProdLocal?.codigo_produto ?? ''),
       produto_unidade: String(targetProdLocal?.unidade_medida || targetProdLocal?.unit || 'UN'),
+      endereco_formatado: addrResolved.endereco_formatado,
+      estoque_setor: addrResolved.estoque_setor,
+      estoque_rua: addrResolved.estoque_rua,
+      estoque_estante: addrResolved.estoque_estante,
+      estoque_nivel: addrResolved.estoque_nivel,
+      estoque_box: addrResolved.estoque_box,
     };
 
     createdRecords.push(newRecord);

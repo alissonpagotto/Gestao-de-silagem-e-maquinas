@@ -60,6 +60,8 @@ import {
   deleteItemCaixaFerramentaVeiculo,
   fetchGestaoFrotas,
   fetchEstoque,
+  fetchEnderecosReaisProdutosEstoque,
+  resolverEnderecoProdutoEstoque,
   toValidUUID,
   subscribeToCloudTable
 } from '../../lib/supabaseService';
@@ -597,31 +599,144 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     setPecaDataRetirada(new Date().toISOString().split('T')[0]);
   };
 
-  // Gera o HTML autônomo e limpo do Cupom de Retirada / Cautela (para impressão em janela limpa ou iframe)
+  // Cruza os itens do lote com 'public.estoque_produtos' (endereço físico) e ordena sequencialmente por Rota de Coleta (Setor -> Rua -> Estante -> Nível -> Box)
+  const enrichAndSortItemsByPickingRoute = useCallback(
+    (
+      rawItems: RetiradaPecaRecord[],
+      realtimeDbMap?: Record<
+        string,
+        {
+          endereco_formatado: string;
+          estoque_setor: string;
+          estoque_rua: string;
+          estoque_estante: string;
+          estoque_nivel: string;
+          estoque_box: string;
+        }
+      >
+    ): RetiradaPecaRecord[] => {
+      const enriched = rawItems.map(it => {
+        const prodId = String(it.produto_id || '').trim();
+        const validProdUuid = prodId ? toValidUUID(prodId) : '';
+        const matchedProd = estoqueList.find(
+          p =>
+            p.id === prodId ||
+            (validProdUuid && toValidUUID(p.id) === validProdUuid) ||
+            (it.produto_codigo &&
+              String(p.code ?? p.codigo_produto ?? '').trim() ===
+                String(it.produto_codigo).trim())
+        );
+
+        const fromRealtime =
+          (realtimeDbMap &&
+            ((prodId && realtimeDbMap[prodId]) ||
+              (validProdUuid && realtimeDbMap[validProdUuid]))) ||
+          null;
+
+        const resolvedAddr = fromRealtime
+          ? resolverEnderecoProdutoEstoque(fromRealtime as any, matchedProd as any)
+          : resolverEnderecoProdutoEstoque(matchedProd, it);
+
+        return {
+          ...it,
+          endereco_formatado:
+            resolvedAddr.endereco_formatado || it.endereco_formatado || '',
+          estoque_setor: resolvedAddr.estoque_setor || it.estoque_setor || '',
+          estoque_rua: resolvedAddr.estoque_rua || it.estoque_rua || '',
+          estoque_estante: resolvedAddr.estoque_estante || it.estoque_estante || '',
+          estoque_nivel: resolvedAddr.estoque_nivel || it.estoque_nivel || '',
+          estoque_box: resolvedAddr.estoque_box || it.estoque_box || '',
+        };
+      });
+
+      const cmpNum = (a: string, b: string) =>
+        String(a || '').localeCompare(String(b || ''), 'pt-BR', {
+          numeric: true,
+          sensitivity: 'base',
+        });
+
+      return [...enriched].sort((a, b) => {
+        const addrA = String(a.endereco_formatado || '').trim();
+        const addrB = String(b.endereco_formatado || '').trim();
+        const hasA = Boolean(addrA && addrA !== '—');
+        const hasB = Boolean(addrB && addrB !== '—');
+
+        // Peças com endereço físico cadastrado vêm primeiro na rota de caminhada
+        if (hasA && !hasB) return -1;
+        if (!hasA && hasB) return 1;
+
+        if (hasA && hasB) {
+          const cSetor = cmpNum(a.estoque_setor || '', b.estoque_setor || '');
+          if (cSetor !== 0) return cSetor;
+
+          const cRua = cmpNum(a.estoque_rua || '', b.estoque_rua || '');
+          if (cRua !== 0) return cRua;
+
+          const cEstante = cmpNum(a.estoque_estante || '', b.estoque_estante || '');
+          if (cEstante !== 0) return cEstante;
+
+          const cNivel = cmpNum(a.estoque_nivel || '', b.estoque_nivel || '');
+          if (cNivel !== 0) return cNivel;
+
+          const cBox = cmpNum(a.estoque_box || '', b.estoque_box || '');
+          if (cBox !== 0) return cBox;
+
+          const cFull = cmpNum(addrA, addrB);
+          if (cFull !== 0) return cFull;
+        }
+
+        return cmpNum(a.produto_nome || '', b.produto_nome || '');
+      });
+    },
+    [estoqueList]
+  );
+
+  // Gera o HTML autônomo e limpo do Cupom de Retirada / Lista de Separação para o Almoxarifado (A4)
   const buildCupomLoteStandaloneHtml = useCallback(
     (data: CupomLotePrintData) => {
+      const sortedItems = enrichAndSortItemsByPickingRoute(data.items || []);
       const companyHeader = companyProfile?.tradeName
         ? `<p style="font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#52525b;margin:0 0 4px 0;">${companyProfile.tradeName}${companyProfile.cnpj ? ` • CNPJ: ${companyProfile.cnpj}` : ''}</p>`
         : '';
       const veiculoLine = `${data.veiculoNome}${data.veiculoPlaca ? ` — PLACA: ${data.veiculoPlaca}` : ''}`;
       const dataFormatada = formatDateOnlyPtBr(data.dataRetirada);
-      const rowsHtml = data.items
-        .map(
-          (it, idx) => `
+      const rowsHtml = sortedItems
+        .map((it, idx) => {
+          const enderecoDisplay = String(it.endereco_formatado || '').trim();
+          const detalheRota = [
+            it.estoque_setor ? `Setor ${it.estoque_setor}` : '',
+            it.estoque_rua ? `Rua ${it.estoque_rua}` : '',
+            it.estoque_estante ? `Est. ${it.estoque_estante}` : '',
+            it.estoque_nivel ? `Nív. ${it.estoque_nivel}` : '',
+            it.estoque_box ? `Box ${it.estoque_box}` : '',
+          ]
+            .filter(Boolean)
+            .join(' • ');
+
+          const locCellHtml = enderecoDisplay
+            ? `<div style="display:inline-block;padding:3px 8px;border:1.5px solid #000000;border-radius:4px;background:#fef3c7;font-family:monospace;font-weight:900;font-size:10.5pt;letter-spacing:0.6px;color:#000000;">${enderecoDisplay}</div>${
+                detalheRota
+                  ? `<div style="font-size:7pt;font-weight:700;color:#3f3f46;margin-top:2px;text-transform:uppercase;">${detalheRota}</div>`
+                  : ''
+              }`
+            : `<span style="font-family:monospace;font-size:8.5pt;font-weight:700;color:#71717a;">NÃO ENDEREÇADO</span>`;
+
+          return `
           <tr>
-            <td style="padding:8px 10px;text-align:center;font-family:monospace;font-weight:800;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${String(idx + 1).padStart(2, '0')}</td>
-            <td style="padding:8px 10px;font-family:monospace;font-weight:700;color:#27272a;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${it.produto_codigo || '—'}</td>
+            <td style="padding:8px 8px;text-align:center;font-family:monospace;font-weight:800;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${String(idx + 1).padStart(2, '0')}</td>
+            <td style="padding:8px 8px;font-family:monospace;font-weight:700;color:#27272a;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${it.produto_codigo || '—'}</td>
             <td style="padding:8px 10px;font-weight:900;color:#000000;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${it.produto_nome || 'Peça do Estoque'}</td>
-            <td style="padding:8px 10px;text-align:center;font-family:monospace;font-weight:900;font-size:11pt;color:#000000;border-bottom:1px solid #d4d4d8;">${it.quantidade} ${it.produto_unidade || 'UN'}</td>
-          </tr>`
-        )
+            <td style="padding:7px 8px;text-align:center;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;background:#fafafa;">${locCellHtml}</td>
+            <td style="padding:8px 8px;text-align:center;font-family:monospace;font-weight:900;font-size:11pt;color:#000000;border-bottom:1px solid #d4d4d8;">${it.quantidade} ${it.produto_unidade || 'UN'}</td>
+          </tr>`;
+        })
         .join('');
 
       return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Cupom de Retirada e Cautela de Peças - Lote ${data.loteId}</title>
+  <title>Cupom de Retirada e Lista de Separação - Lote ${data.loteId}</title>
   <style>
     @page {
       size: A4 portrait;
@@ -665,9 +780,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     <div>
       <div style="border-bottom:2px solid #000000;padding-bottom:14px;text-align:center;margin-bottom:18px;">
         ${companyHeader}
-        <h1 style="font-size:18pt;font-weight:900;text-transform:uppercase;letter-spacing:-0.3px;margin:0 0 6px 0;color:#000000;">
+        <h1 style="font-size:18pt;font-weight:900;text-transform:uppercase;letter-spacing:-0.3px;margin:0 0 5px 0;color:#000000;">
           CUPOM DE RETIRADA / CAUTELA DE PEÇAS
         </h1>
+        <p style="font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#27272a;margin:0 0 4px 0;">
+          LISTA DE SEPARAÇÃO PARA O ALMOXARIFADO (ROTA DE COLETA POR ENDEREÇO FÍSICO)
+        </p>
         <p style="font-size:9.5pt;font-weight:600;color:#52525b;margin:0;">
           Pedido de Peças por Veículo • Lote: <strong style="font-family:monospace;color:#000000;">${data.loteId}</strong> • Status: <strong style="color:#000000;">${data.status || 'Aguardando Manutenção'}</strong>
         </p>
@@ -713,21 +831,22 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       </div>
 
       <div style="border:1px solid #000000;border-radius:8px;overflow:hidden;margin-bottom:16px;">
-        <div style="background:#f4f4f5;padding:8px 14px;border-bottom:1px solid #000000;display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:9pt;font-weight:900;text-transform:uppercase;color:#000000;">
-            RELAÇÃO DE PEÇAS / MATERIAIS RETIRADOS (${data.items.length} ${data.items.length === 1 ? 'ITEM' : 'ITENS'})
+        <div style="background:#f4f4f5;padding:8px 14px;border-bottom:1px solid #000000;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:8.5pt;font-weight:900;text-transform:uppercase;color:#000000;">
+            RELAÇÃO DE PEÇAS / MATERIAIS RETIRADOS (${sortedItems.length} ${sortedItems.length === 1 ? 'ITEM' : 'ITENS'}) — LISTA DE SEPARAÇÃO
           </span>
-          <span style="font-size:8pt;font-weight:700;color:#3f3f46;">
-            Baixa de estoque vinculada à Ordem de Serviço (OS)
+          <span style="font-size:7.5pt;font-weight:800;color:#18181b;text-transform:uppercase;">
+            Rota de Coleta: Setor → Rua → Estante
           </span>
         </div>
-        <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
+        <table style="width:100%;border-collapse:collapse;font-size:9pt;">
           <thead>
-            <tr style="background:#fafafa;border-bottom:1px solid #000000;font-size:8pt;font-weight:900;text-transform:uppercase;color:#3f3f46;">
-              <th style="padding:7px 10px;width:44px;text-align:center;border-right:1px solid #000000;">#</th>
-              <th style="padding:7px 10px;width:105px;text-align:left;border-right:1px solid #000000;">CÓDIGO</th>
+            <tr style="background:#fafafa;border-bottom:1px solid #000000;font-size:7.5pt;font-weight:900;text-transform:uppercase;color:#27272a;">
+              <th style="padding:7px 8px;width:38px;text-align:center;border-right:1px solid #000000;">#</th>
+              <th style="padding:7px 8px;width:92px;text-align:left;border-right:1px solid #000000;">CÓDIGO</th>
               <th style="padding:7px 10px;text-align:left;border-right:1px solid #000000;">DESCRIÇÃO DA PEÇA / MATERIAL</th>
-              <th style="padding:7px 10px;width:110px;text-align:center;">QUANTIDADE</th>
+              <th style="padding:7px 8px;width:155px;text-align:center;border-right:1px solid #000000;background:#fef3c7;color:#000000;">LOCALIZAÇÃO / ENDEREÇO</th>
+              <th style="padding:7px 8px;width:96px;text-align:center;">QUANTIDADE</th>
             </tr>
           </thead>
           <tbody>
@@ -785,14 +904,25 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 </body>
 </html>`;
     },
-    [companyProfile]
+    [companyProfile, enrichAndSortItemsByPickingRoute]
   );
 
   // Dispara a rotina de impressão física do Cupom de Retirada / Cautela
   const handleDispararImpressaoCupomLote = useCallback(
-    (explicitData?: CupomLotePrintData) => {
-      const targetData = explicitData || cupomLotePrint;
-      if (!targetData) return;
+    async (explicitData?: CupomLotePrintData) => {
+      const baseData = explicitData || cupomLotePrint;
+      if (!baseData) return;
+
+      // Garante cruzamento em tempo real com 'public.estoque_produtos' no Supabase antes de imprimir
+      const realtimeMap = await fetchEnderecosReaisProdutosEstoque(
+        (baseData.items || []).map(it => it.produto_id)
+      );
+      const sortedItems = enrichAndSortItemsByPickingRoute(baseData.items || [], realtimeMap);
+      const targetData: CupomLotePrintData = {
+        ...baseData,
+        items: sortedItems,
+      };
+      setCupomLotePrint(targetData);
 
       document.body.classList.add('printing-almox-cupom');
       const cleanUp = () => {
@@ -824,10 +954,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         executePrint(html);
       }
     },
-    [cupomLotePrint, buildCupomLoteStandaloneHtml]
+    [cupomLotePrint, buildCupomLoteStandaloneHtml, enrichAndSortItemsByPickingRoute]
   );
 
-  const handleAbrirCupomLote = (
+  const handleAbrirCupomLote = async (
     item: RetiradaPecaRecord,
     autoPrint = false,
     explicitItems?: RetiradaPecaRecord[]
@@ -840,7 +970,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           : [item];
     const listToPrint = batchItems.length > 0 ? batchItems : [item];
     const first = listToPrint[0] || item;
-    const printPayload: CupomLotePrintData = {
+
+    // 1. Abre imediatamente o modal com os endereços locais já ordenados por Rota de Coleta
+    const initialSorted = enrichAndSortItemsByPickingRoute(listToPrint);
+    const initialPayload: CupomLotePrintData = {
       loteId: first.lote_id || item.id.slice(0, 8).toUpperCase(),
       veiculoNome: first.veiculo_nome || 'Veículo da Frota',
       veiculoPlaca: first.veiculo_placa || '',
@@ -848,12 +981,24 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       retiradoPor: first.retirado_por || '—',
       dataRetirada: first.data_retirada || new Date().toISOString().split('T')[0],
       status: first.status || 'Aguardando Manutenção',
-      items: listToPrint,
+      items: initialSorted,
     };
-    setCupomLotePrint(printPayload);
+    setCupomLotePrint(initialPayload);
+
+    // 2. Faz o cruzamento em tempo real com 'public.estoque_produtos' no Supabase para garantir o 'endereco_formatado' atualizado
+    const realtimeMap = await fetchEnderecosReaisProdutosEstoque(
+      listToPrint.map(it => it.produto_id)
+    );
+    const syncedSorted = enrichAndSortItemsByPickingRoute(listToPrint, realtimeMap);
+    const syncedPayload: CupomLotePrintData = {
+      ...initialPayload,
+      items: syncedSorted,
+    };
+    setCupomLotePrint(syncedPayload);
+
     if (autoPrint) {
       setTimeout(() => {
-        handleDispararImpressaoCupomLote(printPayload);
+        handleDispararImpressaoCupomLote(syncedPayload);
       }, 250);
     }
   };
@@ -1074,6 +1219,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       setPecaComboSearch('');
       setPecaQuantidade('1');
       setExpandedLotes(prev => ({ ...prev, [resLote.loteId]: true }));
+      const sortedSavedRecords = enrichAndSortItemsByPickingRoute(savedRecords);
       const newCupomPayload: CupomLotePrintData = {
         loteId: resLote.loteId,
         veiculoNome: selectedVehicleForWithdrawal?.name || savedRecords[0]?.veiculo_nome || 'Veículo da Frota',
@@ -1082,7 +1228,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         retiradoPor: pecaRetiradoPor.trim(),
         dataRetirada: pecaDataRetirada,
         status: 'Aguardando Manutenção',
-        items: savedRecords,
+        items: sortedSavedRecords,
       };
       setCupomLotePrint(newCupomPayload);
       setTimeout(() => {
@@ -1220,6 +1366,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
     const enriched = allGroups.map(g => ({
       ...g,
+      items: enrichAndSortItemsByPickingRoute(g.items),
       numeroPedido: pedidoNumMap.get(g.loteKey) || '#1001',
     }));
 
@@ -2576,6 +2723,14 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0">
+                                          {peca.endereco_formatado && (
+                                            <span
+                                              title="Localização física no Almoxarifado (Setor.Rua.Estante.Nível.Box)"
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-black text-[10px] bg-zinc-100 text-zinc-900 dark:bg-stone-800 dark:text-amber-300 border border-zinc-300 dark:border-stone-700"
+                                            >
+                                              End.: {peca.endereco_formatado}
+                                            </span>
+                                          )}
                                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-black text-[11px] bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                                             {peca.quantidade} {peca.produto_unidade || 'UN'}
                                           </span>
@@ -3810,6 +3965,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-black">
                         Cupom de Retirada / Cautela de Peças
                       </h1>
+                      <p className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-800">
+                        Lista de Separação para o Almoxarifado (Rota de Coleta por Endereço Físico)
+                      </p>
                       <p className="text-xs font-semibold text-zinc-600">
                         Pedido de Peças por Veículo • Lote:{' '}
                         <strong className="font-mono text-black">{cupomLotePrint.loteId}</strong> •
@@ -3864,45 +4022,81 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       </div>
                     </div>
 
-                    {/* Tabela de Peças Retiradas no Lote */}
+                    {/* Tabela de Peças Retiradas no Lote + Lista de Separação para o Almoxarifado */}
                     <div className="border border-black rounded-lg overflow-hidden">
-                      <div className="bg-zinc-100 px-4 py-2 border-b border-black flex items-center justify-between">
+                      <div className="bg-zinc-100 px-4 py-2 border-b border-black flex flex-wrap items-center justify-between gap-2">
                         <span className="text-xs font-black uppercase tracking-wider text-black">
                           Relação de Peças / Materiais Retirados ({cupomLotePrint.items.length}{' '}
-                          {cupomLotePrint.items.length === 1 ? 'item' : 'itens'})
+                          {cupomLotePrint.items.length === 1 ? 'item' : 'itens'}) — Lista de Separação
                         </span>
-                        <span className="text-[11px] font-bold text-zinc-700">
-                          Baixa de estoque vinculada à Ordem de Serviço (OS)
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-800 bg-amber-100 px-2 py-0.5 rounded border border-black/20">
+                          Rota de Coleta: Setor → Rua → Estante
                         </span>
                       </div>
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-black bg-zinc-50 text-[10px] font-black uppercase text-zinc-700">
-                            <th className="py-2 px-3 w-12 text-center border-r border-black">#</th>
-                            <th className="py-2 px-3 w-28 border-r border-black">Código</th>
+                            <th className="py-2 px-2.5 w-10 text-center border-r border-black">#</th>
+                            <th className="py-2 px-2.5 w-24 border-r border-black">Código</th>
                             <th className="py-2 px-3 border-r border-black">
                               Descrição da Peça / Material
                             </th>
-                            <th className="py-2 px-3 w-28 text-center">Quantidade</th>
+                            <th className="py-2 px-2.5 w-40 text-center border-r border-black bg-amber-100/80 text-black">
+                              Localização / Endereço
+                            </th>
+                            <th className="py-2 px-2.5 w-24 text-center">Quantidade</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-300 text-xs">
-                          {cupomLotePrint.items.map((item, idx) => (
-                            <tr key={item.id || idx} className="border-b border-zinc-300">
-                              <td className="py-2 px-3 text-center font-mono font-bold border-r border-black">
-                                {String(idx + 1).padStart(2, '0')}
-                              </td>
-                              <td className="py-2 px-3 font-mono font-bold text-zinc-800 border-r border-black">
-                                {item.produto_codigo || '—'}
-                              </td>
-                              <td className="py-2 px-3 font-black text-black border-r border-black">
-                                {item.produto_nome || 'Peça do Estoque'}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono font-black text-sm text-black">
-                                {item.quantidade} {item.produto_unidade || 'UN'}
-                              </td>
-                            </tr>
-                          ))}
+                          {enrichAndSortItemsByPickingRoute(cupomLotePrint.items).map(
+                            (item, idx) => {
+                              const enderecoDisplay = String(item.endereco_formatado || '').trim();
+                              const detalheRota = [
+                                item.estoque_setor ? `Setor ${item.estoque_setor}` : '',
+                                item.estoque_rua ? `Rua ${item.estoque_rua}` : '',
+                                item.estoque_estante ? `Est. ${item.estoque_estante}` : '',
+                                item.estoque_nivel ? `Nív. ${item.estoque_nivel}` : '',
+                                item.estoque_box ? `Box ${item.estoque_box}` : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' • ');
+
+                              return (
+                                <tr key={item.id || idx} className="border-b border-zinc-300">
+                                  <td className="py-2 px-2.5 text-center font-mono font-bold border-r border-black">
+                                    {String(idx + 1).padStart(2, '0')}
+                                  </td>
+                                  <td className="py-2 px-2.5 font-mono font-bold text-zinc-800 border-r border-black">
+                                    {item.produto_codigo || '—'}
+                                  </td>
+                                  <td className="py-2 px-3 font-black text-black border-r border-black">
+                                    {item.produto_nome || 'Peça do Estoque'}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-center border-r border-black bg-zinc-50/70">
+                                    {enderecoDisplay ? (
+                                      <div className="flex flex-col items-center justify-center">
+                                        <span className="inline-block px-2 py-0.5 rounded border border-black bg-amber-100 font-mono font-black text-xs tracking-wider text-black">
+                                          {enderecoDisplay}
+                                        </span>
+                                        {detalheRota && (
+                                          <span className="text-[9px] font-bold uppercase text-zinc-600 mt-0.5 leading-tight">
+                                            {detalheRota}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="font-mono text-[10px] font-bold text-zinc-500">
+                                        NÃO ENDEREÇADO
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-2.5 text-center font-mono font-black text-sm text-black">
+                                    {item.quantidade} {item.produto_unidade || 'UN'}
+                                  </td>
+                                </tr>
+                              );
+                            }
+                          )}
                         </tbody>
                       </table>
                     </div>
