@@ -488,6 +488,48 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     return isNaN(num) ? 0 : num;
   };
 
+  // Helper para ler o preço/custo cadastrado do item (priorizando valores > 0 em qualquer coluna de preço/custo)
+  const extractProductCost = (item: any, fallbackPrice: number = 0): number => {
+    const candidates = [
+      item?.custo_nominal,
+      item?.preco_custo_inicial,
+      item?.preco_custo,
+      item?.custo_com_imposto,
+      item?.unitCost,
+      item?.unit_cost,
+      item?.custo,
+      item?.valor_unitario,
+      item?.preco_venda_varejo,
+      item?.preco_venda,
+      item?.preco_venda_final,
+      item?.salePrice,
+      item?.preco,
+    ];
+    for (const c of candidates) {
+      if (c !== undefined && c !== null && c !== '') {
+        const n = typeof c === 'number' ? c : parseFloat(String(c).replace(',', '.'));
+        if (!isNaN(n) && n > 0) return n;
+      }
+    }
+    return fallbackPrice;
+  };
+
+  const extractProductSale = (item: any): number => {
+    const candidates = [
+      item?.preco_venda_varejo,
+      item?.preco_venda,
+      item?.preco_venda_final,
+      item?.salePrice,
+    ];
+    for (const c of candidates) {
+      if (c !== undefined && c !== null && c !== '') {
+        const n = typeof c === 'number' ? c : parseFloat(String(c).replace(',', '.'));
+        if (!isNaN(n) && n > 0) return n;
+      }
+    }
+    return 0;
+  };
+
   // 1. Verifica Diesel S10
   const s10Idx = currentList.findIndex(i => 
     i.id === 'prod_diesel_s10' ||
@@ -498,7 +540,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   if (s10Idx >= 0) {
     const existing = currentList[s10Idx];
     const effectiveQty = extractProductQty(existing);
-    const effectiveCost = existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0);
+    const effectiveCost = extractProductCost(existing, 5.85);
+    const effectiveSale = extractProductSale(existing);
 
     currentList[s10Idx] = {
       ...existing,
@@ -512,8 +555,10 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       quantidade_atual: effectiveQty,
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
-      salePrice: existing.preco_venda_varejo || existing.salePrice || 0,
-      preco_venda_varejo: existing.preco_venda_varejo || existing.salePrice || 0,
+      custo_nominal: effectiveCost,
+      salePrice: effectiveSale,
+      preco_venda_varejo: effectiveSale,
+      preco_venda: effectiveSale,
       location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Pátio Central)',
       capacidade_total: existing.capacidade_total || (tankS10?.capacidade_total || 15000),
@@ -532,9 +577,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 2000,
-      unitCost: 0,
-      preco_custo_inicial: 0,
-      custo_nominal: 0,
+      unitCost: 5.85,
+      preco_custo_inicial: 5.85,
+      custo_nominal: 5.85,
       salePrice: 0,
       preco_venda_varejo: 0,
       preco_venda: 0,
@@ -555,7 +600,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   if (s500Idx >= 0) {
     const existing = currentList[s500Idx];
     const effectiveQty = extractProductQty(existing);
-    const effectiveCost = existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0);
+    const effectiveCost = extractProductCost(existing, 5.60);
+    const effectiveSale = extractProductSale(existing);
 
     currentList[s500Idx] = {
       ...existing,
@@ -569,8 +615,10 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       quantidade_atual: effectiveQty,
       unitCost: effectiveCost,
       preco_custo_inicial: effectiveCost,
-      salePrice: existing.preco_venda_varejo || existing.salePrice || 0,
-      preco_venda_varejo: existing.preco_venda_varejo || existing.salePrice || 0,
+      custo_nominal: effectiveCost,
+      salePrice: effectiveSale,
+      preco_venda_varejo: effectiveSale,
+      preco_venda: effectiveSale,
       location: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Fazenda (Oficina)',
       capacidade_total: existing.capacidade_total || (tankS500?.capacidade_total || 10000),
@@ -590,9 +638,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 1500,
-      unitCost: 0,
-      preco_custo_inicial: 0,
-      custo_nominal: 0,
+      unitCost: 5.60,
+      preco_custo_inicial: 5.60,
+      custo_nominal: 5.60,
       salePrice: 0,
       preco_venda_varejo: 0,
       preco_venda: 0,
@@ -630,6 +678,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   if (arlaGranelIdx >= 0) {
     const existing = currentList[arlaGranelIdx];
     const effectiveQty = extractProductQty(existing);
+    const effectiveCost = extractProductCost(existing, 3.20);
+    const effectiveSale = extractProductSale(existing);
     const safeGranelId = existing.id === 'prod_arla_32_galao_20l' ? 'prod_arla_32_granel' : (existing.id || 'prod_arla_32_granel');
 
     currentList[arlaGranelIdx] = {
@@ -644,10 +694,12 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unidade_medida: 'L',
       quantity: effectiveQty,
       quantidade_atual: effectiveQty,
-      unitCost: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
-      preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
-      salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
-      preco_venda_varejo: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
+      unitCost: effectiveCost,
+      preco_custo_inicial: effectiveCost,
+      custo_nominal: effectiveCost,
+      salePrice: effectiveSale,
+      preco_venda_varejo: effectiveSale,
+      preco_venda: effectiveSale,
       location: existing.localizacao_fisica || existing.location || 'Tanque Arla (Barracão)',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Tanque Arla (Barracão)',
       capacidade_total: existing.capacidade_total || (tankArla?.capacidade_total || 1000),
@@ -667,9 +719,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unit: 'L',
       unidade_medida: 'L',
       minQuantity: 100,
-      unitCost: 0,
-      preco_custo_inicial: 0,
-      custo_nominal: 0,
+      unitCost: 3.20,
+      preco_custo_inicial: 3.20,
+      custo_nominal: 3.20,
       salePrice: 0,
       preco_venda_varejo: 0,
       preco_venda: 0,
@@ -690,6 +742,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   if (arlaGalaoIdx >= 0) {
     const existing = currentList[arlaGalaoIdx];
     const effectiveGalaoQty = extractProductQty(existing);
+    const effectiveGalaoCost = extractProductCost(existing, 65.00);
+    const effectiveGalaoSale = extractProductSale(existing);
     const safeGalaoId = (!existing.id || existing.id === granelId || existing.id === 'prod_arla_32')
       ? 'prod_arla_32_galao_20l'
       : existing.id;
@@ -707,10 +761,12 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       volume_litros_embalagem: existing.volume_litros_embalagem || 20,
       quantity: effectiveGalaoQty,
       quantidade_atual: effectiveGalaoQty,
-      unitCost: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
-      preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
-      salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
-      preco_venda_varejo: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
+      unitCost: effectiveGalaoCost,
+      preco_custo_inicial: effectiveGalaoCost,
+      custo_nominal: effectiveGalaoCost,
+      salePrice: effectiveGalaoSale,
+      preco_venda_varejo: effectiveGalaoSale,
+      preco_venda: effectiveGalaoSale,
       location: existing.location || 'Almoxarifado Principal',
       localizacao_fisica: existing.localizacao_fisica || existing.location || 'Almoxarifado Principal',
     };
@@ -728,9 +784,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       unit: 'un',
       unidade_medida: 'un',
       minQuantity: 5,
-      unitCost: 0,
-      preco_custo_inicial: 0,
-      custo_nominal: 0,
+      unitCost: 65.00,
+      preco_custo_inicial: 65.00,
+      custo_nominal: 65.00,
       salePrice: 0,
       preco_venda_varejo: 0,
       preco_venda: 0,

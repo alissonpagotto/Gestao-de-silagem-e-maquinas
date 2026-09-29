@@ -6,7 +6,7 @@ import { TanqueIndustrialVisualizer } from './TanqueIndustrialVisualizer';
 import { ArlaGalaoVisualizer } from './ArlaGalaoVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
+import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, fetchPrecoCombustivelEstoque, extractProductUnitPrice, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
 import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, getStoredInventory, ensureDieselProductsInInventory, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
 
 interface FuelModalProps {
@@ -132,6 +132,10 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
   const [fuelType, setFuelType] = useState<FuelLog['fuelType']>('Diesel S10');
   const [liters, setLiters] = useState('');
+  const litersRef = useRef('');
+  litersRef.current = liters;
+  const priceLookupSeqRef = useRef(0);
+
   const [pricePerLiter, setPricePerLiter] = useState(() => {
     const list = ensureDieselProductsInInventory(getStoredInventory()).filter(item => {
       const cat = String(item.categoria || item.category || '').toLowerCase();
@@ -139,7 +143,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
     });
     const s10 = list.find(p => (p.nome_comercial || p.name).toLowerCase().includes('s10')) || list[0];
-    const cost = Number(s10?.preco_custo_inicial ?? (s10 as any)?.custo_nominal ?? s10?.unitCost ?? 0);
+    const cost = extractProductUnitPrice(s10);
     return cost > 0 ? cost.toFixed(2) : '5.85';
   });
   const [totalAmount, setTotalAmount] = useState('');
@@ -224,12 +228,16 @@ export const FuelModal: React.FC<FuelModalProps> = ({
           const chosenProd = fuelProds.find(p => p.id === chosenId);
           if (chosenProd) {
             setFuelType((chosenProd.nome_comercial || chosenProd.name) as any);
-            // Preenchimento automático do Preço / Litro com o custo real do estoque
+            // Preenchimento automático do Preço / Litro com o preço real do estoque e recálculo do total
             if (!editingLog) {
-              const cost = Number(chosenProd.preco_custo_inicial ?? (chosenProd as any).custo_nominal ?? chosenProd.unitCost ?? 0);
+              const cost = extractProductUnitPrice(chosenProd);
               if (cost > 0) {
                 const formattedPrice = cost.toFixed(2);
                 setPricePerLiter(formattedPrice);
+                const lVal = parseFloat(String(litersRef.current).trim().replace(',', '.'));
+                if (!isNaN(lVal) && lVal > 0) {
+                  setTotalAmount((lVal * cost).toFixed(2));
+                }
               }
             }
           }
@@ -504,8 +512,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         fuelStockProducts[0];
       const prodName = curProd ? (curProd.nome_comercial || curProd.name) : 'Diesel S10';
       setFuelType(prodName as any);
-      const defaultCost = Number(curProd?.preco_custo_inicial ?? (curProd as any)?.custo_nominal ?? curProd?.unitCost ?? 0);
+      const defaultCost = extractProductUnitPrice(curProd);
       setLiters('');
+      litersRef.current = '';
       setPricePerLiter(defaultCost > 0 ? defaultCost.toFixed(2) : '5.85');
       setTotalAmount('');
       setCurrentKm('');
@@ -645,22 +654,33 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   };
 
   const handleLitersChange = (val: string) => {
+    litersRef.current = val;
     setLiters(val);
     calculateTotal(val, pricePerLiter);
   };
 
   const handlePriceChange = (val: string) => {
+    // Invalida qualquer requisição assíncrona pendente para preservar a edição manual do usuário
+    priceLookupSeqRef.current += 1;
     setPricePerLiter(val);
-    calculateTotal(liters, val);
+    calculateTotal(litersRef.current, val);
   };
 
-  // 1. DROPDOWN DE COMBUSTÍVEL DINÂMICO & VÍNCULO AUTOMÁTICO COM OS TANQUES
-  // Quando o usuário seleciona um combustível do estoque, busca na tabela 'public.tanques_combustivel'
-  // qual tanque possui o 'produto_id' correspondente e atualiza reativamente o painel de monitoramento do estoque.
-  const handleFuelProductChange = (prodId: string) => {
+  // 1. DROPDOWN DE COMBUSTÍVEL DINÂMICO, BUSCA AUTOMÁTICA DE PREÇO NO SUPABASE & RECÁLCULO DO TOTAL
+  // Quando o usuário seleciona um combustível ou Arla no dropdown 'Combustível':
+  // - Atualiza o vínculo do tanque ou almoxarifado
+  // - Dispara consulta na tabela 'public.estoque_produtos' buscando o preço cadastrado ('preco_venda', 'custo_nominal', 'preco_custo_inicial')
+  // - Preenche automaticamente o estado de 'Preço / Litro (R$)' (mantendo o campo livre para edição manual)
+  // - Multiplica pelos 'Litros Abastecidos' e atualiza o Valor Total Calculado instantaneamente
+  const handleFuelProductChange = async (prodId: string) => {
     setSelectedFuelProductId(prodId);
-    const prod = fuelStockProducts.find(p => p.id === prodId);
-    const prodName = prod ? (prod.nome_comercial || prod.name || 'Diesel S10') : 'Diesel S10';
+    const localInv = ensureDieselProductsInInventory(getStoredInventory());
+    const prod = fuelStockProducts.find(p => p.id === prodId) || localInv.find(p => p.id === prodId);
+    const prodName = prod ? (prod.nome_comercial || prod.name || 'Diesel S10') : (
+      prodId.includes('s500') ? 'Diesel S500' :
+      prodId.includes('galao') ? 'Arla 32 (Galão 20L)' :
+      prodId.includes('arla') ? 'Arla 32 (Granel/Litro)' : 'Diesel S10'
+    );
     setFuelType(prodName as any);
 
     const isGalao = prodName.toLowerCase().includes('arla') && (
@@ -691,16 +711,38 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       }
     }
 
-    // 1. PREÇO POR LITRO DINÂMICO VINDO DO ESTOQUE
-    // Preenche AUTOMATICAMENTE assim que o usuário selecionar um produto no dropdown 'Combustível'.
-    // Valor puxado diretamente da coluna de custo do produto na tabela 'public.estoque_produtos'.
-    if (prod) {
-      const rawCost = Number(prod.preco_custo_inicial ?? (prod as any).custo_nominal ?? prod.unitCost ?? 0);
-      if (rawCost > 0) {
-        const formattedPrice = rawCost.toFixed(2);
-        setPricePerLiter(formattedPrice);
-        calculateTotal(liters, formattedPrice);
+    // 1a. Preenchimento imediato com o preço em memória para resposta instantânea na UI
+    const immediateCost = extractProductUnitPrice(prod);
+    if (immediateCost > 0) {
+      const formattedImmediate = immediateCost.toFixed(2);
+      setPricePerLiter(formattedImmediate);
+      calculateTotal(litersRef.current, formattedImmediate);
+    }
+
+    // 1b. Consulta reativa na tabela 'public.estoque_produtos' do Supabase buscando pelo item selecionado
+    const currentSeq = ++priceLookupSeqRef.current;
+    try {
+      const dbPrice = await fetchPrecoCombustivelEstoque({
+        id: prodId,
+        nome: prodName,
+        codigo: prod?.code || prod?.codigo_produto,
+      });
+
+      // Só aplica se o usuário não tiver trocado de combustível novamente ou digitado manualmente enquanto buscava
+      if (priceLookupSeqRef.current === currentSeq && dbPrice > 0) {
+        const formattedDbPrice = dbPrice.toFixed(2);
+        setPricePerLiter(formattedDbPrice);
+        calculateTotal(litersRef.current, formattedDbPrice);
+        setFuelStockProducts(prev =>
+          prev.map(item =>
+            item.id === prodId
+              ? { ...item, unitCost: dbPrice, preco_custo_inicial: dbPrice, custo_nominal: dbPrice }
+              : item
+          )
+        );
       }
+    } catch (err) {
+      console.warn('Aviso ao buscar preço reativo em estoque_produtos:', err);
     }
   };
 
@@ -1411,8 +1453,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                                 return nm.includes('s10');
                               });
                               if (matched) {
-                                setSelectedFuelProductId(matched.id);
-                                setFuelType((matched.nome_comercial || matched.name) as any);
+                                void handleFuelProductChange(matched.id);
                               }
                             }
                           }}

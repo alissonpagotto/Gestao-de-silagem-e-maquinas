@@ -1282,8 +1282,8 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
       const name = String(row.nome_comercial || row.nome || row.descricao || 'Produto sem descrição').trim();
       const rawQty = row.quantidade_atual ?? row.estoque_atual ?? row.quantidade ?? row.quantity;
       const qty = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Number(rawQty) : 0;
-      const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? 0);
-      const sale = Number(row.preco_venda_varejo ?? row.preco_venda ?? row.preco_venda_final ?? 0);
+      const cost = extractProductUnitPrice(row);
+      const sale = extractProductSalePrice(row);
 
       return {
         id: String(row.id),
@@ -1358,7 +1358,7 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
       };
     });
 
-    // Deduplica itens de mesmo nome comercial mantendo o registro mais recentemente atualizado
+    // Deduplica itens de mesmo nome comercial mantendo o registro mais recentemente atualizado (e preservando preço > 0)
     const mapped: InventoryItem[] = [];
     for (const item of rawMapped) {
       const normName = (item.nome_comercial || item.name || '').toLowerCase().trim();
@@ -1367,8 +1367,28 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
         const existing = mapped[existingIdx];
         const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
         const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const bestCost = (item.unitCost && item.unitCost > 0) ? item.unitCost : (existing.unitCost || 0);
+        const bestSale = (item.salePrice && item.salePrice > 0) ? item.salePrice : (existing.salePrice || 0);
         if (itemTime >= existingTime) {
-          mapped[existingIdx] = item;
+          mapped[existingIdx] = {
+            ...item,
+            unitCost: bestCost,
+            preco_custo_inicial: bestCost,
+            custo_nominal: bestCost,
+            salePrice: bestSale,
+            preco_venda_varejo: bestSale,
+            preco_venda: bestSale,
+          };
+        } else if ((!existing.unitCost || existing.unitCost <= 0) && bestCost > 0) {
+          mapped[existingIdx] = {
+            ...existing,
+            unitCost: bestCost,
+            preco_custo_inicial: bestCost,
+            custo_nominal: bestCost,
+            salePrice: bestSale,
+            preco_venda_varejo: bestSale,
+            preco_venda: bestSale,
+          };
         }
       } else {
         mapped.push(item);
@@ -1634,6 +1654,54 @@ export function parseNumericFloat(val: any): number {
   return isNaN(num) ? 0 : num;
 }
 
+/**
+ * Extrai o preço/custo unitário de uma linha de 'public.estoque_produtos' ou objeto InventoryItem,
+ * verificando todas as colunas possíveis de preço/custo e priorizando o primeiro valor positivo (> 0).
+ */
+export function extractProductUnitPrice(row: any): number {
+  if (!row) return 0;
+  const candidates = [
+    row.custo_nominal,
+    row.preco_custo_inicial,
+    row.preco_custo,
+    row.custo_com_imposto,
+    row.unitCost,
+    row.unit_cost,
+    row.custo,
+    row.valor_unitario,
+    row.preco_venda_varejo,
+    row.preco_venda,
+    row.preco_venda_final,
+    row.salePrice,
+    row.preco_unitario,
+    row.preco,
+  ];
+  for (const val of candidates) {
+    const parsed = parseNumericFloat(val);
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+export function extractProductSalePrice(row: any): number {
+  if (!row) return 0;
+  const candidates = [
+    row.preco_venda_varejo,
+    row.preco_venda,
+    row.preco_venda_final,
+    row.salePrice,
+  ];
+  for (const val of candidates) {
+    const parsed = parseNumericFloat(val);
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
 export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: string): Promise<boolean> {
   const currentInv = getStoredInventory();
   const itemId = item.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -1698,9 +1766,9 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
   try {
     const activeCompanyId = item.companyId || companyId || getActiveCompanyId();
     
-    // Tratamento estrito de valores numéricos como floats válidos
-    const custoNominalFloat = parseNumericFloat(item.preco_custo_inicial ?? item.custo_nominal ?? item.unitCost ?? item.preco_custo);
-    const precoVendaFloat = parseNumericFloat(item.preco_venda_varejo ?? item.preco_venda ?? item.salePrice ?? item.preco_venda_final);
+    // Tratamento estrito de valores numéricos como floats válidos (priorizando valores > 0)
+    const custoNominalFloat = extractProductUnitPrice(item);
+    const precoVendaFloat = extractProductSalePrice(item);
     const precoAtacadoFloat = parseNumericFloat(item.wholesalePrice ?? item.preco_venda_atacado ?? item.preco_atacado);
     const precoPromoFloat = parseNumericFloat(item.promoPrice ?? item.preco_venda_promo ?? item.preco_promocional);
     const margemAtacadoFloat = (item.wholesaleMargin !== undefined && item.wholesaleMargin !== null && item.wholesaleMargin !== '')
@@ -4229,7 +4297,8 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           : rawNome;
         const rawQtyVal = row.quantidade_atual ?? row.estoque_atual ?? row.quantidade ?? row.quantity;
         const qty = rawQtyVal !== undefined && rawQtyVal !== null && rawQtyVal !== '' ? Number(rawQtyVal) : 0;
-        const cost = Number(row.preco_custo_inicial ?? row.custo_nominal ?? row.preco_custo ?? row.custo ?? row.unit_cost ?? row.valor_unitario ?? 0);
+        const cost = extractProductUnitPrice(row);
+        const sale = extractProductSalePrice(row);
         const unit = isGalao ? 'un' : (rawNomeLower.includes('arla') ? 'L' : String(row.unidade_medida || row.unidade || 'L').trim());
 
         return {
@@ -4249,8 +4318,9 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           unitCost: cost,
           preco_custo_inicial: cost,
           custo_nominal: cost,
-          salePrice: Number(row.preco_venda_varejo ?? row.salePrice ?? 0),
-          preco_venda_varejo: Number(row.preco_venda_varejo ?? row.salePrice ?? 0),
+          salePrice: sale,
+          preco_venda_varejo: sale,
+          preco_venda: sale,
           location: row.localizacao_fisica || row.localizacao || (isGalao ? 'Almoxarifado Principal' : 'Tanque Arla (Barracão)'),
           localizacao_fisica: row.localizacao_fisica || row.localizacao || (
             isGalao ? 'Almoxarifado Principal' :
@@ -4267,7 +4337,7 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
         };
       });
 
-      // Deduplica mantendo o registro mais recentemente atualizado para cada tipo (respeitando saldo 0)
+      // Deduplica mantendo o registro mais recentemente atualizado para cada tipo (respeitando saldo 0 e preservando preço > 0)
       const mapped: InventoryItem[] = [];
       for (const item of mappedRaw) {
         const normName = (item.nome_comercial || item.name || '').toLowerCase().trim();
@@ -4276,11 +4346,47 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
           const existing = mapped[existingIdx];
           const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
           const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+          const bestCost = (item.unitCost && item.unitCost > 0) ? item.unitCost : (existing.unitCost || 0);
+          const bestSale = (item.salePrice && item.salePrice > 0) ? item.salePrice : (existing.salePrice || 0);
           if (itemTime >= existingTime) {
-            mapped[existingIdx] = item;
+            mapped[existingIdx] = {
+              ...item,
+              unitCost: bestCost,
+              preco_custo_inicial: bestCost,
+              custo_nominal: bestCost,
+              salePrice: bestSale,
+              preco_venda_varejo: bestSale,
+              preco_venda: bestSale,
+            };
+          } else if ((!existing.unitCost || existing.unitCost <= 0) && bestCost > 0) {
+            mapped[existingIdx] = {
+              ...existing,
+              unitCost: bestCost,
+              preco_custo_inicial: bestCost,
+              custo_nominal: bestCost,
+              salePrice: bestSale,
+              preco_venda_varejo: bestSale,
+              preco_venda: bestSale,
+            };
           }
         } else {
           mapped.push(item);
+        }
+      }
+
+      // Garante fallback de preço apenas se algum item veio com custo 0 em todas as linhas do banco
+      for (let i = 0; i < mapped.length; i++) {
+        const m = mapped[i];
+        if (!m.unitCost || m.unitCost <= 0) {
+          const nm = (m.nome_comercial || m.name || '').toLowerCase();
+          const isGal = nm.includes('galão') || nm.includes('galao') || nm.includes('20l') || m.unit === 'un';
+          const fallbackCost = isGal ? 65.00 : (nm.includes('arla') ? 3.20 : (nm.includes('s500') || nm.includes('comum') ? 5.60 : 5.85));
+          mapped[i] = {
+            ...m,
+            unitCost: fallbackCost,
+            preco_custo_inicial: fallbackCost,
+            custo_nominal: fallbackCost,
+          };
         }
       }
 
@@ -4403,6 +4509,104 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
   }
 
   return localItems;
+}
+
+/**
+ * Consulta reativa em 'public.estoque_produtos' buscando o preço atual cadastrado para o combustível/Arla selecionado.
+ * Busca pelo ID, código ou nome comercial correspondente e extrai o valor da coluna de preço
+ * ('preco_venda', 'preco_venda_varejo', 'custo_nominal', 'preco_custo_inicial' ou 'preco_custo').
+ */
+export async function fetchPrecoCombustivelEstoque(params: {
+  id?: string;
+  nome?: string;
+  codigo?: string;
+  companyId?: string;
+}): Promise<number> {
+  const rawId = String(params.id || '').trim();
+  const rawNome = String(params.nome || '').trim();
+  const rawCodigo = String(params.codigo || '').trim();
+  const normNome = rawNome.toLowerCase();
+  const normId = rawId.toLowerCase();
+  const normCodigo = rawCodigo.toLowerCase();
+
+  const isGalaoTarget =
+    normNome.includes('galão') ||
+    normNome.includes('galao') ||
+    normNome.includes('20l') ||
+    normId.includes('galao') ||
+    normCodigo.includes('gal');
+  const isArlaTarget = normNome.includes('arla') || normId.includes('arla') || normCodigo.includes('arla');
+  const isS500Target = !isArlaTarget && (normNome.includes('s500') || normNome.includes('comum') || normId.includes('s500') || normCodigo.includes('s500'));
+  const isS10Target = !isArlaTarget && !isS500Target && (normNome.includes('s10') || normId.includes('s10') || normCodigo.includes('s10'));
+
+  const isRowMatch = (row: any): boolean => {
+    if (!row) return false;
+    const rId = String(row.id || '').trim();
+    const rCode = String(row.codigo_produto || row.codigo || row.code || '').trim().toLowerCase();
+    const rName = String(row.nome_comercial || row.nome || row.name || row.descricao || '').trim().toLowerCase();
+    const rExplicitGranel = rName.includes('granel') || rName.includes('litro') || rCode.includes('granel') || rId.toLowerCase().includes('granel');
+    const rIsGalao = !rExplicitGranel && (
+      rName.includes('galão') ||
+      rName.includes('galao') ||
+      rName.includes('20l') ||
+      rName.includes('20 l') ||
+      rName.includes('bombona') ||
+      rCode.includes('gal') ||
+      rId.toLowerCase().includes('galao')
+    );
+
+    if (rawId && (rId === rawId || rId === toValidUUID(rawId))) {
+      if (isArlaTarget && isGalaoTarget !== rIsGalao) return false;
+      return true;
+    }
+    if (normCodigo && rCode && rCode === normCodigo) return true;
+    if (isArlaTarget) {
+      return rName.includes('arla') && isGalaoTarget === rIsGalao;
+    }
+    if (isS500Target) {
+      return rName.includes('s500') || rName.includes('comum');
+    }
+    if (isS10Target) {
+      return rName.includes('s10');
+    }
+    return Boolean(normNome && rName === normNome);
+  };
+
+  if (isSupabaseConfigured) {
+    try {
+      let { data, error } = await supabase
+        .from('estoque_produtos')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error || !Array.isArray(data)) {
+        const retry = await supabase.from('estoque_produtos').select('*');
+        data = retry.data || [];
+      }
+
+      if (Array.isArray(data) && data.length > 0) {
+        const matches = data.filter(isRowMatch);
+        for (const m of matches) {
+          const p = extractProductUnitPrice(m);
+          if (p > 0) return p;
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao buscar preço do combustível em public.estoque_produtos:', err);
+    }
+  }
+
+  // Fallback para o cache local sincronizado
+  const localInv = ensureDieselProductsInInventory(getStoredInventory());
+  const localMatch = localInv.find(isRowMatch);
+  if (localMatch) {
+    const localPrice = extractProductUnitPrice(localMatch);
+    if (localPrice > 0) return localPrice;
+  }
+
+  if (isArlaTarget) return isGalaoTarget ? 65.00 : 3.20;
+  if (isS500Target) return 5.60;
+  return 5.85;
 }
 
 /**

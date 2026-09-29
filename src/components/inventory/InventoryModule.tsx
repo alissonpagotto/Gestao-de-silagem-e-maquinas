@@ -214,33 +214,53 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
       if (field === 'profitMargin') {
         copy.profitMargin = validNum;
+        copy.margem_lucro_sugerida = validNum;
         if (validNum !== undefined && unit > 0) {
-          copy.salePrice = Math.round((unit * (1 + validNum / 100)) * 100) / 100;
+          const calcSale = Math.round((unit * (1 + validNum / 100)) * 100) / 100;
+          copy.salePrice = calcSale;
+          copy.preco_venda_varejo = calcSale;
+          copy.preco_venda = calcSale;
         }
       } else if (field === 'salePrice') {
         copy.salePrice = validNum;
+        copy.preco_venda_varejo = validNum;
+        copy.preco_venda = validNum;
         if (validNum !== undefined && unit > 0) {
-          copy.profitMargin = Math.round(((validNum - unit) / unit) * 100 * 10) / 10;
+          const calcMargin = Math.round(((validNum - unit) / unit) * 100 * 10) / 10;
+          copy.profitMargin = calcMargin;
+          copy.margem_lucro_sugerida = calcMargin;
         }
       } else if (field === 'wholesaleMargin') {
         copy.wholesaleMargin = validNum;
+        copy.margem_atacado = validNum;
         if (validNum !== undefined && unit > 0) {
-          copy.wholesalePrice = Math.round((unit * (1 + validNum / 100)) * 100) / 100;
+          const calcWholesale = Math.round((unit * (1 + validNum / 100)) * 100) / 100;
+          copy.wholesalePrice = calcWholesale;
+          copy.preco_venda_atacado = calcWholesale;
         }
       } else if (field === 'wholesalePrice') {
         copy.wholesalePrice = validNum;
+        copy.preco_venda_atacado = validNum;
         if (validNum !== undefined && unit > 0) {
-          copy.wholesaleMargin = Math.round(((validNum - unit) / unit) * 100 * 10) / 10;
+          const calcWMar = Math.round(((validNum - unit) / unit) * 100 * 10) / 10;
+          copy.wholesaleMargin = calcWMar;
+          copy.margem_atacado = calcWMar;
         }
       } else if (field === 'promoMargin') {
         copy.promoMargin = validNum;
+        copy.margem_promocional = validNum;
         if (validNum !== undefined && unit > 0) {
-          copy.promoPrice = Math.round((unit * (1 + validNum / 100)) * 100) / 100;
+          const calcPromo = Math.round((unit * (1 + validNum / 100)) * 100) / 100;
+          copy.promoPrice = calcPromo;
+          copy.preco_venda_promo = calcPromo;
         }
       } else if (field === 'promoPrice') {
         copy.promoPrice = validNum;
+        copy.preco_venda_promo = validNum;
         if (validNum !== undefined && unit > 0) {
-          copy.promoMargin = Math.round(((validNum - unit) / unit) * 100 * 10) / 10;
+          const calcPMar = Math.round(((validNum - unit) / unit) * 100 * 10) / 10;
+          copy.promoMargin = calcPMar;
+          copy.margem_promocional = calcPMar;
         }
       }
 
