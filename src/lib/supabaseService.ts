@@ -1442,36 +1442,19 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
       qProdutos = qProdutos.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
     }
 
-    if (trimmed) {
-      // Busca por aproximação na tabela 'public.estoque_produtos' por nome_comercial, codigo_produto ou codigo_barras
-      qProdutos = qProdutos.or(`nome_comercial.ilike.%${trimmed}%,codigo_produto.ilike.%${trimmed}%,codigo_barras.ilike.%${trimmed}%`);
-    }
-
-    qProdutos = qProdutos.order('nome_comercial', { ascending: true }).limit(80);
+    qProdutos = qProdutos.order('nome_comercial', { ascending: true }).limit(200);
 
     let res = await qProdutos;
 
     // Se com filtro de company_id deu erro ou não retornou dados, tenta sem o filtro de company_id
     if (res.error || !res.data || res.data.length === 0) {
-      let qRetry = supabase.from('estoque_produtos').select('*');
-      if (trimmed) {
-        qRetry = qRetry.or(`nome_comercial.ilike.%${trimmed}%,codigo_produto.ilike.%${trimmed}%,codigo_barras.ilike.%${trimmed}%`);
-      }
-      qRetry = qRetry.order('nome_comercial', { ascending: true }).limit(80);
-      const resRetry = await qRetry;
+      const resRetry = await supabase
+        .from('estoque_produtos')
+        .select('*')
+        .order('nome_comercial', { ascending: true })
+        .limit(200);
       if (!resRetry.error && Array.isArray(resRetry.data) && resRetry.data.length > 0) {
         res = resRetry;
-      } else if (trimmed) {
-        // Fallback caso alguma coluna do .or não exista no schema
-        const resByName = await supabase
-          .from('estoque_produtos')
-          .select('*')
-          .ilike('nome_comercial', `%${trimmed}%`)
-          .order('nome_comercial', { ascending: true })
-          .limit(80);
-        if (!resByName.error && Array.isArray(resByName.data) && resByName.data.length > 0) {
-          res = resByName;
-        }
       }
     }
 
@@ -1532,8 +1515,16 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
       });
     }
 
-    // 2. Garante que os produtos essenciais de Combustível & Arla e itens locais correspondentes estejam presentes
     const qLower = trimmed.toLowerCase();
+    if (qLower) {
+      mapped = mapped.filter(item => {
+        const nc = String(item.nome_comercial || item.name || '').toLowerCase();
+        const code = String(item.code || item.codigo_produto || '').toLowerCase();
+        const barcode = String(item.barcode || item.codigo_barras || '').toLowerCase();
+        const addr = String(item.endereco_formatado || '').toLowerCase();
+        return nc.includes(qLower) || code.includes(qLower) || barcode.includes(qLower) || addr.includes(qLower);
+      });
+    }
     const localMatches = localItems.filter(item => {
       if (!qLower) return true;
       const nc = String(item.nome_comercial || item.name || '').toLowerCase();

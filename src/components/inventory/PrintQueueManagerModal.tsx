@@ -78,6 +78,17 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
     return `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
   };
 
+  // Foca na barra de busca rápida ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 80);
+    } else {
+      setIsDropdownOpen(false);
+    }
+  }, [isOpen]);
+
   // Busca conectada à tabela 'public.estoque_produtos'
   useEffect(() => {
     if (!isOpen) return;
