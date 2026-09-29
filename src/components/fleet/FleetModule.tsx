@@ -65,6 +65,8 @@ interface FleetModuleProps {
   orders?: SilageOrder[];
   companyProfile?: CompanyProfile;
   initialSubTab?: FleetSubTab;
+  initialDraftMaintenanceLog?: MaintenanceLog | null;
+  onClearInitialDraftMaintenanceLog?: () => void;
   onSaveMachineries: (machineries: Machinery[]) => void;
   onSaveEmployees: (employees: Employee[]) => void;
   onSaveTeams?: (teams: FleetTeam[]) => void;
@@ -91,6 +93,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   orders = [],
   companyProfile,
   initialSubTab,
+  initialDraftMaintenanceLog,
+  onClearInitialDraftMaintenanceLog,
   onSaveMachineries,
   onSaveEmployees,
   onSaveTeams,
@@ -141,6 +145,23 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [editingMaintenanceLog, setEditingMaintenanceLog] = useState<MaintenanceLog | null>(null);
+
+  React.useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  React.useEffect(() => {
+    if (initialDraftMaintenanceLog) {
+      setActiveSubTab('manutencoes');
+      setEditingMaintenanceLog(initialDraftMaintenanceLog);
+      setIsMaintenanceModalOpen(true);
+      if (onClearInitialDraftMaintenanceLog) {
+        onClearInitialDraftMaintenanceLog();
+      }
+    }
+  }, [initialDraftMaintenanceLog, onClearInitialDraftMaintenanceLog]);
 
   // --- VEHICLES HANDLERS ---
   const handleOpenNewVehicle = () => {

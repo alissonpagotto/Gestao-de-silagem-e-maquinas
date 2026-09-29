@@ -257,6 +257,7 @@ export default function App() {
     return DEFAULT_MENU_ORDER;
   });
   const [isReorderMenuOpen, setIsReorderMenuOpen] = useState(false);
+  const [draftMaintenanceLogFromAlmox, setDraftMaintenanceLogFromAlmox] = useState<MaintenanceLog | null>(null);
 
   const handleSaveMenuOrder = (newOrder: string[]) => {
     setMenuOrder(newOrder);
@@ -2447,6 +2448,53 @@ export default function App() {
               onSaveInventory={handleSaveInventory}
               onSaveMachineries={handleSaveMachineries}
               onNavigateToEstoque={() => setActiveTab('estoque')}
+              onLaunchBatchToMaintenanceOS={({ loteId, veiculo, items }) => {
+                const partsItems = items.map((item, idx) => {
+                  const invItem = inventory.find(
+                    inv =>
+                      inv.id === item.produto_id ||
+                      (inv.codigo && item.produto_codigo && inv.codigo === item.produto_codigo) ||
+                      (inv.code && item.produto_codigo && inv.code === item.produto_codigo)
+                  );
+                  const unitPrice = Number(invItem?.valor_unitario ?? invItem?.unitPrice ?? 0);
+                  const qty = Number(item.quantidade) || 1;
+                  return {
+                    id: `part_lote_${loteId}_${idx}_${Date.now()}`,
+                    description: item.produto_nome || invItem?.nome_comercial || invItem?.name || 'Peça do Almoxarifado',
+                    quantity: qty,
+                    unitPrice,
+                    totalPrice: Number((qty * unitPrice).toFixed(2)),
+                    origin: 'almoxarifado_interno' as const,
+                    stockDeducted: false,
+                    inventoryItemId: item.produto_id || invItem?.id,
+                  };
+                });
+                const partsTotal = partsItems.reduce((acc, p) => acc + (p.totalPrice || 0), 0);
+                const firstItem = items[0];
+                const newDraftOS: MaintenanceLog = {
+                  id: `maint_lote_${loteId}_${Date.now()}`,
+                  osNumber: String(1000 + maintenanceLogs.length + 1),
+                  machineryId: veiculo.id,
+                  date: firstItem?.data_retirada || new Date().toISOString().split('T')[0],
+                  type: 'corretiva',
+                  description: `Aplicação de Pedido de Peças do Almoxarifado — Lote #${loteId} (${items.length} ${items.length === 1 ? 'item' : 'itens'})`,
+                  mechanicOrSupplier: firstItem?.retirado_por || 'Oficina Interna',
+                  ExecutionType: 'interna',
+                  partsCost: partsTotal,
+                  laborCost: 0,
+                  totalCost: partsTotal,
+                  partsItems,
+                  serviceItems: [],
+                  status: 'em_andamento',
+                  priority: 'media',
+                  paymentStatus: 'isento',
+                  hourMeterAtMaintenance: veiculo.hourMeter || 0,
+                  kmAtMaintenance: veiculo.currentKm || 0,
+                  notes: `Ordem de Serviço gerada automaticamente a partir do Lote de Peças #${loteId} retirado no Almoxarifado por ${firstItem?.retirado_por || 'Mecânico'} (Liberado por: ${firstItem?.operador_almoxarifado || 'Almoxarifado'}). Ao salvar esta OS, o estoque será baixado definitivamente.`,
+                };
+                setDraftMaintenanceLogFromAlmox(newDraftOS);
+                setActiveTab('manutencoes');
+              }}
             />
           )}
 
@@ -2617,6 +2665,8 @@ export default function App() {
                 saveStoredBankAccounts(updatedAccounts);
               }}
               companyProfile={companyProfile}
+              initialDraftMaintenanceLog={draftMaintenanceLogFromAlmox}
+              onClearInitialDraftMaintenanceLog={() => setDraftMaintenanceLogFromAlmox(null)}
               initialSubTab={
                 activeTab === 'veiculos' ? 'veiculos' :
                 activeTab === 'motoristas' ? 'motoristas' :

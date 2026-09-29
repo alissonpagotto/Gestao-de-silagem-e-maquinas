@@ -998,11 +998,12 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         );
 
         if (targetIdx !== -1) {
-          const currentQty = Number(updatedStock[targetIdx].quantity) || 0;
-          const newQty = Math.max(0, currentQty - qty);
+          const currentQty = Number(updatedStock[targetIdx].quantidade_atual ?? updatedStock[targetIdx].quantity) || 0;
+          const newQty = Math.max(0, Number((currentQty - qty).toFixed(2)));
           updatedStock[targetIdx] = {
             ...updatedStock[targetIdx],
             quantity: newQty,
+            quantidade_atual: newQty,
             updatedAt: new Date().toISOString()
           };
           hasNewDeductions = true;

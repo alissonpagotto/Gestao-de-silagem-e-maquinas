@@ -248,9 +248,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   }, [loadAlmoxarifadoData]);
 
   // =========================================================================
-  // ESTADOS DA ABA 1: RETIRADA DE PEÇAS PARA MANUTENÇÃO
+  // ESTADOS DA ABA 1: PEDIDO / LISTA DE PEÇAS POR VEÍCULO (REGRA HÍBRIDA)
   // =========================================================================
   const [pecaVeiculoId, setPecaVeiculoId] = useState<string>('');
+  const [isVeiculoFixado, setIsVeiculoFixado] = useState<boolean>(false);
+  const [cestaPecasVeiculo, setCestaPecasVeiculo] = useState<CestaPecaVeiculoItem[]>([]);
   const [pecaProdutoId, setPecaProdutoId] = useState<string>('');
   const [pecaQuantidade, setPecaQuantidade] = useState<string>('1');
   const [pecaOperadorAlmox, setPecaOperadorAlmox] = useState<string>('');
@@ -265,8 +267,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   // Estado de Edição de Retirada de Peça (Botão Lápis)
   const [editingRetiradaPeca, setEditingRetiradaPeca] = useState<RetiradaPecaRecord | null>(null);
 
-  // Estado de Impressão A4 de Retirada de Peça (Botão Impressora)
-  const [termoRetiradaPecaPrint, setTermoRetiradaPecaPrint] = useState<RetiradaPecaRecord | null>(null);
+  // Estado de Impressão de Cupom de Retirada / Cautela em Lote
+  const [termoRetiradaLotePrint, setTermoRetiradaLotePrint] = useState<RetiradaPecaRecord[] | null>(null);
 
   // Lê estritamente o ID do produto selecionado na tabela 'public.estoque_produtos' sem filtros inválidos
   useEffect(() => {
@@ -314,18 +316,88 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     return isNaN(parsed) || parsed < 0 ? 0 : parsed;
   }, [pecaQuantidade]);
 
-  const saldoPrevistoAposRetirada = useMemo(() => {
-    if (editingRetiradaPeca) {
-      const isSameProd =
-        editingRetiradaPeca.produto_id &&
-        toValidUUID(editingRetiradaPeca.produto_id) === toValidUUID(pecaProdutoId);
-      const diff = isSameProd
-        ? qtdRetiradaNumerica - Number(editingRetiradaPeca.quantidade || 0)
-        : qtdRetiradaNumerica;
-      return Math.max(0, Number((saldoAtualProdutoSelecionado - diff).toFixed(3)));
+  const handleSelecionarVeiculoPedido = (vehId: string) => {
+    setPecaVeiculoId(vehId);
+    if (vehId) {
+      setIsVeiculoFixado(true);
+    } else {
+      setIsVeiculoFixado(false);
     }
-    return Math.max(0, Number((saldoAtualProdutoSelecionado - qtdRetiradaNumerica).toFixed(3)));
-  }, [saldoAtualProdutoSelecionado, qtdRetiradaNumerica, editingRetiradaPeca, pecaProdutoId]);
+  };
+
+  const handleAdicionarPecaNaCesta = () => {
+    if (!pecaVeiculoId) {
+      showFeedback('error', 'Selecione primeiro o Veículo / Máquina (Frota) para iniciar o pedido.');
+      return;
+    }
+    if (!pecaProdutoId || !selectedProductForWithdrawal) {
+      showFeedback('error', 'Selecione uma peça ou item do estoque para adicionar à lista.');
+      return;
+    }
+    if (qtdRetiradaNumerica <= 0) {
+      showFeedback('error', 'Informe uma quantidade maior que zero.');
+      return;
+    }
+
+    const prodNome = String(
+      selectedProductForWithdrawal.nome_comercial || selectedProductForWithdrawal.name || 'Peça'
+    );
+    const prodCodigo = String(
+      selectedProductForWithdrawal.code ?? selectedProductForWithdrawal.codigo_produto ?? ''
+    );
+    const prodUnidade = String(
+      selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'
+    );
+
+    setCestaPecasVeiculo(prev => {
+      const existingIdx = prev.findIndex(i => i.produto_id === selectedProductForWithdrawal.id);
+      if (existingIdx !== -1) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantidade: Number((updated[existingIdx].quantidade + qtdRetiradaNumerica).toFixed(3)),
+        };
+        return updated;
+      }
+      return [
+        ...prev,
+        {
+          produto_id: selectedProductForWithdrawal.id,
+          produto_nome: prodNome,
+          produto_codigo: prodCodigo,
+          produto_unidade: prodUnidade,
+          quantidade: qtdRetiradaNumerica,
+          saldo_estoque: saldoAtualProdutoSelecionado,
+          produto: selectedProductForWithdrawal,
+        },
+      ];
+    });
+
+    setIsVeiculoFixado(true);
+    setPecaProdutoId('');
+    setPecaQuantidade('1');
+  };
+
+  const handleAjustarQuantidadeCesta = (produtoId: string, novaQtd: number) => {
+    if (isNaN(novaQtd) || novaQtd <= 0) return;
+    setCestaPecasVeiculo(prev =>
+      prev.map(item =>
+        item.produto_id === produtoId
+          ? { ...item, quantidade: Number(novaQtd.toFixed(3)) }
+          : item
+      )
+    );
+  };
+
+  const handleRemoverItemDaCesta = (produtoId: string) => {
+    setCestaPecasVeiculo(prev => prev.filter(item => item.produto_id !== produtoId));
+  };
+
+  const handleLimparCestaPedido = () => {
+    setCestaPecasVeiculo([]);
+    setPecaProdutoId('');
+    setPecaQuantidade('1');
+  };
 
   const handleIniciarEdicaoRetirada = (item: RetiradaPecaRecord) => {
     setEditingRetiradaPeca(item);
@@ -344,6 +416,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     );
 
     setPecaVeiculoId(matchedVeh?.id || item.veiculo_id || '');
+    setIsVeiculoFixado(true);
     setPecaProdutoId(matchedProd?.id || item.produto_id || '');
     setPecaQuantidade(String(item.quantidade || 1));
     setPecaOperadorAlmox(item.operador_almoxarifado || '');
@@ -362,18 +435,58 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     setPecaDataRetirada(new Date().toISOString().split('T')[0]);
   };
 
+  const handleAbrirCupomLote = (item: RetiradaPecaRecord, autoPrint = false) => {
+    const batchItems = item.lote_id
+      ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
+      : [item];
+    const listToPrint = batchItems.length > 0 ? batchItems : [item];
+    setTermoRetiradaLotePrint(listToPrint);
+    if (autoPrint) {
+      setTimeout(() => {
+        window.print();
+      }, 250);
+    }
+  };
+
+  const handleLancarLoteNaManutencaoOS = (item: RetiradaPecaRecord) => {
+    const batchItems = item.lote_id
+      ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
+      : [item];
+    const itemsToLaunch = batchItems.length > 0 ? batchItems : [item];
+
+    const matchedVeh = frotasList.find(
+      m =>
+        m.id === item.veiculo_id ||
+        (item.veiculo_id && toValidUUID(m.id) === toValidUUID(item.veiculo_id)) ||
+        (item.veiculo_nome &&
+          String(m.name || '').toLowerCase() === String(item.veiculo_nome || '').toLowerCase())
+    );
+
+    const updatedList = atualizarStatusLoteRetiradaPecas(
+      item.lote_id || itemsToLaunch.map(i => i.id),
+      'Em Manutenção (OS)'
+    );
+    setRetiradasPecas(prev =>
+      prev.map(r => {
+        const match = updatedList.find(u => u.id === r.id);
+        return match ? { ...r, status: match.status } : r;
+      })
+    );
+
+    if (onLaunchBatchToMaintenanceOS) {
+      onLaunchBatchToMaintenanceOS(itemsToLaunch, matchedVeh);
+    } else {
+      showFeedback(
+        'success',
+        `Lote ${item.lote_id || ''} (${itemsToLaunch.length} peça(s)) marcado como pronto para Ordem de Serviço!`
+      );
+    }
+  };
+
   const handleSalvarRetiradaPeca = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pecaVeiculoId) {
-      showFeedback('error', 'Selecione o Veículo / Máquina que receberá a peça.');
-      return;
-    }
-    if (!pecaProdutoId) {
-      showFeedback('error', 'Selecione o Item do Estoque que está sendo retirado.');
-      return;
-    }
-    if (qtdRetiradaNumerica <= 0) {
-      showFeedback('error', 'A quantidade retirada deve ser maior que zero.');
+      showFeedback('error', 'Selecione o Veículo / Máquina que receberá as peças.');
       return;
     }
     if (!pecaOperadorAlmox.trim()) {
@@ -381,13 +494,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       return;
     }
     if (!pecaRetiradoPor.trim()) {
-      showFeedback('error', 'Informe quem retirou a peça (Mecânico / Operador).');
+      showFeedback('error', 'Informe quem retirou as peças (Mecânico / Operador).');
       return;
     }
 
     setIsSavingRetiradaPeca(true);
     try {
       if (editingRetiradaPeca) {
+        if (!pecaProdutoId || qtdRetiradaNumerica <= 0) {
+          showFeedback('error', 'Selecione o item e informe uma quantidade maior que zero.');
+          return;
+        }
         const resUpdate = await atualizarRetiradaPeca({
           id: editingRetiradaPeca.id,
           veiculo_id: pecaVeiculoId,
@@ -402,75 +519,80 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         });
 
         if (!resUpdate.success) {
-          showFeedback('error', resUpdate.errorMessage || 'Não foi possível atualizar a retirada de peça.');
+          showFeedback('error', resUpdate.errorMessage || 'Não foi possível atualizar o lançamento.');
           return;
         }
 
-        if (resUpdate.updatedInventory) {
-          setLocalStockItems(ensureDieselProductsInInventory(resUpdate.updatedInventory));
-        }
-        if (resUpdate.novoSaldoEstoque !== undefined) {
-          setSaldoRealDbSelecionado(resUpdate.novoSaldoEstoque);
-        }
         if (resUpdate.record) {
           setRetiradasPecas(prev =>
             prev.map(r => (r.id === editingRetiradaPeca.id || r.id === resUpdate.record!.id ? resUpdate.record! : r))
           );
         }
 
-        const prodNome =
-          selectedProductForWithdrawal?.nome_comercial ||
-          selectedProductForWithdrawal?.name ||
-          'Peça';
-        showFeedback(
-          'success',
-          `Lançamento atualizado com sucesso! Saldo atual de "${prodNome}" no estoque: ${resUpdate.novoSaldoEstoque} ${selectedProductForWithdrawal?.unidade_medida || selectedProductForWithdrawal?.unit || 'UN'}.`
-        );
-
+        showFeedback('success', 'Lançamento de retirada atualizado com sucesso!');
         setEditingRetiradaPeca(null);
         setPecaProdutoId('');
         setPecaQuantidade('1');
         return;
       }
 
-      const res = await registrarRetiradaPeca({
-        veiculo_id: pecaVeiculoId,
-        produto_id: pecaProdutoId,
-        quantidade: qtdRetiradaNumerica,
-        operador_almoxarifado: pecaOperadorAlmox.trim(),
-        retirado_por: pecaRetiradoPor.trim(),
-        data_retirada: pecaDataRetirada,
-        veiculo: selectedVehicleForWithdrawal,
-        produto: selectedProductForWithdrawal || undefined,
-      });
+      // Monta a lista final de itens do pedido do veículo
+      let itensParaSalvar = [...cestaPecasVeiculo];
+      if (pecaProdutoId && selectedProductForWithdrawal && qtdRetiradaNumerica > 0) {
+        const alreadyInBasket = itensParaSalvar.some(i => i.produto_id === selectedProductForWithdrawal.id);
+        if (!alreadyInBasket) {
+          itensParaSalvar.push({
+            produto_id: selectedProductForWithdrawal.id,
+            produto_nome: String(selectedProductForWithdrawal.nome_comercial || selectedProductForWithdrawal.name || 'Peça'),
+            produto_codigo: String(selectedProductForWithdrawal.code ?? selectedProductForWithdrawal.codigo_produto ?? ''),
+            produto_unidade: String(selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'),
+            quantidade: qtdRetiradaNumerica,
+            saldo_estoque: saldoAtualProdutoSelecionado,
+            produto: selectedProductForWithdrawal,
+          });
+        }
+      }
 
-      if (!res.success) {
-        showFeedback('error', res.errorMessage || 'Não foi possível salvar a retirada de peça.');
+      if (itensParaSalvar.length === 0) {
+        showFeedback('error', 'Adicione pelo menos uma peça à cesta do veículo antes de confirmar o pedido.');
         return;
       }
 
-      if (res.updatedInventory) {
-        setLocalStockItems(ensureDieselProductsInInventory(res.updatedInventory));
-      }
-      if (res.novoSaldoEstoque !== undefined) {
-        setSaldoRealDbSelecionado(res.novoSaldoEstoque);
-      }
-      if (res.record) {
-        setRetiradasPecas(prev => [res.record!, ...prev.filter(r => r.id !== res.record!.id)]);
+      const resLote = await registrarPedidoRetiradaPecasLote({
+        veiculo_id: pecaVeiculoId,
+        veiculo: selectedVehicleForWithdrawal,
+        operador_almoxarifado: pecaOperadorAlmox.trim(),
+        retirado_por: pecaRetiradoPor.trim(),
+        data_retirada: pecaDataRetirada,
+        itens: itensParaSalvar.map(item => ({
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+          produto: item.produto,
+        })),
+      });
+
+      if (!resLote.success || !resLote.records) {
+        showFeedback('error', resLote.errorMessage || 'Não foi possível salvar o pedido de peças.');
+        return;
       }
 
-      const prodNome =
-        selectedProductForWithdrawal?.nome_comercial ||
-        selectedProductForWithdrawal?.name ||
-        'Peça';
+      const savedRecords = resLote.records;
+      const savedIds = new Set(savedRecords.map(r => r.id));
+      setRetiradasPecas(prev => [...savedRecords, ...prev.filter(r => !savedIds.has(r.id))]);
+
       showFeedback(
         'success',
-        `Retirada registrada com sucesso! O estoque de "${prodNome}" foi abatido automaticamente para ${res.novoSaldoEstoque} ${selectedProductForWithdrawal?.unidade_medida || selectedProductForWithdrawal?.unit || 'UN'}.`
+        `Pedido ${resLote.lote_id} confirmado (${savedRecords.length} peça(s)) com status "Aguardando Manutenção"! Abrindo cupom para impressão...`
       );
 
-      // Limpa os campos de item/quantidade mantendo operador e data para agilizar múltiplos lançamentos
+      // Limpa a cesta de peças e abre automaticamente o Cupom de Retirada / Cautela para impressão
+      setCestaPecasVeiculo([]);
       setPecaProdutoId('');
       setPecaQuantidade('1');
+      setTermoRetiradaLotePrint(savedRecords);
+      setTimeout(() => {
+        window.print();
+      }, 280);
     } finally {
       setIsSavingRetiradaPeca(false);
     }
@@ -478,23 +600,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
   const handleExcluirRetiradaPeca = async (item: RetiradaPecaRecord) => {
     const ok = await confirm({
-      title: 'Estornar Retirada de Peça',
-      message: `Deseja excluir este registro de retirada de "${item.produto_nome || 'Peça'}" (${item.quantidade} ${item.produto_unidade || 'UN'}) e devolver a quantidade automaticamente ao estoque?`,
-      confirmLabel: 'Sim, Estornar ao Estoque',
+      title: 'Excluir Registro de Retirada',
+      message: `Deseja excluir o registro da peça "${item.produto_nome || 'Peça'}" (${item.quantidade} ${item.produto_unidade || 'UN'}) do lote ${item.lote_id || ''}?`,
+      confirmLabel: 'Sim, Excluir',
       cancelLabel: 'Cancelar',
       variant: 'danger',
     });
     if (!ok) return;
 
-    const res = await deleteRetiradaPeca(item.id, true, item.produto_id, item.quantidade);
-    if (res.updatedInventory) {
-      setLocalStockItems(ensureDieselProductsInInventory(res.updatedInventory));
-    }
+    await deleteRetiradaPeca(item.id, false, item.produto_id, item.quantidade);
     if (editingRetiradaPeca?.id === item.id) {
       handleCancelarEdicaoRetirada();
     }
     setRetiradasPecas(prev => prev.filter(r => r.id !== item.id));
-    showFeedback('success', 'Retirada excluída e saldo devolvido ao estoque com sucesso.');
+    showFeedback('success', 'Item removido do histórico de retiradas.');
   };
 
   const filteredRetiradasPecas = useMemo(() => {
@@ -507,7 +626,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         String(r.produto_nome || '').toLowerCase().includes(q) ||
         String(r.produto_codigo ?? '').toLowerCase().includes(q) ||
         String(r.operador_almoxarifado || '').toLowerCase().includes(q) ||
-        String(r.retirado_por || '').toLowerCase().includes(q)
+        String(r.retirado_por || '').toLowerCase().includes(q) ||
+        String(r.lote_id || '').toLowerCase().includes(q) ||
+        String(r.status || '').toLowerCase().includes(q)
       );
     });
   }, [retiradasPecas, pecaSearchFilter]);
@@ -1129,73 +1250,106 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       )}
 
       {/* =====================================================================
-          ABA 1: RETIRADA DE PEÇAS PARA MANUTENÇÃO
+          ABA 1: RETIRADA DE PEÇAS PARA MANUTENÇÃO (FLUXO DE LISTA / PEDIDO POR VEÍCULO)
          ===================================================================== */}
       {activeTab === 'retirada_pecas' && (
         <div className="no-print flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
-          {/* Formulário de Saída de Peça Compacto */}
+          {/* Formulário Esquerdo: Pedido / Lista de Peças por Veículo */}
           <div
-            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-xl p-3.5 shadow-xs flex flex-col justify-between overflow-y-auto transition ${
+            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-xl p-3 shadow-xs flex flex-col min-h-0 overflow-hidden transition ${
               editingRetiradaPeca
                 ? 'border-amber-500 dark:border-amber-500 ring-2 ring-amber-500/20'
                 : 'border-zinc-200 dark:border-stone-800'
             }`}
           >
-            <div>
-              <div className="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                      editingRetiradaPeca
-                        ? 'bg-amber-500 text-stone-950'
-                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                    }`}
-                  >
-                    {editingRetiradaPeca ? (
-                      <Pencil className="w-3.5 h-3.5 stroke-[2.4]" />
-                    ) : (
-                      <PackageMinus className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
-                      {editingRetiradaPeca ? 'Editar Lançamento de Retirada' : 'Registrar Retirada de Peça'}
-                    </h2>
-                    <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
-                      {editingRetiradaPeca ? (
-                        <span>Ajusta automaticamente a diferença em <code className="font-mono">estoque_produtos</code></span>
-                      ) : (
-                        <span>Abate automaticamente o saldo em <code className="font-mono">estoque_produtos</code></span>
-                      )}
-                    </p>
-                  </div>
+            {/* Cabeçalho do Card da Esquerda */}
+            <div className="shrink-0 flex items-center justify-between gap-2 pb-2 mb-2 border-b border-zinc-200 dark:border-stone-800">
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    editingRetiradaPeca
+                      ? 'bg-amber-500 text-stone-950'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  {editingRetiradaPeca ? (
+                    <Pencil className="w-3.5 h-3.5 stroke-[2.4]" />
+                  ) : (
+                    <ListPlus className="w-4 h-4" />
+                  )}
                 </div>
-
-                {editingRetiradaPeca && (
-                  <button
-                    type="button"
-                    onClick={handleCancelarEdicaoRetirada}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                    <span>Cancelar</span>
-                  </button>
-                )}
+                <div className="min-w-0">
+                  <h2 className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white leading-tight truncate">
+                    {editingRetiradaPeca
+                      ? 'Editar Lançamento de Peça'
+                      : 'Pedido / Lista de Peças por Veículo'}
+                  </h2>
+                  <p className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                    {editingRetiradaPeca ? (
+                      <span>Atualiza o registro selecionado em <code className="font-mono">retiradas_pecas</code></span>
+                    ) : (
+                      <span>Monte a cesta do veículo • Baixa híbrida na Ordem de Serviço (OS)</span>
+                    )}
+                  </p>
+                </div>
               </div>
 
-              <form onSubmit={handleSalvarRetiradaPeca} className="space-y-2.5">
-                {/* Veículo / Máquina */}
-                <div>
-                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    Veículo / Máquina (Frota) *
-                  </label>
+              {editingRetiradaPeca && (
+                <button
+                  type="button"
+                  onClick={handleCancelarEdicaoRetirada}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 cursor-pointer shrink-0"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Cancelar</span>
+                </button>
+              )}
+            </div>
+
+            <form
+              onSubmit={handleSalvarRetiradaPeca}
+              className="flex-1 min-h-0 flex flex-col justify-between gap-2 overflow-y-auto pr-0.5"
+            >
+              <div className="space-y-2">
+                {/* 1. VEÍCULO / MÁQUINA (FROTA) — FIXADO AO SELECIONAR */}
+                <div className="p-2 rounded-lg bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200 dark:border-stone-700/80">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label className="flex items-center gap-1 text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
+                      <Car className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                      <span>1. Veículo / Máquina (Frota) *</span>
+                    </label>
+
+                    {pecaVeiculoId && isVeiculoFixado && !editingRetiradaPeca && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                          <Lock className="w-2.5 h-2.5" />
+                          Veículo Fixado
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsVeiculoFixado(false)}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                          title="Destravar para trocar de veículo"
+                        >
+                          <Unlock className="w-2.5 h-2.5" />
+                          <span>Trocar</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <select
                     value={pecaVeiculoId}
-                    onChange={e => setPecaVeiculoId(e.target.value)}
+                    onChange={e => handleSelecionarVeiculoPedido(e.target.value)}
+                    disabled={Boolean(pecaVeiculoId && isVeiculoFixado && !editingRetiradaPeca)}
                     required
-                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className={`w-full px-2.5 py-1.5 rounded-lg border text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 transition ${
+                      pecaVeiculoId && isVeiculoFixado && !editingRetiradaPeca
+                        ? 'border-amber-400 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/30 text-zinc-900 dark:text-white cursor-not-allowed'
+                        : 'border-zinc-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-zinc-900 dark:text-white'
+                    }`}
                   >
-                    <option value="">Selecione o veículo ou máquina...</option>
+                    <option value="">Selecione o veículo ou máquina de destino...</option>
                     {frotasList.map(m => (
                       <option key={m.id} value={m.id}>
                         {m.name} {m.plateOrSerial ? `(${m.plateOrSerial})` : ''} {m.model ? `• ${m.model}` : ''}
@@ -1204,98 +1358,189 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   </select>
                 </div>
 
-                {/* Item do Estoque */}
-                <div>
-                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                    Item do Estoque (Peça / Insumo) *
-                  </label>
-                  <select
-                    value={pecaProdutoId}
-                    onChange={e => setPecaProdutoId(e.target.value)}
-                    required
-                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="">Selecione a peça ou item no estoque...</option>
-                    {allProducts.map(item => {
-                      const qtd = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                      const un = item.unidade_medida || item.unit || 'UN';
-                      const codigo = item.code || item.codigo_produto ? `[${item.code || item.codigo_produto}] ` : '';
-                      return (
-                        <option key={item.id} value={item.id}>
-                          {codigo}{item.nome_comercial || item.name} — Saldo: {qtd} {un}
-                        </option>
-                      );
-                    })}
-                  </select>
+                {/* 2. SELETOR DE PEÇAS PARA ADICIONAR SEQUENCIALMENTE À CESTA DO VEÍCULO */}
+                <div className="p-2 rounded-lg border border-zinc-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider">
+                      {editingRetiradaPeca
+                        ? 'Item do Estoque e Quantidade *'
+                        : '2. Adicionar Peças ao Pedido do Veículo'}
+                    </label>
+                    {selectedProductForWithdrawal && (
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                        Disponível: <strong>{saldoAtualProdutoSelecionado}</strong>{' '}
+                        {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-1.5 items-center">
+                    <div className={editingRetiradaPeca ? 'col-span-8' : 'col-span-7'}>
+                      <select
+                        value={pecaProdutoId}
+                        onChange={e => setPecaProdutoId(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      >
+                        <option value="">Escolha a peça no estoque...</option>
+                        {allProducts.map(item => {
+                          const qtd = Number(item.quantidade_atual ?? item.quantity ?? 0);
+                          const un = item.unidade_medida || item.unit || 'UN';
+                          const codigo =
+                            item.code || item.codigo_produto
+                              ? `[${item.code || item.codigo_produto}] `
+                              : '';
+                          return (
+                            <option key={item.id} value={item.id}>
+                              {codigo}{item.nome_comercial || item.name} (Saldo: {qtd} {un})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    <div className={editingRetiradaPeca ? 'col-span-4' : 'col-span-2'}>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.01"
+                        value={pecaQuantidade}
+                        onChange={e => setPecaQuantidade(e.target.value)}
+                        placeholder="Qtd"
+                        title="Quantidade da peça"
+                        className="w-full px-2 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-black text-center text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    {!editingRetiradaPeca && (
+                      <div className="col-span-3">
+                        <button
+                          type="button"
+                          onClick={handleAdicionarPecaNaCesta}
+                          className="w-full py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-[11px] flex items-center justify-center gap-1 shadow-2xs transition cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Incluir</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Painel Reativo de Saldo do Item Selecionado */}
-                {selectedProductForWithdrawal && (
-                  <div className="px-3 py-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-2">
-                    <div>
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 block leading-none">
-                        Saldo Atual no Estoque
+                {/* 3. TABELA TEMPORÁRIA (CESTA DE PEÇAS DO VEÍCULO) */}
+                {!editingRetiradaPeca && (
+                  <div className="border border-zinc-200 dark:border-stone-800 rounded-lg overflow-hidden bg-zinc-50/60 dark:bg-stone-800/30">
+                    <div className="px-2.5 py-1.5 bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-700 flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-700 dark:text-stone-300">
+                        Cesta do Veículo ({cestaPecasVeiculo.length}{' '}
+                        {cestaPecasVeiculo.length === 1 ? 'peça' : 'peças'})
                       </span>
-                      <span className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
-                        {saldoAtualProdutoSelecionado}{' '}
-                        {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
-                      </span>
+                      {cestaPecasVeiculo.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleLimparCestaPedido}
+                          className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Limpar Cesta
+                        </button>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 block leading-none">
-                        Saldo Após Retirada
-                      </span>
-                      <span
-                        className={`text-sm font-black leading-tight ${
-                          qtdRetiradaNumerica > saldoAtualProdutoSelecionado
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-emerald-700 dark:text-emerald-400'
-                        }`}
-                      >
-                        {saldoPrevistoAposRetirada}{' '}
-                        {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
-                      </span>
-                    </div>
+
+                    {cestaPecasVeiculo.length === 0 ? (
+                      <div className="py-3 px-3 text-center text-[11px] text-zinc-500 dark:text-stone-400">
+                        Selecione o veículo acima e clique em <strong>+ Incluir</strong> para adicionar múltiplas peças ao pedido.
+                      </div>
+                    ) : (
+                      <div className="max-h-28 overflow-y-auto divide-y divide-zinc-200/70 dark:divide-stone-700/60">
+                        {cestaPecasVeiculo.map(item => (
+                          <div
+                            key={item.produto_id}
+                            className="px-2.5 py-1.5 flex items-center justify-between gap-2 bg-white dark:bg-stone-900/70 text-xs"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-zinc-900 dark:text-white truncate leading-tight">
+                                {item.produto_nome}
+                              </div>
+                              <div className="text-[10px] text-zinc-500 dark:text-stone-400 font-mono leading-tight">
+                                {item.produto_codigo ? `Cód: ${item.produto_codigo} • ` : ''}
+                                Estoque: {item.saldo_estoque} {item.produto_unidade}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleAjustarQuantidadeCesta(
+                                    item.produto_id,
+                                    Math.max(1, Number((item.quantidade - 1).toFixed(2)))
+                                  )
+                                }
+                                className="w-5 h-5 rounded bg-zinc-200 dark:bg-stone-700 font-black text-xs text-zinc-800 dark:text-white hover:bg-zinc-300 cursor-pointer flex items-center justify-center"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                step="any"
+                                min="0.01"
+                                value={item.quantidade}
+                                onChange={e =>
+                                  handleAjustarQuantidadeCesta(
+                                    item.produto_id,
+                                    parseFloat(e.target.value) || 1
+                                  )
+                                }
+                                className="w-12 py-0.5 px-1 text-center rounded border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 font-black text-xs text-zinc-900 dark:text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleAjustarQuantidadeCesta(
+                                    item.produto_id,
+                                    Number((item.quantidade + 1).toFixed(2))
+                                  )
+                                }
+                                className="w-5 h-5 rounded bg-zinc-200 dark:bg-stone-700 font-black text-xs text-zinc-800 dark:text-white hover:bg-zinc-300 cursor-pointer flex items-center justify-center"
+                              >
+                                +
+                              </button>
+                              <span className="text-[10px] font-bold text-zinc-500 w-6 truncate">
+                                {item.produto_unidade}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoverItemDaCesta(item.produto_id)}
+                                title="Remover item do pedido"
+                                className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Quantidade e Data */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* 4. DATA, OPERADOR DO ALMOXARIFADO E QUEM RETIROU */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                      Quantidade Retirada *
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0.01"
-                      value={pecaQuantidade}
-                      onChange={e => setPecaQuantidade(e.target.value)}
-                      required
-                      placeholder="1"
-                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                      Data da Retirada *
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-0.5">
+                      Data *
                     </label>
                     <input
                       type="date"
                       value={pecaDataRetirada}
                       onChange={e => setPecaDataRetirada(e.target.value)}
                       required
-                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-2 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
-                </div>
 
-                {/* Operador do Almoxarifado e Quem Retirou */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                      Operador do Almoxarifado *
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-0.5 truncate">
+                      Operador Almox. *
                     </label>
                     <input
                       type="text"
@@ -1303,14 +1548,14 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       value={pecaOperadorAlmox}
                       onChange={e => setPecaOperadorAlmox(e.target.value)}
                       required
-                      placeholder="Responsável pela entrega"
-                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      placeholder="Quem entregou"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                      Quem Retirou (Mecânico) *
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-0.5 truncate">
+                      Quem Retirou *
                     </label>
                     <input
                       type="text"
@@ -1319,53 +1564,58 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       onChange={e => setPecaRetiradoPor(e.target.value)}
                       required
                       placeholder="Mecânico / Operador"
-                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  {editingRetiradaPeca && (
-                    <button
-                      type="button"
-                      onClick={handleCancelarEdicaoRetirada}
-                      className="py-2 px-3 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 font-bold text-xs transition cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                  )}
+              {/* 5. BOTÃO PRINCIPAL PRETO: CONFIRMAR PEDIDO E IMPRIMIR CUPOM */}
+              <div className="flex items-center gap-2 pt-1.5 shrink-0">
+                {editingRetiradaPeca && (
                   <button
-                    type="submit"
-                    disabled={isSavingRetiradaPeca}
-                    className={`flex-1 py-2 px-3.5 rounded-lg font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 ${
-                      editingRetiradaPeca
-                        ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
-                        : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white'
-                    }`}
+                    type="button"
+                    onClick={handleCancelarEdicaoRetirada}
+                    className="py-2 px-3 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 font-bold text-xs transition cursor-pointer"
                   >
-                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>
-                      {isSavingRetiradaPeca
-                        ? 'Salvando e Atualizando Estoque...'
-                        : editingRetiradaPeca
-                          ? 'Salvar Alterações da Retirada'
-                          : 'Salvar Retirada e Abater do Estoque'}
-                    </span>
+                    Cancelar
                   </button>
-                </div>
-              </form>
-            </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={isSavingRetiradaPeca}
+                  className={`flex-1 py-2 px-3.5 rounded-lg font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 ${
+                    editingRetiradaPeca
+                      ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
+                      : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-800 dark:border dark:border-stone-700 text-white'
+                  }`}
+                >
+                  {editingRetiradaPeca ? (
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  ) : (
+                    <Printer className="w-3.5 h-3.5 stroke-[2.3]" />
+                  )}
+                  <span>
+                    {isSavingRetiradaPeca
+                      ? 'Confirmando Pedido e Gerando Cupom...'
+                      : editingRetiradaPeca
+                        ? 'Salvar Alterações do Lançamento'
+                        : 'Confirmar Pedido e Imprimir Cupom'}
+                  </span>
+                </button>
+              </div>
+            </form>
           </div>
 
-          {/* Lista / Histórico de Retiradas de Peças */}
+          {/* Lista / Histórico de Retiradas de Peças (Lotes para Manutenção) */}
           <div className="lg:col-span-7 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
             <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 mb-2 border-b border-zinc-200 dark:border-stone-800">
               <div>
                 <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
-                  Histórico de Saídas de Peças para Manutenção
+                  Histórico de Saídas e Lotes de Peças para Manutenção
                 </h2>
                 <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
-                  Registros sincronizados em <code className="font-mono">public.retiradas_pecas</code>
+                  Clique na <strong>engrenagem</strong> em Ação para puxar o lote completo para uma nova Ordem de Serviço (OS)
                 </p>
               </div>
 
@@ -1375,7 +1625,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   type="text"
                   value={pecaSearchFilter}
                   onChange={e => setPecaSearchFilter(e.target.value)}
-                  placeholder="Buscar veículo, peça, mecânico..."
+                  placeholder="Buscar lote, veículo, peça..."
                   className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
@@ -1387,10 +1637,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <PackageMinus className="w-5 h-5" />
                 </div>
                 <p className="text-xs font-bold text-zinc-700 dark:text-stone-300">
-                  Nenhuma retirada de peça registrada ainda
+                  Nenhum pedido de peças registrado ainda
                 </p>
                 <p className="text-[11px] text-zinc-500 dark:text-stone-400 max-w-sm mt-0.5">
-                  Utilize o formulário ao lado para registrar saídas de peças para veículos ou máquinas. O saldo será abatido automaticamente do estoque.
+                  Selecione um veículo ao lado, adicione as peças na cesta e clique em &ldquo;Confirmar Pedido e Imprimir Cupom&rdquo;.
                 </p>
               </div>
             ) : (
@@ -1398,92 +1648,129 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 bg-white dark:bg-stone-900 z-10">
                     <tr className="border-b border-zinc-200 dark:border-stone-800 text-[10px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                      <th className="py-2 px-2.5">Data</th>
-                      <th className="py-2 px-2.5">Veículo / Máquina</th>
-                      <th className="py-2 px-2.5">Item / Peça Retirada</th>
-                      <th className="py-2 px-2.5 text-center">Qtd.</th>
-                      <th className="py-2 px-2.5">Almoxarife / Mecânico</th>
+                      <th className="py-2 px-2">Data / Lote</th>
+                      <th className="py-2 px-2">Veículo / Máquina</th>
+                      <th className="py-2 px-2">Peça / Status</th>
+                      <th className="py-2 px-2 text-center">Qtd.</th>
+                      <th className="py-2 px-2">Almoxarife / Mecânico</th>
                       <th className="py-2 px-2 text-right">Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">
-                    {filteredRetiradasPecas.map(item => (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/40 transition"
-                      >
-                        <td className="py-2 px-2.5 font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap">
-                          {formatDateOnlyPtBr(item.data_retirada)}
-                        </td>
-                        <td className="py-2 px-2.5">
-                          <div className="font-extrabold text-zinc-900 dark:text-white leading-tight">
-                            {item.veiculo_nome || 'Veículo da Frota'}
-                          </div>
-                          {item.veiculo_placa && (
-                            <span className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
-                              {item.veiculo_placa}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-2.5">
-                          <div className="font-bold text-zinc-900 dark:text-white leading-tight">
-                            {item.produto_nome || 'Item do Estoque'}
-                          </div>
-                          {item.produto_codigo && (
-                            <span className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
-                              Cód: {item.produto_codigo}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-2.5 text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-black text-[11px] bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
-                            -{item.quantidade} {item.produto_unidade || 'UN'}
-                          </span>
-                        </td>
-                        <td className="py-2 px-2.5">
-                          <div className="text-zinc-800 dark:text-stone-200 font-bold leading-tight">
-                            Retirou: <span className="font-semibold">{item.retirado_por}</span>
-                          </div>
-                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight">
-                            Almox.: {item.operador_almoxarifado}
-                          </div>
-                        </td>
-                        <td className="py-2 px-2 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setTermoRetiradaPecaPrint(item)}
-                              title="Imprimir Termo de Retirada de Peça (A4) para assinatura"
-                              className="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition cursor-pointer"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
+                    {filteredRetiradasPecas.map(item => {
+                      const loteCount = item.lote_id
+                        ? retiradasPecas.filter(r => r.lote_id === item.lote_id).length
+                        : 1;
+                      const statusLabel = item.status || 'Aguardando Manutenção';
+                      const isAguardando = statusLabel.toLowerCase().includes('aguardando');
 
-                            <button
-                              type="button"
-                              onClick={() => handleIniciarEdicaoRetirada(item)}
-                              title="Editar lançamento de retirada"
-                              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                                editingRetiradaPeca?.id === item.id
-                                  ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60'
-                                  : 'text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-amber-950/40'
-                              }`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
+                      return (
+                        <tr
+                          key={item.id}
+                          className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/40 transition"
+                        >
+                          <td className="py-2 px-2 whitespace-nowrap">
+                            <div className="font-bold text-zinc-700 dark:text-stone-300 leading-tight">
+                              {formatDateOnlyPtBr(item.data_retirada)}
+                            </div>
+                            {item.lote_id && (
+                              <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
+                                {item.lote_id} ({loteCount})
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2">
+                            <div className="font-extrabold text-zinc-900 dark:text-white leading-tight">
+                              {item.veiculo_nome || 'Veículo da Frota'}
+                            </div>
+                            {item.veiculo_placa && (
+                              <span className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
+                                {item.veiculo_placa}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2">
+                            <div className="font-bold text-zinc-900 dark:text-white leading-tight">
+                              {item.produto_nome || 'Item do Estoque'}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              {item.produto_codigo && (
+                                <span className="text-[10px] font-mono text-zinc-500 dark:text-stone-400">
+                                  Cód: {item.produto_codigo}
+                                </span>
+                              )}
+                              <span
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold leading-none ${
+                                  isAguardando
+                                    ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                    : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                }`}
+                              >
+                                {statusLabel}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-center whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md font-black text-[11px] bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                              {item.quantidade} {item.produto_unidade || 'UN'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2">
+                            <div className="text-zinc-800 dark:text-stone-200 font-bold leading-tight">
+                              Retirou: <span className="font-semibold">{item.retirado_por}</span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight">
+                              Almox.: {item.operador_almoxarifado}
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center justify-end gap-1">
+                              {/* Botão de Engrenagem: Puxa o lote completo e lança direto em uma Nova OS */}
+                              <button
+                                type="button"
+                                onClick={() => handleLancarLoteNaManutencaoOS(item)}
+                                title={`Puxar lote completo (${loteCount} peça(s)) e abrir Nova Ordem de Serviço (OS)`}
+                                className="p-1.5 rounded-lg text-amber-600 hover:text-amber-950 bg-amber-50 hover:bg-amber-400 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-500 dark:hover:text-stone-950 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleExcluirRetiradaPeca(item)}
-                              title="Estornar retirada e devolver ao estoque"
-                              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {/* Botão de Impressão do Cupom em Lote */}
+                              <button
+                                type="button"
+                                onClick={() => handleAbrirCupomLote(item, false)}
+                                title={`Imprimir Cupom de Retirada / Cautela do lote (${loteCount} peça(s))`}
+                                className="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition cursor-pointer"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleIniciarEdicaoRetirada(item)}
+                                title="Editar lançamento"
+                                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                  editingRetiradaPeca?.id === item.id
+                                    ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60'
+                                    : 'text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-amber-950/40'
+                                }`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleExcluirRetiradaPeca(item)}
+                                title="Excluir item do histórico"
+                                className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2558,27 +2845,27 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       )}
 
       {/* =====================================================================
-          MODAL / DOCUMENTO A4: TERMO DE RETIRADA DE PEÇA PARA MANUTENÇÃO (ABA 1)
+          MODAL / DOCUMENTO A4: CUPOM DE RETIRADA / CAUTELA DE PEÇAS EM LOTE (ABA 1)
          ===================================================================== */}
-      {termoRetiradaPecaPrint && (
+      {cupomLotePrint && (
         <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block">
           <style>{`
             @media print {
               body * {
                 visibility: hidden !important;
               }
-              #termo-retirada-peca-a4-sheet,
-              #termo-retirada-peca-a4-sheet * {
+              #cupom-retirada-lote-a4-sheet,
+              #cupom-retirada-lote-a4-sheet * {
                 visibility: visible !important;
               }
-              #termo-retirada-peca-a4-sheet {
+              #cupom-retirada-lote-a4-sheet {
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
                 width: 210mm !important;
                 min-height: 270mm !important;
                 margin: 0 !important;
-                padding: 18mm !important;
+                padding: 16mm !important;
                 box-shadow: none !important;
                 border: none !important;
                 background: #ffffff !important;
@@ -2594,10 +2881,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 <Printer className="w-5 h-5 text-amber-400" />
                 <div>
                   <h3 className="text-sm sm:text-base font-black">
-                    Termo de Retirada de Peça — Impressão A4
+                    Cupom de Retirada / Cautela de Peças — Lote #{cupomLotePrint.loteId}
                   </h3>
                   <p className="text-[11px] text-zinc-300">
-                    Documento limpo em formato A4 para assinatura física do mecânico / operador
+                    Documento limpo com as peças vinculadas ao veículo e campo para assinatura física
                   </p>
                 </div>
               </div>
@@ -2609,11 +2896,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-stone-950 transition cursor-pointer shadow-xs"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Imprimir / Gerar PDF (A4)</span>
+                  <span>Imprimir Cupom (A4 / Térmica)</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTermoRetiradaPecaPrint(null)}
+                  onClick={() => setCupomLotePrint(null)}
                   className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -2621,164 +2908,156 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               </div>
             </div>
 
-            {/* Folha A4 Limpa */}
+            {/* Folha Limpa do Cupom de Retirada / Cautela */}
             <div className="p-4 sm:p-8 overflow-y-auto bg-zinc-100 dark:bg-stone-950 print:p-0 print:bg-white">
               <div
-                id="termo-retirada-peca-a4-sheet"
-                className="bg-white text-black mx-auto max-w-[210mm] min-h-[260mm] p-8 sm:p-12 border border-zinc-300 shadow-md flex flex-col justify-between font-serif"
+                id="cupom-retirada-lote-a4-sheet"
+                className="bg-white text-black mx-auto max-w-[210mm] min-h-[250mm] p-8 sm:p-10 border border-zinc-300 shadow-md flex flex-col justify-between font-sans"
               >
-                {/* Topo / Cabeçalho A4 */}
-                <div className="space-y-6">
-                  <div className="border-b-2 border-black pb-5 text-center space-y-1.5">
+                {/* Topo / Cabeçalho do Cupom */}
+                <div className="space-y-5">
+                  <div className="border-b-2 border-black pb-4 text-center space-y-1">
                     {companyProfile?.tradeName && (
-                      <p className="text-xs font-sans font-bold uppercase tracking-widest text-zinc-600">
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">
                         {companyProfile.tradeName}{' '}
                         {companyProfile.cnpj ? `• CNPJ: ${companyProfile.cnpj}` : ''}
                       </p>
                     )}
-                    <h1 className="text-xl sm:text-2xl font-sans font-black uppercase tracking-tight text-black">
-                      Termo de Responsabilidade e Retirada de Peça do Almoxarifado
+                    <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-black">
+                      Cupom de Retirada / Cautela de Peças
                     </h1>
-                    <p className="text-xs font-sans font-semibold text-zinc-600">
-                      Comprovante de Saída de Material / Peça para Manutenção de Frota
+                    <p className="text-xs font-semibold text-zinc-600">
+                      Pedido de Peças por Veículo • Lote: <strong className="font-mono text-black">{cupomLotePrint.loteId}</strong> • Status: <strong className="text-black">{cupomLotePrint.status || 'Aguardando Manutenção'}</strong>
                     </p>
                   </div>
 
-                  {/* Quadro de Dados da Retirada de Peça */}
-                  <div className="border border-black rounded-lg overflow-hidden font-sans">
-                    <div className="bg-zinc-100 px-4 py-2 border-b border-black text-xs font-black uppercase tracking-wider">
-                      Dados da Retirada de Material / Peça
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-black border-b border-black">
-                      <div className="p-3.5 sm:col-span-2">
-                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Item / Peça Retirada do Estoque
+                  {/* Destaque no Topo: Modelo / Placa do Veículo e Dados da Retirada */}
+                  <div className="border-2 border-black rounded-lg overflow-hidden">
+                    <div className="bg-zinc-900 text-white print:bg-zinc-200 print:text-black px-4 py-2.5 border-b border-black flex items-center justify-between">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">
+                          Veículo / Máquina de Destino (Frota)
                         </span>
-                        <span className="text-base font-black text-black">
-                          {termoRetiradaPecaPrint.produto_nome || 'Peça / Item do Estoque'}
-                        </span>
-                        {termoRetiradaPecaPrint.produto_codigo && (
-                          <span className="block text-xs font-mono font-bold text-zinc-700 mt-0.5">
-                            Código: {termoRetiradaPecaPrint.produto_codigo}
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-3.5">
-                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Quantidade Retirada
-                        </span>
-                        <span className="text-lg font-black font-mono text-black">
-                          {termoRetiradaPecaPrint.quantidade}{' '}
-                          {termoRetiradaPecaPrint.produto_unidade || 'UN'}
+                        <span className="text-lg sm:text-xl font-black uppercase tracking-tight">
+                          {cupomLotePrint.veiculoNome}
+                          {cupomLotePrint.veiculoPlaca ? ` — PLACA: ${cupomLotePrint.veiculoPlaca}` : ''}
                         </span>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black border-b border-black">
-                      <div className="p-3.5">
-                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Veículo / Máquina Aplicada (Frota)
-                        </span>
-                        <span className="text-sm font-black text-black">
-                          {termoRetiradaPecaPrint.veiculo_nome || 'Veículo da Frota'}
-                          {termoRetiradaPecaPrint.veiculo_placa
-                            ? ` (${termoRetiradaPecaPrint.veiculo_placa})`
-                            : ''}
-                        </span>
-                      </div>
-                      <div className="p-3.5">
-                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                      <div className="text-right">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">
                           Data da Retirada
                         </span>
-                        <span className="text-sm font-bold text-black">
-                          {formatDateOnlyPtBr(termoRetiradaPecaPrint.data_retirada)}
+                        <span className="text-sm sm:text-base font-black font-mono">
+                          {formatDateOnlyPtBr(cupomLotePrint.dataRetirada)}
                         </span>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black bg-zinc-50">
-                      <div className="p-3.5">
+                      <div className="p-3">
                         <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Operador do Almoxarifado (Entregue por)
+                          Operador do Almoxarifado (Liberado por)
                         </span>
                         <span className="text-sm font-black text-black">
-                          {termoRetiradaPecaPrint.operador_almoxarifado}
+                          {cupomLotePrint.operadorAlmoxarifado}
                         </span>
                       </div>
-                      <div className="p-3.5">
+                      <div className="p-3">
                         <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Quem Retirou (Mecânico / Operador Responsável)
+                          Retirado Por (Mecânico / Operador Responsável)
                         </span>
-                        <span className="text-base font-black text-black">
-                          {termoRetiradaPecaPrint.retirado_por}
+                        <span className="text-sm font-black text-black">
+                          {cupomLotePrint.retiradoPor}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Declaração de Recebimento e Aplicação */}
-                  <div className="space-y-3 text-sm leading-relaxed text-justify font-sans text-zinc-900 pt-2">
-                    <p>
-                      Declaro, para os devidos fins de controle de estoque e manutenção da frota,
-                      que eu, <strong>{termoRetiradaPecaPrint.retirado_por}</strong>, retirei no
-                      Almoxarifado na data de{' '}
-                      <strong>{formatDateOnlyPtBr(termoRetiradaPecaPrint.data_retirada)}</strong>,
-                      sob liberação do operador{' '}
-                      <strong>{termoRetiradaPecaPrint.operador_almoxarifado}</strong>, o item{' '}
-                      <strong>
-                        {termoRetiradaPecaPrint.produto_nome || 'Peça / Insumo'}
-                        {termoRetiradaPecaPrint.produto_codigo
-                          ? ` (Cód. ${termoRetiradaPecaPrint.produto_codigo})`
-                          : ''}
-                      </strong>{' '}
-                      na quantidade de{' '}
-                      <strong>
-                        {termoRetiradaPecaPrint.quantidade}{' '}
-                        {termoRetiradaPecaPrint.produto_unidade || 'UN'}
-                      </strong>
-                      , destinado exclusivamente à manutenção/aplicação no veículo ou equipamento{' '}
-                      <strong>
-                        {termoRetiradaPecaPrint.veiculo_nome || 'da frota'}
-                        {termoRetiradaPecaPrint.veiculo_placa
-                          ? ` (${termoRetiradaPecaPrint.veiculo_placa})`
-                          : ''}
-                      </strong>
-                      .
-                    </p>
+                  {/* Tabela de Peças Retiradas no Lote */}
+                  <div className="border border-black rounded-lg overflow-hidden">
+                    <div className="bg-zinc-100 px-4 py-2 border-b border-black flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-black">
+                        Relação de Peças / Materiais Retirados ({cupomLotePrint.items.length}{' '}
+                        {cupomLotePrint.items.length === 1 ? 'item' : 'itens'})
+                      </span>
+                      <span className="text-[11px] font-bold text-zinc-700">
+                        Baixa de estoque vinculada à Ordem de Serviço (OS)
+                      </span>
+                    </div>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-black bg-zinc-50 text-[10px] font-black uppercase text-zinc-700">
+                          <th className="py-2 px-3 w-12 text-center border-r border-black">#</th>
+                          <th className="py-2 px-3 w-28 border-r border-black">Código</th>
+                          <th className="py-2 px-3 border-r border-black">Descrição da Peça / Material</th>
+                          <th className="py-2 px-3 w-28 text-center">Quantidade</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-300 text-xs">
+                        {cupomLotePrint.items.map((item, idx) => (
+                          <tr key={item.id || idx} className="border-b border-zinc-300">
+                            <td className="py-2 px-3 text-center font-mono font-bold border-r border-black">
+                              {String(idx + 1).padStart(2, '0')}
+                            </td>
+                            <td className="py-2 px-3 font-mono font-bold text-zinc-800 border-r border-black">
+                              {item.produto_codigo || '—'}
+                            </td>
+                            <td className="py-2 px-3 font-black text-black border-r border-black">
+                              {item.produto_nome || 'Peça do Estoque'}
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono font-black text-sm text-black">
+                              {item.quantidade} {item.produto_unidade || 'UN'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Termo Resumido de Cautela */}
+                  <div className="text-xs leading-relaxed text-justify text-zinc-800 pt-1">
+                    Declaro ter recebido do Almoxarifado as peças discriminadas neste cupom (Lote{' '}
+                    <strong>{cupomLotePrint.loteId}</strong>), sob liberação do operador{' '}
+                    <strong>{cupomLotePrint.operadorAlmoxarifado}</strong>, destinadas exclusivamente à
+                    manutenção do veículo/máquina{' '}
+                    <strong>
+                      {cupomLotePrint.veiculoNome}
+                      {cupomLotePrint.veiculoPlaca ? ` (${cupomLotePrint.veiculoPlaca})` : ''}
+                    </strong>
+                    .
                   </div>
                 </div>
 
-                {/* Rodapé com Linha Pontilhada para Assinatura Física */}
-                <div className="pt-16 pb-4 font-sans space-y-10">
+                {/* Rodapé com Campo Pontilhado para Assinatura Física */}
+                <div className="pt-14 pb-2 space-y-8">
                   <div className="text-center max-w-md mx-auto">
                     <div className="border-b-2 border-dotted border-black w-full mb-2 h-8" />
                     <p className="text-sm font-black uppercase text-black">
-                      {termoRetiradaPecaPrint.retirado_por}
+                      {cupomLotePrint.retiradoPor}
                     </p>
                     <p className="text-xs font-semibold text-zinc-600">
-                      Assinatura Física de quem retirou a peça (Mecânico / Operador)
+                      Assinatura Física de quem retirou as peças (Mecânico / Operador)
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-10 pt-4 text-center text-xs">
+                  <div className="grid grid-cols-2 gap-10 pt-2 text-center text-xs">
                     <div>
                       <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
                       <p className="font-bold text-zinc-800">
-                        {termoRetiradaPecaPrint.operador_almoxarifado}
+                        {cupomLotePrint.operadorAlmoxarifado}
                       </p>
                       <p className="text-[11px] text-zinc-500">Operador do Almoxarifado</p>
                     </div>
                     <div>
                       <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
-                      <p className="font-bold text-zinc-800">Visto da Gestão / Manutenção</p>
-                      <p className="text-[11px] text-zinc-500">Conferência de Aplicação</p>
+                      <p className="font-bold text-zinc-800">Conferência na Ordem de Serviço (OS)</p>
+                      <p className="text-[11px] text-zinc-500">Visto da Manutenção</p>
                     </div>
                   </div>
 
-                  <div className="text-center text-[10px] text-zinc-400 border-t border-zinc-200 pt-3">
-                    Documento emitido em {formatDateTimePtBr(new Date().toISOString())} • ID Retirada:{' '}
-                    {termoRetiradaPecaPrint.id.slice(0, 8).toUpperCase()}
+                  <div className="text-center text-[10px] text-zinc-400 border-t border-zinc-200 pt-2.5">
+                    Cupom emitido em {formatDateTimePtBr(new Date().toISOString())} • Lote:{' '}
+                    {cupomLotePrint.loteId}
                   </div>
                 </div>
               </div>
