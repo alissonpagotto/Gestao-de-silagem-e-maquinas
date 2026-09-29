@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { executePrint } from '../../lib/printService';
 import {
   Wrench,
   PackageMinus,
@@ -595,6 +597,236 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     setPecaDataRetirada(new Date().toISOString().split('T')[0]);
   };
 
+  // Gera o HTML autônomo e limpo do Cupom de Retirada / Cautela (para impressão em janela limpa ou iframe)
+  const buildCupomLoteStandaloneHtml = useCallback(
+    (data: CupomLotePrintData) => {
+      const companyHeader = companyProfile?.tradeName
+        ? `<p style="font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#52525b;margin:0 0 4px 0;">${companyProfile.tradeName}${companyProfile.cnpj ? ` • CNPJ: ${companyProfile.cnpj}` : ''}</p>`
+        : '';
+      const veiculoLine = `${data.veiculoNome}${data.veiculoPlaca ? ` — PLACA: ${data.veiculoPlaca}` : ''}`;
+      const dataFormatada = formatDateOnlyPtBr(data.dataRetirada);
+      const rowsHtml = data.items
+        .map(
+          (it, idx) => `
+          <tr>
+            <td style="padding:8px 10px;text-align:center;font-family:monospace;font-weight:800;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${String(idx + 1).padStart(2, '0')}</td>
+            <td style="padding:8px 10px;font-family:monospace;font-weight:700;color:#27272a;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${it.produto_codigo || '—'}</td>
+            <td style="padding:8px 10px;font-weight:900;color:#000000;border-bottom:1px solid #d4d4d8;border-right:1px solid #000000;">${it.produto_nome || 'Peça do Estoque'}</td>
+            <td style="padding:8px 10px;text-align:center;font-family:monospace;font-weight:900;font-size:11pt;color:#000000;border-bottom:1px solid #d4d4d8;">${it.quantidade} ${it.produto_unidade || 'UN'}</td>
+          </tr>`
+        )
+        .join('');
+
+      return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cupom de Retirada e Cautela de Peças - Lote ${data.loteId}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff !important;
+      color: #000000 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background: #ffffff !important;
+      }
+    }
+    .cupom-sheet {
+      width: 100%;
+      max-width: 190mm;
+      min-height: 255mm;
+      margin: 0 auto;
+      padding: 6mm 4mm;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="cupom-sheet">
+    <div>
+      <div style="border-bottom:2px solid #000000;padding-bottom:14px;text-align:center;margin-bottom:18px;">
+        ${companyHeader}
+        <h1 style="font-size:18pt;font-weight:900;text-transform:uppercase;letter-spacing:-0.3px;margin:0 0 6px 0;color:#000000;">
+          CUPOM DE RETIRADA / CAUTELA DE PEÇAS
+        </h1>
+        <p style="font-size:9.5pt;font-weight:600;color:#52525b;margin:0;">
+          Pedido de Peças por Veículo • Lote: <strong style="font-family:monospace;color:#000000;">${data.loteId}</strong> • Status: <strong style="color:#000000;">${data.status || 'Aguardando Manutenção'}</strong>
+        </p>
+      </div>
+
+      <div style="border:2px solid #000000;border-radius:8px;overflow:hidden;margin-bottom:18px;">
+        <div style="background:#18181b;color:#ffffff;padding:10px 16px;border-bottom:1px solid #000000;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <span style="display:block;font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;opacity:0.85;">
+              VEÍCULO / MÁQUINA DE DESTINO (FROTA)
+            </span>
+            <span style="font-size:14pt;font-weight:900;text-transform:uppercase;">
+              ${veiculoLine}
+            </span>
+          </div>
+          <div style="text-align:right;">
+            <span style="display:block;font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;opacity:0.85;">
+              DATA DA RETIRADA
+            </span>
+            <span style="font-size:12pt;font-weight:900;font-family:monospace;">
+              ${dataFormatada}
+            </span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;background:#fafafa;">
+          <div style="padding:10px 14px;border-right:1px solid #000000;">
+            <span style="display:block;font-size:7.5pt;font-weight:800;text-transform:uppercase;color:#52525b;">
+              OPERADOR DO ALMOXARIFADO (LIBERADO POR)
+            </span>
+            <span style="font-size:10.5pt;font-weight:900;color:#000000;">
+              ${data.operadorAlmoxarifado}
+            </span>
+          </div>
+          <div style="padding:10px 14px;">
+            <span style="display:block;font-size:7.5pt;font-weight:800;text-transform:uppercase;color:#52525b;">
+              RETIRADO POR (MECÂNICO / OPERADOR RESPONSÁVEL)
+            </span>
+            <span style="font-size:10.5pt;font-weight:900;color:#000000;">
+              ${data.retiradoPor}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #000000;border-radius:8px;overflow:hidden;margin-bottom:16px;">
+        <div style="background:#f4f4f5;padding:8px 14px;border-bottom:1px solid #000000;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:9pt;font-weight:900;text-transform:uppercase;color:#000000;">
+            RELAÇÃO DE PEÇAS / MATERIAIS RETIRADOS (${data.items.length} ${data.items.length === 1 ? 'ITEM' : 'ITENS'})
+          </span>
+          <span style="font-size:8pt;font-weight:700;color:#3f3f46;">
+            Baixa de estoque vinculada à Ordem de Serviço (OS)
+          </span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
+          <thead>
+            <tr style="background:#fafafa;border-bottom:1px solid #000000;font-size:8pt;font-weight:900;text-transform:uppercase;color:#3f3f46;">
+              <th style="padding:7px 10px;width:44px;text-align:center;border-right:1px solid #000000;">#</th>
+              <th style="padding:7px 10px;width:105px;text-align:left;border-right:1px solid #000000;">CÓDIGO</th>
+              <th style="padding:7px 10px;text-align:left;border-right:1px solid #000000;">DESCRIÇÃO DA PEÇA / MATERIAL</th>
+              <th style="padding:7px 10px;width:110px;text-align:center;">QUANTIDADE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <p style="font-size:9.5pt;line-height:1.55;text-align:justify;color:#27272a;margin:6px 0 0 0;">
+        Declaro ter recebido do Almoxarifado as peças discriminadas neste cupom (Lote <strong>${data.loteId}</strong>), sob liberação do operador <strong>${data.operadorAlmoxarifado}</strong>, destinadas exclusivamente à manutenção do veículo/máquina <strong>${data.veiculoNome}${data.veiculoPlaca ? ` (${data.veiculoPlaca})` : ''}</strong>.
+      </p>
+    </div>
+
+    <div style="padding-top:48px;">
+      <div style="max-width:360px;margin:0 auto 32px auto;text-align:center;">
+        <div style="border-bottom:2px dotted #000000;height:28px;margin-bottom:6px;"></div>
+        <div style="font-size:10.5pt;font-weight:900;text-transform:uppercase;color:#000000;">
+          ${data.retiradoPor}
+        </div>
+        <div style="font-size:8.5pt;font-weight:600;color:#52525b;">
+          Assinatura Física de quem retirou as peças (Mecânico / Operador)
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:36px;text-align:center;font-size:8.5pt;margin-bottom:20px;">
+        <div>
+          <div style="border-bottom:1px dotted #71717a;height:22px;margin-bottom:5px;"></div>
+          <div style="font-weight:800;color:#18181b;">${data.operadorAlmoxarifado}</div>
+          <div style="font-size:8pt;color:#71717a;">Operador do Almoxarifado</div>
+        </div>
+        <div>
+          <div style="border-bottom:1px dotted #71717a;height:22px;margin-bottom:5px;"></div>
+          <div style="font-weight:800;color:#18181b;">Conferência na Ordem de Serviço (OS)</div>
+          <div style="font-size:8pt;color:#71717a;">Visto da Manutenção</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #e4e4e7;padding-top:8px;text-align:center;font-size:7.5pt;color:#a1a1aa;">
+        Cupom emitido em ${formatDateTimePtBr(new Date().toISOString())} • Lote: ${data.loteId}
+      </div>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        try {
+          window.focus();
+          window.print();
+        } catch (e) {
+          console.error(e);
+        }
+      }, 250);
+    });
+  </script>
+</body>
+</html>`;
+    },
+    [companyProfile]
+  );
+
+  // Dispara a rotina de impressão física do Cupom de Retirada / Cautela
+  const handleDispararImpressaoCupomLote = useCallback(
+    (explicitData?: CupomLotePrintData) => {
+      const targetData = explicitData || cupomLotePrint;
+      if (!targetData) return;
+
+      document.body.classList.add('printing-almox-cupom');
+      const cleanUp = () => {
+        document.body.classList.remove('printing-almox-cupom');
+        window.removeEventListener('afterprint', cleanUp);
+      };
+      window.addEventListener('afterprint', cleanUp);
+      setTimeout(cleanUp, 3500);
+
+      const isInsideIframe = (() => {
+        try {
+          return window.self !== window.top;
+        } catch {
+          return true;
+        }
+      })();
+
+      if (isInsideIframe) {
+        const html = buildCupomLoteStandaloneHtml(targetData);
+        executePrint(html);
+        return;
+      }
+
+      try {
+        window.focus();
+        window.print();
+      } catch {
+        const html = buildCupomLoteStandaloneHtml(targetData);
+        executePrint(html);
+      }
+    },
+    [cupomLotePrint, buildCupomLoteStandaloneHtml]
+  );
+
   const handleAbrirCupomLote = (
     item: RetiradaPecaRecord,
     autoPrint = false,
@@ -608,7 +840,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           : [item];
     const listToPrint = batchItems.length > 0 ? batchItems : [item];
     const first = listToPrint[0] || item;
-    setCupomLotePrint({
+    const printPayload: CupomLotePrintData = {
       loteId: first.lote_id || item.id.slice(0, 8).toUpperCase(),
       veiculoNome: first.veiculo_nome || 'Veículo da Frota',
       veiculoPlaca: first.veiculo_placa || '',
@@ -617,10 +849,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       dataRetirada: first.data_retirada || new Date().toISOString().split('T')[0],
       status: first.status || 'Aguardando Manutenção',
       items: listToPrint,
-    });
+    };
+    setCupomLotePrint(printPayload);
     if (autoPrint) {
       setTimeout(() => {
-        window.print();
+        handleDispararImpressaoCupomLote(printPayload);
       }, 250);
     }
   };
@@ -841,7 +1074,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       setPecaComboSearch('');
       setPecaQuantidade('1');
       setExpandedLotes(prev => ({ ...prev, [resLote.loteId]: true }));
-      setCupomLotePrint({
+      const newCupomPayload: CupomLotePrintData = {
         loteId: resLote.loteId,
         veiculoNome: selectedVehicleForWithdrawal?.name || savedRecords[0]?.veiculo_nome || 'Veículo da Frota',
         veiculoPlaca: selectedVehicleForWithdrawal?.plateOrSerial || savedRecords[0]?.veiculo_placa || '',
@@ -850,9 +1083,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         dataRetirada: pecaDataRetirada,
         status: 'Aguardando Manutenção',
         items: savedRecords,
-      });
+      };
+      setCupomLotePrint(newCupomPayload);
       setTimeout(() => {
-        window.print();
+        handleDispararImpressaoCupomLote(newCupomPayload);
       }, 280);
     } finally {
       setIsSavingRetiradaPeca(false);
@@ -3450,224 +3684,283 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       {/* =====================================================================
           MODAL / DOCUMENTO A4: CUPOM DE RETIRADA / CAUTELA DE PEÇAS EM LOTE (ABA 1)
          ===================================================================== */}
-      {cupomLotePrint && (
-        <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block">
-          <style>{`
-            @media print {
-              body * {
-                visibility: hidden !important;
+      {cupomLotePrint &&
+        createPortal(
+          <div
+            id="cupom-retirada-lote-overlay"
+            className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block"
+          >
+            <style>{`
+              @media print {
+                @page {
+                  size: A4 portrait;
+                  margin: 12mm 14mm;
+                }
+                body > #root,
+                .no-print,
+                .print\\:hidden,
+                #cupom-retirada-lote-header-bar,
+                #btn-imprimir-cupom-lote,
+                #btn-fechar-cupom-lote {
+                  display: none !important;
+                  visibility: hidden !important;
+                  height: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                html, body,
+                #cupom-retirada-lote-overlay,
+                #cupom-retirada-lote-modal-box,
+                #cupom-retirada-lote-scroll-wrap {
+                  position: static !important;
+                  display: block !important;
+                  visibility: visible !important;
+                  background: #ffffff !important;
+                  background-color: #ffffff !important;
+                  backdrop-filter: none !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  max-height: none !important;
+                  height: auto !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  overflow: visible !important;
+                }
+                #cupom-retirada-lote-a4-sheet,
+                #cupom-retirada-lote-a4-sheet * {
+                  visibility: visible !important;
+                }
+                #cupom-retirada-lote-a4-sheet {
+                  position: static !important;
+                  width: 100% !important;
+                  max-width: 190mm !important;
+                  min-height: 255mm !important;
+                  margin: 0 auto !important;
+                  padding: 8mm 10mm !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                }
               }
-              #cupom-retirada-lote-a4-sheet,
-              #cupom-retirada-lote-a4-sheet * {
-                visibility: visible !important;
-              }
-              #cupom-retirada-lote-a4-sheet {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 210mm !important;
-                min-height: 270mm !important;
-                margin: 0 !important;
-                padding: 16mm !important;
-                box-shadow: none !important;
-                border: none !important;
-                background: #ffffff !important;
-                color: #000000 !important;
-              }
-            }
-          `}</style>
+            `}</style>
 
-          <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:border-none">
-            {/* Barra de Topo do Modal (Oculta na Impressão) */}
-            <div className="no-print px-5 py-3.5 bg-zinc-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <Printer className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="text-sm sm:text-base font-black">
-                    Cupom de Retirada / Cautela de Peças — Lote #{cupomLotePrint.loteId}
-                  </h3>
-                  <p className="text-[11px] text-zinc-300">
-                    Documento limpo com as peças vinculadas ao veículo e campo para assinatura física
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-stone-950 transition cursor-pointer shadow-xs"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Imprimir Cupom (A4 / Térmica)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCupomLotePrint(null)}
-                  className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15 cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Folha Limpa do Cupom de Retirada / Cautela */}
-            <div className="p-4 sm:p-8 overflow-y-auto bg-zinc-100 dark:bg-stone-950 print:p-0 print:bg-white">
+            <div
+              id="cupom-retirada-lote-modal-box"
+              className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:border-none"
+            >
+              {/* Barra de Topo do Modal (Oculta na Impressão via display: none) */}
               <div
-                id="cupom-retirada-lote-a4-sheet"
-                className="bg-white text-black mx-auto max-w-[210mm] min-h-[250mm] p-8 sm:p-10 border border-zinc-300 shadow-md flex flex-col justify-between font-sans"
+                id="cupom-retirada-lote-header-bar"
+                className="no-print print:hidden px-5 py-3.5 bg-zinc-900 text-white flex items-center justify-between shrink-0"
               >
-                {/* Topo / Cabeçalho do Cupom */}
-                <div className="space-y-5">
-                  <div className="border-b-2 border-black pb-4 text-center space-y-1">
-                    {companyProfile?.tradeName && (
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">
-                        {companyProfile.tradeName}{' '}
-                        {companyProfile.cnpj ? `• CNPJ: ${companyProfile.cnpj}` : ''}
-                      </p>
-                    )}
-                    <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-black">
-                      Cupom de Retirada / Cautela de Peças
-                    </h1>
-                    <p className="text-xs font-semibold text-zinc-600">
-                      Pedido de Peças por Veículo • Lote: <strong className="font-mono text-black">{cupomLotePrint.loteId}</strong> • Status: <strong className="text-black">{cupomLotePrint.status || 'Aguardando Manutenção'}</strong>
+                <div className="flex items-center gap-2.5">
+                  <Printer className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black">
+                      Cupom de Retirada / Cautela de Peças — Lote #{cupomLotePrint.loteId}
+                    </h3>
+                    <p className="text-[11px] text-zinc-300">
+                      Documento limpo com as peças vinculadas ao veículo e campo para assinatura física
                     </p>
-                  </div>
-
-                  {/* Destaque no Topo: Modelo / Placa do Veículo e Dados da Retirada */}
-                  <div className="border-2 border-black rounded-lg overflow-hidden">
-                    <div className="bg-zinc-900 text-white print:bg-zinc-200 print:text-black px-4 py-2.5 border-b border-black flex items-center justify-between">
-                      <div>
-                        <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">
-                          Veículo / Máquina de Destino (Frota)
-                        </span>
-                        <span className="text-lg sm:text-xl font-black uppercase tracking-tight">
-                          {cupomLotePrint.veiculoNome}
-                          {cupomLotePrint.veiculoPlaca ? ` — PLACA: ${cupomLotePrint.veiculoPlaca}` : ''}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">
-                          Data da Retirada
-                        </span>
-                        <span className="text-sm sm:text-base font-black font-mono">
-                          {formatDateOnlyPtBr(cupomLotePrint.dataRetirada)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black bg-zinc-50">
-                      <div className="p-3">
-                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Operador do Almoxarifado (Liberado por)
-                        </span>
-                        <span className="text-sm font-black text-black">
-                          {cupomLotePrint.operadorAlmoxarifado}
-                        </span>
-                      </div>
-                      <div className="p-3">
-                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
-                          Retirado Por (Mecânico / Operador Responsável)
-                        </span>
-                        <span className="text-sm font-black text-black">
-                          {cupomLotePrint.retiradoPor}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tabela de Peças Retiradas no Lote */}
-                  <div className="border border-black rounded-lg overflow-hidden">
-                    <div className="bg-zinc-100 px-4 py-2 border-b border-black flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-black">
-                        Relação de Peças / Materiais Retirados ({cupomLotePrint.items.length}{' '}
-                        {cupomLotePrint.items.length === 1 ? 'item' : 'itens'})
-                      </span>
-                      <span className="text-[11px] font-bold text-zinc-700">
-                        Baixa de estoque vinculada à Ordem de Serviço (OS)
-                      </span>
-                    </div>
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-black bg-zinc-50 text-[10px] font-black uppercase text-zinc-700">
-                          <th className="py-2 px-3 w-12 text-center border-r border-black">#</th>
-                          <th className="py-2 px-3 w-28 border-r border-black">Código</th>
-                          <th className="py-2 px-3 border-r border-black">Descrição da Peça / Material</th>
-                          <th className="py-2 px-3 w-28 text-center">Quantidade</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-300 text-xs">
-                        {cupomLotePrint.items.map((item, idx) => (
-                          <tr key={item.id || idx} className="border-b border-zinc-300">
-                            <td className="py-2 px-3 text-center font-mono font-bold border-r border-black">
-                              {String(idx + 1).padStart(2, '0')}
-                            </td>
-                            <td className="py-2 px-3 font-mono font-bold text-zinc-800 border-r border-black">
-                              {item.produto_codigo || '—'}
-                            </td>
-                            <td className="py-2 px-3 font-black text-black border-r border-black">
-                              {item.produto_nome || 'Peça do Estoque'}
-                            </td>
-                            <td className="py-2 px-3 text-center font-mono font-black text-sm text-black">
-                              {item.quantidade} {item.produto_unidade || 'UN'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Termo Resumido de Cautela */}
-                  <div className="text-xs leading-relaxed text-justify text-zinc-800 pt-1">
-                    Declaro ter recebido do Almoxarifado as peças discriminadas neste cupom (Lote{' '}
-                    <strong>{cupomLotePrint.loteId}</strong>), sob liberação do operador{' '}
-                    <strong>{cupomLotePrint.operadorAlmoxarifado}</strong>, destinadas exclusivamente à
-                    manutenção do veículo/máquina{' '}
-                    <strong>
-                      {cupomLotePrint.veiculoNome}
-                      {cupomLotePrint.veiculoPlaca ? ` (${cupomLotePrint.veiculoPlaca})` : ''}
-                    </strong>
-                    .
                   </div>
                 </div>
 
-                {/* Rodapé com Campo Pontilhado para Assinatura Física */}
-                <div className="pt-14 pb-2 space-y-8">
-                  <div className="text-center max-w-md mx-auto">
-                    <div className="border-b-2 border-dotted border-black w-full mb-2 h-8" />
-                    <p className="text-sm font-black uppercase text-black">
-                      {cupomLotePrint.retiradoPor}
-                    </p>
-                    <p className="text-xs font-semibold text-zinc-600">
-                      Assinatura Física de quem retirou as peças (Mecânico / Operador)
-                    </p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="btn-imprimir-cupom-lote"
+                    type="button"
+                    onClick={() => handleDispararImpressaoCupomLote(cupomLotePrint)}
+                    className="no-print print:hidden inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-stone-950 transition cursor-pointer shadow-xs"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Imprimir Cupom (A4 / Térmica)</span>
+                  </button>
+                  <button
+                    id="btn-fechar-cupom-lote"
+                    type="button"
+                    onClick={() => setCupomLotePrint(null)}
+                    className="no-print print:hidden p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-10 pt-2 text-center text-xs">
-                    <div>
-                      <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
-                      <p className="font-bold text-zinc-800">
-                        {cupomLotePrint.operadorAlmoxarifado}
+              {/* Folha Limpa do Cupom de Retirada / Cautela */}
+              <div
+                id="cupom-retirada-lote-scroll-wrap"
+                className="p-4 sm:p-8 overflow-y-auto bg-zinc-100 dark:bg-stone-950 print:p-0 print:bg-white"
+              >
+                <div
+                  id="cupom-retirada-lote-a4-sheet"
+                  className="bg-white text-black mx-auto max-w-[210mm] min-h-[250mm] p-8 sm:p-10 border border-zinc-300 shadow-md flex flex-col justify-between font-sans"
+                >
+                  {/* Topo / Cabeçalho do Cupom */}
+                  <div className="space-y-5">
+                    <div className="border-b-2 border-black pb-4 text-center space-y-1">
+                      {companyProfile?.tradeName && (
+                        <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">
+                          {companyProfile.tradeName}{' '}
+                          {companyProfile.cnpj ? `• CNPJ: ${companyProfile.cnpj}` : ''}
+                        </p>
+                      )}
+                      <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-black">
+                        Cupom de Retirada / Cautela de Peças
+                      </h1>
+                      <p className="text-xs font-semibold text-zinc-600">
+                        Pedido de Peças por Veículo • Lote:{' '}
+                        <strong className="font-mono text-black">{cupomLotePrint.loteId}</strong> •
+                        Status:{' '}
+                        <strong className="text-black">
+                          {cupomLotePrint.status || 'Aguardando Manutenção'}
+                        </strong>
                       </p>
-                      <p className="text-[11px] text-zinc-500">Operador do Almoxarifado</p>
                     </div>
-                    <div>
-                      <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
-                      <p className="font-bold text-zinc-800">Conferência na Ordem de Serviço (OS)</p>
-                      <p className="text-[11px] text-zinc-500">Visto da Manutenção</p>
+
+                    {/* Destaque no Topo: Modelo / Placa do Veículo e Dados da Retirada */}
+                    <div className="border-2 border-black rounded-lg overflow-hidden">
+                      <div className="bg-zinc-900 text-white print:bg-zinc-900 print:text-white px-4 py-2.5 border-b border-black flex items-center justify-between">
+                        <div>
+                          <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">
+                            Veículo / Máquina de Destino (Frota)
+                          </span>
+                          <span className="text-lg sm:text-xl font-black uppercase tracking-tight">
+                            {cupomLotePrint.veiculoNome}
+                            {cupomLotePrint.veiculoPlaca
+                              ? ` — PLACA: ${cupomLotePrint.veiculoPlaca}`
+                              : ''}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">
+                            Data da Retirada
+                          </span>
+                          <span className="text-sm sm:text-base font-black font-mono">
+                            {formatDateOnlyPtBr(cupomLotePrint.dataRetirada)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black bg-zinc-50">
+                        <div className="p-3">
+                          <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                            Operador do Almoxarifado (Liberado por)
+                          </span>
+                          <span className="text-sm font-black text-black">
+                            {cupomLotePrint.operadorAlmoxarifado}
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                            Retirado Por (Mecânico / Operador Responsável)
+                          </span>
+                          <span className="text-sm font-black text-black">
+                            {cupomLotePrint.retiradoPor}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tabela de Peças Retiradas no Lote */}
+                    <div className="border border-black rounded-lg overflow-hidden">
+                      <div className="bg-zinc-100 px-4 py-2 border-b border-black flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-black">
+                          Relação de Peças / Materiais Retirados ({cupomLotePrint.items.length}{' '}
+                          {cupomLotePrint.items.length === 1 ? 'item' : 'itens'})
+                        </span>
+                        <span className="text-[11px] font-bold text-zinc-700">
+                          Baixa de estoque vinculada à Ordem de Serviço (OS)
+                        </span>
+                      </div>
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-black bg-zinc-50 text-[10px] font-black uppercase text-zinc-700">
+                            <th className="py-2 px-3 w-12 text-center border-r border-black">#</th>
+                            <th className="py-2 px-3 w-28 border-r border-black">Código</th>
+                            <th className="py-2 px-3 border-r border-black">
+                              Descrição da Peça / Material
+                            </th>
+                            <th className="py-2 px-3 w-28 text-center">Quantidade</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-300 text-xs">
+                          {cupomLotePrint.items.map((item, idx) => (
+                            <tr key={item.id || idx} className="border-b border-zinc-300">
+                              <td className="py-2 px-3 text-center font-mono font-bold border-r border-black">
+                                {String(idx + 1).padStart(2, '0')}
+                              </td>
+                              <td className="py-2 px-3 font-mono font-bold text-zinc-800 border-r border-black">
+                                {item.produto_codigo || '—'}
+                              </td>
+                              <td className="py-2 px-3 font-black text-black border-r border-black">
+                                {item.produto_nome || 'Peça do Estoque'}
+                              </td>
+                              <td className="py-2 px-3 text-center font-mono font-black text-sm text-black">
+                                {item.quantidade} {item.produto_unidade || 'UN'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Termo Resumido de Cautela */}
+                    <div className="text-xs leading-relaxed text-justify text-zinc-800 pt-1">
+                      Declaro ter recebido do Almoxarifado as peças discriminadas neste cupom (Lote{' '}
+                      <strong>{cupomLotePrint.loteId}</strong>), sob liberação do operador{' '}
+                      <strong>{cupomLotePrint.operadorAlmoxarifado}</strong>, destinadas
+                      exclusivamente à manutenção do veículo/máquina{' '}
+                      <strong>
+                        {cupomLotePrint.veiculoNome}
+                        {cupomLotePrint.veiculoPlaca ? ` (${cupomLotePrint.veiculoPlaca})` : ''}
+                      </strong>
+                      .
                     </div>
                   </div>
 
-                  <div className="text-center text-[10px] text-zinc-400 border-t border-zinc-200 pt-2.5">
-                    Cupom emitido em {formatDateTimePtBr(new Date().toISOString())} • Lote:{' '}
-                    {cupomLotePrint.loteId}
+                  {/* Rodapé com Campo Pontilhado para Assinatura Física */}
+                  <div className="pt-14 pb-2 space-y-8">
+                    <div className="text-center max-w-md mx-auto">
+                      <div className="border-b-2 border-dotted border-black w-full mb-2 h-8" />
+                      <p className="text-sm font-black uppercase text-black">
+                        {cupomLotePrint.retiradoPor}
+                      </p>
+                      <p className="text-xs font-semibold text-zinc-600">
+                        Assinatura Física de quem retirou as peças (Mecânico / Operador)
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-10 pt-2 text-center text-xs">
+                      <div>
+                        <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
+                        <p className="font-bold text-zinc-800">
+                          {cupomLotePrint.operadorAlmoxarifado}
+                        </p>
+                        <p className="text-[11px] text-zinc-500">Operador do Almoxarifado</p>
+                      </div>
+                      <div>
+                        <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
+                        <p className="font-bold text-zinc-800">
+                          Conferência na Ordem de Serviço (OS)
+                        </p>
+                        <p className="text-[11px] text-zinc-500">Visto da Manutenção</p>
+                      </div>
+                    </div>
+
+                    <div className="text-center text-[10px] text-zinc-400 border-t border-zinc-200 pt-2.5">
+                      Cupom emitido em {formatDateTimePtBr(new Date().toISOString())} • Lote:{' '}
+                      {cupomLotePrint.loteId}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

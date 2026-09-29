@@ -724,6 +724,89 @@ table.dark-elegance-table td,
     print-color-adjust: exact !important;
     object-fit: contain !important;
   }
+
+  /* =============================================================
+     ISOLAMENTO ESTRITO DE IMPRESSÃO: CUPOM DE RETIRADA / CAUTELA DE PEÇAS (ALMOXARIFADO)
+     Oculta completamente o fundo escuro, barra superior, botão amarelo e botão fechar (X).
+     Exibe apenas o quadrado branco #cupom-retirada-lote-a4-sheet limpo na folha.
+     ============================================================= */
+  body.printing-almox-cupom,
+  body:has(#cupom-retirada-lote-overlay),
+  body:has(#termo-cautela-overlay) {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.printing-almox-cupom > #root,
+  body:has(#cupom-retirada-lote-overlay) > #root,
+  body:has(#termo-cautela-overlay) > #root,
+  #cupom-retirada-lote-overlay .no-print,
+  #cupom-retirada-lote-overlay .print\:hidden,
+  #cupom-retirada-lote-header-bar,
+  #btn-imprimir-cupom-lote,
+  #btn-fechar-cupom-lote,
+  #termo-cautela-overlay .no-print,
+  #termo-cautela-overlay .print\:hidden,
+  #termo-cautela-header-bar {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #cupom-retirada-lote-overlay,
+  #cupom-retirada-lote-modal-box,
+  #cupom-retirada-lote-scroll-wrap,
+  #termo-cautela-overlay,
+  #termo-cautela-modal-box,
+  #termo-cautela-scroll-wrap {
+    position: static !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    inset: auto !important;
+  }
+
+  #cupom-retirada-lote-a4-sheet,
+  #termo-cautela-a4-sheet {
+    position: static !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 194mm !important;
+    min-height: 255mm !important;
+    margin: 0 auto !important;
+    padding: 10mm 12mm !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 }
 
 /* Ocultar setas nativas de rolagem/incremento (spin buttons) de TODOS os inputs numéricos */
