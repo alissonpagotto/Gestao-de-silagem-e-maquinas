@@ -488,33 +488,33 @@ export function findInventoryItemForNfeItem(
     if (foundById) return foundById;
   }
 
-  const itemCode = (item.code || '').trim().toLowerCase();
-  const itemBarcode = (item.barcode || '').trim();
-  const itemDesc = (item.description || '').trim().toLowerCase();
+  const itemCode = String(item.code ?? '').trim().toLowerCase();
+  const itemBarcode = String(item.barcode ?? '').trim();
+  const itemDesc = String(item.description || '').trim().toLowerCase();
 
   // 2. Vinculação por Código exato
   if (itemCode && itemCode !== '001' && itemCode !== '0001' && itemCode !== '1') {
-    const foundByCode = inventory.find(i => i.code && i.code.trim().toLowerCase() === itemCode);
+    const foundByCode = inventory.find(i => i.code !== undefined && i.code !== null && String(i.code).trim().toLowerCase() === itemCode);
     if (foundByCode) return foundByCode;
   }
 
   // 3. Vinculação por Código de Barras (GTIN/EAN)
   if (itemBarcode && itemBarcode !== 'SEM GTIN' && itemBarcode.length >= 8) {
-    const foundByBarcode = inventory.find(i => i.barcode && i.barcode.trim() === itemBarcode);
+    const foundByBarcode = inventory.find(i => i.barcode && String(i.barcode).trim() === itemBarcode);
     if (foundByBarcode) return foundByBarcode;
   }
 
   // 4. Vinculação por Nome Fiscal ou Nome de Cadastro exato
   const foundExactName = inventory.find(i => {
-    const fn = (i.fiscalName || '').trim().toLowerCase();
-    const nm = (i.name || '').trim().toLowerCase();
+    const fn = String(i.fiscalName || '').trim().toLowerCase();
+    const nm = String(i.name || '').trim().toLowerCase();
     return (fn && fn === itemDesc) || (nm && nm === itemDesc);
   });
   if (foundExactName) return foundExactName;
 
   // 5. Vinculação por Código simples se houver match exato
   if (itemCode) {
-    const foundByCode = inventory.find(i => i.code && i.code.trim().toLowerCase() === itemCode);
+    const foundByCode = inventory.find(i => i.code !== undefined && i.code !== null && String(i.code).trim().toLowerCase() === itemCode);
     if (foundByCode) return foundByCode;
   }
 
@@ -3078,10 +3078,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (result.items && result.items.length > 0) {
         result.items = result.items.map((item) => {
           const match = localInventory.find(inv => 
-            (inv.code && item.code && inv.code.trim().toLowerCase() === item.code.trim().toLowerCase()) ||
-            (inv.barcode && item.barcode && inv.barcode === item.barcode) ||
-            (inv.name && item.description && inv.name.trim().toLowerCase() === item.description.trim().toLowerCase()) ||
-            (inv.fiscalName && item.description && inv.fiscalName.trim().toLowerCase() === item.description.trim().toLowerCase())
+            (inv.code !== undefined && inv.code !== null && item.code && String(inv.code).trim().toLowerCase() === String(item.code).trim().toLowerCase()) ||
+            (inv.barcode && item.barcode && String(inv.barcode) === String(item.barcode)) ||
+            (inv.name && item.description && String(inv.name).trim().toLowerCase() === String(item.description).trim().toLowerCase()) ||
+            (inv.fiscalName && item.description && String(inv.fiscalName).trim().toLowerCase() === String(item.description).trim().toLowerCase())
           );
           const markup = match?.profitMargin;
           let calculatedSale = match?.salePrice;
@@ -3451,10 +3451,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     const existingProd = localInventory.find(p =>
       (item.linkedInventoryId && p.id === item.linkedInventoryId) ||
-      (item.barcode && p.barcode && p.barcode !== 'SEM GTIN' && p.barcode.trim() === item.barcode.trim()) ||
-      (item.code && p.code && p.code.trim().toLowerCase() === item.code.trim().toLowerCase()) ||
-      (p.nome_comercial && p.nome_comercial.trim().toLowerCase() === item.description.trim().toLowerCase()) ||
-      (p.name && p.name.trim().toLowerCase() === item.description.trim().toLowerCase())
+      (item.barcode && p.barcode && String(p.barcode) !== 'SEM GTIN' && String(p.barcode).trim() === String(item.barcode).trim()) ||
+      (item.code && p.code !== undefined && p.code !== null && String(p.code).trim().toLowerCase() === String(item.code).trim().toLowerCase()) ||
+      (p.nome_comercial && String(p.nome_comercial).trim().toLowerCase() === String(item.description || '').trim().toLowerCase()) ||
+      (p.name && String(p.name).trim().toLowerCase() === String(item.description || '').trim().toLowerCase())
     );
 
     const xmlCustoComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
@@ -4344,10 +4344,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const itemsForLabels: LabelProductItem[] = (parsedData.items || []).map(item => {
       const matched = updatedInventory.find(p => 
         p.id === item.linkedInventoryId ||
-        (item.barcode && p.barcode && p.barcode !== 'SEM GTIN' && p.barcode.trim() === item.barcode.trim()) ||
-        (item.code && p.code && p.code.trim().toUpperCase() === item.code.trim().toUpperCase()) ||
-        (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.description.toLowerCase().trim()) ||
-        p.name.toLowerCase().trim() === item.description.toLowerCase().trim()
+        (item.barcode && p.barcode && String(p.barcode) !== 'SEM GTIN' && String(p.barcode).trim() === String(item.barcode).trim()) ||
+        (item.code && p.code !== undefined && p.code !== null && String(p.code).trim().toUpperCase() === String(item.code).trim().toUpperCase()) ||
+        (p.nome_comercial && String(p.nome_comercial).toLowerCase().trim() === String(item.description || '').toLowerCase().trim()) ||
+        String(p.name || '').toLowerCase().trim() === String(item.description || '').toLowerCase().trim()
       );
       const invItem: InventoryItem = matched || {
         id: `nfe_prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,

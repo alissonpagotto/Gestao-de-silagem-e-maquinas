@@ -665,8 +665,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           internalParts.forEach(part => {
             const idx = updatedInventory.findIndex(
               i => (part.inventoryItemId && i.id === part.inventoryItemId) || 
-                   (part.description && i.code && i.code.trim().toLowerCase() === part.description.trim().toLowerCase()) ||
-                   (part.description && i.name.trim().toLowerCase() === part.description.trim().toLowerCase())
+                   (part.description && i.code !== undefined && i.code !== null && String(i.code).trim().toLowerCase() === String(part.description).trim().toLowerCase()) ||
+                   (part.description && String(i.name || '').trim().toLowerCase() === String(part.description).trim().toLowerCase())
             );
             if (idx !== -1) {
               const currentItem = updatedInventory[idx];

@@ -208,13 +208,13 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
   // Formata o código de barras padrão
   const resolveBarcodeCode = (item: InventoryItem): string => {
-    if (item.barcode && item.barcode !== 'SEM GTIN' && item.barcode.trim()) {
-      return item.barcode.trim();
+    if (item.barcode && String(item.barcode) !== 'SEM GTIN' && String(item.barcode).trim()) {
+      return String(item.barcode).trim();
     }
-    if (item.code && item.code.trim()) {
-      return item.code.trim();
+    if (item.code !== undefined && item.code !== null && String(item.code).trim()) {
+      return String(item.code).trim();
     }
-    return `PRD-${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
+    return `PRD-${String(item.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
   };
 
   const ADDRESS_LEGEND_LABELS = ['SETOR', 'RUA', 'ESTANTE', 'NÍVEL', 'BOX'] as const;

@@ -77,6 +77,11 @@ const LEGACY_ID_TO_CANONICAL_UUID: Record<string, string> = {
   prod_arla_32_granel: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
   prod_arla_32: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
   prod_arla_32_galao_20l: CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO,
+  '2593d6b8-b84a-4688-91a2-f0de63b05e43': CANONICAL_FUEL_PROD_UUIDS.S10,
+  '2593d6b8-b592-458a-a73c-647151f49781': CANONICAL_FUEL_PROD_UUIDS.S10,
+  '31ea18d8-2783-426b-abb0-42828226e7ce': CANONICAL_FUEL_PROD_UUIDS.S500,
+  '657fcbea-143a-44bd-af25-91b0b19f3118': CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
+  '216acaf8-fc6b-425b-9c3a-da5aeac3e710': CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO,
 };
 
 /**
@@ -1282,18 +1287,11 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
     let rows: any[] = [];
     let querySuccess = false;
 
-    // 1. Tenta buscar prioritariamente da tabela oficial 'estoque_produtos' (sem filtro de company_id inexistente para evitar HTTP 400)
+    // 1. Busca diretamente da tabela oficial 'estoque_produtos' (sem filtro de company_id inexistente para evitar HTTP 400)
     const resProdutos = await supabase.from('estoque_produtos').select('*');
-    if (!resProdutos.error && Array.isArray(resProdutos.data) && resProdutos.data.length > 0) {
+    if (!resProdutos.error && Array.isArray(resProdutos.data)) {
       rows = resProdutos.data;
       querySuccess = true;
-    } else {
-      // 2. Fallback para tabela legada 'estoque'
-      const resEstoque = await supabase.from('estoque').select('*');
-      if (!resEstoque.error && Array.isArray(resEstoque.data) && resEstoque.data.length > 0) {
-        rows = resEstoque.data;
-        querySuccess = true;
-      }
     }
 
     if (!querySuccess || rows.length === 0) {
@@ -1307,10 +1305,11 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
       const qty = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Number(rawQty) : 0;
       const cost = extractProductUnitPrice(row);
       const sale = extractProductSalePrice(row);
-      const codeStr = row.codigo_interno || row.codigo_produto || row.codigo_fabrica || '';
+      const rawCodeVal = row.codigo_fabrica ?? row.codigo_produto ?? row.codigo_interno ?? '';
+      const codeStr = rawCodeVal !== null && rawCodeVal !== undefined ? String(rawCodeVal) : '';
 
       return {
-        id: String(row.id),
+        id: toValidUUID(String(row.id)),
         companyId: row.company_id || undefined,
         code: codeStr,
         codigo_produto: codeStr || undefined,
@@ -1522,11 +1521,14 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
         const sale = Number(row.preco_venda_varejo ?? row.preco_venda ?? 0);
         const unit = normalizeUnit(row.unidade_medida || row.unidade);
 
+        const rawCodeVal = row.codigo_fabrica ?? row.codigo_produto ?? row.codigo_interno ?? '';
+        const codeStr = rawCodeVal !== null && rawCodeVal !== undefined ? String(rawCodeVal) : '';
+
         return {
-          id: String(row.id),
+          id: toValidUUID(String(row.id)),
           companyId: row.company_id || undefined,
-          code: row.codigo_produto || '',
-          codigo_produto: row.codigo_produto || undefined,
+          code: codeStr,
+          codigo_produto: codeStr || undefined,
           name: nomeComercial,
           nome_comercial: nomeComercial,
           nome: nomeComercial,
@@ -3875,10 +3877,16 @@ export async function upsertAbastecimento(
   const cId = companyId || getActiveCompanyId();
   const tableName = getAbastecimentosTableName() || 'abastecimentos';
 
+  const validAbastecimentoId = toValidUUID(log.id);
+  const rawTankId = log.tanque_id || log.tanqueId || null;
+  const validTankUuid = rawTankId ? normalizeTankIdToUUID(String(rawTankId), log.fuelType) : null;
+  const validVeiculoUuid = log.machineryId ? toValidUUID(String(log.machineryId)) : null;
+  const validContaUuid = log.bankAccountId ? toValidUUID(String(log.bankAccountId)) : null;
+
   const rawPayload: Record<string, any> = {
-    id: log.id,
+    id: validAbastecimentoId,
     data: log.date || new Date().toISOString().split('T')[0],
-    veiculo_id: log.machineryId,
+    veiculo_id: validVeiculoUuid,
     veiculo_nome: log.vehicleName || log.machineryPlateOrName || '',
     placa: log.vehiclePlate || log.machineryPlateOrName || '',
     tipo_combustivel: log.fuelType || 'Diesel S10',
@@ -3896,9 +3904,9 @@ export async function upsertAbastecimento(
     posto: log.supplierStation || 'Tanque da Fazenda',
     observacoes: log.notes || '',
     origem_combustivel: log.fuelOrigin || 'Tanque Interno (Fazenda)',
-    tanque_id: log.tanque_id || log.tanqueId || null,
+    tanque_id: validTankUuid && isValidUUID(validTankUuid) ? validTankUuid : null,
     forma_pagamento: log.paymentMethod || null,
-    conta_bancaria_id: log.bankAccountId || null,
+    conta_bancaria_id: validContaUuid && isValidUUID(validContaUuid) ? validContaUuid : null,
     data_vencimento: log.dueDate || null,
     status_financeiro: log.financialStatus || null,
     company_id: cId,
@@ -4176,11 +4184,7 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
   }
 
   try {
-    const cId = companyId || getActiveCompanyId();
-    // Executa a reconciliação automática para unificar saldos antes de listar
-    await reconciliarEstoqueETanquesCombustivel(cId);
-
-    // 1. Busca todos os produtos em estoque_produtos e filtra em memória (evita falha PostgREST com '&' em 'Combustível & Arla')
+    // 1. Busca todos os produtos em estoque_produtos e filtra em memória (sem disparar writes durante leitura)
     let { data, error } = await supabase
       .from('estoque_produtos')
       .select('*')
@@ -4220,10 +4224,13 @@ export async function fetchCombustivelEstoqueProdutos(companyId?: string): Promi
         const sale = extractProductSalePrice(row);
         const unit = isGalao ? 'un' : (rawNomeLower.includes('arla') ? 'L' : String(row.unidade_medida || row.unidade || 'L').trim());
 
+        const rawCodeVal = row.codigo_fabrica ?? row.codigo_produto ?? row.codigo ?? row.code ?? row.codigo_interno ?? '';
+        const codeStr = rawCodeVal !== null && rawCodeVal !== undefined && String(rawCodeVal).trim() !== '' ? String(rawCodeVal) : undefined;
+
         return {
-          id: String(row.id),
+          id: toValidUUID(String(row.id)),
           companyId: row.company_id || undefined,
-          code: row.codigo_produto || row.codigo || row.code || undefined,
+          code: codeStr,
           name: nomeComercial,
           nome_comercial: nomeComercial,
           nome: nomeComercial,
@@ -4578,39 +4585,16 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
           if (matchingProd && isValidUUID(matchingProd.id)) {
             prodId = matchingProd.id;
             const prodSaldo = Number(matchingProd.quantidade_atual ?? matchingProd.quantity ?? 0);
-            if (qtdAtual !== prodSaldo && isValidUUID(String(row.id))) {
+            if (qtdAtual !== prodSaldo) {
               qtdAtual = prodSaldo;
-              void (async () => {
-                try {
-                  await supabase
-                    .from('tanques_combustivel')
-                    .update({
-                      produto_id: prodId,
-                      quantidade_atual: qtdAtual,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('id', String(row.id));
-                } catch {}
-              })();
             }
           }
         } else {
           const matchingProd = fuelProds.find(p => p.id === prodId);
-          if (matchingProd && isValidUUID(String(row.id))) {
+          if (matchingProd) {
             const prodSaldo = Number(matchingProd.quantidade_atual ?? matchingProd.quantity ?? 0);
             if (qtdAtual !== prodSaldo) {
               qtdAtual = prodSaldo;
-              void (async () => {
-                try {
-                  await supabase
-                    .from('tanques_combustivel')
-                    .update({
-                      quantidade_atual: qtdAtual,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('id', String(row.id));
-                } catch {}
-              })();
             }
           }
         }
@@ -4655,20 +4639,6 @@ export async function fetchTanquesCombustivel(companyId?: string): Promise<Tanqu
           company_id: cId,
         };
         mapped.push(arlaTankObj);
-        void (async () => {
-          try {
-            await supabase.from('tanques_combustivel').upsert({
-              id: CANONICAL_TANK_UUIDS.ARLA,
-              nome: 'Tanque Arla 32',
-              tipo_combustivel: 'Arla 32',
-              produto_id: validArlaProdUuid,
-              capacidade_total: 1000,
-              quantidade_atual: arlaQty,
-              company_id: cId || null,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-          } catch {}
-        })();
       }
 
       saveStoredTanquesCombustivel(mapped);
@@ -5182,10 +5152,12 @@ export async function subtrairCombustivelTanque(
  * Exclui um registro de abastecimento da tabela física do Supabase
  */
 export async function deleteAbastecimento(id: string, _companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
+  if (!isSupabaseConfigured || !id) return false;
   try {
+    const validUuid = toValidUUID(id);
+    if (!isValidUUID(validUuid)) return false;
     const tableName = getAbastecimentosTableName() || 'abastecimentos';
-    const { error } = await supabase.from(tableName).delete().eq('id', id);
+    const { error } = await supabase.from(tableName).delete().eq('id', validUuid);
     return !error;
   } catch (err) {
     console.warn('[Supabase Abastecimento] Aviso ao excluir registro:', err);
@@ -8369,7 +8341,17 @@ const LOCAL_CAIXA_FERRAMENTAS_VEICULO_KEY = 'silagem_almox_caixa_veiculo_v1';
 function getLocalRetiradasPecas(): RetiradaPecaRecord[] {
   try {
     const raw = localStorage.getItem(LOCAL_RETIRADAS_PECAS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((r: any) => ({
+      ...r,
+      veiculo_nome: String(r?.veiculo_nome ?? ''),
+      veiculo_placa: String(r?.veiculo_placa ?? ''),
+      produto_nome: String(r?.produto_nome ?? ''),
+      produto_codigo: String(r?.produto_codigo ?? ''),
+      operador_almoxarifado: String(r?.operador_almoxarifado ?? ''),
+      retirado_por: String(r?.retirado_por ?? ''),
+    }));
   } catch {
     return [];
   }
@@ -8495,11 +8477,12 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
         localMatch?.produto_nome ||
         'Peça / Item do Estoque';
 
-      const produtoCodigo =
-        matchedProduct?.code ||
-        matchedProduct?.codigo_produto ||
-        localMatch?.produto_codigo ||
-        '';
+      const produtoCodigo = String(
+        matchedProduct?.code ??
+        matchedProduct?.codigo_produto ??
+        localMatch?.produto_codigo ??
+        ''
+      );
 
       const produtoUnidade =
         matchedProduct?.unidade_medida ||
@@ -8701,9 +8684,9 @@ export async function registrarRetiradaPeca(params: {
     data_retirada: dataRetiradaIso,
     veiculo_nome: params.veiculo?.name || 'Veículo / Máquina',
     veiculo_placa: params.veiculo?.plateOrSerial || '',
-    produto_nome: targetProdLocal?.nome_comercial || targetProdLocal?.name || 'Item do Estoque',
-    produto_codigo: targetProdLocal?.code || targetProdLocal?.codigo_produto || '',
-    produto_unidade: targetProdLocal?.unidade_medida || targetProdLocal?.unit || 'UN',
+    produto_nome: String(targetProdLocal?.nome_comercial || targetProdLocal?.name || 'Item do Estoque'),
+    produto_codigo: String(targetProdLocal?.code ?? targetProdLocal?.codigo_produto ?? ''),
+    produto_unidade: String(targetProdLocal?.unidade_medida || targetProdLocal?.unit || 'UN'),
   };
 
   const updatedRetiradas = [newRecord, ...getLocalRetiradasPecas().filter(r => r.id !== newRecord.id)];
@@ -8886,11 +8869,12 @@ export async function atualizarRetiradaPeca(params: {
       targetProdLocal?.name ||
       params.originalRecord.produto_nome ||
       'Item do Estoque',
-    produto_codigo:
-      targetProdLocal?.code ||
-      targetProdLocal?.codigo_produto ||
-      params.originalRecord.produto_codigo ||
-      '',
+    produto_codigo: String(
+      targetProdLocal?.code ??
+      targetProdLocal?.codigo_produto ??
+      params.originalRecord.produto_codigo ??
+      ''
+    ),
     produto_unidade:
       targetProdLocal?.unidade_medida ||
       targetProdLocal?.unit ||
@@ -8965,9 +8949,12 @@ export async function deleteRetiradaPeca(
     }
   }
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && retiradaId) {
     try {
-      await supabase.from('retiradas_pecas').delete().eq('id', retiradaId);
+      const validRetUuid = toValidUUID(retiradaId);
+      if (isValidUUID(validRetUuid)) {
+        await supabase.from('retiradas_pecas').delete().eq('id', validRetUuid);
+      }
     } catch (err) {
       console.warn('deleteRetiradaPeca err:', err);
     }
@@ -9032,10 +9019,10 @@ export async function registrarRetiradaFerramenta(params: {
   retirado_por: string;
   data_retirada?: string;
 }): Promise<{ success: boolean; record?: MovimentacaoFerramentaRecord; errorMessage?: string }> {
-  const codigo = params.codigo_ferramenta.trim();
-  const nome = params.nome_ferramenta.trim();
-  const operador = params.operador_almoxarifado.trim();
-  const retiradoPor = params.retirado_por.trim();
+  const codigo = String(params.codigo_ferramenta ?? '').trim();
+  const nome = String(params.nome_ferramenta || '').trim();
+  const operador = String(params.operador_almoxarifado || '').trim();
+  const retiradoPor = String(params.retirado_por || '').trim();
   const dataRetiradaIso = params.data_retirada
     ? new Date(params.data_retirada).toISOString()
     : new Date().toISOString();
@@ -9131,10 +9118,11 @@ export async function registrarDevolucaoFerramenta(
       status: 'Devolvido',
     };
 
+    const validMovUuid = toValidUUID(id);
     const { data, error } = await supabase
       .from('movimentacao_ferramentas')
       .update(payload)
-      .eq('id', id)
+      .eq('id', validMovUuid)
       .select('*')
       .maybeSingle();
 
@@ -9177,9 +9165,12 @@ export async function registrarDevolucaoFerramenta(
  * ABA 2: Exclui um registro de movimentação de ferramenta
  */
 export async function deleteMovimentacaoFerramenta(id: string): Promise<boolean> {
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && id) {
     try {
-      await supabase.from('movimentacao_ferramentas').delete().eq('id', id);
+      const validMovUuid = toValidUUID(id);
+      if (isValidUUID(validMovUuid)) {
+        await supabase.from('movimentacao_ferramentas').delete().eq('id', validMovUuid);
+      }
     } catch (err) {
       console.warn('deleteMovimentacaoFerramenta err:', err);
     }
@@ -9280,8 +9271,8 @@ export async function upsertItemCaixaFerramentaVeiculo(params: {
   veiculo?: Machinery;
 }): Promise<{ success: boolean; record?: CaixaFerramentaVeiculoRecord; errorMessage?: string }> {
   const validVeiculoUuid = toValidUUID(params.veiculo_id);
-  const codigo = params.codigo_item_ferramenta.trim();
-  const nome = params.nome_ferramenta.trim();
+  const codigo = String(params.codigo_item_ferramenta ?? '').trim();
+  const nome = String(params.nome_ferramenta || '').trim();
   const qtdEsperada = Math.max(0, Number(params.quantidade_esperada ?? 1));
   const qtdAtual = Math.max(0, Number(params.quantidade_atual ?? qtdEsperada));
 
@@ -9417,10 +9408,11 @@ export async function realizarConferenciaCaixaVeiculo(params: {
         updatePayload.quantidade_esperada = Math.max(0, Number(item.quantidade_esperada) || 0);
       }
 
+      const validItemUuid = toValidUUID(item.id);
       const { error } = await supabase
         .from('caixa_ferramentas_veiculo')
         .update(updatePayload)
-        .eq('id', item.id);
+        .eq('id', validItemUuid);
 
       if (error) {
         logPostgresError('realizarConferenciaCaixaVeiculo', error, {
@@ -9460,9 +9452,12 @@ export async function realizarConferenciaCaixaVeiculo(params: {
  * ABA 3: Remove uma ferramenta fixa da caixa de ferramentas do veículo
  */
 export async function deleteItemCaixaFerramentaVeiculo(id: string): Promise<boolean> {
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && id) {
     try {
-      await supabase.from('caixa_ferramentas_veiculo').delete().eq('id', id);
+      const validItemUuid = toValidUUID(id);
+      if (isValidUUID(validItemUuid)) {
+        await supabase.from('caixa_ferramentas_veiculo').delete().eq('id', validItemUuid);
+      }
     } catch (err) {
       console.warn('deleteItemCaixaFerramentaVeiculo err:', err);
     }

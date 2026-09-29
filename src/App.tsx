@@ -590,6 +590,7 @@ export default function App() {
           const ser = JSON.stringify(fresh);
           if (ser !== lastSyncedState.current.rel_inventory) {
             lastSyncedState.current.rel_inventory = ser;
+            lastSyncedState.current.inventory = ser;
             setInventory(fresh);
           }
         }
@@ -602,6 +603,7 @@ export default function App() {
           const ser = JSON.stringify(fresh);
           if (ser !== lastSyncedState.current.rel_inventory) {
             lastSyncedState.current.rel_inventory = ser;
+            lastSyncedState.current.inventory = ser;
             setInventory(fresh);
           }
         }
@@ -610,10 +612,18 @@ export default function App() {
 
     const handleInventoryChanged = (e: any) => {
       if (e?.detail && Array.isArray(e.detail) && isMounted) {
+        const ser = JSON.stringify(e.detail);
+        lastSyncedState.current.rel_inventory = ser;
+        lastSyncedState.current.inventory = ser;
         setInventory(e.detail);
       } else {
         fetchEstoque(activeTenantId).then(fresh => {
-          if (fresh && isMounted) setInventory(fresh);
+          if (fresh && isMounted) {
+            const ser = JSON.stringify(fresh);
+            lastSyncedState.current.rel_inventory = ser;
+            lastSyncedState.current.inventory = ser;
+            setInventory(fresh);
+          }
         });
       }
     };
@@ -621,7 +631,12 @@ export default function App() {
 
     const handleTanksChanged = () => {
       fetchEstoque(activeTenantId).then(fresh => {
-        if (fresh && isMounted) setInventory(fresh);
+        if (fresh && isMounted) {
+          const ser = JSON.stringify(fresh);
+          lastSyncedState.current.rel_inventory = ser;
+          lastSyncedState.current.inventory = ser;
+          setInventory(fresh);
+        }
       });
     };
     window.addEventListener('silagem_tanks_changed', handleTanksChanged);

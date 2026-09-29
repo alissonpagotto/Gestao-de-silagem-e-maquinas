@@ -7,7 +7,7 @@ import { ArlaGalaoVisualizer } from './ArlaGalaoVisualizer';
 import { FuelCalculationResult } from '../../lib/fuelCalculation';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, fetchTanquesCombustivel, fetchCombustivelEstoqueProdutos, fetchPrecoCombustivelEstoque, extractProductUnitPrice, subtrairCombustivelTanque, updateCapacidadeTanqueCombustivel } from '../../lib/supabaseService';
-import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, getStoredInventory, ensureDieselProductsInInventory, calculateDefaultDueDate, formatCurrencyBRL } from '../../lib/storage';
+import { getStoredSuppliers, getStoredBankAccounts, getStoredTanquesCombustivel, getStoredInventory, ensureDieselProductsInInventory, calculateDefaultDueDate, formatCurrencyBRL, CANONICAL_TANK_UUIDS, CANONICAL_FUEL_PROD_UUIDS, normalizeTankIdToUUID, normalizeFuelProdIdToUUID } from '../../lib/storage';
 
 interface FuelModalProps {
   isOpen: boolean;
@@ -48,7 +48,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [tanques, setTanques] = useState<TanqueCombustivel[]>(() => getStoredTanquesCombustivel());
   const [selectedTanqueId, setSelectedTanqueId] = useState<string>(() => {
     const list = getStoredTanquesCombustivel();
-    return list[0]?.id || 'tanque_diesel_s10';
+    return normalizeTankIdToUUID(list[0]?.id, list[0]?.nome) || CANONICAL_TANK_UUIDS.S10;
   });
 
   // Combustíveis dinâmicos do estoque (tabela 'public.estoque_produtos' - categoria 'Combustível & Arla')
@@ -65,7 +65,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       const nome = String(item.nome_comercial || item.name || '').toLowerCase();
       return cat.includes('combust') || cat.includes('arla') || nome.includes('diesel') || nome.includes('arla');
     });
-    return list[0]?.id || 'prod_diesel_s10';
+    return normalizeFuelProdIdToUUID(list[0]?.id, list[0]?.name) || CANONICAL_FUEL_PROD_UUIDS.S10;
   });
 
   // Estado para o dropdown customizado de veículos com busca
@@ -936,14 +936,6 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
     (log as any).km_atual = !isNaN(currK) && currK > 0 ? currK : undefined;
     (log as any).horas_atual = !isNaN(currH) && currH > 0 ? currH : undefined;
-
-    // Se for abastecido do Tanque Interno da Fazenda (e NÃO for Galão do Almoxarifado), subtrai os litros da tabela 'tanques_combustivel'
-    if (fuelOrigin === 'Tanque Interno (Fazenda)' && !isArlaGalaoSelected && (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) && l > 0) {
-      const tId = selectedTanque?.id || selectedTanqueId || tanques[0]?.id;
-      subtrairCombustivelTanque(tId, l).catch(err => {
-        console.warn('Erro ao subtrair litros de tanques_combustivel:', err);
-      });
-    }
 
     onSave(log, createExpense && !editingLog);
     onClose();

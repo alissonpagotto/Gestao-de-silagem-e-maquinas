@@ -142,10 +142,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     const s = searchTerm.toLowerCase().trim();
     if (!s) return allItems;
     return allItems.filter(item => {
-      const nameMatch = (item.nome_comercial || item.name || '').toLowerCase().includes(s);
-      const catMatch = (item.categoria || item.category || '').toLowerCase().includes(s);
-      const codeMatch = (item.code || '').toLowerCase().includes(s);
-      const locMatch = (item.location || '').toLowerCase().includes(s);
+      const nameMatch = String(item.nome_comercial || item.name || '').toLowerCase().includes(s);
+      const catMatch = String(item.categoria || item.category || '').toLowerCase().includes(s);
+      const codeMatch = String(item.code ?? item.codigo_produto ?? '').toLowerCase().includes(s);
+      const locMatch = String(item.location || '').toLowerCase().includes(s);
       return nameMatch || catMatch || codeMatch || locMatch;
     });
   }, [allItems, searchTerm]);

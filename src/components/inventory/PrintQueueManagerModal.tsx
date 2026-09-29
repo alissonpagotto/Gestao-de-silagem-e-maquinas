@@ -73,9 +73,9 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
   // Resolve o código interno do produto
   const resolveInternalCode = (item: InventoryItem): string => {
-    if (item.code && item.code.trim()) return item.code.trim();
-    if (item.codigo_produto && item.codigo_produto.trim()) return item.codigo_produto.trim();
-    return `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
+    if (item.code !== undefined && item.code !== null && String(item.code).trim()) return String(item.code).trim();
+    if (item.codigo_produto !== undefined && item.codigo_produto !== null && String(item.codigo_produto).trim()) return String(item.codigo_produto).trim();
+    return `ID:${String(item.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
   };
 
   // Foca na barra de busca rápida ao abrir o modal
@@ -165,9 +165,9 @@ export const PrintQueueManagerModal: React.FC<PrintQueueManagerModalProps> = ({
 
     return all
       .filter((item) => {
-        const name = (item.nome_comercial || item.name || '').toLowerCase();
-        const code = (item.code || item.codigo_produto || '').toLowerCase();
-        const barcode = (item.barcode || item.codigo_barras || '').toLowerCase();
+        const name = String(item.nome_comercial || item.name || '').toLowerCase();
+        const code = String(item.code ?? item.codigo_produto ?? '').toLowerCase();
+        const barcode = String(item.barcode ?? item.codigo_barras ?? '').toLowerCase();
         const address = resolveFormattedAddress(item).toLowerCase();
         return (
           name.includes(q) ||

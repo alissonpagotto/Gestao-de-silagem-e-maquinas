@@ -53,11 +53,11 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
 
       if (!term) return true;
 
-      const codeMatch = (item.code || '').toLowerCase().includes(term);
-      const idMatch = (item.id || '').toLowerCase().includes(term);
-      const nameMatch = (item.name || '').toLowerCase().includes(term);
-      const barcodeMatch = (item.barcode || '').toLowerCase().includes(term);
-      const locMatch = (item.location || '').toLowerCase().includes(term);
+      const codeMatch = String(item.code ?? '').toLowerCase().includes(term);
+      const idMatch = String(item.id || '').toLowerCase().includes(term);
+      const nameMatch = String(item.name || '').toLowerCase().includes(term);
+      const barcodeMatch = String(item.barcode ?? '').toLowerCase().includes(term);
+      const locMatch = String(item.location || '').toLowerCase().includes(term);
 
       return codeMatch || idMatch || nameMatch || barcodeMatch || locMatch;
     });

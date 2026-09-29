@@ -315,14 +315,14 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       m =>
         m.id === item.veiculo_id ||
         (item.veiculo_id && toValidUUID(m.id) === toValidUUID(item.veiculo_id)) ||
-        (item.veiculo_nome && m.name.toLowerCase() === item.veiculo_nome.toLowerCase())
+        (item.veiculo_nome && String(m.name || '').toLowerCase() === String(item.veiculo_nome || '').toLowerCase())
     );
     const matchedProd = allProducts.find(
       p =>
         p.id === item.produto_id ||
         (item.produto_id && toValidUUID(p.id) === toValidUUID(item.produto_id)) ||
         (item.produto_nome &&
-          (p.nome_comercial || p.name || '').toLowerCase() === item.produto_nome.toLowerCase())
+          String(p.nome_comercial || p.name || '').toLowerCase() === String(item.produto_nome || '').toLowerCase())
     );
 
     setPecaVeiculoId(matchedVeh?.id || item.veiculo_id || '');
@@ -480,16 +480,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   };
 
   const filteredRetiradasPecas = useMemo(() => {
-    const q = pecaSearchFilter.toLowerCase().trim();
+    const q = String(pecaSearchFilter || '').toLowerCase().trim();
     if (!q) return retiradasPecas;
     return retiradasPecas.filter(r => {
       return (
-        (r.veiculo_nome || '').toLowerCase().includes(q) ||
-        (r.veiculo_placa || '').toLowerCase().includes(q) ||
-        (r.produto_nome || '').toLowerCase().includes(q) ||
-        (r.produto_codigo || '').toLowerCase().includes(q) ||
-        (r.operador_almoxarifado || '').toLowerCase().includes(q) ||
-        (r.retirado_por || '').toLowerCase().includes(q)
+        String(r.veiculo_nome || '').toLowerCase().includes(q) ||
+        String(r.veiculo_placa || '').toLowerCase().includes(q) ||
+        String(r.produto_nome || '').toLowerCase().includes(q) ||
+        String(r.produto_codigo ?? '').toLowerCase().includes(q) ||
+        String(r.operador_almoxarifado || '').toLowerCase().includes(q) ||
+        String(r.retirado_por || '').toLowerCase().includes(q)
       );
     });
   }, [retiradasPecas, pecaSearchFilter]);
@@ -523,8 +523,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     if (!prodId) return;
     const prod = allProducts.find(p => p.id === prodId);
     if (!prod) return;
-    setFerCodigo(prod.code || prod.codigo_produto || prod.barcode || `FER-${prod.id.slice(0, 4).toUpperCase()}`);
-    setFerNome(prod.nome_comercial || prod.name || '');
+    setFerCodigo(String(prod.code || prod.codigo_produto || prod.barcode || `FER-${prod.id.slice(0, 4).toUpperCase()}`));
+    setFerNome(String(prod.nome_comercial || prod.name || ''));
   };
 
   const handleRegistrarCautela = async (e: React.FormEvent, printAfterSave = false) => {
@@ -654,11 +654,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
       if (!q) return true;
       return (
-        item.codigo_ferramenta.toLowerCase().includes(q) ||
-        item.nome_ferramenta.toLowerCase().includes(q) ||
-        item.retirado_por.toLowerCase().includes(q) ||
-        item.operador_almoxarifado.toLowerCase().includes(q) ||
-        (item.conferido_por || '').toLowerCase().includes(q)
+        String(item.codigo_ferramenta ?? '').toLowerCase().includes(q) ||
+        String(item.nome_ferramenta || '').toLowerCase().includes(q) ||
+        String(item.retirado_por || '').toLowerCase().includes(q) ||
+        String(item.operador_almoxarifado || '').toLowerCase().includes(q) ||
+        String(item.conferido_por || '').toLowerCase().includes(q)
       );
     });
   }, [movimentacoesFerramentas, ferStatusFilter, ferSearchTerm]);
@@ -775,8 +775,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       for (const itemPadrao of KIT_PADRAO_VEICULO) {
         const jaExiste = itensCaixaDoVeiculo.some(
           i =>
-            i.codigo_item_ferramenta.toLowerCase() === itemPadrao.codigo.toLowerCase() ||
-            i.nome_ferramenta.toLowerCase() === itemPadrao.nome.toLowerCase()
+            String(i.codigo_item_ferramenta ?? '').toLowerCase() === String(itemPadrao.codigo || '').toLowerCase() ||
+            String(i.nome_ferramenta || '').toLowerCase() === String(itemPadrao.nome || '').toLowerCase()
         );
         if (jaExiste) continue;
 
@@ -903,7 +903,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   }, [itensCaixaDoVeiculo]);
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col lg:h-[calc(100vh-64px)] lg:overflow-hidden space-y-2.5">
       {/* Datalist global de colaboradores para sugestão rápida em campos de operador/mecânico */}
       <datalist id="almox-employees-list">
         {employeeNames.map(name => (
@@ -911,36 +911,37 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         ))}
       </datalist>
 
-      {/* Cabeçalho Principal do Módulo */}
-      <div className="no-print bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-              <Wrench className="w-6 h-6 stroke-[2.2]" />
+      {/* Cabeçalho Principal Compacto do Módulo */}
+      <div className="no-print shrink-0 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 shadow-xs">
+        {/* Linha 1: Título + Descrição à esquerda e Botões de Ação à direita na mesma linha */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+              <Wrench className="w-4 h-4 stroke-[2.2]" />
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white tracking-tight">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h1 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
                   Gestão e Controle do Almoxarifado
                 </h1>
-                <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800">
+                <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800 leading-none">
                   Supabase Ativo
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-zinc-600 dark:text-stone-400 mt-0.5">
+              <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
                 Controle de saídas de peças para manutenção, cautela de ferramentas com assinatura e inventário de caixas por veículo
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {onNavigateToEstoque && (
               <button
                 type="button"
                 onClick={onNavigateToEstoque}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 transition cursor-pointer"
               >
-                <Package className="w-4 h-4" />
+                <Package className="w-3.5 h-3.5" />
                 <span>Ver Estoque Geral</span>
               </button>
             )}
@@ -948,153 +949,154 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               type="button"
               onClick={() => loadAlmoxarifadoData(false)}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-stone-700 bg-white hover:bg-zinc-50 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 transition cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-zinc-200 dark:border-stone-700 bg-white hover:bg-zinc-50 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 transition cursor-pointer shadow-2xs"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Atualizar Dados</span>
             </button>
           </div>
         </div>
 
-        {/* Cards de Resumo Rápido */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-zinc-100 dark:border-stone-800">
-          <div
-            onClick={() => setActiveTab('retirada_pecas')}
-            className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-              activeTab === 'retirada_pecas'
-                ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-400 dark:border-amber-700'
-                : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
-            }`}
-          >
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400">
-                ABA 1 • Saídas de Peças
-              </span>
-              <p className="text-lg font-black text-zinc-900 dark:text-white mt-0.5">
-                {retiradasPecas.length} {retiradasPecas.length === 1 ? 'retirada' : 'retiradas'}
-              </p>
-              <span className="text-[11px] text-zinc-600 dark:text-stone-400">
-                Baixa automática no estoque
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <PackageMinus className="w-5 h-5" />
-            </div>
+        {/* Linha 2 Integrada: Botões de Alternância das Abas + Pílulas Horizontais Compactas de Resumo */}
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 mt-2 pt-2 border-t border-zinc-100 dark:border-stone-800">
+          {/* Botões de Navegação das 3 Abas */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveTab('retirada_pecas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                activeTab === 'retirada_pecas'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
+              }`}
+            >
+              <PackageMinus className="w-3.5 h-3.5" />
+              <span>1. Retirada de Peças para Manutenção</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('cautela_ferramentas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                activeTab === 'cautela_ferramentas'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>2. Movimentação e Cautela de Ferramentas</span>
+              {totalEmprestimosAtivos > 0 && (
+                <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-amber-500 text-stone-950 font-black leading-none">
+                  {totalEmprestimosAtivos}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('caixa_veiculo')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                activeTab === 'caixa_veiculo'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              <span>3. Caixa de Ferramentas Fixa por Veículo</span>
+            </button>
           </div>
 
-          <div
-            onClick={() => setActiveTab('cautela_ferramentas')}
-            className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-              activeTab === 'cautela_ferramentas'
-                ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700'
-                : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
-            }`}
-          >
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400">
-                ABA 2 • Cautela de Ferramentas
-              </span>
-              <p className="text-lg font-black text-zinc-900 dark:text-white mt-0.5">
-                {totalEmprestimosAtivos} em uso agora
-              </p>
-              <span className="text-[11px] text-zinc-600 dark:text-stone-400">
-                {movimentacoesFerramentas.length} movimentações registradas
-              </span>
+          {/* 3 Cartões/Pílulas de Resumo Horizontais Ultra-Compactos */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+            <div
+              onClick={() => setActiveTab('retirada_pecas')}
+              className={`px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
+                activeTab === 'retirada_pecas'
+                  ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-400 dark:border-amber-700'
+                  : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
+              }`}
+            >
+              <div className="min-w-0">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block leading-none">
+                  ABA 1 • Saídas
+                </span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
+                    {retiradasPecas.length} {retiradasPecas.length === 1 ? 'retirada' : 'retiradas'}
+                  </span>
+                </div>
+              </div>
+              <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <PackageMinus className="w-3.5 h-3.5" />
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <ArrowLeftRight className="w-5 h-5" />
+
+            <div
+              onClick={() => setActiveTab('cautela_ferramentas')}
+              className={`px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
+                activeTab === 'cautela_ferramentas'
+                  ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700'
+                  : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
+              }`}
+            >
+              <div className="min-w-0">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block leading-none">
+                  ABA 2 • Cautelas
+                </span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
+                    {totalEmprestimosAtivos} em uso
+                  </span>
+                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 leading-none">
+                    ({movimentacoesFerramentas.length})
+                  </span>
+                </div>
+              </div>
+              <div className="w-6 h-6 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div
+              onClick={() => setActiveTab('caixa_veiculo')}
+              className={`px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
+                activeTab === 'caixa_veiculo'
+                  ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700'
+                  : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
+              }`}
+            >
+              <div className="min-w-0">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block leading-none">
+                  ABA 3 • Caixa Fixa
+                </span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-xs font-black text-zinc-900 dark:text-white leading-tight">
+                    {resumoCaixaVeiculoAtual.totalItens} itens no veículo
+                  </span>
+                </div>
+              </div>
+              <div className="w-6 h-6 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <Briefcase className="w-3.5 h-3.5" />
+              </div>
             </div>
           </div>
-
-          <div
-            onClick={() => setActiveTab('caixa_veiculo')}
-            className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-              activeTab === 'caixa_veiculo'
-                ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700'
-                : 'bg-zinc-50 dark:bg-stone-800/50 border-zinc-200 dark:border-stone-800 hover:border-zinc-300'
-            }`}
-          >
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-stone-400">
-                ABA 3 • Caixa Fixa por Veículo
-              </span>
-              <p className="text-lg font-black text-zinc-900 dark:text-white mt-0.5">
-                {resumoCaixaVeiculoAtual.totalItens} itens no veículo
-              </p>
-              <span className="text-[11px] text-zinc-600 dark:text-stone-400">
-                {resumoCaixaVeiculoAtual.itensFaltantes > 0
-                  ? `${resumoCaixaVeiculoAtual.itensFaltantes} com divergência`
-                  : 'Inventário de bordo por frota'}
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Briefcase className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-
-        {/* Barra de Navegação das 3 Abas */}
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-zinc-200 dark:border-stone-800">
-          <button
-            type="button"
-            onClick={() => setActiveTab('retirada_pecas')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
-              activeTab === 'retirada_pecas'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
-            }`}
-          >
-            <PackageMinus className="w-4 h-4" />
-            <span>1. Retirada de Peças para Manutenção</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('cautela_ferramentas')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
-              activeTab === 'cautela_ferramentas'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>2. Movimentação e Cautela de Ferramentas</span>
-            {totalEmprestimosAtivos > 0 && (
-              <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-500 text-stone-950 font-black">
-                {totalEmprestimosAtivos}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('caixa_veiculo')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
-              activeTab === 'caixa_veiculo'
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-300'
-            }`}
-          >
-            <ClipboardCheck className="w-4 h-4" />
-            <span>3. Caixa de Ferramentas Fixa por Veículo</span>
-          </button>
         </div>
       </div>
 
       {/* Feedback Banner */}
       {feedbackBanner && (
         <div
-          className={`no-print p-3.5 rounded-xl border flex items-center justify-between gap-3 shadow-xs animate-in fade-in duration-150 ${
+          className={`no-print shrink-0 px-3.5 py-2 rounded-xl border flex items-center justify-between gap-3 shadow-xs animate-in fade-in duration-150 ${
             feedbackBanner.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
               : 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
           }`}
         >
-          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold">
+          <div className="flex items-center gap-2 text-xs font-bold">
             {feedbackBanner.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             ) : (
-              <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             )}
             <span>{feedbackBanner.message}</span>
           </div>
@@ -1103,7 +1105,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             onClick={() => setFeedbackBanner(null)}
             className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -1112,68 +1114,68 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           ABA 1: RETIRADA DE PEÇAS PARA MANUTENÇÃO
          ===================================================================== */}
       {activeTab === 'retirada_pecas' && (
-        <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Formulário de Saída de Peça */}
+        <div className="no-print flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
+          {/* Formulário de Saída de Peça Compacto */}
           <div
-            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-2xl p-5 shadow-xs h-fit transition ${
+            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-xl p-3.5 shadow-xs flex flex-col justify-between overflow-y-auto transition ${
               editingRetiradaPeca
                 ? 'border-amber-500 dark:border-amber-500 ring-2 ring-amber-500/20'
                 : 'border-zinc-200 dark:border-stone-800'
             }`}
           >
-            <div className="flex items-center justify-between gap-2.5 pb-3.5 mb-4 border-b border-zinc-200 dark:border-stone-800">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                    editingRetiradaPeca
-                      ? 'bg-amber-500 text-stone-950'
-                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                  }`}
-                >
-                  {editingRetiradaPeca ? (
-                    <Pencil className="w-4 h-4 stroke-[2.4]" />
-                  ) : (
-                    <PackageMinus className="w-5 h-5" />
-                  )}
-                </div>
-                <div>
-                  <h2 className="text-base font-black text-zinc-900 dark:text-white">
-                    {editingRetiradaPeca ? 'Editar Lançamento de Retirada' : 'Registrar Retirada de Peça'}
-                  </h2>
-                  <p className="text-xs text-zinc-500 dark:text-stone-400">
+            <div>
+              <div className="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      editingRetiradaPeca
+                        ? 'bg-amber-500 text-stone-950'
+                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
                     {editingRetiradaPeca ? (
-                      <span>Ajusta automaticamente a diferença em <code className="font-mono">estoque_produtos</code></span>
+                      <Pencil className="w-3.5 h-3.5 stroke-[2.4]" />
                     ) : (
-                      <span>Abate automaticamente o saldo em <code className="font-mono">estoque_produtos</code></span>
+                      <PackageMinus className="w-4 h-4" />
                     )}
-                  </p>
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
+                      {editingRetiradaPeca ? 'Editar Lançamento de Retirada' : 'Registrar Retirada de Peça'}
+                    </h2>
+                    <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
+                      {editingRetiradaPeca ? (
+                        <span>Ajusta automaticamente a diferença em <code className="font-mono">estoque_produtos</code></span>
+                      ) : (
+                        <span>Abate automaticamente o saldo em <code className="font-mono">estoque_produtos</code></span>
+                      )}
+                    </p>
+                  </div>
                 </div>
+
+                {editingRetiradaPeca && (
+                  <button
+                    type="button"
+                    onClick={handleCancelarEdicaoRetirada}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>Cancelar</span>
+                  </button>
+                )}
               </div>
 
-              {editingRetiradaPeca && (
-                <button
-                  type="button"
-                  onClick={handleCancelarEdicaoRetirada}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  <span>Cancelar</span>
-                </button>
-              )}
-            </div>
-
-            <form onSubmit={handleSalvarRetiradaPeca} className="space-y-4">
-              {/* Veículo / Máquina */}
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                  Veículo / Máquina (Frota) *
-                </label>
-                <div className="relative">
+              <form onSubmit={handleSalvarRetiradaPeca} className="space-y-2.5">
+                {/* Veículo / Máquina */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                    Veículo / Máquina (Frota) *
+                  </label>
                   <select
                     value={pecaVeiculoId}
                     onChange={e => setPecaVeiculoId(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="">Selecione o veículo ou máquina...</option>
                     {frotasList.map(m => (
@@ -1183,206 +1185,207 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     ))}
                   </select>
                 </div>
-              </div>
 
-              {/* Item do Estoque */}
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                  Item do Estoque (Peça / Insumo) *
-                </label>
-                <select
-                  value={pecaProdutoId}
-                  onChange={e => setPecaProdutoId(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">Selecione a peça ou item no estoque...</option>
-                  {allProducts.map(item => {
-                    const qtd = Number(item.quantidade_atual ?? item.quantity ?? 0);
-                    const un = item.unidade_medida || item.unit || 'UN';
-                    const codigo = item.code || item.codigo_produto ? `[${item.code || item.codigo_produto}] ` : '';
-                    return (
-                      <option key={item.id} value={item.id}>
-                        {codigo}{item.nome_comercial || item.name} — Saldo: {qtd} {un}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* Painel Reativo de Saldo do Item Selecionado */}
-              {selectedProductForWithdrawal && (
-                <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
-                      Saldo Atual no Estoque
-                    </span>
-                    <span className="text-base font-black text-zinc-900 dark:text-white">
-                      {saldoAtualProdutoSelecionado}{' '}
-                      {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
-                      Saldo Após Retirada
-                    </span>
-                    <span
-                      className={`text-base font-black ${
-                        qtdRetiradaNumerica > saldoAtualProdutoSelecionado
-                          ? 'text-rose-600 dark:text-rose-400'
-                          : 'text-emerald-700 dark:text-emerald-400'
-                      }`}
-                    >
-                      {saldoPrevistoAposRetirada}{' '}
-                      {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Quantidade e Data */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Item do Estoque */}
                 <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                    Quantidade Retirada *
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                    Item do Estoque (Peça / Insumo) *
                   </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0.01"
-                    value={pecaQuantidade}
-                    onChange={e => setPecaQuantidade(e.target.value)}
+                  <select
+                    value={pecaProdutoId}
+                    onChange={e => setPecaProdutoId(e.target.value)}
                     required
-                    placeholder="1"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                    Data da Retirada *
-                  </label>
-                  <input
-                    type="date"
-                    value={pecaDataRetirada}
-                    onChange={e => setPecaDataRetirada(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              {/* Operador do Almoxarifado */}
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                  Operador do Almoxarifado *
-                </label>
-                <input
-                  type="text"
-                  list="almox-employees-list"
-                  value={pecaOperadorAlmox}
-                  onChange={e => setPecaOperadorAlmox(e.target.value)}
-                  required
-                  placeholder="Nome do responsável pela entrega no almoxarifado"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              {/* Quem Retirou (Mecânico / Operador) */}
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
-                  Quem Retirou (Mecânico / Operador) *
-                </label>
-                <input
-                  type="text"
-                  list="almox-employees-list"
-                  value={pecaRetiradoPor}
-                  onChange={e => setPecaRetiradoPor(e.target.value)}
-                  required
-                  placeholder="Nome do mecânico ou operador que retirou a peça"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {editingRetiradaPeca && (
-                  <button
-                    type="button"
-                    onClick={handleCancelarEdicaoRetirada}
-                    className="py-3 px-4 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 font-bold text-sm transition cursor-pointer"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
-                    Cancelar
-                  </button>
+                    <option value="">Selecione a peça ou item no estoque...</option>
+                    {allProducts.map(item => {
+                      const qtd = Number(item.quantidade_atual ?? item.quantity ?? 0);
+                      const un = item.unidade_medida || item.unit || 'UN';
+                      const codigo = item.code || item.codigo_produto ? `[${item.code || item.codigo_produto}] ` : '';
+                      return (
+                        <option key={item.id} value={item.id}>
+                          {codigo}{item.nome_comercial || item.name} — Saldo: {qtd} {un}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Painel Reativo de Saldo do Item Selecionado */}
+                {selectedProductForWithdrawal && (
+                  <div className="px-3 py-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 block leading-none">
+                        Saldo Atual no Estoque
+                      </span>
+                      <span className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
+                        {saldoAtualProdutoSelecionado}{' '}
+                        {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 block leading-none">
+                        Saldo Após Retirada
+                      </span>
+                      <span
+                        className={`text-sm font-black leading-tight ${
+                          qtdRetiradaNumerica > saldoAtualProdutoSelecionado
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-emerald-700 dark:text-emerald-400'
+                        }`}
+                      >
+                        {saldoPrevistoAposRetirada}{' '}
+                        {selectedProductForWithdrawal.unidade_medida || selectedProductForWithdrawal.unit || 'UN'}
+                      </span>
+                    </div>
+                  </div>
                 )}
-                <button
-                  type="submit"
-                  disabled={isSavingRetiradaPeca}
-                  className={`flex-1 py-3 px-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer disabled:opacity-50 ${
-                    editingRetiradaPeca
-                      ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
-                      : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white'
-                  }`}
-                >
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                  <span>
-                    {isSavingRetiradaPeca
-                      ? 'Salvando e Atualizando Estoque...'
-                      : editingRetiradaPeca
-                        ? 'Salvar Alterações da Retirada'
-                        : 'Salvar Retirada e Abater do Estoque'}
-                  </span>
-                </button>
-              </div>
-            </form>
+
+                {/* Quantidade e Data */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      Quantidade Retirada *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      value={pecaQuantidade}
+                      onChange={e => setPecaQuantidade(e.target.value)}
+                      required
+                      placeholder="1"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      Data da Retirada *
+                    </label>
+                    <input
+                      type="date"
+                      value={pecaDataRetirada}
+                      onChange={e => setPecaDataRetirada(e.target.value)}
+                      required
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Operador do Almoxarifado e Quem Retirou */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      Operador do Almoxarifado *
+                    </label>
+                    <input
+                      type="text"
+                      list="almox-employees-list"
+                      value={pecaOperadorAlmox}
+                      onChange={e => setPecaOperadorAlmox(e.target.value)}
+                      required
+                      placeholder="Responsável pela entrega"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                      Quem Retirou (Mecânico) *
+                    </label>
+                    <input
+                      type="text"
+                      list="almox-employees-list"
+                      value={pecaRetiradoPor}
+                      onChange={e => setPecaRetiradoPor(e.target.value)}
+                      required
+                      placeholder="Mecânico / Operador"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  {editingRetiradaPeca && (
+                    <button
+                      type="button"
+                      onClick={handleCancelarEdicaoRetirada}
+                      className="py-2 px-3 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 font-bold text-xs transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isSavingRetiradaPeca}
+                    className={`flex-1 py-2 px-3.5 rounded-lg font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 ${
+                      editingRetiradaPeca
+                        ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
+                        : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>
+                      {isSavingRetiradaPeca
+                        ? 'Salvando e Atualizando Estoque...'
+                        : editingRetiradaPeca
+                          ? 'Salvar Alterações da Retirada'
+                          : 'Salvar Retirada e Abater do Estoque'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
 
           {/* Lista / Histórico de Retiradas de Peças */}
-          <div className="lg:col-span-7 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-4 border-b border-zinc-200 dark:border-stone-800">
+          <div className="lg:col-span-7 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
+            <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 mb-2 border-b border-zinc-200 dark:border-stone-800">
               <div>
-                <h2 className="text-base font-black text-zinc-900 dark:text-white">
+                <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
                   Histórico de Saídas de Peças para Manutenção
                 </h2>
-                <p className="text-xs text-zinc-500 dark:text-stone-400">
+                <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
                   Registros sincronizados em <code className="font-mono">public.retiradas_pecas</code>
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="relative w-full sm:w-60">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={pecaSearchFilter}
                   onChange={e => setPecaSearchFilter(e.target.value)}
                   placeholder="Buscar veículo, peça, mecânico..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
             </div>
 
             {filteredRetiradasPecas.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-3">
-                  <PackageMinus className="w-6 h-6" />
+              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-2">
+                  <PackageMinus className="w-5 h-5" />
                 </div>
-                <p className="text-sm font-bold text-zinc-700 dark:text-stone-300">
+                <p className="text-xs font-bold text-zinc-700 dark:text-stone-300">
                   Nenhuma retirada de peça registrada ainda
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-stone-400 max-w-sm mt-1">
+                <p className="text-[11px] text-zinc-500 dark:text-stone-400 max-w-sm mt-0.5">
                   Utilize o formulário ao lado para registrar saídas de peças para veículos ou máquinas. O saldo será abatido automaticamente do estoque.
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-stone-800 text-[11px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                      <th className="py-2.5 px-3">Data</th>
-                      <th className="py-2.5 px-3">Veículo / Máquina</th>
-                      <th className="py-2.5 px-3">Item / Peça Retirada</th>
-                      <th className="py-2.5 px-3 text-center">Qtd.</th>
-                      <th className="py-2.5 px-3">Almoxarife / Mecânico</th>
-                      <th className="py-2.5 px-2 text-right">Ação</th>
+                  <thead className="sticky top-0 bg-white dark:bg-stone-900 z-10">
+                    <tr className="border-b border-zinc-200 dark:border-stone-800 text-[10px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
+                      <th className="py-2 px-2.5">Data</th>
+                      <th className="py-2 px-2.5">Veículo / Máquina</th>
+                      <th className="py-2 px-2.5">Item / Peça Retirada</th>
+                      <th className="py-2 px-2.5 text-center">Qtd.</th>
+                      <th className="py-2 px-2.5">Almoxarife / Mecânico</th>
+                      <th className="py-2 px-2 text-right">Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">
@@ -1391,11 +1394,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                         key={item.id}
                         className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/40 transition"
                       >
-                        <td className="py-3 px-3 font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap">
+                        <td className="py-2 px-2.5 font-bold text-zinc-700 dark:text-stone-300 whitespace-nowrap">
                           {formatDateOnlyPtBr(item.data_retirada)}
                         </td>
-                        <td className="py-3 px-3">
-                          <div className="font-extrabold text-zinc-900 dark:text-white">
+                        <td className="py-2 px-2.5">
+                          <div className="font-extrabold text-zinc-900 dark:text-white leading-tight">
                             {item.veiculo_nome || 'Veículo da Frota'}
                           </div>
                           {item.veiculo_placa && (
@@ -1404,8 +1407,8 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-zinc-900 dark:text-white">
+                        <td className="py-2 px-2.5">
+                          <div className="font-bold text-zinc-900 dark:text-white leading-tight">
                             {item.produto_nome || 'Item do Estoque'}
                           </div>
                           {item.produto_codigo && (
@@ -1414,20 +1417,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg font-black text-xs bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                        <td className="py-2 px-2.5 text-center">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-black text-[11px] bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
                             -{item.quantidade} {item.produto_unidade || 'UN'}
                           </span>
                         </td>
-                        <td className="py-3 px-3">
-                          <div className="text-zinc-800 dark:text-stone-200 font-bold">
+                        <td className="py-2 px-2.5">
+                          <div className="text-zinc-800 dark:text-stone-200 font-bold leading-tight">
                             Retirou: <span className="font-semibold">{item.retirado_por}</span>
                           </div>
-                          <div className="text-[11px] text-zinc-500 dark:text-stone-400">
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight">
                             Almox.: {item.operador_almoxarifado}
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-right whitespace-nowrap">
+                        <td className="py-2 px-2 text-right whitespace-nowrap">
                           <div className="inline-flex items-center justify-end gap-1">
                             <button
                               type="button"
@@ -1435,7 +1438,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                               title="Imprimir Termo de Retirada de Peça (A4) para assinatura"
                               className="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition cursor-pointer"
                             >
-                              <Printer className="w-4 h-4" />
+                              <Printer className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -1448,7 +1451,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                                   : 'text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-amber-950/40'
                               }`}
                             >
-                              <Pencil className="w-4 h-4" />
+                              <Pencil className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -1457,7 +1460,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                               title="Estornar retirada e devolver ao estoque"
                               className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -1475,18 +1478,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           ABA 2: MOVIMENTAÇÃO E CAUTELA DE FERRAMENTAS (COM DOCUMENTO DE ASSINATURA)
          ===================================================================== */}
       {activeTab === 'cautela_ferramentas' && (
-        <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="no-print flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Formulário de Nova Cautela / Retirada de Ferramenta */}
-          <div className="lg:col-span-4 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs h-fit">
-            <div className="flex items-center gap-2.5 pb-3.5 mb-4 border-b border-zinc-200 dark:border-stone-800">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Wrench className="w-5 h-5" />
+          <div className="lg:col-span-4 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs overflow-y-auto">
+            <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <Wrench className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-base font-black text-zinc-900 dark:text-white">
+                <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
                   Nova Cautela de Ferramenta
                 </h2>
-                <p className="text-xs text-zinc-500 dark:text-stone-400">
+                <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
                   Controle de empréstimo de ferramentas de uso comum
                 </p>
               </div>
@@ -1494,17 +1497,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
             <form
               onSubmit={e => handleRegistrarCautela(e, false)}
-              className="space-y-3.5"
+              className="space-y-2.5"
             >
               {/* Preenchimento rápido opcional a partir de itens cadastrados */}
               <div>
-                <label className="block text-[11px] font-bold text-zinc-500 dark:text-stone-400 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase tracking-wider mb-1">
                   Preencher Rápido do Cadastro (Opcional)
                 </label>
                 <select
                   defaultValue=""
                   onChange={e => handleQuickSelectToolFromStock(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-700 dark:text-stone-300"
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-700 dark:text-stone-300"
                 >
                   <option value="">Digitar manualmente abaixo ou escolher item...</option>
                   {allProducts.map(p => (
@@ -1515,9 +1518,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                     Código *
                   </label>
                   <input
@@ -1526,12 +1529,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     onChange={e => setFerCodigo(e.target.value)}
                     required
                     placeholder="Ex: FER-01"
-                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                     Nome da Ferramenta *
                   </label>
                   <input
@@ -1540,13 +1543,13 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     onChange={e => setFerNome(e.target.value)}
                     required
                     placeholder="Ex: Torquímetro de Estalo, Lixadeira..."
-                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                   Data e Hora da Retirada *
                 </label>
                 <input
@@ -1554,47 +1557,49 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   value={ferDataHoraRetirada}
                   onChange={e => setFerDataHoraRetirada(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white"
+                  className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                  Operador do Almoxarifado *
-                </label>
-                <input
-                  type="text"
-                  list="almox-employees-list"
-                  value={ferOperadorAlmox}
-                  onChange={e => setFerOperadorAlmox(e.target.value)}
-                  required
-                  placeholder="Quem entregou a ferramenta"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-semibold text-zinc-900 dark:text-white"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                    Operador Almox. *
+                  </label>
+                  <input
+                    type="text"
+                    list="almox-employees-list"
+                    value={ferOperadorAlmox}
+                    onChange={e => setFerOperadorAlmox(e.target.value)}
+                    required
+                    placeholder="Quem entregou"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                    Quem Retirou *
+                  </label>
+                  <input
+                    type="text"
+                    list="almox-employees-list"
+                    value={ferRetiradoPor}
+                    onChange={e => setFerRetiradoPor(e.target.value)}
+                    required
+                    placeholder="Quem pegou"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
-                  Quem Retirou (Responsável) *
-                </label>
-                <input
-                  type="text"
-                  list="almox-employees-list"
-                  value={ferRetiradoPor}
-                  onChange={e => setFerRetiradoPor(e.target.value)}
-                  required
-                  placeholder="Mecânico / Colaborador que pegou"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-semibold text-zinc-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2 space-y-2">
+              <div className="pt-1 space-y-1.5">
                 <button
                   type="submit"
                   disabled={isSavingCautela}
-                  className="w-full py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                  className="w-full py-2 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 text-white font-black text-xs flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
                 >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Registrar Empréstimo / Cautela</span>
                 </button>
 
@@ -1602,9 +1607,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   type="button"
                   disabled={isSavingCautela}
                   onClick={e => handleRegistrarCautela(e as any, true)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                  className="w-full py-2 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-2xs"
                 >
-                  <Printer className="w-4 h-4" />
+                  <Printer className="w-3.5 h-3.5" />
                   <span>Registrar e Imprimir Termo (A4)</span>
                 </button>
               </div>
@@ -1612,23 +1617,23 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           </div>
 
           {/* Lista Ativa de Ferramentas Emprestadas e Devolvidas */}
-          <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-4 border-b border-zinc-200 dark:border-stone-800">
+          <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
+            <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
               <div>
-                <h2 className="text-base font-black text-zinc-900 dark:text-white">
+                <h2 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
                   Controle Ativo de Empréstimos e Devoluções
                 </h2>
-                <p className="text-xs text-zinc-500 dark:text-stone-400">
+                <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
                   Sincronizado com <code className="font-mono">public.movimentacao_ferramentas</code>
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded-xl bg-zinc-100 dark:bg-stone-800 p-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="inline-flex rounded-lg bg-zinc-100 dark:bg-stone-800 p-0.5">
                   <button
                     type="button"
                     onClick={() => setFerStatusFilter('todas')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                       ferStatusFilter === 'todas'
                         ? 'bg-white dark:bg-stone-700 text-zinc-900 dark:text-white shadow-2xs'
                         : 'text-zinc-600 dark:text-stone-400'
@@ -1639,7 +1644,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setFerStatusFilter('ativas')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                       ferStatusFilter === 'ativas'
                         ? 'bg-amber-500 text-stone-950 shadow-2xs'
                         : 'text-zinc-600 dark:text-stone-400'
@@ -1650,7 +1655,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setFerStatusFilter('devolvidas')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                       ferStatusFilter === 'devolvidas'
                         ? 'bg-emerald-600 text-white shadow-2xs'
                         : 'text-zinc-600 dark:text-stone-400'
@@ -1660,33 +1665,33 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   </button>
                 </div>
 
-                <div className="relative w-full sm:w-52">
-                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <div className="relative w-full sm:w-48">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={ferSearchTerm}
                     onChange={e => setFerSearchTerm(e.target.value)}
                     placeholder="Buscar ferramenta ou nome..."
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white"
+                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-semibold text-zinc-900 dark:text-white"
                   />
                 </div>
               </div>
             </div>
 
             {filteredMovimentacoesFerramentas.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-3">
-                  <Wrench className="w-6 h-6" />
+              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-2">
+                  <Wrench className="w-5 h-5" />
                 </div>
-                <p className="text-sm font-bold text-zinc-700 dark:text-stone-300">
+                <p className="text-xs font-bold text-zinc-700 dark:text-stone-300">
                   Nenhuma movimentação de ferramenta encontrada
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-stone-400 max-w-sm mt-1">
+                <p className="text-[11px] text-zinc-500 dark:text-stone-400 max-w-sm mt-0.5">
                   Registre a saída de torquímetros, lixadeiras ou outras ferramentas de uso comum e imprima o Termo de Cautela para assinatura.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
                 {filteredMovimentacoesFerramentas.map(item => {
                   const isDevolvido =
                     Boolean(item.data_devolucao) ||
@@ -1787,12 +1792,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           ABA 3: CAIXA DE FERRAMENTAS FIXA POR VEÍCULO
          ===================================================================== */}
       {activeTab === 'caixa_veiculo' && (
-        <div className="no-print space-y-5">
+        <div className="no-print flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto">
           {/* Seletor de Veículo e Painel de Conferência */}
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs">
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div className="shrink-0 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
               <div className="w-full lg:max-w-md">
-                <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">
+                <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                   Selecione o Veículo / Máquina da Frota *
                 </label>
                 <select
@@ -1801,7 +1806,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     setSelectedCaixaVeiculoId(e.target.value);
                     setIsConferenciaMode(false);
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">Escolha um veículo da frota...</option>
                   {frotasList.map(m => (
@@ -1813,16 +1818,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               </div>
 
               {selectedCaixaVeiculoId && (
-                <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                   {itensCaixaDoVeiculo.length === 0 && (
                     <button
                       type="button"
                       disabled={isAddingItemCaixa}
                       onClick={handlePopularKitPadraoVeiculo}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 transition cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 transition cursor-pointer"
                     >
-                      <Sparkles className="w-4 h-4" />
-                      <span>Carregar Kit Padrão (Macaco, Chave de Roda, Triângulo...)</span>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Carregar Kit Padrão</span>
                     </button>
                   )}
 
@@ -1831,18 +1836,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       type="button"
                       disabled={itensCaixaDoVeiculo.length === 0}
                       onClick={handleIniciarConferenciaCaixa}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition cursor-pointer disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition cursor-pointer disabled:opacity-40"
                     >
-                      <ClipboardCheck className="w-4 h-4 stroke-[2.5]" />
+                      <ClipboardCheck className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span>Realizar Conferência de Caixa</span>
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setIsConferenciaMode(false)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold border border-zinc-300 dark:border-stone-700 bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-zinc-300 dark:border-stone-700 bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 cursor-pointer"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" />
                       <span>Cancelar Conferência</span>
                     </button>
                   )}
@@ -1852,74 +1857,69 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
             {/* Status da última conferência do veículo selecionado */}
             {selectedCaixaVeiculoId && (
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-zinc-100 dark:border-stone-800 text-xs">
-                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
-                  <span className="text-[10px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 pt-2.5 border-t border-zinc-100 dark:border-stone-800 text-xs">
+                <div className="px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
+                  <span className="text-[9px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block leading-none">
                     Veículo Selecionado
                   </span>
-                  <span className="font-black text-sm text-zinc-900 dark:text-white">
+                  <span className="font-black text-xs text-zinc-900 dark:text-white leading-tight block mt-0.5 truncate">
                     {selectedCaixaVehicle?.name || 'Veículo'}
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
-                  <span className="text-[10px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block">
+                <div className="px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
+                  <span className="text-[9px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block leading-none">
                     Total de Ferramentas Fixas
                   </span>
-                  <span className="font-black text-sm text-zinc-900 dark:text-white">
+                  <span className="font-black text-xs text-zinc-900 dark:text-white leading-tight block mt-0.5">
                     {resumoCaixaVeiculoAtual.totalItens} itens cadastrados
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
-                  <span className="text-[10px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block">
+                <div className="px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
+                  <span className="text-[9px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block leading-none">
                     Situação da Caixa
                   </span>
                   {resumoCaixaVeiculoAtual.itensFaltantes > 0 ? (
-                    <span className="font-black text-sm text-rose-600 dark:text-rose-400">
+                    <span className="font-black text-xs text-rose-600 dark:text-rose-400 leading-tight block mt-0.5">
                       {resumoCaixaVeiculoAtual.itensFaltantes} item(ns) em falta
                     </span>
                   ) : (
-                    <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                    <span className="font-black text-xs text-emerald-600 dark:text-emerald-400 leading-tight block mt-0.5">
                       100% Completa ({resumoCaixaVeiculoAtual.itensCompletos} OK)
                     </span>
                   )}
                 </div>
 
-                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
-                  <span className="text-[10px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block">
+                <div className="px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-stone-800/60 border border-zinc-200/80 dark:border-stone-800">
+                  <span className="text-[9px] font-extrabold uppercase text-zinc-500 dark:text-stone-400 block leading-none">
                     Última Conferência
                   </span>
-                  <span className="font-bold text-zinc-900 dark:text-white block">
+                  <span className="font-bold text-xs text-zinc-900 dark:text-white leading-tight block mt-0.5 truncate">
                     {resumoCaixaVeiculoAtual.ultimaConf
                       ? formatDateTimePtBr(resumoCaixaVeiculoAtual.ultimaConf)
                       : 'Ainda não conferida'}
                   </span>
-                  {resumoCaixaVeiculoAtual.confPor && (
-                    <span className="text-[11px] text-zinc-500 dark:text-stone-400">
-                      Por: {resumoCaixaVeiculoAtual.confPor}
-                    </span>
-                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Painel de Conferência Ativa */}
+          {/* Painel de Conferência Ativa Compacto */}
           {isConferenciaMode && (
             <form
               onSubmit={handleSalvarConferenciaCaixa}
-              className="bg-emerald-50/70 dark:bg-emerald-950/25 border-2 border-emerald-500 dark:border-emerald-700 rounded-2xl p-5 shadow-md space-y-4 animate-in fade-in duration-150"
+              className="shrink-0 bg-emerald-50/70 dark:bg-emerald-950/25 border-2 border-emerald-500 dark:border-emerald-700 rounded-xl p-3.5 shadow-sm space-y-2.5 animate-in fade-in duration-150"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200 dark:border-emerald-800">
-                <div className="flex items-center gap-2.5">
-                  <ClipboardCheck className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200 dark:border-emerald-800">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
                   <div>
-                    <h3 className="text-sm sm:text-base font-black text-emerald-950 dark:text-emerald-100">
+                    <h3 className="text-xs sm:text-sm font-black text-emerald-950 dark:text-emerald-100 leading-tight">
                       Modo de Conferência de Caixa Ativo — {selectedCaixaVehicle?.name}
                     </h3>
-                    <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                      Verifique cada ferramenta abaixo, ajuste a Quantidade Atual caso falte algum item e informe quem realizou a conferência.
+                    <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-tight">
+                      Verifique cada ferramenta abaixo, ajuste a Quantidade Atual e informe quem realizou a conferência.
                     </p>
                   </div>
                 </div>
@@ -1933,15 +1933,15 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     });
                     setConferenciaQuantidades(allOk);
                   }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-stone-800 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 cursor-pointer self-start sm:self-auto"
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-stone-800 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 cursor-pointer self-start sm:self-auto"
                 >
                   Marcar Todos Completos
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="block text-xs font-extrabold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-extrabold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-1">
                     Conferido Por (Operador / Responsável) *
                   </label>
                   <input
@@ -1951,12 +1951,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     onChange={e => setConferenciaConferidoPor(e.target.value)}
                     required
                     placeholder="Digite o nome de quem conferiu a caixa"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-400 dark:border-emerald-700 bg-white dark:bg-stone-900 text-sm font-bold text-zinc-900 dark:text-white"
+                    className="w-full px-3 py-1.5 rounded-lg border border-emerald-400 dark:border-emerald-700 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-extrabold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-extrabold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-1">
                     Data e Hora da Conferência *
                   </label>
                   <input
@@ -1964,7 +1964,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     value={conferenciaData}
                     onChange={e => setConferenciaData(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-400 dark:border-emerald-700 bg-white dark:bg-stone-900 text-sm font-bold text-zinc-900 dark:text-white"
+                    className="w-full px-3 py-1.5 rounded-lg border border-emerald-400 dark:border-emerald-700 bg-white dark:bg-stone-900 text-xs font-bold text-zinc-900 dark:text-white"
                   />
                 </div>
 
@@ -1972,9 +1972,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <button
                     type="submit"
                     disabled={isSavingConferencia}
-                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer disabled:opacity-50"
+                    className="w-full py-1.5 px-3.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-50"
                   >
-                    <Check className="w-4 h-4 stroke-[2.5]" />
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     <span>
                       {isSavingConferencia ? 'Gravando Conferência...' : 'Salvar Conferência de Caixa'}
                     </span>
@@ -1985,17 +1985,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           )}
 
           {/* Grid: Adicionar Nova Ferramenta Fixa + Tabela de Inventário da Caixa */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
             {/* Formulário para Adicionar Ferramenta Fixa ao Veículo */}
-            <div className="lg:col-span-4 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs h-fit">
-              <h3 className="text-sm font-black text-zinc-900 dark:text-white pb-3 mb-3.5 border-b border-zinc-200 dark:border-stone-800 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-emerald-600" />
+            <div className="lg:col-span-4 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs h-fit">
+              <h3 className="text-xs font-black text-zinc-900 dark:text-white pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800 flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Adicionar Ferramenta Fixa à Caixa</span>
               </h3>
 
-              <form onSubmit={handleAdicionarFerramentaCaixa} className="space-y-3.5">
+              <form onSubmit={handleAdicionarFerramentaCaixa} className="space-y-2.5">
                 <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                     Código do Item *
                   </label>
                   <input
@@ -2004,12 +2004,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     onChange={e => setNovaFerramentaCaixaCodigo(e.target.value)}
                     required
                     placeholder="Ex: CX-001, MAC-12T"
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                     Nome da Ferramenta *
                   </label>
                   <input
@@ -2017,14 +2017,14 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     value={novaFerramentaCaixaNome}
                     onChange={e => setNovaFerramentaCaixaNome(e.target.value)}
                     required
-                    placeholder="Ex: Macaco Hidráulico, Chave de Roda, Triângulo"
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white"
+                    placeholder="Ex: Macaco Hidráulico, Chave de Roda"
+                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-bold text-zinc-900 dark:text-white"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                       Qtd. Esperada *
                     </label>
                     <input
@@ -2036,12 +2036,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                         setNovaFerramentaCaixaQtdAtual(e.target.value);
                       }}
                       required
-                      className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-black text-zinc-900 dark:text-white"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] font-extrabold text-zinc-700 dark:text-stone-300 uppercase tracking-wider mb-1">
                       Qtd. Atual *
                     </label>
                     <input
@@ -2050,7 +2050,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       value={novaFerramentaCaixaQtdAtual}
                       onChange={e => setNovaFerramentaCaixaQtdAtual(e.target.value)}
                       required
-                      className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-black text-zinc-900 dark:text-white"
+                      className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-xs font-black text-zinc-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -2058,60 +2058,60 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 <button
                   type="submit"
                   disabled={isAddingItemCaixa || !selectedCaixaVeiculoId}
-                  className="w-full py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                  className="w-full py-2 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 text-white font-black text-xs flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
                 >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Incluir na Caixa do Veículo</span>
                 </button>
               </form>
             </div>
 
             {/* Tabela de Ferramentas Fixas do Veículo Selecionado */}
-            <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-zinc-200 dark:border-stone-800">
+            <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs flex flex-col min-h-0 overflow-hidden">
+              <div className="shrink-0 flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-stone-800">
                 <div>
-                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                  <h3 className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
                     Inventário da Caixa de Ferramentas — {selectedCaixaVehicle?.name || 'Selecione um Veículo'}
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-stone-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight">
                     Sincronizado com <code className="font-mono">public.caixa_ferramentas_veiculo</code>
                   </p>
                 </div>
               </div>
 
               {itensCaixaDoVeiculo.length === 0 ? (
-                <div className="py-12 text-center flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-3">
-                    <Briefcase className="w-6 h-6" />
+                <div className="flex-1 py-6 text-center flex flex-col items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-stone-800 flex items-center justify-center text-zinc-400 mb-2">
+                    <Briefcase className="w-5 h-5" />
                   </div>
-                  <p className="text-sm font-bold text-zinc-700 dark:text-stone-300">
+                  <p className="text-xs font-bold text-zinc-700 dark:text-stone-300">
                     Nenhuma ferramenta fixa cadastrada para este veículo
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-stone-400 max-w-md mt-1 mb-4">
+                  <p className="text-[11px] text-zinc-500 dark:text-stone-400 max-w-md mt-0.5 mb-3">
                     Adicione manualmente ao lado ou clique no botão abaixo para incluir o kit padrão (Macaco, Chave de Roda, Triângulo, Chaves Combinadas).
                   </p>
                   {selectedCaixaVeiculoId && (
                     <button
                       type="button"
                       onClick={handlePopularKitPadraoVeiculo}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition cursor-pointer"
                     >
-                      <Sparkles className="w-4 h-4" />
+                      <Sparkles className="w-3.5 h-3.5" />
                       <span>Adicionar Kit Padrão Agora</span>
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-zinc-200 dark:border-stone-800 text-[11px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                        <th className="py-2.5 px-3">Código do Item</th>
-                        <th className="py-2.5 px-3">Nome da Ferramenta</th>
-                        <th className="py-2.5 px-3 text-center">Qtd. Esperada</th>
-                        <th className="py-2.5 px-3 text-center">Qtd. Atual</th>
-                        <th className="py-2.5 px-3">Status / Conferência</th>
-                        <th className="py-2.5 px-2 text-right">Ação</th>
+                    <thead className="sticky top-0 bg-white dark:bg-stone-900 z-10">
+                      <tr className="border-b border-zinc-200 dark:border-stone-800 text-[10px] font-extrabold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
+                        <th className="py-2 px-2.5">Código do Item</th>
+                        <th className="py-2 px-2.5">Nome da Ferramenta</th>
+                        <th className="py-2 px-2.5 text-center">Qtd. Esperada</th>
+                        <th className="py-2 px-2.5 text-center">Qtd. Atual</th>
+                        <th className="py-2 px-2.5">Status / Conferência</th>
+                        <th className="py-2 px-2 text-right">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-stone-800/80 text-xs">

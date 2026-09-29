@@ -120,10 +120,18 @@ export const CANONICAL_TANK_UUIDS = {
 
 export const CANONICAL_FUEL_PROD_UUIDS = {
   S10: 'e2688a0e-15ae-4112-a832-d054b00ba4b7',
-  S500: '31ea18d8-2783-426b-abb0-42828226e7ce',
-  ARLA_GRANEL: '657fcbea-143a-44bd-af25-91b0b19f3118',
+  S500: '48becfd9-c7e8-4d7e-bd55-fc5dc02db2ff',
+  ARLA_GRANEL: 'f20bfadc-4165-4a43-9c12-99d2971442c6',
   ARLA_GALAO: '337558c6-0ebb-4bb2-a92f-029cab1eee17',
 } as const;
+
+const LEGACY_FUEL_PROD_UUID_MAP: Record<string, string> = {
+  '2593d6b8-b84a-4688-91a2-f0de63b05e43': CANONICAL_FUEL_PROD_UUIDS.S10,
+  '2593d6b8-b592-458a-a73c-647151f49781': CANONICAL_FUEL_PROD_UUIDS.S10,
+  '31ea18d8-2783-426b-abb0-42828226e7ce': CANONICAL_FUEL_PROD_UUIDS.S500,
+  '657fcbea-143a-44bd-af25-91b0b19f3118': CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
+  '216acaf8-fc6b-425b-9c3a-da5aeac3e710': CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO,
+};
 
 const STORAGE_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -137,8 +145,9 @@ export function normalizeTankIdToUUID(rawId?: string, tipoOuNome?: string): stri
 }
 
 export function normalizeFuelProdIdToUUID(rawId?: string, nome?: string): string {
-  const id = String(rawId || '').trim();
-  if (STORAGE_UUID_REGEX.test(id)) return id.toLowerCase();
+  const id = String(rawId || '').trim().toLowerCase();
+  if (LEGACY_FUEL_PROD_UUID_MAP[id]) return LEGACY_FUEL_PROD_UUID_MAP[id];
+  if (STORAGE_UUID_REGEX.test(id)) return id;
   const text = `${id} ${nome || ''}`.toLowerCase();
   if (text.includes('galao') || text.includes('galão') || text.includes('20l')) return CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO;
   if (text.includes('arla')) return CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL;
@@ -537,11 +546,24 @@ export function saveStoredSuppliers(suppliers: Supplier[]): void {
 }
 
 export function ensureDieselProductsInInventory(items: InventoryItem[]): InventoryItem[] {
-  const currentList = Array.isArray(items) ? [...items] : [];
+  const currentList = (Array.isArray(items) ? items : []).map(item => {
+    const rawId = String(item?.id || '').trim();
+    const mappedId = LEGACY_FUEL_PROD_UUID_MAP[rawId.toLowerCase()] || rawId;
+    return {
+      ...item,
+      id: mappedId,
+      code: item?.code !== undefined && item?.code !== null ? String(item.code) : '',
+      codigo_produto: item?.codigo_produto !== undefined && item?.codigo_produto !== null ? String(item.codigo_produto) : undefined,
+      barcode: item?.barcode !== undefined && item?.barcode !== null ? String(item.barcode) : undefined,
+      codigo_barras: item?.codigo_barras !== undefined && item?.codigo_barras !== null ? String(item.codigo_barras) : undefined,
+      name: String(item?.name || item?.nome_comercial || item?.nome || ''),
+      nome_comercial: item?.nome_comercial ? String(item.nome_comercial) : String(item?.name || item?.nome || ''),
+    };
+  });
   const tanks = getStoredTanquesCombustivel();
-  const tankS10 = tanks.find(t => t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'));
-  const tankS500 = tanks.find(t => t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'));
-  const tankArla = tanks.find(t => t.id === 'tanque_arla_32' || t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla'));
+  const tankS10 = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S10 || t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'));
+  const tankS500 = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.S500 || t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'));
+  const tankArla = tanks.find(t => t.id === CANONICAL_TANK_UUIDS.ARLA || t.id === 'tanque_arla_32' || t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla'));
 
   // Helper para ler estritamente o saldo do próprio item de estoque (permitindo 0 sem fallback para tanques)
   const extractProductQty = (item: any): number => {
