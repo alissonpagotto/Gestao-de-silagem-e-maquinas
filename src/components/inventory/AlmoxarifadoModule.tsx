@@ -69,7 +69,22 @@ interface AlmoxarifadoModuleProps {
   onSaveInventory: (inventory: InventoryItem[]) => void;
   onSaveMachineries?: (machineries: Machinery[]) => void;
   onNavigateToEstoque?: () => void;
-  onLaunchBatchToMaintenanceOS?: (batchItems: RetiradaPecaRecord[], vehicle?: Machinery) => void;
+  onLaunchBatchToMaintenanceOS?: (payload: {
+    loteId: string;
+    veiculo: Machinery;
+    items: RetiradaPecaRecord[];
+  }) => void;
+}
+
+interface CupomLotePrintData {
+  loteId: string;
+  veiculoNome: string;
+  veiculoPlaca: string;
+  operadorAlmoxarifado: string;
+  retiradoPor: string;
+  dataRetirada: string;
+  status: string;
+  items: RetiradaPecaRecord[];
 }
 
 interface CestaPecaVeiculoItem {
@@ -268,7 +283,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const [editingRetiradaPeca, setEditingRetiradaPeca] = useState<RetiradaPecaRecord | null>(null);
 
   // Estado de Impressão de Cupom de Retirada / Cautela em Lote
-  const [termoRetiradaLotePrint, setTermoRetiradaLotePrint] = useState<RetiradaPecaRecord[] | null>(null);
+  const [cupomLotePrint, setCupomLotePrint] = useState<CupomLotePrintData | null>(null);
 
   // Lê estritamente o ID do produto selecionado na tabela 'public.estoque_produtos' sem filtros inválidos
   useEffect(() => {
@@ -440,7 +455,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       ? retiradasPecas.filter(r => r.lote_id === item.lote_id)
       : [item];
     const listToPrint = batchItems.length > 0 ? batchItems : [item];
-    setTermoRetiradaLotePrint(listToPrint);
+    const first = listToPrint[0] || item;
+    setCupomLotePrint({
+      loteId: first.lote_id || item.id.slice(0, 8).toUpperCase(),
+      veiculoNome: first.veiculo_nome || 'Veículo da Frota',
+      veiculoPlaca: first.veiculo_placa || '',
+      operadorAlmoxarifado: first.operador_almoxarifado || '—',
+      retiradoPor: first.retirado_por || '—',
+      dataRetirada: first.data_retirada || new Date().toISOString().split('T')[0],
+      status: first.status || 'Aguardando Manutenção',
+      items: listToPrint,
+    });
     if (autoPrint) {
       setTimeout(() => {
         window.print();
@@ -462,10 +487,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           String(m.name || '').toLowerCase() === String(item.veiculo_nome || '').toLowerCase())
     );
 
-    const updatedList = atualizarStatusLoteRetiradaPecas(
-      item.lote_id || itemsToLaunch.map(i => i.id),
-      'Em Manutenção (OS)'
-    );
+    if (!matchedVeh) {
+      showFeedback('error', 'Veículo vinculado ao lote não encontrado no cadastro de frotas.');
+      return;
+    }
+
+    const loteKey = item.lote_id || item.id.slice(0, 8).toUpperCase();
+    const updatedList = atualizarStatusLoteRetiradaPecas({
+      loteId: item.lote_id,
+      recordIds: itemsToLaunch.map(i => i.id),
+      novoStatus: 'Em Manutenção (OS)',
+    });
     setRetiradasPecas(prev =>
       prev.map(r => {
         const match = updatedList.find(u => u.id === r.id);
@@ -474,11 +506,15 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     );
 
     if (onLaunchBatchToMaintenanceOS) {
-      onLaunchBatchToMaintenanceOS(itemsToLaunch, matchedVeh);
+      onLaunchBatchToMaintenanceOS({
+        loteId: loteKey,
+        veiculo: matchedVeh,
+        items: itemsToLaunch,
+      });
     } else {
       showFeedback(
         'success',
-        `Lote ${item.lote_id || ''} (${itemsToLaunch.length} peça(s)) marcado como pronto para Ordem de Serviço!`
+        `Lote ${loteKey} (${itemsToLaunch.length} peça(s)) marcado como pronto para Ordem de Serviço!`
       );
     }
   };
@@ -537,7 +573,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       }
 
       // Monta a lista final de itens do pedido do veículo
-      let itensParaSalvar = [...cestaPecasVeiculo];
+      const itensParaSalvar = [...cestaPecasVeiculo];
       if (pecaProdutoId && selectedProductForWithdrawal && qtdRetiradaNumerica > 0) {
         const alreadyInBasket = itensParaSalvar.some(i => i.produto_id === selectedProductForWithdrawal.id);
         if (!alreadyInBasket) {
@@ -564,7 +600,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         operador_almoxarifado: pecaOperadorAlmox.trim(),
         retirado_por: pecaRetiradoPor.trim(),
         data_retirada: pecaDataRetirada,
-        itens: itensParaSalvar.map(item => ({
+        items: itensParaSalvar.map(item => ({
           produto_id: item.produto_id,
           quantidade: item.quantidade,
           produto: item.produto,
@@ -582,14 +618,23 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
       showFeedback(
         'success',
-        `Pedido ${resLote.lote_id} confirmado (${savedRecords.length} peça(s)) com status "Aguardando Manutenção"! Abrindo cupom para impressão...`
+        `Pedido ${resLote.loteId} confirmado (${savedRecords.length} peça(s)) com status "Aguardando Manutenção"! Abrindo cupom para impressão...`
       );
 
       // Limpa a cesta de peças e abre automaticamente o Cupom de Retirada / Cautela para impressão
       setCestaPecasVeiculo([]);
       setPecaProdutoId('');
       setPecaQuantidade('1');
-      setTermoRetiradaLotePrint(savedRecords);
+      setCupomLotePrint({
+        loteId: resLote.loteId,
+        veiculoNome: selectedVehicleForWithdrawal?.name || savedRecords[0]?.veiculo_nome || 'Veículo da Frota',
+        veiculoPlaca: selectedVehicleForWithdrawal?.plateOrSerial || savedRecords[0]?.veiculo_placa || '',
+        operadorAlmoxarifado: pecaOperadorAlmox.trim(),
+        retiradoPor: pecaRetiradoPor.trim(),
+        dataRetirada: pecaDataRetirada,
+        status: 'Aguardando Manutenção',
+        items: savedRecords,
+      });
       setTimeout(() => {
         window.print();
       }, 280);
