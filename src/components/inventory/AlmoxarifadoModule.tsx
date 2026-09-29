@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Pencil,
   RefreshCw,
   Calendar,
   User,
@@ -35,7 +36,9 @@ import {
 import {
   fetchRetiradasPecas,
   registrarRetiradaPeca,
+  atualizarRetiradaPeca,
   deleteRetiradaPeca,
+  fetchSaldoRealProdutoEstoque,
   fetchMovimentacoesFerramentas,
   registrarRetiradaFerramenta,
   registrarDevolucaoFerramenta,
@@ -134,11 +137,31 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   const [retiradasPecas, setRetiradasPecas] = useState<RetiradaPecaRecord[]>([]);
   const [movimentacoesFerramentas, setMovimentacoesFerramentas] = useState<MovimentacaoFerramentaRecord[]>([]);
   const [caixaFerramentasAll, setCaixaFerramentasAll] = useState<CaixaFerramentaVeiculoRecord[]>([]);
+  const [localStockItems, setLocalStockItems] = useState<InventoryItem[]>(() =>
+    ensureDieselProductsInInventory(inventory)
+  );
+  const [localFrotasItems, setLocalFrotasItems] = useState<Machinery[]>(() => machineries);
+
+  useEffect(() => {
+    if (Array.isArray(inventory) && inventory.length > 0) {
+      setLocalStockItems(ensureDieselProductsInInventory(inventory));
+    }
+  }, [inventory]);
+
+  useEffect(() => {
+    if (Array.isArray(machineries) && machineries.length > 0) {
+      setLocalFrotasItems(machineries);
+    }
+  }, [machineries]);
 
   // Produtos e Frotas disponíveis
   const allProducts = useMemo(() => {
-    return ensureDieselProductsInInventory(inventory);
-  }, [inventory]);
+    return ensureDieselProductsInInventory(localStockItems.length > 0 ? localStockItems : inventory);
+  }, [localStockItems, inventory]);
+
+  const frotasList = useMemo(() => {
+    return localFrotasItems.length > 0 ? localFrotasItems : machineries;
+  }, [localFrotasItems, machineries]);
 
   const employeeNames = useMemo(() => {
     const names = employees
@@ -148,7 +171,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   }, [employees]);
 
   // =========================================================================
-  // CARGA REATIVA DE DADOS DO SUPABASE
+  // CARGA REATIVA DE DADOS DO SUPABASE (SEM LOOP DE RE-RENDER / ZERO HTTP 400)
   // =========================================================================
   const loadAlmoxarifadoData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -166,17 +189,17 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       setCaixaFerramentasAll(cxList);
 
       if (freshStock && freshStock.length > 0) {
-        onSaveInventory(freshStock);
+        setLocalStockItems(ensureDieselProductsInInventory(freshStock));
       }
-      if (freshFrotas && freshFrotas.length > 0 && onSaveMachineries) {
-        onSaveMachineries(freshFrotas);
+      if (freshFrotas && freshFrotas.length > 0) {
+        setLocalFrotasItems(freshFrotas);
       }
     } catch (err) {
       console.warn('Erro ao carregar dados do Almoxarifado:', err);
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [onSaveInventory, onSaveMachineries]);
+  }, []);
 
   useEffect(() => {
     loadAlmoxarifadoData();
@@ -192,7 +215,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     });
     const unsub4 = subscribeToCloudTable('estoque_produtos', () => {
       fetchEstoque().then(fresh => {
-        if (fresh && fresh.length > 0) onSaveInventory(fresh);
+        if (fresh && fresh.length > 0) {
+          setLocalStockItems(ensureDieselProductsInInventory(fresh));
+        }
       });
     });
 
@@ -202,7 +227,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       unsub3();
       unsub4();
     };
-  }, [loadAlmoxarifadoData, onSaveInventory]);
+  }, [loadAlmoxarifadoData]);
 
   // =========================================================================
   // ESTADOS DA ABA 1: RETIRADA DE PEÇAS PARA MANUTENÇÃO
@@ -217,6 +242,30 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   );
   const [pecaSearchFilter, setPecaSearchFilter] = useState<string>('');
   const [isSavingRetiradaPeca, setIsSavingRetiradaPeca] = useState<boolean>(false);
+  const [saldoRealDbSelecionado, setSaldoRealDbSelecionado] = useState<number | null>(null);
+
+  // Estado de Edição de Retirada de Peça (Botão Lápis)
+  const [editingRetiradaPeca, setEditingRetiradaPeca] = useState<RetiradaPecaRecord | null>(null);
+
+  // Estado de Impressão A4 de Retirada de Peça (Botão Impressora)
+  const [termoRetiradaPecaPrint, setTermoRetiradaPecaPrint] = useState<RetiradaPecaRecord | null>(null);
+
+  // Lê estritamente o ID do produto selecionado na tabela 'public.estoque_produtos' sem filtros inválidos
+  useEffect(() => {
+    let active = true;
+    if (!pecaProdutoId || !pecaProdutoId.trim()) {
+      setSaldoRealDbSelecionado(null);
+      return;
+    }
+    fetchSaldoRealProdutoEstoque(pecaProdutoId).then(saldo => {
+      if (active && saldo !== null) {
+        setSaldoRealDbSelecionado(saldo);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [pecaProdutoId]);
 
   const selectedProductForWithdrawal = useMemo(() => {
     if (!pecaProdutoId) return null;
@@ -229,17 +278,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
   const selectedVehicleForWithdrawal = useMemo(() => {
     if (!pecaVeiculoId) return undefined;
-    return machineries.find(
+    return frotasList.find(
       m => m.id === pecaVeiculoId || toValidUUID(m.id) === toValidUUID(pecaVeiculoId)
     );
-  }, [machineries, pecaVeiculoId]);
+  }, [frotasList, pecaVeiculoId]);
 
   const saldoAtualProdutoSelecionado = useMemo(() => {
+    if (saldoRealDbSelecionado !== null) return saldoRealDbSelecionado;
     if (!selectedProductForWithdrawal) return 0;
     return Number(
       selectedProductForWithdrawal.quantidade_atual ?? selectedProductForWithdrawal.quantity ?? 0
     );
-  }, [selectedProductForWithdrawal]);
+  }, [selectedProductForWithdrawal, saldoRealDbSelecionado]);
 
   const qtdRetiradaNumerica = useMemo(() => {
     const parsed = parseFloat(String(pecaQuantidade).replace(',', '.'));
@@ -247,8 +297,52 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   }, [pecaQuantidade]);
 
   const saldoPrevistoAposRetirada = useMemo(() => {
+    if (editingRetiradaPeca) {
+      const isSameProd =
+        editingRetiradaPeca.produto_id &&
+        toValidUUID(editingRetiradaPeca.produto_id) === toValidUUID(pecaProdutoId);
+      const diff = isSameProd
+        ? qtdRetiradaNumerica - Number(editingRetiradaPeca.quantidade || 0)
+        : qtdRetiradaNumerica;
+      return Math.max(0, Number((saldoAtualProdutoSelecionado - diff).toFixed(3)));
+    }
     return Math.max(0, Number((saldoAtualProdutoSelecionado - qtdRetiradaNumerica).toFixed(3)));
-  }, [saldoAtualProdutoSelecionado, qtdRetiradaNumerica]);
+  }, [saldoAtualProdutoSelecionado, qtdRetiradaNumerica, editingRetiradaPeca, pecaProdutoId]);
+
+  const handleIniciarEdicaoRetirada = (item: RetiradaPecaRecord) => {
+    setEditingRetiradaPeca(item);
+    const matchedVeh = frotasList.find(
+      m =>
+        m.id === item.veiculo_id ||
+        (item.veiculo_id && toValidUUID(m.id) === toValidUUID(item.veiculo_id)) ||
+        (item.veiculo_nome && m.name.toLowerCase() === item.veiculo_nome.toLowerCase())
+    );
+    const matchedProd = allProducts.find(
+      p =>
+        p.id === item.produto_id ||
+        (item.produto_id && toValidUUID(p.id) === toValidUUID(item.produto_id)) ||
+        (item.produto_nome &&
+          (p.nome_comercial || p.name || '').toLowerCase() === item.produto_nome.toLowerCase())
+    );
+
+    setPecaVeiculoId(matchedVeh?.id || item.veiculo_id || '');
+    setPecaProdutoId(matchedProd?.id || item.produto_id || '');
+    setPecaQuantidade(String(item.quantidade || 1));
+    setPecaOperadorAlmox(item.operador_almoxarifado || '');
+    setPecaRetiradoPor(item.retirado_por || '');
+    setPecaDataRetirada(
+      item.data_retirada
+        ? String(item.data_retirada).split('T')[0]
+        : new Date().toISOString().split('T')[0]
+    );
+  };
+
+  const handleCancelarEdicaoRetirada = () => {
+    setEditingRetiradaPeca(null);
+    setPecaProdutoId('');
+    setPecaQuantidade('1');
+    setPecaDataRetirada(new Date().toISOString().split('T')[0]);
+  };
 
   const handleSalvarRetiradaPeca = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,6 +369,52 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
     setIsSavingRetiradaPeca(true);
     try {
+      if (editingRetiradaPeca) {
+        const resUpdate = await atualizarRetiradaPeca({
+          id: editingRetiradaPeca.id,
+          veiculo_id: pecaVeiculoId,
+          produto_id: pecaProdutoId,
+          quantidade: qtdRetiradaNumerica,
+          operador_almoxarifado: pecaOperadorAlmox.trim(),
+          retirado_por: pecaRetiradoPor.trim(),
+          data_retirada: pecaDataRetirada,
+          originalRecord: editingRetiradaPeca,
+          veiculo: selectedVehicleForWithdrawal,
+          produto: selectedProductForWithdrawal || undefined,
+        });
+
+        if (!resUpdate.success) {
+          showFeedback('error', resUpdate.errorMessage || 'Não foi possível atualizar a retirada de peça.');
+          return;
+        }
+
+        if (resUpdate.updatedInventory) {
+          setLocalStockItems(ensureDieselProductsInInventory(resUpdate.updatedInventory));
+        }
+        if (resUpdate.novoSaldoEstoque !== undefined) {
+          setSaldoRealDbSelecionado(resUpdate.novoSaldoEstoque);
+        }
+        if (resUpdate.record) {
+          setRetiradasPecas(prev =>
+            prev.map(r => (r.id === editingRetiradaPeca.id || r.id === resUpdate.record!.id ? resUpdate.record! : r))
+          );
+        }
+
+        const prodNome =
+          selectedProductForWithdrawal?.nome_comercial ||
+          selectedProductForWithdrawal?.name ||
+          'Peça';
+        showFeedback(
+          'success',
+          `Lançamento atualizado com sucesso! Saldo atual de "${prodNome}" no estoque: ${resUpdate.novoSaldoEstoque} ${selectedProductForWithdrawal?.unidade_medida || selectedProductForWithdrawal?.unit || 'UN'}.`
+        );
+
+        setEditingRetiradaPeca(null);
+        setPecaProdutoId('');
+        setPecaQuantidade('1');
+        return;
+      }
+
       const res = await registrarRetiradaPeca({
         veiculo_id: pecaVeiculoId,
         produto_id: pecaProdutoId,
@@ -292,7 +432,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       }
 
       if (res.updatedInventory) {
-        onSaveInventory(res.updatedInventory);
+        setLocalStockItems(ensureDieselProductsInInventory(res.updatedInventory));
+      }
+      if (res.novoSaldoEstoque !== undefined) {
+        setSaldoRealDbSelecionado(res.novoSaldoEstoque);
       }
       if (res.record) {
         setRetiradasPecas(prev => [res.record!, ...prev.filter(r => r.id !== res.record!.id)]);
@@ -327,7 +470,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
     const res = await deleteRetiradaPeca(item.id, true, item.produto_id, item.quantidade);
     if (res.updatedInventory) {
-      onSaveInventory(res.updatedInventory);
+      setLocalStockItems(ensureDieselProductsInInventory(res.updatedInventory));
+    }
+    if (editingRetiradaPeca?.id === item.id) {
+      handleCancelarEdicaoRetirada();
     }
     setRetiradasPecas(prev => prev.filter(r => r.id !== item.id));
     showFeedback('success', 'Retirada excluída e saldo devolvido ao estoque com sucesso.');
@@ -521,22 +667,22 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   // ESTADOS DA ABA 3: CAIXA DE FERRAMENTAS FIXA POR VEÍCULO
   // =========================================================================
   const [selectedCaixaVeiculoId, setSelectedCaixaVeiculoId] = useState<string>(() =>
-    machineries[0]?.id || ''
+    frotasList[0]?.id || ''
   );
 
   useEffect(() => {
-    if (!selectedCaixaVeiculoId && machineries.length > 0) {
-      setSelectedCaixaVeiculoId(machineries[0].id);
+    if (!selectedCaixaVeiculoId && frotasList.length > 0) {
+      setSelectedCaixaVeiculoId(frotasList[0].id);
     }
-  }, [machineries, selectedCaixaVeiculoId]);
+  }, [frotasList, selectedCaixaVeiculoId]);
 
   const selectedCaixaVehicle = useMemo(() => {
-    return machineries.find(
+    return frotasList.find(
       m =>
         m.id === selectedCaixaVeiculoId ||
         toValidUUID(m.id) === toValidUUID(selectedCaixaVeiculoId)
     );
-  }, [machineries, selectedCaixaVeiculoId]);
+  }, [frotasList, selectedCaixaVeiculoId]);
 
   const itensCaixaDoVeiculo = useMemo(() => {
     if (!selectedCaixaVeiculoId) return [];
@@ -968,19 +1114,52 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       {activeTab === 'retirada_pecas' && (
         <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Formulário de Saída de Peça */}
-          <div className="lg:col-span-5 bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs h-fit">
-            <div className="flex items-center gap-2.5 pb-3.5 mb-4 border-b border-zinc-200 dark:border-stone-800">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <PackageMinus className="w-5 h-5" />
+          <div
+            className={`lg:col-span-5 bg-white dark:bg-stone-900 border rounded-2xl p-5 shadow-xs h-fit transition ${
+              editingRetiradaPeca
+                ? 'border-amber-500 dark:border-amber-500 ring-2 ring-amber-500/20'
+                : 'border-zinc-200 dark:border-stone-800'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2.5 pb-3.5 mb-4 border-b border-zinc-200 dark:border-stone-800">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    editingRetiradaPeca
+                      ? 'bg-amber-500 text-stone-950'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  {editingRetiradaPeca ? (
+                    <Pencil className="w-4 h-4 stroke-[2.4]" />
+                  ) : (
+                    <PackageMinus className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-zinc-900 dark:text-white">
+                    {editingRetiradaPeca ? 'Editar Lançamento de Retirada' : 'Registrar Retirada de Peça'}
+                  </h2>
+                  <p className="text-xs text-zinc-500 dark:text-stone-400">
+                    {editingRetiradaPeca ? (
+                      <span>Ajusta automaticamente a diferença em <code className="font-mono">estoque_produtos</code></span>
+                    ) : (
+                      <span>Abate automaticamente o saldo em <code className="font-mono">estoque_produtos</code></span>
+                    )}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-black text-zinc-900 dark:text-white">
-                  Registrar Retirada de Peça
-                </h2>
-                <p className="text-xs text-zinc-500 dark:text-stone-400">
-                  Abate automaticamente o saldo em <code className="font-mono">estoque_produtos</code>
-                </p>
-              </div>
+
+              {editingRetiradaPeca && (
+                <button
+                  type="button"
+                  onClick={handleCancelarEdicaoRetirada}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-300 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancelar</span>
+                </button>
+              )}
             </div>
 
             <form onSubmit={handleSalvarRetiradaPeca} className="space-y-4">
@@ -997,7 +1176,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="">Selecione o veículo ou máquina...</option>
-                    {machineries.map(m => (
+                    {frotasList.map(m => (
                       <option key={m.id} value={m.id}>
                         {m.name} {m.plateOrSerial ? `(${m.plateOrSerial})` : ''} {m.model ? `• ${m.model}` : ''}
                       </option>
@@ -1125,18 +1304,35 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={isSavingRetiradaPeca}
-                className="w-full py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer disabled:opacity-50"
-              >
-                <Check className="w-4 h-4 stroke-[2.5]" />
-                <span>
-                  {isSavingRetiradaPeca
-                    ? 'Registrando e Baixando Estoque...'
-                    : 'Salvar Retirada e Abater do Estoque'}
-                </span>
-              </button>
+              <div className="flex items-center gap-2">
+                {editingRetiradaPeca && (
+                  <button
+                    type="button"
+                    onClick={handleCancelarEdicaoRetirada}
+                    className="py-3 px-4 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-zinc-700 dark:text-stone-200 font-bold text-sm transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={isSavingRetiradaPeca}
+                  className={`flex-1 py-3 px-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer disabled:opacity-50 ${
+                    editingRetiradaPeca
+                      ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
+                      : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white'
+                  }`}
+                >
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  <span>
+                    {isSavingRetiradaPeca
+                      ? 'Salvando e Atualizando Estoque...'
+                      : editingRetiradaPeca
+                        ? 'Salvar Alterações da Retirada'
+                        : 'Salvar Retirada e Abater do Estoque'}
+                  </span>
+                </button>
+              </div>
             </form>
           </div>
 
@@ -1231,15 +1427,39 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                             Almox.: {item.operador_almoxarifado}
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleExcluirRetiradaPeca(item)}
-                            title="Estornar retirada e devolver ao estoque"
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <td className="py-3 px-2 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setTermoRetiradaPecaPrint(item)}
+                              title="Imprimir Termo de Retirada de Peça (A4) para assinatura"
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:text-stone-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 transition cursor-pointer"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleIniciarEdicaoRetirada(item)}
+                              title="Editar lançamento de retirada"
+                              className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                editingRetiradaPeca?.id === item.id
+                                  ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60'
+                                  : 'text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:text-stone-400 dark:hover:text-amber-400 dark:hover:bg-amber-950/40'
+                              }`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleExcluirRetiradaPeca(item)}
+                              title="Estornar retirada e devolver ao estoque"
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1584,7 +1804,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   className="w-full px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 bg-zinc-50 dark:bg-stone-800 text-sm font-black text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">Escolha um veículo da frota...</option>
-                  {machineries.map(m => (
+                  {frotasList.map(m => (
                     <option key={m.id} value={m.id}>
                       {m.name} {m.plateOrSerial ? `(${m.plateOrSerial})` : ''} {m.model ? `• ${m.model}` : ''}
                     </option>
@@ -2311,6 +2531,236 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   <div className="text-center text-[10px] text-zinc-400 border-t border-zinc-200 pt-3">
                     Documento emitido em {formatDateTimePtBr(new Date().toISOString())} • ID Cautela:{' '}
                     {termoPrintItem.id.slice(0, 8).toUpperCase()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL / DOCUMENTO A4: TERMO DE RETIRADA DE PEÇA PARA MANUTENÇÃO (ABA 1)
+         ===================================================================== */}
+      {termoRetiradaPecaPrint && (
+        <div className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:static print:bg-white print:p-0 print:block">
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #termo-retirada-peca-a4-sheet,
+              #termo-retirada-peca-a4-sheet * {
+                visibility: visible !important;
+              }
+              #termo-retirada-peca-a4-sheet {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 210mm !important;
+                min-height: 270mm !important;
+                margin: 0 !important;
+                padding: 18mm !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+              }
+            }
+          `}</style>
+
+          <div className="bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:shadow-none print:border-none">
+            {/* Barra de Topo do Modal (Oculta na Impressão) */}
+            <div className="no-print px-5 py-3.5 bg-zinc-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <Printer className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="text-sm sm:text-base font-black">
+                    Termo de Retirada de Peça — Impressão A4
+                  </h3>
+                  <p className="text-[11px] text-zinc-300">
+                    Documento limpo em formato A4 para assinatura física do mecânico / operador
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-stone-950 transition cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir / Gerar PDF (A4)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTermoRetiradaPecaPrint(null)}
+                  className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Folha A4 Limpa */}
+            <div className="p-4 sm:p-8 overflow-y-auto bg-zinc-100 dark:bg-stone-950 print:p-0 print:bg-white">
+              <div
+                id="termo-retirada-peca-a4-sheet"
+                className="bg-white text-black mx-auto max-w-[210mm] min-h-[260mm] p-8 sm:p-12 border border-zinc-300 shadow-md flex flex-col justify-between font-serif"
+              >
+                {/* Topo / Cabeçalho A4 */}
+                <div className="space-y-6">
+                  <div className="border-b-2 border-black pb-5 text-center space-y-1.5">
+                    {companyProfile?.tradeName && (
+                      <p className="text-xs font-sans font-bold uppercase tracking-widest text-zinc-600">
+                        {companyProfile.tradeName}{' '}
+                        {companyProfile.cnpj ? `• CNPJ: ${companyProfile.cnpj}` : ''}
+                      </p>
+                    )}
+                    <h1 className="text-xl sm:text-2xl font-sans font-black uppercase tracking-tight text-black">
+                      Termo de Responsabilidade e Retirada de Peça do Almoxarifado
+                    </h1>
+                    <p className="text-xs font-sans font-semibold text-zinc-600">
+                      Comprovante de Saída de Material / Peça para Manutenção de Frota
+                    </p>
+                  </div>
+
+                  {/* Quadro de Dados da Retirada de Peça */}
+                  <div className="border border-black rounded-lg overflow-hidden font-sans">
+                    <div className="bg-zinc-100 px-4 py-2 border-b border-black text-xs font-black uppercase tracking-wider">
+                      Dados da Retirada de Material / Peça
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-black border-b border-black">
+                      <div className="p-3.5 sm:col-span-2">
+                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                          Item / Peça Retirada do Estoque
+                        </span>
+                        <span className="text-base font-black text-black">
+                          {termoRetiradaPecaPrint.produto_nome || 'Peça / Item do Estoque'}
+                        </span>
+                        {termoRetiradaPecaPrint.produto_codigo && (
+                          <span className="block text-xs font-mono font-bold text-zinc-700 mt-0.5">
+                            Código: {termoRetiradaPecaPrint.produto_codigo}
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-3.5">
+                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                          Quantidade Retirada
+                        </span>
+                        <span className="text-lg font-black font-mono text-black">
+                          {termoRetiradaPecaPrint.quantidade}{' '}
+                          {termoRetiradaPecaPrint.produto_unidade || 'UN'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black border-b border-black">
+                      <div className="p-3.5">
+                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                          Veículo / Máquina Aplicada (Frota)
+                        </span>
+                        <span className="text-sm font-black text-black">
+                          {termoRetiradaPecaPrint.veiculo_nome || 'Veículo da Frota'}
+                          {termoRetiradaPecaPrint.veiculo_placa
+                            ? ` (${termoRetiradaPecaPrint.veiculo_placa})`
+                            : ''}
+                        </span>
+                      </div>
+                      <div className="p-3.5">
+                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                          Data da Retirada
+                        </span>
+                        <span className="text-sm font-bold text-black">
+                          {formatDateOnlyPtBr(termoRetiradaPecaPrint.data_retirada)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black bg-zinc-50">
+                      <div className="p-3.5">
+                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                          Operador do Almoxarifado (Entregue por)
+                        </span>
+                        <span className="text-sm font-black text-black">
+                          {termoRetiradaPecaPrint.operador_almoxarifado}
+                        </span>
+                      </div>
+                      <div className="p-3.5">
+                        <span className="block text-[10px] font-bold uppercase text-zinc-600">
+                          Quem Retirou (Mecânico / Operador Responsável)
+                        </span>
+                        <span className="text-base font-black text-black">
+                          {termoRetiradaPecaPrint.retirado_por}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Declaração de Recebimento e Aplicação */}
+                  <div className="space-y-3 text-sm leading-relaxed text-justify font-sans text-zinc-900 pt-2">
+                    <p>
+                      Declaro, para os devidos fins de controle de estoque e manutenção da frota,
+                      que eu, <strong>{termoRetiradaPecaPrint.retirado_por}</strong>, retirei no
+                      Almoxarifado na data de{' '}
+                      <strong>{formatDateOnlyPtBr(termoRetiradaPecaPrint.data_retirada)}</strong>,
+                      sob liberação do operador{' '}
+                      <strong>{termoRetiradaPecaPrint.operador_almoxarifado}</strong>, o item{' '}
+                      <strong>
+                        {termoRetiradaPecaPrint.produto_nome || 'Peça / Insumo'}
+                        {termoRetiradaPecaPrint.produto_codigo
+                          ? ` (Cód. ${termoRetiradaPecaPrint.produto_codigo})`
+                          : ''}
+                      </strong>{' '}
+                      na quantidade de{' '}
+                      <strong>
+                        {termoRetiradaPecaPrint.quantidade}{' '}
+                        {termoRetiradaPecaPrint.produto_unidade || 'UN'}
+                      </strong>
+                      , destinado exclusivamente à manutenção/aplicação no veículo ou equipamento{' '}
+                      <strong>
+                        {termoRetiradaPecaPrint.veiculo_nome || 'da frota'}
+                        {termoRetiradaPecaPrint.veiculo_placa
+                          ? ` (${termoRetiradaPecaPrint.veiculo_placa})`
+                          : ''}
+                      </strong>
+                      .
+                    </p>
+                  </div>
+                </div>
+
+                {/* Rodapé com Linha Pontilhada para Assinatura Física */}
+                <div className="pt-16 pb-4 font-sans space-y-10">
+                  <div className="text-center max-w-md mx-auto">
+                    <div className="border-b-2 border-dotted border-black w-full mb-2 h-8" />
+                    <p className="text-sm font-black uppercase text-black">
+                      {termoRetiradaPecaPrint.retirado_por}
+                    </p>
+                    <p className="text-xs font-semibold text-zinc-600">
+                      Assinatura Física de quem retirou a peça (Mecânico / Operador)
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-10 pt-4 text-center text-xs">
+                    <div>
+                      <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
+                      <p className="font-bold text-zinc-800">
+                        {termoRetiradaPecaPrint.operador_almoxarifado}
+                      </p>
+                      <p className="text-[11px] text-zinc-500">Operador do Almoxarifado</p>
+                    </div>
+                    <div>
+                      <div className="border-b border-dotted border-zinc-500 w-full mb-1.5 h-6" />
+                      <p className="font-bold text-zinc-800">Visto da Gestão / Manutenção</p>
+                      <p className="text-[11px] text-zinc-500">Conferência de Aplicação</p>
+                    </div>
+                  </div>
+
+                  <div className="text-center text-[10px] text-zinc-400 border-t border-zinc-200 pt-3">
+                    Documento emitido em {formatDateTimePtBr(new Date().toISOString())} • ID Retirada:{' '}
+                    {termoRetiradaPecaPrint.id.slice(0, 8).toUpperCase()}
                   </div>
                 </div>
               </div>

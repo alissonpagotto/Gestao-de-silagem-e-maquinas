@@ -1262,22 +1262,14 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
     let rows: any[] = [];
     let querySuccess = false;
 
-    // 1. Tenta buscar prioritariamente da tabela oficial 'estoque_produtos'
-    let qProdutos = supabase.from('estoque_produtos').select('*');
-    if (activeCompanyId) {
-      qProdutos = qProdutos.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
-    }
-    const resProdutos = await qProdutos;
+    // 1. Tenta buscar prioritariamente da tabela oficial 'estoque_produtos' (sem filtro de company_id inexistente para evitar HTTP 400)
+    const resProdutos = await supabase.from('estoque_produtos').select('*');
     if (!resProdutos.error && Array.isArray(resProdutos.data) && resProdutos.data.length > 0) {
       rows = resProdutos.data;
       querySuccess = true;
     } else {
       // 2. Fallback para tabela legada 'estoque'
-      let qEstoque = supabase.from('estoque').select('*');
-      if (activeCompanyId) {
-        qEstoque = qEstoque.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
-      }
-      const resEstoque = await qEstoque;
+      const resEstoque = await supabase.from('estoque').select('*');
       if (!resEstoque.error && Array.isArray(resEstoque.data) && resEstoque.data.length > 0) {
         rows = resEstoque.data;
         querySuccess = true;
@@ -1290,16 +1282,18 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
 
     const rawMapped: InventoryItem[] = rows.map(row => {
       // Mapeamento estrito das colunas reais do banco (respeitando 0 sem fallback para tanques)
-      const name = String(row.nome_comercial || row.nome || row.descricao || 'Produto sem descrição').trim();
+      const name = String(row.nome_comercial || row.nome_fiscal || row.nome || row.descricao || 'Produto sem descrição').trim();
       const rawQty = row.quantidade_atual ?? row.estoque_atual ?? row.quantidade ?? row.quantity;
       const qty = rawQty !== undefined && rawQty !== null && rawQty !== '' ? Number(rawQty) : 0;
       const cost = extractProductUnitPrice(row);
       const sale = extractProductSalePrice(row);
+      const codeStr = row.codigo_interno || row.codigo_produto || row.codigo_fabrica || '';
 
       return {
         id: String(row.id),
         companyId: row.company_id || undefined,
-        code: row.codigo_produto || '',
+        code: codeStr,
+        codigo_produto: codeStr || undefined,
         name,
         nome_comercial: name,
         nome: name,
@@ -1309,7 +1303,7 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
         quantidade_atual: qty,
         unit: row.unidade_medida || row.unidade || 'UN',
         unidade_medida: row.unidade_medida || row.unidade || 'UN',
-        minQuantity: Number(row.quantidade_minima ?? row.minQuantity ?? 0),
+        minQuantity: Number(row.estoque_minimo ?? row.quantidade_minima ?? row.minQuantity ?? 0),
         unitCost: cost,
         preco_custo_inicial: cost,
         custo_nominal: cost,
@@ -1489,31 +1483,13 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
     return filtered.slice(0, 50);
   }
 
-  const activeCompanyId = companyId || getActiveCompanyId();
   try {
-    // 1. Consulta à tabela oficial 'public.estoque_produtos' sem qualquer restrição de categoria
-    // (Permite itens de 'Combustível & Arla', peças, insumos, etc.)
-    let qProdutos = supabase.from('estoque_produtos').select('*');
-
-    if (activeCompanyId) {
-      qProdutos = qProdutos.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
-    }
-
-    qProdutos = qProdutos.order('nome_comercial', { ascending: true }).limit(200);
-
-    let res = await qProdutos;
-
-    // Se com filtro de company_id deu erro ou não retornou dados, tenta sem o filtro de company_id
-    if (res.error || !res.data || res.data.length === 0) {
-      const resRetry = await supabase
-        .from('estoque_produtos')
-        .select('*')
-        .order('nome_comercial', { ascending: true })
-        .limit(200);
-      if (!resRetry.error && Array.isArray(resRetry.data) && resRetry.data.length > 0) {
-        res = resRetry;
-      }
-    }
+    // 1. Consulta direta à tabela oficial 'public.estoque_produtos' (sem filtro de company_id inexistente)
+    const res = await supabase
+      .from('estoque_produtos')
+      .select('*')
+      .order('nome_comercial', { ascending: true })
+      .limit(200);
 
     let mapped: InventoryItem[] = [];
 
@@ -1817,16 +1793,15 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
     const finalCustoNominal = custoComImpostoFloat > 0 ? custoComImpostoFloat : custoNominalFloat;
     const nowIso = new Date().toISOString();
 
-    // Payload estrito com os nomes de colunas exatos da tabela 'public.estoque_produtos'
-    // Evita colunas inexistentes (como 'quantidade', 'preco_venda') que causam HTTP 400
+    // Payload estrito APENAS com as colunas físicas reais de 'public.estoque_produtos' (zero erros HTTP 400)
     const payloadOfficial: Record<string, any> = {
       id: toValidUUID(itemId),
-      company_id: activeCompanyId,
-      codigo_produto: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
+      codigo_interno: item.code || item.codigo_produto || `PRD-${toValidUUID(itemId).slice(0, 8)}`,
       nome_comercial: nomeStr,
       categoria: categoriaStr,
       unidade_medida: unidadeStr,
       quantidade_atual: quantidadeFloat,
+      estoque_minimo: parseNumericFloat(item.minQuantity ?? item.quantidade_minima),
       preco_custo_inicial: finalCustoNominal,
       custo_nominal: finalCustoNominal,
       valor_impostos_total: valorImpostosFloat,
@@ -1834,12 +1809,15 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       custo_com_imposto: custoComImpostoFloat > 0 ? custoComImpostoFloat : finalCustoNominal,
       frete_diluido_item: freteDiluidoFloat,
       preco_venda_varejo: precoVendaFloat,
-      localizacao_fisica: item.localizacao_fisica || item.location || (categoriaStr === 'Combustível & Arla' ? 'Tanque Fazenda (Pátio Central)' : 'Depósito Principal'),
-      capacidade_total: item.capacidade_total ? Number(item.capacidade_total) : (categoriaStr === 'Combustível & Arla' ? 15000 : null),
-      quantidade_minima: parseNumericFloat(item.minQuantity ?? item.quantidade_minima),
+      deposito_destino: item.localizacao_fisica || item.location || (categoriaStr === 'Combustível & Arla' ? 'Tanque Fazenda (Pátio Central)' : 'Depósito Principal'),
       marca: marcaStr,
       codigo_barras: barcodeStr,
+      sem_gtin: semGtinBool,
+      ref_fabrica: refFabricaStr,
       codigo_ncm: ncmStr,
+      grupo_fiscal: grupoFiscalStr,
+      grupo_ipi: grupoIpiStr,
+      ...(margemFloat !== null ? { margem_lucro_sugerida: margemFloat } : {}),
       estoque_setor: item.estoque_setor || item.setor || null,
       estoque_rua: item.estoque_rua || item.rua || null,
       estoque_estante: item.estoque_estante || item.estante || null,
@@ -1847,59 +1825,30 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       estoque_box: item.estoque_box || item.box || null,
       endereco_formatado: item.endereco_formatado || null,
       ...(precoAtacadoFloat > 0 ? { preco_venda_atacado: precoAtacadoFloat } : {}),
-      ...(precoPromoFloat > 0 ? { preco_venda_promo: precoPromoFloat } : {}),
-      ...(margemAtacadoFloat !== null ? { margem_atacado: margemAtacadoFloat } : {}),
-      ...(margemPromoFloat !== null ? { margem_promo: margemPromoFloat } : {}),
+      ...(margemAtacadoFloat !== null ? { margem_lucro_atacado_porcentagem: margemAtacadoFloat } : {}),
       updated_at: nowIso
     };
 
-    // 1. Tenta gravar prioritariamente na tabela oficial 'estoque_produtos' com resiliência dinâmica de colunas
-    let currentPayload: Record<string, any> = { ...payloadOfficial };
-    let result: any = { error: null };
-    for (let attempt = 0; attempt < 12; attempt++) {
+    // 1. Grava diretamente na tabela oficial 'estoque_produtos'
+    let result: any = await supabase
+      .from('estoque_produtos')
+      .upsert(payloadOfficial, { onConflict: 'id' });
+
+    if (result.error) {
+      // Fallback enxuto apenas com as colunas essenciais da tabela estoque_produtos
+      const minimalPayload = {
+        id: toValidUUID(itemId),
+        nome_comercial: nomeStr,
+        categoria: categoriaStr,
+        unidade_medida: unidadeStr,
+        quantidade_atual: quantidadeFloat,
+        preco_custo_inicial: finalCustoNominal,
+        preco_venda_varejo: precoVendaFloat,
+        updated_at: nowIso
+      };
       result = await supabase
         .from('estoque_produtos')
-        .upsert(currentPayload, { onConflict: 'id' });
-
-      if (!result.error) break;
-
-      const errMsg = String(result.error.message || '');
-      const errCode = String(result.error.code || '');
-
-      const matchMissingCol =
-        errMsg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i) ||
-        errMsg.match(/column "?([a-zA-Z0-9_]+)"? of relation/i) ||
-        errMsg.match(/column "?([a-zA-Z0-9_]+)"? does not exist/i) ||
-        errMsg.match(/column ([a-zA-Z0-9_]+) does not exist/i);
-
-      if (matchMissingCol && matchMissingCol[1]) {
-        const badCol = matchMissingCol[1];
-        delete currentPayload[badCol];
-        continue;
-      }
-
-      if (errCode === '23503' || errMsg.includes('company_id')) {
-        delete currentPayload.company_id;
-        continue;
-      }
-
-      if (errCode === '42703' || errCode === 'PGRST204' || errMsg.includes('column') || errMsg.includes('schema cache')) {
-        // Fallback enxuto apenas com as colunas essenciais da tabela estoque_produtos
-        currentPayload = {
-          id: toValidUUID(itemId),
-          nome_comercial: nomeStr,
-          categoria: categoriaStr,
-          unidade_medida: unidadeStr,
-          quantidade_atual: quantidadeFloat,
-          preco_custo_inicial: finalCustoNominal,
-          preco_venda_varejo: precoVendaFloat,
-          updated_at: nowIso
-        };
-        result = await supabase
-          .from('estoque_produtos')
-          .upsert(currentPayload, { onConflict: 'id' });
-      }
-      break;
+        .upsert(minimalPayload, { onConflict: 'id' });
     }
 
     // Garante atualização direta por ID e por nome_comercial em 'estoque_produtos' (inclusive quando zerado = 0)
@@ -2165,10 +2114,8 @@ export async function deleteEstoqueItem(id: string, companyId?: string): Promise
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
     
-    // Deleta de estoque_produtos
-    let qProdutos = supabase.from('estoque_produtos').delete().eq('id', uuid);
-    if (activeCompanyId) qProdutos = qProdutos.eq('company_id', activeCompanyId);
-    await qProdutos;
+    // Deleta de estoque_produtos estritamente pelo ID (sem company_id inexistente)
+    await supabase.from('estoque_produtos').delete().eq('id', uuid);
 
     // Deleta de estoque
     let qEstoque = supabase.from('estoque').delete().eq('id', uuid);
@@ -4147,7 +4094,7 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
       const unifiedQty = prod ? prodQty : 0;
 
       if (!prod) {
-        // Se o produto ainda não existe na tabela estoque_produtos, cria com saldo 0
+        // Se o produto ainda não existe na tabela estoque_produtos, cria com saldo 0 (apenas colunas reais)
         const newProd = {
           id: toValidUUID(fuel.idProd),
           nome_comercial: fuel.name,
@@ -4155,8 +4102,6 @@ export async function reconciliarEstoqueETanquesCombustivel(companyId?: string):
           unidade_medida: 'L',
           quantidade_atual: 0,
           preco_custo_inicial: fuel.defaultCost,
-          capacidade_total: fuel.defaultCap,
-          company_id: cId || null,
           updated_at: new Date().toISOString()
         };
         const { data: createdProd } = await supabase
@@ -5026,7 +4971,6 @@ export async function sincronizarEntradaCombustivelSupabase(params: {
         .from('estoque_produtos')
         .update({
           quantidade_atual: saldoFinalEstoque,
-          quantity: saldoFinalEstoque,
           preco_custo_inicial: (custoUnitario && custoUnitario > 0) ? custoUnitario : dbProd.preco_custo_inicial,
           updated_at: new Date().toISOString()
         })
@@ -5289,7 +5233,7 @@ export async function subtrairCombustivelTanque(
     const { data: prodRows } = await supabase
       .from('estoque_produtos')
       .select('id, quantidade_atual, nome_comercial, unidade_medida')
-      .or(`nome_comercial.ilike.%${prodSearch}%,descricao.ilike.%${prodSearch}%`);
+      .ilike('nome_comercial', `%${prodSearch}%`);
 
     const prodData = Array.isArray(prodRows)
       ? prodRows.find((r: any) => {
@@ -8576,6 +8520,37 @@ function saveLocalCaixaFerramentasVeiculo(list: CaixaFerramentaVeiculoRecord[]):
 }
 
 /**
+ * Lê estritamente pelo ID válido (UUID) o saldo real ('quantidade_atual') na tabela 'public.estoque_produtos',
+ * sem parâmetros nulos, sem joins e sem filtros inválidos que possam gerar erro 400.
+ */
+export async function fetchSaldoRealProdutoEstoque(produtoId?: string | null): Promise<number | null> {
+  if (!isSupabaseConfigured || !produtoId || typeof produtoId !== 'string' || !produtoId.trim()) {
+    return null;
+  }
+  const validUuid = toValidUUID(produtoId.trim());
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(validUuid)) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('estoque_produtos')
+      .select('id, quantidade_atual')
+      .eq('id', validUuid)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    if (data.quantidade_atual !== undefined && data.quantidade_atual !== null) {
+      return Number(data.quantidade_atual);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * ABA 1: Busca o histórico de retiradas de peças da tabela 'public.retiradas_pecas'
  */
 export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
@@ -8586,21 +8561,12 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
   if (!isSupabaseConfigured) return localList;
 
   try {
-    let { data, error } = await supabase
+    // Consulta direta sem joins ambíguos para evitar qualquer erro 400 no PostgREST
+    const { data, error } = await supabase
       .from('retiradas_pecas')
-      .select('*, gestao_frotas(*), estoque_produtos(*)')
+      .select('*')
       .order('data_retirada', { ascending: false })
       .order('created_at', { ascending: false });
-
-    if (error) {
-      const fallback = await supabase
-        .from('retiradas_pecas')
-        .select('*')
-        .order('data_retirada', { ascending: false })
-        .order('created_at', { ascending: false });
-      data = fallback.data;
-      error = fallback.error;
-    }
 
     if (error) {
       logPostgresError('fetchRetiradasPecas', error, { table: 'retiradas_pecas', action: 'SELECT' });
@@ -8608,9 +8574,6 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
     }
 
     const mapped: RetiradaPecaRecord[] = (data || []).map((row: any) => {
-      const frotaRow = row.gestao_frotas;
-      const prodRow = row.estoque_produtos;
-
       const matchedVehicle = machineries.find(
         m => m.id === row.veiculo_id || toValidUUID(m.id) === row.veiculo_id
       );
@@ -8621,39 +8584,28 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
       const localMatch = localList.find(l => l.id === row.id);
 
       const veiculoNome =
-        frotaRow?.nome ||
-        frotaRow?.name ||
-        frotaRow?.modelo ||
         matchedVehicle?.name ||
         localMatch?.veiculo_nome ||
         'Veículo / Máquina';
 
       const veiculoPlaca =
-        frotaRow?.placa_ou_serie ||
-        frotaRow?.plate_or_serial ||
         matchedVehicle?.plateOrSerial ||
         localMatch?.veiculo_placa ||
         '';
 
       const produtoNome =
-        prodRow?.nome_comercial ||
-        prodRow?.nome_fiscal ||
-        prodRow?.nome ||
         matchedProduct?.nome_comercial ||
         matchedProduct?.name ||
         localMatch?.produto_nome ||
         'Peça / Item do Estoque';
 
       const produtoCodigo =
-        prodRow?.codigo_interno ||
-        prodRow?.codigo_barras ||
-        prodRow?.codigo_fabrica ||
         matchedProduct?.code ||
+        matchedProduct?.codigo_produto ||
         localMatch?.produto_codigo ||
         '';
 
       const produtoUnidade =
-        prodRow?.unidade_medida ||
         matchedProduct?.unidade_medida ||
         matchedProduct?.unit ||
         localMatch?.produto_unidade ||
@@ -8725,23 +8677,12 @@ export async function registrarRetiradaPeca(params: {
 
   let saldoBase = Number(targetProdLocal?.quantidade_atual ?? targetProdLocal?.quantity ?? 0);
 
-  if (isSupabaseConfigured) {
-    try {
-      // Consulta o saldo real atual no Supabase em public.estoque_produtos
-      const { data: prodDb } = await supabase
-        .from('estoque_produtos')
-        .select('id, quantidade_atual, nome_comercial, codigo_interno, unidade_medida')
-        .eq('id', validProdutoUuid)
-        .maybeSingle();
-
-      if (prodDb && prodDb.quantidade_atual !== undefined && prodDb.quantidade_atual !== null) {
-        saldoBase = Number(prodDb.quantidade_atual);
-      } else if (targetProdLocal) {
-        // Caso o item ainda não exista fisicamente em public.estoque_produtos, garante o upsert prévio
-        await upsertEstoqueItem({ ...targetProdLocal, id: validProdutoUuid });
-      }
-    } catch (err) {
-      console.warn('Notice querying estoque_produtos before withdrawal:', err);
+  if (isSupabaseConfigured && validProdutoUuid) {
+    const saldoDb = await fetchSaldoRealProdutoEstoque(validProdutoUuid);
+    if (saldoDb !== null) {
+      saldoBase = saldoDb;
+    } else if (targetProdLocal) {
+      await upsertEstoqueItem({ ...targetProdLocal, id: validProdutoUuid });
     }
   }
 
@@ -8857,6 +8798,9 @@ export async function registrarRetiradaPeca(params: {
     return item;
   });
   saveStoredInventory(updatedInventory);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+  }
 
   const newRecord: RetiradaPecaRecord = {
     id: insertedRow?.id ? String(insertedRow.id) : toValidUUID(`ret_${Date.now()}`),
@@ -8886,6 +8830,200 @@ export async function registrarRetiradaPeca(params: {
 }
 
 /**
+ * ABA 1: Atualiza um lançamento existente de retirada de peça em 'public.retiradas_pecas'
+ * e ajusta automaticamente a diferença de saldo correspondente em 'public.estoque_produtos'.
+ */
+export async function atualizarRetiradaPeca(params: {
+  id: string;
+  veiculo_id: string;
+  produto_id: string;
+  quantidade: number;
+  operador_almoxarifado: string;
+  retirado_por: string;
+  data_retirada: string;
+  originalRecord: RetiradaPecaRecord;
+  veiculo?: Machinery;
+  produto?: InventoryItem;
+}): Promise<{
+  success: boolean;
+  record?: RetiradaPecaRecord;
+  novoSaldoEstoque?: number;
+  updatedInventory?: InventoryItem[];
+  errorMessage?: string;
+}> {
+  const novaQtd = Number(params.quantidade);
+  if (!params.id || !params.produto_id || isNaN(novaQtd) || novaQtd <= 0) {
+    return {
+      success: false,
+      errorMessage: 'Informe um item do estoque e uma quantidade válida maior que zero.',
+    };
+  }
+
+  const validRetiradaId = toValidUUID(params.id);
+  const validVeiculoUuid = params.veiculo_id ? toValidUUID(params.veiculo_id) : null;
+  const validNovoProdUuid = toValidUUID(params.produto_id);
+  const validAntigoProdUuid = params.originalRecord.produto_id
+    ? toValidUUID(params.originalRecord.produto_id)
+    : validNovoProdUuid;
+  const qtdAntiga = Number(params.originalRecord.quantidade) || 0;
+  const dataRetiradaIso = params.data_retirada || new Date().toISOString().split('T')[0];
+  const operador = params.operador_almoxarifado.trim();
+  const retiradoPor = params.retirado_por.trim();
+
+  let currentInventory = ensureDieselProductsInInventory(getStoredInventory());
+  const targetProdLocal =
+    params.produto ||
+    currentInventory.find(i => i.id === params.produto_id || toValidUUID(i.id) === validNovoProdUuid);
+
+  let novoSaldoFinal = Number(targetProdLocal?.quantidade_atual ?? targetProdLocal?.quantity ?? 0);
+
+  if (isSupabaseConfigured) {
+    const payloadUpdate: Record<string, any> = {
+      veiculo_id: validVeiculoUuid,
+      produto_id: validNovoProdUuid,
+      quantidade: novaQtd,
+      operador_almoxarifado: operador,
+      retirado_por: retiradoPor,
+      data_retirada: dataRetiradaIso,
+    };
+
+    let { error } = await supabase
+      .from('retiradas_pecas')
+      .update(payloadUpdate)
+      .eq('id', validRetiradaId);
+
+    if (error && error.code === '23503') {
+      if (params.veiculo && validVeiculoUuid) {
+        try {
+          await upsertGestaoFrota({ ...params.veiculo, id: validVeiculoUuid });
+        } catch {}
+      }
+      if (targetProdLocal) {
+        try {
+          await upsertEstoqueItem({ ...targetProdLocal, id: validNovoProdUuid });
+        } catch {}
+      }
+      const retry = await supabase
+        .from('retiradas_pecas')
+        .update(payloadUpdate)
+        .eq('id', validRetiradaId);
+      error = retry.error;
+    }
+
+    if (error) {
+      logPostgresError('atualizarRetiradaPeca', error, {
+        table: 'retiradas_pecas',
+        action: 'UPDATE',
+        payload: payloadUpdate,
+      });
+      return {
+        success: false,
+        errorMessage: `Erro ao atualizar retirada no Supabase: ${error.message}`,
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (validNovoProdUuid === validAntigoProdUuid) {
+      // Mesmo produto: ajusta apenas a diferença entre novaQtd e qtdAntiga
+      const diff = novaQtd - qtdAntiga;
+      if (diff !== 0) {
+        const saldoDb = await fetchSaldoRealProdutoEstoque(validNovoProdUuid);
+        const base = saldoDb !== null ? saldoDb : novoSaldoFinal;
+        novoSaldoFinal = Math.max(0, Number((base - diff).toFixed(3)));
+        await supabase
+          .from('estoque_produtos')
+          .update({ quantidade_atual: novoSaldoFinal, updated_at: nowIso })
+          .eq('id', validNovoProdUuid);
+      }
+    } else {
+      // Trocou de produto: estorna qtdAntiga no produto anterior e abate novaQtd no produto novo
+      if (validAntigoProdUuid) {
+        const saldoAntigoDb = await fetchSaldoRealProdutoEstoque(validAntigoProdUuid);
+        if (saldoAntigoDb !== null) {
+          const saldoRestaurado = Number((saldoAntigoDb + qtdAntiga).toFixed(3));
+          await supabase
+            .from('estoque_produtos')
+            .update({ quantidade_atual: saldoRestaurado, updated_at: nowIso })
+            .eq('id', validAntigoProdUuid);
+          currentInventory = currentInventory.map(item =>
+            toValidUUID(item.id) === validAntigoProdUuid
+              ? { ...item, quantity: saldoRestaurado, quantidade_atual: saldoRestaurado }
+              : item
+          );
+        }
+      }
+      const saldoNovoDb = await fetchSaldoRealProdutoEstoque(validNovoProdUuid);
+      const baseNovo = saldoNovoDb !== null ? saldoNovoDb : novoSaldoFinal;
+      novoSaldoFinal = Math.max(0, Number((baseNovo - novaQtd).toFixed(3)));
+      await supabase
+        .from('estoque_produtos')
+        .update({ quantidade_atual: novoSaldoFinal, updated_at: nowIso })
+        .eq('id', validNovoProdUuid);
+    }
+  } else {
+    const diff = validNovoProdUuid === validAntigoProdUuid ? novaQtd - qtdAntiga : novaQtd;
+    novoSaldoFinal = Math.max(0, Number((novoSaldoFinal - diff).toFixed(3)));
+  }
+
+  const updatedInventory = currentInventory.map(item => {
+    if (item.id === params.produto_id || toValidUUID(item.id) === validNovoProdUuid) {
+      return {
+        ...item,
+        quantity: novoSaldoFinal,
+        quantidade_atual: novoSaldoFinal,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return item;
+  });
+  saveStoredInventory(updatedInventory);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+  }
+
+  const updatedRecord: RetiradaPecaRecord = {
+    ...params.originalRecord,
+    id: validRetiradaId,
+    veiculo_id: validVeiculoUuid,
+    produto_id: validNovoProdUuid,
+    quantidade: novaQtd,
+    operador_almoxarifado: operador,
+    retirado_por: retiradoPor,
+    data_retirada: dataRetiradaIso,
+    veiculo_nome: params.veiculo?.name || params.originalRecord.veiculo_nome || 'Veículo / Máquina',
+    veiculo_placa: params.veiculo?.plateOrSerial ?? params.originalRecord.veiculo_placa ?? '',
+    produto_nome:
+      targetProdLocal?.nome_comercial ||
+      targetProdLocal?.name ||
+      params.originalRecord.produto_nome ||
+      'Item do Estoque',
+    produto_codigo:
+      targetProdLocal?.code ||
+      targetProdLocal?.codigo_produto ||
+      params.originalRecord.produto_codigo ||
+      '',
+    produto_unidade:
+      targetProdLocal?.unidade_medida ||
+      targetProdLocal?.unit ||
+      params.originalRecord.produto_unidade ||
+      'UN',
+  };
+
+  const localList = getLocalRetiradasPecas().map(r =>
+    r.id === params.id || r.id === validRetiradaId ? updatedRecord : r
+  );
+  saveLocalRetiradasPecas(localList);
+
+  return {
+    success: true,
+    record: updatedRecord,
+    novoSaldoEstoque: novoSaldoFinal,
+    updatedInventory,
+  };
+}
+
+/**
  * ABA 1: Exclui um registro de retirada de peça (com opção de estornar a quantidade ao estoque)
  */
 export async function deleteRetiradaPeca(
@@ -8905,16 +9043,10 @@ export async function deleteRetiradaPeca(
     let saldoAtual = Number(target?.quantidade_atual ?? target?.quantity ?? 0);
 
     if (isSupabaseConfigured) {
-      try {
-        const { data: prodDb } = await supabase
-          .from('estoque_produtos')
-          .select('quantidade_atual')
-          .eq('id', validProdUuid)
-          .maybeSingle();
-        if (prodDb && prodDb.quantidade_atual !== undefined && prodDb.quantidade_atual !== null) {
-          saldoAtual = Number(prodDb.quantidade_atual);
-        }
-      } catch {}
+      const saldoDb = await fetchSaldoRealProdutoEstoque(validProdUuid);
+      if (saldoDb !== null) {
+        saldoAtual = saldoDb;
+      }
     }
 
     const novoSaldo = Number((saldoAtual + Number(quantidadeEstorno)).toFixed(3));
@@ -8940,6 +9072,9 @@ export async function deleteRetiradaPeca(
       return item;
     });
     saveStoredInventory(updatedInventory);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+    }
   }
 
   if (isSupabaseConfigured) {
@@ -9182,9 +9317,10 @@ export async function fetchCaixaFerramentasVeiculo(
   }
 
   try {
+    // Consulta direta sem joins que possam falhar com HTTP 400
     let query = supabase
       .from('caixa_ferramentas_veiculo')
-      .select('*, gestao_frotas(*)')
+      .select('*')
       .order('nome_ferramenta', { ascending: true });
 
     if (veiculoId) {
@@ -9192,20 +9328,7 @@ export async function fetchCaixaFerramentasVeiculo(
       query = query.eq('veiculo_id', validUuid);
     }
 
-    let { data, error } = await query;
-
-    if (error) {
-      let fallbackQuery = supabase
-        .from('caixa_ferramentas_veiculo')
-        .select('*')
-        .order('nome_ferramenta', { ascending: true });
-      if (veiculoId) {
-        fallbackQuery = fallbackQuery.eq('veiculo_id', toValidUUID(veiculoId));
-      }
-      const fallback = await fallbackQuery;
-      data = fallback.data;
-      error = fallback.error;
-    }
+    const { data, error } = await query;
 
     if (error) {
       logPostgresError('fetchCaixaFerramentasVeiculo', error, {
