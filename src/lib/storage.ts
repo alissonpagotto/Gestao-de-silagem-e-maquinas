@@ -112,33 +112,67 @@ const STORAGE_KEYS = {
   TANQUES_COMBUSTIVEL: 'silagem_facil_clean_v1_tanques_combustivel',
 };
 
+export const CANONICAL_TANK_UUIDS = {
+  S10: 'a9e3de9c-a6af-439a-9eca-fed6810d5f4f',
+  S500: '2e3dee71-28fe-41b0-ac4e-de301f5e8db4',
+  ARLA: '02e88be3-87c7-4832-af0f-6d6ece1dce7a',
+} as const;
+
+export const CANONICAL_FUEL_PROD_UUIDS = {
+  S10: 'e2688a0e-15ae-4112-a832-d054b00ba4b7',
+  S500: '31ea18d8-2783-426b-abb0-42828226e7ce',
+  ARLA_GRANEL: '657fcbea-143a-44bd-af25-91b0b19f3118',
+  ARLA_GALAO: '337558c6-0ebb-4bb2-a92f-029cab1eee17',
+} as const;
+
+const STORAGE_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function normalizeTankIdToUUID(rawId?: string, tipoOuNome?: string): string {
+  const id = String(rawId || '').trim();
+  if (STORAGE_UUID_REGEX.test(id)) return id.toLowerCase();
+  const text = `${id} ${tipoOuNome || ''}`.toLowerCase();
+  if (text.includes('s500') || text.includes('comum')) return CANONICAL_TANK_UUIDS.S500;
+  if (text.includes('arla')) return CANONICAL_TANK_UUIDS.ARLA;
+  return CANONICAL_TANK_UUIDS.S10;
+}
+
+export function normalizeFuelProdIdToUUID(rawId?: string, nome?: string): string {
+  const id = String(rawId || '').trim();
+  if (STORAGE_UUID_REGEX.test(id)) return id.toLowerCase();
+  const text = `${id} ${nome || ''}`.toLowerCase();
+  if (text.includes('galao') || text.includes('galão') || text.includes('20l')) return CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO;
+  if (text.includes('arla')) return CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL;
+  if (text.includes('s500') || text.includes('comum')) return CANONICAL_FUEL_PROD_UUIDS.S500;
+  return CANONICAL_FUEL_PROD_UUIDS.S10;
+}
+
 export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
   {
-    id: 'tanque_diesel_s10',
+    id: CANONICAL_TANK_UUIDS.S10,
     nome: 'Tanque Principal Diesel S10',
     tipo_combustivel: 'Diesel S10',
-    produto_id: 'prod_diesel_s10',
-    produtoId: 'prod_diesel_s10',
+    produto_id: CANONICAL_FUEL_PROD_UUIDS.S10,
+    produtoId: CANONICAL_FUEL_PROD_UUIDS.S10,
     capacidade_total: 15000,
     quantidade_atual: 0,
     localizacao: 'Pátio Central / Barracão de Abastecimento'
   },
   {
-    id: 'tanque_diesel_s500',
+    id: CANONICAL_TANK_UUIDS.S500,
     nome: 'Tanque Secundário Diesel S500',
     tipo_combustivel: 'Diesel S500',
-    produto_id: 'prod_diesel_s500',
-    produtoId: 'prod_diesel_s500',
+    produto_id: CANONICAL_FUEL_PROD_UUIDS.S500,
+    produtoId: CANONICAL_FUEL_PROD_UUIDS.S500,
     capacidade_total: 10000,
     quantidade_atual: 0,
     localizacao: 'Oficina / Setor Agrícola'
   },
   {
-    id: 'tanque_arla_32',
+    id: CANONICAL_TANK_UUIDS.ARLA,
     nome: 'Tanque Arla 32',
     tipo_combustivel: 'Arla 32',
-    produto_id: 'prod_arla_32_granel',
-    produtoId: 'prod_arla_32_granel',
+    produto_id: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
+    produtoId: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
     capacidade_total: 1000,
     quantidade_atual: 0,
     localizacao: 'Barracão de Abastecimento / Oficina'
@@ -151,37 +185,66 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
     if (!raw) return DEFAULT_TANQUES_COMBUSTIVEL;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Limpeza de saldos de teste legados (11200 e 6500) e ajuste de capacidade para Tanque Arla 32 (1000 L)
+      let needsSave = false;
       const sanitized = parsed.map(t => {
-        if (t.id === 'tanque_diesel_s10' && t.quantidade_atual === 11200) {
-          return { ...t, quantidade_atual: 0 };
+        const cleanId = normalizeTankIdToUUID(t.id, `${t.tipo_combustivel || ''} ${t.nome || ''}`);
+        const cleanProdId = t.produto_id || t.produtoId
+          ? normalizeFuelProdIdToUUID(t.produto_id || t.produtoId, `${t.tipo_combustivel || ''} ${t.nome || ''}`)
+          : normalizeFuelProdIdToUUID('', `${t.tipo_combustivel || ''} ${t.nome || ''}`);
+        if (cleanId !== t.id || cleanProdId !== t.produto_id) {
+          needsSave = true;
         }
-        if (t.id === 'tanque_diesel_s500' && t.quantidade_atual === 6500) {
-          return { ...t, quantidade_atual: 0 };
+        let qtd = Number(t.quantidade_atual ?? 0);
+        if ((t.id === 'tanque_diesel_s10' || cleanId === CANONICAL_TANK_UUIDS.S10) && qtd === 11200) {
+          qtd = 0;
+          needsSave = true;
         }
-        if (t.id === 'tanque_arla_32' && (t.capacidade_total === 5000 || !t.capacidade_total)) {
-          return { ...t, capacidade_total: 1000, nome: 'Tanque Arla 32' };
+        if ((t.id === 'tanque_diesel_s500' || cleanId === CANONICAL_TANK_UUIDS.S500) && qtd === 6500) {
+          qtd = 0;
+          needsSave = true;
         }
-        return t;
+        let cap = Number(t.capacidade_total ?? 15000);
+        let nome = t.nome || 'Tanque de Combustível';
+        if ((t.id === 'tanque_arla_32' || cleanId === CANONICAL_TANK_UUIDS.ARLA) && (cap === 5000 || !cap)) {
+          cap = 1000;
+          nome = 'Tanque Arla 32';
+          needsSave = true;
+        }
+        return {
+          ...t,
+          id: cleanId,
+          nome,
+          capacidade_total: cap,
+          quantidade_atual: qtd,
+          produto_id: cleanProdId,
+          produtoId: cleanProdId,
+        };
       });
 
       // Garante que o tanque de Arla 32 sempre exista
       const hasArla = sanitized.some(t => 
-        t.id === 'tanque_arla_32' || 
+        t.id === CANONICAL_TANK_UUIDS.ARLA || 
         t.tipo_combustivel?.toLowerCase().includes('arla') || 
         t.nome?.toLowerCase().includes('arla')
       );
       if (!hasArla) {
+        needsSave = true;
         sanitized.push({
-          id: 'tanque_arla_32',
+          id: CANONICAL_TANK_UUIDS.ARLA,
           nome: 'Tanque Arla 32',
           tipo_combustivel: 'Arla 32',
-          produto_id: 'prod_arla_32_granel',
-          produtoId: 'prod_arla_32_granel',
+          produto_id: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
+          produtoId: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
           capacidade_total: 1000,
           quantidade_atual: 0,
           localizacao: 'Barracão de Abastecimento / Oficina'
         });
+      }
+
+      if (needsSave) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL, JSON.stringify(sanitized));
+        } catch {}
       }
 
       return sanitized;
@@ -533,6 +596,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   // 1. Verifica Diesel S10
   const s10Idx = currentList.findIndex(i => 
     i.id === 'prod_diesel_s10' ||
+    i.id === CANONICAL_FUEL_PROD_UUIDS.S10 ||
     (i.name && i.name.toLowerCase().includes('diesel s10')) ||
     (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel s10'))
   );
@@ -542,9 +606,11 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const effectiveQty = extractProductQty(existing);
     const effectiveCost = extractProductCost(existing, 5.85);
     const effectiveSale = extractProductSale(existing);
+    const validId = STORAGE_UUID_REGEX.test(String(existing.id || '')) ? existing.id : CANONICAL_FUEL_PROD_UUIDS.S10;
 
     currentList[s10Idx] = {
       ...existing,
+      id: validId,
       name: 'Diesel S10',
       nome_comercial: 'Diesel S10',
       category: 'Combustível & Arla',
@@ -565,7 +631,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     };
   } else {
     currentList.unshift({
-      id: 'prod_diesel_s10',
+      id: CANONICAL_FUEL_PROD_UUIDS.S10,
       code: 'COMB-S10',
       name: 'Diesel S10',
       nome: 'Diesel S10',
@@ -593,6 +659,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   // 2. Verifica Diesel S500
   const s500Idx = currentList.findIndex(i => 
     i.id === 'prod_diesel_s500' ||
+    i.id === CANONICAL_FUEL_PROD_UUIDS.S500 ||
     (i.name && i.name.toLowerCase().includes('diesel s500')) ||
     (i.nome_comercial && i.nome_comercial.toLowerCase().includes('diesel s500'))
   );
@@ -602,9 +669,11 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const effectiveQty = extractProductQty(existing);
     const effectiveCost = extractProductCost(existing, 5.60);
     const effectiveSale = extractProductSale(existing);
+    const validId = STORAGE_UUID_REGEX.test(String(existing.id || '')) ? existing.id : CANONICAL_FUEL_PROD_UUIDS.S500;
 
     currentList[s500Idx] = {
       ...existing,
+      id: validId,
       name: 'Diesel S500',
       nome_comercial: 'Diesel S500',
       category: 'Combustível & Arla',
@@ -626,7 +695,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   } else {
     const insertPos = currentList.findIndex(i => i.name === 'Diesel S10') + 1;
     currentList.splice(insertPos > 0 ? insertPos : 1, 0, {
-      id: 'prod_diesel_s500',
+      id: CANONICAL_FUEL_PROD_UUIDS.S500,
       code: 'COMB-S500',
       name: 'Diesel S500',
       nome: 'Diesel S500',
@@ -661,6 +730,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     }
     return (
       idStr === 'prod_arla_32_galao_20l' ||
+      idStr === CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO ||
       idStr.includes('galao') ||
       codeStr.includes('gal') ||
       (fullName.includes('arla') && (fullName.includes('galão') || fullName.includes('galao') || fullName.includes('20l') || fullName.includes('20 l') || fullName.includes('bombona')))
@@ -672,7 +742,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     if (isGalaoItem(i)) return false;
     const idStr = String(i.id || '').toLowerCase();
     const fullName = `${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`.toLowerCase();
-    return idStr === 'prod_arla_32_granel' || idStr === 'prod_arla_32' || fullName.includes('arla');
+    return idStr === 'prod_arla_32_granel' || idStr === 'prod_arla_32' || idStr === CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL || fullName.includes('arla');
   });
 
   if (arlaGranelIdx >= 0) {
@@ -680,7 +750,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const effectiveQty = extractProductQty(existing);
     const effectiveCost = extractProductCost(existing, 3.20);
     const effectiveSale = extractProductSale(existing);
-    const safeGranelId = existing.id === 'prod_arla_32_galao_20l' ? 'prod_arla_32_granel' : (existing.id || 'prod_arla_32_granel');
+    const safeGranelId = (STORAGE_UUID_REGEX.test(String(existing.id || '')) && existing.id !== CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO)
+      ? existing.id
+      : CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL;
 
     currentList[arlaGranelIdx] = {
       ...existing,
@@ -707,7 +779,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
   } else {
     const insertPos = currentList.findIndex(i => i.name === 'Diesel S500') + 1;
     currentList.splice(insertPos > 0 ? insertPos : currentList.length, 0, {
-      id: 'prod_arla_32_granel',
+      id: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
       code: 'ARLA-GRANEL',
       name: 'Arla 32 (Granel/Litro)',
       nome: 'Arla 32 (Granel/Litro)',
@@ -734,7 +806,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
   // Re-localiza o índice do Arla Granel após eventual inserção
   const finalGranelIdx = currentList.findIndex(i => (i.nome_comercial || i.name) === 'Arla 32 (Granel/Litro)');
-  const granelId = finalGranelIdx >= 0 ? currentList[finalGranelIdx].id : 'prod_arla_32_granel';
+  const granelId = finalGranelIdx >= 0 ? currentList[finalGranelIdx].id : CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL;
 
   // 4. Verifica 'Arla 32 (Galão 20L)' - Vinculado ao Almoxarifado Principal (por unidade)
   const arlaGalaoIdx = currentList.findIndex((i, idx) => idx !== finalGranelIdx && isGalaoItem(i));
@@ -744,9 +816,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     const effectiveGalaoQty = extractProductQty(existing);
     const effectiveGalaoCost = extractProductCost(existing, 65.00);
     const effectiveGalaoSale = extractProductSale(existing);
-    const safeGalaoId = (!existing.id || existing.id === granelId || existing.id === 'prod_arla_32')
-      ? 'prod_arla_32_galao_20l'
-      : existing.id;
+    const safeGalaoId = (STORAGE_UUID_REGEX.test(String(existing.id || '')) && existing.id !== granelId)
+      ? existing.id
+      : CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO;
     currentList[arlaGalaoIdx] = {
       ...existing,
       id: safeGalaoId,
@@ -772,7 +844,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     };
   } else {
     currentList.push({
-      id: 'prod_arla_32_galao_20l',
+      id: CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO,
       code: 'ARLA-GAL20L',
       name: 'Arla 32 (Galão 20L)',
       nome: 'Arla 32 (Galão 20L)',
