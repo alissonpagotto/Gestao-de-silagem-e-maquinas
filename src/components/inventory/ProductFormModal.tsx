@@ -165,7 +165,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const storedCats = getStoredInventoryCategories();
       setCategories(storedCats);
 
-      const initialName = initialData?.name || initialData?.nome || '';
+      const initialName = initialData?.nome_comercial || initialData?.name || initialData?.nome || '';
       setNome(initialName);
 
       const initialCat = initialData?.category || initialData?.categoria || storedCats[0] || 'Outros Insumos';
@@ -183,7 +183,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setCodigoBarras(initialBar);
 
       setRefFabrica(initialData?.factoryRef || initialData?.ref_fabrica || '');
-      setCodigoInterno(initialData?.code || '');
+      setCodigoInterno(initialData?.code || (initialData as any)?.codigo_produto || '');
 
       // Fiscal
       const initialNcm = initialData?.ncm || initialData?.codigo_ncm || '';
@@ -204,8 +204,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
 
       // Custos e Preços
-      const custo = parseNumericFloat(initialData?.unitCost ?? initialData?.custo_nominal ?? 0);
-      const venda = parseNumericFloat(initialData?.salePrice ?? initialData?.preco_venda ?? 0);
+      const custo = parseNumericFloat(initialData?.unitCost ?? initialData?.preco_custo_inicial ?? initialData?.custo_nominal ?? 0);
+      const venda = parseNumericFloat(initialData?.salePrice ?? initialData?.preco_venda_varejo ?? initialData?.preco_venda ?? 0);
       
       setCustoNominalDisplay(custo > 0 ? formatCurrencyPtBr(custo) : '0,00');
       setPrecoVendaDisplay(venda > 0 ? formatCurrencyPtBr(venda) : '0,00');

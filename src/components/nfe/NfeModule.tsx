@@ -2648,6 +2648,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   // IDs dos produtos cadastrados durante a sessão atual de importação
   const [sessionCreatedProductIds, setSessionCreatedProductIds] = useState<Set<string>>(new Set());
 
+  // Modal para editar produto no estoque diretamente da tabela de Notas e Entradas
+  const [editStockProductModal, setEditStockProductModal] = useState<{
+    isOpen: boolean;
+    rowIndex: number;
+    manualItemId?: string;
+    initialData: Partial<InventoryItem>;
+  } | null>(null);
+
   // Modal para cadastrar novo produto a partir da linha da NF-e
   const [newProductModal, setNewProductModal] = useState<{
     isOpen: boolean;
@@ -3335,6 +3343,212 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       maxQuantity: 100,
       location: 'Barracão Principal'
     });
+  };
+
+  // Abre o modal "Editar Produto no Estoque" preenchido com os dados atuais do produto da linha da NF-e
+  const handleOpenEditProductFromNfeRow = (rowIndex: number) => {
+    if (!parsedData?.items || !parsedData.items[rowIndex]) return;
+    const item = parsedData.items[rowIndex];
+
+    const existingProd = localInventory.find(p =>
+      (item.linkedInventoryId && p.id === item.linkedInventoryId) ||
+      (item.barcode && p.barcode && p.barcode !== 'SEM GTIN' && p.barcode.trim() === item.barcode.trim()) ||
+      (item.code && p.code && p.code.trim().toLowerCase() === item.code.trim().toLowerCase()) ||
+      (p.nome_comercial && p.nome_comercial.trim().toLowerCase() === item.description.trim().toLowerCase()) ||
+      (p.name && p.name.trim().toLowerCase() === item.description.trim().toLowerCase())
+    );
+
+    const targetId = existingProd?.id || item.linkedInventoryId || `inv_${Date.now()}_${rowIndex}`;
+    const unitCost = (item.unitPrice !== undefined && item.unitPrice > 0)
+      ? item.unitPrice
+      : (existingProd?.unitCost ?? existingProd?.preco_custo_inicial ?? 0);
+    const profitMargin = item.markupPercent !== undefined
+      ? item.markupPercent
+      : (existingProd?.profitMargin ?? existingProd?.margem_lucro_sugerida ?? 30);
+    const salePrice = (item.salePrice !== undefined && item.salePrice > 0)
+      ? item.salePrice
+      : (existingProd?.salePrice ?? existingProd?.preco_venda_varejo ?? Math.round((unitCost * (1 + profitMargin / 100)) * 100) / 100);
+
+    const initialData: Partial<InventoryItem> = {
+      ...(existingProd || {}),
+      id: targetId,
+      code: existingProd?.code || item.code || `PRD${Date.now().toString().slice(-4)}`,
+      name: existingProd?.nome_comercial || existingProd?.name || item.description || '',
+      nome: existingProd?.nome_comercial || existingProd?.name || item.description || '',
+      nome_comercial: existingProd?.nome_comercial || existingProd?.name || item.description || '',
+      fiscalName: existingProd?.fiscalName || item.description || '',
+      barcode: item.barcode || existingProd?.barcode || existingProd?.codigo_barras || '',
+      codigo_barras: item.barcode || existingProd?.codigo_barras || existingProd?.barcode || '',
+      ncm: item.ncm || existingProd?.ncm || existingProd?.codigo_ncm || '',
+      codigo_ncm: item.ncm || existingProd?.codigo_ncm || existingProd?.ncm || '',
+      unit: (item.unit || existingProd?.unidade_medida || existingProd?.unit || 'UN').toUpperCase(),
+      unidade_medida: (item.unit || existingProd?.unidade_medida || existingProd?.unit || 'UN').toUpperCase(),
+      category: existingProd?.categoria || existingProd?.category || deduceItemCategory(item.description),
+      categoria: existingProd?.categoria || existingProd?.category || deduceItemCategory(item.description),
+      unitCost,
+      preco_custo_inicial: unitCost,
+      custo_nominal: unitCost,
+      profitMargin,
+      margem_lucro_sugerida: profitMargin,
+      salePrice,
+      preco_venda_varejo: salePrice,
+      preco_venda: salePrice,
+      wholesaleMargin: item.wholesaleMarkupPercent !== undefined ? item.wholesaleMarkupPercent : existingProd?.wholesaleMargin,
+      wholesalePrice: item.wholesalePrice !== undefined ? item.wholesalePrice : existingProd?.wholesalePrice,
+      promoMargin: item.promoMarkupPercent !== undefined ? item.promoMarkupPercent : existingProd?.promoMargin,
+      promoPrice: item.promoPrice !== undefined ? item.promoPrice : existingProd?.promoPrice,
+      quantity: existingProd?.quantidade_atual !== undefined ? existingProd.quantidade_atual : (existingProd?.quantity ?? 0),
+      quantidade_atual: existingProd?.quantidade_atual !== undefined ? existingProd.quantidade_atual : (existingProd?.quantity ?? 0),
+      minQuantity: existingProd?.minQuantity ?? 10,
+      location: existingProd?.endereco_formatado || existingProd?.location || 'Depósito Principal',
+    };
+
+    setEditStockProductModal({
+      isOpen: true,
+      rowIndex,
+      initialData,
+    });
+  };
+
+  // Abre o modal "Editar Produto no Estoque" a partir de um produto da Entrada Manual
+  const handleOpenEditProductFromManualEntry = (prod: InventoryItem, manualItemId?: string) => {
+    const existingProd = localInventory.find(p => p.id === prod.id) || prod;
+    setEditStockProductModal({
+      isOpen: true,
+      rowIndex: -1,
+      manualItemId,
+      initialData: {
+        ...existingProd,
+        id: existingProd.id || `inv_${Date.now()}`,
+      },
+    });
+  };
+
+  // Sincroniza o salvamento do modal "Editar Produto no Estoque" com o Supabase e atualiza reativamente a tabela de Notas
+  const handleSaveEditedStockProduct = (savedProduct: InventoryItem) => {
+    const existsInLocal = localInventory.some(p => p.id === savedProduct.id);
+    const updatedInventory = existsInLocal
+      ? localInventory.map(p => (p.id === savedProduct.id ? { ...p, ...savedProduct } : p))
+      : [...localInventory, savedProduct];
+
+    saveInventory(updatedInventory);
+    upsertEstoqueItem(savedProduct).catch(err => console.warn('Supabase upsertEstoqueItem sync notice:', err));
+    saveCloudInventory(updatedInventory).catch(err => console.warn('Supabase saveCloudInventory sync notice:', err));
+
+    if (!existsInLocal) {
+      setSessionCreatedProductIds(prev => new Set(prev).add(savedProduct.id));
+    }
+
+    const targetRowIndex = editStockProductModal?.rowIndex ?? -1;
+    const targetManualItemId = editStockProductModal?.manualItemId;
+
+    // 1. Atualização Reativa da Tabela de "Itens Identificados na Nota Fiscal" (sem resetar digitação ou progresso da nota)
+    if (parsedData && parsedData.items) {
+      const updatedItems = parsedData.items.map((currentItem, idx) => {
+        const isTargetRow = idx === targetRowIndex || currentItem.linkedInventoryId === savedProduct.id;
+        if (!isTargetRow) return currentItem;
+
+        const updatedUnitPrice = (savedProduct.unitCost !== undefined && savedProduct.unitCost > 0)
+          ? Number(savedProduct.unitCost)
+          : (currentItem.unitPrice || 0);
+        const qty = Number(currentItem.quantity) || 0;
+        const updatedTotalPrice = Math.round((qty * updatedUnitPrice) * 100) / 100;
+
+        const updatedMarkup = savedProduct.profitMargin !== undefined
+          ? Number(savedProduct.profitMargin)
+          : currentItem.markupPercent;
+
+        let updatedSalePrice = savedProduct.salePrice !== undefined && Number(savedProduct.salePrice) > 0
+          ? Number(savedProduct.salePrice)
+          : currentItem.salePrice;
+        if (updatedMarkup !== undefined && updatedUnitPrice > 0 && (updatedSalePrice === undefined || updatedSalePrice <= 0)) {
+          updatedSalePrice = Math.round((updatedUnitPrice * (1 + updatedMarkup / 100)) * 100) / 100;
+        }
+
+        const updatedWholesalePrice = savedProduct.wholesalePrice !== undefined && Number(savedProduct.wholesalePrice) > 0
+          ? Number(savedProduct.wholesalePrice)
+          : currentItem.wholesalePrice;
+        const updatedWholesaleMarkup = savedProduct.wholesaleMargin !== undefined
+          ? Number(savedProduct.wholesaleMargin)
+          : (updatedWholesalePrice !== undefined && updatedUnitPrice > 0
+              ? Math.round(((updatedWholesalePrice - updatedUnitPrice) / updatedUnitPrice) * 100 * 10) / 10
+              : currentItem.wholesaleMarkupPercent);
+
+        const updatedPromoPrice = savedProduct.promoPrice !== undefined && Number(savedProduct.promoPrice) > 0
+          ? Number(savedProduct.promoPrice)
+          : currentItem.promoPrice;
+        const updatedPromoMarkup = savedProduct.promoMargin !== undefined
+          ? Number(savedProduct.promoMargin)
+          : (updatedPromoPrice !== undefined && updatedUnitPrice > 0
+              ? Math.round(((updatedPromoPrice - updatedUnitPrice) / updatedUnitPrice) * 100 * 10) / 10
+              : currentItem.promoMarkupPercent);
+
+        return {
+          ...currentItem,
+          linkedInventoryId: savedProduct.id,
+          code: savedProduct.code || currentItem.code,
+          description: savedProduct.nome_comercial || savedProduct.name || currentItem.description,
+          ncm: savedProduct.ncm || savedProduct.codigo_ncm || currentItem.ncm,
+          barcode: (savedProduct.barcode && savedProduct.barcode !== 'SEM GTIN') ? savedProduct.barcode : currentItem.barcode,
+          unit: (savedProduct.unidade_medida || savedProduct.unit || currentItem.unit || 'UN').toUpperCase(),
+          unitPrice: updatedUnitPrice,
+          totalPrice: updatedTotalPrice,
+          markupPercent: updatedMarkup,
+          salePrice: updatedSalePrice,
+          wholesaleMarkupPercent: updatedWholesaleMarkup,
+          wholesalePrice: updatedWholesalePrice,
+          promoMarkupPercent: updatedPromoMarkup,
+          promoPrice: updatedPromoPrice,
+        };
+      });
+
+      const newTotalAmount = Math.round(
+        updatedItems.reduce((acc, it) => acc + (Number(it.totalPrice) || 0), 0) * 100
+      ) / 100;
+
+      const updatedParsed: ParsedNfeData = {
+        ...parsedData,
+        items: updatedItems,
+        productsAmount: newTotalAmount > 0 ? newTotalAmount : parsedData.productsAmount,
+        totalAmount: newTotalAmount > 0 ? newTotalAmount : parsedData.totalAmount,
+      };
+
+      setParsedData(updatedParsed);
+      saveCachedNfe(updatedParsed, editingExpenseId || undefined);
+    }
+
+    // 2. Atualização Reativa caso a edição tenha partido da Entrada Manual
+    if (selectedProduct && selectedProduct.id === savedProduct.id) {
+      setSelectedProduct(savedProduct);
+      setItemSearchQuery(savedProduct.nome_comercial || savedProduct.name);
+      setItemUnit((savedProduct.unidade_medida || savedProduct.unit || 'UN').toUpperCase());
+      if (savedProduct.unitCost > 0) {
+        setItemUnitCostDisplay(formatCurrencyInputDisplay(savedProduct.unitCost));
+      }
+    }
+
+    if (manualDocItems.length > 0) {
+      setManualDocItems(prev =>
+        prev.map(mItem => {
+          if (mItem.id === targetManualItemId || (mItem.produto_id && mItem.produto_id === savedProduct.id)) {
+            const newUnitCost = savedProduct.unitCost > 0 ? savedProduct.unitCost : mItem.valor_unitario;
+            return {
+              ...mItem,
+              produto_id: savedProduct.id,
+              descricao: savedProduct.nome_comercial || savedProduct.name || mItem.descricao,
+              unidade: (savedProduct.unidade_medida || savedProduct.unit || mItem.unidade || 'UN').toUpperCase(),
+              valor_unitario: newUnitCost,
+              valor_total: Math.round((Number(mItem.quantidade) || 0) * newUnitCost * 100) / 100,
+            };
+          }
+          return mItem;
+        })
+      );
+    }
+
+    setEditStockProductModal(null);
+    setSuccessMessage(`Produto "${savedProduct.nome_comercial || savedProduct.name}" atualizado no estoque e sincronizado na nota!`);
+    setTimeout(() => setSuccessMessage(''), 4000);
   };
 
   // Recálculo dinâmico de Custo, Margem (%) e Preço de Venda
@@ -4613,16 +4827,26 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   )}
                                 </td>
 
-                                {/* DESCRIÇÃO DO PRODUTO (Área Verde - Compacta com max-w) */}
+                                {/* DESCRIÇÃO DO PRODUTO (Área Verde - Compacta com max-w e botão Lápis de edição) */}
                                 <td className="py-0.5 px-1 align-middle bg-emerald-50/20 dark:bg-emerald-950/10 border-r border-emerald-100/60 dark:border-emerald-900/30 w-[22%] min-w-[110px] max-w-[150px]">
-                                  <input
-                                    type="text"
-                                    value={item.description}
-                                    onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                                    className="w-full h-6 px-1.5 text-[10px] rounded border border-emerald-200/80 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 focus:ring-1 focus:ring-emerald-500 font-medium truncate"
-                                    placeholder="Descrição do produto"
-                                    title={item.description}
-                                  />
+                                  <div className="flex items-center space-x-1">
+                                    <input
+                                      type="text"
+                                      value={item.description}
+                                      onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                                      className="flex-1 min-w-0 h-6 px-1.5 text-[10px] rounded border border-emerald-200/80 dark:border-stone-600 bg-white dark:bg-stone-900 text-black dark:text-stone-100 focus:ring-1 focus:ring-emerald-500 font-medium truncate"
+                                      placeholder="Descrição do produto"
+                                      title={item.description}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditProductFromNfeRow(idx)}
+                                      title="Editar Produto no Estoque"
+                                      className="h-6 w-6 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center transition shrink-0 cursor-pointer"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </td>
 
                                 {/* PRODUTO NO SISTEMA DE-PARA (Área Verde - Compacta com max-w) */}
@@ -4641,14 +4865,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                               {linked?.quantidade_atual !== undefined ? linked.quantidade_atual : (linked?.quantity || 0)}
                                             </span>
                                           </div>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleLinkProduct(idx, undefined)}
-                                            title="Desvincular produto"
-                                            className="p-0.5 text-stone-400 hover:text-rose-600 rounded transition cursor-pointer shrink-0"
-                                          >
-                                            <X className="w-2.5 h-2.5" />
-                                          </button>
+                                          <div className="flex items-center space-x-0.5 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenEditProductFromNfeRow(idx)}
+                                              title="Editar Produto no Estoque"
+                                              className="p-0.5 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 hover:bg-amber-100/80 dark:hover:bg-amber-900/50 rounded transition cursor-pointer"
+                                            >
+                                              <Pencil className="w-2.5 h-2.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleLinkProduct(idx, undefined)}
+                                              title="Desvincular produto"
+                                              className="p-0.5 text-stone-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                            >
+                                              <X className="w-2.5 h-2.5" />
+                                            </button>
+                                          </div>
                                         </div>
                                       );
                                     })()
@@ -4675,6 +4909,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                           </option>
                                         ))}
                                       </select>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditProductFromNfeRow(idx)}
+                                        title="Editar Produto no Estoque"
+                                        className="h-6 w-6 font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300 dark:border-amber-700 rounded transition flex items-center justify-center shrink-0 cursor-pointer"
+                                      >
+                                        <Pencil className="w-2.5 h-2.5" />
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => handleOpenNewProductModal(idx)}
@@ -5386,6 +5628,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
       </div>
 
+      {/* Modal: Editar Produto no Estoque (Acionado pelo botão de Lápis na tabela de Notas e Entradas) */}
+      {editStockProductModal && editStockProductModal.isOpen && (
+        <ProductFormModal
+          isOpen={editStockProductModal.isOpen}
+          initialData={editStockProductModal.initialData}
+          zIndexClass="z-[9999]"
+          onClose={() => setEditStockProductModal(null)}
+          onSuccess={handleSaveEditedStockProduct}
+        />
+      )}
+
       {/* Modal: Cadastrar Novo Produto no Estoque (De-Para) */}
       {newProductModal.isOpen && (
         <ProductFormModal
@@ -5403,14 +5656,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             minQuantity: newProductModal.minQuantity,
             location: newProductModal.location,
           }}
+          zIndexClass="z-[9999]"
           onClose={() => setNewProductModal(prev => ({ ...prev, isOpen: false }))}
           onSuccess={(newProduct) => {
-            const updated = [...localInventory, newProduct];
+            const exists = localInventory.some(p => p.id === newProduct.id);
+            const updated = exists
+              ? localInventory.map(p => (p.id === newProduct.id ? newProduct : p))
+              : [...localInventory, newProduct];
             saveInventory(updated);
-            setSessionCreatedProductIds(prev => new Set(prev).add(newProduct.id));
+            if (!exists) {
+              setSessionCreatedProductIds(prev => new Set(prev).add(newProduct.id));
+            }
             handleLinkProduct(newProductModal.rowIndex, newProduct.id);
             setNewProductModal(prev => ({ ...prev, isOpen: false }));
-            setSuccessMessage(`Produto "${newProduct.name}" cadastrado e vinculado com sucesso!`);
+            setSuccessMessage(`Produto "${newProduct.nome_comercial || newProduct.name}" cadastrado e vinculado com sucesso!`);
             setTimeout(() => setSuccessMessage(''), 4000);
           }}
         />
@@ -6464,9 +6723,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                     <span>Saldo Atual: <strong className="text-stone-700 dark:text-stone-300 font-semibold">{displayQty.toLocaleString('pt-BR')} {displayUnit}</strong></span>
                                   </div>
                                 </div>
-                                <span className="font-mono font-bold text-stone-700 dark:text-stone-300 text-xs shrink-0">
-                                  {displayCost > 0 ? formatCurrencyBRL(displayCost) : '-'}
-                                </span>
+                                <div className="flex items-center space-x-2 shrink-0">
+                                  <span className="font-mono font-bold text-stone-700 dark:text-stone-300 text-xs">
+                                    {displayCost > 0 ? formatCurrencyBRL(displayCost) : '-'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setIsItemSearchOpen(false);
+                                      handleOpenEditProductFromManualEntry(prod);
+                                    }}
+                                    title="Editar Produto no Estoque"
+                                    className="p-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 transition cursor-pointer"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -6668,14 +6941,43 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                   {formatCurrencyBRL(item.valor_total)}
                                 </td>
                                 <td className="px-3.5 py-2.5 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteItemFromManualDoc(item)}
-                                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                                    title="Excluir item da entrada e estornar quantidade do estoque"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  <div className="flex items-center justify-center space-x-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const matchedProd = localInventory.find(p =>
+                                          (item.produto_id && p.id === item.produto_id) ||
+                                          (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.descricao.toLowerCase().trim()) ||
+                                          p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+                                        ) || {
+                                          id: item.produto_id || `inv_${Date.now()}`,
+                                          name: item.descricao,
+                                          nome_comercial: item.descricao,
+                                          unit: item.unidade || 'UN',
+                                          unidade_medida: item.unidade || 'UN',
+                                          category: deduceItemCategory(item.descricao),
+                                          unitCost: Number(item.valor_unitario) || 0,
+                                          salePrice: Math.round((Number(item.valor_unitario) || 0) * 1.3 * 100) / 100,
+                                          quantity: Number(item.quantidade) || 0,
+                                          minQuantity: 0,
+                                          location: 'Depósito Principal',
+                                        };
+                                        handleOpenEditProductFromManualEntry(matchedProd, item.id);
+                                      }}
+                                      className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
+                                      title="Editar Produto no Estoque"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteItemFromManualDoc(item)}
+                                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                                      title="Excluir item da entrada e estornar quantidade do estoque"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
