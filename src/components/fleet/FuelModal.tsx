@@ -663,20 +663,31 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     const prodName = prod ? (prod.nome_comercial || prod.name || 'Diesel S10') : 'Diesel S10';
     setFuelType(prodName as any);
 
-    // Localiza o tanque que possui este produto_id ou tipo compatível
-    const matchingTank = tanques.find(t => 
-      t.produto_id === prodId || 
-      (t as any).produtoId === prodId ||
-      (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === prodName.toLowerCase()) ||
-      (prodName.toLowerCase().includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
-      ((prodName.toLowerCase().includes('s500') || prodName.toLowerCase().includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
-      (prodName.toLowerCase().includes('arla') && (t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla') || t.id === 'tanque_arla_32'))
+    const isGalao = prodName.toLowerCase().includes('arla') && (
+      prodName.toLowerCase().includes('galão') ||
+      prodName.toLowerCase().includes('galao')
     );
 
-    if (matchingTank) {
-      setSelectedTanqueId(matchingTank.id);
+    if (isGalao) {
       if (fuelOrigin === 'Tanque Interno (Fazenda)') {
-        setSupplierStation(matchingTank.nome);
+        setSupplierStation(prod?.localizacao_fisica || prod?.location || 'Almoxarifado Principal');
+      }
+    } else {
+      // Localiza o tanque que possui este produto_id ou tipo compatível (Arla Granel -> Tanque Arla 32)
+      const matchingTank = tanques.find(t => 
+        t.produto_id === prodId || 
+        (t as any).produtoId === prodId ||
+        (t.tipo_combustivel && t.tipo_combustivel.toLowerCase() === prodName.toLowerCase()) ||
+        (prodName.toLowerCase().includes('s10') && (t.id === 'tanque_diesel_s10' || t.tipo_combustivel?.toLowerCase().includes('s10'))) ||
+        ((prodName.toLowerCase().includes('s500') || prodName.toLowerCase().includes('comum')) && (t.id === 'tanque_diesel_s500' || t.tipo_combustivel?.toLowerCase().includes('s500'))) ||
+        (prodName.toLowerCase().includes('arla') && (t.id === 'tanque_arla_32' || t.nome.toLowerCase().includes('arla') || t.tipo_combustivel?.toLowerCase().includes('arla')))
+      );
+
+      if (matchingTank) {
+        setSelectedTanqueId(matchingTank.id);
+        if (fuelOrigin === 'Tanque Interno (Fazenda)') {
+          setSupplierStation(matchingTank.nome);
+        }
       }
     }
 
@@ -684,9 +695,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     // Preenche AUTOMATICAMENTE assim que o usuário selecionar um produto no dropdown 'Combustível'.
     // Valor puxado diretamente da coluna de custo do produto na tabela 'public.estoque_produtos'.
     if (prod) {
-      const cost = Number(prod.preco_custo_inicial ?? (prod as any).custo_nominal ?? prod.unitCost ?? 0);
-      if (cost > 0) {
-        const formattedPrice = cost.toFixed(2);
+      const rawCost = Number(prod.preco_custo_inicial ?? (prod as any).custo_nominal ?? prod.unitCost ?? 0);
+      if (rawCost > 0) {
+        const formattedPrice = rawCost.toFixed(2);
         setPricePerLiter(formattedPrice);
         calculateTotal(liters, formattedPrice);
       }
@@ -858,11 +869,13 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       fuelOrigin,
       produto_id: selectedFuelProductId,
       produtoId: selectedFuelProductId,
-      tanque_id: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) : undefined,
-      tanqueId: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) : undefined,
-      tanqueNome: fuelOrigin === 'Tanque Interno (Fazenda)' ? (selectedTanque?.nome || 'Tanque da Fazenda') : undefined,
+      tanque_id: (fuelOrigin === 'Tanque Interno (Fazenda)' && !isArlaGalaoSelected) ? (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) : undefined,
+      tanqueId: (fuelOrigin === 'Tanque Interno (Fazenda)' && !isArlaGalaoSelected) ? (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) : undefined,
+      tanqueNome: fuelOrigin === 'Tanque Interno (Fazenda)'
+        ? (isArlaGalaoSelected ? 'Almoxarifado Principal (Galão 20L)' : (selectedTanque?.nome || 'Tanque da Fazenda'))
+        : undefined,
       supplierStation: fuelOrigin === 'Tanque Interno (Fazenda)'
-        ? (selectedTanque?.nome || 'Tanque da Fazenda')
+        ? (isArlaGalaoSelected ? 'Almoxarifado Principal (Galão 20L)' : (selectedTanque?.nome || 'Tanque da Fazenda'))
         : (supplierStation.trim() || (fuelOrigin === 'Posto Conveniado (Faturado)' ? 'Posto Conveniado' : 'Posto de Viagem')),
       supplierId: selectedSupplier ? selectedSupplier.id : undefined,
       paymentMethod: fuelOrigin === 'Posto de Viagem (Pago na Hora)'
@@ -882,8 +895,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     (log as any).km_atual = !isNaN(currK) && currK > 0 ? currK : undefined;
     (log as any).horas_atual = !isNaN(currH) && currH > 0 ? currH : undefined;
 
-    // Se for abastecido do Tanque Interno da Fazenda, subtrai a quantidade de litros diretamente da tabela 'tanques_combustivel'
-    if (fuelOrigin === 'Tanque Interno (Fazenda)' && (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) && l > 0) {
+    // Se for abastecido do Tanque Interno da Fazenda (e NÃO for Galão do Almoxarifado), subtrai os litros da tabela 'tanques_combustivel'
+    if (fuelOrigin === 'Tanque Interno (Fazenda)' && !isArlaGalaoSelected && (selectedTanque?.id || selectedTanqueId || tanques[0]?.id) && l > 0) {
       const tId = selectedTanque?.id || selectedTanqueId || tanques[0]?.id;
       subtrairCombustivelTanque(tId, l).catch(err => {
         console.warn('Erro ao subtrair litros de tanques_combustivel:', err);
@@ -1244,7 +1257,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           <>
                             <option value="prod_diesel_s10">Diesel S10</option>
                             <option value="prod_diesel_s500">Diesel S500</option>
-                            <option value="prod_arla_32">Arla 32 (Granel / Litro)</option>
+                            <option value="prod_arla_32_granel">Arla 32 (Granel/Litro)</option>
+                            <option value="prod_arla_32_galao_20l">Arla 32 (Galão 20L)</option>
                           </>
                         )}
                       </select>
@@ -1335,58 +1349,70 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                     <option value="Posto de Viagem (Pago na Hora)">Posto de Viagem (Pago na Hora)</option>
                   </select>
 
-                  {/* CASO 1: Tanque Interno da Fazenda */}
+                  {/* CASO 1: Tanque Interno da Fazenda / Almoxarifado */}
                   {fuelOrigin === 'Tanque Interno (Fazenda)' && (
                     <div className="space-y-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-700">
                       <div>
                         <div className="flex items-center justify-between mb-0.5">
                           <label className="block text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center space-x-1.5">
                             <Warehouse className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                            <span>Tanque da Fazenda (Tabela tanques_combustivel) <span className="text-rose-500">*</span></span>
+                            <span>
+                              {isArlaGalaoSelected
+                                ? 'Origem no Estoque (Tabela estoque_produtos)'
+                                : 'Tanque da Fazenda (Tabela tanques_combustivel)'}{' '}
+                              <span className="text-rose-500">*</span>
+                            </span>
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => openTankConfigModal(selectedTanque || tanques[0])}
-                            title="Configurar Capacidade do Tanque (Supabase)"
-                            className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 bg-amber-100/70 dark:bg-amber-500/20 hover:bg-amber-200 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-500/40 transition cursor-pointer shadow-2xs"
-                          >
-                            <Settings className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                            <span>⚙️ Configurar Capacidade</span>
-                          </button>
+                          {!isArlaGalaoSelected && (
+                            <button
+                              type="button"
+                              onClick={() => openTankConfigModal(selectedTanque || tanques[0])}
+                              title="Configurar Capacidade do Tanque (Supabase)"
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 bg-amber-100/70 dark:bg-amber-500/20 hover:bg-amber-200 dark:hover:bg-amber-500/30 border border-amber-300 dark:border-amber-500/40 transition cursor-pointer shadow-2xs"
+                            >
+                              <Settings className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                              <span>⚙️ Configurar Capacidade</span>
+                            </button>
+                          )}
                         </div>
                         <select
                           id="select-tanque-combustivel"
-                          value={selectedTanqueId}
+                          value={isArlaGalaoSelected ? '__almoxarifado_galao__' : selectedTanqueId}
                           onChange={(e) => {
                             const tId = e.target.value;
                             if (tId === '__configurar_capacidade__') {
                               openTankConfigModal(selectedTanque || tanques[0]);
                               return;
                             }
+                            if (tId === '__almoxarifado_galao__') {
+                              const galProd = fuelStockProducts.find(item => {
+                                const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                                return nm.includes('arla') && (nm.includes('galão') || nm.includes('galao'));
+                              });
+                              if (galProd) {
+                                handleFuelProductChange(galProd.id);
+                              }
+                              return;
+                            }
                             setSelectedTanqueId(tId);
                             const t = tanques.find(item => item.id === tId);
                             if (t) {
                               setSupplierStation(t.nome);
-                              // Sincroniza o combustível selecionado a partir do tanque
-                              if (t.produto_id) {
-                                const p = fuelStockProducts.find(item => item.id === t.produto_id);
-                                if (p) {
-                                  setSelectedFuelProductId(p.id);
-                                  setFuelType((p.nome_comercial || p.name) as any);
-                                }
-                              } else {
-                                const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                                const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla');
-                                const matched = fuelStockProducts.find(item => {
-                                  const nm = (item.nome_comercial || item.name || '').toLowerCase();
-                                  if (isS500) return nm.includes('s500') || nm.includes('comum');
-                                  if (isArla) return nm.includes('arla');
-                                  return nm.includes('s10');
-                                });
-                                if (matched) {
-                                  setSelectedFuelProductId(matched.id);
-                                  setFuelType((matched.nome_comercial || matched.name) as any);
-                                }
+                              // Sincroniza o combustível selecionado a partir do tanque (apenas combustíveis a granel)
+                              const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
+                              const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
+                              const matched = fuelStockProducts.find(item => {
+                                const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                                const isGal = nm.includes('galão') || nm.includes('galao');
+                                if (isGal) return false;
+                                if (t.produto_id && item.id === t.produto_id) return true;
+                                if (isS500) return nm.includes('s500') || nm.includes('comum');
+                                if (isArla) return nm.includes('arla');
+                                return nm.includes('s10');
+                              });
+                              if (matched) {
+                                setSelectedFuelProductId(matched.id);
+                                setFuelType((matched.nome_comercial || matched.name) as any);
                               }
                             }
                           }}
@@ -1400,13 +1426,22 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                               </option>
                             );
                           })}
+                          <option value="__almoxarifado_galao__">
+                            📦 Almoxarifado Principal (Arla 32 Galão 20L) - Saldo: {Number(selectedGalaoProduct?.quantidade_atual ?? selectedGalaoProduct?.quantity ?? 0)} un
+                          </option>
                           <option value="__configurar_capacidade__">⚙️ Configurar Capacidade do Tanque...</option>
                         </select>
                       </div>
 
-                      <p className="text-[10px] text-zinc-500 dark:text-zinc-300 leading-snug px-0.5">
-                        <strong className="text-zinc-800 dark:text-zinc-100 font-semibold">{selectedTanque?.nome || 'Tanque Principal'}:</strong> subtrai os litros de <code className="font-mono text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-zinc-800 px-1 py-0.2 rounded">quantidade_atual</code> e vincula o estoque interno.
-                      </p>
+                      {isArlaGalaoSelected ? (
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-300 leading-snug px-0.5">
+                          <strong className="text-sky-700 dark:text-sky-300 font-semibold">Almoxarifado Principal (Galão 20L):</strong> consome o saldo por unidade direto da tabela <code className="font-mono text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-zinc-800 px-1 py-0.2 rounded">estoque_produtos</code> em vez do tanque de 1.000L.
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-300 leading-snug px-0.5">
+                          <strong className="text-zinc-800 dark:text-zinc-100 font-semibold">{selectedTanque?.nome || 'Tanque Principal'}:</strong> subtrai os litros de <code className="font-mono text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-zinc-800 px-1 py-0.2 rounded">quantidade_atual</code> e vincula o estoque interno.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1620,27 +1655,30 @@ export const FuelModal: React.FC<FuelModalProps> = ({
               
               {/* 1. MONITORAMENTO DO ESTOQUE (Topo do Painel: ORIGEM) */}
               {fuelOrigin === 'Tanque Interno (Fazenda)' ? (
-                <TanqueIndustrialVisualizer
-                  tanque={selectedTanque}
-                  addedLitersInput={liters}
-                  tanques={tanques}
-                  onTanqueChange={(tId) => {
-                    setSelectedTanqueId(tId);
-                    const t = tanques.find(item => item.id === tId);
-                    if (t) {
-                      setSupplierStation(t.nome);
-                      // Sincroniza o combustível selecionado a partir do tanque
-                      if (t.produto_id) {
-                        const p = fuelStockProducts.find(item => item.id === t.produto_id);
-                        if (p) {
-                          setSelectedFuelProductId(p.id);
-                          setFuelType((p.nome_comercial || p.name) as any);
-                        }
-                      } else {
+                isArlaGalaoSelected ? (
+                  <ArlaGalaoVisualizer
+                    galaoProduct={selectedGalaoProduct}
+                    addedLitersInput={liters}
+                    onSetQuickLiters={(val) => handleLitersChange(val)}
+                  />
+                ) : (
+                  <TanqueIndustrialVisualizer
+                    tanque={selectedTanque}
+                    addedLitersInput={liters}
+                    tanques={tanques}
+                    onTanqueChange={(tId) => {
+                      setSelectedTanqueId(tId);
+                      const t = tanques.find(item => item.id === tId);
+                      if (t) {
+                        setSupplierStation(t.nome);
+                        // Sincroniza o combustível selecionado a partir do tanque (sempre a versão Granel/Tanque)
                         const isS500 = t.tipo_combustivel?.toLowerCase().includes('s500') || t.nome.toLowerCase().includes('s500');
-                        const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla');
+                        const isArla = t.tipo_combustivel?.toLowerCase().includes('arla') || t.nome.toLowerCase().includes('arla') || t.id === 'tanque_arla_32';
                         const matched = fuelStockProducts.find(item => {
                           const nm = (item.nome_comercial || item.name || '').toLowerCase();
+                          const isGal = nm.includes('galão') || nm.includes('galao');
+                          if (isGal) return false;
+                          if (t.produto_id && item.id === t.produto_id) return true;
                           if (isS500) return nm.includes('s500') || nm.includes('comum');
                           if (isArla) return nm.includes('arla');
                           return nm.includes('s10');
@@ -1650,9 +1688,9 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                           setFuelType((matched.nome_comercial || matched.name) as any);
                         }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                )
               ) : (
                 <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 shadow-xs text-zinc-900 dark:text-zinc-100 space-y-2 select-none flex flex-col justify-between flex-1">
                   <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-2">
@@ -1694,9 +1732,11 @@ export const FuelModal: React.FC<FuelModalProps> = ({
                   <span className="flex items-center text-amber-600 dark:text-amber-400 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1" />
                     {fuelOrigin === 'Tanque Interno (Fazenda)' 
-                      ? (selectedTanque?.tipo_combustivel?.toLowerCase().includes('arla') || selectedTanque?.nome?.toLowerCase().includes('arla')
-                          ? 'Estoque Arla 32'
-                          : (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10'))
+                      ? (isArlaGalaoSelected
+                          ? 'Almoxarifado (Galão 20L)'
+                          : (selectedTanque?.tipo_combustivel?.toLowerCase().includes('arla') || selectedTanque?.nome?.toLowerCase().includes('arla')
+                              ? 'Tanque Arla 32 (Granel)'
+                              : (selectedTanque?.tipo_combustivel?.toLowerCase().includes('s500') ? 'Estoque S500' : 'Estoque S10')))
                       : 'Origem Externa'}
                   </span>
                   <ArrowDown className="w-3 h-3 text-zinc-400 dark:text-zinc-300 animate-bounce" />

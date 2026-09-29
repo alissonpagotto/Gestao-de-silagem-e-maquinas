@@ -412,63 +412,67 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     }
 
     // Automatically create expense and financial integration
+    const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
+
+    if (!editingFuelLog && origin === 'Tanque Interno (Fazenda)') {
+      const isArlaGalao = fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
+      const isArlaGranel = !isArlaGalao && (fuelLog.tanque_id?.toLowerCase().includes('arla') || fuelLog.fuelType?.toLowerCase().includes('arla'));
+      const isS500 = !isArlaGalao && !isArlaGranel && (fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500'));
+
+      // Baixa direta no tanque de combustível da fazenda (tabela tanques_combustivel)
+      // IMPORTANTE: NÃO subtrai do tanque de 1.000L se for Arla em Galão (Almoxarifado)!
+      if (!isArlaGalao && (fuelLog.tanque_id || fuelLog.tanqueId)) {
+        const tId = fuelLog.tanque_id || fuelLog.tanqueId!;
+        subtrairCombustivelTanque(tId, fuelLog.liters).catch(tErr => {
+          console.warn('[tanques_combustivel] Erro ao subtrair:', tErr);
+        });
+      }
+
+      // Baixa correspondente na tabela 'public.estoque_produtos' (por unidade se for Galão 20L no Almoxarifado Principal)
+      const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
+      const fuelItem = currentInventory.find(i => {
+        if (fuelLog.produto_id && i.id === fuelLog.produto_id) return true;
+        const nm = (i.nome_comercial || i.name || '').toLowerCase();
+        if (isArlaGalao) return nm.includes('arla') && (nm.includes('galão') || nm.includes('galao'));
+        if (isArlaGranel) return nm.includes('arla') && (nm.includes('granel') || (!nm.includes('galão') && !nm.includes('galao')));
+        if (isS500) return nm.includes('s500') || nm.includes('comum');
+        return nm.includes('s10') || nm.includes('diesel');
+      });
+
+      if (fuelItem) {
+        const currentQty = Number(fuelItem.quantidade_atual ?? fuelItem.quantity ?? 0);
+        // Se for galão 20L, a unidade é 'un': calcula quantos galões foram usados
+        let amountToDeduct = fuelLog.liters;
+        if (isArlaGalao) {
+          amountToDeduct = fuelLog.liters >= 10 ? Math.max(1, Math.ceil(fuelLog.liters / 20)) : Math.max(1, Math.round(fuelLog.liters));
+        }
+        const newQty = Math.max(0, Number((currentQty - amountToDeduct).toFixed(2)));
+        const updatedInventory = currentInventory.map(item => 
+          item.id === fuelItem.id ? { 
+            ...item, 
+            quantity: newQty, 
+            quantidade_atual: newQty, 
+            updatedAt: new Date().toISOString() 
+          } : item
+        );
+        if (onSaveInventory) {
+          onSaveInventory(updatedInventory);
+        }
+        saveStoredInventory(updatedInventory);
+        upsertEstoqueItem({ ...fuelItem, quantity: newQty, quantidade_atual: newQty }).catch(err => 
+          console.warn('Supabase baixa estoque combustivel/arla sync:', err)
+        );
+      }
+    }
+
     if (createExpense && onAddExpense && !editingFuelLog) {
       const rawMachName = targetVehicle
         ? (targetVehicle.licensePlateOrSerial ? `[${targetVehicle.licensePlateOrSerial}] - ${targetVehicle.model || targetVehicle.name}` : targetVehicle.name)
         : (fuelLog.machineryPlateOrName || 'Veículo');
       const machName = rawMachName.replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
 
-      const origin = fuelLog.fuelOrigin || 'Tanque Interno (Fazenda)';
-
       if (origin === 'Tanque Interno (Fazenda)') {
         const isArlaGalao = fuelLog.fuelType?.toLowerCase().includes('galão') || fuelLog.fuelType?.toLowerCase().includes('galao');
-        const isArlaGranel = !isArlaGalao && (fuelLog.tanque_id?.toLowerCase().includes('arla') || fuelLog.fuelType?.toLowerCase().includes('arla'));
-        const isS500 = !isArlaGalao && !isArlaGranel && (fuelLog.tanque_id?.toLowerCase().includes('s500') || fuelLog.fuelType?.toLowerCase().includes('s500'));
-
-        // Baixa direta no tanque de combustível da fazenda (tabela tanques_combustivel)
-        // IMPORTANTE: NÃO subtrai do tanque se for Arla em Galão (Almoxarifado)!
-        if (!isArlaGalao && (fuelLog.tanque_id || fuelLog.tanqueId)) {
-          const tId = fuelLog.tanque_id || fuelLog.tanqueId!;
-          subtrairCombustivelTanque(tId, fuelLog.liters).catch(tErr => {
-            console.warn('[tanques_combustivel] Erro ao subtrair:', tErr);
-          });
-        }
-        // 1. NÃO cria lançamento de dívida pendente em contas_a_pagar.
-        // 2. Registra apenas a movimentação de baixa no estoque de produtos
-        const currentInventory = inventory && inventory.length > 0 ? inventory : getStoredInventory();
-        const fuelItem = currentInventory.find(i => {
-          if (fuelLog.produto_id && i.id === fuelLog.produto_id) return true;
-          const nm = (i.nome_comercial || i.name || '').toLowerCase();
-          if (isArlaGalao) return nm.includes('arla') && (nm.includes('galão') || nm.includes('galao'));
-          if (isArlaGranel) return nm.includes('arla') && (nm.includes('granel') || (!nm.includes('galão') && !nm.includes('galao')));
-          if (isS500) return nm.includes('s500') || nm.includes('comum');
-          return nm.includes('s10') || nm.includes('diesel');
-        });
-
-        if (fuelItem) {
-          const currentQty = Number(fuelItem.quantidade_atual ?? fuelItem.quantity ?? 0);
-          // Se for galão, a unidade é 'un': calcula quantos galões foram usados
-          let amountToDeduct = fuelLog.liters;
-          if (isArlaGalao) {
-            amountToDeduct = fuelLog.liters >= 20 ? Math.ceil(fuelLog.liters / 20) : Math.max(1, Math.round(fuelLog.liters));
-          }
-          const newQty = Math.max(0, Number((currentQty - amountToDeduct).toFixed(2)));
-          const updatedInventory = currentInventory.map(item => 
-            item.id === fuelItem.id ? { 
-              ...item, 
-              quantity: newQty, 
-              quantidade_atual: newQty, 
-              updatedAt: new Date().toISOString() 
-            } : item
-          );
-          if (onSaveInventory) {
-            onSaveInventory(updatedInventory);
-          }
-          saveStoredInventory(updatedInventory);
-          upsertEstoqueItem({ ...fuelItem, quantity: newQty, quantidade_atual: newQty }).catch(err => 
-            console.warn('Supabase baixa estoque diesel sync:', err)
-          );
-        }
 
         // 3. Envia o custo para o DRE do veículo e registra no financeiro como compensado pelo estoque
         onAddExpense({

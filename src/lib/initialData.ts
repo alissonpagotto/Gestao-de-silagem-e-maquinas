@@ -194,9 +194,9 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
   {
     id: 'prod_arla_32_granel',
     code: 'ARLA-GRANEL',
-    name: 'Arla 32 (Granel / Litro)',
-    nome: 'Arla 32 (Granel / Litro)',
-    nome_comercial: 'Arla 32 (Granel / Litro)',
+    name: 'Arla 32 (Granel/Litro)',
+    nome: 'Arla 32 (Granel/Litro)',
+    nome_comercial: 'Arla 32 (Granel/Litro)',
     category: 'Combustível & Arla',
     categoria: 'Combustível & Arla',
     quantity: 0,

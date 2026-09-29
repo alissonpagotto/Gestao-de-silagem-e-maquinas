@@ -137,8 +137,8 @@ export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
     id: 'tanque_arla_32',
     nome: 'Tanque Arla 32',
     tipo_combustivel: 'Arla 32',
-    produto_id: 'prod_arla_32',
-    produtoId: 'prod_arla_32',
+    produto_id: 'prod_arla_32_granel',
+    produtoId: 'prod_arla_32_granel',
     capacidade_total: 1000,
     quantidade_atual: 0,
     localizacao: 'Barracão de Abastecimento / Oficina'
@@ -176,8 +176,8 @@ export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
           id: 'tanque_arla_32',
           nome: 'Tanque Arla 32',
           tipo_combustivel: 'Arla 32',
-          produto_id: 'prod_arla_32',
-          produtoId: 'prod_arla_32',
+          produto_id: 'prod_arla_32_granel',
+          produtoId: 'prod_arla_32_granel',
           capacidade_total: 1000,
           quantidade_atual: 0,
           localizacao: 'Barracão de Abastecimento / Oficina'
@@ -602,22 +602,41 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     });
   }
 
-  // 3. Verifica 'Arla 32 (Granel/Litro)'
-  const arlaGranelIdx = currentList.findIndex(i => 
-    i.id === 'prod_arla_32' ||
-    i.id === 'prod_arla_32_granel' ||
-    (i.name && i.name.toLowerCase().includes('arla') && (i.name.toLowerCase().includes('granel') || (!i.name.toLowerCase().includes('galão') && !i.name.toLowerCase().includes('galao')))) ||
-    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla') && (i.nome_comercial.toLowerCase().includes('granel') || (!i.nome_comercial.toLowerCase().includes('galão') && !i.nome_comercial.toLowerCase().includes('galao'))))
-  );
+  // Helper para distinguir Arla Galão 20L (Almoxarifado) vs Arla Granel/Litro (Tanque 1000L)
+  const isGalaoItem = (i: InventoryItem) => {
+    const idStr = String(i.id || '').toLowerCase();
+    const codeStr = String(i.code || i.codigo_produto || '').toLowerCase();
+    const fullName = `${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`.toLowerCase();
+    if (fullName.includes('granel') || fullName.includes('litro') || idStr.includes('granel') || codeStr.includes('granel')) {
+      return false;
+    }
+    return (
+      idStr === 'prod_arla_32_galao_20l' ||
+      idStr.includes('galao') ||
+      codeStr.includes('gal') ||
+      (fullName.includes('arla') && (fullName.includes('galão') || fullName.includes('galao') || fullName.includes('20l') || fullName.includes('20 l') || fullName.includes('bombona')))
+    );
+  };
+
+  // 3. Verifica 'Arla 32 (Granel/Litro)' - Vinculado ao Tanque Arla 32 (1.000L)
+  const arlaGranelIdx = currentList.findIndex(i => {
+    if (isGalaoItem(i)) return false;
+    const idStr = String(i.id || '').toLowerCase();
+    const fullName = `${i.nome_comercial || ''} ${i.name || ''} ${i.nome || ''}`.toLowerCase();
+    return idStr === 'prod_arla_32_granel' || idStr === 'prod_arla_32' || fullName.includes('arla');
+  });
 
   if (arlaGranelIdx >= 0) {
     const existing = currentList[arlaGranelIdx];
     const currentProdQty = Number(existing.quantidade_atual ?? existing.quantity ?? 0);
     const effectiveQty = arlaQty > 0 ? arlaQty : currentProdQty;
+    const safeGranelId = existing.id === 'prod_arla_32_galao_20l' ? 'prod_arla_32_granel' : (existing.id || 'prod_arla_32_granel');
 
     currentList[arlaGranelIdx] = {
       ...existing,
+      id: safeGranelId,
       name: 'Arla 32 (Granel/Litro)',
+      nome: 'Arla 32 (Granel/Litro)',
       nome_comercial: 'Arla 32 (Granel/Litro)',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
@@ -634,8 +653,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       capacidade_total: existing.capacidade_total || (tankArla?.capacidade_total || 1000),
     };
   } else {
-    currentList.push({
-      id: 'prod_arla_32',
+    const insertPos = currentList.findIndex(i => i.name === 'Diesel S500') + 1;
+    currentList.splice(insertPos > 0 ? insertPos : currentList.length, 0, {
+      id: 'prod_arla_32_granel',
       code: 'ARLA-GRANEL',
       name: 'Arla 32 (Granel/Litro)',
       nome: 'Arla 32 (Granel/Litro)',
@@ -660,18 +680,23 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     });
   }
 
-  // 4. Verifica 'Arla 32 (Galão 20L)'
-  const arlaGalaoIdx = currentList.findIndex(i => 
-    i.id === 'prod_arla_32_galao_20l' ||
-    (i.name && i.name.toLowerCase().includes('arla 32') && (i.name.toLowerCase().includes('galão') || i.name.toLowerCase().includes('galao'))) ||
-    (i.nome_comercial && i.nome_comercial.toLowerCase().includes('arla 32') && (i.nome_comercial.toLowerCase().includes('galão') || i.nome_comercial.toLowerCase().includes('galao')))
-  );
+  // Re-localiza o índice do Arla Granel após eventual inserção
+  const finalGranelIdx = currentList.findIndex(i => (i.nome_comercial || i.name) === 'Arla 32 (Granel/Litro)');
+  const granelId = finalGranelIdx >= 0 ? currentList[finalGranelIdx].id : 'prod_arla_32_granel';
+
+  // 4. Verifica 'Arla 32 (Galão 20L)' - Vinculado ao Almoxarifado Principal (por unidade)
+  const arlaGalaoIdx = currentList.findIndex((i, idx) => idx !== finalGranelIdx && isGalaoItem(i));
 
   if (arlaGalaoIdx >= 0) {
     const existing = currentList[arlaGalaoIdx];
+    const safeGalaoId = (!existing.id || existing.id === granelId || existing.id === 'prod_arla_32')
+      ? 'prod_arla_32_galao_20l'
+      : existing.id;
     currentList[arlaGalaoIdx] = {
       ...existing,
+      id: safeGalaoId,
       name: 'Arla 32 (Galão 20L)',
+      nome: 'Arla 32 (Galão 20L)',
       nome_comercial: 'Arla 32 (Galão 20L)',
       category: 'Combustível & Arla',
       categoria: 'Combustível & Arla',
@@ -685,7 +710,8 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       preco_custo_inicial: existing.preco_custo_inicial !== undefined ? existing.preco_custo_inicial : (existing.unitCost ?? 0),
       salePrice: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
       preco_venda_varejo: existing.preco_venda_varejo !== undefined ? existing.preco_venda_varejo : (existing.salePrice ?? 0),
-      location: existing.location || 'Almoxarifado Principal'
+      location: existing.location || 'Almoxarifado Principal',
+      localizacao_fisica: existing.localizacao_fisica || existing.location || 'Almoxarifado Principal',
     };
   } else {
     currentList.push({
