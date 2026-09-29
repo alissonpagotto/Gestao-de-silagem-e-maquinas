@@ -882,7 +882,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
       <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-6xl w-full h-auto max-h-[94vh] shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col text-zinc-900 dark:text-zinc-100">
         
         {/* Cabeçalho Equilibrado e Compacto */}
-        <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/90 text-zinc-900 dark:text-zinc-100 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700/80 shrink-0">
+        <div className="px-4 py-2.5 bg-[#e1e1e1] dark:bg-zinc-800/90 text-zinc-900 dark:text-zinc-100 flex items-center justify-between border-b border-zinc-300 dark:border-zinc-700/80 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-2xs">
               <Fuel className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -906,8 +906,8 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Corpo do Modal com Respiro Elegante e Simetria */}
-        <div className="overflow-y-auto flex-1 bg-zinc-100/70 dark:bg-zinc-900">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full">
+        <div className="overflow-y-auto flex-1 bg-[#d0d0d0] dark:bg-zinc-900">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 items-stretch min-h-full bg-[#d0d0d0] dark:bg-zinc-900">
             
             {/* Coluna Esquerda: Formulário com Cards e Inputs Bem Definidos */}
             <div className="lg:col-span-7 flex flex-col">
@@ -1715,7 +1715,7 @@ export const FuelModal: React.FC<FuelModalProps> = ({
         </div>
 
         {/* Rodapé com Ações Bem Definido */}
-        <div className="px-4 py-2 bg-zinc-50 dark:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto">
+        <div className="px-4 py-2 bg-[#d0d0d0] dark:bg-zinc-800 border-t border-zinc-300 dark:border-zinc-700 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 relative z-30 pointer-events-auto">
           <div className="w-full sm:w-auto">
             {validationError ? (
               <div className="flex items-center space-x-1.5 text-xs font-bold text-rose-500 animate-in fade-in">
