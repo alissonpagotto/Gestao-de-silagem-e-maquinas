@@ -22,7 +22,11 @@ import {
   ArrowLeftRight,
   ShieldAlert,
   Sparkles,
-  Clock
+  Clock,
+  Settings,
+  Lock,
+  Unlock,
+  ListPlus
 } from 'lucide-react';
 import {
   InventoryItem,
@@ -36,6 +40,8 @@ import {
 import {
   fetchRetiradasPecas,
   registrarRetiradaPeca,
+  registrarPedidoRetiradaPecasLote,
+  atualizarStatusLoteRetiradaPecas,
   atualizarRetiradaPeca,
   deleteRetiradaPeca,
   fetchSaldoRealProdutoEstoque,
@@ -63,6 +69,17 @@ interface AlmoxarifadoModuleProps {
   onSaveInventory: (inventory: InventoryItem[]) => void;
   onSaveMachineries?: (machineries: Machinery[]) => void;
   onNavigateToEstoque?: () => void;
+  onLaunchBatchToMaintenanceOS?: (batchItems: RetiradaPecaRecord[], vehicle?: Machinery) => void;
+}
+
+interface CestaPecaVeiculoItem {
+  produto_id: string;
+  produto_nome: string;
+  produto_codigo: string;
+  produto_unidade: string;
+  quantidade: number;
+  saldo_estoque: number;
+  produto?: InventoryItem;
 }
 
 type AlmoxTab = 'retirada_pecas' | 'cautela_ferramentas' | 'caixa_veiculo';
@@ -117,6 +134,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
   onSaveInventory,
   onSaveMachineries,
   onNavigateToEstoque,
+  onLaunchBatchToMaintenanceOS,
 }) => {
   const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<AlmoxTab>('retirada_pecas');

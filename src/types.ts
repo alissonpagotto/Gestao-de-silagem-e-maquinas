@@ -1510,6 +1510,11 @@ export interface RetiradaPecaRecord {
   operador_almoxarifado: string;
   retirado_por: string;
   data_retirada: string; // YYYY-MM-DD
+  // Agrupamento em lote e controle para Ordem de Serviço (Manutenção)
+  lote_id?: string;
+  status?: 'Aguardando Manutenção' | 'Em Manutenção' | 'Concluído' | string;
+  os_id?: string;
+  os_number?: string;
   // Dados enriquecidos / joins opcionais para exibição
   veiculo_nome?: string;
   veiculo_placa?: string;

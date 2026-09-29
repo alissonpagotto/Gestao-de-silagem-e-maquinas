@@ -8338,20 +8338,65 @@ const LOCAL_RETIRADAS_PECAS_KEY = 'silagem_almox_retiradas_pecas_v1';
 const LOCAL_MOVIMENTACAO_FERRAMENTAS_KEY = 'silagem_almox_mov_ferramentas_v1';
 const LOCAL_CAIXA_FERRAMENTAS_VEICULO_KEY = 'silagem_almox_caixa_veiculo_v1';
 
+const LOCAL_RETIRADAS_LOTE_META_KEY = 'silagem_almox_retiradas_lote_meta_v1';
+
+interface RetiradaLoteMetaItem {
+  lote_id: string;
+  status: string;
+  os_id?: string;
+  os_number?: string;
+}
+
+function getLocalRetiradasLoteMeta(): Record<string, RetiradaLoteMetaItem> {
+  try {
+    const raw = localStorage.getItem(LOCAL_RETIRADAS_LOTE_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalRetiradasLoteMeta(meta: Record<string, RetiradaLoteMetaItem>): void {
+  try {
+    localStorage.setItem(LOCAL_RETIRADAS_LOTE_META_KEY, JSON.stringify(meta));
+  } catch {}
+}
+
+function buildDeterministicLoteId(row: any): string {
+  const vehPart = String(row?.veiculo_id || 'FROTA')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 4)
+    .toUpperCase();
+  const timeSource = String(row?.created_at || row?.data_retirada || '');
+  // Agrupa itens criados no mesmo minuto para o mesmo veículo e mecânico
+  const minuteKey = timeSource.slice(0, 16).replace(/[^0-9]/g, '').slice(-6) || '0001';
+  return `LOTE-${vehPart}-${minuteKey}`;
+}
+
 function getLocalRetiradasPecas(): RetiradaPecaRecord[] {
   try {
     const raw = localStorage.getItem(LOCAL_RETIRADAS_PECAS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.map((r: any) => ({
-      ...r,
-      veiculo_nome: String(r?.veiculo_nome ?? ''),
-      veiculo_placa: String(r?.veiculo_placa ?? ''),
-      produto_nome: String(r?.produto_nome ?? ''),
-      produto_codigo: String(r?.produto_codigo ?? ''),
-      operador_almoxarifado: String(r?.operador_almoxarifado ?? ''),
-      retirado_por: String(r?.retirado_por ?? ''),
-    }));
+    const metaMap = getLocalRetiradasLoteMeta();
+    return parsed.map((r: any) => {
+      const idStr = String(r?.id ?? '');
+      const meta = metaMap[idStr];
+      return {
+        ...r,
+        id: idStr,
+        lote_id: String(r?.lote_id || meta?.lote_id || buildDeterministicLoteId(r)),
+        status: String(r?.status || meta?.status || 'Aguardando Manutenção'),
+        os_id: r?.os_id || meta?.os_id,
+        os_number: r?.os_number || meta?.os_number,
+        veiculo_nome: String(r?.veiculo_nome ?? ''),
+        veiculo_placa: String(r?.veiculo_placa ?? ''),
+        produto_nome: String(r?.produto_nome ?? ''),
+        produto_codigo: String(r?.produto_codigo ?? ''),
+        operador_almoxarifado: String(r?.operador_almoxarifado ?? ''),
+        retirado_por: String(r?.retirado_por ?? ''),
+      };
+    });
   } catch {
     return [];
   }
@@ -8360,6 +8405,22 @@ function getLocalRetiradasPecas(): RetiradaPecaRecord[] {
 function saveLocalRetiradasPecas(list: RetiradaPecaRecord[]): void {
   try {
     localStorage.setItem(LOCAL_RETIRADAS_PECAS_KEY, JSON.stringify(list));
+    const metaMap = getLocalRetiradasLoteMeta();
+    let changed = false;
+    for (const item of list) {
+      if (item.id && (item.lote_id || item.status)) {
+        metaMap[item.id] = {
+          lote_id: item.lote_id || metaMap[item.id]?.lote_id || buildDeterministicLoteId(item),
+          status: item.status || metaMap[item.id]?.status || 'Aguardando Manutenção',
+          os_id: item.os_id || metaMap[item.id]?.os_id,
+          os_number: item.os_number || metaMap[item.id]?.os_number,
+        };
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveLocalRetiradasLoteMeta(metaMap);
+    }
   } catch {}
 }
 
@@ -8433,6 +8494,7 @@ export async function fetchSaldoRealProdutoEstoque(produtoId?: string | null): P
  */
 export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
   const localList = getLocalRetiradasPecas();
+  const metaMap = getLocalRetiradasLoteMeta();
   const machineries = getStoredMachineries();
   const inventory = ensureDieselProductsInInventory(getStoredInventory());
 
@@ -8452,6 +8514,7 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
     }
 
     const mapped: RetiradaPecaRecord[] = (data || []).map((row: any) => {
+      const idStr = String(row.id);
       const matchedVehicle = machineries.find(
         m => m.id === row.veiculo_id || toValidUUID(m.id) === row.veiculo_id
       );
@@ -8459,7 +8522,8 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
         p => p.id === row.produto_id || toValidUUID(p.id) === row.produto_id
       );
 
-      const localMatch = localList.find(l => l.id === row.id);
+      const localMatch = localList.find(l => l.id === idStr);
+      const meta = metaMap[idStr];
 
       const veiculoNome =
         matchedVehicle?.name ||
@@ -8468,6 +8532,7 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
 
       const veiculoPlaca =
         matchedVehicle?.plateOrSerial ||
+        matchedVehicle?.licensePlateOrSerial ||
         localMatch?.veiculo_placa ||
         '';
 
@@ -8490,8 +8555,22 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
         localMatch?.produto_unidade ||
         'UN';
 
+      const loteId = String(
+        row.lote_id ||
+        meta?.lote_id ||
+        localMatch?.lote_id ||
+        buildDeterministicLoteId(row)
+      );
+
+      const status = String(
+        row.status ||
+        meta?.status ||
+        localMatch?.status ||
+        'Aguardando Manutenção'
+      );
+
       return {
-        id: String(row.id),
+        id: idStr,
         created_at: row.created_at,
         veiculo_id: row.veiculo_id || null,
         produto_id: row.produto_id || null,
@@ -8501,6 +8580,10 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
         data_retirada: row.data_retirada
           ? String(row.data_retirada).split('T')[0]
           : new Date().toISOString().split('T')[0],
+        lote_id: loteId,
+        status,
+        os_id: row.os_id || meta?.os_id || localMatch?.os_id,
+        os_number: row.os_number || meta?.os_number || localMatch?.os_number,
         veiculo_nome: veiculoNome,
         veiculo_placa: veiculoPlaca,
         produto_nome: produtoNome,
@@ -8518,8 +8601,226 @@ export async function fetchRetiradasPecas(): Promise<RetiradaPecaRecord[]> {
 }
 
 /**
- * ABA 1: Registra uma nova retirada de peça em 'public.retiradas_pecas'
- * E abate automaticamente a quantidade correspondente na tabela 'public.estoque_produtos'.
+ * ABA 1 (FLUXO EM LOTE POR VEÍCULO):
+ * Salva todas as peças vinculadas a um veículo na tabela 'public.retiradas_pecas' do Supabase
+ * compartilhando o mesmo número de lote/agrupamento e com status 'Aguardando Manutenção'.
+ * REGRA HÍBRIDA: O sistema NÃO abate o estoque nesta etapa (a baixa ocorre ao lançar/salvar a OS).
+ */
+export async function registrarPedidoRetiradaPecasLote(params: {
+  veiculo_id: string;
+  veiculo?: Machinery;
+  operador_almoxarifado: string;
+  retirado_por: string;
+  data_retirada: string;
+  lote_id?: string;
+  itens: Array<{
+    produto_id: string;
+    quantidade: number;
+    produto?: InventoryItem;
+  }>;
+}): Promise<{
+  success: boolean;
+  lote_id?: string;
+  records?: RetiradaPecaRecord[];
+  errorMessage?: string;
+}> {
+  if (!params.veiculo_id) {
+    return { success: false, errorMessage: 'Selecione o Veículo / Máquina de destino.' };
+  }
+  if (!params.itens || params.itens.length === 0) {
+    return { success: false, errorMessage: 'Adicione pelo menos uma peça à lista do veículo antes de confirmar.' };
+  }
+
+  const operador = String(params.operador_almoxarifado || '').trim();
+  const retiradoPor = String(params.retirado_por || '').trim();
+  if (!operador || !retiradoPor) {
+    return { success: false, errorMessage: 'Informe o Operador do Almoxarifado e Quem Retirou.' };
+  }
+
+  const validVeiculoUuid = toValidUUID(params.veiculo_id);
+  const dataRetiradaIso = params.data_retirada || new Date().toISOString().split('T')[0];
+  const dateCompact = dataRetiradaIso.replace(/-/g, '').slice(2);
+  const randomSuffix = String(Math.floor(1000 + Math.random() * 9000));
+  const loteId = params.lote_id || `LOTE-${dateCompact}-${randomSuffix}`;
+  const batchCreatedAtIso = new Date().toISOString();
+
+  const currentInventory = ensureDieselProductsInInventory(getStoredInventory());
+
+  const preparedItems = params.itens
+    .map(item => {
+      const qtd = Number(item.quantidade);
+      if (!item.produto_id || isNaN(qtd) || qtd <= 0) return null;
+      const validProdutoUuid = toValidUUID(item.produto_id);
+      const targetProdLocal =
+        item.produto ||
+        currentInventory.find(i => i.id === item.produto_id || toValidUUID(i.id) === validProdutoUuid);
+      return {
+        rawProdutoId: item.produto_id,
+        validProdutoUuid,
+        quantidade: qtd,
+        targetProdLocal,
+      };
+    })
+    .filter(Boolean) as Array<{
+      rawProdutoId: string;
+      validProdutoUuid: string;
+      quantidade: number;
+      targetProdLocal?: InventoryItem;
+    }>;
+
+  if (preparedItems.length === 0) {
+    return { success: false, errorMessage: 'Nenhuma peça com quantidade válida foi encontrada no pedido.' };
+  }
+
+  let insertedRows: any[] = [];
+
+  if (isSupabaseConfigured) {
+    const payloads = preparedItems.map(p => ({
+      veiculo_id: validVeiculoUuid,
+      produto_id: p.validProdutoUuid,
+      quantidade: p.quantidade,
+      operador_almoxarifado: operador,
+      retirado_por: retiradoPor,
+      data_retirada: dataRetiradaIso,
+    }));
+
+    let { data, error } = await supabase
+      .from('retiradas_pecas')
+      .insert(payloads)
+      .select('*');
+
+    // Tratamento defensivo de FK (23503) caso veículo ou algum produto ainda não exista no banco
+    if (error && error.code === '23503') {
+      if (params.veiculo && validVeiculoUuid) {
+        try {
+          await upsertGestaoFrota({ ...params.veiculo, id: validVeiculoUuid });
+        } catch {}
+      }
+      for (const p of preparedItems) {
+        if (p.targetProdLocal) {
+          try {
+            await upsertEstoqueItem({ ...p.targetProdLocal, id: p.validProdutoUuid });
+          } catch {}
+        }
+      }
+
+      const retry1 = await supabase
+        .from('retiradas_pecas')
+        .insert(payloads)
+        .select('*');
+      data = retry1.data;
+      error = retry1.error;
+
+      if (error && error.code === '23503') {
+        const errDetails = String(error.details || error.message || '');
+        if (errDetails.includes('veiculo_id')) {
+          const retryNoVehicleFk = await supabase
+            .from('retiradas_pecas')
+            .insert(payloads.map(row => ({ ...row, veiculo_id: null })))
+            .select('*');
+          data = retryNoVehicleFk.data;
+          error = retryNoVehicleFk.error;
+        }
+      }
+    }
+
+    if (error) {
+      logPostgresError('registrarPedidoRetiradaPecasLote:insert', error, {
+        table: 'retiradas_pecas',
+        action: 'INSERT',
+        count: payloads.length,
+      });
+      return {
+        success: false,
+        errorMessage: `Erro ao gravar pedido de peças no Supabase: ${error.message || 'Falha na operação'}`,
+      };
+    }
+
+    insertedRows = Array.isArray(data) ? data : data ? [data] : [];
+  }
+
+  const veiculoNome = params.veiculo?.name || 'Veículo / Máquina';
+  const veiculoPlaca = params.veiculo?.plateOrSerial || params.veiculo?.licensePlateOrSerial || '';
+
+  const newRecords: RetiradaPecaRecord[] = preparedItems.map((p, idx) => {
+    const dbRow = insertedRows[idx];
+    const recId = dbRow?.id ? String(dbRow.id) : toValidUUID(`ret_${Date.now()}_${idx}`);
+    return {
+      id: recId,
+      created_at: dbRow?.created_at || batchCreatedAtIso,
+      veiculo_id: validVeiculoUuid,
+      produto_id: p.validProdutoUuid,
+      quantidade: p.quantidade,
+      operador_almoxarifado: operador,
+      retirado_por: retiradoPor,
+      data_retirada: dataRetiradaIso,
+      lote_id: loteId,
+      status: 'Aguardando Manutenção',
+      veiculo_nome: veiculoNome,
+      veiculo_placa: veiculoPlaca,
+      produto_nome: String(p.targetProdLocal?.nome_comercial || p.targetProdLocal?.name || 'Item do Estoque'),
+      produto_codigo: String(p.targetProdLocal?.code ?? p.targetProdLocal?.codigo_produto ?? ''),
+      produto_unidade: String(p.targetProdLocal?.unidade_medida || p.targetProdLocal?.unit || 'UN'),
+    };
+  });
+
+  const newIds = new Set(newRecords.map(r => r.id));
+  const updatedRetiradas = [
+    ...newRecords,
+    ...getLocalRetiradasPecas().filter(r => !newIds.has(r.id)),
+  ];
+  saveLocalRetiradasPecas(updatedRetiradas);
+
+  return {
+    success: true,
+    lote_id: loteId,
+    records: newRecords,
+  };
+}
+
+/**
+ * Atualiza o status de um lote de peças retiradas (ex: de 'Aguardando Manutenção' para 'Em Manutenção / OS')
+ */
+export function atualizarStatusLoteRetiradaPecas(
+  loteIdOrRecordIds: string | string[],
+  novoStatus: string,
+  osNumber?: string,
+  osId?: string
+): RetiradaPecaRecord[] {
+  const current = getLocalRetiradasPecas();
+  const metaMap = getLocalRetiradasLoteMeta();
+  const isArray = Array.isArray(loteIdOrRecordIds);
+  const idSet = new Set(isArray ? loteIdOrRecordIds : [loteIdOrRecordIds]);
+
+  const updated = current.map(item => {
+    const matches = isArray
+      ? idSet.has(item.id) || (item.lote_id && idSet.has(item.lote_id))
+      : item.lote_id === loteIdOrRecordIds || item.id === loteIdOrRecordIds;
+    if (!matches) return item;
+
+    const updatedItem: RetiradaPecaRecord = {
+      ...item,
+      status: novoStatus,
+      os_number: osNumber || item.os_number,
+      os_id: osId || item.os_id,
+    };
+    metaMap[item.id] = {
+      lote_id: updatedItem.lote_id || buildDeterministicLoteId(updatedItem),
+      status: novoStatus,
+      os_number: updatedItem.os_number,
+      os_id: updatedItem.os_id,
+    };
+    return updatedItem;
+  });
+
+  saveLocalRetiradasLoteMeta(metaMap);
+  saveLocalRetiradasPecas(updated);
+  return updated;
+}
+
+/**
+ * ABA 1: Registra uma retirada de peça em 'public.retiradas_pecas'
+ * REGRA HÍBRIDA: Não abate o estoque ainda (status 'Aguardando Manutenção').
  */
 export async function registrarRetiradaPeca(params: {
   veiculo_id: string;
@@ -8528,6 +8829,7 @@ export async function registrarRetiradaPeca(params: {
   operador_almoxarifado: string;
   retirado_por: string;
   data_retirada: string;
+  lote_id?: string;
   veiculo?: Machinery;
   produto?: InventoryItem;
 }): Promise<{
@@ -8537,172 +8839,38 @@ export async function registrarRetiradaPeca(params: {
   updatedInventory?: InventoryItem[];
   errorMessage?: string;
 }> {
-  const qtdRetirada = Number(params.quantidade);
-  if (!params.produto_id || isNaN(qtdRetirada) || qtdRetirada <= 0) {
-    return { success: false, errorMessage: 'Informe um item do estoque e uma quantidade válida maior que zero.' };
-  }
-
-  const validVeiculoUuid = params.veiculo_id ? toValidUUID(params.veiculo_id) : null;
-  const validProdutoUuid = toValidUUID(params.produto_id);
-  const dataRetiradaIso = params.data_retirada || new Date().toISOString().split('T')[0];
-  const operador = params.operador_almoxarifado.trim();
-  const retiradoPor = params.retirado_por.trim();
-
-  // 1. Localiza o produto no estado local e calcula o saldo atualizado
-  const currentInventory = ensureDieselProductsInInventory(getStoredInventory());
-  const targetProdLocal =
-    params.produto ||
-    currentInventory.find(i => i.id === params.produto_id || toValidUUID(i.id) === validProdutoUuid);
-
-  let saldoBase = Number(targetProdLocal?.quantidade_atual ?? targetProdLocal?.quantity ?? 0);
-
-  if (isSupabaseConfigured && validProdutoUuid) {
-    const saldoDb = await fetchSaldoRealProdutoEstoque(validProdutoUuid);
-    if (saldoDb !== null) {
-      saldoBase = saldoDb;
-    } else if (targetProdLocal) {
-      await upsertEstoqueItem({ ...targetProdLocal, id: validProdutoUuid });
-    }
-  }
-
-  const novoSaldo = Math.max(0, Number((saldoBase - qtdRetirada).toFixed(3)));
-
-  // 2. Insere o registro na tabela 'public.retiradas_pecas'
-  let insertedRow: any = null;
-
-  if (isSupabaseConfigured) {
-    const payload: Record<string, any> = {
-      veiculo_id: validVeiculoUuid,
-      produto_id: validProdutoUuid,
-      quantidade: qtdRetirada,
-      operador_almoxarifado: operador,
-      retirado_por: retiradoPor,
-      data_retirada: dataRetiradaIso,
-    };
-
-    let { data, error } = await supabase
-      .from('retiradas_pecas')
-      .insert(payload)
-      .select('*')
-      .maybeSingle();
-
-    // Tratamento defensivo de FK (23503): se o veículo ou produto ainda não estiver sincronizado no banco
-    if (error && error.code === '23503') {
-      if (params.veiculo && validVeiculoUuid) {
-        try {
-          await upsertGestaoFrota({ ...params.veiculo, id: validVeiculoUuid });
-        } catch {}
-      }
-      if (targetProdLocal) {
-        try {
-          await upsertEstoqueItem({ ...targetProdLocal, id: validProdutoUuid });
-        } catch {}
-      }
-
-      // Retenta com os registros pai garantidos
-      const retry1 = await supabase
-        .from('retiradas_pecas')
-        .insert(payload)
-        .select('*')
-        .maybeSingle();
-
-      data = retry1.data;
-      error = retry1.error;
-
-      // Se ainda houver FK em veiculo_id (ex: veículo apenas em memória sem company_id correspondente)
-      if (error && error.code === '23503') {
-        const errDetails = String(error.details || error.message || '');
-        if (errDetails.includes('veiculo_id')) {
-          const retryNoVehicleFk = await supabase
-            .from('retiradas_pecas')
-            .insert({ ...payload, veiculo_id: null })
-            .select('*')
-            .maybeSingle();
-          data = retryNoVehicleFk.data;
-          error = retryNoVehicleFk.error;
-        }
-      }
-    }
-
-    if (error) {
-      logPostgresError('registrarRetiradaPeca:insert', error, {
-        table: 'retiradas_pecas',
-        action: 'INSERT',
-        payload,
-      });
-      return {
-        success: false,
-        errorMessage: `Erro ao gravar retirada no Supabase: ${error.message || 'Falha na operação'}`,
-      };
-    }
-
-    insertedRow = data;
-
-    // 3. REQUISITO OBRIGATÓRIO: Abate automaticamente a quantidade em 'public.estoque_produtos'
-    const nowIso = new Date().toISOString();
-    const { error: updErr } = await supabase
-      .from('estoque_produtos')
-      .update({
-        quantidade_atual: novoSaldo,
-        updated_at: nowIso,
-      })
-      .eq('id', validProdutoUuid);
-
-    if (updErr) {
-      await supabase
-        .from('estoque_produtos')
-        .update({ quantidade_atual: novoSaldo })
-        .eq('id', validProdutoUuid);
-    }
-  }
-
-  // 4. Atualiza o estoque local para refletir instantaneamente em toda a aplicação
-  const updatedInventory = currentInventory.map(item => {
-    if (item.id === params.produto_id || toValidUUID(item.id) === validProdutoUuid) {
-      return {
-        ...item,
-        quantity: novoSaldo,
-        quantidade_atual: novoSaldo,
-        updatedAt: new Date().toISOString(),
-      };
-    }
-    return item;
+  const resLote = await registrarPedidoRetiradaPecasLote({
+    veiculo_id: params.veiculo_id,
+    veiculo: params.veiculo,
+    operador_almoxarifado: params.operador_almoxarifado,
+    retirado_por: params.retirado_por,
+    data_retirada: params.data_retirada,
+    lote_id: params.lote_id,
+    itens: [
+      {
+        produto_id: params.produto_id,
+        quantidade: params.quantidade,
+        produto: params.produto,
+      },
+    ],
   });
-  saveStoredInventory(updatedInventory);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
+
+  if (!resLote.success || !resLote.records || resLote.records.length === 0) {
+    return {
+      success: false,
+      errorMessage: resLote.errorMessage || 'Não foi possível registrar a retirada de peça.',
+    };
   }
-
-  const newRecord: RetiradaPecaRecord = {
-    id: insertedRow?.id ? String(insertedRow.id) : toValidUUID(`ret_${Date.now()}`),
-    created_at: insertedRow?.created_at || new Date().toISOString(),
-    veiculo_id: validVeiculoUuid,
-    produto_id: validProdutoUuid,
-    quantidade: qtdRetirada,
-    operador_almoxarifado: operador,
-    retirado_por: retiradoPor,
-    data_retirada: dataRetiradaIso,
-    veiculo_nome: params.veiculo?.name || 'Veículo / Máquina',
-    veiculo_placa: params.veiculo?.plateOrSerial || '',
-    produto_nome: String(targetProdLocal?.nome_comercial || targetProdLocal?.name || 'Item do Estoque'),
-    produto_codigo: String(targetProdLocal?.code ?? targetProdLocal?.codigo_produto ?? ''),
-    produto_unidade: String(targetProdLocal?.unidade_medida || targetProdLocal?.unit || 'UN'),
-  };
-
-  const updatedRetiradas = [newRecord, ...getLocalRetiradasPecas().filter(r => r.id !== newRecord.id)];
-  saveLocalRetiradasPecas(updatedRetiradas);
 
   return {
     success: true,
-    record: newRecord,
-    novoSaldoEstoque: novoSaldo,
-    updatedInventory,
+    record: resLote.records[0],
   };
 }
 
 /**
  * ABA 1: Atualiza um lançamento existente de retirada de peça em 'public.retiradas_pecas'
- * e ajusta automaticamente a diferença de saldo correspondente em 'public.estoque_produtos'.
+ * mantendo a regra híbrida (sem abater estoque antes da Ordem de Serviço).
  */
 export async function atualizarRetiradaPeca(params: {
   id: string;
@@ -8733,20 +8901,14 @@ export async function atualizarRetiradaPeca(params: {
   const validRetiradaId = toValidUUID(params.id);
   const validVeiculoUuid = params.veiculo_id ? toValidUUID(params.veiculo_id) : null;
   const validNovoProdUuid = toValidUUID(params.produto_id);
-  const validAntigoProdUuid = params.originalRecord.produto_id
-    ? toValidUUID(params.originalRecord.produto_id)
-    : validNovoProdUuid;
-  const qtdAntiga = Number(params.originalRecord.quantidade) || 0;
   const dataRetiradaIso = params.data_retirada || new Date().toISOString().split('T')[0];
   const operador = params.operador_almoxarifado.trim();
   const retiradoPor = params.retirado_por.trim();
 
-  let currentInventory = ensureDieselProductsInInventory(getStoredInventory());
+  const currentInventory = ensureDieselProductsInInventory(getStoredInventory());
   const targetProdLocal =
     params.produto ||
     currentInventory.find(i => i.id === params.produto_id || toValidUUID(i.id) === validNovoProdUuid);
-
-  let novoSaldoFinal = Number(targetProdLocal?.quantidade_atual ?? targetProdLocal?.quantity ?? 0);
 
   if (isSupabaseConfigured) {
     const payloadUpdate: Record<string, any> = {
@@ -8792,65 +8954,6 @@ export async function atualizarRetiradaPeca(params: {
         errorMessage: `Erro ao atualizar retirada no Supabase: ${error.message}`,
       };
     }
-
-    const nowIso = new Date().toISOString();
-
-    if (validNovoProdUuid === validAntigoProdUuid) {
-      // Mesmo produto: ajusta apenas a diferença entre novaQtd e qtdAntiga
-      const diff = novaQtd - qtdAntiga;
-      if (diff !== 0) {
-        const saldoDb = await fetchSaldoRealProdutoEstoque(validNovoProdUuid);
-        const base = saldoDb !== null ? saldoDb : novoSaldoFinal;
-        novoSaldoFinal = Math.max(0, Number((base - diff).toFixed(3)));
-        await supabase
-          .from('estoque_produtos')
-          .update({ quantidade_atual: novoSaldoFinal, updated_at: nowIso })
-          .eq('id', validNovoProdUuid);
-      }
-    } else {
-      // Trocou de produto: estorna qtdAntiga no produto anterior e abate novaQtd no produto novo
-      if (validAntigoProdUuid) {
-        const saldoAntigoDb = await fetchSaldoRealProdutoEstoque(validAntigoProdUuid);
-        if (saldoAntigoDb !== null) {
-          const saldoRestaurado = Number((saldoAntigoDb + qtdAntiga).toFixed(3));
-          await supabase
-            .from('estoque_produtos')
-            .update({ quantidade_atual: saldoRestaurado, updated_at: nowIso })
-            .eq('id', validAntigoProdUuid);
-          currentInventory = currentInventory.map(item =>
-            toValidUUID(item.id) === validAntigoProdUuid
-              ? { ...item, quantity: saldoRestaurado, quantidade_atual: saldoRestaurado }
-              : item
-          );
-        }
-      }
-      const saldoNovoDb = await fetchSaldoRealProdutoEstoque(validNovoProdUuid);
-      const baseNovo = saldoNovoDb !== null ? saldoNovoDb : novoSaldoFinal;
-      novoSaldoFinal = Math.max(0, Number((baseNovo - novaQtd).toFixed(3)));
-      await supabase
-        .from('estoque_produtos')
-        .update({ quantidade_atual: novoSaldoFinal, updated_at: nowIso })
-        .eq('id', validNovoProdUuid);
-    }
-  } else {
-    const diff = validNovoProdUuid === validAntigoProdUuid ? novaQtd - qtdAntiga : novaQtd;
-    novoSaldoFinal = Math.max(0, Number((novoSaldoFinal - diff).toFixed(3)));
-  }
-
-  const updatedInventory = currentInventory.map(item => {
-    if (item.id === params.produto_id || toValidUUID(item.id) === validNovoProdUuid) {
-      return {
-        ...item,
-        quantity: novoSaldoFinal,
-        quantidade_atual: novoSaldoFinal,
-        updatedAt: new Date().toISOString(),
-      };
-    }
-    return item;
-  });
-  saveStoredInventory(updatedInventory);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updatedInventory }));
   }
 
   const updatedRecord: RetiradaPecaRecord = {
@@ -8862,6 +8965,8 @@ export async function atualizarRetiradaPeca(params: {
     operador_almoxarifado: operador,
     retirado_por: retiradoPor,
     data_retirada: dataRetiradaIso,
+    lote_id: params.originalRecord.lote_id || buildDeterministicLoteId(params.originalRecord),
+    status: params.originalRecord.status || 'Aguardando Manutenção',
     veiculo_nome: params.veiculo?.name || params.originalRecord.veiculo_nome || 'Veículo / Máquina',
     veiculo_placa: params.veiculo?.plateOrSerial ?? params.originalRecord.veiculo_placa ?? '',
     produto_nome:
@@ -8890,17 +8995,16 @@ export async function atualizarRetiradaPeca(params: {
   return {
     success: true,
     record: updatedRecord,
-    novoSaldoEstoque: novoSaldoFinal,
-    updatedInventory,
   };
 }
 
 /**
- * ABA 1: Exclui um registro de retirada de peça (com opção de estornar a quantidade ao estoque)
+ * ABA 1: Exclui um registro de retirada de peça
+ * Por padrão estornarEstoque = false pois na regra híbrida o estoque só é abatido na OS.
  */
 export async function deleteRetiradaPeca(
   retiradaId: string,
-  estornarEstoque: boolean = true,
+  estornarEstoque: boolean = false,
   produtoId?: string | null,
   quantidadeEstorno?: number
 ): Promise<{ success: boolean; updatedInventory?: InventoryItem[] }> {
