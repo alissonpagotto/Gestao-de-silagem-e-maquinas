@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   CircleDot, 
   Search, 
@@ -47,13 +47,17 @@ import {
   getPositionReadableLabel, 
   getTireCondition, 
   generateDefaultTiresForAxleConfig, 
+  buildDynamicAxleConfig,
   AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R,
   AXLE_CONFIG_CAMINHAO_TOCO_2E_6R,
   AXLE_CONFIG_UTILITARIO_2E_4R,
   AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R,
   AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R,
-  AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R
+  AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R,
+  AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R
 } from '../../lib/tireAndAxlePresets';
+import { supabase } from '../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../lib/supabaseService';
 import { 
   formatDateBR, 
   formatCurrencyBRL,
@@ -70,6 +74,136 @@ import { TireRotationPrintModal } from './TireRotationPrintModal';
 import { TireDiscardModal } from './TireDiscardModal';
 import { NewInventoryTireModal } from './NewInventoryTireModal';
 import { TireReturnReformModal } from './TireReturnReformModal';
+
+// ========================================================
+// FUNÇÕES AUXILIARES DE INTEGRAÇÃO SUPABASE & CHASSI
+// ========================================================
+
+function mapSupabaseRowToMachinery(row: any, fallbackMachineries: Machinery[]): Machinery {
+  const matchLocal = fallbackMachineries.find((m) => m.id === row.id);
+  const tipoLower = String(row.tipo || row.type || row.categoryType || '').toLowerCase();
+  const nomeLower = String(row.nome || row.name || row.modelo || row.model || '').toLowerCase();
+  const isAgricola = 
+    tipoLower.includes('trator') || 
+    tipoLower.includes('ensilad') || 
+    tipoLower.includes('forrageir') || 
+    tipoLower.includes('maquina') ||
+    nomeLower.includes('claas') || 
+    nomeLower.includes('jaguar') || 
+    nomeLower.includes('maq');
+
+  const cleanNome = (row.nome || row.name || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+  const cleanModel = (row.modelo || row.model || '').replace(/^(AGR[IÍ]COLA\s*[-–—:]*\s*)/i, '').trim();
+
+  const explicitKm = row.km_atual ?? row.current_km ?? row.quilometragem ?? row.currentKm;
+  const kmVal = (explicitKm !== undefined && explicitKm !== null)
+    ? Number(explicitKm)
+    : (!isAgricola && row.horimetro_ou_km_atual !== undefined && row.horimetro_ou_km_atual !== null
+        ? Number(row.horimetro_ou_km_atual)
+        : undefined);
+
+  const explicitHour = row.horas_atual ?? row.horimetro_atual ?? row.hour_meter ?? row.hourmeter ?? row.hourMeter;
+  const hourVal = (explicitHour !== undefined && explicitHour !== null)
+    ? Number(explicitHour)
+    : (isAgricola && row.horimetro_ou_km_atual !== undefined && row.horimetro_ou_km_atual !== null
+        ? Number(row.horimetro_ou_km_atual)
+        : (row.hourmeter !== undefined ? Number(row.hourmeter) : (row.hourMeter !== undefined ? Number(row.hourMeter) : undefined)));
+
+  const eixosNum = row.numero_eixos !== undefined && row.numero_eixos !== null 
+    ? Number(row.numero_eixos) 
+    : (row.numeroEixos !== undefined && row.numeroEixos !== null ? Number(row.numeroEixos) : matchLocal?.numero_eixos);
+
+  const pneusNum = row.quantidade_pneus !== undefined && row.quantidade_pneus !== null 
+    ? Number(row.quantidade_pneus) 
+    : (row.quantidadePneus !== undefined && row.quantidadePneus !== null ? Number(row.quantidadePneus) : matchLocal?.quantidade_pneus);
+
+  return {
+    ...matchLocal,
+    ...row,
+    id: row.id,
+    name: cleanNome || cleanModel || matchLocal?.name || 'Veículo',
+    nome: cleanNome || cleanModel || matchLocal?.nome || 'Veículo',
+    model: cleanModel || matchLocal?.model || '',
+    modelo: cleanModel || matchLocal?.modelo || '',
+    categoryType: row.tipo || row.type || row.categoria || matchLocal?.categoryType || 'veiculo',
+    tipo: row.tipo || row.type || row.categoria || matchLocal?.tipo || 'veiculo',
+    licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || matchLocal?.licensePlateOrSerial || '',
+    placa_ou_serie: row.placa_ou_serie || row.plate_or_serial || matchLocal?.placa_ou_serie || '',
+    hourMeter: hourVal ?? matchLocal?.hourMeter,
+    currentKm: kmVal ?? matchLocal?.currentKm,
+    numero_eixos: eixosNum,
+    quantidade_pneus: pneusNum,
+    numeroEixos: eixosNum,
+    quantidadePneus: pneusNum,
+    installedTires: matchLocal?.installedTires || [],
+    status: row.status || matchLocal?.status || 'disponivel',
+    maintenanceStatus: row.manutencao_status || matchLocal?.maintenanceStatus || 'ok',
+  };
+}
+
+function resolveVehicleAxleConfig(
+  vehicleRow: any,
+  typeConfigFromDb: any,
+  vTypes: VehicleTypeDefinition[]
+): VehicleAxleConfig {
+  if (!vehicleRow) return AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R;
+
+  // 1. Prioridade A: Configuração vinda da tabela 'public.tipos_veiculos_config'
+  if (typeConfigFromDb) {
+    const eixos = Number(typeConfigFromDb.numero_eixos ?? typeConfigFromDb.total_eixos ?? typeConfigFromDb.totalAxles);
+    const pneus = Number(typeConfigFromDb.quantidade_pneus ?? typeConfigFromDb.total_pneus ?? typeConfigFromDb.totalTires);
+    if (eixos > 0 && pneus > 0) {
+      return buildDynamicAxleConfig(eixos, pneus, vehicleRow.tipo, vehicleRow.nome);
+    }
+  }
+
+  // 2. Prioridade B: Valores explícitos de eixos e pneus salvos na tabela 'public.gestao_frotas'
+  const vEixos = Number(vehicleRow.numero_eixos ?? vehicleRow.numeroEixos);
+  const vPneus = Number(vehicleRow.quantidade_pneus ?? vehicleRow.quantidadePneus);
+  if (vEixos > 0 && vPneus > 0) {
+    return buildDynamicAxleConfig(vEixos, vPneus, vehicleRow.tipo, vehicleRow.nome);
+  }
+
+  const tipoStr = String(vehicleRow.tipo || vehicleRow.type || vehicleRow.categoryType || '').toLowerCase();
+  const nomeStr = String(vehicleRow.nome || vehicleRow.name || '').toLowerCase();
+  const modeloStr = String(vehicleRow.modelo || vehicleRow.model || '').toLowerCase();
+  const combined = `${tipoStr} ${nomeStr} ${modeloStr}`;
+
+  // 3. Prioridade C: Cruzamento com as configurações cadastradas na janela "Configurar Eixos" (tabela de tipos)
+  const matchedType = vTypes.find((vt) => {
+    const vtName = vt.name.toLowerCase();
+    const vtCat = vt.categoryKey.toLowerCase();
+    return (
+      (vehicleRow.vehicleTypeId && vt.id === vehicleRow.vehicleTypeId) ||
+      tipoStr.includes(vtCat) ||
+      vtName.includes(tipoStr) ||
+      tipoStr.includes(vtName) ||
+      (combined.includes('ensilad') && (vtName.includes('ensilad') || vtCat.includes('ensilad'))) ||
+      (combined.includes('jaguar') && (vtName.includes('ensilad') || vtCat.includes('ensilad'))) ||
+      (combined.includes('reboque') && (vtName.includes('reboque') || vtCat.includes('reboque'))) ||
+      (combined.includes('prancha') && (vtName.includes('reboque') || vtCat.includes('reboque'))) ||
+      (combined.includes('trator') && (vtName.includes('trator') || vtCat.includes('trator'))) ||
+      (combined.includes('caminh') && (vtName.includes('caminh') || vtCat.includes('caminh')))
+    );
+  });
+
+  if (matchedType?.defaultAxleConfig) {
+    return matchedType.defaultAxleConfig;
+  }
+
+  // 4. Prioridade D: Reconhecimento categórico das configurações padrão
+  if (combined.includes('ensilad') || combined.includes('forrageir') || combined.includes('jaguar') || combined.includes('maq 02') || combined.includes('maq02')) {
+    return AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R; // 2 Eixos e 4 Pneus (rodado simples)
+  }
+  if (combined.includes('reboque') || combined.includes('prancha') || combined.includes('carreta') || combined.includes('transbordo')) {
+    return AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R; // 3 Eixos e 12 Pneus (rodado duplo)
+  }
+  if (combined.includes('trator')) {
+    return AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R; // 2 Eixos e 4 Pneus
+  }
+
+  return AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R;
+}
 
 interface FleetTireRotationViewProps {
   machineries: Machinery[];
@@ -103,11 +237,179 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
   onAddExpense,
 }) => {
   // ----------------------------------------------------
-  // ESTADO DE SELEÇÃO DE VEÍCULO E FILTROS
+  // ESTADO DE SELEÇÃO DE VEÍCULO E FILTROS DINÂMICOS
   // ----------------------------------------------------
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>(machineries[0]?.id || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('todos');
+
+  // Lista dinâmica vinda do Supabase (com fallback resiliente para machineries)
+  const [dbVehicles, setDbVehicles] = useState<Machinery[]>(machineries);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+
+  // Registro do veículo ativo buscado no Supabase ('public.gestao_frotas')
+  const [selectedVehicleDb, setSelectedVehicleDb] = useState<any | null>(null);
+  const [dynamicAxleConfig, setDynamicAxleConfig] = useState<VehicleAxleConfig | null>(null);
+  const [isLoadingVehicleConfig, setIsLoadingVehicleConfig] = useState(false);
+
+  // ----------------------------------------------------
+  // INTEGRAÇÃO REATIVA: CONSULTA DE VEÍCULO & CONFIGURAÇÃO DE EIXOS
+  // ----------------------------------------------------
+  const loadVehicleConfigFromSupabase = useCallback(
+    async (vId: string, currentVTypes?: VehicleTypeDefinition[]) => {
+      if (!vId) return;
+      setIsLoadingVehicleConfig(true);
+      try {
+        // 1. Busca na tabela 'public.gestao_frotas'
+        let vRow: any = null;
+        if (isSupabaseConfigured) {
+          const { data, error } = await supabase
+            .from('gestao_frotas')
+            .select('*')
+            .eq('id', vId)
+            .maybeSingle();
+
+          if (!error && data) {
+            vRow = data;
+          }
+        }
+
+        const matchedLocal = machineries.find((m) => m.id === vId) || dbVehicles.find((m) => m.id === vId);
+        const activeVehicleData = vRow ? mapSupabaseRowToMachinery(vRow, machineries) : matchedLocal;
+        setSelectedVehicleDb(activeVehicleData);
+
+        // 2. Cruzamento (JOIN / busca secundária) com 'public.tipos_veiculos_config'
+        let typeConfigFromDb: any = null;
+        if (isSupabaseConfigured && activeVehicleData) {
+          try {
+            const { data: tData, error: tErr } = await supabase
+              .from('tipos_veiculos_config')
+              .select('*');
+
+            if (!tErr && tData && tData.length > 0) {
+              const activeAny = activeVehicleData as any;
+              const vTipo = String(activeAny.tipo || activeAny.categoryType || '').toLowerCase();
+              const vCat = String(activeAny.categoria || '').toLowerCase();
+              const vTipoId = activeAny.tipo_id || activeAny.vehicle_type_id || activeAny.tipoId || activeAny.vehicleTypeId;
+
+              typeConfigFromDb = tData.find((tc: any) => 
+                (vTipoId && (tc.id === vTipoId || tc.tipo_id === vTipoId)) ||
+                (tc.nome && vTipo && tc.nome.toLowerCase() === vTipo) ||
+                (tc.tipo && vTipo && tc.tipo.toLowerCase() === vTipo) ||
+                (tc.categoria && vCat && tc.categoria.toLowerCase() === vCat) ||
+                (tc.name && vTipo && tc.name.toLowerCase() === vTipo)
+              );
+            }
+          } catch (err) {
+            console.warn('tipos_veiculos_config secondary search notice:', err);
+          }
+        }
+
+        // 3. Resolução reativa e dinâmica de eixos & pneus
+        const resolvedConfig = resolveVehicleAxleConfig(
+          activeVehicleData,
+          typeConfigFromDb,
+          currentVTypes || vehicleTypes
+        );
+        setDynamicAxleConfig(resolvedConfig);
+      } catch (err) {
+        console.warn('Error loading vehicle axle config from Supabase:', err);
+      } finally {
+        setIsLoadingVehicleConfig(false);
+      }
+    },
+    [machineries, dbVehicles, vehicleTypes]
+  );
+
+  // Dispara busca ao selecionar veículo na lista
+  useEffect(() => {
+    if (selectedVehicleId) {
+      loadVehicleConfigFromSupabase(selectedVehicleId);
+    }
+  }, [selectedVehicleId, loadVehicleConfigFromSupabase]);
+
+  // ----------------------------------------------------
+  // INTEGRAÇÃO REATIVA: FILTRO DE CATEGORIAS NO SUPABASE
+  // ----------------------------------------------------
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchVehiclesByFilter = async () => {
+      if (!isSupabaseConfigured) {
+        // Fallback local caso Supabase não esteja disponível
+        if (categoryFilter === 'todos') {
+          setDbVehicles(machineries);
+        } else {
+          setDbVehicles(machineries.filter((m) => m.categoryType === categoryFilter));
+        }
+        return;
+      }
+
+      setIsLoadingList(true);
+      try {
+        if (categoryFilter !== 'todos') {
+          const catMap: Record<string, string> = {
+            caminhao: 'Caminhão',
+            trator: 'Trator',
+            ensiladeira: 'Ensiladeira',
+            reboque: 'Reboque',
+          };
+          const catLabel = catMap[categoryFilter] || categoryFilter;
+
+          // 1. Tenta consulta filtrando por .eq('categoria', catLabel)
+          let res = await supabase
+            .from('gestao_frotas')
+            .select('*')
+            .eq('categoria', catLabel);
+
+          // 2. Se a coluna 'categoria' não existir ou der erro no schema, aplica filtro por 'tipo' correspondente
+          if (res.error) {
+            let tipoQuery = supabase.from('gestao_frotas').select('*');
+            if (categoryFilter === 'caminhao') {
+              tipoQuery = tipoQuery.or('tipo.ilike.%caminh%,tipo.ilike.%cavalo%,tipo.ilike.%tração%');
+            } else if (categoryFilter === 'trator') {
+              tipoQuery = tipoQuery.or('tipo.ilike.%trator%,tipo.ilike.%agricola%');
+            } else if (categoryFilter === 'ensiladeira') {
+              tipoQuery = tipoQuery.or('tipo.ilike.%ensilad%,tipo.ilike.%forrageir%,tipo.ilike.%jaguar%');
+            } else if (categoryFilter === 'reboque') {
+              tipoQuery = tipoQuery.or('tipo.ilike.%reboque%,tipo.ilike.%prancha%,tipo.ilike.%transbordo%,tipo.ilike.%carreta%');
+            }
+            res = await tipoQuery;
+          }
+
+          if (!isCancelled && res.data) {
+            const mapped = res.data.map((row: any) => mapSupabaseRowToMachinery(row, machineries));
+            setDbVehicles(mapped);
+            // Se o veículo atualmente selecionado não fizer parte do filtro, seleciona o primeiro retornado
+            if (mapped.length > 0 && !mapped.some((v: Machinery) => v.id === selectedVehicleId)) {
+              setSelectedVehicleId(mapped[0].id);
+            }
+          }
+        } else {
+          // 'todos': consulta completa ordenada
+          const res = await supabase
+            .from('gestao_frotas')
+            .select('*')
+            .order('nome', { ascending: true });
+
+          if (!isCancelled && res.data) {
+            const mapped = res.data.map((row: any) => mapSupabaseRowToMachinery(row, machineries));
+            setDbVehicles(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Error querying gestao_frotas with category filter:', err);
+      } finally {
+        if (!isCancelled) setIsLoadingList(false);
+      }
+    };
+
+    fetchVehiclesByFilter();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [categoryFilter, machineries]);
 
   // ----------------------------------------------------
   // ESTADO DE GESTÃO DE ESTOQUE, REFORMA E DESCARTE
@@ -151,35 +453,27 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
   const [isDiscardHistoryModalOpen, setIsDiscardHistoryModalOpen] = useState(false);
 
   // ----------------------------------------------------
-  // VEÍCULO ATIVO & CONFIGURAÇÃO DE EIXOS
+  // VEÍCULO ATIVO & CONFIGURAÇÃO DINÂMICA DE EIXOS
   // ----------------------------------------------------
   const selectedVehicle = useMemo(() => {
-    return machineries.find((m) => m.id === selectedVehicleId) || machineries[0] || null;
-  }, [machineries, selectedVehicleId]);
+    const fromDbList = dbVehicles.find((m) => m.id === selectedVehicleId);
+    const fromMachineries = machineries.find((m) => m.id === selectedVehicleId);
+    const base = fromDbList || fromMachineries || selectedVehicleDb || machineries[0] || null;
+    if (base && selectedVehicleDb && selectedVehicleDb.id === selectedVehicleId) {
+      return {
+        ...base,
+        ...selectedVehicleDb,
+        installedTires: base.installedTires || selectedVehicleDb.installedTires || [],
+      };
+    }
+    return base;
+  }, [dbVehicles, machineries, selectedVehicleId, selectedVehicleDb]);
 
   const axleConfig: VehicleAxleConfig = useMemo(() => {
+    if (dynamicAxleConfig) return dynamicAxleConfig;
     if (!selectedVehicle) return AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R;
-    
-    if (selectedVehicle.customAxleConfig) {
-      return selectedVehicle.customAxleConfig;
-    }
-
-    if (selectedVehicle.vehicleTypeId) {
-      const vType = vehicleTypes.find((vt) => vt.id === selectedVehicle.vehicleTypeId);
-      if (vType) return vType.defaultAxleConfig;
-    }
-
-    // Identificação por categoria
-    const cat = selectedVehicle.categoryType;
-    if (cat === 'caminhao') return AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R;
-    if (cat === 'trator') return AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R;
-    if (cat === 'ensiladeira' || cat === 'forrageira') return AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R;
-    if (cat === 'reboque') return AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R;
-    if (cat === 'utilitario') return AXLE_CONFIG_UTILITARIO_2E_4R;
-    if (cat === 'onibus') return AXLE_CONFIG_CAMINHAO_TOCO_2E_6R;
-
-    return AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R;
-  }, [selectedVehicle, vehicleTypes]);
+    return resolveVehicleAxleConfig(selectedVehicle, null, vehicleTypes);
+  }, [dynamicAxleConfig, selectedVehicle, vehicleTypes]);
 
   // Lista de pneus instalados no veículo atual
   const currentTires: TireItem[] = useMemo(() => {
@@ -226,18 +520,18 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     return { totalSlots, mountedCount, emptyCount, avgTread, criticalCount, warningCount };
   }, [allAxlePositions, currentTires]);
 
-  // Filtro de Veículos da coluna esquerda
+  // Filtro de Veículos da coluna esquerda baseado no resultado do banco
   const filteredVehicles = useMemo(() => {
-    return machineries.filter((m) => {
+    const source = dbVehicles.length > 0 ? dbVehicles : machineries;
+    return source.filter((m) => {
       const matchSearch = 
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (m.model && m.model.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchCat = categoryFilter === 'todos' || m.categoryType === categoryFilter;
-      return matchSearch && matchCat;
+      return matchSearch;
     });
-  }, [machineries, searchQuery, categoryFilter]);
+  }, [dbVehicles, machineries, searchQuery]);
 
   // ----------------------------------------------------
   // FUNÇÕES DE ATUALIZAÇÃO DO VEÍCULO ATUAL
@@ -254,6 +548,11 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       return m;
     });
     onSaveMachineries(updatedMachineries);
+
+    // Atualiza também na lista local sincronizada
+    setDbVehicles((prev) =>
+      prev.map((m) => (m.id === selectedVehicle.id ? { ...m, installedTires: newTiresList } : m))
+    );
   };
 
   // ----------------------------------------------------
@@ -659,27 +958,38 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
               />
             </div>
 
-            {/* Filtros rápidos de categoria */}
+            {/* Filtros rápidos de categoria reativos (Consultam o Supabase diretamente) */}
             <div className="flex items-center space-x-1 overflow-x-auto pb-1 mb-2 scrollbar-none">
-              {['todos', 'caminhao', 'trator', 'ensiladeira', 'reboque'].map((cat) => (
+              {[
+                { key: 'todos', label: 'Todos' },
+                { key: 'caminhao', label: 'Caminhão' },
+                { key: 'trator', label: 'Trator' },
+                { key: 'ensiladeira', label: 'Ensiladeira' },
+                { key: 'reboque', label: 'Reboque' },
+              ].map(({ key, label }) => (
                 <button
-                  key={cat}
+                  key={key}
                   type="button"
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer ${
-                    categoryFilter === cat
+                  onClick={() => setCategoryFilter(key)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer ${
+                    categoryFilter === key
                       ? 'bg-sky-600 text-white shadow-2xs'
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
                   }`}
                 >
-                  {cat === 'todos' ? 'Todos' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  {label}
                 </button>
               ))}
             </div>
 
             {/* Lista com scroll de veículos */}
             <div className="space-y-1.5 overflow-y-auto flex-1 pr-1">
-              {filteredVehicles.length === 0 ? (
+              {isLoadingList ? (
+                <div className="text-center py-8 text-stone-400 text-xs flex flex-col items-center justify-center space-y-2">
+                  <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Atualizando lista do Supabase...</span>
+                </div>
+              ) : filteredVehicles.length === 0 ? (
                 <div className="text-center py-8 text-stone-400 text-xs">
                   Nenhum veículo encontrado
                 </div>
@@ -696,7 +1006,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                       onClick={() => setSelectedVehicleId(vehicle.id)}
                       className={`w-full text-left p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
                         isSelected
-                          ? 'border-sky-500 bg-sky-50/80 dark:bg-sky-950/50 shadow-xs'
+                          ? 'border-sky-500 bg-sky-50/80 dark:bg-sky-950/50 shadow-xs ring-1 ring-sky-400'
                           : 'border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700'
                       }`}
                     >
@@ -751,8 +1061,11 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-black text-stone-900 dark:text-stone-100">
-                      {selectedVehicle?.licensePlateOrSerial || selectedVehicle?.name}
+                    <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <span>{selectedVehicle?.licensePlateOrSerial || selectedVehicle?.name}</span>
+                      {isLoadingVehicleConfig && (
+                        <div className="w-3 h-3 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" title="Sincronizando com Supabase..." />
+                      )}
                     </h3>
                     <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
                       {axleConfig.name}
@@ -1192,7 +1505,30 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
         isOpen={isTypesConfigOpen}
         onClose={() => setIsTypesConfigOpen(false)}
         vehicleTypes={vehicleTypes}
-        onSaveVehicleTypes={onSaveVehicleTypes}
+        onSaveVehicleTypes={async (updatedTypes) => {
+          onSaveVehicleTypes(updatedTypes);
+          try {
+            if (isSupabaseConfigured) {
+              for (const vt of updatedTypes) {
+                await supabase.from('tipos_veiculos_config').upsert({
+                  id: vt.id,
+                  nome: vt.name,
+                  tipo: vt.categoryKey || vt.name,
+                  categoria: vt.categoryKey || vt.name,
+                  numero_eixos: vt.defaultAxleConfig.totalAxles,
+                  quantidade_pneus: vt.defaultAxleConfig.totalTires,
+                  descricao: vt.description,
+                  config_json: vt.defaultAxleConfig,
+                });
+              }
+            }
+          } catch (err) {
+            console.warn('tipos_veiculos_config sync notice:', err);
+          }
+          if (selectedVehicleId) {
+            loadVehicleConfigFromSupabase(selectedVehicleId, updatedTypes);
+          }
+        }}
       />
 
       {/* ========================================================

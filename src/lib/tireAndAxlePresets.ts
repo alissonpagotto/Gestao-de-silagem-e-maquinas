@@ -149,6 +149,127 @@ export const AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R: VehicleAxleConfig = {
   ],
 };
 
+export const AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R: VehicleAxleConfig = {
+  code: 'reboque_prancha_3e_12r',
+  name: '3 Eixos / 12 Rodas (Reboque / Treminhão / Prancha)',
+  totalAxles: 3,
+  totalTires: 12,
+  axles: [
+    {
+      axleNumber: 1,
+      name: '1º Eixo (Reboque Rodado Duplo)',
+      type: 'dual',
+      function: 'reboque',
+      tirePositions: ['1EE', '1EI', '1DI', '1DD'],
+    },
+    {
+      axleNumber: 2,
+      name: '2º Eixo (Reboque Rodado Duplo)',
+      type: 'dual',
+      function: 'reboque',
+      tirePositions: ['2EE', '2EI', '2DI', '2DD'],
+    },
+    {
+      axleNumber: 3,
+      name: '3º Eixo (Reboque Rodado Duplo)',
+      type: 'dual',
+      function: 'reboque',
+      tirePositions: ['3EE', '3EI', '3DI', '3DD'],
+    },
+  ],
+};
+
+export function buildDynamicAxleConfig(
+  numAxles: number,
+  numTires: number,
+  vehicleTypeOrCat?: string,
+  vehicleName?: string
+): VehicleAxleConfig {
+  const totalAxles = Math.max(1, Math.min(6, Number(numAxles) || 2));
+  const totalTires = Math.max(totalAxles * 2, Number(numTires) || totalAxles * 2);
+
+  const lowerType = String(vehicleTypeOrCat || '').toLowerCase();
+  const lowerName = String(vehicleName || '').toLowerCase();
+  const isReboque = 
+    lowerType.includes('reboque') || 
+    lowerType.includes('prancha') || 
+    lowerType.includes('carreta') || 
+    lowerType.includes('transbordo') ||
+    lowerName.includes('prancha') ||
+    lowerName.includes('reboque');
+
+  const isAgricola = 
+    lowerType.includes('ensilad') || 
+    lowerType.includes('forrageir') || 
+    lowerType.includes('trator') || 
+    lowerName.includes('jaguar') || 
+    lowerName.includes('claas') ||
+    lowerName.includes('maq');
+
+  // Cálculo de eixos duplos (4 pneus) vs simples (2 pneus):
+  // totalTires = dualCount * 4 + singleCount * 2
+  // dualCount + singleCount = totalAxles  => 2 * dualCount = totalTires - 2 * totalAxles
+  let dualCount = Math.floor((totalTires - 2 * totalAxles) / 2);
+  dualCount = Math.max(0, Math.min(totalAxles, dualCount));
+  const singleCount = totalAxles - dualCount;
+
+  const axles = [];
+
+  for (let i = 1; i <= totalAxles; i++) {
+    // Se for reboque e todos forem duplos, singleCount é 0
+    // Em caminhões (ex: 3 eixos 10 pneus), o 1º é simples (direcional) e os 2 traseiros são duplos
+    const isSingle = i <= singleCount;
+    const axleType = isSingle ? ('single' as const) : ('dual' as const);
+
+    let functionType: any = 'tracao';
+    let name = `${i}º Eixo`;
+
+    if (isReboque) {
+      functionType = 'reboque';
+      name = `${i}º Eixo (Reboque Rodado ${axleType === 'dual' ? 'Duplo' : 'Simples'})`;
+    } else if (isAgricola) {
+      if (i === 1) {
+        functionType = 'agricola_traseiro';
+        name = `1º Eixo Dianteiro (Tração Primária)`;
+      } else {
+        functionType = 'agricola_dianteiro';
+        name = `${i}º Eixo Traseiro (Direcional Manobra)`;
+      }
+    } else {
+      if (i === 1) {
+        functionType = 'direcional';
+        name = `1º Eixo (Dianteiro Direcional)`;
+      } else if (i === 2) {
+        functionType = 'tracao';
+        name = `2º Eixo (Tração ${axleType === 'dual' ? 'Rodado Duplo' : 'Simples'})`;
+      } else {
+        functionType = 'truck_livre';
+        name = `${i}º Eixo (Apoio / Truck ${axleType === 'dual' ? 'Rodado Duplo' : 'Simples'})`;
+      }
+    }
+
+    const tirePositions: string[] = axleType === 'single'
+      ? [`${i}E`, `${i}D`]
+      : [`${i}EE`, `${i}EI`, `${i}DI`, `${i}DD`];
+
+    axles.push({
+      axleNumber: i,
+      name,
+      type: axleType,
+      function: functionType,
+      tirePositions,
+    });
+  }
+
+  return {
+    code: `dyn_${totalAxles}e_${totalTires}r`,
+    name: `${totalAxles} Eixos / ${totalTires} Rodas`,
+    totalAxles,
+    totalTires,
+    axles,
+  };
+}
+
 export const AXLE_CONFIG_BITRUCK_4E_12R: VehicleAxleConfig = {
   code: 'bitruck_4e_12r',
   name: '4 Eixos / 12 Rodas (Caminhão Bitruck 8x2 / 8x4)',
@@ -242,6 +363,13 @@ export const INITIAL_VEHICLE_TYPES: VehicleTypeDefinition[] = [
     description: 'Vagões forrageiros e reboques agrícolas de alta flutuação',
   },
   {
+    id: 'vt_reboque_prancha_3e',
+    name: 'Reboque / Treminhão / Prancha (3 Eixos / 12 Rodas)',
+    categoryKey: 'reboque',
+    defaultAxleConfig: AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R,
+    description: 'Pranchas e treminhões pesados com 3 eixos rodado duplo (12 pneus)',
+  },
+  {
     id: 'vt_utilitario',
     name: 'Veículo Utilitário / Apoio',
     categoryKey: 'utilitario',
@@ -272,22 +400,46 @@ export function getPositionReadableLabel(pos: string): string {
   const map: Record<string, string> = {
     '1E': '1º Eixo - Esquerdo',
     '1D': '1º Eixo - Direito',
+    '1EE': '1º Eixo - Esquerdo Externo',
+    '1EI': '1º Eixo - Esquerdo Interno',
+    '1DI': '1º Eixo - Direito Interno',
+    '1DD': '1º Eixo - Direito Externo',
     '2E': '2º Eixo - Esquerdo',
     '2D': '2º Eixo - Direito',
     '2EE': '2º Eixo - Esquerdo Externo',
     '2EI': '2º Eixo - Esquerdo Interno',
     '2DI': '2º Eixo - Direito Interno',
     '2DD': '2º Eixo - Direito Externo',
+    '3E': '3º Eixo - Esquerdo',
+    '3D': '3º Eixo - Direito',
     '3EE': '3º Eixo - Esquerdo Externo',
     '3EI': '3º Eixo - Esquerdo Interno',
     '3DI': '3º Eixo - Direito Interno',
     '3DD': '3º Eixo - Direito Externo',
+    '4E': '4º Eixo - Esquerdo',
+    '4D': '4º Eixo - Direito',
     '4EE': '4º Eixo - Esquerdo Externo',
     '4EI': '4º Eixo - Esquerdo Interno',
     '4DI': '4º Eixo - Direito Interno',
     '4DD': '4º Eixo - Direito Externo',
   };
-  return map[pos] || `Posição ${pos}`;
+  if (map[pos]) return map[pos];
+
+  const match = pos.match(/^(\d+)(EE|EI|DI|DD|E|D)$/);
+  if (match) {
+    const axleNum = match[1];
+    const side = match[2];
+    const sideMap: Record<string, string> = {
+      'E': 'Esquerdo',
+      'D': 'Direito',
+      'EE': 'Esquerdo Externo',
+      'EI': 'Esquerdo Interno',
+      'DI': 'Direito Interno',
+      'DD': 'Direito Externo',
+    };
+    return `${axleNum}º Eixo - ${sideMap[side] || side}`;
+  }
+  return `Posição ${pos}`;
 }
 
 export function getTireCondition(treadMm: number): {

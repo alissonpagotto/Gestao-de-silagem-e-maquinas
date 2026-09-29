@@ -228,6 +228,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [hourMeter, setHourMeter] = useState('');
   const [currentKm, setCurrentKm] = useState('');
 
+  // Novos campos técnicos: Número de Eixos e Quantidade de Pneus
+  const [numeroEixos, setNumeroEixos] = useState<string>('');
+  const [quantidadePneus, setQuantidadePneus] = useState<string>('');
+  const [formData, setFormData] = useState<{ numero_eixos: string; quantidade_pneus: string }>({
+    numero_eixos: '',
+    quantidade_pneus: '',
+  });
+
   // Serial Number (especially tractors/machines without renavam)
   const [serialNumber, setSerialNumber] = useState('');
 
@@ -614,6 +622,21 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setHourMeter(editingVehicle.hourMeter !== undefined ? String(editingVehicle.hourMeter) : '');
       setCurrentKm(editingVehicle.currentKm !== undefined ? String(editingVehicle.currentKm) : '');
 
+      // Novos campos técnicos: Número de Eixos e Quantidade de Pneus
+      const initEixos = editingVehicle.numero_eixos !== undefined && editingVehicle.numero_eixos !== null 
+        ? String(editingVehicle.numero_eixos) 
+        : ((editingVehicle as any).numeroEixos !== undefined && (editingVehicle as any).numeroEixos !== null ? String((editingVehicle as any).numeroEixos) : '');
+      const initPneus = editingVehicle.quantidade_pneus !== undefined && editingVehicle.quantidade_pneus !== null 
+        ? String(editingVehicle.quantidade_pneus) 
+        : ((editingVehicle as any).quantidadePneus !== undefined && (editingVehicle as any).quantidadePneus !== null ? String((editingVehicle as any).quantidadePneus) : '');
+      setNumeroEixos(initEixos);
+      setQuantidadePneus(initPneus);
+      setFormData(prev => ({
+        ...prev,
+        numero_eixos: initEixos,
+        quantidade_pneus: initPneus,
+      }));
+
       // Serial
       setSerialNumber(editingVehicle.serialNumber || '');
 
@@ -743,6 +766,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setFuelCapacityLiters('');
       setHourMeter('');
       setCurrentKm('');
+
+      setNumeroEixos('');
+      setQuantidadePneus('');
+      setFormData({
+        numero_eixos: '',
+        quantidade_pneus: '',
+      });
 
       setSerialNumber('');
 
@@ -1119,6 +1149,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       taraWeightKg: taraWeightKg ? parseFloat(taraWeightKg) : undefined,
       capacityLoadKg: capacityLoadKg ? parseFloat(capacityLoadKg) : undefined,
       grossWeightKg: computedPbt > 0 ? computedPbt : undefined,
+
+      // Novos campos técnicos: Eixos e Pneus
+      numero_eixos: (numeroEixos || formData.numero_eixos) ? parseInt(numeroEixos || formData.numero_eixos, 10) : undefined,
+      quantidade_pneus: (quantidadePneus || formData.quantidade_pneus) ? parseInt(quantidadePneus || formData.quantidade_pneus, 10) : undefined,
+      numeroEixos: (numeroEixos || formData.numero_eixos) ? parseInt(numeroEixos || formData.numero_eixos, 10) : undefined,
+      quantidadePneus: (quantidadePneus || formData.quantidade_pneus) ? parseInt(quantidadePneus || formData.quantidade_pneus, 10) : undefined,
 
       // Serial
       serialNumber: serialNumber.trim() || undefined,
@@ -2146,7 +2182,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
                 {/* 6. Odômetro Atual */}
                 <div>
-                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Quilometragem atual do odômetro">
+                  <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Quilometragem inicial / atual do odômetro">
                     Odômetro (km)
                   </label>
                   <div className="relative">
@@ -2161,6 +2197,55 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 pointer-events-none">
                       km
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Linha Técnica: Número de Eixos e Quantidade de Pneus organizados lado a lado na coluna da esquerda */}
+              <div className="pt-2 border-t border-zinc-100 flex flex-col sm:flex-row items-stretch gap-2.5">
+                <div className="grid grid-cols-2 gap-2.5 sm:max-w-md w-full">
+                  {/* 1. Número de Eixos */}
+                  <div>
+                    <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Número total de eixos do veículo">
+                      Número de Eixos
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="0"
+                        value={numeroEixos}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setNumeroEixos(val);
+                          setFormData(prev => ({ ...prev, numero_eixos: val }));
+                        }}
+                        className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Quantidade de Pneus */}
+                  <div>
+                    <label className="block text-[11px] font-bold mb-0.5 text-zinc-700 truncate" title="Quantidade total de pneus do veículo">
+                      Quantidade de Pneus
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="0"
+                        value={quantidadePneus}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setQuantidadePneus(val);
+                          setFormData(prev => ({ ...prev, quantidade_pneus: val }));
+                        }}
+                        className="w-full px-2.5 py-1.5 pr-8 rounded-lg border border-zinc-300 bg-white text-zinc-900 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 shadow-xs"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

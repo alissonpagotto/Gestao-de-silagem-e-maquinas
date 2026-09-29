@@ -3067,6 +3067,10 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         assignedDriverIds: finalAssignedDriverIds,
         driver_id: driverId,
         user_id: driverId,
+        numero_eixos: row.numero_eixos !== undefined && row.numero_eixos !== null ? Number(row.numero_eixos) : (row.numeroEixos !== undefined && row.numeroEixos !== null ? Number(row.numeroEixos) : undefined),
+        quantidade_pneus: row.quantidade_pneus !== undefined && row.quantidade_pneus !== null ? Number(row.quantidade_pneus) : (row.quantidadePneus !== undefined && row.quantidadePneus !== null ? Number(row.quantidadePneus) : undefined),
+        numeroEixos: row.numero_eixos !== undefined && row.numero_eixos !== null ? Number(row.numero_eixos) : (row.numeroEixos !== undefined && row.numeroEixos !== null ? Number(row.numeroEixos) : undefined),
+        quantidadePneus: row.quantidade_pneus !== undefined && row.quantidade_pneus !== null ? Number(row.quantidade_pneus) : (row.quantidadePneus !== undefined && row.quantidadePneus !== null ? Number(row.quantidadePneus) : undefined),
       };
     }) as Machinery[];
   } catch (err) {
@@ -3197,6 +3201,18 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     }
     if (!unsupportedGestaoFrotaCols.has('assigned_drivers') && vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0) {
       payload.assigned_drivers = vehicle.assignedDrivers;
+    }
+
+    const numEixos = vehicle.numero_eixos ?? (vehicle as any).numeroEixos;
+    const cleanNumEixos = (numEixos !== undefined && numEixos !== null && String(numEixos).trim() !== '') ? Number(numEixos) : null;
+    const qtdPneus = vehicle.quantidade_pneus ?? (vehicle as any).quantidadePneus;
+    const cleanQtdPneus = (qtdPneus !== undefined && qtdPneus !== null && String(qtdPneus).trim() !== '') ? Number(qtdPneus) : null;
+
+    if (!unsupportedGestaoFrotaCols.has('numero_eixos') && cleanNumEixos !== null && !isNaN(cleanNumEixos)) {
+      payload.numero_eixos = cleanNumEixos;
+    }
+    if (!unsupportedGestaoFrotaCols.has('quantidade_pneus') && cleanQtdPneus !== null && !isNaN(cleanQtdPneus)) {
+      payload.quantidade_pneus = cleanQtdPneus;
     }
 
     let { error } = await supabase

@@ -20,6 +20,7 @@ import {
   AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R,
   AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R,
   AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R,
+  AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R,
   AXLE_CONFIG_BITRUCK_4E_12R
 } from '../../lib/tireAndAxlePresets';
 
@@ -49,6 +50,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
     { key: 'trator_agricola_2e_4r', label: 'Trator Agrícola (2 Eixos / 4 Rodas)', config: AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R },
     { key: 'ensiladeira_autopropelida_2e_4r', label: 'Ensiladeira Autopropelida (2 Eixos / 4 Rodas)', config: AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R },
     { key: 'transbordo_reboque_2e_4r', label: 'Transbordo / Reboque Silagem (2 Eixos / 4 Rodas)', config: AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R },
+    { key: 'reboque_prancha_3e_12r', label: 'Reboque / Treminhão Prancha (3 Eixos / 12 Rodas)', config: AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R },
     { key: 'bitruck_4e_12r', label: 'Caminhão Bitruck (4 Eixos / 12 Rodas)', config: AXLE_CONFIG_BITRUCK_4E_12R },
   ];
 

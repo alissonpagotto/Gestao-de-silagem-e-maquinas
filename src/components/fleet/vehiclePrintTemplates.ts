@@ -158,6 +158,19 @@ export function generateVehicleRegistrationPrintHtml(
             <div style="font-size: 13px; font-weight: 900; color: #059669; font-family: monospace;">${vehicle.currentKm ? `${vehicle.currentKm.toLocaleString('pt-BR')} km` : '--'}</div>
           </div>
         </div>
+
+        ${(vehicle.numero_eixos !== undefined || vehicle.quantidade_pneus !== undefined) ? `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px; margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+          <div style="background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Número de Eixos:</span>
+            <strong style="color: #0f172a; font-family: monospace; font-size: 12px;">${vehicle.numero_eixos ?? '--'}</strong>
+          </div>
+          <div style="background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Quantidade de Pneus:</span>
+            <strong style="color: #0f172a; font-family: monospace; font-size: 12px;">${vehicle.quantidade_pneus ?? '--'}</strong>
+          </div>
+        </div>
+        ` : ''}
       </div>
 
       <!-- DADOS DE AQUISIÇÃO E OPERADORES -->
