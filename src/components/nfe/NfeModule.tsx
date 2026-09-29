@@ -126,6 +126,15 @@ interface ParsedNfeItem {
   wholesalePrice?: number;         // V. Atacado (R$) - Preço de Venda em Atacado
   promoMarkupPercent?: number;     // % Promo. (% Margem/Markup Promoção)
   promoPrice?: number;             // V. Promo (R$) - Preço Promocional
+  // Novos campos de composição fiscal e custos calculados do XML
+  valorImpostosTotal?: number;
+  valor_impostos_total?: number;
+  custoSemImposto?: number;
+  custo_sem_imposto?: number;
+  custoComImposto?: number;
+  custo_com_imposto?: number;
+  freteDiluidoItem?: number;
+  frete_diluido_item?: number;
 }
 
 interface ParsedNfeInstallment {
@@ -2673,6 +2682,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     minQuantity: number;
     maxQuantity: number;
     location: string;
+    valorImpostosTotal?: number;
+    custoSemImposto?: number;
+    custoComImposto?: number;
+    freteDiluidoItem?: number;
   }>({
     isOpen: false,
     rowIndex: -1,
@@ -2688,7 +2701,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     initialQuantity: 1,
     minQuantity: 10,
     maxQuantity: 100,
-    location: 'Barracão Principal'
+    location: 'Barracão Principal',
+    valorImpostosTotal: 0,
+    custoSemImposto: 0,
+    custoComImposto: 0,
+    freteDiluidoItem: 0,
   });
 
   // Mensagem amigável padronizada para falhas de XML corrompido, incompleto ou com estrutura inválida
@@ -2850,8 +2867,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       const total = getEl(xmlDoc, 'total') || getEl(xmlDoc, 'ICMSTot') || xmlDoc;
       const vNFStr = getTag(total, 'vNF') || getTag(xmlDoc, 'vNF') || '0';
       const vProdStr = getTag(total, 'vProd') || getTag(xmlDoc, 'vProd') || '0';
+      const vFreteTotalStr = getTag(total, 'vFrete') || getTag(xmlDoc, 'vFrete') || '0';
       let totalAmount = parseFloat(vNFStr) || parseFloat(vProdStr) || 0;
       let productsAmount = parseFloat(vProdStr) || totalAmount || 0;
+      const totalFrete = parseFloat(vFreteTotalStr) || 0;
 
       // 7. Cobrança e Duplicatas (<cobr> -> <dup>)
       const cobr = getEl(xmlDoc, 'cobr');
@@ -2883,21 +2902,92 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         ? installments[0].dueDate 
         : issueDate;
 
-      // 9. Itens da Nota Fiscal (<det>) com valores padrão
+      // Helper seguro para somar valores numéricos de tags de impostos dentro de um elemento <det>
+      const getTaxSum = (detEl: Element, tagName: string): number => {
+        const els = getAllEls(detEl, tagName);
+        let sum = 0;
+        for (const el of els) {
+          const val = parseFloat(el.textContent?.trim() || '0');
+          if (!isNaN(val) && val > 0) sum += val;
+        }
+        return sum;
+      };
+
+      // 9. Itens da Nota Fiscal (<det>) com inteligência fiscal e composição de custos do XML
       const detElements = getAllEls(xmlDoc, 'det');
+
+      // Pré-cálculo da soma de vProd dos itens caso o total geral ainda não esteja disponível
+      const prelimSumVProd = detElements.reduce((acc, det) => {
+        const p = getEl(det, 'prod') || det;
+        return acc + (parseFloat(getTag(p, 'vProd')) || 0);
+      }, 0);
+      const baseParaRateioFrete = totalAmount > 0 
+        ? totalAmount 
+        : (productsAmount > 0 ? productsAmount : (prelimSumVProd > 0 ? prelimSumVProd : 1));
+
       const items: ParsedNfeItem[] = detElements.map((det, index) => {
         const prod = getEl(det, 'prod') || det;
         const ean = getTag(prod, 'cEAN') || getTag(prod, 'cEANTrib') || '';
         const barcode = (ean && ean.toUpperCase() !== 'SEM GTIN') ? ean : '';
+        const qCom = parseFloat(getTag(prod, 'qCom')) || parseFloat(getTag(prod, 'qTrib')) || 1;
+        const vProd = parseFloat(getTag(prod, 'vProd')) || 0;
+        const vUnCom = parseFloat(getTag(prod, 'vUnCom')) || parseFloat(getTag(prod, 'vUnTrib')) || (qCom > 0 ? vProd / qCom : 0);
+
+        // 1. Somar os impostos do item: vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS
+        const vICMS = getTaxSum(det, 'vICMS') + getTaxSum(det, 'vICMSST');
+        const vIPI = getTaxSum(det, 'vIPI');
+        const vPIS = getTaxSum(det, 'vPIS');
+        const vCOFINS = getTaxSum(det, 'vCOFINS');
+        const vIBS = getTaxSum(det, 'vIBS');
+        const vCBS = getTaxSum(det, 'vCBS');
+        const totalItemImpostos = vICMS + vIPI + vPIS + vCOFINS + vIBS + vCBS;
+        const valorImpostosUnitario = qCom > 0 ? (totalItemImpostos / qCom) : totalItemImpostos;
+
+        // 2. Rateio Proporcional de Frete:
+        // Caso a tag geral <vFrete> seja maior que zero, calcula o peso percentual do valor do produto (vProd)
+        // em relação ao total da nota e dilui esse frete no custo do item
+        let freteDiluidoItemTotal = 0;
+        if (totalFrete > 0) {
+          const pesoPercentual = baseParaRateioFrete > 0 
+            ? (vProd / baseParaRateioFrete) 
+            : (1 / (detElements.length || 1));
+          freteDiluidoItemTotal = totalFrete * pesoPercentual;
+        } else {
+          freteDiluidoItemTotal = parseFloat(getTag(prod, 'vFrete')) || 0;
+        }
+        const freteDiluidoUnitario = qCom > 0 ? (freteDiluidoItemTotal / qCom) : freteDiluidoItemTotal;
+
+        // 3. Custo Líquido (Sem Imposto): Exibe o valor do produto subtraindo os impostos incidentes/recuperáveis
+        const custoSemImpostoCalc = Math.max(0, vUnCom - valorImpostosUnitario);
+
+        // 4. Custo Real Final = (vProd + vIPI + Frete_Diluído) / qCom
+        const custoRealFinalCalc = qCom > 0
+          ? ((vProd + vIPI + freteDiluidoItemTotal) / qCom)
+          : (vProd + vIPI + freteDiluidoItemTotal);
+
+        const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+        const valorImpostosTotalRound = round2(valorImpostosUnitario);
+        const custoSemImpostoRound = round2(custoSemImpostoCalc);
+        const custoComImpostoRound = round2(custoRealFinalCalc);
+        const freteDiluidoRound = round2(freteDiluidoUnitario);
+
         return {
           code: getTag(prod, 'cProd') || String(index + 1),
           description: getTag(prod, 'xProd') || 'Item NF-e',
           ncm: getTag(prod, 'NCM') || '',
-          quantity: parseFloat(getTag(prod, 'qCom')) || parseFloat(getTag(prod, 'qTrib')) || 1,
+          quantity: qCom,
           unit: getTag(prod, 'uCom') || getTag(prod, 'uTrib') || 'UN',
-          unitPrice: parseFloat(getTag(prod, 'vUnCom')) || parseFloat(getTag(prod, 'vUnTrib')) || 0,
-          totalPrice: parseFloat(getTag(prod, 'vProd')) || 0,
+          unitPrice: vUnCom,
+          totalPrice: vProd || round2(qCom * vUnCom),
           barcode,
+          valorImpostosTotal: valorImpostosTotalRound,
+          valor_impostos_total: valorImpostosTotalRound,
+          custoSemImposto: custoSemImpostoRound,
+          custo_sem_imposto: custoSemImpostoRound,
+          custoComImposto: custoComImpostoRound,
+          custo_com_imposto: custoComImpostoRound,
+          freteDiluidoItem: freteDiluidoRound,
+          frete_diluido_item: freteDiluidoRound,
         };
       });
 
@@ -3322,7 +3412,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       cat = 'pecas';
     }
 
-    const unitCost = item.unitPrice || 0;
+    const xmlCustoComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+    const xmlCustoSemImposto = item.custoSemImposto ?? item.custo_sem_imposto ?? 0;
+    const xmlValorImpostos = item.valorImpostosTotal ?? item.valor_impostos_total ?? 0;
+    const xmlFreteDiluido = item.freteDiluidoItem ?? item.frete_diluido_item ?? 0;
+
+    const unitCost = xmlCustoComImposto > 0 ? xmlCustoComImposto : (item.unitPrice || 0);
     const profitMargin = 30;
     const salePrice = Math.round((unitCost * (1 + profitMargin / 100)) * 100) / 100;
 
@@ -3341,7 +3436,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       initialQuantity: 0,
       minQuantity: 10,
       maxQuantity: 100,
-      location: 'Barracão Principal'
+      location: 'Barracão Principal',
+      valorImpostosTotal: xmlValorImpostos,
+      custoSemImposto: xmlCustoSemImposto,
+      custoComImposto: xmlCustoComImposto,
+      freteDiluidoItem: xmlFreteDiluido,
     });
   };
 
@@ -3358,10 +3457,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       (p.name && p.name.trim().toLowerCase() === item.description.trim().toLowerCase())
     );
 
+    const xmlCustoComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+    const xmlCustoSemImposto = item.custoSemImposto ?? item.custo_sem_imposto ?? 0;
+    const xmlValorImpostos = item.valorImpostosTotal ?? item.valor_impostos_total ?? 0;
+    const xmlFreteDiluido = item.freteDiluidoItem ?? item.frete_diluido_item ?? 0;
+
     const targetId = existingProd?.id || item.linkedInventoryId || `inv_${Date.now()}_${rowIndex}`;
-    const unitCost = (item.unitPrice !== undefined && item.unitPrice > 0)
-      ? item.unitPrice
-      : (existingProd?.unitCost ?? existingProd?.preco_custo_inicial ?? 0);
+    const unitCost = (xmlCustoComImposto > 0)
+      ? xmlCustoComImposto
+      : ((item.unitPrice !== undefined && item.unitPrice > 0)
+          ? item.unitPrice
+          : (existingProd?.custo_com_imposto || existingProd?.unitCost || existingProd?.preco_custo_inicial || 0));
     const profitMargin = item.markupPercent !== undefined
       ? item.markupPercent
       : (existingProd?.profitMargin ?? existingProd?.margem_lucro_sugerida ?? 30);
@@ -3385,6 +3491,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       unidade_medida: (item.unit || existingProd?.unidade_medida || existingProd?.unit || 'UN').toUpperCase(),
       category: existingProd?.categoria || existingProd?.category || deduceItemCategory(item.description),
       categoria: existingProd?.categoria || existingProd?.category || deduceItemCategory(item.description),
+      valor_impostos_total: xmlValorImpostos || existingProd?.valor_impostos_total || 0,
+      custo_sem_imposto: xmlCustoSemImposto || existingProd?.custo_sem_imposto || 0,
+      custo_com_imposto: xmlCustoComImposto || existingProd?.custo_com_imposto || unitCost,
+      frete_diluido_item: xmlFreteDiluido || existingProd?.frete_diluido_item || 0,
       unitCost,
       preco_custo_inicial: unitCost,
       custo_nominal: unitCost,
@@ -3499,6 +3609,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           wholesalePrice: updatedWholesalePrice,
           promoMarkupPercent: updatedPromoMarkup,
           promoPrice: updatedPromoPrice,
+          valorImpostosTotal: savedProduct.valor_impostos_total ?? currentItem.valorImpostosTotal,
+          valor_impostos_total: savedProduct.valor_impostos_total ?? currentItem.valor_impostos_total,
+          custoSemImposto: savedProduct.custo_sem_imposto ?? currentItem.custoSemImposto,
+          custo_sem_imposto: savedProduct.custo_sem_imposto ?? currentItem.custo_sem_imposto,
+          custoComImposto: savedProduct.custo_com_imposto ?? currentItem.custoComImposto,
+          custo_com_imposto: savedProduct.custo_com_imposto ?? currentItem.custo_com_imposto,
+          freteDiluidoItem: savedProduct.frete_diluido_item ?? currentItem.freteDiluidoItem,
+          frete_diluido_item: savedProduct.frete_diluido_item ?? currentItem.frete_diluido_item,
         };
       });
 
@@ -3947,10 +4065,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             }
           }
 
-          const newUnitCost = Number(item.unitPrice) || 0;
+          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+          const newUnitCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
           if (newUnitCost > 0) {
             invItem.unitCost = newUnitCost;
             invItem.preco_custo_inicial = newUnitCost;
+            invItem.custo_nominal = newUnitCost;
+            invItem.custo_com_imposto = newUnitCost;
+            invItem.custo_sem_imposto = item.custoSemImposto ?? item.custo_sem_imposto ?? invItem.custo_sem_imposto ?? 0;
+            invItem.valor_impostos_total = item.valorImpostosTotal ?? item.valor_impostos_total ?? invItem.valor_impostos_total ?? 0;
+            invItem.frete_diluido_item = item.freteDiluidoItem ?? item.frete_diluido_item ?? invItem.frete_diluido_item ?? 0;
           }
 
           // Sincronização automática dos preços de venda (V. Final, % Markup, V. Atacado, V. Promo)
@@ -3984,7 +4108,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const autoCat = dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description);
           const autoUnit = (item.unit || 'UN').toUpperCase();
           const autoQty = Number(item.quantity) || 1;
-          const autoCost = Number(item.unitPrice) || 0;
+          const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;
+          const autoCost = xmlCostComImposto > 0 ? xmlCostComImposto : (Number(item.unitPrice) || 0);
           const newProdId = `inv_auto_${Date.now()}_${idx}`;
 
           const autoProfitMargin = item.markupPercent !== undefined ? item.markupPercent : 30;
@@ -4005,6 +4130,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             categoria: autoCat,
             unitCost: autoCost,
             preco_custo_inicial: autoCost,
+            custo_nominal: autoCost,
+            custo_com_imposto: autoCost,
+            custo_sem_imposto: item.custoSemImposto ?? item.custo_sem_imposto ?? 0,
+            valor_impostos_total: item.valorImpostosTotal ?? item.valor_impostos_total ?? 0,
+            frete_diluido_item: item.freteDiluidoItem ?? item.frete_diluido_item ?? 0,
             profitMargin: autoProfitMargin,
             salePrice: autoSalePrice,
             preco_venda_varejo: autoSalePrice,
@@ -5650,6 +5780,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             unit: newProductModal.unit,
             category: newProductModal.category,
             unitCost: newProductModal.unitCost,
+            custo_nominal: newProductModal.unitCost,
+            preco_custo_inicial: newProductModal.unitCost,
+            custo_com_imposto: newProductModal.custoComImposto ?? newProductModal.unitCost,
+            custo_sem_imposto: newProductModal.custoSemImposto ?? 0,
+            valor_impostos_total: newProductModal.valorImpostosTotal ?? 0,
+            frete_diluido_item: newProductModal.freteDiluidoItem ?? 0,
             profitMargin: newProductModal.profitMargin,
             salePrice: newProductModal.salePrice,
             quantity: newProductModal.initialQuantity,

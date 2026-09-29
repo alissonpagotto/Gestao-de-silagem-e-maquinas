@@ -490,6 +490,7 @@ export interface InventoryItem {
   gallonSizeLiters?: number; // Tamanho do galão em litros (padrão: 20L)
   volume_litros_embalagem?: number; // Volume por embalagem em litros para conversão automática
   // Aliases em português para integração direta com a tabela 'estoque' / 'estoque_produtos'
+  codigo_produto?: string; // Coluna real da tabela estoque_produtos
   nome_comercial?: string; // Coluna real da tabela estoque_produtos
   quantidade_atual?: number; // Coluna real da tabela estoque_produtos
   preco_custo_inicial?: number; // Coluna real da tabela estoque_produtos
@@ -507,6 +508,15 @@ export interface InventoryItem {
   grupo_fiscal?: 'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO' | string;
   grupo_ipi?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string;
   custo_nominal?: number;
+  // Campos de Composição Fiscal e Custos da Nota (XML)
+  valor_impostos_total?: number;
+  custo_sem_imposto?: number;
+  custo_com_imposto?: number;
+  frete_diluido_item?: number;
+  valorImpostosTotal?: number;
+  custoSemImposto?: number;
+  custoComImposto?: number;
+  freteDiluidoItem?: number;
   preco_venda?: number;
   margem_lucro_sugerida?: number;
   preco_venda_atacado?: number;

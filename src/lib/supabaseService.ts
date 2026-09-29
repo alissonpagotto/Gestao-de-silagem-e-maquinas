@@ -1344,6 +1344,14 @@ export async function fetchEstoque(companyId?: string): Promise<InventoryItem[] 
         volume_litros_embalagem: row.volume_litros_embalagem !== undefined && row.volume_litros_embalagem !== null
           ? Number(row.volume_litros_embalagem)
           : (row.capacidade_galao !== undefined && row.capacidade_galao !== null ? Number(row.capacidade_galao) : undefined),
+        valor_impostos_total: Number(row.valor_impostos_total ?? 0),
+        custo_sem_imposto: Number(row.custo_sem_imposto ?? 0),
+        custo_com_imposto: Number(row.custo_com_imposto ?? (row.preco_custo_inicial ?? row.custo_nominal ?? 0)),
+        frete_diluido_item: Number(row.frete_diluido_item ?? 0),
+        valorImpostosTotal: Number(row.valor_impostos_total ?? 0),
+        custoSemImposto: Number(row.custo_sem_imposto ?? 0),
+        custoComImposto: Number(row.custo_com_imposto ?? (row.preco_custo_inicial ?? row.custo_nominal ?? 0)),
+        freteDiluidoItem: Number(row.frete_diluido_item ?? 0),
         createdAt: row.created_at || undefined,
         updatedAt: row.updated_at || undefined,
       };
@@ -1662,8 +1670,14 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
     const grupoFiscalStr = item.grupo_fiscal || item.fiscalGroup ? String(item.grupo_fiscal || item.fiscalGroup).trim() : null;
     const grupoIpiStr = item.grupo_ipi || item.ipiGroup ? String(item.grupo_ipi || item.ipiGroup).trim() : null;
 
+    const valorImpostosFloat = parseNumericFloat(item.valor_impostos_total ?? item.valorImpostosTotal ?? 0);
+    const custoSemImpostoFloat = parseNumericFloat(item.custo_sem_imposto ?? item.custoSemImposto ?? 0);
+    const custoComImpostoFloat = parseNumericFloat(item.custo_com_imposto ?? item.custoComImposto ?? (custoNominalFloat > 0 ? custoNominalFloat : 0));
+    const freteDiluidoFloat = parseNumericFloat(item.frete_diluido_item ?? item.freteDiluidoItem ?? 0);
+    const finalCustoNominal = custoComImpostoFloat > 0 ? custoComImpostoFloat : custoNominalFloat;
+
     // Payload estrito com os nomes de colunas exatos da tabela 'public.estoque_produtos'
-    // Evita colunas inexistentes (como 'quantidade', 'custo_nominal', 'preco_venda') que causam HTTP 400
+    // Evita colunas inexistentes (como 'quantidade', 'preco_venda') que causam HTTP 400
     const payloadOfficial: Record<string, any> = {
       id: toValidUUID(itemId),
       company_id: activeCompanyId,
@@ -1672,7 +1686,12 @@ export async function upsertEstoqueItem(item: InventoryItem | any, companyId?: s
       categoria: categoriaStr,
       unidade_medida: unidadeStr,
       quantidade_atual: quantidadeFloat,
-      preco_custo_inicial: custoNominalFloat,
+      preco_custo_inicial: finalCustoNominal,
+      custo_nominal: finalCustoNominal,
+      valor_impostos_total: valorImpostosFloat,
+      custo_sem_imposto: custoSemImpostoFloat,
+      custo_com_imposto: custoComImpostoFloat > 0 ? custoComImpostoFloat : finalCustoNominal,
+      frete_diluido_item: freteDiluidoFloat,
       preco_venda_varejo: precoVendaFloat,
       localizacao_fisica: item.localizacao_fisica || item.location || (categoriaStr === 'Combustível & Arla' ? 'Tanque Fazenda (Pátio Central)' : 'Depósito Principal'),
       capacidade_total: item.capacidade_total ? Number(item.capacidade_total) : (categoriaStr === 'Combustível & Arla' ? 15000 : null),

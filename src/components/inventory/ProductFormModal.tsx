@@ -92,6 +92,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [codigoNcm, setCodigoNcm] = useState('');
   const [grupoFiscal, setGrupoFiscal] = useState<'SUBSTITUICAO' | 'TRIBUTADO' | 'ISENTO'>('TRIBUTADO');
   const [grupoIpi, setGrupoIpi] = useState<'NAO TRIBUTADO' | 'TRIBUTADO'>('NAO TRIBUTADO');
+  
+  // Novos campos de custos e impostos calculados do XML (Apenas Leitura)
+  const [valorImpostosTotal, setValorImpostosTotal] = useState<number>(0);
+  const [custoSemImposto, setCustoSemImposto] = useState<number>(0);
+  const [custoComImposto, setCustoComImposto] = useState<number>(0);
+  const [freteDiluidoItem, setFreteDiluidoItem] = useState<number>(0);
+
   const [custoNominalDisplay, setCustoNominalDisplay] = useState('0,00');
   const [precoVendaDisplay, setPrecoVendaDisplay] = useState('0,00');
   const [margemLucroSugerida, setMargemLucroSugerida] = useState('');
@@ -203,8 +210,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setGrupoIpi('NAO TRIBUTADO');
       }
 
-      // Custos e Preços
-      const custo = parseNumericFloat(initialData?.unitCost ?? initialData?.preco_custo_inicial ?? initialData?.custo_nominal ?? 0);
+      // Impostos e Custos calculados do XML
+      const initialImpostos = parseNumericFloat(initialData?.valor_impostos_total ?? (initialData as any)?.valorImpostosTotal ?? 0);
+      const initialCustoSemImp = parseNumericFloat(initialData?.custo_sem_imposto ?? (initialData as any)?.custoSemImposto ?? 0);
+      const initialCustoComImp = parseNumericFloat(initialData?.custo_com_imposto ?? (initialData as any)?.custoComImposto ?? 0);
+      const initialFreteDil = parseNumericFloat(initialData?.frete_diluido_item ?? (initialData as any)?.freteDiluidoItem ?? 0);
+
+      setValorImpostosTotal(initialImpostos);
+      setCustoSemImposto(initialCustoSemImp);
+      setCustoComImposto(initialCustoComImp);
+      setFreteDiluidoItem(initialFreteDil);
+
+      // Custos e Preços:
+      // O campo "Custo Nominal (R$)" atual do modal deve passar a receber automaticamente o valor gerado pelo "Custo Real (Com Imposto + Frete Diluído)"
+      const custo = initialCustoComImp > 0
+        ? initialCustoComImp
+        : parseNumericFloat(initialData?.unitCost ?? initialData?.preco_custo_inicial ?? initialData?.custo_nominal ?? 0);
       const venda = parseNumericFloat(initialData?.salePrice ?? initialData?.preco_venda_varejo ?? initialData?.preco_venda ?? 0);
       
       setCustoNominalDisplay(custo > 0 ? formatCurrencyPtBr(custo) : '0,00');
@@ -501,6 +522,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         grupo_fiscal: grupoFiscal,
         ipiGroup: grupoIpi,
         grupo_ipi: grupoIpi,
+        valor_impostos_total: valorImpostosTotal,
+        custo_sem_imposto: custoSemImposto > 0 ? custoSemImposto : (valorImpostosTotal > 0 ? Math.max(0, custoNominalFloat - valorImpostosTotal) : 0),
+        custo_com_imposto: custoComImposto > 0 ? custoComImposto : custoNominalFloat,
+        frete_diluido_item: freteDiluidoItem,
+        valorImpostosTotal,
+        custoSemImposto: custoSemImposto > 0 ? custoSemImposto : (valorImpostosTotal > 0 ? Math.max(0, custoNominalFloat - valorImpostosTotal) : 0),
+        custoComImposto: custoComImposto > 0 ? custoComImposto : custoNominalFloat,
+        freteDiluidoItem,
         unitCost: custoNominalFloat,
         custo_nominal: custoNominalFloat,
         preco_custo_inicial: custoNominalFloat,
@@ -955,12 +984,109 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       </select>
                     </div>
 
+                    {/* Novos Campos Fiscais e Custos do XML (Apenas Leitura) */}
+                    <div className="pt-2 pb-1.5 border-t border-stone-200/80 dark:border-stone-700/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center space-x-1">
+                          <Receipt className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <span>Composição de Custos do XML</span>
+                        </span>
+                        {freteDiluidoItem > 0 && (
+                          <span className="text-[9px] font-semibold text-stone-500 dark:text-stone-400">
+                            Frete Diluído: R$ {formatCurrencyPtBr(freteDiluidoItem)}/un
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {/* 1. Valor Total de Impostos (R$) */}
+                        <div className="flex flex-col justify-end">
+                          <div className="flex items-center justify-between h-4 mb-1">
+                            <label 
+                              className="block text-[10.5px] font-bold text-stone-700 dark:text-stone-300 truncate"
+                              title="Mostra a soma acumulada de ICMS, IPI, PIS, COFINS, IBS e CBS incidentes sobre a unidade do item"
+                            >
+                              Valor Total de Impostos (R$)
+                            </label>
+                          </div>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-stone-400 dark:text-stone-500 font-bold text-xs">
+                              R$
+                            </div>
+                            <input
+                              type="text"
+                              disabled
+                              readOnly
+                              value={formatCurrencyPtBr(valorImpostosTotal)}
+                              title="Mostra a soma acumulada de ICMS, IPI, PIS, COFINS, IBS e CBS incidentes sobre a unidade do item"
+                              className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-100/90 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 cursor-not-allowed select-all"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 2. Custo Líquido (Sem Imposto) (R$) */}
+                        <div className="flex flex-col justify-end">
+                          <div className="flex items-center justify-between h-4 mb-1">
+                            <label 
+                              className="block text-[10.5px] font-bold text-stone-700 dark:text-stone-300 truncate"
+                              title="Exibe o valor do produto subtraindo os impostos recuperáveis/incidentes"
+                            >
+                              Custo Líquido (Sem Imposto) (R$)
+                            </label>
+                          </div>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-stone-400 dark:text-stone-500 font-bold text-xs">
+                              R$
+                            </div>
+                            <input
+                              type="text"
+                              disabled
+                              readOnly
+                              value={formatCurrencyPtBr(custoSemImposto)}
+                              title="Exibe o valor do produto subtraindo os impostos recuperáveis/incidentes"
+                              className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-100/90 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 cursor-not-allowed select-all"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 3. Custo Real (Com Imposto + Frete Diluído) (R$) */}
+                        <div className="flex flex-col justify-end">
+                          <div className="flex items-center justify-between h-4 mb-1">
+                            <label 
+                              className="block text-[10.5px] font-bold text-sky-800 dark:text-sky-300 truncate"
+                              title="O Custo Nominal real que servirá de base para a margem de lucro"
+                            >
+                              Custo Real (Com Imposto + Frete Diluído) (R$)
+                            </label>
+                          </div>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-sky-600 dark:text-sky-400 font-bold text-xs">
+                              R$
+                            </div>
+                            <input
+                              type="text"
+                              disabled
+                              readOnly
+                              value={formatCurrencyPtBr(custoComImposto)}
+                              title="O Custo Nominal real que servirá de base para a margem de lucro"
+                              className="w-full h-9 pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-sky-300/80 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 cursor-not-allowed select-all"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Linha 3: Custo Nominal (R$) + Preço de Venda Sugerido (R$) */}
                     <div className="grid grid-cols-12 gap-2 items-stretch">
                       <div className="col-span-6 flex flex-col justify-end">
                         <div className="flex items-center justify-between h-4 mb-1">
                           <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 truncate">
                             Custo Nominal (R$)
+                            {custoComImposto > 0 && (
+                              <span className="ml-1 text-[9px] font-semibold text-sky-600 dark:text-sky-400">
+                                (Base Real XML)
+                              </span>
+                            )}
                           </label>
                         </div>
                         <div className="relative">
