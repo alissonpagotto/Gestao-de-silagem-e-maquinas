@@ -1443,8 +1443,8 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
     }
 
     if (trimmed) {
-      // Busca por aproximação utilizando estritamente a coluna real do banco: 'nome_comercial'
-      qProdutos = qProdutos.ilike('nome_comercial', `%${trimmed}%`);
+      // Busca por aproximação na tabela 'public.estoque_produtos' por nome_comercial, codigo_produto ou codigo_barras
+      qProdutos = qProdutos.or(`nome_comercial.ilike.%${trimmed}%,codigo_produto.ilike.%${trimmed}%,codigo_barras.ilike.%${trimmed}%`);
     }
 
     qProdutos = qProdutos.order('nome_comercial', { ascending: true }).limit(80);
@@ -1455,12 +1455,23 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
     if (res.error || !res.data || res.data.length === 0) {
       let qRetry = supabase.from('estoque_produtos').select('*');
       if (trimmed) {
-        qRetry = qRetry.ilike('nome_comercial', `%${trimmed}%`);
+        qRetry = qRetry.or(`nome_comercial.ilike.%${trimmed}%,codigo_produto.ilike.%${trimmed}%,codigo_barras.ilike.%${trimmed}%`);
       }
       qRetry = qRetry.order('nome_comercial', { ascending: true }).limit(80);
       const resRetry = await qRetry;
       if (!resRetry.error && Array.isArray(resRetry.data) && resRetry.data.length > 0) {
         res = resRetry;
+      } else if (trimmed) {
+        // Fallback caso alguma coluna do .or não exista no schema
+        const resByName = await supabase
+          .from('estoque_produtos')
+          .select('*')
+          .ilike('nome_comercial', `%${trimmed}%`)
+          .order('nome_comercial', { ascending: true })
+          .limit(80);
+        if (!resByName.error && Array.isArray(resByName.data) && resByName.data.length > 0) {
+          res = resByName;
+        }
       }
     }
 
@@ -1478,6 +1489,7 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
           id: String(row.id),
           companyId: row.company_id || undefined,
           code: row.codigo_produto || '',
+          codigo_produto: row.codigo_produto || undefined,
           name: nomeComercial,
           nome_comercial: nomeComercial,
           nome: nomeComercial,
@@ -1492,9 +1504,23 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
           preco_custo_inicial: cost,
           salePrice: sale,
           preco_venda_varejo: sale,
-          location: row.localizacao || 'Depósito Principal',
+          estoque_setor: row.estoque_setor || undefined,
+          estoque_rua: row.estoque_rua || undefined,
+          estoque_estante: row.estoque_estante || undefined,
+          estoque_nivel: row.estoque_nivel || undefined,
+          estoque_box: row.estoque_box || undefined,
+          endereco_formatado: row.endereco_formatado || undefined,
+          setor: row.estoque_setor || undefined,
+          rua: row.estoque_rua || undefined,
+          estante: row.estoque_estante || undefined,
+          nivel: row.estoque_nivel || undefined,
+          box: row.estoque_box || undefined,
+          location: row.localizacao_fisica || row.localizacao || 'Depósito Principal',
+          localizacao_fisica: row.localizacao_fisica || row.localizacao || 'Depósito Principal',
           brand: row.marca || undefined,
+          marca: row.marca || undefined,
           barcode: row.codigo_barras || undefined,
+          codigo_barras: row.codigo_barras || undefined,
           factoryRef: row.ref_fabrica || undefined,
           ncm: row.codigo_ncm || undefined,
           profitMargin: row.margem_lucro_sugerida !== undefined ? Number(row.margem_lucro_sugerida) : undefined,
@@ -1506,17 +1532,19 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
       });
     }
 
-    // 2. Garante que os produtos essenciais de Combustível & Arla estejam sempre presentes
-    // ('Diesel S10', 'Diesel S500', 'Arla 32 (Granel / Litro)', 'Arla 32 (Galão 20L)')
+    // 2. Garante que os produtos essenciais de Combustível & Arla e itens locais correspondentes estejam presentes
     const qLower = trimmed.toLowerCase();
-    const fuelLocalMatches = localItems.filter(item => {
-      const isFuel = isFuelItem(item.categoria || item.category, item.nome_comercial || item.name);
-      if (!isFuel) return false;
+    const localMatches = localItems.filter(item => {
       if (!qLower) return true;
       const nc = String(item.nome_comercial || item.name || '').toLowerCase();
-      const code = String(item.code || '').toLowerCase();
-      return nc.includes(qLower) || code.includes(qLower);
+      const code = String(item.code || item.codigo_produto || '').toLowerCase();
+      const barcode = String(item.barcode || item.codigo_barras || '').toLowerCase();
+      return nc.includes(qLower) || code.includes(qLower) || barcode.includes(qLower);
     });
+
+    const fuelLocalMatches = localMatches.filter(item =>
+      isFuelItem(item.categoria || item.category, item.nome_comercial || item.name)
+    );
 
     // Mescla garantindo Combustível & Arla prioritários
     const combined: InventoryItem[] = [];
@@ -1544,6 +1572,18 @@ export async function searchEstoqueProdutos(searchTerm: string = '', companyId?:
       );
       if (!alreadyIn) {
         combined.push(item);
+      }
+    }
+
+    // Adiciona também produtos locais correspondentes que ainda não estejam na lista combinada
+    for (const locItem of localMatches) {
+      const locName = String(locItem.nome_comercial || locItem.name || '').toLowerCase().trim();
+      const alreadyIn = combined.some(c =>
+        c.id === locItem.id ||
+        String(c.nome_comercial || c.name || '').toLowerCase().trim() === locName
+      );
+      if (!alreadyIn) {
+        combined.push(locItem);
       }
     }
 

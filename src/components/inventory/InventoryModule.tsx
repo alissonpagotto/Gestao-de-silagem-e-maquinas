@@ -34,7 +34,8 @@ import {
 } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ProductFormModal } from './ProductFormModal';
-import { ProductLabelPrintModal } from './ProductLabelPrintModal';
+import { ProductLabelPrintModal, LabelProductItem } from './ProductLabelPrintModal';
+import { PrintQueueManagerModal } from './PrintQueueManagerModal';
 
 interface InventoryModuleProps {
   inventory: InventoryItem[];
@@ -55,6 +56,11 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [labelPrintItem, setLabelPrintItem] = useState<InventoryItem | null>(null);
   const [promptNewLabelItem, setPromptNewLabelItem] = useState<InventoryItem | null>(null);
+
+  // Estado da Fila de Impressão Manual em Lote
+  const [isPrintQueueModalOpen, setIsPrintQueueModalOpen] = useState(false);
+  const [printQueue, setPrintQueue] = useState<LabelProductItem[]>([]);
+  const [batchPrintItems, setBatchPrintItems] = useState<LabelProductItem[] | null>(null);
 
   // Logs para histórico
   const maintenanceLogs = useMemo<MaintenanceLog[]>(() => {
@@ -272,13 +278,29 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreateModal}
-          className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Cadastrar Novo Produto no Estoque</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPrintQueueModalOpen(true)}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-stone-800 hover:bg-stone-900 dark:bg-stone-800 dark:hover:bg-stone-700 text-white border border-stone-700 shadow-xs transition active:scale-95 cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5 text-sky-400" />
+            <span>Montar Fila de Impressão</span>
+            {printQueue.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-sky-500 text-white text-[10px] font-black leading-none">
+                {printQueue.reduce((acc, q) => acc + (q.quantity || 1), 0)}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-xs transition active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Cadastrar Novo Produto no Estoque</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -1033,12 +1055,42 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
         </div>
       )}
 
-      {/* Modal de Impressão de Etiquetas de Gôndola / Almoxarifado */}
-      {labelPrintItem && (
+      {/* Modal: Gerenciador de Fila de Impressão Manual */}
+      <PrintQueueManagerModal
+        isOpen={isPrintQueueModalOpen}
+        onClose={() => setIsPrintQueueModalOpen(false)}
+        localInventory={allItems}
+        queue={printQueue}
+        onChangeQueue={setPrintQueue}
+        onAdvanceToPrint={(queueItems) => {
+          setIsPrintQueueModalOpen(false);
+          setBatchPrintItems(queueItems);
+        }}
+      />
+
+      {/* Modal de Impressão de Etiquetas de Gôndola / Almoxarifado (Individual ou Lote da Fila) */}
+      {(labelPrintItem || (batchPrintItems && batchPrintItems.length > 0)) && (
         <ProductLabelPrintModal
-          isOpen={!!labelPrintItem}
-          onClose={() => setLabelPrintItem(null)}
+          isOpen={!!labelPrintItem || !!(batchPrintItems && batchPrintItems.length > 0)}
+          onClose={() => {
+            setLabelPrintItem(null);
+            setBatchPrintItems(null);
+          }}
           product={labelPrintItem}
+          batchProducts={batchPrintItems}
+          entryTitle={
+            batchPrintItems && batchPrintItems.length > 0
+              ? `Fila de Impressão em Lote (${batchPrintItems.length} ${batchPrintItems.length === 1 ? 'item' : 'itens'})`
+              : undefined
+          }
+          onBackToQueue={
+            batchPrintItems && batchPrintItems.length > 0
+              ? () => {
+                  setBatchPrintItems(null);
+                  setIsPrintQueueModalOpen(true);
+                }
+              : undefined
+          }
           zIndexClass="z-50"
         />
       )}

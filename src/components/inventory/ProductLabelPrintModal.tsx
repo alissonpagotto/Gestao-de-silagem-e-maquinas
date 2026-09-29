@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, 
   Printer, 
@@ -12,7 +12,8 @@ import {
   RotateCcw,
   Sparkles,
   HelpCircle,
-  Copy
+  Copy,
+  ArrowLeft
 } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { generateBarcodeSvgString, generateBarcodeBars } from './barcodeGenerator';
@@ -40,6 +41,7 @@ interface ProductLabelPrintModalProps {
   batchProducts?: LabelProductItem[] | null;
   entryTitle?: string;
   zIndexClass?: string;
+  onBackToQueue?: () => void;
 }
 
 export type { LabelSizePreset };
@@ -50,7 +52,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   product,
   batchProducts,
   entryTitle,
-  zIndexClass = 'z-50'
+  zIndexClass = 'z-50',
+  onBackToQueue
 }) => {
   // Configurações do Formato de Impressão
   const [labelSize, setLabelSize] = useState<LabelSizePreset>('termica_gondola_60x30');
@@ -81,6 +84,21 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     }
     return [];
   }, [product, batchProducts]);
+
+  // Sincroniza as quantidades exatas configuradas na fila de impressão quando o modal abre ou o lote muda
+  useEffect(() => {
+    if (!isOpen) return;
+    if (batchProducts && batchProducts.length > 0) {
+      const synced: Record<string, number> = {};
+      batchProducts.forEach(({ product: item, quantity }) => {
+        synced[item.id] = Math.max(1, quantity ?? 1);
+      });
+      setCustomCopies(synced);
+    } else if (product) {
+      setCustomCopies({ [product.id]: 1 });
+      setDefaultCopies(1);
+    }
+  }, [isOpen, batchProducts, product]);
 
   // Primeiro produto para pré-visualização ao vivo
   const previewProduct = itemsToPrint[0]?.product;
@@ -819,17 +837,122 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     }
   };
 
-  // Render do preview ao vivo do código de barras
-  const livePreviewBars = useMemo(() => {
-    if (!previewProduct) return null;
-    const barcodeCode = resolveBarcodeCode(previewProduct);
+  // Renderiza um card individual de etiqueta no preview ao vivo
+  const renderLiveLabelCard = (item: InventoryItem, indexBadge?: string, key?: React.Key) => {
+    const barcodeCode = resolveBarcodeCode(item);
     const metrics = getLabelDesignMetrics(currentPreset);
-    return generateBarcodeBars(barcodeCode, {
+    const itemBars = generateBarcodeBars(barcodeCode, {
       height: metrics.barcodeHeight * 1.1,
       narrowWidth: metrics.narrowWidth,
       wideWidth: metrics.narrowWidth * 2.3
     });
-  }, [previewProduct, currentPreset]);
+
+    return (
+      <div
+        key={key}
+        className="w-full flex flex-col items-center"
+        style={{
+          maxWidth: currentPreset.widthMm >= 80 ? '480px' : '380px'
+        }}
+      >
+        {indexBadge && (
+          <div className="w-full flex items-center justify-between text-[10px] font-mono font-bold text-stone-500 dark:text-stone-400 mb-1 px-1">
+            <span>{indexBadge}</span>
+            <span className="truncate max-w-[200px]">{item.nome_comercial || item.name}</span>
+          </div>
+        )}
+        <div 
+          className="w-full bg-white text-black border-2 border-dashed border-stone-400 rounded-lg p-3 shadow-md space-y-2 font-sans select-none"
+        >
+          {/* Topo da Etiqueta: Linha inteira dedicada exclusivamente ao Nome/Descrição do Produto */}
+          <div className="flex items-center justify-center bg-white text-black border-b border-black pb-1.5 leading-tight w-full">
+            <div className="text-center w-full min-w-0">
+              <div className="font-black text-xs sm:text-sm uppercase text-black truncate" title={item.nome_comercial || item.name}>
+                {item.nome_comercial || item.name}
+                {(item.brand || item.marca) ? ` • ${item.brand || item.marca}` : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Metade Inferior em Duas Colunas (Esquerda 73%: Código de Barras + Endereço | Direita 27%: Preço + Unidade) */}
+          <div className="flex items-stretch justify-between gap-2 w-full">
+            {/* Coluna Esquerda (~73%): Código de Barras e Endereço */}
+            <div className={`${showPrice ? 'w-[73%]' : 'w-full'} shrink-0 flex flex-col justify-between space-y-1.5 min-w-0`}>
+              {/* Código de Barras centralizado com numeração legível e destacada */}
+              <div className="py-0.5 flex flex-col items-center justify-center bg-white w-full">
+                {itemBars && (
+                  <>
+                    <svg 
+                      viewBox={`0 0 ${itemBars.totalWidth} 30`} 
+                      className="w-full max-h-[28px] block"
+                    >
+                      {itemBars.bars.map((b, idx) => (
+                        <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
+                      ))}
+                    </svg>
+                    <span className="text-xs sm:text-sm font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-0.5">
+                      {itemBars.displayCode}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Bloco de Endereçamento: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
+              {(showAddress || showInternalCode) && (
+                <div className="bg-white text-black border border-black rounded px-1.5 py-1 text-center space-y-0.5 w-full">
+                  {showInternalCode && (
+                    <div className="text-[9.5px] font-mono font-bold text-black leading-none truncate">
+                      CÓD: {item.code || item.codigo_produto || `ID:${item.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
+                    </div>
+                  )}
+                  {showAddress && (
+                    <div className="flex items-start justify-center gap-0.5 sm:gap-1 pt-0.5">
+                      {resolveAddressParts(item).map((part, idx, arr) => (
+                        <React.Fragment key={idx}>
+                          <div className="flex flex-col items-center justify-start min-w-[26px] sm:min-w-[32px]">
+                            <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
+                              {part}
+                            </span>
+                            <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5 uppercase tracking-tight">
+                              {ADDRESS_LEGEND_LABELS[idx]}
+                            </span>
+                          </div>
+                          {idx < arr.length - 1 && (
+                            <div className="flex flex-col items-center justify-start">
+                              <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
+                                .
+                              </span>
+                              <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5">
+                                .
+                              </span>
+                            </div>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado em relação ao bloco de endereçamento */}
+            {showPrice && (
+              <div className="flex-1 min-w-0 flex flex-col justify-end items-center">
+                <div className="w-full border border-black rounded px-1.5 py-2 bg-white text-black flex flex-col items-center justify-center text-center">
+                  <span className="text-xs sm:text-sm font-black text-black leading-tight whitespace-nowrap">
+                    {formatCurrencyBRL(resolveProductPrice(item))}
+                  </span>
+                  <span className="text-[9.5px] font-bold text-black leading-none mt-1 uppercase">
+                    / {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={`fixed inset-0 ${zIndexClass} bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150`}>
@@ -1052,105 +1175,25 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
           </div>
 
-          {/* Seção de Visualização: Modelo Individual ou Folha A4 Completa */}
+          {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4 Completa */}
           {previewTab === 'label' || !isA4 ? (
             <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col items-center justify-center">
               
-              {/* Card Físico da Etiqueta em Preview Proporcional */}
-              {previewProduct && (
-                <div 
-                  className="w-full bg-white text-black border-2 border-dashed border-stone-400 rounded-lg p-3 shadow-md space-y-2 font-sans select-none"
-                  style={{
-                    maxWidth: currentPreset.widthMm >= 80 ? '480px' : '380px'
-                  }}
-                >
-                  
-                  {/* Topo da Etiqueta: Linha inteira dedicada exclusivamente ao Nome/Descrição do Produto */}
-                  <div className="flex items-center justify-center bg-white text-black border-b border-black pb-1.5 leading-tight w-full">
-                    <div className="text-center w-full min-w-0">
-                      <div className="font-black text-xs sm:text-sm uppercase text-black truncate" title={previewProduct.nome_comercial || previewProduct.name}>
-                        {previewProduct.nome_comercial || previewProduct.name}
-                        {(previewProduct.brand || previewProduct.marca) ? ` • ${previewProduct.brand || previewProduct.marca}` : ''}
-                      </div>
-                    </div>
+              {flatLabelsList.length === 1 && previewProduct ? (
+                renderLiveLabelCard(previewProduct)
+              ) : (
+                <div className="w-full space-y-2">
+                  <div className="flex items-center justify-between px-1 text-xs font-bold text-stone-700 dark:text-stone-300">
+                    <span>Pré-visualização do Lote Completo ({flatLabelsList.length} etiquetas geradas)</span>
+                    <span className="text-[11px] font-mono text-sky-600 dark:text-sky-400">
+                      {itemsToPrint.length} produto(s) na fila
+                    </span>
                   </div>
-
-                  {/* Metade Inferior em Duas Colunas (Esquerda 73%: Código de Barras + Endereço | Direita 27%: Preço + Unidade) */}
-                  <div className="flex items-stretch justify-between gap-2 w-full">
-                    {/* Coluna Esquerda (~73%): Código de Barras e Endereço */}
-                    <div className={`${showPrice ? 'w-[73%]' : 'w-full'} shrink-0 flex flex-col justify-between space-y-1.5 min-w-0`}>
-                      {/* Código de Barras centralizado com numeração legível e destacada */}
-                      <div className="py-0.5 flex flex-col items-center justify-center bg-white w-full">
-                        {livePreviewBars && (
-                          <>
-                            <svg 
-                              viewBox={`0 0 ${livePreviewBars.totalWidth} 30`} 
-                              className="w-full max-h-[28px] block"
-                            >
-                              {livePreviewBars.bars.map((b, idx) => (
-                                <rect key={idx} x={b.x} y="0" width={b.width} height={30} fill="#000000" />
-                              ))}
-                            </svg>
-                            <span className="text-xs sm:text-sm font-extrabold font-mono tracking-wider text-black text-center leading-tight mt-0.5">
-                              {livePreviewBars.displayCode}
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Bloco de Endereçamento: Código Interno discreto logo acima do Endereço Formatado em mini-colunas alinhadas */}
-                      {(showAddress || showInternalCode) && (
-                        <div className="bg-white text-black border border-black rounded px-1.5 py-1 text-center space-y-0.5 w-full">
-                          {showInternalCode && (
-                            <div className="text-[9.5px] font-mono font-bold text-black leading-none truncate">
-                              CÓD: {previewProduct.code || `ID:${previewProduct.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`}
-                            </div>
-                          )}
-                          {showAddress && (
-                            <div className="flex items-start justify-center gap-0.5 sm:gap-1 pt-0.5">
-                              {resolveAddressParts(previewProduct).map((part, idx, arr) => (
-                                <React.Fragment key={idx}>
-                                  <div className="flex flex-col items-center justify-start min-w-[26px] sm:min-w-[32px]">
-                                    <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
-                                      {part}
-                                    </span>
-                                    <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5 uppercase tracking-tight">
-                                      {ADDRESS_LEGEND_LABELS[idx]}
-                                    </span>
-                                  </div>
-                                  {idx < arr.length - 1 && (
-                                    <div className="flex flex-col items-center justify-start">
-                                      <span className="text-lg sm:text-xl font-black font-mono leading-none text-black">
-                                        .
-                                      </span>
-                                      <span className="text-[7px] sm:text-[7.5px] font-extrabold text-black leading-none mt-0.5">
-                                        .
-                                      </span>
-                                    </div>
-                                  )}
-                                </React.Fragment>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado em relação ao bloco de endereçamento */}
-                    {showPrice && (
-                      <div className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div className="w-full border border-black rounded px-1.5 py-2 bg-white text-black flex flex-col items-center justify-center text-center">
-                          <span className="text-xs sm:text-sm font-black text-black leading-tight whitespace-nowrap">
-                            {formatCurrencyBRL(resolveProductPrice(previewProduct))}
-                          </span>
-                          <span className="text-[9.5px] font-bold text-black leading-none mt-1 uppercase">
-                            / {(previewProduct.unidade_medida || previewProduct.unit || 'UN').toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-h-[380px] overflow-y-auto p-1 place-items-center">
+                    {flatLabelsList.map((item, idx) =>
+                      renderLiveLabelCard(item, `Etiqueta ${idx + 1} de ${flatLabelsList.length}`, `${item.id}_${idx}`)
                     )}
                   </div>
-
                 </div>
               )}
 
@@ -1306,13 +1349,25 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
         {/* Footer com Botões */}
         <div className="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/90 flex items-center justify-between shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 rounded-xl transition cursor-pointer"
-          >
-            Fechar
-          </button>
+          <div className="flex items-center space-x-2">
+            {onBackToQueue && (
+              <button
+                type="button"
+                onClick={onBackToQueue}
+                className="px-3.5 py-2 text-xs font-bold text-stone-700 dark:text-stone-200 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-xl transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Voltar à Fila</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 rounded-xl transition cursor-pointer"
+            >
+              Fechar
+            </button>
+          </div>
 
           <button
             type="button"
