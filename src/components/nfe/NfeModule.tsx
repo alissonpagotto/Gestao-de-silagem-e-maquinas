@@ -2291,9 +2291,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           location: 'Barracão Principal'
         };
 
+        const exactNotaQty = Math.max(1, Math.round(Number(item.quantidade) || 1));
         return {
           product: invItem,
-          quantity: Math.max(1, Math.round(Number(item.quantidade) || 1))
+          quantity: exactNotaQty,
+          invoiceQuantity: exactNotaQty
         };
       });
 
@@ -4021,9 +4023,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         endereco_formatado: '00.00.00.00.00',
         location: 'Barracão Principal'
       };
+      const exactNotaQty = Math.max(1, Math.round(Number(item.quantity) || 1));
       return {
         product: invItem,
-        quantity: Math.max(1, Math.round(Number(item.quantity) || 1))
+        quantity: exactNotaQty,
+        invoiceQuantity: exactNotaQty
       };
     });
 
@@ -7101,6 +7105,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           onClose={() => setActiveLabelPrintModal(null)}
           batchProducts={activeLabelPrintModal.items}
           entryTitle={activeLabelPrintModal.title}
+          defaultQuantityRule="single"
           zIndexClass="z-[9999]"
         />
       )}

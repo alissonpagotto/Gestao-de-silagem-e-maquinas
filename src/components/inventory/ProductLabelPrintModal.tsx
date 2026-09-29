@@ -32,7 +32,10 @@ import {
 export interface LabelProductItem {
   product: InventoryItem;
   quantity?: number;
+  invoiceQuantity?: number;
 }
+
+export type LabelQuantityRule = 'single' | 'invoice';
 
 interface ProductLabelPrintModalProps {
   isOpen: boolean;
@@ -42,6 +45,7 @@ interface ProductLabelPrintModalProps {
   entryTitle?: string;
   zIndexClass?: string;
   onBackToQueue?: () => void;
+  defaultQuantityRule?: LabelQuantityRule;
 }
 
 export type { LabelSizePreset };
@@ -53,7 +57,8 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   batchProducts,
   entryTitle,
   zIndexClass = 'z-50',
-  onBackToQueue
+  onBackToQueue,
+  defaultQuantityRule
 }) => {
   // Configurações do Formato de Impressão
   const [labelSize, setLabelSize] = useState<LabelSizePreset>('termica_gondola_60x30');
@@ -62,6 +67,9 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   const [showPrice, setShowPrice] = useState(true);
   const [showInternalCode, setShowInternalCode] = useState(true);
   const [showAddress, setShowAddress] = useState(true);
+  const [quantityRule, setQuantityRule] = useState<LabelQuantityRule>(
+    defaultQuantityRule ?? (onBackToQueue ? 'invoice' : 'single')
+  );
   const [defaultCopies, setDefaultCopies] = useState<number>(1);
   const [customCopies, setCustomCopies] = useState<Record<string, number>>({});
   const [isPrinting, setIsPrinting] = useState(false);
@@ -75,31 +83,63 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   const isA4 = currentPreset.category === 'a4';
   const totalSlotsPerSheet = currentPreset.totalPerSheet || 30;
 
-  // Lista normalizada de produtos para impressão
+  // Lista normalizada de produtos para impressão (preservando a quantidade original da Nota Fiscal)
   const itemsToPrint = useMemo<LabelProductItem[]>(() => {
     if (batchProducts && batchProducts.length > 0) {
-      return batchProducts;
+      const mergedMap = new Map<string, LabelProductItem>();
+      batchProducts.forEach((entry, idx) => {
+        const rawProd = entry.product;
+        const prodId = rawProd.id || `item_${idx}`;
+        const rawQty = Math.max(1, Math.round(Number(entry.invoiceQuantity ?? entry.quantity) || 1));
+        const existing = mergedMap.get(prodId);
+        if (existing) {
+          const sumQty = (existing.invoiceQuantity ?? existing.quantity ?? 1) + rawQty;
+          mergedMap.set(prodId, {
+            product: existing.product,
+            quantity: sumQty,
+            invoiceQuantity: sumQty
+          });
+        } else {
+          mergedMap.set(prodId, {
+            product: { ...rawProd, id: prodId },
+            quantity: rawQty,
+            invoiceQuantity: rawQty
+          });
+        }
+      });
+      return Array.from(mergedMap.values());
     }
     if (product) {
-      return [{ product, quantity: 1 }];
+      const stockQty = Math.max(1, Math.round(Number(product.quantity ?? product.quantidade_atual) || 1));
+      return [{ product, quantity: stockQty, invoiceQuantity: stockQty }];
     }
     return [];
   }, [product, batchProducts]);
 
-  // Sincroniza as quantidades exatas configuradas na fila de impressão quando o modal abre ou o lote muda
+  // Soma total de unidades lançadas na Nota Fiscal / lote original
+  const totalInvoiceUnitsCount = useMemo<number>(() => {
+    return itemsToPrint.reduce((acc, curr) => {
+      const notaQty = Math.max(1, Math.round(Number(curr.invoiceQuantity ?? curr.quantity) || 1));
+      return acc + notaQty;
+    }, 0);
+  }, [itemsToPrint]);
+
+  // Sincroniza as quantidades quando o modal abre ou o lote muda, aplicando a Regra de Quantidade Padrão ativa
   useEffect(() => {
     if (!isOpen) return;
-    if (batchProducts && batchProducts.length > 0) {
+    const initialRule: LabelQuantityRule = defaultQuantityRule ?? (onBackToQueue ? 'invoice' : 'single');
+    setQuantityRule(initialRule);
+
+    if (itemsToPrint.length > 0) {
       const synced: Record<string, number> = {};
-      batchProducts.forEach(({ product: item, quantity }) => {
-        synced[item.id] = Math.max(1, quantity ?? 1);
+      itemsToPrint.forEach(({ product: item, quantity, invoiceQuantity }) => {
+        const notaQty = Math.max(1, Math.round(Number(invoiceQuantity ?? quantity) || 1));
+        synced[item.id] = initialRule === 'single' ? 1 : notaQty;
       });
       setCustomCopies(synced);
-    } else if (product) {
-      setCustomCopies({ [product.id]: 1 });
       setDefaultCopies(1);
     }
-  }, [isOpen, batchProducts, product]);
+  }, [isOpen, itemsToPrint, defaultQuantityRule, onBackToQueue]);
 
   // Primeiro produto para pré-visualização ao vivo
   const previewProduct = itemsToPrint[0]?.product;
@@ -107,6 +147,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
   // Obter quantidade de cópias de um item
   const getItemCopies = (prodId: string, fallbackQty: number = 1): number => {
     if (customCopies[prodId] !== undefined) return customCopies[prodId];
+    if (quantityRule === 'single') return 1;
     return fallbackQty > 0 ? fallbackQty : defaultCopies;
   };
 
@@ -117,7 +158,25 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
     }));
   };
 
-  // Aplica quantidade padrão para todos os itens da lista
+  // Alterna entre as regras globais: "Uma etiqueta por produto" vs "Quantidade da Nota Fiscal (Total de Unidades)"
+  const handleSelectQuantityRule = (rule: LabelQuantityRule) => {
+    setQuantityRule(rule);
+    const updated: Record<string, number> = {};
+    if (rule === 'single') {
+      setDefaultCopies(1);
+      itemsToPrint.forEach(({ product: item }) => {
+        updated[item.id] = 1;
+      });
+    } else {
+      itemsToPrint.forEach(({ product: item, quantity, invoiceQuantity }) => {
+        const exactNotaQty = Math.max(1, Math.round(Number(invoiceQuantity ?? quantity) || 1));
+        updated[item.id] = exactNotaQty;
+      });
+    }
+    setCustomCopies(updated);
+  };
+
+  // Aplica quantidade padrão manual para todos os itens da lista
   const handleApplyGlobalCopies = (qty: number) => {
     const valid = Math.max(1, qty);
     setDefaultCopies(valid);
@@ -982,7 +1041,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 Impressão de Etiquetas de Gôndola / Almoxarifado
               </h3>
               <p className="text-[11px] text-sky-100">
-                {entryTitle || `${itemsToPrint.length} produto(s) • Total de ${totalLabelsCount} etiqueta(s)`} • Formato: {currentPreset.badge}
+                {entryTitle ? `${entryTitle} • ` : ''}{itemsToPrint.length} produto(s) • Total de etiquetas geradas: {totalLabelsCount} • Formato: {currentPreset.badge}
               </p>
             </div>
           </div>
@@ -1070,6 +1129,69 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 </div>
               </div>
 
+            </div>
+
+            {/* Regra de Quantidade Padrão (Radio Buttons) */}
+            <div className="pt-2.5 border-t border-stone-200 dark:border-stone-700/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider flex items-center space-x-1.5">
+                  <Copy className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Regra de Quantidade Padrão</span>
+                </label>
+                <span className="text-[11px] font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+                  Total de etiquetas geradas: {totalLabelsCount}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <label
+                  onClick={() => handleSelectQuantityRule('single')}
+                  className={`flex items-center space-x-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                    quantityRule === 'single'
+                      ? 'bg-sky-50/90 dark:bg-sky-950/50 border-sky-500 text-sky-950 dark:text-sky-100 ring-1 ring-sky-500/50 font-bold'
+                      : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-sky-400 font-semibold'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="labelQuantityRule"
+                    value="single"
+                    checked={quantityRule === 'single'}
+                    onChange={() => handleSelectQuantityRule('single')}
+                    className="w-4 h-4 text-sky-600 border-stone-300 focus:ring-sky-500 cursor-pointer shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="leading-tight">Uma etiqueta por produto</div>
+                    <div className="text-[10px] font-normal text-stone-500 dark:text-stone-400 mt-0.5">
+                      Define exatamente 1 etiqueta para cada produto da lista ({itemsToPrint.length} {itemsToPrint.length === 1 ? 'etiqueta' : 'etiquetas'})
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  onClick={() => handleSelectQuantityRule('invoice')}
+                  className={`flex items-center space-x-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                    quantityRule === 'invoice'
+                      ? 'bg-sky-50/90 dark:bg-sky-950/50 border-sky-500 text-sky-950 dark:text-sky-100 ring-1 ring-sky-500/50 font-bold'
+                      : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-sky-400 font-semibold'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="labelQuantityRule"
+                    value="invoice"
+                    checked={quantityRule === 'invoice'}
+                    onChange={() => handleSelectQuantityRule('invoice')}
+                    className="w-4 h-4 text-sky-600 border-stone-300 focus:ring-sky-500 cursor-pointer shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="leading-tight">Quantidade da Nota Fiscal (Total de Unidades)</div>
+                    <div className="text-[10px] font-normal text-stone-500 dark:text-stone-400 mt-0.5">
+                      Preenche com a quantidade exata lançada na nota ({totalInvoiceUnitsCount} {totalInvoiceUnitsCount === 1 ? 'etiqueta' : 'etiquetas'})
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Configurações Avançadas e Reaproveitamento para A4 */}
@@ -1198,17 +1320,17 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
           {/* Seção de Visualização: Modelo Individual/Lote ou Folha A4 Completa */}
           {previewTab === 'label' || !isA4 ? (
             <div className="p-3 bg-stone-100 dark:bg-stone-950/60 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col items-center justify-center">
-              
+              <div className="w-full flex items-center justify-between px-1 mb-2 text-xs font-bold text-stone-700 dark:text-stone-300">
+                <span>Total de etiquetas geradas: {flatLabelsList.length}</span>
+                <span className="text-[11px] font-mono text-sky-600 dark:text-sky-400">
+                  {itemsToPrint.length} produto(s) na lista
+                </span>
+              </div>
+
               {flatLabelsList.length === 1 && previewProduct ? (
                 renderLiveLabelCard(previewProduct)
               ) : (
                 <div className="w-full space-y-2">
-                  <div className="flex items-center justify-between px-1 text-xs font-bold text-stone-700 dark:text-stone-300">
-                    <span>Pré-visualização do Lote Completo ({flatLabelsList.length} etiquetas geradas)</span>
-                    <span className="text-[11px] font-mono text-sky-600 dark:text-sky-400">
-                      {itemsToPrint.length} produto(s) na fila
-                    </span>
-                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-h-[380px] overflow-y-auto p-1 place-items-center">
                     {flatLabelsList.map((item, idx) =>
                       renderLiveLabelCard(item, `Etiqueta ${idx + 1} de ${flatLabelsList.length}`, `${item.id}_${idx}`)
@@ -1309,13 +1431,14 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 Quantidade de Cópias por Produto
               </span>
               <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-                {totalLabelsCount} etiqueta(s) no total • {isA4 ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} folha(s) A4` : 'Rolo Contínuo'}
+                Total de etiquetas geradas: {totalLabelsCount} • {isA4 ? `${Math.ceil((startPosition - 1 + totalLabelsCount) / totalSlotsPerSheet)} folha(s) A4` : 'Rolo Contínuo'}
               </span>
             </div>
 
             <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden divide-y divide-stone-100 dark:divide-stone-800/80 max-h-44 overflow-y-auto bg-white dark:bg-stone-900">
-              {itemsToPrint.map(({ product: item, quantity = 1 }) => {
-                const copies = getItemCopies(item.id, quantity);
+              {itemsToPrint.map(({ product: item, quantity = 1, invoiceQuantity }) => {
+                const notaQty = Math.max(1, Math.round(Number(invoiceQuantity ?? quantity) || 1));
+                const copies = getItemCopies(item.id, notaQty);
                 const address = resolveAddress(item);
 
                 return (
@@ -1324,13 +1447,17 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                       <div className="font-bold text-stone-900 dark:text-stone-100 truncate">
                         {item.nome_comercial || item.name}
                       </div>
-                      <div className="flex items-center space-x-2 text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-stone-500 dark:text-stone-400 mt-0.5">
                         <span className="font-mono font-bold bg-stone-100 dark:bg-stone-800 px-1 rounded">
                           Cód: {item.code || `PRD-${item.id.slice(-6)}`}
                         </span>
                         <span>•</span>
                         <span className="font-mono text-sky-600 dark:text-sky-400 font-semibold">
                           Gôndola: {address}
+                        </span>
+                        <span>•</span>
+                        <span className="font-mono text-stone-600 dark:text-stone-300 font-semibold">
+                          Qtd. Nota: {notaQty} {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
                         </span>
                       </div>
                     </div>
