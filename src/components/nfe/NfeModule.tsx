@@ -6346,7 +6346,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
 
             {/* 2. Barra Visual de Progresso do Stepper */}
-            <div className="px-5 py-3 bg-stone-100/90 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
+            <div className="px-5 py-3 bg-[#cdcdcd] dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
               <div className="flex items-center space-x-3 sm:space-x-6 w-full">
                 {/* Passo 1 */}
                 <button
