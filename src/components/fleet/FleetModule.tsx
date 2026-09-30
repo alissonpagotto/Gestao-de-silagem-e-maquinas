@@ -31,7 +31,8 @@ import {
   deleteAbastecimento,
   insertContaAPagarAbastecimento,
   upsertEstoqueItem,
-  subtrairCombustivelTanque
+  subtrairCombustivelTanque,
+  baixarEstoqueProdutosDefinitivoOS
 } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
@@ -641,19 +642,26 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
   const handleSaveMaintenance = (
     log: MaintenanceLog, 
-    flags?: { createExpense?: boolean; deductStock?: boolean; createPurchaseRequest?: boolean }
+    flags?: { 
+      createExpense?: boolean; 
+      deductStock?: boolean; 
+      createPurchaseRequest?: boolean;
+      skipAccountsPayableDreOnly?: boolean;
+    }
   ) => {
-    const shouldCreateExpense = flags?.createExpense ?? false;
+    const isDreOnly = Boolean(
+      flags?.skipAccountsPayableDreOnly || 
+      log.skipAccountsPayableDreOnly || 
+      log.financialConditions?.skipAccountsPayableDreOnly
+    );
+    const shouldCreateExpense = isDreOnly ? false : (flags?.createExpense ?? false);
     const shouldDeductStock = flags?.deductStock ?? true;
     const shouldCreatePurchase = flags?.createPurchaseRequest ?? false;
 
-    const existingIdx = maintenanceLogs.findIndex(m => m.id === log.id);
+    const existingIdx = maintenanceLogs.findIndex(m => m.id === log.id || (editingMaintenanceLog && m.id === editingMaintenanceLog.id));
     if (existingIdx !== -1) {
       const updated = [...maintenanceLogs];
       updated[existingIdx] = log;
-      onSaveMaintenanceLogs(updated);
-    } else if (editingMaintenanceLog) {
-      const updated = maintenanceLogs.map(m => (m.id === editingMaintenanceLog.id ? log : m));
       onSaveMaintenanceLogs(updated);
     } else {
       onSaveMaintenanceLogs([log, ...maintenanceLogs]);
@@ -665,43 +673,31 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     if (targetVehicle) {
       const existingIdx = maintenanceLogs.findIndex(m => m.id === log.id);
       const prevExpense = (existingIdx !== -1 && maintenanceLogs[existingIdx]) ? (maintenanceLogs[existingIdx].totalCost || 0) : 0;
-      const expenseDiff = log.totalCost - prevExpense;
+      const expenseDiff = (Number(log.totalCost) || 0) - prevExpense;
       const updatedVehicle: Machinery = {
         ...targetVehicle,
-        status: log.status === 'em_andamento' ? 'em_manutencao' : targetVehicle.status,
+        status: log.status === 'concluida' ? 'operacional' : (log.status === 'em_andamento' ? 'em_manutencao' : targetVehicle.status),
         totalMaintenanceExpenses: Math.max(0, (targetVehicle.totalMaintenanceExpenses || 0) + expenseDiff),
       };
       onSaveMachineries(machineries.map(m => m.id === targetVehicle.id ? updatedVehicle : m));
     }
 
     // 1. Sincronização e Baixa Automática no Almoxarifado Interno
-    if (shouldDeductStock && onSaveInventory) {
+    if (shouldDeductStock) {
       const latestInventory = getStoredInventory();
-      if (latestInventory && latestInventory.length > 0) {
+      if (latestInventory && latestInventory.length > 0 && onSaveInventory) {
         onSaveInventory(latestInventory);
-      } else if (log.partsItems && log.partsItems.length > 0) {
-        const internalParts = log.partsItems.filter(p => !p.stockDeducted && (p.origin === 'almoxarifado_interno' || !p.origin));
-        if (internalParts.length > 0 && inventory.length > 0) {
-          let updatedInventory = [...inventory];
-          internalParts.forEach(part => {
-            const idx = updatedInventory.findIndex(
-              i => (part.inventoryItemId && i.id === part.inventoryItemId) || 
-                   (part.description && i.code !== undefined && i.code !== null && String(i.code).trim().toLowerCase() === String(part.description).trim().toLowerCase()) ||
-                   (part.description && String(i.name || '').trim().toLowerCase() === String(part.description).trim().toLowerCase())
-            );
-            if (idx !== -1) {
-              const currentItem = updatedInventory[idx];
-              const newQty = Math.max(0, currentItem.quantity - (Number(part.quantity) || 1));
-              updatedInventory[idx] = {
-                ...currentItem,
-                quantity: newQty,
-                updatedAt: new Date().toISOString()
-              };
-            }
-          });
-          saveStoredInventory(updatedInventory);
-          onSaveInventory(updatedInventory);
-        }
+      }
+      // Dispara o comando definitivo no Supabase ('public.estoque_produtos')
+      if (log.partsItems && log.partsItems.length > 0) {
+        baixarEstoqueProdutosDefinitivoOS(
+          log.partsItems.map(p => ({
+            produto_id: p.inventoryItemId || (p as any).produto_id,
+            inventoryItemId: p.inventoryItemId,
+            description: p.description,
+            quantity: Number(p.quantity) || 1,
+          }))
+        ).catch(err => console.warn('Supabase baixarEstoqueProdutosDefinitivoOS notice:', err));
       }
     }
 
@@ -731,7 +727,35 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       }
     }
 
-    // 3. Automatically create expense in finance (Contas a Pagar) if requested
+    // 3. Regra DRE sem Contas a Pagar (Abatimento Direto de Estoque)
+    if (isDreOnly && onAddExpense && log.totalCost > 0) {
+      const osIdClean = log.osNumber || log.id;
+      const dreExpense: Expense = {
+        id: `dre_maint_${osIdClean.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`,
+        description: `OS ${osIdClean} [${log.serviceCategory}] - ${log.machineryPlateOrName} (Custo Direto Almoxarifado / DRE)`,
+        amount: Number(log.totalCost) || 0,
+        categoryId: 'cat_manutencao',
+        categoryName: 'Manutenção de Frotas',
+        categoryColor: '#6366f1',
+        dueDate: log.date || new Date().toISOString().split('T')[0],
+        paymentDate: log.date || new Date().toISOString().split('T')[0],
+        status: 'compensado_estoque',
+        paymentMethod: 'outro' as any,
+        supplier: 'Almoxarifado Interno (NF-e Entrada)',
+        costCenterId: targetVehicle?.id || log.machineryId,
+        costCenterName: targetVehicle?.name || log.machineryPlateOrName,
+        machineryId: targetVehicle?.id || log.machineryId,
+        machineryName: targetVehicle?.licensePlateOrSerial || targetVehicle?.name || log.machineryPlateOrName,
+        invoiceNumber: log.nfeLink?.nfeNumber || log.osNumber,
+        notes: `Custo gerencial de manutenção DRE (peças com baixa física direta no estoque). Veículo: ${log.machineryPlateOrName}. Não gera lançamento a pagar no financeiro.`,
+        isDreOnly: true,
+        skipAccountsPayable: true,
+        createdAt: new Date().toISOString(),
+      };
+      onAddExpense(dreExpense);
+    }
+
+    // 4. Automatically create expense in finance (Contas a Pagar) if requested (standard flow)
     if (shouldCreateExpense && onAddExpense && log.totalCost > 0) {
       const cond = log.financialConditions;
       const nfe = log.nfeLink;

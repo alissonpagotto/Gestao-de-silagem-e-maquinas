@@ -9699,23 +9699,157 @@ export async function realizarConferenciaCaixaVeiculo(params: {
 }
 
 /**
- * ABA 3: Remove uma ferramenta fixa da caixa de ferramentas do veículo
+ * ABA 3: Exclui um item da caixa de ferramentas do veículo
  */
-export async function deleteItemCaixaFerramentaVeiculo(id: string): Promise<boolean> {
-  if (isSupabaseConfigured && id) {
+export async function deleteItemCaixaFerramentaVeiculo(
+  id: string
+): Promise<{ success: boolean; errorMessage?: string }> {
+  const currentList = getLocalCaixaFerramentasVeiculo();
+  const validUuid = toValidUUID(id);
+  const updatedList = currentList.filter(i => i.id !== id && i.id !== validUuid);
+  saveLocalCaixaFerramentasVeiculo(updatedList);
+
+  if (isSupabaseConfigured) {
     try {
-      const validItemUuid = toValidUUID(id);
-      if (isValidUUID(validItemUuid)) {
-        await supabase.from('caixa_ferramentas_veiculo').delete().eq('id', validItemUuid);
+      const { error } = await supabase
+        .from('caixa_ferramentas_veiculo')
+        .delete()
+        .or(`id.eq.${validUuid},id.eq.${id}`);
+
+      if (error) {
+        logPostgresError('deleteItemCaixaFerramentaVeiculo', error, {
+          table: 'caixa_ferramentas_veiculo',
+          action: 'DELETE',
+          id,
+        });
       }
     } catch (err) {
-      console.warn('deleteItemCaixaFerramentaVeiculo err:', err);
+      console.warn('Erro ao excluir item da caixa no Supabase:', err);
     }
   }
-  const remaining = getLocalCaixaFerramentasVeiculo().filter(i => i.id !== id);
-  saveLocalCaixaFerramentasVeiculo(remaining);
-  return true;
+
+  return { success: true };
 }
+
+/**
+ * ABA 3 / FECHAMENTO DA OS:
+ * Dispara o comando definitivo no Supabase ('public.estoque_produtos')
+ * para abater fisicamente as quantidades utilizadas da tabela (baixa real do almoxarifado).
+ * Atualiza também a tabela 'public.retiradas_pecas' para status 'Concluído'.
+ */
+export async function baixarEstoqueProdutosDefinitivoOS(
+  items: Array<{
+    produto_id?: string;
+    inventoryItemId?: string;
+    description?: string;
+    produto_codigo?: string;
+    quantity: number;
+  }>,
+  companyId?: string
+): Promise<{ success: boolean; deductions: Array<{ id: string; oldQty: number; newQty: number }> }> {
+  if (!items || items.length === 0) {
+    return { success: true, deductions: [] };
+  }
+
+  const deductions: Array<{ id: string; oldQty: number; newQty: number }> = [];
+
+  // 1. Atualização imediata no storage local
+  try {
+    const currentInventory = getStoredInventory();
+    const updated = currentInventory.map(inv => {
+      const match = items.find(it => {
+        const itId = it.produto_id || it.inventoryItemId;
+        if (itId && (inv.id === itId || toValidUUID(inv.id) === toValidUUID(itId))) return true;
+        if (it.produto_codigo && (inv.code === it.produto_codigo || (inv as any).codigo_produto === it.produto_codigo)) return true;
+        if (it.description && inv.name && inv.name.trim().toLowerCase() === it.description.trim().toLowerCase()) return true;
+        if (it.description && inv.nome_comercial && inv.nome_comercial.trim().toLowerCase() === it.description.trim().toLowerCase()) return true;
+        return false;
+      });
+
+      if (match && Number(match.quantity) > 0) {
+        const curQ = Number(inv.quantidade_atual ?? inv.quantity ?? 0);
+        const newQ = Math.max(0, Number((curQ - Number(match.quantity)).toFixed(2)));
+        deductions.push({ id: inv.id, oldQty: curQ, newQty: newQ });
+        return {
+          ...inv,
+          quantity: newQ,
+          quantidade_atual: newQ,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return inv;
+    });
+
+    saveStoredInventory(updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_inventory_changed', { detail: updated }));
+    }
+  } catch (e) {
+    console.warn('Erro ao atualizar storage local na baixa definitiva da OS:', e);
+  }
+
+  // 2. Comando definitivo no Supabase
+  if (isSupabaseConfigured) {
+    for (const item of items) {
+      const qtyToDeduct = Number(item.quantity);
+      if (isNaN(qtyToDeduct) || qtyToDeduct <= 0) continue;
+
+      try {
+        const rawId = item.produto_id || item.inventoryItemId;
+        const validUuid = rawId ? toValidUUID(rawId) : '';
+        let targetDbProd: any = null;
+
+        if (validUuid && isValidUUID(validUuid)) {
+          const { data } = await supabase
+            .from('estoque_produtos')
+            .select('id, quantidade_atual, nome_comercial')
+            .eq('id', validUuid)
+            .maybeSingle();
+          if (data) targetDbProd = data;
+        }
+
+        if (!targetDbProd && item.description && item.description.trim()) {
+          const { data } = await supabase
+            .from('estoque_produtos')
+            .select('id, quantidade_atual, nome_comercial')
+            .ilike('nome_comercial', item.description.trim())
+            .limit(1);
+          if (data && data.length > 0) targetDbProd = data[0];
+        }
+
+        if (targetDbProd && targetDbProd.id) {
+          const currentDbQty = Number(targetDbProd.quantidade_atual) || 0;
+          const newDbQty = Math.max(0, Number((currentDbQty - qtyToDeduct).toFixed(2)));
+
+          await supabase
+            .from('estoque_produtos')
+            .update({
+              quantidade_atual: newDbQty,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', targetDbProd.id);
+
+          // Atualiza status de retiradas_pecas vinculadas
+          try {
+            await supabase
+              .from('retiradas_pecas')
+              .update({
+                status: 'Concluído',
+                updated_at: new Date().toISOString()
+              })
+              .eq('produto_id', targetDbProd.id)
+              .in('status', ['Aguardando Manutenção', 'Em Manutenção', 'Em Manutenção (OS)', 'Aguardando', 'Aguardando Manutenção (OS)']);
+          } catch {}
+        }
+      } catch (err) {
+        console.warn(`Aviso baixa definitiva item ${item.description || item.produto_id}:`, err);
+      }
+    }
+  }
+
+  return { success: true, deductions };
+}
+
 
 
 

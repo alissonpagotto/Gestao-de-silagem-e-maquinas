@@ -130,6 +130,7 @@ interface MaintenanceModalProps {
       createExpense: boolean;
       deductStock: boolean;
       createPurchaseRequest: boolean;
+      skipAccountsPayableDreOnly?: boolean;
     }
   ) => void;
   editingLog: MaintenanceLog | null;
@@ -367,6 +368,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
   // --- INTEGRAÇÃO FINANCEIRA (CONTAS A PAGAR) ---
   const [createExpense, setCreateExpense] = useState(true);
+  const [skipAccountsPayableDreOnly, setSkipAccountsPayableDreOnly] = useState(false);
   const [paymentTerm, setPaymentTerm] = useState<MaintenanceFinancialConditions['paymentTerm']>('a_vista');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('boleto');
   const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -449,13 +451,19 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       }
 
       // Financeiro
+      const isDreOnlyInitial = Boolean(
+        editingLog.skipAccountsPayableDreOnly || 
+        editingLog.financialConditions?.skipAccountsPayableDreOnly
+      );
+      setSkipAccountsPayableDreOnly(isDreOnlyInitial);
+
       if (editingLog.financialConditions) {
-        setCreateExpense(editingLog.financialConditions.createAccountsPayable);
+        setCreateExpense(isDreOnlyInitial ? false : editingLog.financialConditions.createAccountsPayable);
         setPaymentTerm(editingLog.financialConditions.paymentTerm);
         setPaymentMethod(editingLog.financialConditions.paymentMethod);
         setFirstDueDate(editingLog.financialConditions.firstDueDate);
         setFinancialSupplier(editingLog.financialConditions.supplierName || '');
-        setExpenseGenerated(!!editingLog.financialConditions.createAccountsPayable);
+        setExpenseGenerated(!isDreOnlyInitial && !!editingLog.financialConditions.createAccountsPayable);
         if (editingLog.financialConditions.installments && editingLog.financialConditions.installments.length > 0) {
           setInstallments(editingLog.financialConditions.installments as NfeDetailedInstallment[]);
         } else {
@@ -507,6 +515,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       setNfeAccessKey('');
       setNfeSupplierName('');
       setNfeTotalAmount('');
+      setSkipAccountsPayableDreOnly(false);
       setCreateExpense(false);
       setExpenseGenerated(false);
       setPaymentTerm('a_vista');
@@ -895,6 +904,11 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
   const grandTotal = totalPartsCalculated + totalLaborCalculated;
 
+  const currentMach = machineries.find(m => m.id === machineryId);
+  const currentMachName = currentMach 
+    ? (currentMach.licensePlateOrSerial ? `[${currentMach.licensePlateOrSerial}] ${currentMach.name || currentMach.model}` : (currentMach.name || currentMach.model || 'Veículo'))
+    : 'Veículo';
+
   // Itens por categoria
   const externalPartsCount = partsItems.filter(p => p.origin === 'externo_compra').length;
   const internalPartsCount = partsItems.filter(p => p.origin === 'almoxarifado_interno').length;
@@ -904,28 +918,39 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     markAsCompleted?: boolean;
     redirectToFinance?: boolean;
     triggerExpense?: boolean;
+    closeOnSave?: boolean;
   }): boolean => {
-    if (!machineryId || !description.trim()) {
-      alert('Por favor, selecione o veículo e insira a descrição da Ordem de Serviço.');
-      return false;
-    }
-
-    const isMarkingCompleted = !!options?.markAsCompleted;
-    const isTriggeringExpense = !!options?.triggerExpense;
-    const shouldGoToFinance = !!options?.redirectToFinance;
-
-    const targetStatus = isMarkingCompleted ? 'concluida' : status;
     const todayIso = new Date().toISOString().split('T')[0];
-    const targetCompletionDate = isMarkingCompleted
-      ? (completionDate.trim() || todayIso)
-      : (completionDate.trim() || undefined);
+    const isMarkingCompleted = Boolean(options?.markAsCompleted || activeTab === 'fiscal_financeiro');
+    const targetStatus = isMarkingCompleted ? 'concluida' : status;
+    const shouldGoToFinance = Boolean(options?.redirectToFinance);
+
+    // Fallbacks inteligentes de data de conclusão para não travar a OS
+    let finalCompletionDate = completionDate.trim();
+    if (!finalCompletionDate && isMarkingCompleted) {
+      finalCompletionDate = todayIso;
+      setCompletionDate(todayIso);
+    }
+    const targetCompletionDate = finalCompletionDate || (isMarkingCompleted ? todayIso : undefined);
 
     if (isMarkingCompleted) {
       setStatus('concluida');
-      if (!completionDate.trim()) {
-        setCompletionDate(todayIso);
-      }
     }
+
+    if (!machineryId) {
+      setFeedbackBanner({
+        type: 'save',
+        message: 'Por favor, selecione o Veículo / Máquina da Ordem de Serviço na Aba 1.'
+      });
+      setActiveTab('geral');
+      return false;
+    }
+
+    const effectiveDescription = description.trim() || `Ordem de Serviço ${osNumber || ''} - Manutenção de Frota`.trim();
+    const effectiveDate = date.trim() || todayIso;
+
+    const isDreOnly = Boolean(skipAccountsPayableDreOnly);
+    const isTriggeringExpense = isDreOnly ? false : Boolean(options?.triggerExpense);
 
     const selectedMach = machineries.find(m => m.id === machineryId);
     const machName = selectedMach 
@@ -1034,7 +1059,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     const log: MaintenanceLog = {
       id: idToUse,
       osNumber: osNumber.trim() || `OS-${Date.now().toString().slice(-6)}`,
-      date,
+      date: effectiveDate,
       completionDate: targetCompletionDate,
       machineryId,
       machineryPlateOrName: machName,
@@ -1045,7 +1070,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       executorType,
       executorName: finalMechanicName || workshopOrMechanic.trim() || 'Mecânica Interna',
       workshopOrMechanic: finalMechanicName || workshopOrMechanic.trim() || 'Mecânica Interna',
-      description: description.trim(),
+      description: effectiveDescription,
       partsOriginSummary,
       partsItems: usePartsItemList ? processedPartsItems : undefined,
       laborItems: laborItems.length > 0 ? laborItems : undefined,
@@ -1056,6 +1081,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       nextServiceDueHourMeterOrKm: parsedNextServiceDue,
       status: targetStatus,
       stockDeducted: true,
+      skipAccountsPayableDreOnly: isDreOnly,
       notes: notes.trim() || undefined,
       createdAt: editingLog ? editingLog.createdAt : new Date().toISOString(),
       nfeLink: hasNfe ? {
@@ -1068,6 +1094,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       } : undefined,
       financialConditions: isTriggeringExpense ? {
         createAccountsPayable: true,
+        skipAccountsPayableDreOnly: false,
         paymentTerm,
         paymentMethod,
         firstDueDate: (installments.length > 0 && installments[0]?.dueDate) ? installments[0].dueDate : firstDueDate,
@@ -1075,18 +1102,37 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         supplierName: financialSupplier.trim() || finalMechanicName || workshopOrMechanic.trim(),
         notes: `OS ${osNumber} - ${machName}`,
         installments: installments.length > 0 ? installments : undefined,
-      } : (editingLog?.financialConditions || undefined),
+      } : (isDreOnly ? {
+        createAccountsPayable: false,
+        skipAccountsPayableDreOnly: true,
+        paymentTerm: 'a_vista',
+        paymentMethod: 'outro' as any,
+        firstDueDate: effectiveDate,
+        supplierName: 'Almoxarifado Interno',
+        notes: `OS ${osNumber} - ${machName} (Lançamento Gerencial DRE / Abatimento de Estoque)`,
+      } : (editingLog?.financialConditions || undefined)),
     };
 
     // REGRA DE OURO:
-    // createExpense é estritamente isTriggeringExpense.
-    // Ao clicar em "Salvar Ordem de Serviço", isTriggeringExpense é false.
-    // Os dados são salvos sem fechar o modal e sem enviar ao Contas a Pagar.
+    // createExpense é estritamente isTriggeringExpense (desativado quando skipAccountsPayableDreOnly estiver ativo).
     onSave(log, {
       createExpense: isTriggeringExpense && grandTotal > 0,
       deductStock: true,
       createPurchaseRequest: generatePurchaseRequest || (targetStatus === 'aguardando_pecas' && externalPartsCount > 0),
+      skipAccountsPayableDreOnly: isDreOnly,
     });
+
+    if (options?.closeOnSave) {
+      setSaveSuccess(true);
+      setFeedbackBanner({
+        type: 'save',
+        message: 'Ordem de Serviço Concluída (Liberada) com sucesso!'
+      });
+      setTimeout(() => {
+        onClose();
+      }, 400);
+      return true;
+    }
 
     if (isTriggeringExpense) {
       setExpenseGenerated(true);
@@ -1098,9 +1144,17 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       setTimeout(() => {
         setSaveSuccess(false);
       }, 3500);
+    } else if (isDreOnly && isMarkingCompleted) {
+      setSaveSuccess(true);
+      setFeedbackBanner({
+        type: 'billed',
+        message: 'OS Concluída! Custo lançado com sucesso no DRE e estoque físico baixado.'
+      });
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3500);
     } else if (shouldGoToFinance) {
       setActiveTab('fiscal_financeiro');
-      setCreateExpense(true);
       setFeedbackBanner({
         type: 'finalize',
         message: 'OS Finalizada como Concluída! Defina as condições de pagamento abaixo para faturar.'
@@ -1265,7 +1319,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         </div>
 
         {/* Form Body com Estrutura Flexível: Topo e Base Fixos, Centro Rolável em Cinza Claro (bg-zinc-100) */}
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-zinc-100">
+        <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col min-h-0 overflow-hidden bg-zinc-100">
           
           {/* Conteúdo Central com Rolagem Vertical Independente */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 flex flex-col bg-zinc-100">
@@ -1322,7 +1376,6 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         onChange={(e) => setOsNumber(e.target.value)}
                         className="w-full px-2 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
                         placeholder="OS-2026-0001"
-                        required
                       />
                     </div>
 
@@ -1336,7 +1389,6 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
                         className="w-full px-2 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700"
-                        required
                       />
                     </div>
 
@@ -1362,7 +1414,6 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         value={machineryId}
                         onChange={(e) => handleMachineryChange(e.target.value)}
                         className="w-full px-2 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 cursor-pointer"
-                        required
                       >
                         <option value="">Selecione...</option>
                         {machineries.map((m) => (
@@ -1518,7 +1569,6 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     placeholder="Ex: Troca de óleo da caixa de transmissão e substituição de 4 facas do rotor da ensiladeira que empenaram no talhão 3..."
                     rows={2}
                     className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs text-zinc-900 focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 resize-none"
-                    required
                   />
                 </div>
 
@@ -2232,7 +2282,6 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                       }}
                                       placeholder="Digite o código ou nome da peça (F4 busca modal)..."
                                       className="w-full pl-2.5 pr-8 py-1.5 text-xs rounded-lg border border-zinc-300 bg-white text-zinc-900 font-medium focus:outline-none focus:ring-2 focus:ring-zinc-700/20 focus:border-zinc-700 placeholder:text-zinc-400"
-                                      required
                                     />
                                     {/* Botão de Lupa para abrir Modal de Busca Avançada */}
                                     <button
@@ -2683,8 +2732,14 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                     <input
                       type="checkbox"
                       checked={createExpense}
-                      onChange={(e) => setCreateExpense(e.target.checked)}
-                      className="w-4 h-4 text-zinc-900 rounded focus:ring-zinc-700"
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setCreateExpense(checked);
+                        if (checked) {
+                          setSkipAccountsPayableDreOnly(false);
+                        }
+                      }}
+                      className="w-4 h-4 text-zinc-900 rounded focus:ring-zinc-700 cursor-pointer"
                     />
                     <span className="text-xs font-bold text-zinc-800">
                       Lançar no Financeiro
@@ -2803,12 +2858,77 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         id="btn-confirmar-faturamento-contas-pagar"
                         onClick={() => {
                           setCreateExpense(true);
-                          executeSave({ triggerExpense: true, markAsCompleted: true });
+                          executeSave({ triggerExpense: true, markAsCompleted: true, closeOnSave: true });
                         }}
                         className="inline-flex items-center space-x-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
                       >
                         <CreditCard className="w-4 h-4" />
-                        <span>Confirmar Faturamento & Lançar no Contas a Pagar</span>
+                        <span>Confirmar Faturamento & Concluir OS</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* REGRA FISCAL / FINANCEIRA: NÃO GERAR CONTAS A PAGAR (ABATIMENTO DIRETO DE ESTOQUE / LANÇAMENTO DRE) */}
+              <div className="p-4 bg-rose-50/80 dark:bg-rose-950/30 rounded-2xl border border-rose-300 dark:border-rose-900/60 space-y-3 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center space-x-2">
+                    <Receipt className="w-4 h-4 text-rose-700 dark:text-rose-400" />
+                    <h4 className="text-xs font-bold text-rose-950 dark:text-rose-200 uppercase tracking-wider">
+                      Compensação Contábil Direta / DRE (Sem Contas a Pagar)
+                    </h4>
+                  </div>
+
+                  <label className="flex items-center space-x-2 cursor-pointer bg-white/90 dark:bg-stone-900 px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 shadow-2xs">
+                    <input
+                      type="checkbox"
+                      id="chk-nao-gerar-contas-pagar"
+                      checked={skipAccountsPayableDreOnly}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setSkipAccountsPayableDreOnly(checked);
+                        if (checked) {
+                          setCreateExpense(false);
+                        }
+                      }}
+                      className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-rose-950 dark:text-rose-100">
+                      Não gerar Contas a Pagar (Abatimento Direto de Estoque / Lançamento DRE)
+                    </span>
+                  </label>
+                </div>
+
+                <p className="text-[11.5px] text-rose-900/90 dark:text-rose-200/90 font-medium leading-relaxed">
+                  Marque esta opção se as peças desta OS já foram pagas/lançadas via Nota Fiscal de Entrada. O sistema irá registrar o custo do insumo diretamente no DRE da empresa e no histórico do veículo, sem gerar duplicidade financeira no Contas a Pagar.
+                </p>
+
+                {skipAccountsPayableDreOnly && (
+                  <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-rose-300 dark:border-rose-800 space-y-2 mt-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2 text-rose-800 dark:text-rose-300 text-xs font-bold">
+                        <CheckCircle2 className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                        <span>Abatimento Direto de Estoque & Lançamento DRE Ativo</span>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-rose-100 text-rose-900 border border-rose-300">
+                        Total OS: {formatCurrencyBRL(grandTotal)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 dark:text-stone-300 leading-snug">
+                      Ao concluir esta OS, o custo total de <strong>{formatCurrencyBRL(grandTotal)}</strong> será registrado na categoria <strong>"Manutenção de Frotas"</strong> no DRE gerencial da empresa e somado ao custo operacional acumulado do veículo <strong>{currentMachName}</strong>, efetuando a baixa real e definitiva dos insumos no almoxarifado (<code className="text-[10px] font-mono bg-zinc-100 px-1 py-0.5 rounded">public.estoque_produtos</code>) sem gerar duplicidade financeira no Contas a Pagar.
+                    </p>
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        type="button"
+                        id="btn-concluir-os-dre-aba3"
+                        onClick={() => {
+                          executeSave({ markAsCompleted: true, triggerExpense: false, closeOnSave: true });
+                        }}
+                        className="inline-flex items-center space-x-2 px-5 py-2.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer"
+                      >
+                        <CheckCheck className="w-4 h-4" />
+                        <span>Concluir OS (Liberada) com Lançamento DRE</span>
                       </button>
                     </div>
                   </div>
@@ -2921,13 +3041,23 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                 <span>Sair / Fechar</span>
               </button>
 
-              {/* 1. Botão Verde: Salva estado atual sem fechar e sem enviar ao Contas a Pagar */}
+              {/* 1. Botão Verde: Salva estado atual sem fechar e sem enviar ao Contas a Pagar (ou Conclui na Aba 3) */}
               <button
                 type="button"
                 id="btn-salvar-os"
-                onClick={() => executeSave({ triggerExpense: false })}
+                onClick={() => {
+                  if (activeTab === 'fiscal_financeiro') {
+                    executeSave({
+                      markAsCompleted: true,
+                      triggerExpense: !skipAccountsPayableDreOnly && createExpense,
+                      closeOnSave: true
+                    });
+                  } else {
+                    executeSave({ triggerExpense: false });
+                  }
+                }}
                 className="inline-flex items-center justify-center space-x-2 px-5 py-2 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-500 border border-emerald-500"
-                title="Salva o estado atual das peças, quantidades e mão de obra mantendo os itens na tela sem gerar despesa financeira"
+                title={activeTab === 'fiscal_financeiro' ? 'Concluir a Ordem de Serviço, liberar o veículo e fechar o formulário' : 'Salva o estado atual das peças, quantidades e mão de obra mantendo os itens na tela sem gerar despesa financeira'}
               >
                 {saveSuccess ? (
                   <>
@@ -2956,20 +3086,40 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                   <span>Incluir peças</span>
                   <ArrowRight className="w-3.5 h-3.5 text-white" />
                 </button>
-              ) : (
+              ) : activeTab === 'pecas' ? (
                 <button
                   type="button"
                   id="btn-fechar-e-faturar-os"
                   onClick={() => {
-                    setStatus('concluida');
-                    executeSave({ markAsCompleted: true, redirectToFinance: true, triggerExpense: false });
+                    setActiveTab('fiscal_financeiro');
                   }}
                   className="inline-flex items-center justify-center space-x-2 px-5 py-2 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer bg-zinc-900 hover:bg-zinc-950 border border-zinc-700"
-                  title="Conclui a manutenção, salva o estado final e abre a Aba 3 para faturamento e formas de pagamento"
+                  title="Avançar para a Aba 3 (Fiscal, Financeiro e Fechamento)"
                 >
                   <Receipt className="w-4 h-4 text-white" />
-                  <span>Fechar OS e faturar</span>
+                  <span>Avançar para Fechamento</span>
                   <ArrowRight className="w-3.5 h-3.5 text-white" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  id="btn-concluir-liberar-os"
+                  onClick={() => {
+                    executeSave({
+                      markAsCompleted: true,
+                      triggerExpense: !skipAccountsPayableDreOnly && createExpense,
+                      closeOnSave: true
+                    });
+                  }}
+                  className={`inline-flex items-center justify-center space-x-2 px-5 py-2 text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer border ${
+                    skipAccountsPayableDreOnly
+                      ? 'bg-rose-700 hover:bg-rose-600 border-rose-600'
+                      : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500'
+                  }`}
+                  title="Conclui a manutenção, altera o status para Concluída (Liberada), efetua a baixa real no estoque e fecha a janela com sucesso"
+                >
+                  <CheckCheck className="w-4 h-4 text-white" />
+                  <span>Concluir OS (Liberada)</span>
                 </button>
               )}
             </div>

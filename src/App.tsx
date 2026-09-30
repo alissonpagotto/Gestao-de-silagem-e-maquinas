@@ -1274,6 +1274,10 @@ export default function App() {
   const handleSaveExpense = (newOrUpdated: Expense | Expense[]) => {
     const items = Array.isArray(newOrUpdated) ? newOrUpdated : [newOrUpdated];
     items.forEach(exp => {
+      // Se for lançamento exclusivo de DRE / abatimento de estoque, NÃO insere na tabela contas_a_pagar
+      if (exp.isDreOnly || exp.skipAccountsPayable || exp.status === 'compensado_estoque') {
+        return;
+      }
       upsertContaAPagar({
         id: exp.id,
         nota_fiscal_id: exp.invoiceNumber ? toValidUUID(exp.invoiceNumber) : null,
@@ -2705,8 +2709,12 @@ export default function App() {
                     supplier: newExp.supplier || 'Fornecedor',
                     costCenterId: newExp.costCenterId,
                     costCenterName: newExp.costCenterName || newExp.costCenter,
+                    machineryId: newExp.machineryId,
+                    machineryName: newExp.machineryName,
                     invoiceNumber: newExp.invoiceNumber,
                     notes: newExp.notes,
+                    isDreOnly: Boolean(newExp.isDreOnly),
+                    skipAccountsPayable: Boolean(newExp.skipAccountsPayable),
                     createdAt: newExp.createdAt || new Date().toISOString(),
                   };
                 });

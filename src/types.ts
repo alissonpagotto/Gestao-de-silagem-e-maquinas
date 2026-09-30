@@ -99,6 +99,8 @@ export interface Expense {
   corporateCardId?: string; // ID do cartão corporativo vinculado
   corporateCardName?: string; // Nome/Identificador do cartão corporativo
   paymentAuthenticationCode?: string; // Código de autenticação / comprovante
+  isDreOnly?: boolean; // Lançamento exclusivo de DRE / custo gerencial sem contas a pagar
+  skipAccountsPayable?: boolean; // Não insere na tabela contas_a_pagar
   date?: string; // YYYY-MM-DD (compatibilidade)
   createdAt: string;
 }
@@ -869,6 +871,7 @@ export interface MaintenanceNfeLink {
 
 export interface MaintenanceFinancialConditions {
   createAccountsPayable: boolean;
+  skipAccountsPayableDreOnly?: boolean; // Não gerar Contas a Pagar (Abatimento Direto de Estoque / Lançamento DRE)
   paymentTerm: 'a_vista' | '15_dias' | '30_dias' | '30_60_dias' | '30_60_90_dias' | 'safra_prazo' | 'personalizado';
   paymentMethod: PaymentMethod;
   installmentsCount?: number;
@@ -953,6 +956,7 @@ export interface MaintenanceLog {
   status: 'concluida' | 'em_andamento' | 'agendada' | 'aguardando_pecas' | 'cancelada';
   nfeLink?: MaintenanceNfeLink;
   financialConditions?: MaintenanceFinancialConditions;
+  skipAccountsPayableDreOnly?: boolean;
   purchaseRequestId?: string;
   stockDeducted?: boolean;
   expenseIds?: string[];
