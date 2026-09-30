@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, 
   Plus, 
@@ -30,12 +30,15 @@ import {
   formatCurrencyBRL, 
   getStoredMaintenanceLogs, 
   getStoredFuelLogs,
-  ensureDieselProductsInInventory
+  ensureDieselProductsInInventory,
+  saveStoredInventory
 } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductLabelPrintModal, LabelProductItem } from './ProductLabelPrintModal';
 import { PrintQueueManagerModal } from './PrintQueueManagerModal';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchEstoque, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 
 interface InventoryModuleProps {
   inventory: InventoryItem[];
@@ -51,6 +54,76 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [showSpecialPrices, setShowSpecialPrices] = useState(false);
+
+  const [localInventory, setLocalInventory] = useState<InventoryItem[]>(inventory);
+
+  useEffect(() => {
+    if (inventory) {
+      setLocalInventory(inventory);
+    }
+  }, [inventory]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'estoque_produtos' e 'tanques_combustivel'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const channelId = `inventory_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'estoque_produtos' },
+        async (payload: any) => {
+          console.info('📡 [Realtime Estoque] Alteração em estoque_produtos:', payload.eventType);
+          try {
+            const fresh = await fetchEstoque();
+            if (isMounted && fresh && Array.isArray(fresh)) {
+              setLocalInventory(fresh);
+              saveStoredInventory(fresh);
+              if (onSaveInventory) onSaveInventory(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar estoque em tempo real:', err);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tanques_combustivel' },
+        async () => {
+          try {
+            const fresh = await fetchEstoque();
+            if (isMounted && fresh && Array.isArray(fresh)) {
+              setLocalInventory(fresh);
+              saveStoredInventory(fresh);
+              if (onSaveInventory) onSaveInventory(fresh);
+            }
+          } catch (_) {}
+        }
+      )
+      .subscribe();
+
+    const handleFocus = async () => {
+      try {
+        const fresh = await fetchEstoque();
+        if (isMounted && fresh && Array.isArray(fresh)) {
+          setLocalInventory(fresh);
+          saveStoredInventory(fresh);
+          if (onSaveInventory) onSaveInventory(fresh);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [onSaveInventory]);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -135,8 +208,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
   // Garante que Diesel S10 e Diesel S500 apareçam normalmente na tela de Estoque
   const allItems = useMemo(() => {
-    return ensureDieselProductsInInventory(inventory);
-  }, [inventory]);
+    return ensureDieselProductsInInventory(localInventory);
+  }, [localInventory]);
 
   const filteredItems = useMemo(() => {
     const s = searchTerm.toLowerCase().trim();
@@ -181,7 +254,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    const item = inventory.find(i => i.id === id);
+    const item = localInventory.find(i => i.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Item do Estoque',
       message: item?.name
@@ -192,7 +265,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveInventory(inventory.filter(i => i.id !== id));
+      const updated = localInventory.filter(i => i.id !== id);
+      setLocalInventory(updated);
+      saveStoredInventory(updated);
+      onSaveInventory(updated);
       if (viewingItem?.id === id) {
         setViewingItem(null);
       }

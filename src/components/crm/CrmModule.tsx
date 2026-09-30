@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Plus, 
@@ -17,7 +17,9 @@ import {
   Layers
 } from 'lucide-react';
 import { Client, SilageOrder } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, saveStoredClients } from '../../lib/storage';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchClientes, mapRowToClient, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 
 interface CrmModuleProps {
   clients: Client[];
@@ -27,6 +29,7 @@ interface CrmModuleProps {
   onDeleteClient: (id: string) => void;
   onNewOrder: (clientId?: string) => void;
   onUpdateClientStatus: (clientId: string, status: Client['status']) => void;
+  onSaveClients?: (clients: Client[]) => void;
 }
 
 export const CrmModule: React.FC<CrmModuleProps> = ({
@@ -37,12 +40,103 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
   onDeleteClient,
   onNewOrder,
   onUpdateClientStatus,
+  onSaveClients,
 }) => {
+  const [localClients, setLocalClients] = useState<Client[]>(clients);
+
+  useEffect(() => {
+    if (clients) {
+      setLocalClients(clients);
+    }
+  }, [clients]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'clientes'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const channelId = `crm_clients_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clientes' },
+        async (payload: any) => {
+          console.info('📡 [Realtime Clientes] Alteração em clientes:', payload.eventType, payload);
+
+          // 1. Atualização imediata sem delay (Zero delay)
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setLocalClients(prev => {
+                const updated = prev.filter(c => c.id !== deletedId && toValidUUID(c.id) !== deletedId);
+                saveStoredClients(updated);
+                if (onSaveClients) onSaveClients(updated);
+                return updated;
+              });
+            }
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            const mapped = mapRowToClient(payload.new);
+            setLocalClients(prev => {
+              const exists = prev.some(c => c.id === mapped.id || toValidUUID(c.id) === mapped.id);
+              const updated = exists
+                ? prev.map(c => (c.id === mapped.id || toValidUUID(c.id) === mapped.id) ? { ...c, ...mapped } : c)
+                : [mapped, ...prev].sort((a, b) => (a.name || a.nome || '').localeCompare(b.name || b.nome || '', 'pt-BR'));
+              saveStoredClients(updated);
+              if (onSaveClients) onSaveClients(updated);
+              return updated;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const mapped = mapRowToClient(payload.new);
+            setLocalClients(prev => {
+              const updated = prev.map(c => (c.id === mapped.id || toValidUUID(c.id) === mapped.id) ? { ...c, ...mapped } : c);
+              saveStoredClients(updated);
+              if (onSaveClients) onSaveClients(updated);
+              return updated;
+            });
+          }
+
+          // 2. Reconciliação completa com Supabase
+          try {
+            const fresh = await fetchClientes();
+            if (isMounted && fresh && Array.isArray(fresh)) {
+              setLocalClients(fresh);
+              saveStoredClients(fresh);
+              if (onSaveClients) onSaveClients(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar clientes em tempo real:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    const handleFocus = async () => {
+      try {
+        const fresh = await fetchClientes();
+        if (isMounted && fresh && Array.isArray(fresh)) {
+          setLocalClients(fresh);
+          saveStoredClients(fresh);
+          if (onSaveClients) onSaveClients(fresh);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [onSaveClients]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCattleType, setSelectedCattleType] = useState<string>('todos');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
 
-  const filteredClients = clients.filter((c) => {
+  const filteredClients = localClients.filter((c) => {
     const clientName = c.nome || c.name || '';
     const farmName = c.fazenda || c.farmName || '';
     const matchSearch =

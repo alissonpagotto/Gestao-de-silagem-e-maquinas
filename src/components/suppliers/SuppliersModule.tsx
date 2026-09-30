@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchFornecedores, mapRowToSupplier, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { saveStoredSuppliers } from '../../lib/storage';
 import { 
   Plus, 
   Search, 
@@ -28,8 +31,97 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(suppliers);
 
-  const filteredSuppliers = suppliers.filter(sup =>
+  useEffect(() => {
+    if (suppliers) {
+      setLocalSuppliers(suppliers);
+    }
+  }, [suppliers]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'fornecedores'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const channelId = `suppliers_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'fornecedores' },
+        async (payload: any) => {
+          console.info('📡 [Realtime Fornecedores] Alteração em fornecedores:', payload.eventType, payload);
+
+          // 1. Atualização imediata sem delay (Zero delay)
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setLocalSuppliers(prev => {
+                const updated = prev.filter(s => s.id !== deletedId && toValidUUID(s.id) !== deletedId);
+                saveStoredSuppliers(updated);
+                if (onSaveSuppliers) onSaveSuppliers(updated);
+                return updated;
+              });
+            }
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            const mapped = mapRowToSupplier(payload.new);
+            setLocalSuppliers(prev => {
+              const exists = prev.some(s => s.id === mapped.id || toValidUUID(s.id) === mapped.id);
+              const updated = exists
+                ? prev.map(s => (s.id === mapped.id || toValidUUID(s.id) === mapped.id) ? { ...s, ...mapped } : s)
+                : [mapped, ...prev].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+              saveStoredSuppliers(updated);
+              if (onSaveSuppliers) onSaveSuppliers(updated);
+              return updated;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const mapped = mapRowToSupplier(payload.new);
+            setLocalSuppliers(prev => {
+              const updated = prev.map(s => (s.id === mapped.id || toValidUUID(s.id) === mapped.id) ? { ...s, ...mapped } : s);
+              saveStoredSuppliers(updated);
+              if (onSaveSuppliers) onSaveSuppliers(updated);
+              return updated;
+            });
+          }
+
+          // 2. Reconciliação completa com Supabase
+          try {
+            const fresh = await fetchFornecedores();
+            if (isMounted && fresh && Array.isArray(fresh)) {
+              setLocalSuppliers(fresh);
+              saveStoredSuppliers(fresh);
+              if (onSaveSuppliers) onSaveSuppliers(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar fornecedores em tempo real:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    const handleFocus = async () => {
+      try {
+        const fresh = await fetchFornecedores();
+        if (isMounted && fresh && Array.isArray(fresh)) {
+          setLocalSuppliers(fresh);
+          saveStoredSuppliers(fresh);
+          if (onSaveSuppliers) onSaveSuppliers(fresh);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [onSaveSuppliers]);
+
+  const filteredSuppliers = localSuppliers.filter(sup =>
     sup.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sup.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (sup.tradeName && sup.tradeName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -50,7 +142,7 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    const sup = suppliers.find(s => s.id === id);
+    const sup = localSuppliers.find(s => s.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Fornecedor',
       message: sup?.name
@@ -61,7 +153,10 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveSuppliers(suppliers.filter(s => s.id !== id));
+      const updated = localSuppliers.filter(s => s.id !== id);
+      setLocalSuppliers(updated);
+      saveStoredSuppliers(updated);
+      onSaveSuppliers(updated);
     }
   };
 

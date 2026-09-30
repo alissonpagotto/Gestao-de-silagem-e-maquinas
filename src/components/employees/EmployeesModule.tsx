@@ -32,7 +32,8 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
 import { ManageableDropdown } from '../common/ManageableDropdown';
 import { RoleSelectDropdown } from './RoleSelectDropdown';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
@@ -308,6 +309,103 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       setLocalEmployees(employees);
     }
   }, [employees]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const channelId = `employees_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_funcionarios' },
+        async (payload: any) => {
+          console.info('📡 [Realtime RH - Funcionários] Alteração em rh_funcionarios:', payload.eventType, payload);
+
+          // 1. Atualização de estado imediata sem delay (Zero delay)
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setLocalEmployees(prev => {
+                const updated = prev.filter(e => e.id !== deletedId && toValidUUID(e.id) !== deletedId);
+                saveStoredEmployees(updated);
+                if (onSaveEmployees) onSaveEmployees(updated);
+                return updated;
+              });
+            }
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            const mapped = mapRowToEmployee(payload.new);
+            setLocalEmployees(prev => {
+              const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
+              const updated = exists
+                ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
+                : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+              saveStoredEmployees(updated);
+              if (onSaveEmployees) onSaveEmployees(updated);
+              return updated;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const mapped = mapRowToEmployee(payload.new);
+            setLocalEmployees(prev => {
+              const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
+              saveStoredEmployees(updated);
+              if (onSaveEmployees) onSaveEmployees(updated);
+              return updated;
+            });
+          }
+
+          // 2. Reconciliação completa com o banco para garantir todos os campos relacionais
+          try {
+            const fresh = await fetchRhFuncionarios();
+            if (isMounted && fresh && Array.isArray(fresh)) {
+              setLocalEmployees(fresh);
+              saveStoredEmployees(fresh);
+              if (onSaveEmployees) onSaveEmployees(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar funcionários em tempo real:', err);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'funcionarios' },
+        async () => {
+          try {
+            const fresh = await fetchRhFuncionarios();
+            if (isMounted && fresh && Array.isArray(fresh)) {
+              setLocalEmployees(fresh);
+              saveStoredEmployees(fresh);
+              if (onSaveEmployees) onSaveEmployees(fresh);
+            }
+          } catch (_) {}
+        }
+      )
+      .subscribe();
+
+    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
+    const handleFocus = async () => {
+      try {
+        const fresh = await fetchRhFuncionarios();
+        if (isMounted && fresh && Array.isArray(fresh)) {
+          setLocalEmployees(fresh);
+          saveStoredEmployees(fresh);
+          if (onSaveEmployees) onSaveEmployees(fresh);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [onSaveEmployees]);
 
   const cnhReport = checkCnhStatus(localEmployees);
 

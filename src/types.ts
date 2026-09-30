@@ -451,6 +451,7 @@ export interface SupplierFormSubmission {
 
 export interface Supplier {
   id: string;
+  companyId?: string;
   name: string;
   tradeName?: string;
   category: string; // 'Combustível', 'Peças & Oficinas', 'Sementes & Insumos', 'Lonas & Embalagens'

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Scissors,
   Wheat,
@@ -25,6 +25,8 @@ import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal, ServiceTabType } from './ServiceFormModal';
 import { ServiceAgendaModule } from './ServiceAgendaModule';
 import { FieldFormsView } from './FieldFormsView';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 
 export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'formularios';
 
@@ -72,6 +74,60 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
   // Modal State for "+ Novo" & Edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
+
+  const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
+
+  useEffect(() => {
+    if (services) {
+      setLocalServices(services);
+    }
+  }, [services]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'site_settings'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const channelId = `services_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'site_settings' },
+        async (payload: any) => {
+          console.info('📡 [Realtime Serviços] Alteração em site_settings:', payload.eventType);
+          try {
+            const fresh = await fetchAllClientModulesFromSupabase(companyProfile?.id);
+            if (isMounted && fresh && Array.isArray(fresh.services)) {
+              setLocalServices(fresh.services);
+              if (onSaveServices) onSaveServices(fresh.services);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar serviços em tempo real:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    const handleFocus = async () => {
+      try {
+        const fresh = await fetchAllClientModulesFromSupabase(companyProfile?.id);
+        if (isMounted && fresh && Array.isArray(fresh.services)) {
+          setLocalServices(fresh.services);
+          if (onSaveServices) onSaveServices(fresh.services);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [companyProfile?.id, onSaveServices]);
 
   // Tabs Definition na ordem exata requerida:
   // Agenda | Corte | Colheita | Serviço de Trator | Serviço de Máquina | Serviço de Frete | Orçamento | Formulários
@@ -144,7 +200,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
   // Filtragem dos registros da aba ativa
   const filteredServices = useMemo(() => {
-    return services.filter((srv) => {
+    return localServices.filter((srv) => {
       const typeStr = (srv.serviceType || '').toLowerCase();
       const tabStr = (srv.serviceTab || '').toLowerCase();
       const isFreight = tabStr === 'frete' || typeStr.includes('frete') || typeStr.includes('transporte') || srv.equipmentCategory === 'caminhoes' || !!srv.truckBillingMode;
@@ -185,7 +241,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
       return true;
     });
-  }, [services, activeTab, statusFilter, searchTerm]);
+  }, [localServices, activeTab, statusFilter, searchTerm]);
 
   // Abertura do Modal para Novo Registro
   const handleOpenNew = () => {
@@ -201,13 +257,13 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
 
   // Salvar Serviço (Novo ou Editado)
   const handleSaveService = (savedService: ServiceOrder) => {
-    if (!onSaveServices) return;
-
-    const exists = services.some((s) => s.id === savedService.id);
-    if (exists) {
-      onSaveServices(services.map((s) => (s.id === savedService.id ? savedService : s)));
-    } else {
-      onSaveServices([savedService, ...services]);
+    const exists = localServices.some((s) => s.id === savedService.id);
+    const updated = exists
+      ? localServices.map((s) => (s.id === savedService.id ? savedService : s))
+      : [savedService, ...localServices];
+    setLocalServices(updated);
+    if (onSaveServices) {
+      onSaveServices(updated);
     }
 
     // REGRA DE FLUXO: Mantém o modal aberto para conferência do DRE e emissão de comprovantes
@@ -225,8 +281,12 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
       variant: 'danger',
     });
 
-    if (isConfirmed && onSaveServices) {
-      onSaveServices(services.filter((s) => s.id !== id));
+    if (isConfirmed) {
+      const updated = localServices.filter((s) => s.id !== id);
+      setLocalServices(updated);
+      if (onSaveServices) {
+        onSaveServices(updated);
+      }
     }
   };
 

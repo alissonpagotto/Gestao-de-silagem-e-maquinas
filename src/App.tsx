@@ -373,8 +373,8 @@ export default function App() {
                     : (cloudEmp.commissionPerHectare || 0))
                 : 0;
               return {
-                ...cloudEmp,
                 ...localEmp,
+                ...cloudEmp,
                 commissionPerHour: commH,
                 commissionPerAlqueire: commA,
                 commissionPerHectare: commHa,
@@ -382,14 +382,14 @@ export default function App() {
                 comissao_alqueire: commA,
                 comissao_hectare: commHa,
                 recebe_comissao: recComm,
-                bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
-                bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
-                bankAccount: localEmp.bankAccount || cloudEmp.bankAccount,
-                paymentLocation: localEmp.paymentLocation || cloudEmp.paymentLocation,
-                admissionExamDoc: localEmp.admissionExamDoc || cloudEmp.admissionExamDoc,
-                experienceContractDoc: localEmp.experienceContractDoc || cloudEmp.experienceContractDoc,
-                generalDocs: localEmp.generalDocs || cloudEmp.generalDocs,
-                signedRegistrationDoc: localEmp.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+                bankPixKey: cloudEmp.bankPixKey || localEmp.bankPixKey,
+                bankAgency: cloudEmp.bankAgency || localEmp.bankAgency,
+                bankAccount: cloudEmp.bankAccount || localEmp.bankAccount,
+                paymentLocation: cloudEmp.paymentLocation || localEmp.paymentLocation,
+                admissionExamDoc: cloudEmp.admissionExamDoc || localEmp.admissionExamDoc,
+                experienceContractDoc: cloudEmp.experienceContractDoc || localEmp.experienceContractDoc,
+                generalDocs: cloudEmp.generalDocs || localEmp.generalDocs,
+                signedRegistrationDoc: cloudEmp.signedRegistrationDoc || localEmp.signedRegistrationDoc,
               };
             });
             lastSyncedState.current.rel_employees = JSON.stringify(mergedInitial);
@@ -669,8 +669,8 @@ export default function App() {
                   : (cloudEmp.commissionPerHectare || 0))
               : 0;
             return {
-              ...cloudEmp,
               ...localEmp,
+              ...cloudEmp,
               commissionPerHour: commH,
               commissionPerAlqueire: commA,
               commissionPerHectare: commHa,
@@ -678,14 +678,14 @@ export default function App() {
               comissao_alqueire: commA,
               comissao_hectare: commHa,
               recebe_comissao: recComm,
-              bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
-              bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
-              bankAccount: localEmp.bankAccount || cloudEmp.bankAccount,
-              paymentLocation: localEmp.paymentLocation || cloudEmp.paymentLocation,
-              admissionExamDoc: localEmp.admissionExamDoc || cloudEmp.admissionExamDoc,
-              experienceContractDoc: localEmp.experienceContractDoc || cloudEmp.experienceContractDoc,
-              generalDocs: localEmp.generalDocs || cloudEmp.generalDocs,
-              signedRegistrationDoc: localEmp.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+              bankPixKey: cloudEmp.bankPixKey || localEmp.bankPixKey,
+              bankAgency: cloudEmp.bankAgency || localEmp.bankAgency,
+              bankAccount: cloudEmp.bankAccount || localEmp.bankAccount,
+              paymentLocation: cloudEmp.paymentLocation || localEmp.paymentLocation,
+              admissionExamDoc: cloudEmp.admissionExamDoc || localEmp.admissionExamDoc,
+              experienceContractDoc: cloudEmp.experienceContractDoc || localEmp.experienceContractDoc,
+              generalDocs: cloudEmp.generalDocs || localEmp.generalDocs,
+              signedRegistrationDoc: cloudEmp.signedRegistrationDoc || localEmp.signedRegistrationDoc,
             };
           });
           const ser = JSON.stringify(merged);
@@ -710,8 +710,8 @@ export default function App() {
             const commHa = (cloudEmp.commissionPerHectare && cloudEmp.commissionPerHectare > 0) ? cloudEmp.commissionPerHectare : (localEmp.commissionPerHectare || 0);
             const recComm = cloudEmp.receivesCommission || localEmp.receivesCommission || Boolean(commH > 0 || commA > 0 || commHa > 0);
             return {
-              ...cloudEmp,
               ...localEmp,
+              ...cloudEmp,
               commissionPerHour: recComm ? commH : 0,
               commissionPerAlqueire: recComm ? commA : 0,
               commissionPerHectare: recComm ? commHa : 0,
@@ -719,14 +719,14 @@ export default function App() {
               comissao_alqueire: recComm ? commA : 0,
               comissao_hectare: recComm ? commHa : 0,
               recebe_comissao: recComm,
-              bankPixKey: localEmp.bankPixKey || cloudEmp.bankPixKey,
-              bankAgency: localEmp.bankAgency || cloudEmp.bankAgency,
-              bankAccount: localEmp.bankAccount || cloudEmp.bankAccount,
-              paymentLocation: localEmp.paymentLocation || cloudEmp.paymentLocation,
-              admissionExamDoc: localEmp.admissionExamDoc || cloudEmp.admissionExamDoc,
-              experienceContractDoc: localEmp.experienceContractDoc || cloudEmp.experienceContractDoc,
-              generalDocs: localEmp.generalDocs || cloudEmp.generalDocs,
-              signedRegistrationDoc: localEmp.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+              bankPixKey: cloudEmp.bankPixKey || localEmp.bankPixKey,
+              bankAgency: cloudEmp.bankAgency || localEmp.bankAgency,
+              bankAccount: cloudEmp.bankAccount || localEmp.bankAccount,
+              paymentLocation: cloudEmp.paymentLocation || localEmp.paymentLocation,
+              admissionExamDoc: cloudEmp.admissionExamDoc || localEmp.admissionExamDoc,
+              experienceContractDoc: cloudEmp.experienceContractDoc || localEmp.experienceContractDoc,
+              generalDocs: cloudEmp.generalDocs || localEmp.generalDocs,
+              signedRegistrationDoc: cloudEmp.signedRegistrationDoc || localEmp.signedRegistrationDoc,
             };
           });
           const ser = JSON.stringify(merged);
@@ -2642,6 +2642,7 @@ export default function App() {
                 setIsOrderModalOpen(true);
               }}
               onUpdateClientStatus={handleUpdateClientStatus}
+              onSaveClients={setClients}
             />
           )}
 

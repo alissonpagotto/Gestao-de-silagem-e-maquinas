@@ -168,6 +168,25 @@ export interface SyncStats {
 // Colunas: id, cnpj_cpf, razao_social, nome_fantasia, inscricao_estadual,
 //          inscricao_municipal, telefone_whatsapp, created_at, updated_at
 // ===========================================================================
+export function mapRowToSupplier(row: any): Supplier {
+  return {
+    id: row.id,
+    companyId: row.company_id || undefined,
+    name: row.razao_social || row.nome_fantasia || row.name || '',
+    tradeName: row.nome_fantasia || row.razao_social || row.tradeName || '',
+    cnpjOrCpf: row.cnpj_cpf || row.cnpjOrCpf || '',
+    stateRegistration: row.inscricao_estadual || row.stateRegistration || '',
+    municipalRegistration: row.inscricao_municipal || row.municipalRegistration || '',
+    phone: row.telefone_whatsapp || row.telefone || row.phone || '',
+    email: row.email || '',
+    category: row.categoria || row.category || 'Geral',
+    city: row.cidade || row.city || '',
+    state: row.uf || row.state || '',
+    address: row.endereco || row.address || '',
+    notes: row.observacoes || row.notes || '',
+  };
+}
+
 export async function fetchFornecedores(companyId?: string): Promise<Supplier[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
@@ -200,22 +219,7 @@ export async function fetchFornecedores(companyId?: string): Promise<Supplier[] 
     }
     if (!data) return [];
 
-    return data.map(row => ({
-      id: row.id,
-      companyId: row.company_id || undefined,
-      name: row.razao_social || row.nome_fantasia || '',
-      tradeName: row.nome_fantasia || row.razao_social || '',
-      cnpjOrCpf: row.cnpj_cpf || '',
-      stateRegistration: row.inscricao_estadual || '',
-      municipalRegistration: row.inscricao_municipal || '',
-      phone: row.telefone_whatsapp || '',
-      email: '',
-      category: 'Geral',
-      city: '',
-      state: '',
-      address: '',
-      notes: '',
-    }));
+    return data.map(mapRowToSupplier);
   } catch (err) {
     console.warn('Supabase fetchFornecedores err:', err);
     return [];
@@ -2109,6 +2113,39 @@ export async function deleteEstoqueItem(id: string, _companyId?: string): Promis
 // ===========================================================================
 // 5. Clientes (Tabela: public.clientes)
 // ===========================================================================
+export function mapRowToClient(row: any): Client {
+  const clientName = row.nome || row.name || row.razao_social || row.nome_fantasia || 'Cliente';
+  const farmName = row.fazenda || row.farm_name || '';
+  const phone = row.telefone || row.phone || row.celular || '';
+  const city = row.cidade || row.city || '';
+  const state = row.estado || row.uf || row.state || '';
+  const notes = row.observacoes || row.notes || '';
+  return {
+    id: String(row.id),
+    companyId: row.company_id || undefined,
+    name: clientName,
+    nome: clientName,
+    farmName,
+    fazenda: farmName,
+    cpfCnpj: row.cpf_cnpj || row.cpf || row.cnpj || '',
+    stateRegistration: row.inscricao_estadual || row.state_registration || '',
+    phone,
+    telefone: phone,
+    email: row.email || '',
+    city,
+    cidade: city,
+    state,
+    estado: state,
+    areaHectares: Number(row.area_total || row.total_area || row.area || 0),
+    cattleType: (row.cattle_type || row.tipo_gado || 'misto') as any,
+    notes,
+    observacoes: notes,
+    status: (row.status || 'cliente_ativo') as any,
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString()
+  };
+}
+
 export async function fetchClientes(companyId?: string): Promise<Client[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
@@ -2141,38 +2178,7 @@ export async function fetchClientes(companyId?: string): Promise<Client[] | null
     }
     if (!data || data.length === 0) return [];
 
-    return data.map((row: any): Client => {
-      const clientName = row.nome || row.name || row.razao_social || row.nome_fantasia || 'Cliente';
-      const farmName = row.fazenda || row.farm_name || '';
-      const phone = row.telefone || row.phone || row.celular || '';
-      const city = row.cidade || row.city || '';
-      const state = row.estado || row.uf || row.state || '';
-      const notes = row.observacoes || row.notes || '';
-      return {
-        id: String(row.id),
-        companyId: row.company_id || undefined,
-        name: clientName,
-        nome: clientName,
-        farmName,
-        fazenda: farmName,
-        cpfCnpj: row.cpf_cnpj || row.cpf || row.cnpj || '',
-        stateRegistration: row.inscricao_estadual || row.state_registration || '',
-        phone,
-        telefone: phone,
-        email: row.email || '',
-        city,
-        cidade: city,
-        state,
-        estado: state,
-        areaHectares: Number(row.area_total || row.total_area || row.area || 0),
-        cattleType: (row.cattle_type || row.tipo_gado || 'misto') as any,
-        notes,
-        observacoes: notes,
-        status: (row.status || 'cliente_ativo') as any,
-        createdAt: row.created_at || new Date().toISOString(),
-        updatedAt: row.updated_at || new Date().toISOString()
-      };
-    });
+    return data.map(mapRowToClient);
   } catch (err) {
     console.warn('Supabase fetchClientes err:', err);
     return [];
@@ -6928,7 +6934,7 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
 // ==============================================================================
 
 // Gerenciador de canais compartilhados (Singleton por tabela) para evitar churn de conexões no API Gateway
-const activeChannels = new Map<string, { channel: any; listeners: Set<(payload: any) => void>; debounceTimer: any }>();
+const activeChannels = new Map<string, { channel: any; listeners: Set<(payload: any) => void>; debounceTimer?: any }>();
 let realtimeTransportDisabledUntil = 0;
 let consecutiveTransportFailures = 0;
 
@@ -6958,14 +6964,10 @@ export function subscribeToCloudTable(
     const listeners = new Set<(payload: any) => void>();
     listeners.add(onChange);
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const notifyListeners = (payload: any) => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        listeners.forEach(fn => {
-          try { fn(payload); } catch (err) { console.error('Realtime listener error:', err); }
-        });
-      }, 500);
+      listeners.forEach(fn => {
+        try { fn(payload); } catch (err) { console.error('Realtime listener error:', err); }
+      });
     };
 
     try {
@@ -6995,7 +6997,7 @@ export function subscribeToCloudTable(
           }
         });
 
-      entry = { channel, listeners, debounceTimer };
+      entry = { channel, listeners };
       activeChannels.set(channelKey, entry);
     } catch (e) {
       return () => {};
@@ -7009,7 +7011,6 @@ export function subscribeToCloudTable(
     if (!current) return;
     current.listeners.delete(onChange);
     if (current.listeners.size === 0) {
-      if (current.debounceTimer) clearTimeout(current.debounceTimer);
       try {
         supabase.removeChannel(current.channel);
       } catch {}
@@ -9720,7 +9721,7 @@ export async function deleteItemCaixaFerramentaVeiculo(
         logPostgresError('deleteItemCaixaFerramentaVeiculo', error, {
           table: 'caixa_ferramentas_veiculo',
           action: 'DELETE',
-          id,
+          payload: { id },
         });
       }
     } catch (err) {

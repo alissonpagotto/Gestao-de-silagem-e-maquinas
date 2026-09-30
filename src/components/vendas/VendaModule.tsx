@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ShoppingCart,
   Search,
@@ -16,6 +16,8 @@ import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../..
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal } from '../services/ServiceFormModal';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
 
 interface VendaModuleProps {
   services?: ServiceOrder[];
@@ -46,14 +48,68 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<ServiceOrder | null>(null);
 
+  const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
+
+  useEffect(() => {
+    if (services) {
+      setLocalServices(services);
+    }
+  }, [services]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'site_settings'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const channelId = `venda_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'site_settings' },
+        async (payload: any) => {
+          console.info('📡 [Realtime Vendas] Alteração em site_settings:', payload.eventType);
+          try {
+            const fresh = await fetchAllClientModulesFromSupabase(companyProfile?.id);
+            if (isMounted && fresh && Array.isArray(fresh.services)) {
+              setLocalServices(fresh.services);
+              if (onSaveServices) onSaveServices(fresh.services);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar vendas em tempo real:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    const handleFocus = async () => {
+      try {
+        const fresh = await fetchAllClientModulesFromSupabase(companyProfile?.id);
+        if (isMounted && fresh && Array.isArray(fresh.services)) {
+          setLocalServices(fresh.services);
+          if (onSaveServices) onSaveServices(fresh.services);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [companyProfile?.id, onSaveServices]);
+
   // Filtragem exclusiva de Vendas (serviceTab === 'venda' ou serviceType com 'venda')
   const salesRecords = useMemo(() => {
-    return services.filter((srv) => {
+    return localServices.filter((srv) => {
       const typeStr = (srv.serviceType || '').toLowerCase();
       const tabStr = (srv.serviceTab || '').toLowerCase();
       return typeStr.includes('venda') || tabStr === 'venda';
     });
-  }, [services]);
+  }, [localServices]);
 
   // Vendas filtradas por busca e status
   const filteredSales = useMemo(() => {
