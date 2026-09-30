@@ -8494,6 +8494,8 @@ export async function fetchSaldoRealProdutoEstoque(produtoId?: string | null): P
 /**
  * Resolve e formata o endereço físico do item de estoque (Ex: 04.10.45.03.01)
  * a partir de 'endereco_formatado' ou das colunas individuais (estoque_setor, estoque_rua, estoque_estante, estoque_nivel, estoque_box).
+ * Separa estritamente endereços numéricos válidos de localizações puramente textuais (ex: "Depósito Principal"),
+ * e descarta máscaras de zeros não configuradas (ex: "00.00.00.00.00").
  */
 export function resolverEnderecoProdutoEstoque(
   prod?: Partial<InventoryItem> | Record<string, any> | null,
@@ -8505,41 +8507,78 @@ export function resolverEnderecoProdutoEstoque(
   estoque_estante: string;
   estoque_nivel: string;
   estoque_box: string;
+  localizacao_textual: string;
 } {
+  const isZeroMask = (str: string) => {
+    if (!str) return true;
+    const cleaned = str.trim();
+    if (!cleaned || cleaned === '—' || cleaned === '-' || cleaned === 'null' || cleaned === 'undefined') return true;
+    const parts = cleaned.split(/[.\-/]/).map(s => s.trim());
+    return parts.every(p => !p || p === '0' || p === '00' || /^0+$/.test(p));
+  };
+
   const rawSetor = String(prod?.estoque_setor ?? fallback?.estoque_setor ?? '').trim();
   const rawRua = String(prod?.estoque_rua ?? fallback?.estoque_rua ?? '').trim();
   const rawEstante = String(prod?.estoque_estante ?? fallback?.estoque_estante ?? '').trim();
   const rawNivel = String(prod?.estoque_nivel ?? fallback?.estoque_nivel ?? '').trim();
   const rawBox = String(prod?.estoque_box ?? fallback?.estoque_box ?? '').trim();
 
-  const explicitFormatado = String(
+  let explicitFormatado = String(
     prod?.endereco_formatado ?? fallback?.endereco_formatado ?? ''
   ).trim();
 
-  const parts = [rawSetor, rawRua, rawEstante, rawNivel, rawBox].filter(Boolean);
-  const builtFromParts = parts.length > 0 ? parts.join('.') : '';
-  const fallbackLocation = String((prod as any)?.location ?? '').trim();
+  const fallbackLocation = String(
+    (prod as any)?.location ??
+    (prod as any)?.localizacao_fisica ??
+    (prod as any)?.deposito_destino ??
+    (fallback as any)?.localizacao_fisica ??
+    ''
+  ).trim();
 
-  const enderecoFormatado = explicitFormatado || builtFromParts || fallbackLocation || '';
+  // Verifica se o endereço explícito é máscara de zeros
+  if (isZeroMask(explicitFormatado)) {
+    explicitFormatado = '';
+  }
 
-  // Se o endereço veio apenas em 'endereco_formatado' (ex: "04.10.45.03.01"), extrai segmentos para ordenação de rota
-  const splitSegments = enderecoFormatado
-    ? enderecoFormatado.split(/[.\-/]/).map(s => s.trim())
+  // Verifica partes individuais
+  const individualParts = [rawSetor, rawRua, rawEstante, rawNivel, rawBox].filter(Boolean);
+  const builtFromParts = individualParts.length > 0 ? individualParts.join('.') : '';
+  const isPartsZero = isZeroMask(builtFromParts);
+
+  let finalEnderecoFormatado = '';
+  let finalLocalizacaoTextual = !isZeroMask(fallbackLocation) ? fallbackLocation : '';
+
+  if (explicitFormatado) {
+    if (explicitFormatado.includes('.')) {
+      finalEnderecoFormatado = explicitFormatado;
+    } else {
+      // Texto sem pontos colocado no campo endereco_formatado (ex: "Depósito Principal")
+      if (!finalLocalizacaoTextual) {
+        finalLocalizacaoTextual = explicitFormatado;
+      }
+    }
+  } else if (builtFromParts && !isPartsZero) {
+    finalEnderecoFormatado = builtFromParts;
+  }
+
+  const splitSegments = finalEnderecoFormatado
+    ? finalEnderecoFormatado.split(/[.\-/]/).map(s => s.trim())
     : [];
 
   return {
-    endereco_formatado: enderecoFormatado,
+    endereco_formatado: finalEnderecoFormatado,
     estoque_setor: rawSetor || splitSegments[0] || '',
     estoque_rua: rawRua || splitSegments[1] || '',
     estoque_estante: rawEstante || splitSegments[2] || '',
     estoque_nivel: rawNivel || splitSegments[3] || '',
     estoque_box: rawBox || splitSegments[4] || '',
+    localizacao_textual: finalLocalizacaoTextual,
   };
 }
 
 /**
  * Busca em tempo real no Supabase ('public.estoque_produtos') os dados de endereçamento físico
- * ('endereco_formatado', 'estoque_setor', 'estoque_rua', 'estoque_estante', 'estoque_nivel', 'estoque_box')
+ * ('endereco_formatado', 'estoque_setor', 'estoque_rua', 'estoque_estante', 'estoque_nivel', 'estoque_box', 'localizacao_textual')
  * para uma lista de IDs de produtos de um lote/cupom.
  */
 export async function fetchEnderecosReaisProdutosEstoque(
@@ -8554,6 +8593,7 @@ export async function fetchEnderecosReaisProdutosEstoque(
       estoque_estante: string;
       estoque_nivel: string;
       estoque_box: string;
+      localizacao_textual: string;
     }
   >
 > {
@@ -8566,6 +8606,7 @@ export async function fetchEnderecosReaisProdutosEstoque(
       estoque_estante: string;
       estoque_nivel: string;
       estoque_box: string;
+      localizacao_textual: string;
     }
   > = {};
 

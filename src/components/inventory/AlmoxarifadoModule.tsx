@@ -599,6 +599,98 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
     setPecaDataRetirada(new Date().toISOString().split('T')[0]);
   };
 
+  interface CupomLocationResult {
+    type: 'numeric' | 'text' | 'empty';
+    segments: string[];
+    text: string;
+  }
+
+  const isZeroMaskAddress = (str: string | null | undefined): boolean => {
+    if (!str) return true;
+    const cleaned = String(str).trim();
+    if (!cleaned || cleaned === '—' || cleaned === '-' || cleaned === 'null' || cleaned === 'undefined') return true;
+    const parts = cleaned.split(/[.\-/]/).map(s => s.trim());
+    return parts.every(p => !p || p === '0' || p === '00' || /^0+$/.test(p));
+  };
+
+  const parseCupomLocation = (
+    item: {
+      endereco_formatado?: string;
+      localizacao_textual?: string;
+      localizacao_fisica?: string;
+      estoque_setor?: string;
+      estoque_rua?: string;
+      estoque_estante?: string;
+      estoque_nivel?: string;
+      estoque_box?: string;
+    },
+    fallbackTextual?: string
+  ): CupomLocationResult => {
+    const rawAddr = String(item.endereco_formatado || '').trim();
+    const rawText = String(
+      item.localizacao_textual ||
+      item.localizacao_fisica ||
+      fallbackTextual ||
+      ''
+    ).trim();
+
+    // 1. Condição 1 - Possui Endereço Formatado Numérico (Ex: 04.10.45.03.01)
+    if (rawAddr && rawAddr.includes('.') && !isZeroMaskAddress(rawAddr)) {
+      const parts = rawAddr.split('.').map(s => s.trim());
+      if (parts.length >= 2) {
+        return {
+          type: 'numeric',
+          segments: parts,
+          text: '',
+        };
+      }
+    }
+
+    // Se tiver colunas individuais reais (não todas zero)
+    const individualParts = [
+      item.estoque_setor || '',
+      item.estoque_rua || '',
+      item.estoque_estante || '',
+      item.estoque_nivel || '',
+      item.estoque_box || '',
+    ].map(s => s.trim());
+
+    const hasRealIndividual = individualParts.some(
+      p => p && p !== '0' && p !== '00' && !/^0+$/.test(p)
+    );
+
+    if (hasRealIndividual) {
+      return {
+        type: 'numeric',
+        segments: individualParts.map(p => p || '00'),
+        text: '',
+      };
+    }
+
+    // 2. Condição 2 - Possui Apenas Texto / Depósito Geral (Ex: "Depósito Principal")
+    let candidateText = '';
+    if (rawText && !isZeroMaskAddress(rawText)) {
+      candidateText = rawText;
+    } else if (rawAddr && !rawAddr.includes('.') && !isZeroMaskAddress(rawAddr)) {
+      candidateText = rawAddr;
+    }
+
+    if (candidateText) {
+      return {
+        type: 'text',
+        segments: [],
+        text: candidateText,
+      };
+    }
+
+    // 3. Sem endereçamento
+    return {
+      type: 'empty',
+      segments: [],
+      text: '',
+    };
+  };
+
   // Cruza os itens do lote com 'public.estoque_produtos' (endereço físico) e ordena sequencialmente por Rota de Coleta (Setor -> Rua -> Estante -> Nível -> Box)
   const enrichAndSortItemsByPickingRoute = useCallback(
     (
@@ -612,6 +704,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           estoque_estante: string;
           estoque_nivel: string;
           estoque_box: string;
+          localizacao_textual?: string;
         }
       >
     ): RetiradaPecaRecord[] => {
@@ -637,15 +730,28 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
           ? resolverEnderecoProdutoEstoque(fromRealtime as any, matchedProd as any)
           : resolverEnderecoProdutoEstoque(matchedProd, it);
 
+        const fallbackLocation = String(
+          resolvedAddr.localizacao_textual ||
+          (matchedProd as any)?.localizacao_fisica ||
+          (matchedProd as any)?.location ||
+          (matchedProd as any)?.deposito_destino ||
+          (it as any)?.localizacao_fisica ||
+          (it as any)?.localizacao_textual ||
+          ''
+        ).trim();
+
         return {
           ...it,
           endereco_formatado:
-            resolvedAddr.endereco_formatado || it.endereco_formatado || '',
+            resolvedAddr.endereco_formatado ||
+            (isZeroMaskAddress(it.endereco_formatado) ? '' : it.endereco_formatado || ''),
           estoque_setor: resolvedAddr.estoque_setor || it.estoque_setor || '',
           estoque_rua: resolvedAddr.estoque_rua || it.estoque_rua || '',
           estoque_estante: resolvedAddr.estoque_estante || it.estoque_estante || '',
           estoque_nivel: resolvedAddr.estoque_nivel || it.estoque_nivel || '',
           estoque_box: resolvedAddr.estoque_box || it.estoque_box || '',
+          localizacao_textual: fallbackLocation,
+          localizacao_fisica: fallbackLocation,
         };
       });
 
@@ -656,33 +762,30 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         });
 
       return [...enriched].sort((a, b) => {
-        const addrA = String(a.endereco_formatado || '').trim();
-        const addrB = String(b.endereco_formatado || '').trim();
-        const hasA = Boolean(addrA && addrA !== '—');
-        const hasB = Boolean(addrB && addrB !== '—');
+        const locA = parseCupomLocation(a);
+        const locB = parseCupomLocation(b);
+        const hasA = locA.type === 'numeric';
+        const hasB = locB.type === 'numeric';
 
-        // Peças com endereço físico cadastrado vêm primeiro na rota de caminhada
+        // Peças com endereço físico de 5 eixos vêm primeiro na rota de caminhada
         if (hasA && !hasB) return -1;
         if (!hasA && hasB) return 1;
 
         if (hasA && hasB) {
-          const cSetor = cmpNum(a.estoque_setor || '', b.estoque_setor || '');
+          const cSetor = cmpNum(a.estoque_setor || locA.segments[0] || '', b.estoque_setor || locB.segments[0] || '');
           if (cSetor !== 0) return cSetor;
 
-          const cRua = cmpNum(a.estoque_rua || '', b.estoque_rua || '');
+          const cRua = cmpNum(a.estoque_rua || locA.segments[1] || '', b.estoque_rua || locB.segments[1] || '');
           if (cRua !== 0) return cRua;
 
-          const cEstante = cmpNum(a.estoque_estante || '', b.estoque_estante || '');
+          const cEstante = cmpNum(a.estoque_estante || locA.segments[2] || '', b.estoque_estante || locB.segments[2] || '');
           if (cEstante !== 0) return cEstante;
 
-          const cNivel = cmpNum(a.estoque_nivel || '', b.estoque_nivel || '');
+          const cNivel = cmpNum(a.estoque_nivel || locA.segments[3] || '', b.estoque_nivel || locB.segments[3] || '');
           if (cNivel !== 0) return cNivel;
 
-          const cBox = cmpNum(a.estoque_box || '', b.estoque_box || '');
+          const cBox = cmpNum(a.estoque_box || locA.segments[4] || '', b.estoque_box || locB.segments[4] || '');
           if (cBox !== 0) return cBox;
-
-          const cFull = cmpNum(addrA, addrB);
-          if (cFull !== 0) return cFull;
         }
 
         return cmpNum(a.produto_nome || '', b.produto_nome || '');
@@ -702,27 +805,25 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       const dataFormatada = formatDateOnlyPtBr(data.dataRetirada);
       const rowsHtml = sortedItems
         .map((it, idx) => {
-          const enderecoDisplay = String(it.endereco_formatado || '').trim();
-          let addressSegments: string[] = [];
-          if (enderecoDisplay && enderecoDisplay.includes('.')) {
-            addressSegments = enderecoDisplay.split('.').map(s => s.trim());
-          } else if (it.estoque_setor || it.estoque_rua || it.estoque_estante || it.estoque_nivel || it.estoque_box) {
-            addressSegments = [
-              it.estoque_setor || '00',
-              it.estoque_rua || '00',
-              it.estoque_estante || '00',
-              it.estoque_nivel || '00',
-              it.estoque_box || '00',
-            ];
-          }
-          const isStructured = addressSegments.length >= 2;
+          const matchedProd = allProducts.find(
+            p =>
+              p.id === it.produto_id ||
+              (it.produto_id && toValidUUID(p.id) === toValidUUID(it.produto_id)) ||
+              (it.produto_codigo && String(p.code ?? p.codigo_produto ?? '').trim() === String(it.produto_codigo).trim())
+          );
+          const fallbackText = String(
+            it.localizacao_textual ||
+            it.localizacao_fisica ||
+            (matchedProd as any)?.localizacao_fisica ||
+            (matchedProd as any)?.location ||
+            ''
+          ).trim();
+          const locParsed = parseCupomLocation(it, fallbackText);
           const LABELS = ['SETOR', 'RUA', 'EST.', 'NÍV.', 'BOX'];
 
           let locCellHtml = '';
-          if (!enderecoDisplay && addressSegments.length === 0) {
-            locCellHtml = `<span style="font-family:monospace;font-size:6.5pt;font-weight:500;color:#71717a;">NÃO ENDEREÇADO</span>`;
-          } else if (isStructured) {
-            const columnsHtml = addressSegments
+          if (locParsed.type === 'numeric') {
+            const columnsHtml = locParsed.segments
               .map((seg, sIdx) => {
                 const label = LABELS[sIdx] || `P${sIdx + 1}`;
                 const col = `<div style="display:flex;flex-direction:column;align-items:center;min-width:13px;"><span style="font-family:monospace;font-weight:700;font-size:7.5pt;line-height:1;color:#000000;">${seg.trim()}</span><span style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:4.6pt;font-weight:700;color:#27272a;text-transform:uppercase;line-height:1;margin-top:1.5px;letter-spacing:-0.2px;">${label}</span></div>`;
@@ -735,8 +836,10 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
               .join('');
 
             locCellHtml = `<div style="display:inline-flex;align-items:flex-start;justify-content:center;padding:1.5px 3.5px;border:1px solid #000000;border-radius:3px;background:#fef3c7;box-sizing:border-box;max-width:100%;">${columnsHtml}</div>`;
+          } else if (locParsed.type === 'text') {
+            locCellHtml = `<div style="display:inline-block;max-width:100%;box-sizing:border-box;padding:2.5px 6px;border:1px solid #71717a;border-radius:3px;background:#fef3c7;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-weight:600;font-size:7pt;color:#000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;text-align:center;" title="${locParsed.text}">${locParsed.text}</div>`;
           } else {
-            locCellHtml = `<div style="display:inline-block;max-width:100%;box-sizing:border-box;padding:2px 5px;border:1px solid #000000;border-radius:3px;background:#fef3c7;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-weight:600;font-size:6.5pt;color:#000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;">${enderecoDisplay}</div>`;
+            locCellHtml = `<span style="font-family:monospace;font-size:6.5pt;font-weight:500;color:#71717a;">NÃO ENDEREÇADO</span>`;
           }
 
           return `
@@ -4110,20 +4213,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                         <tbody className="divide-y divide-zinc-300 text-xs print:divide-zinc-300">
                           {enrichAndSortItemsByPickingRoute(cupomLotePrint.items).map(
                             (item, idx) => {
-                              const enderecoDisplay = String(item.endereco_formatado || '').trim();
-                              let addressSegments: string[] = [];
-                              if (enderecoDisplay && enderecoDisplay.includes('.')) {
-                                addressSegments = enderecoDisplay.split('.').map(s => s.trim());
-                              } else if (item.estoque_setor || item.estoque_rua || item.estoque_estante || item.estoque_nivel || item.estoque_box) {
-                                addressSegments = [
-                                  item.estoque_setor || '00',
-                                  item.estoque_rua || '00',
-                                  item.estoque_estante || '00',
-                                  item.estoque_nivel || '00',
-                                  item.estoque_box || '00',
-                                ];
-                              }
-                              const isStructured = addressSegments.length >= 2;
+                              const matchedProd = allProducts.find(
+                                p =>
+                                  p.id === item.produto_id ||
+                                  (item.produto_id && toValidUUID(p.id) === toValidUUID(item.produto_id)) ||
+                                  (item.produto_codigo && String(p.code ?? p.codigo_produto ?? '').trim() === String(item.produto_codigo).trim())
+                              );
+                              const fallbackText = String(
+                                item.localizacao_textual ||
+                                item.localizacao_fisica ||
+                                (matchedProd as any)?.localizacao_fisica ||
+                                (matchedProd as any)?.location ||
+                                ''
+                              ).trim();
+                              const locParsed = parseCupomLocation(item, fallbackText);
                               const LABELS = ['SETOR', 'RUA', 'EST.', 'NÍV.', 'BOX'];
 
                               return (
@@ -4138,13 +4241,9 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                                     {item.produto_nome || 'Peça do Estoque'}
                                   </td>
                                   <td className="py-1 px-1 text-center border-r border-black bg-zinc-50/70 print:py-0.5 print:px-0.5 loc-cell max-w-[125px] w-[125px] overflow-hidden">
-                                    {!enderecoDisplay && addressSegments.length === 0 ? (
-                                      <span className="font-mono text-[9px] print:text-[6.5pt] font-medium text-zinc-500">
-                                        NÃO ENDEREÇADO
-                                      </span>
-                                    ) : isStructured ? (
+                                    {locParsed.type === 'numeric' ? (
                                       <div className="inline-flex items-start justify-center px-1.5 py-0.5 border border-black rounded-[3px] bg-amber-100 max-w-full box-border">
-                                        {addressSegments.map((seg, sIdx) => {
+                                        {locParsed.segments.map((seg, sIdx) => {
                                           const label = LABELS[sIdx] || `P${sIdx + 1}`;
                                           return (
                                             <React.Fragment key={sIdx}>
@@ -4170,10 +4269,16 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                                           );
                                         })}
                                       </div>
-                                    ) : (
-                                      <div className="loc-badge-simple inline-block max-w-full px-1.5 py-0.5 border border-black rounded-[3px] bg-amber-100 font-semibold text-black text-[9px] print:text-[6.5pt] truncate align-middle">
-                                        {enderecoDisplay}
+                                    ) : locParsed.type === 'text' ? (
+                                      <div className="loc-badge-simple inline-flex items-center justify-center max-w-full px-2 py-0.5 rounded-[3px] border border-zinc-400 bg-amber-50 print:bg-transparent print:border-zinc-500 text-[10px] print:text-[7pt] font-medium text-zinc-900 leading-snug tracking-tight text-center align-middle" title={locParsed.text}>
+                                        <span className="truncate max-w-full block">
+                                          {locParsed.text}
+                                        </span>
                                       </div>
+                                    ) : (
+                                      <span className="font-mono text-[9px] print:text-[6.5pt] font-medium text-zinc-500">
+                                        NÃO ENDEREÇADO
+                                      </span>
                                     )}
                                   </td>
                                   <td className="py-1 px-1 text-center font-mono font-semibold text-xs print:text-[8pt] print:py-0.5 text-zinc-900 whitespace-nowrap">

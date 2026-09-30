@@ -1527,6 +1527,8 @@ export interface RetiradaPecaRecord {
   estoque_estante?: string;
   estoque_nivel?: string;
   estoque_box?: string;
+  localizacao_textual?: string;
+  localizacao_fisica?: string;
 }
 
 export interface MovimentacaoFerramentaRecord {
