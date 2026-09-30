@@ -655,6 +655,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     currentList.unshift({
       id: CANONICAL_FUEL_PROD_UUIDS.S10,
       code: 'COMB-S10',
+      codigo_produto: 'COMB-S10',
+      barcode: '',
+      codigo_barras: '',
       name: 'Diesel S10',
       nome: 'Diesel S10',
       nome_comercial: 'Diesel S10',
@@ -675,7 +678,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       location: 'Tanque Fazenda (Pátio Central)',
       localizacao_fisica: 'Tanque Fazenda (Pátio Central)',
       capacidade_total: tankS10?.capacidade_total || 15000,
-    });
+    } as any);
   }
 
   // 2. Verifica Diesel S500
@@ -719,6 +722,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     currentList.splice(insertPos > 0 ? insertPos : 1, 0, {
       id: CANONICAL_FUEL_PROD_UUIDS.S500,
       code: 'COMB-S500',
+      codigo_produto: 'COMB-S500',
+      barcode: '',
+      codigo_barras: '',
       name: 'Diesel S500',
       nome: 'Diesel S500',
       nome_comercial: 'Diesel S500',
@@ -739,7 +745,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       location: 'Tanque Fazenda (Oficina)',
       localizacao_fisica: 'Tanque Fazenda (Oficina)',
       capacidade_total: tankS500?.capacidade_total || 10000,
-    });
+    } as any);
   }
 
   // Helper para distinguir Arla Galão 20L (Almoxarifado) vs Arla Granel/Litro (Tanque 1000L)
@@ -803,6 +809,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     currentList.splice(insertPos > 0 ? insertPos : currentList.length, 0, {
       id: CANONICAL_FUEL_PROD_UUIDS.ARLA_GRANEL,
       code: 'ARLA-GRANEL',
+      codigo_produto: 'ARLA-GRANEL',
+      barcode: '',
+      codigo_barras: '',
       name: 'Arla 32 (Granel/Litro)',
       nome: 'Arla 32 (Granel/Litro)',
       nome_comercial: 'Arla 32 (Granel/Litro)',
@@ -823,7 +832,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       location: 'Tanque Arla (Barracão)',
       localizacao_fisica: 'Tanque Arla (Barracão)',
       capacidade_total: tankArla?.capacidade_total || 1000,
-    });
+    } as any);
   }
 
   // Re-localiza o índice do Arla Granel após eventual inserção
@@ -868,6 +877,9 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
     currentList.push({
       id: CANONICAL_FUEL_PROD_UUIDS.ARLA_GALAO,
       code: 'ARLA-GAL20L',
+      codigo_produto: 'ARLA-GAL20L',
+      barcode: '',
+      codigo_barras: '',
       name: 'Arla 32 (Galão 20L)',
       nome: 'Arla 32 (Galão 20L)',
       nome_comercial: 'Arla 32 (Galão 20L)',
@@ -888,7 +900,7 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
       gallonSizeLiters: 20,
       volume_litros_embalagem: 20,
       location: 'Almoxarifado Principal',
-    });
+    } as any);
   }
 
   return currentList;

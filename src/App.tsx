@@ -14,6 +14,7 @@ import {
   ServiceOrder,
   FuelLog,
   MaintenanceLog,
+  MaintenancePartItem,
   ExpenseStatus,
   CompanyProfile,
   BankAccount,
@@ -2449,48 +2450,50 @@ export default function App() {
               onSaveMachineries={handleSaveMachineries}
               onNavigateToEstoque={() => setActiveTab('estoque')}
               onLaunchBatchToMaintenanceOS={({ loteId, veiculo, items }) => {
-                const partsItems = items.map((item, idx) => {
-                  const invItem = inventory.find(
-                    inv =>
+                const partsItems: MaintenancePartItem[] = items.map((item, idx) => {
+                  const invItem: any = inventory.find(
+                    (inv: any) =>
                       inv.id === item.produto_id ||
                       (inv.codigo && item.produto_codigo && inv.codigo === item.produto_codigo) ||
                       (inv.code && item.produto_codigo && inv.code === item.produto_codigo)
                   );
-                  const unitPrice = Number(invItem?.valor_unitario ?? invItem?.unitPrice ?? 0);
+                  const unitCost = Number(invItem?.valor_unitario ?? invItem?.unitCost ?? invItem?.costPrice ?? invItem?.unitPrice ?? 0);
                   const qty = Number(item.quantidade) || 1;
                   return {
                     id: `part_lote_${loteId}_${idx}_${Date.now()}`,
                     description: item.produto_nome || invItem?.nome_comercial || invItem?.name || 'Peça do Almoxarifado',
                     quantity: qty,
-                    unitPrice,
-                    totalPrice: Number((qty * unitPrice).toFixed(2)),
+                    unit: item.produto_unidade || invItem?.unit || 'UN',
+                    unitCost,
+                    totalCost: Number((qty * unitCost).toFixed(2)),
                     origin: 'almoxarifado_interno' as const,
                     stockDeducted: false,
                     inventoryItemId: item.produto_id || invItem?.id,
                   };
                 });
-                const partsTotal = partsItems.reduce((acc, p) => acc + (p.totalPrice || 0), 0);
+                const partsTotal = partsItems.reduce((acc, p) => acc + (p.totalCost || 0), 0);
                 const firstItem = items[0];
                 const newDraftOS: MaintenanceLog = {
                   id: `maint_lote_${loteId}_${Date.now()}`,
                   osNumber: String(1000 + maintenanceLogs.length + 1),
                   machineryId: veiculo.id,
+                  machineryPlateOrName: veiculo.name || veiculo.plate || veiculo.model || 'Veículo da Frota',
                   date: firstItem?.data_retirada || new Date().toISOString().split('T')[0],
                   type: 'corretiva',
+                  serviceCategory: 'Troca de Óleo & Filtros',
                   description: `Aplicação de Pedido de Peças do Almoxarifado — Lote #${loteId} (${items.length} ${items.length === 1 ? 'item' : 'itens'})`,
-                  mechanicOrSupplier: firstItem?.retirado_por || 'Oficina Interna',
-                  ExecutionType: 'interna',
+                  workshopOrMechanic: firstItem?.retirado_por || 'Oficina Interna',
+                  executorType: 'mecanico_interno',
+                  executorName: firstItem?.retirado_por || 'Mecânico Interno',
                   partsCost: partsTotal,
                   laborCost: 0,
                   totalCost: partsTotal,
+                  currentHourMeterOrKm: veiculo.hourMeter || veiculo.currentKm || 0,
                   partsItems,
-                  serviceItems: [],
+                  partsOriginSummary: 'almoxarifado',
                   status: 'em_andamento',
-                  priority: 'media',
-                  paymentStatus: 'isento',
-                  hourMeterAtMaintenance: veiculo.hourMeter || 0,
-                  kmAtMaintenance: veiculo.currentKm || 0,
                   notes: `Ordem de Serviço gerada automaticamente a partir do Lote de Peças #${loteId} retirado no Almoxarifado por ${firstItem?.retirado_por || 'Mecânico'} (Liberado por: ${firstItem?.operador_almoxarifado || 'Almoxarifado'}). Ao salvar esta OS, o estoque será baixado definitivamente.`,
+                  createdAt: new Date().toISOString(),
                 };
                 setDraftMaintenanceLogFromAlmox(newDraftOS);
                 setActiveTab('manutencoes');

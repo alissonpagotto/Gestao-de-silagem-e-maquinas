@@ -786,7 +786,46 @@ table.dark-elegance-table td,
     inset: auto !important;
   }
 
-  #cupom-retirada-lote-a4-sheet,
+  #cupom-retirada-lote-a4-sheet {
+    position: static !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 198mm !important;
+    min-height: auto !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 4mm 6mm !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #cupom-retirada-lote-a4-sheet table {
+    table-layout: fixed !important;
+    width: 100% !important;
+  }
+
+  #cupom-retirada-lote-a4-sheet table th,
+  #cupom-retirada-lote-a4-sheet table td {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  #cupom-retirada-lote-a4-sheet table td:nth-child(3),
+  #cupom-retirada-lote-a4-sheet .desc-cell {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
   #termo-cautela-a4-sheet {
     position: static !important;
     display: flex !important;
