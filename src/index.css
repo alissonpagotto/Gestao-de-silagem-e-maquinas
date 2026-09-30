@@ -824,6 +824,24 @@ table.dark-elegance-table td,
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    font-weight: 500 !important;
+  }
+
+  #cupom-retirada-lote-a4-sheet table td:nth-child(4),
+  #cupom-retirada-lote-a4-sheet .loc-cell {
+    max-width: 125px !important;
+    width: 125px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  #cupom-retirada-lote-a4-sheet table td:nth-child(4) > div,
+  #cupom-retirada-lote-a4-sheet .loc-badge {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
 
   #termo-cautela-a4-sheet {

@@ -703,6 +703,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       const rowsHtml = sortedItems
         .map((it, idx) => {
           const enderecoDisplay = String(it.endereco_formatado || '').trim();
+          const isLongAddress = enderecoDisplay.length > 10;
+          const addrFontSize = isLongAddress ? '6.5pt' : '7.5pt';
+          const addrFontFamily = isLongAddress
+            ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
+            : 'monospace, -apple-system, BlinkMacSystemFont, sans-serif';
+
           const detalheRota = [
             it.estoque_setor ? `Setor ${it.estoque_setor}` : '',
             it.estoque_rua ? `Rua ${it.estoque_rua}` : '',
@@ -714,20 +720,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
             .join(' • ');
 
           const locCellHtml = enderecoDisplay
-            ? `<div style="display:inline-block;padding:1px 5px;border:1px solid #000000;border-radius:3px;background:#fef3c7;font-family:monospace;font-weight:900;font-size:8pt;letter-spacing:0.3px;color:#000000;white-space:nowrap;">${enderecoDisplay}</div>${
+            ? `<div style="display:inline-block;max-width:100%;box-sizing:border-box;padding:1px 4px;border:1px solid #000000;border-radius:3px;background:#fef3c7;font-family:${addrFontFamily};font-weight:600;font-size:${addrFontSize};letter-spacing:${isLongAddress ? '0px' : '0.3px'};color:#000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;">${enderecoDisplay}</div>${
                 detalheRota
-                  ? `<div style="font-size:5.5pt;font-weight:700;color:#52525b;margin-top:1px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${detalheRota}</div>`
+                  ? `<div style="font-size:5pt;font-weight:500;color:#52525b;margin-top:1px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;box-sizing:border-box;">${detalheRota}</div>`
                   : ''
               }`
-            : `<span style="font-family:monospace;font-size:7pt;font-weight:700;color:#71717a;">NÃO ENDEREÇADO</span>`;
+            : `<span style="font-family:monospace;font-size:6.5pt;font-weight:500;color:#71717a;">NÃO ENDEREÇADO</span>`;
 
           return `
           <tr style="border-bottom:1px solid #d4d4d8;">
-            <td style="padding:2.5px 4px;text-align:center;font-family:monospace;font-weight:800;font-size:8pt;border-right:1px solid #000000;line-height:1.15;">${String(idx + 1).padStart(2, '0')}</td>
-            <td style="padding:2.5px 4px;font-family:monospace;font-weight:700;font-size:8pt;color:#27272a;border-right:1px solid #000000;white-space:nowrap;line-height:1.15;">${it.produto_codigo || '—'}</td>
-            <td style="padding:2.5px 6px;font-weight:800;font-size:8pt;color:#000000;border-right:1px solid #000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15;" title="${it.produto_nome || ''}">${it.produto_nome || 'Peça do Estoque'}</td>
-            <td style="padding:1.5px 4px;text-align:center;border-right:1px solid #000000;background:#fafafa;line-height:1.1;">${locCellHtml}</td>
-            <td style="padding:2.5px 4px;text-align:center;font-family:monospace;font-weight:900;font-size:8.5pt;color:#000000;white-space:nowrap;line-height:1.15;">${it.quantidade} ${it.produto_unidade || 'UN'}</td>
+            <td style="padding:2.5px 4px;text-align:center;font-family:monospace;font-weight:500;font-size:7.5pt;border-right:1px solid #000000;line-height:1.15;color:#27272a;">${String(idx + 1).padStart(2, '0')}</td>
+            <td style="padding:2.5px 4px;font-family:monospace;font-weight:500;font-size:7.5pt;color:#3f3f46;border-right:1px solid #000000;white-space:nowrap;line-height:1.15;">${it.produto_codigo || '—'}</td>
+            <td style="padding:2.5px 6px;font-weight:500;font-size:7.5pt;color:#18181b;border-right:1px solid #000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15;" title="${it.produto_nome || ''}">${it.produto_nome || 'Peça do Estoque'}</td>
+            <td style="padding:1.5px 3px;text-align:center;border-right:1px solid #000000;background:#fafafa;line-height:1.1;max-width:125px;width:125px;overflow:hidden;box-sizing:border-box;">${locCellHtml}</td>
+            <td style="padding:2.5px 4px;text-align:center;font-family:monospace;font-weight:600;font-size:8pt;color:#18181b;white-space:nowrap;line-height:1.15;">${it.quantidade} ${it.produto_unidade || 'UN'}</td>
           </tr>`;
         })
         .join('');
@@ -783,70 +789,70 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         <h1 style="font-size:12.5pt;font-weight:900;text-transform:uppercase;letter-spacing:-0.2px;margin:0 0 2px 0;line-height:1.1;color:#000000;">
           CUPOM DE RETIRADA / CAUTELA DE PEÇAS
         </h1>
-        <p style="font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#27272a;margin:0 0 2px 0;">
+        <p style="font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#27272a;margin:0 0 2px 0;">
           LISTA DE SEPARAÇÃO PARA O ALMOXARIFADO (ROTA DE COLETA POR ENDEREÇO FÍSICO)
         </p>
-        <p style="font-size:8pt;font-weight:600;color:#52525b;margin:0;">
-          Pedido de Peças por Veículo • Lote: <strong style="font-family:monospace;color:#000000;">${data.loteId}</strong> • Status: <strong style="color:#000000;">${data.status || 'Aguardando Manutenção'}</strong>
+        <p style="font-size:8pt;font-weight:500;color:#52525b;margin:0;">
+          Pedido de Peças por Veículo • Lote: <strong style="font-family:monospace;font-weight:600;color:#000000;">${data.loteId}</strong> • Status: <span style="font-weight:500;color:#18181b;">${data.status || 'Aguardando Manutenção'}</span>
         </p>
       </div>
 
       <div style="border:1.5px solid #000000;border-radius:5px;overflow:hidden;margin-bottom:6px;">
         <div style="background:#18181b;color:#ffffff;padding:4px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div style="display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;">
-            <span style="font-size:6.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;opacity:0.85;white-space:nowrap;">
+            <span style="font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;opacity:0.85;white-space:nowrap;">
               VEÍCULO / DESTINO:
             </span>
-            <span style="font-size:10.5pt;font-weight:900;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <span style="font-size:10pt;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
               ${veiculoLine}
             </span>
           </div>
           <div style="display:flex;align-items:baseline;gap:4px;white-space:nowrap;flex-shrink:0;">
-            <span style="font-size:6.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;opacity:0.85;">
+            <span style="font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;opacity:0.85;">
               DATA:
             </span>
-            <span style="font-size:9.5pt;font-weight:900;font-family:monospace;">
+            <span style="font-size:9pt;font-weight:600;font-family:monospace;">
               ${dataFormatada}
             </span>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;background:#fafafa;border-top:1px solid #000000;">
           <div style="padding:2.5px 10px;border-right:1px solid #000000;display:flex;align-items:baseline;gap:4px;white-space:nowrap;overflow:hidden;">
-            <span style="font-size:6.5pt;font-weight:800;text-transform:uppercase;color:#52525b;white-space:nowrap;">
+            <span style="font-size:6.5pt;font-weight:500;text-transform:uppercase;color:#52525b;white-space:nowrap;">
               LIBERADO POR (ALMOXARIFADO):
             </span>
-            <strong style="font-size:8pt;font-weight:900;color:#000000;overflow:hidden;text-overflow:ellipsis;">
+            <span style="font-size:7.5pt;font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;">
               ${data.operadorAlmoxarifado}
-            </strong>
+            </span>
           </div>
           <div style="padding:2.5px 10px;display:flex;align-items:baseline;gap:4px;white-space:nowrap;overflow:hidden;">
-            <span style="font-size:6.5pt;font-weight:800;text-transform:uppercase;color:#52525b;white-space:nowrap;">
+            <span style="font-size:6.5pt;font-weight:500;text-transform:uppercase;color:#52525b;white-space:nowrap;">
               RETIRADO POR (MECÂNICO):
             </span>
-            <strong style="font-size:8pt;font-weight:900;color:#000000;overflow:hidden;text-overflow:ellipsis;">
+            <span style="font-size:7.5pt;font-weight:600;color:#18181b;overflow:hidden;text-overflow:ellipsis;">
               ${data.retiradoPor}
-            </strong>
+            </span>
           </div>
         </div>
       </div>
 
       <div style="border:1px solid #000000;border-radius:5px;overflow:hidden;margin-bottom:6px;">
         <div style="background:#f4f4f5;padding:3px 8px;border-bottom:1px solid #000000;display:flex;align-items:center;justify-content:space-between;gap:6px;">
-          <span style="font-size:7.5pt;font-weight:900;text-transform:uppercase;color:#000000;">
+          <span style="font-size:7.5pt;font-weight:700;text-transform:uppercase;color:#000000;">
             RELAÇÃO DE PEÇAS / MATERIAIS RETIRADOS (${sortedItems.length} ${sortedItems.length === 1 ? 'ITEM' : 'ITENS'}) — LISTA DE SEPARAÇÃO
           </span>
-          <span style="font-size:6.5pt;font-weight:800;color:#18181b;text-transform:uppercase;">
+          <span style="font-size:6.5pt;font-weight:600;color:#18181b;text-transform:uppercase;">
             Rota de Coleta: Setor → Rua → Estante
           </span>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:8pt;table-layout:fixed;">
           <thead>
-            <tr style="background:#fafafa;border-bottom:1px solid #000000;font-size:7pt;font-weight:900;text-transform:uppercase;color:#27272a;line-height:1.1;">
-              <th style="padding:3px 4px;width:26px;text-align:center;border-right:1px solid #000000;">#</th>
-              <th style="padding:3px 4px;width:75px;text-align:left;border-right:1px solid #000000;">CÓDIGO</th>
+            <tr style="background:#fafafa;border-bottom:1px solid #000000;font-size:7pt;font-weight:700;text-transform:uppercase;color:#27272a;line-height:1.1;">
+              <th style="padding:3px 4px;width:24px;text-align:center;border-right:1px solid #000000;">#</th>
+              <th style="padding:3px 4px;width:66px;text-align:left;border-right:1px solid #000000;">CÓDIGO</th>
               <th style="padding:3px 6px;text-align:left;border-right:1px solid #000000;">DESCRIÇÃO DA PEÇA / MATERIAL</th>
-              <th style="padding:3px 4px;width:105px;text-align:center;border-right:1px solid #000000;background:#fef3c7;color:#000000;">LOCALIZAÇÃO / ENDEREÇO</th>
-              <th style="padding:3px 4px;width:68px;text-align:center;">QUANTIDADE</th>
+              <th style="padding:3px 4px;width:125px;text-align:center;border-right:1px solid #000000;background:#fef3c7;color:#000000;">LOCALIZAÇÃO / ENDEREÇO</th>
+              <th style="padding:3px 4px;width:65px;text-align:center;">QUANTIDADE</th>
             </tr>
           </thead>
           <tbody>
@@ -864,30 +870,30 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;text-align:center;">
         <div>
           <div style="border-bottom:1.5px dotted #000000;height:15px;margin-bottom:2px;"></div>
-          <div style="font-size:8pt;font-weight:900;text-transform:uppercase;color:#000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <div style="font-size:7.5pt;font-weight:600;text-transform:uppercase;color:#18181b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${data.retiradoPor}
           </div>
-          <div style="font-size:6.5pt;font-weight:700;color:#52525b;">
+          <div style="font-size:6pt;font-weight:400;color:#71717a;">
             Assinatura: Mecânico / Operador
           </div>
         </div>
 
         <div>
           <div style="border-bottom:1px dotted #71717a;height:15px;margin-bottom:2px;"></div>
-          <div style="font-size:8pt;font-weight:800;color:#18181b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <div style="font-size:7.5pt;font-weight:600;color:#18181b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${data.operadorAlmoxarifado}
           </div>
-          <div style="font-size:6.5pt;color:#71717a;">
+          <div style="font-size:6pt;font-weight:400;color:#71717a;">
             Operador do Almoxarifado
           </div>
         </div>
 
         <div>
           <div style="border-bottom:1px dotted #71717a;height:15px;margin-bottom:2px;"></div>
-          <div style="font-size:8pt;font-weight:800;color:#18181b;">
+          <div style="font-size:7.5pt;font-weight:600;color:#18181b;">
             Conferência na OS
           </div>
-          <div style="font-size:6.5pt;color:#71717a;">
+          <div style="font-size:6pt;font-weight:400;color:#71717a;">
             Visto da Manutenção
           </div>
         </div>
@@ -3924,6 +3930,22 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                   white-space: nowrap !important;
                   overflow: hidden !important;
                   text-overflow: ellipsis !important;
+                  font-weight: 500 !important;
+                }
+                #cupom-retirada-lote-a4-sheet table td.loc-cell,
+                #cupom-retirada-lote-a4-sheet table td:nth-child(4) {
+                  max-width: 125px !important;
+                  width: 125px !important;
+                  overflow: hidden !important;
+                  box-sizing: border-box !important;
+                }
+                #cupom-retirada-lote-a4-sheet table td.loc-cell > div,
+                #cupom-retirada-lote-a4-sheet .loc-badge {
+                  max-width: 100% !important;
+                  box-sizing: border-box !important;
+                  overflow: hidden !important;
+                  text-overflow: ellipsis !important;
+                  white-space: nowrap !important;
                 }
               }
             `}</style>
@@ -3994,13 +4016,13 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                       <p className="text-[10px] font-extrabold uppercase tracking-wide text-zinc-800 print:text-[7.5pt]">
                         Lista de Separação para o Almoxarifado (Rota de Coleta por Endereço Físico)
                       </p>
-                      <p className="text-xs font-semibold text-zinc-600 print:text-[8pt]">
+                      <p className="text-xs font-medium text-zinc-600 print:text-[8pt]">
                         Pedido de Peças por Veículo • Lote:{' '}
-                        <strong className="font-mono text-black">{cupomLotePrint.loteId}</strong> •
+                        <strong className="font-mono font-semibold text-black">{cupomLotePrint.loteId}</strong> •
                         Status:{' '}
-                        <strong className="text-black">
+                        <span className="font-medium text-zinc-900">
                           {cupomLotePrint.status || 'Aguardando Manutenção'}
-                        </strong>
+                        </span>
                       </p>
                     </div>
 
@@ -4011,7 +4033,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                           <span className="text-[9px] font-bold uppercase tracking-wider opacity-80 whitespace-nowrap print:text-[6.5pt]">
                             VEÍCULO / DESTINO:
                           </span>
-                          <span className="text-sm sm:text-base font-black uppercase tracking-tight truncate print:text-[10.5pt]">
+                          <span className="text-sm sm:text-base font-bold uppercase tracking-tight truncate print:text-[10pt]">
                             {cupomLotePrint.veiculoNome}
                             {cupomLotePrint.veiculoPlaca
                               ? ` — PLACA: ${cupomLotePrint.veiculoPlaca}`
@@ -4022,7 +4044,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                           <span className="text-[9px] font-bold uppercase tracking-wider opacity-80 print:text-[6.5pt]">
                             DATA:
                           </span>
-                          <span className="text-xs sm:text-sm font-black font-mono print:text-[9.5pt]">
+                          <span className="text-xs sm:text-sm font-semibold font-mono print:text-[9pt]">
                             {formatDateOnlyPtBr(cupomLotePrint.dataRetirada)}
                           </span>
                         </div>
@@ -4030,18 +4052,18 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
                       <div className="grid grid-cols-2 divide-x divide-black bg-zinc-50 print:bg-zinc-50 border-t border-black">
                         <div className="px-3 py-1 flex items-baseline gap-1.5 truncate print:px-2.5 print:py-0.5">
-                          <span className="text-[9px] font-bold uppercase text-zinc-600 whitespace-nowrap print:text-[6.5pt]">
+                          <span className="text-[9px] font-medium uppercase text-zinc-600 whitespace-nowrap print:text-[6.5pt]">
                             LIBERADO POR (ALMOXARIFADO):
                           </span>
-                          <span className="text-xs font-black text-black truncate print:text-[8pt]">
+                          <span className="text-xs font-semibold text-zinc-900 truncate print:text-[7.5pt]">
                             {cupomLotePrint.operadorAlmoxarifado}
                           </span>
                         </div>
                         <div className="px-3 py-1 flex items-baseline gap-1.5 truncate print:px-2.5 print:py-0.5">
-                          <span className="text-[9px] font-bold uppercase text-zinc-600 whitespace-nowrap print:text-[6.5pt]">
+                          <span className="text-[9px] font-medium uppercase text-zinc-600 whitespace-nowrap print:text-[6.5pt]">
                             RETIRADO POR (MECÂNICO):
                           </span>
-                          <span className="text-xs font-black text-black truncate print:text-[8pt]">
+                          <span className="text-xs font-semibold text-zinc-900 truncate print:text-[7.5pt]">
                             {cupomLotePrint.retiradoPor}
                           </span>
                         </div>
@@ -4051,32 +4073,33 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     {/* Tabela de Peças Retiradas no Lote + Lista de Separação para o Almoxarifado */}
                     <div className="border border-black rounded-md overflow-hidden print:rounded-md print:mb-1">
                       <div className="bg-zinc-100 px-3 py-1 border-b border-black flex flex-wrap items-center justify-between gap-1.5 print:px-2 print:py-0.5">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-black print:text-[7.5pt]">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-black print:text-[7.5pt]">
                           Relação de Peças / Materiais Retirados ({cupomLotePrint.items.length}{' '}
                           {cupomLotePrint.items.length === 1 ? 'item' : 'itens'}) — Lista de Separação
                         </span>
-                        <span className="text-[9px] font-extrabold uppercase tracking-wider text-zinc-800 bg-amber-100 px-1.5 py-0.5 rounded border border-black/20 print:text-[6.5pt]">
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-800 bg-amber-100 px-1.5 py-0.5 rounded border border-black/20 print:text-[6.5pt]">
                           Rota de Coleta: Setor → Rua → Estante
                         </span>
                       </div>
                       <table className="w-full text-left border-collapse table-fixed">
                         <thead>
-                          <tr className="border-b border-black bg-zinc-50 text-[10px] font-black uppercase text-zinc-700 print:text-[7pt] print:bg-zinc-100 print:leading-tight">
-                            <th className="py-1 px-1 w-8 sm:w-9 text-center border-r border-black print:w-[26px] print:py-0.5 print:px-1">#</th>
-                            <th className="py-1 px-1.5 w-20 sm:w-24 border-r border-black print:w-[75px] print:py-0.5 print:px-1">Código</th>
-                            <th className="py-1 px-2 border-r border-black print:py-0.5 print:px-1.5">
+                          <tr className="border-b border-black bg-zinc-50 text-[10px] font-bold uppercase text-zinc-700 print:text-[7pt] print:bg-zinc-100 print:leading-tight">
+                            <th className="py-1 px-1 w-7 text-center border-r border-black print:w-[24px] print:py-0.5 print:px-1 font-bold">#</th>
+                            <th className="py-1 px-1.5 w-16 border-r border-black print:w-[66px] print:py-0.5 print:px-1 font-bold">Código</th>
+                            <th className="py-1 px-2 border-r border-black print:py-0.5 print:px-1.5 font-bold">
                               Descrição da Peça / Material
                             </th>
-                            <th className="py-1 px-1 w-32 sm:w-36 text-center border-r border-black bg-amber-100/80 text-black print:w-[105px] print:py-0.5 print:px-1">
+                            <th className="py-1 px-1 w-32 text-center border-r border-black bg-amber-100/80 text-black print:w-[125px] print:max-w-[125px] print:py-0.5 print:px-1 font-bold">
                               Localização / Endereço
                             </th>
-                            <th className="py-1 px-1 w-20 sm:w-24 text-center print:w-[68px] print:py-0.5 print:px-1">Quantidade</th>
+                            <th className="py-1 px-1 w-16 text-center print:w-[65px] print:py-0.5 print:px-1 font-bold">Quantidade</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-300 text-xs print:divide-zinc-300">
                           {enrichAndSortItemsByPickingRoute(cupomLotePrint.items).map(
                             (item, idx) => {
                               const enderecoDisplay = String(item.endereco_formatado || '').trim();
+                              const isLongAddress = enderecoDisplay.length > 10;
                               const detalheRota = [
                                 item.estoque_setor ? `Setor ${item.estoque_setor}` : '',
                                 item.estoque_rua ? `Rua ${item.estoque_rua}` : '',
@@ -4089,34 +4112,36 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
 
                               return (
                                 <tr key={item.id || idx} className="border-b border-zinc-300 print:border-zinc-300">
-                                  <td className="py-1 px-1 text-center font-mono font-bold border-r border-black text-xs print:text-[8pt] print:py-0.5">
+                                  <td className="py-1 px-1 text-center font-mono font-medium border-r border-black text-xs print:text-[7.5pt] print:py-0.5 text-zinc-600">
                                     {String(idx + 1).padStart(2, '0')}
                                   </td>
-                                  <td className="py-1 px-1.5 font-mono font-bold text-zinc-800 border-r border-black text-xs print:text-[8pt] print:py-0.5 whitespace-nowrap">
+                                  <td className="py-1 px-1.5 font-mono font-medium text-zinc-700 border-r border-black text-xs print:text-[7.5pt] print:py-0.5 whitespace-nowrap">
                                     {item.produto_codigo || '—'}
                                   </td>
-                                  <td className="py-1 px-2 font-black text-black border-r border-black text-xs print:text-[8pt] print:py-0.5 whitespace-nowrap overflow-hidden truncate desc-cell" title={item.produto_nome || ''}>
+                                  <td className="py-1 px-2 font-medium text-zinc-900 border-r border-black text-xs print:text-[7.5pt] print:py-0.5 whitespace-nowrap overflow-hidden truncate desc-cell" title={item.produto_nome || ''}>
                                     {item.produto_nome || 'Peça do Estoque'}
                                   </td>
-                                  <td className="py-1 px-1 text-center border-r border-black bg-zinc-50/70 print:py-0.5 print:px-0.5">
+                                  <td className="py-1 px-1 text-center border-r border-black bg-zinc-50/70 print:py-0.5 print:px-0.5 loc-cell max-w-[125px] w-[125px] overflow-hidden">
                                     {enderecoDisplay ? (
-                                      <div className="flex flex-col items-center justify-center">
-                                        <span className="inline-block px-1.5 py-0.2 rounded border border-black bg-amber-100 font-mono font-black text-[10.5px] print:text-[8pt] print:py-0 print:px-1 tracking-wider text-black whitespace-nowrap">
+                                      <div className="flex flex-col items-center justify-center max-w-full overflow-hidden">
+                                        <span className={`loc-badge inline-block max-w-full px-1 py-0.2 rounded border border-black bg-amber-100 font-semibold text-black tracking-tight whitespace-nowrap overflow-hidden truncate align-middle ${
+                                          isLongAddress ? 'text-[9px] print:text-[6.5pt] font-sans' : 'text-[10px] print:text-[7.5pt] font-mono'
+                                        }`}>
                                           {enderecoDisplay}
                                         </span>
                                         {detalheRota && (
-                                          <span className="text-[9px] print:text-[5.5pt] font-bold uppercase text-zinc-600 truncate leading-tight mt-0.5">
+                                          <span className="text-[8.5px] print:text-[5pt] font-medium uppercase text-zinc-600 truncate leading-tight mt-0.5 max-w-full block">
                                             {detalheRota}
                                           </span>
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="font-mono text-[9px] print:text-[7pt] font-bold text-zinc-500">
+                                      <span className="font-mono text-[9px] print:text-[6.5pt] font-medium text-zinc-500">
                                         NÃO ENDEREÇADO
                                       </span>
                                     )}
                                   </td>
-                                  <td className="py-1 px-1 text-center font-mono font-black text-xs print:text-[8.5pt] print:py-0.5 text-black whitespace-nowrap">
+                                  <td className="py-1 px-1 text-center font-mono font-semibold text-xs print:text-[8pt] print:py-0.5 text-zinc-900 whitespace-nowrap">
                                     {item.quantidade} {item.produto_unidade || 'UN'}
                                   </td>
                                 </tr>
@@ -4128,12 +4153,12 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     </div>
 
                     {/* Termo Resumido de Cautela */}
-                    <div className="text-xs leading-snug text-justify text-zinc-800 pt-1 print:text-[7.5pt] print:pt-0.5 print:leading-tight">
+                    <div className="text-xs leading-snug text-justify text-zinc-700 pt-1 print:text-[7.5pt] print:pt-0.5 print:leading-tight font-normal">
                       Declaro ter recebido do Almoxarifado as peças discriminadas neste cupom (Lote{' '}
-                      <strong>{cupomLotePrint.loteId}</strong>), sob liberação do operador{' '}
-                      <strong>{cupomLotePrint.operadorAlmoxarifado}</strong>, destinadas
+                      <strong className="font-semibold text-black">{cupomLotePrint.loteId}</strong>), sob liberação do operador{' '}
+                      <strong className="font-semibold text-black">{cupomLotePrint.operadorAlmoxarifado}</strong>, destinadas
                       à manutenção do veículo/máquina{' '}
-                      <strong>
+                      <strong className="font-semibold text-black">
                         {cupomLotePrint.veiculoNome}
                         {cupomLotePrint.veiculoPlaca ? ` (${cupomLotePrint.veiculoPlaca})` : ''}
                       </strong>
@@ -4146,28 +4171,28 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                     <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center pt-1 print:pt-0.5">
                       <div>
                         <div className="border-b-1.5 border-dotted border-black w-full mb-1 h-5 print:h-3.5 print:border-b-[1.5px]" />
-                        <p className="text-xs font-black uppercase text-black truncate print:text-[8pt]">
+                        <p className="text-xs font-semibold uppercase text-zinc-900 truncate print:text-[7.5pt]">
                           {cupomLotePrint.retiradoPor}
                         </p>
-                        <p className="text-[10px] font-bold text-zinc-600 print:text-[6.5pt]">
+                        <p className="text-[10px] font-normal text-zinc-500 print:text-[6pt]">
                           Assinatura: Mecânico / Operador
                         </p>
                       </div>
 
                       <div>
                         <div className="border-b border-dotted border-zinc-500 w-full mb-1 h-5 print:h-3.5" />
-                        <p className="text-xs font-bold text-zinc-800 truncate print:text-[8pt]">
+                        <p className="text-xs font-semibold text-zinc-900 truncate print:text-[7.5pt]">
                           {cupomLotePrint.operadorAlmoxarifado}
                         </p>
-                        <p className="text-[10px] text-zinc-500 print:text-[6.5pt]">Operador do Almoxarifado</p>
+                        <p className="text-[10px] font-normal text-zinc-500 print:text-[6pt]">Operador do Almoxarifado</p>
                       </div>
 
                       <div>
                         <div className="border-b border-dotted border-zinc-500 w-full mb-1 h-5 print:h-3.5" />
-                        <p className="text-xs font-bold text-zinc-800 print:text-[8pt]">
+                        <p className="text-xs font-semibold text-zinc-900 print:text-[7.5pt]">
                           Conferência na OS
                         </p>
-                        <p className="text-[10px] text-zinc-500 print:text-[6.5pt]">Visto da Manutenção</p>
+                        <p className="text-[10px] font-normal text-zinc-500 print:text-[6pt]">Visto da Manutenção</p>
                       </div>
                     </div>
 
