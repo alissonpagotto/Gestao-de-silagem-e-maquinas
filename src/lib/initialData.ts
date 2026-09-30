@@ -240,7 +240,31 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
 ];
 export const INITIAL_SERVICES: ServiceOrder[] = [];
 export const INITIAL_FUEL_LOGS: FuelLog[] = [];
-export const INITIAL_MAINTENANCE_LOGS: MaintenanceLog[] = [];
+export const INITIAL_MAINTENANCE_LOGS: MaintenanceLog[] = [
+  {
+    id: 'maint_os_rhx3e15_30048',
+    osNumber: 'OS-1001',
+    orderNumber: '1001',
+    title: 'Manutenção RHX3E15 - SR/WM PRANCHA 3E',
+    date: '2026-09-30',
+    completionDate: '2026-09-30',
+    machineryId: '225a67f2-f65f-4e9d-a800-3da853facb38',
+    machineryPlateOrName: 'RHX3E15 - SR/WM PRANCHA 3E',
+    type: 'corretiva',
+    serviceCategory: 'Solda, Funilaria & Estrutura',
+    location: 'Oficina Interna',
+    executorType: 'Equipe Própria',
+    executorName: 'Mecânico Responsável',
+    description: 'Ordem de Serviço de manutenção e revisão estrutural na prancha RHX3E15',
+    workshopOrMechanic: 'Oficina Interna',
+    partsCost: 0,
+    laborCost: 300.48,
+    totalCost: 300.48,
+    currentHourMeterOrKm: 0,
+    status: 'concluida',
+    companyId: 'e5b34cd7-aab4-4ce2-b5f0-45040c9ee7a4'
+  }
+];
 export const INITIAL_EXPENSES: Expense[] = [];
 export const INITIAL_CLIENTS: Client[] = [];
 export const INITIAL_ORDERS: SilageOrder[] = [];

@@ -8215,6 +8215,52 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
 }
 
 /**
+ * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase)
+ */
+export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const cleanLogs = Array.isArray(logs) ? logs : [];
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_maintenance_${cId}`,
+      hero_title: JSON.stringify(cleanLogs),
+      allow_free_trial: true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    return !error;
+  } catch (e) {
+    console.error('Falha ao persistir manutenções no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase)
+ */
+export async function fetchCloudMaintenanceLogs(companyId?: string): Promise<MaintenanceLog[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_maintenance_${cId}`)
+      .maybeSingle();
+
+    if (!error && data?.hero_title) {
+      const parsed = JSON.parse(data.hero_title);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as MaintenanceLog[];
+      }
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Carrega todos os módulos operacionais do cliente a partir do Supabase em uma única operação
  */
 export async function fetchAllClientModulesFromSupabase(companyId?: string) {
@@ -8231,6 +8277,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       `cloud_machineries_${cId}`,
       `cloud_expenses_${cId}`,
       `cloud_terminations_${cId}`,
+      `cloud_maintenance_${cId}`,
     ];
 
     const { data, error } = await supabase
@@ -8270,6 +8317,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       machineries: parseJson(`cloud_machineries_${cId}`) as Machinery[] | null,
       expenses: parseJson(`cloud_expenses_${cId}`) as Expense[] | null,
       terminations: parseJson(`cloud_terminations_${cId}`) as TerminationRecord[] | null,
+      maintenanceLogs: parseJson(`cloud_maintenance_${cId}`) as MaintenanceLog[] | null,
     };
   } catch (err) {
     console.warn('Erro ao carregar módulos do cliente do Supabase:', err);

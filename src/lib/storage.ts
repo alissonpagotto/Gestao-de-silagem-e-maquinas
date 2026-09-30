@@ -1061,7 +1061,9 @@ export function getStoredMaintenanceLogs(): MaintenanceLog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.MAINTENANCE_LOGS);
     if (!raw) return INITIAL_MAINTENANCE_LOGS;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_MAINTENANCE_LOGS;
+    return parsed;
   } catch (e) {
     return INITIAL_MAINTENANCE_LOGS;
   }
@@ -1156,6 +1158,8 @@ export function clearAllAuthSessionCache(): void {
   }
 }
 
+export const DEFAULT_ACTIVE_SUBSCRIBER_ID = 'e5b34cd7-aab4-4ce2-b5f0-45040c9ee7a4';
+
 /**
  * Retorna o identificador único da empresa (company_id) para sincronização multi-dispositivo.
  * Permite que múltiplos aparelhos e funcionários da mesma fazenda compartilhem os mesmos dados na nuvem.
@@ -1179,18 +1183,19 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
         return impersonatedId;
       }
       const currentCompanyId = (localStorage.getItem('current_company_id') || '').trim();
-      if (isAdminImpersonating && currentCompanyId) {
+      if (isAdminImpersonating && currentCompanyId && currentCompanyId !== 'default' && currentCompanyId !== 'company_default_fazenda') {
         return currentCompanyId;
       }
       const impersonatedEmail = (localStorage.getItem('impersonated_subscriber_email') || '').trim().toLowerCase();
       if (isAdminImpersonating && impersonatedEmail && impersonatedEmail.includes('@')) {
+        if (impersonatedEmail === 'csilagem@gmail.com') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
         return `company_${impersonatedEmail.replace(/[^a-z0-9]/g, '_')}`;
       }
     }
 
     // 2º PRIORIDADE: O 'company_id' retornado pela consulta do perfil do usuário logado diretamente do banco de dados (Supabase)
     const dbAuthCompanyId = getDbAuthCompanyId();
-    if (dbAuthCompanyId && dbAuthCompanyId.trim()) {
+    if (dbAuthCompanyId && dbAuthCompanyId.trim() && dbAuthCompanyId !== 'default' && dbAuthCompanyId !== 'company_default_fazenda') {
       return dbAuthCompanyId.trim();
     }
 
@@ -1198,16 +1203,20 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
     if (typeof localStorage !== 'undefined') {
       const isClientSessionActive = localStorage.getItem('silagem_client_session') === 'active';
       const activeSubId = (localStorage.getItem('silagem_active_subscriber_id') || '').trim();
-      if (isClientSessionActive && activeSubId && activeSubId !== 'default' && activeSubId !== 'usr_local') {
+      if (isClientSessionActive && activeSubId && activeSubId !== 'default' && activeSubId !== 'usr_local' && activeSubId !== 'company_default_fazenda') {
         return activeSubId;
+      }
+      const curComp = (localStorage.getItem('current_company_id') || '').trim();
+      if (curComp && curComp !== 'default' && curComp !== 'company_default_fazenda' && curComp !== 'usr_local') {
+        return curComp;
       }
     }
 
     // Se houver companyId explícito no perfil fornecido como override (se não for default)
-    if (overrideProfile?.companyId && overrideProfile.companyId.trim() && overrideProfile.companyId !== 'default' && overrideProfile.companyId !== 'default_company') {
+    if (overrideProfile?.companyId && overrideProfile.companyId.trim() && overrideProfile.companyId !== 'default' && overrideProfile.companyId !== 'default_company' && overrideProfile.companyId !== 'company_default_fazenda') {
       return overrideProfile.companyId.trim();
     }
-    if (overrideProfile?.id && overrideProfile.id.trim() && overrideProfile.id !== 'default' && overrideProfile.id !== 'default_company') {
+    if (overrideProfile?.id && overrideProfile.id.trim() && overrideProfile.id !== 'default' && overrideProfile.id !== 'default_company' && overrideProfile.id !== 'company_default_fazenda') {
       return overrideProfile.id.trim();
     }
 
@@ -1215,24 +1224,27 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
     if (typeof localStorage !== 'undefined') {
       const activeUserEmail = (localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_active_subscriber_email') || '').trim().toLowerCase();
       if (activeUserEmail && activeUserEmail.includes('@') && activeUserEmail !== 'usuario@silagem.com') {
+        if (activeUserEmail === 'csilagem@gmail.com') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
         return `company_${activeUserEmail.replace(/[^a-z0-9]/g, '_')}`;
       }
     }
 
     // Fallbacks para modo não-autenticado / demonstração local
     const profile = overrideProfile || getStoredCompanyProfile();
-    if (profile?.companyId && profile.companyId.trim() && profile.companyId !== 'default' && profile.companyId !== 'default_company') {
+    if (profile?.companyId && profile.companyId.trim() && profile.companyId !== 'default' && profile.companyId !== 'default_company' && profile.companyId !== 'company_default_fazenda') {
       return profile.companyId.trim();
     }
-    if (profile?.id && profile.id.trim() && profile.id !== 'default' && profile.id !== 'default_company') {
+    if (profile?.id && profile.id.trim() && profile.id !== 'default' && profile.id !== 'default_company' && profile.id !== 'company_default_fazenda') {
       return profile.id.trim();
     }
     const email = (profile?.loginEmail || profile?.email || '').trim().toLowerCase();
     if (email && email.includes('@') && email !== 'silagemteste02@gmail.com') {
+      if (email === 'csilagem@gmail.com') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
       return `company_${email.replace(/[^a-z0-9]/g, '_')}`;
     }
     if (profile?.cnpjCpf) {
       const clean = profile.cnpjCpf.replace(/\D/g, '');
+      if (clean === '46097636000102') return DEFAULT_ACTIVE_SUBSCRIBER_ID;
       if (clean.length >= 8 && clean !== '5787222222') {
         return `company_${clean}`;
       }
@@ -1240,7 +1252,8 @@ export function getActiveCompanyId(overrideProfile?: CompanyProfile | null): str
   } catch (e) {
     // Fallback silencioso
   }
-  return 'company_default_fazenda';
+  // Unificação obrigatória: se nenhuma sessão explícita estiver ativa, unifica no ID do assinante ativo da nuvem
+  return DEFAULT_ACTIVE_SUBSCRIBER_ID;
 }
 
 export function saveStoredCompanyProfile(profile: CompanyProfile): void {

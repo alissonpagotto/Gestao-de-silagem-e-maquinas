@@ -9,15 +9,15 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const metaEnv = ((import.meta as any)?.env || {}) as Record<string, string | undefined>;
 
-// Injetadas diretamente pelo sistema, vite.config.ts ou fallback estático de produção
-const FALLBACK_SUPABASE_URL = 'https://dyemddjnqoxqyabbhixu.supabase.co';
-const FALLBACK_SUPABASE_ANON_KEY = 'sb_publishable_SPzmag-Va8d6RH8lVY9Zow_th9ReW1c';
+// Credenciais canônicas unificadas para todos os ambientes e URLs (produção e IDX)
+export const UNIFIED_SUPABASE_URL = 'https://dyemddjnqoxqyabbhixu.supabase.co';
+export const UNIFIED_SUPABASE_ANON_KEY = 'sb_publishable_SPzmag-Va8d6RH8lVY9Zow_th9ReW1c';
 
 function isValidKey(key: unknown): boolean {
   if (typeof key !== 'string') return false;
   const trimmed = key.trim();
   if (trimmed.length < 30) return false;
-  if (trimmed.includes('@')) return false; // Evita que emails digitados por engano sejam usados como chave
+  if (trimmed.includes('@')) return false;
   if (trimmed.includes(' ') || trimmed.startsWith('http')) return false;
   if (/^(undefined|null|your-.*|dummy|placeholder)$/i.test(trimmed)) return false;
   return trimmed.startsWith('sb_') || trimmed.startsWith('eyJ');
@@ -32,29 +32,23 @@ function isValidUrl(url: unknown): boolean {
   return true;
 }
 
-let rawUrlCandidate = String(
+const envUrl = String(
   metaEnv.VITE_SUPABASE_URL ||
   metaEnv.SUPABASE_URL ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
   ''
 ).trim();
 
-if (!isValidUrl(rawUrlCandidate)) {
-  rawUrlCandidate = FALLBACK_SUPABASE_URL;
-}
-
-const keyCandidate = (
+const envKey = (
   metaEnv.VITE_SUPABASE_ANON_KEY ||
   metaEnv.SUPABASE_ANON_KEY ||
   (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
   ''
 );
 
-const rawKey = isValidKey(keyCandidate) ? String(keyCandidate).trim() : FALLBACK_SUPABASE_ANON_KEY;
-
-// Sanitização obrigatória para garantir que o cliente Supabase receba a URL base do projeto (sem /rest/v1 duplicado)
-export const SUPABASE_URL = rawUrlCandidate.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
-export const SUPABASE_ANON_KEY = String(rawKey).trim();
+// Sanitização obrigatória: garante que todos os ambientes usem estritamente as credenciais unificadas
+export const SUPABASE_URL = (isValidUrl(envUrl) ? envUrl : UNIFIED_SUPABASE_URL).replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+export const SUPABASE_ANON_KEY = (isValidKey(envKey) ? String(envKey).trim() : UNIFIED_SUPABASE_ANON_KEY);
 
 export const isSupabaseConfigured = Boolean(
   SUPABASE_URL &&
@@ -63,9 +57,7 @@ export const isSupabaseConfigured = Boolean(
 );
 
 if (isSupabaseConfigured) {
-  console.log('✅ Supabase conectado diretamente via credenciais validadas:', SUPABASE_URL);
-} else {
-  console.warn('⚠️ Credenciais do Supabase não encontradas ou inválidas.');
+  console.log('✅ Supabase conectado de forma unificada (multi-dispositivo):', SUPABASE_URL);
 }
 
 // Classe de transporte WebSocket segura sem conexão de rede para ambientes restritos (sandboxes, Cloud Run e iFrames)
