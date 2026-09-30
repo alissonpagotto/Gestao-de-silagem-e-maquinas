@@ -703,29 +703,41 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       const rowsHtml = sortedItems
         .map((it, idx) => {
           const enderecoDisplay = String(it.endereco_formatado || '').trim();
-          const isLongAddress = enderecoDisplay.length > 10;
-          const addrFontSize = isLongAddress ? '6.5pt' : '7.5pt';
-          const addrFontFamily = isLongAddress
-            ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
-            : 'monospace, -apple-system, BlinkMacSystemFont, sans-serif';
+          let addressSegments: string[] = [];
+          if (enderecoDisplay && enderecoDisplay.includes('.')) {
+            addressSegments = enderecoDisplay.split('.').map(s => s.trim());
+          } else if (it.estoque_setor || it.estoque_rua || it.estoque_estante || it.estoque_nivel || it.estoque_box) {
+            addressSegments = [
+              it.estoque_setor || '00',
+              it.estoque_rua || '00',
+              it.estoque_estante || '00',
+              it.estoque_nivel || '00',
+              it.estoque_box || '00',
+            ];
+          }
+          const isStructured = addressSegments.length >= 2;
+          const LABELS = ['SETOR', 'RUA', 'EST.', 'NÍV.', 'BOX'];
 
-          const detalheRota = [
-            it.estoque_setor ? `Setor ${it.estoque_setor}` : '',
-            it.estoque_rua ? `Rua ${it.estoque_rua}` : '',
-            it.estoque_estante ? `Est. ${it.estoque_estante}` : '',
-            it.estoque_nivel ? `Nív. ${it.estoque_nivel}` : '',
-            it.estoque_box ? `Box ${it.estoque_box}` : '',
-          ]
-            .filter(Boolean)
-            .join(' • ');
+          let locCellHtml = '';
+          if (!enderecoDisplay && addressSegments.length === 0) {
+            locCellHtml = `<span style="font-family:monospace;font-size:6.5pt;font-weight:500;color:#71717a;">NÃO ENDEREÇADO</span>`;
+          } else if (isStructured) {
+            const columnsHtml = addressSegments
+              .map((seg, sIdx) => {
+                const label = LABELS[sIdx] || `P${sIdx + 1}`;
+                const col = `<div style="display:flex;flex-direction:column;align-items:center;min-width:13px;"><span style="font-family:monospace;font-weight:700;font-size:7.5pt;line-height:1;color:#000000;">${seg.trim()}</span><span style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:4.6pt;font-weight:700;color:#27272a;text-transform:uppercase;line-height:1;margin-top:1.5px;letter-spacing:-0.2px;">${label}</span></div>`;
+                if (sIdx > 0) {
+                  const sep = `<div style="display:flex;flex-direction:column;align-items:center;padding:0 0.8px;"><span style="font-family:monospace;font-weight:700;font-size:7.5pt;line-height:1;color:#000000;">.</span><span style="font-size:4.6pt;line-height:1;margin-top:1.5px;visibility:hidden;">.</span></div>`;
+                  return `${sep}${col}`;
+                }
+                return col;
+              })
+              .join('');
 
-          const locCellHtml = enderecoDisplay
-            ? `<div style="display:inline-block;max-width:100%;box-sizing:border-box;padding:1px 4px;border:1px solid #000000;border-radius:3px;background:#fef3c7;font-family:${addrFontFamily};font-weight:600;font-size:${addrFontSize};letter-spacing:${isLongAddress ? '0px' : '0.3px'};color:#000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;">${enderecoDisplay}</div>${
-                detalheRota
-                  ? `<div style="font-size:5pt;font-weight:500;color:#52525b;margin-top:1px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;box-sizing:border-box;">${detalheRota}</div>`
-                  : ''
-              }`
-            : `<span style="font-family:monospace;font-size:6.5pt;font-weight:500;color:#71717a;">NÃO ENDEREÇADO</span>`;
+            locCellHtml = `<div style="display:inline-flex;align-items:flex-start;justify-content:center;padding:1.5px 3.5px;border:1px solid #000000;border-radius:3px;background:#fef3c7;box-sizing:border-box;max-width:100%;">${columnsHtml}</div>`;
+          } else {
+            locCellHtml = `<div style="display:inline-block;max-width:100%;box-sizing:border-box;padding:2px 5px;border:1px solid #000000;border-radius:3px;background:#fef3c7;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-weight:600;font-size:6.5pt;color:#000000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;">${enderecoDisplay}</div>`;
+          }
 
           return `
           <tr style="border-bottom:1px solid #d4d4d8;">
@@ -4099,16 +4111,20 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                           {enrichAndSortItemsByPickingRoute(cupomLotePrint.items).map(
                             (item, idx) => {
                               const enderecoDisplay = String(item.endereco_formatado || '').trim();
-                              const isLongAddress = enderecoDisplay.length > 10;
-                              const detalheRota = [
-                                item.estoque_setor ? `Setor ${item.estoque_setor}` : '',
-                                item.estoque_rua ? `Rua ${item.estoque_rua}` : '',
-                                item.estoque_estante ? `Est. ${item.estoque_estante}` : '',
-                                item.estoque_nivel ? `Nív. ${item.estoque_nivel}` : '',
-                                item.estoque_box ? `Box ${item.estoque_box}` : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' • ');
+                              let addressSegments: string[] = [];
+                              if (enderecoDisplay && enderecoDisplay.includes('.')) {
+                                addressSegments = enderecoDisplay.split('.').map(s => s.trim());
+                              } else if (item.estoque_setor || item.estoque_rua || item.estoque_estante || item.estoque_nivel || item.estoque_box) {
+                                addressSegments = [
+                                  item.estoque_setor || '00',
+                                  item.estoque_rua || '00',
+                                  item.estoque_estante || '00',
+                                  item.estoque_nivel || '00',
+                                  item.estoque_box || '00',
+                                ];
+                              }
+                              const isStructured = addressSegments.length >= 2;
+                              const LABELS = ['SETOR', 'RUA', 'EST.', 'NÍV.', 'BOX'];
 
                               return (
                                 <tr key={item.id || idx} className="border-b border-zinc-300 print:border-zinc-300">
@@ -4122,23 +4138,42 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
                                     {item.produto_nome || 'Peça do Estoque'}
                                   </td>
                                   <td className="py-1 px-1 text-center border-r border-black bg-zinc-50/70 print:py-0.5 print:px-0.5 loc-cell max-w-[125px] w-[125px] overflow-hidden">
-                                    {enderecoDisplay ? (
-                                      <div className="flex flex-col items-center justify-center max-w-full overflow-hidden">
-                                        <span className={`loc-badge inline-block max-w-full px-1 py-0.2 rounded border border-black bg-amber-100 font-semibold text-black tracking-tight whitespace-nowrap overflow-hidden truncate align-middle ${
-                                          isLongAddress ? 'text-[9px] print:text-[6.5pt] font-sans' : 'text-[10px] print:text-[7.5pt] font-mono'
-                                        }`}>
-                                          {enderecoDisplay}
-                                        </span>
-                                        {detalheRota && (
-                                          <span className="text-[8.5px] print:text-[5pt] font-medium uppercase text-zinc-600 truncate leading-tight mt-0.5 max-w-full block">
-                                            {detalheRota}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
+                                    {!enderecoDisplay && addressSegments.length === 0 ? (
                                       <span className="font-mono text-[9px] print:text-[6.5pt] font-medium text-zinc-500">
                                         NÃO ENDEREÇADO
                                       </span>
+                                    ) : isStructured ? (
+                                      <div className="inline-flex items-start justify-center px-1.5 py-0.5 border border-black rounded-[3px] bg-amber-100 max-w-full box-border">
+                                        {addressSegments.map((seg, sIdx) => {
+                                          const label = LABELS[sIdx] || `P${sIdx + 1}`;
+                                          return (
+                                            <React.Fragment key={sIdx}>
+                                              {sIdx > 0 && (
+                                                <div className="flex flex-col items-center justify-start px-0.5 select-none" aria-hidden="true">
+                                                  <span className="font-mono font-bold text-[8.5px] print:text-[7.5pt] leading-none text-black">
+                                                    .
+                                                  </span>
+                                                  <span className="text-[5.5px] print:text-[4.6pt] leading-none mt-0.5 invisible select-none">
+                                                    .
+                                                  </span>
+                                                </div>
+                                              )}
+                                              <div className="flex flex-col items-center justify-start min-w-[13px] print:min-w-[11px]">
+                                                <span className="font-mono font-bold text-[8.5px] print:text-[7.5pt] leading-none text-black">
+                                                  {seg.trim()}
+                                                </span>
+                                                <span className="font-sans font-bold text-[5.5px] print:text-[4.6pt] text-zinc-800 uppercase leading-none mt-0.5 tracking-tighter">
+                                                  {label}
+                                                </span>
+                                              </div>
+                                            </React.Fragment>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div className="loc-badge-simple inline-block max-w-full px-1.5 py-0.5 border border-black rounded-[3px] bg-amber-100 font-semibold text-black text-[9px] print:text-[6.5pt] truncate align-middle">
+                                        {enderecoDisplay}
+                                      </div>
                                     )}
                                   </td>
                                   <td className="py-1 px-1 text-center font-mono font-semibold text-xs print:text-[8pt] print:py-0.5 text-zinc-900 whitespace-nowrap">

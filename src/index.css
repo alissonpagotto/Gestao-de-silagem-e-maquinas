@@ -833,10 +833,10 @@ table.dark-elegance-table td,
     width: 125px !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
+    text-align: center !important;
   }
 
-  #cupom-retirada-lote-a4-sheet table td:nth-child(4) > div,
-  #cupom-retirada-lote-a4-sheet .loc-badge {
+  #cupom-retirada-lote-a4-sheet .loc-badge-simple {
     max-width: 100% !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
