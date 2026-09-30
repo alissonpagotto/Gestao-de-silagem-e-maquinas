@@ -360,6 +360,8 @@ export type EmployeeRegistrationType =
 export interface Employee {
   id: string;
   companyId?: string; // ID da Empresa
+  userId?: string; // ID do Usuário Autenticado (auth.uid) para isolamento estrito via RLS
+  user_id?: string; // Alias banco Supabase (user_id)
   name: string;
   registrationType?: EmployeeRegistrationType;
   role: EmployeeRole | string; // 'Operador de Ensiladeira', 'Tratorista', 'Motorista de Caminhão', 'Mecânico', etc.

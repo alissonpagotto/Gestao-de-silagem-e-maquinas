@@ -123,6 +123,7 @@ import { useAuth } from './context/AuthContext';
 import { 
   syncAllDataToSupabase, 
   fetchAllDataFromSupabase,
+  isSupabaseConfigured,
   upsertCliente,
   deleteCliente,
   fetchClientes,
@@ -351,17 +352,19 @@ export default function App() {
             setInventory(cloudData.estoque);
           }
           if (cloudData.rh_funcionarios !== undefined && Array.isArray(cloudData.rh_funcionarios)) {
-            const validTenantUuid = toValidUUID(activeTenantId);
+            const currentAuthUid = currentUser?.id;
             const tenantFilteredRh = cloudData.rh_funcionarios.filter(e => {
-              const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || (e as any).user_id || '').trim();
-              if (!cid) return false;
-              return cid === activeTenantId || (validTenantUuid && cid === validTenantUuid);
+              const uid = String(e.userId || (e as any).user_id || '').trim();
+              if (currentAuthUid && uid) return uid === currentAuthUid;
+              const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
+              return currentAuthUid && cid === currentAuthUid;
             });
 
             const currentStored = getStoredEmployees().filter(e => {
-              const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || (e as any).user_id || '').trim();
-              if (!cid) return false;
-              return cid === activeTenantId || (validTenantUuid && cid === validTenantUuid);
+              const uid = String(e.userId || (e as any).user_id || '').trim();
+              if (currentAuthUid && uid) return uid === currentAuthUid;
+              const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
+              return currentAuthUid && cid === currentAuthUid;
             });
 
             const mergedInitial = tenantFilteredRh.map(cloudEmp => {
@@ -688,18 +691,20 @@ export default function App() {
         }
       }
 
-      fetchRhFuncionarios(activeTenantId).then(fresh => {
+      const currentAuthUid = currentUser?.id;
+      fetchRhFuncionarios(activeTenantId, currentAuthUid).then(fresh => {
         if (fresh && isMounted) {
-          const validTenantUuid = toValidUUID(activeTenantId);
           const strictlyFilteredFresh = fresh.filter(e => {
-            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || (e as any).user_id || '').trim();
-            if (!cid) return false;
-            return cid === activeTenantId || (validTenantUuid && cid === validTenantUuid);
+            const uid = String(e.userId || (e as any).user_id || '').trim();
+            if (currentAuthUid && uid) return uid === currentAuthUid;
+            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
+            return currentAuthUid && cid === currentAuthUid;
           });
           const currentStored = getStoredEmployees().filter(e => {
-            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || (e as any).user_id || '').trim();
-            if (!cid) return false;
-            return cid === activeTenantId || (validTenantUuid && cid === validTenantUuid);
+            const uid = String(e.userId || (e as any).user_id || '').trim();
+            if (currentAuthUid && uid) return uid === currentAuthUid;
+            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
+            return currentAuthUid && cid === currentAuthUid;
           });
           const merged = strictlyFilteredFresh.map(cloudEmp => {
             const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
@@ -759,7 +764,8 @@ export default function App() {
     });
 
     const unsubFuncionarios = subscribeToCloudTable('funcionarios', () => {
-      fetchRhFuncionarios(activeTenantId).then(fresh => {
+      const authUid = currentUser?.id;
+      fetchRhFuncionarios(activeTenantId, authUid).then(fresh => {
         if (fresh && isMounted) {
           const validTenantUuid = toValidUUID(activeTenantId);
           const strictlyFilteredFresh = fresh.filter(e => {
@@ -1564,7 +1570,7 @@ export default function App() {
 
     // 2. Chama explicitamente o método .delete().eq('id', id) do Supabase SEM qualquer insert ou upsert
     try {
-      await deleteRhFuncionario(id, activeTenantId);
+      await deleteRhFuncionario(id, activeTenantId, currentUser?.id);
     } catch (err) {
       console.warn('Supabase handleDeleteEmployee notice:', err);
     }
@@ -1590,12 +1596,19 @@ export default function App() {
     const newIds = new Set(deduplicatedEmployees.map(e => e.id));
 
     try {
-      // 3. Salva ou atualiza colaboradores com garantia de tipos e conversão de colunas
-      const upsertPromises = deduplicatedEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId));
+      // 3. Salva ou atualiza colaboradores com injeção obrigatória do user_id autenticado para RLS
+      let currentAuthUid = currentUser?.id;
+      if (!currentAuthUid && isSupabaseConfigured) {
+        try {
+          const { data: u } = await supabase.auth.getUser();
+          currentAuthUid = u?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
+        } catch (_) {}
+      }
+      const upsertPromises = deduplicatedEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId, currentAuthUid));
       await Promise.allSettled(upsertPromises);
 
-      // 5. Re-busca no banco para sincronizar colunas gravadas no Supabase preservando dados locais
-      const fresh = await fetchRhFuncionarios(activeTenantId);
+      // 5. Re-busca no banco para sincronizar colunas com filtro estrito .eq('user_id', currentAuthUid)
+      const fresh = await fetchRhFuncionarios(activeTenantId, currentAuthUid);
       if (fresh && fresh.length > 0) {
         const merged = fresh.map(f => {
           const local = deduplicatedEmployees.find(e => toValidUUID(e.id) === f.id || e.id === f.id);
@@ -2102,11 +2115,12 @@ export default function App() {
         }
 
         if (cloudData.rh_funcionarios && cloudData.rh_funcionarios.length > 0) {
-          const validTenantUuid = toValidUUID(activeTenantId);
+          const currentAuthUid = currentUser?.id;
           const tenantOnly = cloudData.rh_funcionarios.filter(e => {
-            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || (e as any).user_id || '').trim();
-            if (!cid) return false;
-            return cid === activeTenantId || (validTenantUuid && cid === validTenantUuid);
+            const uid = String(e.userId || (e as any).user_id || '').trim();
+            if (currentAuthUid && uid) return uid === currentAuthUid;
+            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
+            return currentAuthUid && cid === currentAuthUid;
           });
           setEmployees(tenantOnly);
         } else {

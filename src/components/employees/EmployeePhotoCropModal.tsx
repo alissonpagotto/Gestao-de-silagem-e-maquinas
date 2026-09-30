@@ -206,75 +206,95 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
       // Desenha a imagem com as coordenadas e zoom definidos pelo usuário
       ctx.drawImage(sourceImg, drawX, drawY, drawWidth, drawHeight);
 
-      // 2. Converte o canvas para Blob binário limpo (JPEG com qualidade 0.92)
-      let blob: Blob | null = await new Promise((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92);
-      });
-
-      // Fallback defensivo com toDataURL se toBlob for nulo
-      if (!blob) {
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        const parts = dataUrl.split(',');
-        const bstr = atob(parts[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) {
-          u8arr[n] = bstr.charCodeAt(n);
-        }
-        blob = new Blob([u8arr], { type: 'image/jpeg' });
+      // 2. Converte o canvas diretamente em base64 e transfere para um File nativo em memória (sem URLs temporárias 'blob:' que violam CSP)
+      const base64DataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const base64Content = base64DataUrl.split(',')[1];
+      const byteCharacters = atob(base64Content);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
 
-      const fileName = `colaborador_avatar_${employeeId || 'novo'}_${Date.now()}.jpg`;
-      const file = new File([blob], fileName, {
+      const rawBlob = new Blob([byteNumbers], { type: 'image/jpeg' });
+      const rawFile = new File([rawBlob], `avatar_${employeeId || 'colaborador'}_${Date.now()}.jpg`, {
         type: 'image/jpeg',
         lastModified: Date.now(),
       });
 
-      const previewUrl = URL.createObjectURL(blob);
-
-      // 3. Upload imediato do arquivo binário para o Supabase Storage (bucket de avatares/funcionários)
+      // 3. Upload imediato do arquivo nativo para o Supabase Storage (bucket de avatares/funcionários)
       let publicStorageUrl: string | null = null;
       if (isSupabaseConfigured) {
         try {
           const effectiveCid = companyId || getActiveCompanyId();
           const targetEmpId = employeeId || `emp_${Date.now()}`;
-          publicStorageUrl = await uploadEmployeePhotoToStorage(file, targetEmpId, effectiveCid);
-          console.info('Foto enviada para o Supabase Storage:', publicStorageUrl);
+          publicStorageUrl = await uploadEmployeePhotoToStorage(rawFile, targetEmpId, effectiveCid);
+          console.info('Retorno do Supabase Storage:', publicStorageUrl);
         } catch (uploadError) {
           console.warn('Aviso: Falha no upload para o Supabase Storage:', uploadError);
         }
       }
 
-      const finalPhotoUrl = (publicStorageUrl && publicStorageUrl.startsWith('http'))
-        ? publicStorageUrl
-        : previewUrl;
+      // Validação estrita: só dispara o PATCH se o Storage retornar uma URL pública HTTP completa
+      const isValidStorageHttpUrl = Boolean(
+        publicStorageUrl &&
+        typeof publicStorageUrl === 'string' &&
+        (publicStorageUrl.startsWith('http://') || publicStorageUrl.startsWith('https://')) &&
+        !publicStorageUrl.startsWith('blob:') &&
+        !publicStorageUrl.startsWith('data:')
+      );
 
-      // 4. Se for um colaborador já existente (tem employeeId), atualiza imediatamente a coluna na tabela rh_funcionarios
-      if (publicStorageUrl && employeeId && isSupabaseConfigured) {
+      // 4. Se for um colaborador já existente (tem employeeId) e o Storage retornou URL válida, atualiza na tabela rh_funcionarios
+      if (isValidStorageHttpUrl && employeeId && isSupabaseConfigured) {
         try {
-          const { error: patchFotoErr } = await supabase
+          const cleanStorageUrl = publicStorageUrl!.trim();
+          // Obtém o user_id do usuário autenticado no sistema para satisfazer estritamente o RLS
+          let effectiveUserId: string | null = null;
+          try {
+            const { data: authUser } = await supabase.auth.getUser();
+            effectiveUserId = authUser?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id || null;
+          } catch (_) {}
+
+          const updatePayload: Record<string, any> = { foto_url: cleanStorageUrl };
+          if (effectiveUserId) {
+            updatePayload.user_id = effectiveUserId;
+          }
+
+          console.info('[RH Funcionários] Gravando foto_url válida do Storage com user_id:', cleanStorageUrl);
+          let updateQuery = supabase
             .from('rh_funcionarios')
-            .update({ foto_url: publicStorageUrl })
+            .update(updatePayload)
             .eq('id', employeeId);
+          if (effectiveUserId) {
+            updateQuery = updateQuery.eq('user_id', effectiveUserId);
+          }
+          const { error: patchFotoErr } = await updateQuery;
 
           if (patchFotoErr) {
             console.warn('Tentativa com foto_url falhou, tentando avatar_url:', patchFotoErr.message);
-            await supabase
+            const fallbackPayload: Record<string, any> = { avatar_url: cleanStorageUrl };
+            if (effectiveUserId) fallbackPayload.user_id = effectiveUserId;
+            let fallbackQuery = supabase
               .from('rh_funcionarios')
-              .update({ avatar_url: publicStorageUrl })
+              .update(fallbackPayload)
               .eq('id', employeeId);
+            if (effectiveUserId) {
+              fallbackQuery = fallbackQuery.eq('user_id', effectiveUserId);
+            }
+            await fallbackQuery;
           }
-          console.info('Coluna foto_url atualizada na tabela rh_funcionarios para:', employeeId);
+          console.info('Coluna foto_url atualizada com sucesso na tabela rh_funcionarios para:', employeeId);
         } catch (dbErr) {
           console.warn('Erro ao atualizar foto em rh_funcionarios:', dbErr);
         }
+      } else if (!isValidStorageHttpUrl) {
+        console.warn('[RH Foto] Storage não retornou uma URL pública válida. O PATCH em public.rh_funcionarios não foi disparado.');
       }
 
-      // 5. Comunica o resultado para o componente pai para atualizar o estado local da tela na hora
+      // 5. Comunica o resultado para o componente pai usando base64 para preview (sem blob:) e URL pública se disponível
       await onConfirm({
-        file,
-        previewUrl,
-        publicUrl: finalPhotoUrl,
+        file: rawFile,
+        previewUrl: base64DataUrl,
+        publicUrl: isValidStorageHttpUrl ? publicStorageUrl! : undefined,
       });
 
       // 6. Fecha o modal de ajuste automaticamente

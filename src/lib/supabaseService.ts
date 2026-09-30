@@ -2437,6 +2437,8 @@ export function mapRowToEmployee(row: any): Employee {
       const raw = row.avatar_url || row.avatarUrl || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
+    userId: row.user_id || row.userId || undefined,
+    user_id: row.user_id || row.userId || undefined,
   };
 }
 
@@ -2456,13 +2458,12 @@ export function isBrokenAvatarUrl(url?: string | null): boolean {
 
 /**
  * Retorna um objeto estritamente compatível com o schema da tabela public.rh_funcionarios no Supabase.
- * Colunas reais no banco: id, name, role, cpf, phone, email, status, registration_type, salary, admission_date, driver_license, license_category, license_expiry, company_id, updated_at.
- * Remove todas as colunas ausentes ou propriedades temporárias da interface que geram
- * erros HTTP 400 (Bad Request - PGRST204) no PostgREST.
+ * Injeta obrigatoriamente o user_id do usuário autenticado no sistema para satisfazer as regras de RLS (auth.uid() = user_id).
  */
 export function sanitizeRhFuncionarioPayload(
   employee: Partial<Employee> & Record<string, any>,
-  companyId?: string
+  companyId?: string,
+  authUserId?: string
 ): {
   id: string;
   name: string;
@@ -2478,11 +2479,27 @@ export function sanitizeRhFuncionarioPayload(
   license_category: string;
   license_expiry: string | null;
   company_id: string | null;
-  user_id?: string | null;
+  user_id: string | null;
   updated_at: string;
+  local_recebimento: string | null;
+  payment_location: string | null;
+  banco_chave_pix: string | null;
+  bank_pix_key: string | null;
+  agencia: string | null;
+  bank_agency: string | null;
+  conta_corrente: string | null;
+  bank_account: string | null;
+  exame_admissional_url: string | null;
+  aso_url: string | null;
+  contrato_experiencia_url: string | null;
+  contrato_url: string | null;
+  documentos_gerais_url: string | null;
+  ficha_cadastral_assinada_url: string | null;
+  ficha_assinada_url: string | null;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
   const validId = toValidUUID(employee.id);
+  const effectiveUserId = authUserId || employee.userId || (employee as any).user_id || null;
 
   // Tratamento rigoroso de datas (DATE em PostgreSQL requer 'YYYY-MM-DD' ou null; strings vazias geram erro 22007)
   const admissionDateIso = formatIsoDateOnly(employee.admissionDate || employee.data_admissao);
@@ -2495,6 +2512,29 @@ export function sanitizeRhFuncionarioPayload(
 
   const roleStr = String(employee.role || (employee.roles && employee.roles[0]) || 'Operador de Forrageira').trim();
   const regTypeStr = String(employee.registrationType || employee.registration_type || employee.tipo_registro || 'Funcionário').trim();
+
+  // Informações bancárias textuais (Seção Rosa)
+  const localRecebimento = String(employee.local_recebimento || employee.paymentLocation || employee.payment_location || '').trim();
+  const bancoChavePix = String(employee.banco_chave_pix || employee.bankPixKey || employee.bank_pix_key || '').trim();
+  const agencia = String(employee.agencia || employee.bankAgency || employee.bank_agency || '').trim();
+  const contaCorrente = String(employee.conta_corrente || employee.bankAccount || employee.bank_account || '').trim();
+
+  // Documentos e anexos da Seção 4 (URLs em texto livre de objetos binários)
+  const extractCleanUrl = (raw: any): string | null => {
+    if (!raw) return null;
+    if (typeof raw === 'string' && (raw.startsWith('http://') || raw.startsWith('https://'))) {
+      return raw.trim();
+    }
+    if (typeof raw === 'object' && raw.fileData && typeof raw.fileData === 'string' && (raw.fileData.startsWith('http://') || raw.fileData.startsWith('https://'))) {
+      return raw.fileData.trim();
+    }
+    return null;
+  };
+
+  const asoUrl = extractCleanUrl(employee.exame_admissional_url || employee.aso_url || employee.admissionExamDoc);
+  const contratoUrl = extractCleanUrl(employee.contrato_experiencia_url || employee.contrato_url || employee.experienceContractDoc);
+  const docsGeraisUrl = extractCleanUrl(employee.documentos_gerais_url || employee.generalDocs);
+  const fichaAssinadaUrl = extractCleanUrl(employee.ficha_cadastral_assinada_url || employee.ficha_assinada_url || employee.signedRegistrationDoc);
 
   return {
     id: validId,
@@ -2511,8 +2551,23 @@ export function sanitizeRhFuncionarioPayload(
     license_category: String(employee.cnhCategory || employee.license_category || employee.cnh_categoria || '').trim(),
     license_expiry: licenseExpiryIso || null,
     company_id: activeCompanyId ? String(activeCompanyId).trim() : null,
-    user_id: activeCompanyId ? String(activeCompanyId).trim() : null,
-    updated_at: new Date().toISOString()
+    user_id: effectiveUserId ? String(effectiveUserId).trim() : null,
+    updated_at: new Date().toISOString(),
+    local_recebimento: localRecebimento ? localRecebimento.toUpperCase() : null,
+    payment_location: localRecebimento ? localRecebimento.toUpperCase() : null,
+    banco_chave_pix: bancoChavePix ? bancoChavePix.toUpperCase() : null,
+    bank_pix_key: bancoChavePix ? bancoChavePix.toUpperCase() : null,
+    agencia: agencia ? agencia.toUpperCase() : null,
+    bank_agency: agencia ? agencia.toUpperCase() : null,
+    conta_corrente: contaCorrente ? contaCorrente.toUpperCase() : null,
+    bank_account: contaCorrente ? contaCorrente.toUpperCase() : null,
+    exame_admissional_url: asoUrl,
+    aso_url: asoUrl,
+    contrato_experiencia_url: contratoUrl,
+    contrato_url: contratoUrl,
+    documentos_gerais_url: docsGeraisUrl,
+    ficha_cadastral_assinada_url: fichaAssinadaUrl,
+    ficha_assinada_url: fichaAssinadaUrl,
   };
 }
 
@@ -2577,7 +2632,7 @@ export function resetRhCommissionColumnsCache(): void {
  * Retorna a URL pública direta da imagem gerada pelo Supabase.
  */
 export async function uploadEmployeePhotoToStorage(
-  fileOrDataUrl: File | Blob | string,
+  fileOrDataUrl: File | Blob | Uint8Array | string,
   employeeId: string,
   companyId?: string
 ): Promise<string | null> {
@@ -2600,71 +2655,44 @@ export async function uploadEmployeePhotoToStorage(
     let mimeType = 'image/jpeg';
     let fileExtension = '.jpg';
 
-    if (typeof fileOrDataUrl !== 'string') {
+    if (typeof fileOrDataUrl === 'string') {
+      if (fileOrDataUrl.startsWith('data:')) {
+        // Conversão direta de base64 em memória sem fetch() (previne bloqueio de CSP)
+        const parts = fileOrDataUrl.split(',');
+        const match = parts[0]?.match(/:(.*?);/);
+        mimeType = match ? match[1] : 'image/jpeg';
+        if (mimeType.includes('png')) fileExtension = '.png';
+        else if (mimeType.includes('webp')) fileExtension = '.webp';
+        else if (mimeType.includes('gif')) fileExtension = '.gif';
+
+        const byteCharacters = atob(parts[1]);
+        const byteNumbers = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        blob = new Blob([byteNumbers], { type: mimeType });
+      } else if (fileOrDataUrl.startsWith('blob:')) {
+        // URLs do tipo 'blob:' são bloqueadas por connect-src na diretiva CSP do ambiente sandbox.
+        console.warn('[Supabase Storage] URLs do tipo blob: foram suprimidas para evitar violação de Content Security Policy.');
+        return null;
+      } else {
+        return null;
+      }
+    } else if (fileOrDataUrl instanceof Uint8Array) {
+      blob = new Blob([fileOrDataUrl], { type: 'image/jpeg' });
+    } else {
       blob = fileOrDataUrl;
       mimeType = (fileOrDataUrl as any).type || 'image/jpeg';
       if (mimeType.includes('png')) fileExtension = '.png';
       else if (mimeType.includes('webp')) fileExtension = '.webp';
       else if (mimeType.includes('gif')) fileExtension = '.gif';
-    } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-      const parts = fileOrDataUrl.split(',');
-      const match = parts[0]?.match(/:(.*?);/);
-      mimeType = match ? match[1] : 'image/jpeg';
-      if (mimeType.includes('png')) fileExtension = '.png';
-      else if (mimeType.includes('webp')) fileExtension = '.webp';
-      else if (mimeType.includes('gif')) fileExtension = '.gif';
-
-      const byteCharacters = atob(parts[1]);
-      const byteNumbers = new Uint8Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      blob = new Blob([byteNumbers], { type: mimeType });
-    } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('blob:')) {
-      try {
-        const resp = await fetch(fileOrDataUrl);
-        blob = await resp.blob();
-        mimeType = blob.type || 'image/jpeg';
-        if (mimeType.includes('png')) fileExtension = '.png';
-        else if (mimeType.includes('webp')) fileExtension = '.webp';
-      } catch {
-        return null;
-      }
-    } else {
-      return null;
     }
 
     const fileName = `${validUuid}_${Date.now()}${fileExtension}`;
     const filePath = `${cleanCid}/${fileName}`;
 
-    const candidateBuckets = ['avatars', 'funcionarios', 'fotos', 'rh_fotos', 'public'];
-
-    for (const bucket of candidateBuckets) {
-      try {
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, blob, {
-            contentType: mimeType,
-            cacheControl: '3600',
-            upsert: true,
-          });
-
-        if (!error && data) {
-          const { data: publicData } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath);
-
-          if (publicData?.publicUrl) {
-            console.info(`✅ [Supabase Storage] Foto de perfil enviada com sucesso no bucket '${bucket}':`, publicData.publicUrl);
-            return publicData.publicUrl;
-          }
-        }
-      } catch (_) {}
-    }
-
-    // Tentativa defensiva de criar o bucket 'avatars' caso não exista
+    // 1. Upload da Foto do Perfil configurado para apontar estritamente para o bucket 'avatars'
     try {
-      await supabase.storage.createBucket('avatars', { public: true });
       const { data, error } = await supabase.storage
         .from('avatars')
         .upload(filePath, blob, {
@@ -2673,16 +2701,23 @@ export async function uploadEmployeePhotoToStorage(
           upsert: true,
         });
 
-      if (!error && data) {
+      // Validação estrita: captura o link público retornado via .getPublicUrl().data.publicUrl
+      if (!error && data && data.path) {
         const { data: publicData } = supabase.storage
           .from('avatars')
-          .getPublicUrl(filePath);
+          .getPublicUrl(data.path);
 
-        if (publicData?.publicUrl) {
-          return publicData.publicUrl;
+        const returnedUrl = publicData?.publicUrl?.trim();
+        if (returnedUrl && (returnedUrl.startsWith('http://') || returnedUrl.startsWith('https://'))) {
+          console.info(`✅ [Supabase Storage] Foto de perfil enviada com sucesso no bucket 'avatars':`, returnedUrl);
+          return returnedUrl;
         }
+      } else if (error) {
+        console.warn(`[Supabase Storage] Erro ao enviar foto para 'avatars':`, error.message);
       }
-    } catch (_) {}
+    } catch (uploadErr) {
+      console.warn(`[Supabase Storage] Exceção ao gravar foto em 'avatars':`, uploadErr);
+    }
 
     return null;
   } catch (err) {
@@ -2691,84 +2726,152 @@ export async function uploadEmployeePhotoToStorage(
   }
 }
 
-export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
-  if (!isSupabaseConfigured) return null;
-  const activeCompanyId = (companyId || getActiveCompanyId() || '').trim();
-
-  // Isolamento Estrito: Se não houver empresa ativa, retorna array vazio para impedir vazamento de dados
-  if (!activeCompanyId) return [];
+/**
+ * Upload de arquivos e anexos da Seção 4 apontando estritamente para o bucket 'documentos' no Supabase Storage.
+ * Captura a URL pública via .getPublicUrl().data.publicUrl
+ */
+export async function uploadEmployeeDocumentToStorage(
+  fileOrDataUrl: File | Blob | string | Uint8Array,
+  employeeId: string,
+  docType: string,
+  companyId?: string,
+  originalFileName?: string
+): Promise<string | null> {
+  if (!isSupabaseConfigured || !fileOrDataUrl) return null;
 
   try {
-    const validUuid = toValidUUID(activeCompanyId);
-    let data: any[] | null = null;
-    let error: any = null;
+    const validUuid = toValidUUID(employeeId) || employeeId;
+    const activeCid = companyId || getActiveCompanyId();
+    const cleanCid = activeCid ? toValidUUID(activeCid) || activeCid : 'geral';
 
-    // Filtra estritamente por company_id da empresa ativa (ID string e UUID equivalente)
-    // NUNCA incluir company_id.is.null
-    const filterConditions: string[] = [`company_id.eq.${activeCompanyId}`];
-    if (validUuid && validUuid !== activeCompanyId) {
-      filterConditions.push(`company_id.eq.${validUuid}`);
+    let blob: Blob;
+    let mimeType = 'application/pdf';
+    let fileExtension = '.pdf';
+
+    if (typeof fileOrDataUrl === 'string') {
+      if (fileOrDataUrl.startsWith('data:')) {
+        // Conversão direta de base64 em memória sem fetch() (previne bloqueio de CSP)
+        const parts = fileOrDataUrl.split(',');
+        const match = parts[0]?.match(/:(.*?);/);
+        mimeType = match ? match[1] : 'application/pdf';
+        if (mimeType.includes('pdf')) fileExtension = '.pdf';
+        else if (mimeType.includes('png')) fileExtension = '.png';
+        else if (mimeType.includes('webp')) fileExtension = '.webp';
+        else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) fileExtension = '.jpg';
+
+        const byteCharacters = atob(parts[1]);
+        const byteNumbers = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        blob = new Blob([byteNumbers], { type: mimeType });
+      } else if (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://')) {
+        return fileOrDataUrl;
+      } else {
+        return null;
+      }
+    } else if (fileOrDataUrl instanceof File) {
+      blob = fileOrDataUrl;
+      mimeType = fileOrDataUrl.type || 'application/pdf';
+      const nameParts = fileOrDataUrl.name.split('.');
+      if (nameParts.length > 1) {
+        fileExtension = '.' + nameParts.pop()?.toLowerCase();
+      }
+    } else if (fileOrDataUrl instanceof Blob) {
+      blob = fileOrDataUrl;
+      mimeType = fileOrDataUrl.type || 'application/pdf';
+      if (mimeType.includes('png')) fileExtension = '.png';
+      else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) fileExtension = '.jpg';
+      else if (mimeType.includes('pdf')) fileExtension = '.pdf';
+    } else if (fileOrDataUrl instanceof Uint8Array) {
+      blob = new Blob([fileOrDataUrl], { type: 'application/pdf' });
+    } else {
+      return null;
     }
 
+    const safeDocName = (originalFileName || docType || 'doc')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/\.[^/.]+$/, '');
+    const fileName = `${validUuid}_${docType}_${Date.now()}_${safeDocName}${fileExtension}`;
+    const filePath = `${cleanCid}/${fileName}`;
+
+    // Upload dos arquivos e anexos da Seção 4 apontando estritamente para o bucket 'documentos'
+    try {
+      const { data, error } = await supabase.storage
+        .from('documentos')
+        .upload(filePath, blob, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (!error && data && data.path) {
+        const { data: publicData } = supabase.storage
+          .from('documentos')
+          .getPublicUrl(data.path);
+
+        const returnedUrl = publicData?.publicUrl?.trim();
+        if (returnedUrl && (returnedUrl.startsWith('http://') || returnedUrl.startsWith('https://'))) {
+          console.info(`✅ [Supabase Storage] Documento (${docType}) enviado com sucesso no bucket 'documentos':`, returnedUrl);
+          return returnedUrl;
+        }
+      } else if (error) {
+        console.warn(`[Supabase Storage] Erro ao enviar anexo (${docType}) para 'documentos':`, error.message);
+      }
+    } catch (uploadErr) {
+      console.warn(`[Supabase Storage] Exceção ao gravar anexo em 'documentos':`, uploadErr);
+    }
+
+    return null;
+  } catch (err) {
+    console.warn(`[Supabase Storage] Exceção ao processar documento (${docType}):`, err);
+    return null;
+  }
+}
+
+export async function fetchRhFuncionarios(
+  companyId?: string,
+  authUserId?: string
+): Promise<Employee[]> {
+  if (!isSupabaseConfigured) return [];
+
+  // 1. Obtém o ID do usuário autenticado no sistema (auth.uid)
+  let currentUserId = authUserId;
+  if (!currentUserId) {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData?.user?.id;
+      if (!currentUserId) {
+        const { data: sessData } = await supabase.auth.getSession();
+        currentUserId = sessData?.session?.user?.id;
+      }
+    } catch (_) {}
+  }
+
+  // Elimina qualquer tentativa de buscar registros sem a cláusula de amarração do usuário ativo
+  if (!currentUserId) {
+    console.warn('[RH] Nenhum usuário autenticado detectado. Bloqueando query de rh_funcionarios.');
+    return [];
+  }
+
+  try {
+    // 2. Query estrita aplicando sempre o filtro do usuário ativo: .eq('user_id', currentUserId)
     const res = await supabase
       .from('rh_funcionarios')
       .select('*')
-      .or(filterConditions.join(','))
+      .eq('user_id', currentUserId)
       .order('name', { ascending: true });
 
-    data = res.data;
-    error = res.error;
-
-    // Se a coluna company_id não existir na tabela (PGRST204 / 42703), tenta por tenant_id ou user_id
-    if (error && (error.code === '42703' || error.message?.includes('company_id'))) {
-      const tenantRes = await supabase
-        .from('rh_funcionarios')
-        .select('*')
-        .eq('tenant_id', activeCompanyId)
-        .order('name', { ascending: true });
-
-      if (!tenantRes.error && Array.isArray(tenantRes.data)) {
-        data = tenantRes.data;
-        error = null;
-      } else {
-        const userRes = await supabase
-          .from('rh_funcionarios')
-          .select('*')
-          .eq('user_id', activeCompanyId)
-          .order('name', { ascending: true });
-
-        if (!userRes.error && Array.isArray(userRes.data)) {
-          data = userRes.data;
-          error = null;
-        }
-      }
-    }
-
-    // 2. Se a tabela 'rh_funcionarios' não existir (42P01), tenta 'funcionarios' com filtro estrito de company_id
-    if (error && (error.code === '42P01' || error.message?.includes('does not exist'))) {
-      const funcRes = await supabase
-        .from('funcionarios')
-        .select('*')
-        .eq('company_id', activeCompanyId)
-        .order('name', { ascending: true });
-      if (!funcRes.error && Array.isArray(funcRes.data)) {
-        return funcRes.data.map(mapRowToEmployee);
-      }
+    if (res.error) {
+      console.warn('Supabase fetchRhFuncionarios notice:', res.error.message);
       return [];
     }
 
-    if (error) {
-      console.warn('Supabase fetchRhFuncionarios notice:', error.message);
-      return [];
-    }
-
-    // Filtragem defensiva final em memória para garantia matemática de isolamento:
-    // Garante que APENAS registros do tenant ativo apareçam, limpando dados de terceiros
-    if (Array.isArray(data)) {
-      const strictlyFiltered = data.filter((row: any) => {
-        const rowCid = String(row.company_id || row.tenant_id || row.user_id || '').trim();
-        if (!rowCid) return false;
-        return rowCid === activeCompanyId || (validUuid && rowCid === validUuid);
+    if (Array.isArray(res.data)) {
+      // 3. Limpeza Imediata: Garante que apenas registros do usuário autenticado apareçam
+      const strictlyFiltered = res.data.filter((row: any) => {
+        const rowUid = String(row.user_id || '').trim();
+        return rowUid === currentUserId;
       });
       return strictlyFiltered.map(mapRowToEmployee);
     }
@@ -2784,39 +2887,26 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
  * Busca dados diretamente de 'public.rh_funcionarios' no Supabase,
  * aplicando filtro estrito por empresa e cargo 'Motorista'.
  */
-export async function fetchFleetDriversFromSupabase(companyId?: string): Promise<Employee[]> {
+export async function fetchFleetDriversFromSupabase(companyId?: string, authUserId?: string): Promise<Employee[]> {
   if (!isSupabaseConfigured) return [];
   try {
-    const activeCompanyId = (companyId || getActiveCompanyId() || '').trim();
-    if (!activeCompanyId) return [];
+    let currentUserId = authUserId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
+      } catch (_) {}
+    }
 
-    const validUuid = toValidUUID(activeCompanyId);
+    if (!currentUserId) return [];
+
     let query = supabase
       .from('rh_funcionarios')
       .select('*')
+      .eq('user_id', currentUserId)
       .or('role.eq.Motorista,role.ilike.%Motorista%');
 
-    if (validUuid && validUuid !== activeCompanyId) {
-      query = query.or(`company_id.eq.${activeCompanyId},company_id.eq.${validUuid}`);
-    } else {
-      query = query.eq('company_id', activeCompanyId);
-    }
-
     let { data, error } = await query.order('name', { ascending: true });
-
-    // Fallback por tenant_id caso company_id não exista
-    if (error && (error.code === '42703' || error.message?.includes('company_id'))) {
-      const tenantRes = await supabase
-        .from('rh_funcionarios')
-        .select('*')
-        .or('role.eq.Motorista,role.ilike.%Motorista%')
-        .eq('tenant_id', activeCompanyId)
-        .order('name', { ascending: true });
-      if (!tenantRes.error && Array.isArray(tenantRes.data)) {
-        data = tenantRes.data;
-        error = null;
-      }
-    }
 
     if (error) {
       console.warn('Supabase fetchFleetDriversFromSupabase notice:', error.message);
@@ -2825,9 +2915,8 @@ export async function fetchFleetDriversFromSupabase(companyId?: string): Promise
 
     if (Array.isArray(data)) {
       const strictlyFiltered = data.filter((row: any) => {
-        const rowCid = String(row.company_id || row.tenant_id || row.user_id || '').trim();
-        if (!rowCid) return false;
-        return rowCid === activeCompanyId || (validUuid && rowCid === validUuid);
+        const rowUid = String(row.user_id || '').trim();
+        return rowUid === currentUserId;
       });
       return strictlyFiltered.map(mapRowToEmployee);
     }
@@ -2841,8 +2930,7 @@ export async function fetchFleetDriversFromSupabase(companyId?: string): Promise
 /**
  * 1. SALVAMENTO DE MOTORISTAS (Persistência no Supabase):
  * Salva ou atualiza motorista diretamente em public.rh_funcionarios.
- * Mapeia todos os campos para as colunas físicas reais (driver_license, license_category, license_expiry, etc.),
- * garantindo ausência de propriedades locais que gerem erro HTTP 400 (Bad Request).
+ * Injeta obrigatoriamente user_id para satisfazer o RLS da tabela.
  */
 export async function saveFleetDriverToSupabase(
   driver: {
@@ -2856,14 +2944,25 @@ export async function saveFleetDriverToSupabase(
     status?: string;
     admissionDate?: string;
     companyId?: string;
+    userId?: string;
+    user_id?: string;
   },
-  companyId?: string
+  companyId?: string,
+  authUserId?: string
 ): Promise<{ success: boolean; data?: Employee; error?: any }> {
   if (!isSupabaseConfigured) return { success: false, error: 'Supabase não configurado' };
 
   try {
     const activeCompanyId = driver.companyId || companyId || getActiveCompanyId();
     const validId = driver.id ? toValidUUID(driver.id) : (crypto?.randomUUID ? crypto.randomUUID() : toValidUUID(`emp_drv_${Date.now()}`));
+
+    let effectiveUserId = authUserId || driver.userId || driver.user_id;
+    if (!effectiveUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        effectiveUserId = authData?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
+      } catch (_) {}
+    }
 
     // Tratamento rigoroso de datas (DATE em PostgreSQL requer 'YYYY-MM-DD' ou null; strings vazias geram erro 22007)
     const safeAdmission = formatIsoDateOnly(driver.admissionDate) || new Date().toISOString().split('T')[0];
@@ -2892,6 +2991,9 @@ export async function saveFleetDriverToSupabase(
       updated_at: new Date().toISOString(),
     };
 
+    if (effectiveUserId) {
+      payload.user_id = String(effectiveUserId).trim();
+    }
     if (activeCompanyId) {
       payload.company_id = String(activeCompanyId).trim();
     }
@@ -2940,11 +3042,35 @@ export async function deleteFleetDriverFromSupabase(
  * Caso a tabela física não possua colunas separadas para cada tipo de comissão,
  * adapta dinamicamente o envio para não quebrar a requisição.
  */
-export async function upsertRhFuncionario(employee: Employee, companyId?: string): Promise<boolean> {
+export async function upsertRhFuncionario(
+  employee: Employee,
+  companyId?: string,
+  authUserId?: string
+): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
-    const cleanPayload = sanitizeRhFuncionarioPayload(employee, activeCompanyId);
+
+    // 1. Injeção Obrigatória do ID do Usuário nos Cadastros (INSERT/PATCH) para satisfazer RLS (auth.uid() = user_id)
+    let effectiveUserId = authUserId || employee.userId || (employee as any).user_id;
+    if (!effectiveUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        effectiveUserId = authData?.user?.id;
+        if (!effectiveUserId) {
+          const { data: sessData } = await supabase.auth.getSession();
+          effectiveUserId = sessData?.session?.user?.id;
+        }
+      } catch (_) {}
+    }
+
+    // Se ainda assim não houver effectiveUserId, bloqueia salvamento pois o RLS rejeitaria
+    if (!effectiveUserId) {
+      console.warn('[RH] Impossível salvar funcionário: nenhum user_id autenticado disponível para o RLS.');
+      return false;
+    }
+
+    const cleanPayload = sanitizeRhFuncionarioPayload(employee, activeCompanyId, effectiveUserId);
     const validId = cleanPayload.id;
     const commPayload = getRhFuncionarioCommissionPayload(employee);
 
@@ -2968,6 +3094,9 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       : null;
 
     let payloadToSend: Record<string, any> = { ...cleanPayload };
+    if (effectiveUserId) {
+      payloadToSend.user_id = String(effectiveUserId).trim();
+    }
     if (hasRhCommissionColumns !== false) {
       payloadToSend = { ...payloadToSend, ...commPayload };
     }
@@ -2976,7 +3105,30 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
       payloadToSend.foto_url = cleanPhoto;
     }
 
+    // Remove qualquer objeto binário (File ou Blob cru) de dentro do payload final para evitar o erro 400
+    const cleanPayloadOfNonPrimitives = (obj: Record<string, any>): Record<string, any> => {
+      const result: Record<string, any> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (v === undefined) continue;
+        if (v instanceof File || v instanceof Blob || v instanceof Uint8Array) {
+          continue; // Remove qualquer objeto binário para evitar o erro 400
+        }
+        if (typeof v === 'function' || typeof v === 'symbol') {
+          continue;
+        }
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+          // Remove objetos complexos que não correspondam a colunas relacionais do banco
+          continue;
+        }
+        result[k] = v;
+      }
+      return result;
+    };
+
+    payloadToSend = cleanPayloadOfNonPrimitives(payloadToSend);
+
     // Função auxiliar para remover colunas que o banco não suporta dinamicamente
+    // PRESERVA ESTRITAMENTE user_id para não violar as regras de RLS do PostgreSQL
     const stripUnsupportedColumns = (err: any): boolean => {
       if (!err) return false;
       const msg = (err.message || '').toLowerCase();
@@ -2992,10 +3144,6 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
         }
         if (errStr.includes('tenant_id')) {
           delete payloadToSend.tenant_id;
-          changed = true;
-        }
-        if (errStr.includes('user_id')) {
-          delete payloadToSend.user_id;
           changed = true;
         }
         if (errStr.includes('avatar_url')) {
@@ -3014,9 +3162,9 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
           delete payloadToSend.recebe_comissao;
           changed = true;
         }
-        // Varredura genérica caso o erro cite qualquer outra chave
+        // Varredura genérica protegendo estritamente id e user_id
         for (const key of Object.keys(payloadToSend)) {
-          if (key !== 'id' && key !== 'name' && errStr.includes(key.toLowerCase())) {
+          if (key !== 'id' && key !== 'name' && key !== 'user_id' && errStr.includes(key.toLowerCase())) {
             delete payloadToSend[key];
             changed = true;
           }
@@ -3031,11 +3179,19 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     while (patchAttempts < 4) {
       patchAttempts++;
       const { id: _ignoredId, ...patchBody } = payloadToSend;
-      updateRes = await supabase
+      if (effectiveUserId) {
+        patchBody.user_id = String(effectiveUserId).trim();
+      }
+      let updateQuery = supabase
         .from('rh_funcionarios')
         .update(patchBody)
-        .eq('id', validId)
-        .select('id');
+        .eq('id', validId);
+
+      if (effectiveUserId) {
+        updateQuery = updateQuery.eq('user_id', String(effectiveUserId).trim());
+      }
+
+      updateRes = await updateQuery.select('id');
 
       if (!updateRes.error) {
         if (hasRhCommissionColumns === null) hasRhCommissionColumns = true;
@@ -3056,19 +3212,31 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     // Se houve erro de restrição de company_id (23503), remove company_id e tenta o update novamente
     if (updateRes?.error && (updateRes.error.code === '23503' || updateRes.error.message?.includes('company_id'))) {
       const { id: _ignoredId, company_id: _cid, ...patchWithoutCompany } = payloadToSend;
-      let retryUpdate = await supabase
+      if (effectiveUserId) {
+        patchWithoutCompany.user_id = String(effectiveUserId).trim();
+      }
+      let retryUpdateQuery = supabase
         .from('rh_funcionarios')
         .update(patchWithoutCompany)
-        .eq('id', validId)
-        .select('id');
+        .eq('id', validId);
+      if (effectiveUserId) {
+        retryUpdateQuery = retryUpdateQuery.eq('user_id', String(effectiveUserId).trim());
+      }
+      let retryUpdate = await retryUpdateQuery.select('id');
 
       if (retryUpdate.error && stripUnsupportedColumns(retryUpdate.error)) {
         const { id: _i2, company_id: _c2, ...cleanRetry } = payloadToSend;
-        retryUpdate = await supabase
+        if (effectiveUserId) {
+          cleanRetry.user_id = String(effectiveUserId).trim();
+        }
+        let cleanRetryQuery = supabase
           .from('rh_funcionarios')
           .update(cleanRetry)
-          .eq('id', validId)
-          .select('id');
+          .eq('id', validId);
+        if (effectiveUserId) {
+          cleanRetryQuery = cleanRetryQuery.eq('user_id', String(effectiveUserId).trim());
+        }
+        retryUpdate = await cleanRetryQuery.select('id');
       }
       if (!retryUpdate.error && Array.isArray(retryUpdate.data) && retryUpdate.data.length > 0) {
         return true;
@@ -3080,6 +3248,9 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     let upsertAttempts = 0;
     while (upsertAttempts < 4) {
       upsertAttempts++;
+      if (effectiveUserId) {
+        payloadToSend.user_id = String(effectiveUserId).trim();
+      }
       upsertRes = await supabase
         .from('rh_funcionarios')
         .upsert(payloadToSend, { onConflict: 'id' });
@@ -3099,12 +3270,18 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     // Se o upsert falhou por restrição de company_id
     if (upsertRes.error && (upsertRes.error.code === '23503' || upsertRes.error.message?.includes('company_id'))) {
       const { company_id: _cid, ...cleanWithoutCompany } = payloadToSend;
+      if (effectiveUserId) {
+        cleanWithoutCompany.user_id = String(effectiveUserId).trim();
+      }
       let retryUpsert = await supabase
         .from('rh_funcionarios')
         .upsert(cleanWithoutCompany, { onConflict: 'id' });
 
       if (retryUpsert.error && stripUnsupportedColumns(retryUpsert.error)) {
         const { company_id: _c2, ...baseWithoutCompany } = payloadToSend;
+        if (effectiveUserId) {
+          baseWithoutCompany.user_id = String(effectiveUserId).trim();
+        }
         retryUpsert = await supabase
           .from('rh_funcionarios')
           .upsert(baseWithoutCompany, { onConflict: 'id' });
@@ -3129,18 +3306,33 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
   }
 }
 
-export async function deleteRhFuncionario(id: string, _companyId?: string): Promise<boolean> {
+export async function deleteRhFuncionario(id: string, _companyId?: string, authUserId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !id) return false;
   try {
     const uuid = toValidUUID(id);
 
-    // Chama explicitamente o método .delete().eq('id', ...) do Supabase sem disparar nenhum insert ou upsert
+    let effectiveUserId = authUserId;
+    if (!effectiveUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        effectiveUserId = authData?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
+      } catch (_) {}
+    }
+
+    // Chama explicitamente o método .delete().eq('id', ...) do Supabase com escopo de user_id
     let query = supabase.from('rh_funcionarios').delete().eq('id', uuid);
+    if (effectiveUserId) {
+      query = query.eq('user_id', effectiveUserId);
+    }
     const res = await query;
 
     // Se o ID original for diferente do UUID formatado, tenta deletar também pelo ID original
     if (id !== uuid) {
-      await supabase.from('rh_funcionarios').delete().eq('id', id);
+      let q2 = supabase.from('rh_funcionarios').delete().eq('id', id);
+      if (effectiveUserId) {
+        q2 = q2.eq('user_id', effectiveUserId);
+      }
+      await q2;
     }
 
     // Se a tabela 'rh_funcionarios' não existir (42P01), tenta em 'funcionarios'
