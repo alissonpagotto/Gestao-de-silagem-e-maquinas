@@ -618,7 +618,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       const enriched = rawItems.map(it => {
         const prodId = String(it.produto_id || '').trim();
         const validProdUuid = prodId ? toValidUUID(prodId) : '';
-        const matchedProd = estoqueList.find(
+        const matchedProd = allProducts.find(
           p =>
             p.id === prodId ||
             (validProdUuid && toValidUUID(p.id) === validProdUuid) ||
@@ -688,7 +688,7 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
         return cmpNum(a.produto_nome || '', b.produto_nome || '');
       });
     },
-    [estoqueList]
+    [allProducts]
   );
 
   // Gera o HTML autônomo e limpo do Cupom de Retirada / Lista de Separação para o Almoxarifado (A4)
@@ -1386,10 +1386,11 @@ export const AlmoxarifadoModule: React.FC<AlmoxarifadoModuleProps> = ({
       return g.items.some(
         it =>
           String(it.produto_nome || '').toLowerCase().includes(q) ||
-          String(it.produto_codigo ?? '').toLowerCase().includes(q)
+          String(it.produto_codigo ?? '').toLowerCase().includes(q) ||
+          String(it.endereco_formatado ?? '').toLowerCase().includes(q)
       );
     });
-  }, [retiradasPecas, frotasList, pecaSearchFilter]);
+  }, [retiradasPecas, frotasList, pecaSearchFilter, enrichAndSortItemsByPickingRoute]);
 
   // =========================================================================
   // ESTADOS DA ABA 2: MOVIMENTAÇÃO E CAUTELA DE FERRAMENTAS
