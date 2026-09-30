@@ -30,8 +30,11 @@ import {
   getStoredMedicalCertificates, 
   saveStoredMedicalCertificates, 
   getStoredAbsences, 
-  saveStoredAbsences 
+  saveStoredAbsences,
+  getActiveCompanyId
 } from '../../lib/storage';
+import { toValidUUID } from '../../lib/supabaseService';
+import { useAuth } from '../../context/AuthContext';
 import { RHDashboardTab } from './RHDashboardTab';
 import { PayrollTab } from './PayrollTab';
 import { VacationsTab } from './VacationsTab';
@@ -150,12 +153,52 @@ export const RHModule: React.FC<RHModuleProps> = ({
     }
   };
 
+  const { currentUser, companyId: authCompanyId } = useAuth();
+
+  // Isolamento estrito de tenant: filtra para que todas as abas do RH exibam APENAS o assinante ativo
+  const activeTenantId = useMemo(() => {
+    return authCompanyId || companyProfile?.id || companyProfile?.companyId || getActiveCompanyId();
+  }, [authCompanyId, companyProfile]);
+
+  const tenantEmployees = useMemo(() => {
+    const validTenantIds = new Set<string>();
+    if (activeTenantId && activeTenantId !== 'default') {
+      validTenantIds.add(activeTenantId);
+      const u = toValidUUID(activeTenantId);
+      if (u) validTenantIds.add(u);
+    }
+    if (currentUser?.id) {
+      validTenantIds.add(currentUser.id);
+      const u = toValidUUID(currentUser.id);
+      if (u) validTenantIds.add(u);
+    }
+    if (authCompanyId && authCompanyId !== 'default') {
+      validTenantIds.add(authCompanyId);
+      const u = toValidUUID(authCompanyId);
+      if (u) validTenantIds.add(u);
+    }
+    const fallbackCid = getActiveCompanyId();
+    if (fallbackCid && fallbackCid !== 'default') {
+      validTenantIds.add(fallbackCid);
+      const u = toValidUUID(fallbackCid);
+      if (u) validTenantIds.add(u);
+    }
+
+    if (validTenantIds.size === 0) return employees;
+
+    return employees.filter(emp => {
+      const empCid = String(emp.companyId || (emp as any).company_id || (emp as any).tenant_id || (emp as any).user_id || '').trim();
+      if (!empCid) return false;
+      return validTenantIds.has(empCid);
+    });
+  }, [employees, activeTenantId, currentUser?.id, authCompanyId]);
+
   // Ordenação automática e permanente de A a Z dos colaboradores para o RH
   const sortedEmployees = useMemo(() => {
-    return [...employees].sort((a, b) => 
+    return [...tenantEmployees].sort((a, b) => 
       (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
     );
-  }, [employees]);
+  }, [tenantEmployees]);
 
   // Payslip Modal State
   const [viewingPayslip, setViewingPayslip] = useState<PayrollRecord | null>(null);
@@ -387,6 +430,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {activeTab === 'funcionarios' && (
         <EmployeesModule
           employees={sortedEmployees}
+          companyProfile={companyProfile}
           onSaveEmployees={onSaveEmployees}
           onDeleteEmployee={onDeleteEmployee}
           externalNewEmployeeTrigger={externalNewEmployeeTrigger}

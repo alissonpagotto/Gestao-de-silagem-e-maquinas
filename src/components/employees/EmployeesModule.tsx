@@ -27,13 +27,15 @@ import {
   FileCheck,
   Paperclip,
   MapPin,
-  Loader2
+  Loader2,
+  Move
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getStoredEmployees, getActiveCompanyId } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 import { ManageableDropdown } from '../common/ManageableDropdown';
 import { RoleSelectDropdown } from './RoleSelectDropdown';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
@@ -43,6 +45,7 @@ import { PrintDocumentOptions } from '../../lib/printService';
 import { PrintableEmployeeSheet } from './PrintableEmployeeSheet';
 import { generateEmployeeSheetHtml, generateEmployeeWhatsAppText } from './employeePrintUtils';
 import { EmployeeAvatar, isBrokenAvatarUrl } from '../common/EmployeeAvatar';
+import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
 
 
 const STORAGE_KEYS = {
@@ -99,6 +102,7 @@ const DEFAULT_CONTRACT_TYPES = [
 
 interface EmployeesModuleProps {
   employees: Employee[];
+  companyProfile?: CompanyProfile;
   onSaveEmployees: (employees: Employee[]) => void;
   onDeleteEmployee?: (id: string) => Promise<void> | void;
   externalNewEmployeeTrigger?: number;
@@ -107,22 +111,68 @@ interface EmployeesModuleProps {
 
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   employees,
+  companyProfile,
   onSaveEmployees,
   onDeleteEmployee,
   externalNewEmployeeTrigger,
   externalPrintEmployeesTrigger,
 }) => {
   const { confirm } = useConfirm();
+  const { currentUser, activeCompanyId: authCompanyId } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [rawCropImageSrc, setRawCropImageSrc] = useState<string | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [singleEmployeePrintOptions, setSingleEmployeePrintOptions] = useState<PrintDocumentOptions | null>(null);
   const [isSingleEmployeePrintOpen, setIsSingleEmployeePrintOpen] = useState(false);
 
+  // Tenant / Empresa Ativa para isolamento estrito
+  const currentTenantId = useMemo(() => {
+    return authCompanyId || companyProfile?.id || companyProfile?.companyId || getActiveCompanyId();
+  }, [authCompanyId, companyProfile]);
+
+  // Função estrita de validação de isolamento por assinante (NUNCA permite dados de terceiros)
+  const isEmployeeOfCurrentTenant = React.useCallback((emp: Partial<Employee>) => {
+    const validTenantIds = new Set<string>();
+    if (currentTenantId && currentTenantId !== 'default') {
+      validTenantIds.add(currentTenantId);
+      const u = toValidUUID(currentTenantId);
+      if (u) validTenantIds.add(u);
+    }
+    if (currentUser?.id) {
+      validTenantIds.add(currentUser.id);
+      const u = toValidUUID(currentUser.id);
+      if (u) validTenantIds.add(u);
+    }
+    if (authCompanyId && authCompanyId !== 'default') {
+      validTenantIds.add(authCompanyId);
+      const u = toValidUUID(authCompanyId);
+      if (u) validTenantIds.add(u);
+    }
+    const fallbackCid = getActiveCompanyId();
+    if (fallbackCid && fallbackCid !== 'default') {
+      validTenantIds.add(fallbackCid);
+      const u = toValidUUID(fallbackCid);
+      if (u) validTenantIds.add(u);
+    }
+
+    if (validTenantIds.size === 0) return true;
+
+    const empCid = String(emp.companyId || (emp as any).company_id || (emp as any).tenant_id || (emp as any).user_id || '').trim();
+    if (!empCid) {
+      // Sem identificador de assinante: descarta para impedir vazamento de dados de outros usuários
+      return false;
+    }
+    return validTenantIds.has(empCid);
+  }, [currentTenantId, currentUser?.id, authCompanyId]);
+
   // State for single-employee printable sheet
   const [employeeToPrint, setEmployeeToPrint] = useState<Partial<Employee> | null>(null);
 
-  const activeCompany = useMemo(() => getStoredCompanyProfile(), []);
+  const activeCompany = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -302,18 +352,38 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [generalDocs, setGeneralDocs] = useState<EmployeeAttachment | null>(null);
   const [signedRegistrationDoc, setSignedRegistrationDoc] = useState<EmployeeAttachment | null>(null);
 
-  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(() => {
+    return (employees || []).filter(isEmployeeOfCurrentTenant);
+  });
 
   useEffect(() => {
     if (employees) {
-      setLocalEmployees(employees);
+      setLocalEmployees(employees.filter(isEmployeeOfCurrentTenant));
     }
-  }, [employees]);
+  }, [employees, isEmployeeOfCurrentTenant]);
 
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
+
+    // Limpeza imediata de dados de terceiros da tela e carregamento inicial do tenant ativo
+    setLocalEmployees(prev => {
+      const filtered = prev.filter(isEmployeeOfCurrentTenant);
+      if (filtered.length !== prev.length) {
+        saveStoredEmployees(filtered);
+      }
+      return filtered;
+    });
+
+    fetchRhFuncionarios(currentTenantId).then(fresh => {
+      if (isMounted && fresh && Array.isArray(fresh)) {
+        const strictlyFiltered = fresh.filter(isEmployeeOfCurrentTenant);
+        setLocalEmployees(strictlyFiltered);
+        saveStoredEmployees(strictlyFiltered);
+        if (onSaveEmployees) onSaveEmployees(strictlyFiltered);
+      }
+    }).catch(() => {});
 
     const channelId = `employees_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
@@ -324,7 +394,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         async (payload: any) => {
           console.info('📡 [Realtime RH - Funcionários] Alteração em rh_funcionarios:', payload.eventType, payload);
 
-          // 1. Atualização de estado imediata sem delay (Zero delay)
+          // 1. ISOLAMENTO ESTRITO POR ASSINANTE:
+          // Se o evento recebido for de outra empresa/tenant, descarta imediatamente sem tocar na tela
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new;
+            if (row) {
+              const dummyEmp: Partial<Employee> = {
+                id: row.id,
+                companyId: row.company_id || row.tenant_id || row.user_id,
+                ...row,
+              };
+              if (!isEmployeeOfCurrentTenant(dummyEmp)) {
+                // Outro assinante - descarta silenciosamente para preservar isolamento total
+                return;
+              }
+            }
+          }
+
+          // 2. Atualização de estado imediata sem delay (Zero delay)
           if (payload.eventType === 'DELETE') {
             const deletedId = payload.old?.id;
             if (deletedId) {
@@ -337,10 +424,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             }
           } else if (payload.eventType === 'INSERT' && payload.new) {
             const mapped = mapRowToEmployee(payload.new);
+            // Sincronização imediata da imagem em tempo real:
+            const livePhoto = payload.new.foto_url || payload.new.avatar_url || payload.new.photo_url || payload.new.photoUrl;
+            if (livePhoto) {
+              mapped.photoUrl = String(livePhoto).trim();
+              mapped.foto_url = String(livePhoto).trim();
+              (mapped as any).avatar_url = String(livePhoto).trim();
+            }
+
             setLocalEmployees(prev => {
-              const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
+              const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id || toValidUUID(e.id) === toValidUUID(mapped.id));
               const updated = exists
-                ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
+                ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id || toValidUUID(e.id) === toValidUUID(mapped.id)) ? { ...e, ...mapped } : e)
                 : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
               saveStoredEmployees(updated);
               if (onSaveEmployees) onSaveEmployees(updated);
@@ -348,21 +443,41 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             });
           } else if (payload.eventType === 'UPDATE' && payload.new) {
             const mapped = mapRowToEmployee(payload.new);
+            // Sincronização imediata da imagem em tempo real para todos os aparelhos:
+            const livePhoto = payload.new.foto_url || payload.new.avatar_url || payload.new.photo_url || payload.new.photoUrl;
+            if (livePhoto) {
+              mapped.photoUrl = String(livePhoto).trim();
+              mapped.foto_url = String(livePhoto).trim();
+              (mapped as any).avatar_url = String(livePhoto).trim();
+            }
+
             setLocalEmployees(prev => {
-              const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
+              const updated = prev.map(e => {
+                if (e.id === mapped.id || toValidUUID(e.id) === mapped.id || toValidUUID(e.id) === toValidUUID(mapped.id)) {
+                  return {
+                    ...e,
+                    ...mapped,
+                    photoUrl: mapped.photoUrl || e.photoUrl,
+                    foto_url: mapped.foto_url || e.foto_url,
+                    avatar_url: (mapped as any).avatar_url || (e as any).avatar_url || mapped.photoUrl || e.photoUrl,
+                  };
+                }
+                return e;
+              });
               saveStoredEmployees(updated);
               if (onSaveEmployees) onSaveEmployees(updated);
               return updated;
             });
           }
 
-          // 2. Reconciliação completa com o banco para garantir todos os campos relacionais
+          // 3. Reconciliação completa com o banco usando SEMPRE o tenant_id ativo
           try {
-            const fresh = await fetchRhFuncionarios();
+            const fresh = await fetchRhFuncionarios(currentTenantId);
             if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalEmployees(fresh);
-              saveStoredEmployees(fresh);
-              if (onSaveEmployees) onSaveEmployees(fresh);
+              const strictlyFiltered = fresh.filter(isEmployeeOfCurrentTenant);
+              setLocalEmployees(strictlyFiltered);
+              saveStoredEmployees(strictlyFiltered);
+              if (onSaveEmployees) onSaveEmployees(strictlyFiltered);
             }
           } catch (err) {
             console.warn('Erro ao sincronizar funcionários em tempo real:', err);
@@ -374,11 +489,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         { event: '*', schema: 'public', table: 'funcionarios' },
         async () => {
           try {
-            const fresh = await fetchRhFuncionarios();
+            const fresh = await fetchRhFuncionarios(currentTenantId);
             if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalEmployees(fresh);
-              saveStoredEmployees(fresh);
-              if (onSaveEmployees) onSaveEmployees(fresh);
+              const strictlyFiltered = fresh.filter(isEmployeeOfCurrentTenant);
+              setLocalEmployees(strictlyFiltered);
+              saveStoredEmployees(strictlyFiltered);
+              if (onSaveEmployees) onSaveEmployees(strictlyFiltered);
             }
           } catch (_) {}
         }
@@ -388,11 +504,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
     const handleFocus = async () => {
       try {
-        const fresh = await fetchRhFuncionarios();
+        const fresh = await fetchRhFuncionarios(currentTenantId);
         if (isMounted && fresh && Array.isArray(fresh)) {
-          setLocalEmployees(fresh);
-          saveStoredEmployees(fresh);
-          if (onSaveEmployees) onSaveEmployees(fresh);
+          const strictlyFiltered = fresh.filter(isEmployeeOfCurrentTenant);
+          setLocalEmployees(strictlyFiltered);
+          saveStoredEmployees(strictlyFiltered);
+          if (onSaveEmployees) onSaveEmployees(strictlyFiltered);
         }
       } catch (_) {}
     };
@@ -405,7 +522,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       document.removeEventListener('visibilitychange', handleFocus);
       supabase.removeChannel(channel);
     };
-  }, [onSaveEmployees]);
+  }, [currentTenantId, currentUser?.id, isEmployeeOfCurrentTenant, onSaveEmployees]);
 
   const cnhReport = checkCnhStatus(localEmployees);
 
@@ -415,6 +532,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const seen = new Set<string>();
     const deduplicated: Employee[] = [];
     for (const emp of localEmployees) {
+      if (!isEmployeeOfCurrentTenant(emp)) continue;
       const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -459,6 +577,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setBirthDate('');
     setPis('');
     setPhotoUrl('');
+    setSelectedPhotoFile(null);
     setPhone('');
     setBaseSalary('0,00');
     setContractType('Registrado (CLT)');
@@ -537,7 +656,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setRg((emp.rg || '').toUpperCase());
     setBirthDate(emp.birthDate || '');
     setPis((emp.pis || '').toUpperCase());
-    setPhotoUrl(emp.photoUrl && !isBrokenAvatarUrl(emp.photoUrl) ? emp.photoUrl : '');
+    const existingPhoto = emp.photoUrl || emp.foto_url || (emp as any).avatar_url;
+    setPhotoUrl(existingPhoto && !isBrokenAvatarUrl(existingPhoto) ? existingPhoto : '');
+    setSelectedPhotoFile(null);
     setPhone(emp.phone || '');
     setBaseSalary(emp.baseSalary !== undefined ? formatCurrencyInputDisplay(emp.baseSalary) : (emp.salary !== undefined ? formatCurrencyInputDisplay(emp.salary) : '0,00'));
     setContractType(emp.contractType || (emp as any).regime || 'Registrado (CLT)');
@@ -697,19 +818,87 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     handleOpenEmployeePrint(snapshot);
   };
 
-  // Profile Photo Upload Handler
+  // Profile Photo Upload Handler - Abre a ferramenta de ajuste interativo de foto
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('A foto deve ter no máximo 5MB.');
+    if (file.size > 12 * 1024 * 1024) {
+      alert('A foto deve ter no máximo 12MB.');
       return;
     }
     const reader = new FileReader();
     reader.onload = (event) => {
-      setPhotoUrl(event.target?.result as string);
+      const src = event.target?.result as string;
+      if (src) {
+        setRawCropImageSrc(src);
+        setIsCropModalOpen(true);
+      }
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmCroppedPhoto = async ({
+    file,
+    previewUrl,
+    publicUrl,
+  }: {
+    file: File;
+    previewUrl: string;
+    publicUrl?: string;
+  }) => {
+    const finalPhoto = (publicUrl && publicUrl.startsWith('http')) ? publicUrl : previewUrl;
+    setSelectedPhotoFile(file);
+    setPhotoUrl(finalPhoto);
+    setIsCropModalOpen(false);
+
+    // Se estiver editando um colaborador existente, atualiza a tela na hora sem F5
+    const empId = editingEmployee?.id;
+    if (empId) {
+      // 1. Atualiza lista local na tela de RH imediatamente
+      setLocalEmployees(prev =>
+        prev.map(emp => {
+          if (emp.id === empId) {
+            return {
+              ...emp,
+              photoUrl: finalPhoto,
+              foto_url: finalPhoto,
+              avatar_url: finalPhoto,
+            };
+          }
+          return emp;
+        })
+      );
+
+      // 2. Atualiza storage local
+      try {
+        const stored = getStoredEmployees();
+        const updated = stored.map(emp => {
+          if (emp.id === empId) {
+            return {
+              ...emp,
+              photoUrl: finalPhoto,
+              foto_url: finalPhoto,
+              avatar_url: finalPhoto,
+            };
+          }
+          return emp;
+        });
+        saveStoredEmployees(updated);
+
+        // 3. Notifica o handler de salvamento global para sincronizar
+        if (onSaveEmployees) {
+          onSaveEmployees(updated);
+        }
+      } catch (_) {}
+    }
+  };
+
+  const handleAdjustCurrentPhoto = () => {
+    if (photoUrl) {
+      setRawCropImageSrc(photoUrl);
+      setIsCropModalOpen(true);
+    }
   };
 
   // Document Upload Handler
@@ -825,8 +1014,33 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       // Garante ID único estável e nunca undefined
       const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
 
+      let finalPhotoUrl = photoUrl;
+
+      // 1. Upload da foto processada para o Storage do Supabase (bucket de avatares/funcionários)
+      if (selectedPhotoFile || (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:')))) {
+        setIsUploadingPhoto(true);
+        try {
+          const toUpload = selectedPhotoFile || photoUrl;
+          const uploadedStorageUrl = await uploadEmployeePhotoToStorage(toUpload!, finalId, currentTenantId);
+          if (uploadedStorageUrl && uploadedStorageUrl.startsWith('http')) {
+            finalPhotoUrl = uploadedStorageUrl;
+            setPhotoUrl(uploadedStorageUrl);
+          }
+        } catch (photoErr) {
+          console.warn('Erro ao enviar foto para o Supabase Storage:', photoErr);
+        } finally {
+          setIsUploadingPhoto(false);
+        }
+      }
+
+      const isHttpPhoto = Boolean(finalPhotoUrl && (finalPhotoUrl.startsWith('http://') || finalPhotoUrl.startsWith('https://')) && !isBrokenAvatarUrl(finalPhotoUrl));
+      const cleanPhoto = (finalPhotoUrl && finalPhotoUrl.trim() && !isBrokenAvatarUrl(finalPhotoUrl))
+        ? finalPhotoUrl.trim()
+        : undefined;
+
       const employeeData: Employee = {
         id: finalId,
+        companyId: currentTenantId,
         name: name.trim().toUpperCase(),
         registrationType: finalRegType,
         role: finalRole,
@@ -838,7 +1052,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
         birthDate: formattedBirthDate,
         pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
-        photoUrl: photoUrl || undefined,
+        photoUrl: cleanPhoto,
+        foto_url: isHttpPhoto ? finalPhotoUrl.trim() : undefined,
         phone: phone.trim(),
         baseSalary: parsedSalary,
         salary: parsedSalary,
@@ -893,6 +1108,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           employeeData
         });
       }
+      setSelectedPhotoFile(null);
       setIsModalOpen(false);
     } finally {
       setIsSubmitting(false);
@@ -1184,7 +1400,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   <td className="py-3.5 px-4">
                     <div className="flex items-center space-x-3">
                       <EmployeeAvatar
-                        photoUrl={emp.photoUrl}
+                        photoUrl={emp.photoUrl || emp.foto_url || (emp as any).avatar_url}
                         name={emp.name}
                         size="sm"
                         className="shrink-0 rounded-xl"
@@ -1383,17 +1599,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   
                   {/* Photo Upload Thumbnail */}
                   <div className="sm:col-span-3 flex flex-col items-center justify-center p-3 border border-dashed border-stone-300 rounded-xl bg-white text-center">
-                    {photoUrl && !isBrokenAvatarUrl(photoUrl) ? (
+                    {isUploadingPhoto ? (
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-sky-50 border-2 border-dashed border-[#0963cb] flex flex-col items-center justify-center text-[#0963cb]">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-[9px] font-bold mt-1">Enviando...</span>
+                      </div>
+                    ) : photoUrl && !isBrokenAvatarUrl(photoUrl) ? (
                       <div className="relative group">
                         <img 
                           src={photoUrl} 
                           alt="Foto Perfil" 
                           className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-[#0963cb] shadow-sm"
-                          onError={() => setPhotoUrl('')}
+                          onError={() => {
+                            setPhotoUrl('');
+                            setSelectedPhotoFile(null);
+                          }}
                         />
                         <button
                           type="button"
-                          onClick={() => setPhotoUrl('')}
+                          onClick={() => {
+                            setPhotoUrl('');
+                            setSelectedPhotoFile(null);
+                          }}
                           className="absolute -top-1 -right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-sm cursor-pointer"
                           title="Remover foto"
                         >
@@ -1406,17 +1633,32 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       </div>
                     )}
 
-                    <label className="mt-2.5 inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold text-[#0963cb] bg-[#0963cb]/10 hover:bg-[#0963cb]/20 rounded-lg cursor-pointer transition">
-                      <Camera className="w-3 h-3" />
-                      <span>{photoUrl ? 'Alterar foto' : 'Upload de Foto'}</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handlePhotoUpload}
-                      />
-                    </label>
-                    <span className="text-[10px] text-stone-600 mt-1">JPG ou PNG até 5MB</span>
+                    <div className="flex flex-col items-center space-y-1.5 mt-2.5">
+                      <div className="flex items-center space-x-1.5">
+                        <label className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold text-[#0963cb] bg-[#0963cb]/10 hover:bg-[#0963cb]/20 rounded-lg cursor-pointer transition">
+                          <Camera className="w-3 h-3" />
+                          <span>{photoUrl ? 'Trocar' : 'Upload'}</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handlePhotoUpload}
+                          />
+                        </label>
+                        {photoUrl ? (
+                          <button
+                            type="button"
+                            onClick={handleAdjustCurrentPhoto}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg cursor-pointer transition"
+                            title="Ajustar posição e zoom da foto"
+                          >
+                            <Move className="w-3 h-3 text-emerald-600" />
+                            <span>Ajustar</span>
+                          </button>
+                        ) : null}
+                      </div>
+                      <span className="text-[10px] text-stone-600">JPG ou PNG</span>
+                    </div>
                   </div>
 
                   {/* Basic fields in grid */}
@@ -2302,11 +2544,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isUploadingPhoto}
                     className="px-6 py-2 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 min-w-[140px]"
                   >
-                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin text-white" />}
-                    <span>{isSubmitting ? 'Salvando...' : (editingEmployee ? 'Salvar Alterações' : 'Cadastrar Colaborador')}</span>
+                    {(isSubmitting || isUploadingPhoto) && <Loader2 className="w-4 h-4 animate-spin text-white" />}
+                    <span>{isUploadingPhoto ? 'Enviando foto...' : isSubmitting ? 'Salvando...' : (editingEmployee ? 'Salvar Alterações' : 'Cadastrar Colaborador')}</span>
                   </button>
                 </div>
               </div>
@@ -2366,6 +2608,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             setRole2(selectedRole);
           }
         }}
+      />
+
+      {/* Modal Interativo de Ajuste e Enquadramento de Foto */}
+      <EmployeePhotoCropModal
+        isOpen={isCropModalOpen}
+        imageSrc={rawCropImageSrc}
+        employeeId={editingEmployee?.id}
+        employeeName={editingEmployee?.name || name}
+        companyId={currentTenantId}
+        onClose={() => setIsCropModalOpen(false)}
+        onConfirm={handleConfirmCroppedPhoto}
       />
 
     </div>

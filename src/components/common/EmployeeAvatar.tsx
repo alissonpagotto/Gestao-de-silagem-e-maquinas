@@ -14,9 +14,7 @@ export function isBrokenAvatarUrl(url?: string | null): boolean {
     trimmed === 'undefined' ||
     trimmed.includes('wix_mp.com') ||
     trimmed.includes('wix_mp') ||
-    trimmed.includes('static.wixstatic.com') ||
-    trimmed.includes('/_upload/') ||
-    trimmed.includes('/upload/')
+    trimmed.includes('static.wixstatic.com')
   ) {
     return true;
   }
@@ -49,6 +47,10 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
   showInitials = false,
 }) => {
   const [hasError, setHasError] = useState(false);
+
+  React.useEffect(() => {
+    setHasError(false);
+  }, [photoUrl]);
 
   // Tamanhos pré-configurados
   const sizeClasses: Record<string, { container: string; icon: string; text: string }> = {

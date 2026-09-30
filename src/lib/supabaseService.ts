@@ -20,7 +20,8 @@ import {
   TanqueCombustivel,
   RetiradaPecaRecord,
   MovimentacaoFerramentaRecord,
-  CaixaFerramentaVeiculoRecord
+  CaixaFerramentaVeiculoRecord,
+  MaintenanceLog
 } from '../types';
 export type {
   CompanyProfile,
@@ -2426,13 +2427,31 @@ export function mapRowToEmployee(row: any): Employee {
     bankAccount: row.bank_account || row.conta || undefined,
     photoUrl: (() => {
       const raw = row.photo_url || row.photoUrl || row.foto_url || row.fotoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
-      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com') && !raw.includes('/_upload/') && !raw.includes('/upload/')) ? raw.trim() : undefined;
+      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
     foto_url: (() => {
-      const raw = row.photo_url || row.photoUrl || row.foto_url || row.fotoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
-      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com') && !raw.includes('/_upload/') && !raw.includes('/upload/')) ? raw.trim() : undefined;
+      const raw = row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
+      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
+    })(),
+    avatar_url: (() => {
+      const raw = row.avatar_url || row.avatarUrl || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
+      return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
   };
+}
+
+export function isBrokenAvatarUrl(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return true;
+  const trimmed = url.trim().toLowerCase();
+  return (
+    !trimmed ||
+    trimmed === 'null' ||
+    trimmed === 'undefined' ||
+    trimmed === 'none' ||
+    trimmed.includes('undefined') ||
+    trimmed.includes('wix_mp.com') ||
+    trimmed.includes('static.wixstatic.com')
+  );
 }
 
 /**
@@ -2459,6 +2478,7 @@ export function sanitizeRhFuncionarioPayload(
   license_category: string;
   license_expiry: string | null;
   company_id: string | null;
+  user_id?: string | null;
   updated_at: string;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
@@ -2491,6 +2511,7 @@ export function sanitizeRhFuncionarioPayload(
     license_category: String(employee.cnhCategory || employee.license_category || employee.cnh_categoria || '').trim(),
     license_expiry: licenseExpiryIso || null,
     company_id: activeCompanyId ? String(activeCompanyId).trim() : null,
+    user_id: activeCompanyId ? String(activeCompanyId).trim() : null,
     updated_at: new Date().toISOString()
   };
 }
@@ -2540,66 +2561,216 @@ export function getRhFuncionarioCommissionPayload(
 }
 
 let hasRhCommissionColumns: boolean | null = null;
+let hasRhFotoUrlColumn: boolean | null = null;
+let hasRhAvatarUrlColumn: boolean | null = null;
+let hasRhPhotoUrlColumn: boolean | null = null;
 
 export function resetRhCommissionColumnsCache(): void {
   hasRhCommissionColumns = null;
+  hasRhFotoUrlColumn = null;
+  hasRhAvatarUrlColumn = null;
+  hasRhPhotoUrlColumn = null;
+}
+
+/**
+ * Realiza upload da foto de perfil do funcionário para o Supabase Storage (bucket de avatares/fotos).
+ * Retorna a URL pública direta da imagem gerada pelo Supabase.
+ */
+export async function uploadEmployeePhotoToStorage(
+  fileOrDataUrl: File | Blob | string,
+  employeeId: string,
+  companyId?: string
+): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+
+  try {
+    // 1. Se já for uma URL HTTP pública válida (e não data: ou blob:), retorna diretamente
+    if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://'))) {
+      if (!fileOrDataUrl.includes('wix_mp.com') && !fileOrDataUrl.includes('static.wixstatic.com')) {
+        return fileOrDataUrl.trim();
+      }
+      return null;
+    }
+
+    const activeCid = (companyId || getActiveCompanyId() || '').trim() || 'geral';
+    const validUuid = toValidUUID(employeeId) || employeeId || `emp_${Date.now()}`;
+    const cleanCid = activeCid.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    let blob: Blob;
+    let mimeType = 'image/jpeg';
+    let fileExtension = '.jpg';
+
+    if (typeof fileOrDataUrl !== 'string') {
+      blob = fileOrDataUrl;
+      mimeType = (fileOrDataUrl as any).type || 'image/jpeg';
+      if (mimeType.includes('png')) fileExtension = '.png';
+      else if (mimeType.includes('webp')) fileExtension = '.webp';
+      else if (mimeType.includes('gif')) fileExtension = '.gif';
+    } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+      const parts = fileOrDataUrl.split(',');
+      const match = parts[0]?.match(/:(.*?);/);
+      mimeType = match ? match[1] : 'image/jpeg';
+      if (mimeType.includes('png')) fileExtension = '.png';
+      else if (mimeType.includes('webp')) fileExtension = '.webp';
+      else if (mimeType.includes('gif')) fileExtension = '.gif';
+
+      const byteCharacters = atob(parts[1]);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      blob = new Blob([byteNumbers], { type: mimeType });
+    } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('blob:')) {
+      try {
+        const resp = await fetch(fileOrDataUrl);
+        blob = await resp.blob();
+        mimeType = blob.type || 'image/jpeg';
+        if (mimeType.includes('png')) fileExtension = '.png';
+        else if (mimeType.includes('webp')) fileExtension = '.webp';
+      } catch {
+        return null;
+      }
+    } else {
+      return null;
+    }
+
+    const fileName = `${validUuid}_${Date.now()}${fileExtension}`;
+    const filePath = `${cleanCid}/${fileName}`;
+
+    const candidateBuckets = ['avatars', 'funcionarios', 'fotos', 'rh_fotos', 'public'];
+
+    for (const bucket of candidateBuckets) {
+      try {
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, blob, {
+            contentType: mimeType,
+            cacheControl: '3600',
+            upsert: true,
+          });
+
+        if (!error && data) {
+          const { data: publicData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+
+          if (publicData?.publicUrl) {
+            console.info(`✅ [Supabase Storage] Foto de perfil enviada com sucesso no bucket '${bucket}':`, publicData.publicUrl);
+            return publicData.publicUrl;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Tentativa defensiva de criar o bucket 'avatars' caso não exista
+    try {
+      await supabase.storage.createBucket('avatars', { public: true });
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, blob, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (!error && data) {
+        const { data: publicData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        if (publicData?.publicUrl) {
+          return publicData.publicUrl;
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  } catch (err) {
+    console.warn('Exceção ao enviar foto de funcionário para o Supabase Storage:', err);
+    return null;
+  }
 }
 
 export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[] | null> {
   if (!isSupabaseConfigured) return null;
-  const activeCompanyId = companyId || getActiveCompanyId();
+  const activeCompanyId = (companyId || getActiveCompanyId() || '').trim();
+
+  // Isolamento Estrito: Se não houver empresa ativa, retorna array vazio para impedir vazamento de dados
+  if (!activeCompanyId) return [];
 
   try {
-    // 1. Tenta buscar da tabela principal 'rh_funcionarios'
+    const validUuid = toValidUUID(activeCompanyId);
     let data: any[] | null = null;
     let error: any = null;
 
-    if (activeCompanyId) {
-      const validUuid = toValidUUID(activeCompanyId);
-      const res = await supabase
-        .from('rh_funcionarios')
-        .select('*')
-        .or(`company_id.eq.${activeCompanyId}${validUuid && validUuid !== activeCompanyId ? `,company_id.eq.${validUuid}` : ''},company_id.is.null`)
-        .order('name', { ascending: true });
-      data = res.data;
-      error = res.error;
+    // Filtra estritamente por company_id da empresa ativa (ID string e UUID equivalente)
+    // NUNCA incluir company_id.is.null
+    const filterConditions: string[] = [`company_id.eq.${activeCompanyId}`];
+    if (validUuid && validUuid !== activeCompanyId) {
+      filterConditions.push(`company_id.eq.${validUuid}`);
     }
 
-    // Fallback: se vazio ou se activeCompanyId não fornecido, busca sem filtro restritivo para não ocultar cadastros
-    if ((!data || data.length === 0) && (!error || error.code !== '42P01')) {
-      const allRes = await supabase
+    const res = await supabase
+      .from('rh_funcionarios')
+      .select('*')
+      .or(filterConditions.join(','))
+      .order('name', { ascending: true });
+
+    data = res.data;
+    error = res.error;
+
+    // Se a coluna company_id não existir na tabela (PGRST204 / 42703), tenta por tenant_id ou user_id
+    if (error && (error.code === '42703' || error.message?.includes('company_id'))) {
+      const tenantRes = await supabase
         .from('rh_funcionarios')
         .select('*')
+        .eq('tenant_id', activeCompanyId)
         .order('name', { ascending: true });
-      if (allRes.data && allRes.data.length > 0) {
-        data = allRes.data;
+
+      if (!tenantRes.error && Array.isArray(tenantRes.data)) {
+        data = tenantRes.data;
         error = null;
+      } else {
+        const userRes = await supabase
+          .from('rh_funcionarios')
+          .select('*')
+          .eq('user_id', activeCompanyId)
+          .order('name', { ascending: true });
+
+        if (!userRes.error && Array.isArray(userRes.data)) {
+          data = userRes.data;
+          error = null;
+        }
       }
     }
 
-    // 2. Se a tabela 'rh_funcionarios' não existir, tenta 'funcionarios'
+    // 2. Se a tabela 'rh_funcionarios' não existir (42P01), tenta 'funcionarios' com filtro estrito de company_id
     if (error && (error.code === '42P01' || error.message?.includes('does not exist'))) {
-      const funcRes = activeCompanyId
-        ? await supabase.from('funcionarios').select('*').eq('company_id', activeCompanyId)
-        : await supabase.from('funcionarios').select('*');
-      if (!funcRes.error && Array.isArray(funcRes.data) && funcRes.data.length > 0) {
+      const funcRes = await supabase
+        .from('funcionarios')
+        .select('*')
+        .eq('company_id', activeCompanyId)
+        .order('name', { ascending: true });
+      if (!funcRes.error && Array.isArray(funcRes.data)) {
         return funcRes.data.map(mapRowToEmployee);
       }
+      return [];
     }
 
     if (error) {
       console.warn('Supabase fetchRhFuncionarios notice:', error.message);
-      try {
-        const funcFallback = await supabase.from('funcionarios').select('*');
-        if (!funcFallback.error && Array.isArray(funcFallback.data) && funcFallback.data.length > 0) {
-          return funcFallback.data.map(mapRowToEmployee);
-        }
-      } catch (_) {}
       return [];
     }
 
+    // Filtragem defensiva final em memória para garantia matemática de isolamento:
+    // Garante que APENAS registros do tenant ativo apareçam, limpando dados de terceiros
     if (Array.isArray(data)) {
-      return data.map(mapRowToEmployee);
+      const strictlyFiltered = data.filter((row: any) => {
+        const rowCid = String(row.company_id || row.tenant_id || row.user_id || '').trim();
+        if (!rowCid) return false;
+        return rowCid === activeCompanyId || (validUuid && rowCid === validUuid);
+      });
+      return strictlyFiltered.map(mapRowToEmployee);
     }
     return [];
   } catch (err) {
@@ -2611,40 +2782,54 @@ export async function fetchRhFuncionarios(companyId?: string): Promise<Employee[
 /**
  * 2. LISTAGEM FILTRADA E TEMPO REAL DE MOTORISTAS:
  * Busca dados diretamente de 'public.rh_funcionarios' no Supabase,
- * aplicando filtro para trazer apenas os registros onde o cargo/função (role)
- * seja igual a 'Motorista' ou contenha 'Motorista'.
+ * aplicando filtro estrito por empresa e cargo 'Motorista'.
  */
 export async function fetchFleetDriversFromSupabase(companyId?: string): Promise<Employee[]> {
   if (!isSupabaseConfigured) return [];
   try {
-    const activeCompanyId = companyId || getActiveCompanyId();
+    const activeCompanyId = (companyId || getActiveCompanyId() || '').trim();
+    if (!activeCompanyId) return [];
+
+    const validUuid = toValidUUID(activeCompanyId);
     let query = supabase
       .from('rh_funcionarios')
       .select('*')
       .or('role.eq.Motorista,role.ilike.%Motorista%');
 
-    if (activeCompanyId) {
-      const validUuid = toValidUUID(activeCompanyId);
-      const companyFilter = `company_id.eq.${activeCompanyId}${validUuid && validUuid !== activeCompanyId ? `,company_id.eq.${validUuid}` : ''},company_id.is.null`;
-      query = query.or(companyFilter);
+    if (validUuid && validUuid !== activeCompanyId) {
+      query = query.or(`company_id.eq.${activeCompanyId},company_id.eq.${validUuid}`);
+    } else {
+      query = query.eq('company_id', activeCompanyId);
     }
 
     let { data, error } = await query.order('name', { ascending: true });
 
-    // Fallback: se o filtro por company_id não retornou registros, busca os motoristas sem restrição de tenant
-    if ((!data || data.length === 0) && (!error || error.code !== '42P01')) {
-      const fallbackRes = await supabase
+    // Fallback por tenant_id caso company_id não exista
+    if (error && (error.code === '42703' || error.message?.includes('company_id'))) {
+      const tenantRes = await supabase
         .from('rh_funcionarios')
         .select('*')
         .or('role.eq.Motorista,role.ilike.%Motorista%')
+        .eq('tenant_id', activeCompanyId)
         .order('name', { ascending: true });
-      if (fallbackRes.data && fallbackRes.data.length > 0) {
-        data = fallbackRes.data;
+      if (!tenantRes.error && Array.isArray(tenantRes.data)) {
+        data = tenantRes.data;
+        error = null;
       }
     }
 
+    if (error) {
+      console.warn('Supabase fetchFleetDriversFromSupabase notice:', error.message);
+      return [];
+    }
+
     if (Array.isArray(data)) {
-      return data.map(mapRowToEmployee);
+      const strictlyFiltered = data.filter((row: any) => {
+        const rowCid = String(row.company_id || row.tenant_id || row.user_id || '').trim();
+        if (!rowCid) return false;
+        return rowCid === activeCompanyId || (validUuid && rowCid === validUuid);
+      });
+      return strictlyFiltered.map(mapRowToEmployee);
     }
     return [];
   } catch (err) {
@@ -2763,64 +2948,125 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     const validId = cleanPayload.id;
     const commPayload = getRhFuncionarioCommissionPayload(employee);
 
-    // Se hasRhCommissionColumns !== false, tenta incluir comissões estruturadas no payload
+    // Identifica foto do colaborador
+    let photoUrl = employee.photoUrl || employee.foto_url || (employee as any).avatar_url;
+    // Se for imagem local base64/blob e ainda não tiver sido enviada para o Storage, faz upload prévio
+    if (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:'))) {
+      try {
+        const uploadedUrl = await uploadEmployeePhotoToStorage(photoUrl, validId, activeCompanyId);
+        if (uploadedUrl) {
+          photoUrl = uploadedUrl;
+          employee.photoUrl = uploadedUrl;
+          employee.foto_url = uploadedUrl;
+          (employee as any).avatar_url = uploadedUrl;
+        }
+      } catch (_) {}
+    }
+
+    const cleanPhoto = (photoUrl && typeof photoUrl === 'string' && !isBrokenAvatarUrl(photoUrl))
+      ? photoUrl.trim()
+      : null;
+
     let payloadToSend: Record<string, any> = { ...cleanPayload };
     if (hasRhCommissionColumns !== false) {
       payloadToSend = { ...payloadToSend, ...commPayload };
     }
-
-    // Remove 'id' do corpo do PATCH para atualizar por filtro eq('id', validId)
-    const { id: _ignoredId, ...patchBody } = payloadToSend;
-
-    // 1. Tenta atualizar com PATCH direto em /rest/v1/rh_funcionarios?id=eq.<validId>
-    let updateRes = await supabase
-      .from('rh_funcionarios')
-      .update(patchBody)
-      .eq('id', validId)
-      .select('id');
-
-    // Se houve erro de coluna inexistente (PGRST204, 42703, etc.),
-    // desativa o envio de colunas de comissão e retenta imediatamente apenas com o payload básico
-    if (updateRes.error && hasRhCommissionColumns !== false) {
-      const isColumnErr =
-        updateRes.error.code === 'PGRST204' ||
-        updateRes.error.code === '42703' ||
-        updateRes.error.message?.toLowerCase().includes('column') ||
-        updateRes.error.message?.toLowerCase().includes('comissao') ||
-        updateRes.error.message?.toLowerCase().includes('schema cache');
-
-      if (isColumnErr) {
-        hasRhCommissionColumns = false;
-        const { id: _ignoredId2, ...cleanPatchBody } = cleanPayload;
-        updateRes = await supabase
-          .from('rh_funcionarios')
-          .update(cleanPatchBody)
-          .eq('id', validId)
-          .select('id');
-      }
-    } else if (!updateRes.error && hasRhCommissionColumns === null) {
-      hasRhCommissionColumns = true;
+    // Salva na coluna 'foto_url' estritamente se for link HTTP público válido e coluna não tiver sido descartada
+    if (hasRhFotoUrlColumn !== false && cleanPhoto && (cleanPhoto.startsWith('http://') || cleanPhoto.startsWith('https://'))) {
+      payloadToSend.foto_url = cleanPhoto;
     }
 
-    if (!updateRes.error && Array.isArray(updateRes.data) && updateRes.data.length > 0) {
+    // Função auxiliar para remover colunas que o banco não suporta dinamicamente
+    const stripUnsupportedColumns = (err: any): boolean => {
+      if (!err) return false;
+      const msg = (err.message || '').toLowerCase();
+      const details = (err.details || '').toLowerCase();
+      const errStr = `${msg} ${details}`;
+      let changed = false;
+
+      if (err.code === 'PGRST204' || err.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
+        if (errStr.includes('foto_url')) {
+          hasRhFotoUrlColumn = false;
+          delete payloadToSend.foto_url;
+          changed = true;
+        }
+        if (errStr.includes('tenant_id')) {
+          delete payloadToSend.tenant_id;
+          changed = true;
+        }
+        if (errStr.includes('user_id')) {
+          delete payloadToSend.user_id;
+          changed = true;
+        }
+        if (errStr.includes('avatar_url')) {
+          delete payloadToSend.avatar_url;
+          changed = true;
+        }
+        if (errStr.includes('photo_url')) {
+          delete payloadToSend.photo_url;
+          changed = true;
+        }
+        if (errStr.includes('comissao') || errStr.includes('recebe_comissao')) {
+          hasRhCommissionColumns = false;
+          delete payloadToSend.comissao_hora;
+          delete payloadToSend.comissao_alqueire;
+          delete payloadToSend.comissao_hectare;
+          delete payloadToSend.recebe_comissao;
+          changed = true;
+        }
+        // Varredura genérica caso o erro cite qualquer outra chave
+        for (const key of Object.keys(payloadToSend)) {
+          if (key !== 'id' && key !== 'name' && errStr.includes(key.toLowerCase())) {
+            delete payloadToSend[key];
+            changed = true;
+          }
+        }
+      }
+      return changed;
+    };
+
+    // 1. Tenta atualizar com PATCH com loop de auto-recuperação de schema
+    let updateRes: any = null;
+    let patchAttempts = 0;
+    while (patchAttempts < 4) {
+      patchAttempts++;
+      const { id: _ignoredId, ...patchBody } = payloadToSend;
+      updateRes = await supabase
+        .from('rh_funcionarios')
+        .update(patchBody)
+        .eq('id', validId)
+        .select('id');
+
+      if (!updateRes.error) {
+        if (hasRhCommissionColumns === null) hasRhCommissionColumns = true;
+        if (hasRhFotoUrlColumn === null && payloadToSend.foto_url !== undefined) hasRhFotoUrlColumn = true;
+        break;
+      }
+
+      if (stripUnsupportedColumns(updateRes.error)) {
+        continue;
+      }
+      break;
+    }
+
+    if (!updateRes?.error && Array.isArray(updateRes?.data) && updateRes.data.length > 0) {
       return true;
     }
 
     // Se houve erro de restrição de company_id (23503), remove company_id e tenta o update novamente
-    if (updateRes.error && (updateRes.error.code === '23503' || updateRes.error.message?.includes('company_id'))) {
-      const activeBody = hasRhCommissionColumns !== false ? patchBody : cleanPayload;
-      const { company_id: _cid, id: _i2, ...patchWithoutCompany } = activeBody;
+    if (updateRes?.error && (updateRes.error.code === '23503' || updateRes.error.message?.includes('company_id'))) {
+      const { id: _ignoredId, company_id: _cid, ...patchWithoutCompany } = payloadToSend;
       let retryUpdate = await supabase
         .from('rh_funcionarios')
         .update(patchWithoutCompany)
         .eq('id', validId)
         .select('id');
-      if (retryUpdate.error && (retryUpdate.error.code === 'PGRST204' || retryUpdate.error.code === '42703' || retryUpdate.error.message?.includes('column'))) {
-        hasRhCommissionColumns = false;
-        const { company_id: _cid2, id: _i3, ...baseWithoutCompany } = cleanPayload;
+
+      if (retryUpdate.error && stripUnsupportedColumns(retryUpdate.error)) {
+        const { id: _i2, company_id: _c2, ...cleanRetry } = payloadToSend;
         retryUpdate = await supabase
           .from('rh_funcionarios')
-          .update(baseWithoutCompany)
+          .update(cleanRetry)
           .eq('id', validId)
           .select('id');
       }
@@ -2830,41 +3076,35 @@ export async function upsertRhFuncionario(employee: Employee, companyId?: string
     }
 
     // 2. Se não atualizou nenhuma linha (registro novo), executa o upsert/insert com id
-    const targetUpsert = hasRhCommissionColumns !== false ? payloadToSend : cleanPayload;
-    let upsertRes = await supabase
-      .from('rh_funcionarios')
-      .upsert(targetUpsert, { onConflict: 'id' });
+    let upsertRes: any = null;
+    let upsertAttempts = 0;
+    while (upsertAttempts < 4) {
+      upsertAttempts++;
+      upsertRes = await supabase
+        .from('rh_funcionarios')
+        .upsert(payloadToSend, { onConflict: 'id' });
 
-    if (upsertRes.error && hasRhCommissionColumns !== false) {
-      const isColumnErr =
-        upsertRes.error.code === 'PGRST204' ||
-        upsertRes.error.code === '42703' ||
-        upsertRes.error.message?.toLowerCase().includes('column') ||
-        upsertRes.error.message?.toLowerCase().includes('comissao') ||
-        upsertRes.error.message?.toLowerCase().includes('schema cache');
-
-      if (isColumnErr) {
-        hasRhCommissionColumns = false;
-        upsertRes = await supabase
-          .from('rh_funcionarios')
-          .upsert(cleanPayload, { onConflict: 'id' });
+      if (!upsertRes.error) {
+        if (hasRhCommissionColumns === null) hasRhCommissionColumns = true;
+        if (hasRhFotoUrlColumn === null && payloadToSend.foto_url !== undefined) hasRhFotoUrlColumn = true;
+        return true;
       }
-    }
 
-    if (!upsertRes.error) {
-      return true;
+      if (stripUnsupportedColumns(upsertRes.error)) {
+        continue;
+      }
+      break;
     }
 
     // Se o upsert falhou por restrição de company_id
     if (upsertRes.error && (upsertRes.error.code === '23503' || upsertRes.error.message?.includes('company_id'))) {
-      const targetClean = hasRhCommissionColumns !== false ? payloadToSend : cleanPayload;
-      const { company_id: _cid, ...cleanWithoutCompany } = targetClean;
+      const { company_id: _cid, ...cleanWithoutCompany } = payloadToSend;
       let retryUpsert = await supabase
         .from('rh_funcionarios')
         .upsert(cleanWithoutCompany, { onConflict: 'id' });
-      if (retryUpsert.error && (retryUpsert.error.code === 'PGRST204' || retryUpsert.error.code === '42703' || retryUpsert.error.message?.includes('column'))) {
-        hasRhCommissionColumns = false;
-        const { company_id: _cid2, ...baseWithoutCompany } = cleanPayload;
+
+      if (retryUpsert.error && stripUnsupportedColumns(retryUpsert.error)) {
+        const { company_id: _c2, ...baseWithoutCompany } = payloadToSend;
         retryUpsert = await supabase
           .from('rh_funcionarios')
           .upsert(baseWithoutCompany, { onConflict: 'id' });
