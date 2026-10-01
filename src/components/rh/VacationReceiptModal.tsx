@@ -598,6 +598,7 @@ export function VacationReceiptModal({
       totalDiscounts: nextDescontos,
       totalAmount: nextBruto,
       netAmount: nextLiquido,
+      valor_liquido_pago: nextLiquido,
       updatedAt: new Date().toISOString(),
     };
 

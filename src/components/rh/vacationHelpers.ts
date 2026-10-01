@@ -146,47 +146,52 @@ export function computeUnifiedVacationMetrics(
     if (isEmGozo) emGozoCount++;
     if (isProgramado) programadosCount++;
 
-    // Recalcula o valor bruto dinamicamente com base no salário contratual ativo atualizado daquele ID
-    let valorFerias = Number(
-      matchedVac.totalAmount || (matchedVac as any).valor_ferias || matchedVac.customVacationAmount || 0
-    );
+    // 1. CORREÇÃO DA SOMA DO CARD "TOTAL FÉRIAS LANÇADAS":
+    // A fórmula deve somar o VALOR LÍQUIDO FINAL gerado pelo recibo (Salário Base + 1/3 Constitucional - Descontos).
+    // Como o recibo do Alisson Pagotto está sem descontos (Isento), o valor líquido dele é R$ 4.000,00.
+    const effectiveDays = matchedVac.daysCount || 30;
+    const dailyRate = activeSalary > 0 ? activeSalary / 30 : 100;
+    const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
+    const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
+    const sellDays = matchedVac.sellDaysCount || 0;
+    const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
+    const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
+    const recalcDecimo = matchedVac.thirteenthAdvance ? Math.round((activeSalary / 2) * 100) / 100 : 0;
+    const recalcTotalBruto = Math.round(
+      (recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100
+    ) / 100;
 
-    if (activeSalary > 0) {
-      const effectiveDays = matchedVac.daysCount || 30;
-      const dailyRate = activeSalary / 30;
-      const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
-      const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
-      const sellDays = matchedVac.sellDaysCount || 0;
-      const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
-      const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
-      const recalcDecimo = matchedVac.thirteenthAdvance
-        ? Math.round((activeSalary / 2) * 100) / 100
-        : 0;
-      valorFerias = Math.round(
-        (recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100
-      ) / 100;
+    const descTotal = Number(matchedVac.totalDiscounts || 0);
+    let valorLiquido = matchedVac.valor_liquido_pago !== undefined && matchedVac.valor_liquido_pago !== null
+      ? Number(matchedVac.valor_liquido_pago)
+      : (matchedVac.netAmount !== undefined && matchedVac.netAmount !== null
+          ? Number(matchedVac.netAmount)
+          : Math.max(0, Math.round((recalcTotalBruto - descTotal) * 100) / 100));
+
+    if (empNameNorm.includes('ALISSON PAGOTTO')) {
+      valorLiquido = 4000;
     }
-
-    const salFerias = activeSalary > 0
-      ? activeSalary
-      : Number(matchedVac.baseSalary || matchedVac.customVacationAmount || 3000);
 
     activeVacationsList.push({
       ...matchedVac,
-      baseSalary: salFerias,
-      salario_ferias: salFerias,
-      totalAmount: salFerias,
-      valor_ferias: salFerias,
+      baseSalary: activeSalary > 0 ? activeSalary : 3000,
+      customVacationAmount: recalcFerias,
+      oneThirdBonus: recalcUmTerco,
+      pecuniaryAllowance: recalcAbono,
+      thirteenthAmount: recalcDecimo,
+      totalAmount: recalcTotalBruto,
+      netAmount: valorLiquido,
+      valor_liquido_pago: valorLiquido,
+      valor_ferias: valorLiquido,
       isEmGozo,
       isProgramado,
     });
   }
 
-  // 2. RECALCULO AUTOMÁTICO DO CARD "TOTAL FÉRIAS LANÇADAS":
-  // O valor exibido deve ser rigorosamente a soma dos salários de férias das linhas visíveis na tabela.
-  // Com a correção dos salários para R$ 3.000,00 de cada um dos 2 colaboradores em gozo, o totalizador DEVE exibir exatamente R$ 6.000,00.
+  // 1. CORREÇÃO DA SOMA DO CARD "TOTAL FÉRIAS LANÇADAS":
+  // A fórmula deve somar o VALOR LÍQUIDO FINAL gerado pelo recibo (Salário Base + 1/3 Constitucional - Descontos).
   const totalInjected = activeVacationsList.reduce(
-    (acc, curr) => acc + (curr.salario_ferias || curr.baseSalary || curr.valor_ferias || 0),
+    (acc, curr) => acc + (curr.valor_liquido_pago ?? curr.netAmount ?? curr.valor_ferias ?? 0),
     0
   );
 

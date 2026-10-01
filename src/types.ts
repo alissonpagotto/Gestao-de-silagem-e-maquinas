@@ -1147,6 +1147,7 @@ export interface VacationRecord {
   totalAmount: number;
   valor_ferias?: number;
   salario_ferias?: number;
+  valor_liquido_pago?: number;
   status: 'agendado' | 'programado' | 'em_gozo' | 'concluido' | 'quitado' | 'regular' | 'cancelado';
   situacao_execucao?: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'QUITADO' | 'REGULAR' | 'QUITADO/REGULAR' | 'CANCELADO' | string;
   situacao_travada_usuario?: boolean;

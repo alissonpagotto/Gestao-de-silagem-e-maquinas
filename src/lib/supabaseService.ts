@@ -9164,7 +9164,8 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
       irrfEnabled: v.irrfEnabled !== undefined ? v.irrfEnabled : true,
       thirteenthAdvance: Boolean(v.thirteenthAdvance),
     },
-    valorLiquido: v.netAmount ?? 0,
+    valorLiquido: v.valor_liquido_pago !== undefined ? v.valor_liquido_pago : (v.netAmount ?? 0),
+    valor_liquido_pago: v.valor_liquido_pago !== undefined ? v.valor_liquido_pago : (v.netAmount ?? 0),
   };
 
   return {
@@ -9281,7 +9282,11 @@ export function mapRowToVacationRecord(row: any): VacationRecord | null {
     netAmount:
       parsedPayload.netAmount !== undefined
         ? parsedPayload.netAmount
-        : parsedPayload.valorLiquido,
+        : (parsedPayload.valor_liquido_pago !== undefined ? parsedPayload.valor_liquido_pago : parsedPayload.valorLiquido),
+    valor_liquido_pago:
+      parsedPayload.valor_liquido_pago !== undefined
+        ? parsedPayload.valor_liquido_pago
+        : (parsedPayload.netAmount !== undefined ? parsedPayload.netAmount : parsedPayload.valorLiquido),
     updatedAt: row.updated_at || parsedPayload.updatedAt || new Date().toISOString(),
     createdAt: parsedPayload.createdAt || row.created_at || new Date().toISOString(),
   } as VacationRecord;
