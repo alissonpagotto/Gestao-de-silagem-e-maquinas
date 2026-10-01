@@ -234,7 +234,7 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
         }
       }
 
-      // Validação estrita: só dispara o PATCH se o Storage retornar uma URL pública HTTP completa
+      // Validação estrita: verifica se o Storage retornou uma URL pública HTTP completa
       const isValidStorageHttpUrl = Boolean(
         publicStorageUrl &&
         typeof publicStorageUrl === 'string' &&
@@ -243,61 +243,14 @@ export const EmployeePhotoCropModal: React.FC<EmployeePhotoCropModalProps> = ({
         !publicStorageUrl.startsWith('data:')
       );
 
-      // 4. Se for um colaborador já existente (tem employeeId) e o Storage retornou URL válida, atualiza na tabela rh_funcionarios
-      if (isValidStorageHttpUrl && employeeId && isSupabaseConfigured) {
-        try {
-          const cleanStorageUrl = publicStorageUrl!.trim();
-          // Obtém o user_id do usuário autenticado no sistema para satisfazer estritamente o RLS
-          let effectiveUserId: string | null = null;
-          try {
-            const { data: authUser } = await supabase.auth.getUser();
-            effectiveUserId = authUser?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id || null;
-          } catch (_) {}
-
-          const updatePayload: Record<string, any> = { foto_url: cleanStorageUrl };
-          if (effectiveUserId) {
-            updatePayload.user_id = effectiveUserId;
-          }
-
-          console.info('[RH Funcionários] Gravando foto_url válida do Storage com user_id:', cleanStorageUrl);
-          let updateQuery = supabase
-            .from('rh_funcionarios')
-            .update(updatePayload)
-            .eq('id', employeeId);
-          if (effectiveUserId) {
-            updateQuery = updateQuery.eq('user_id', effectiveUserId);
-          }
-          const { error: patchFotoErr } = await updateQuery;
-
-          if (patchFotoErr) {
-            console.warn('Tentativa com foto_url falhou, tentando avatar_url:', patchFotoErr.message);
-            const fallbackPayload: Record<string, any> = { avatar_url: cleanStorageUrl };
-            if (effectiveUserId) fallbackPayload.user_id = effectiveUserId;
-            let fallbackQuery = supabase
-              .from('rh_funcionarios')
-              .update(fallbackPayload)
-              .eq('id', employeeId);
-            if (effectiveUserId) {
-              fallbackQuery = fallbackQuery.eq('user_id', effectiveUserId);
-            }
-            await fallbackQuery;
-          }
-          console.info('Coluna foto_url atualizada com sucesso na tabela rh_funcionarios para:', employeeId);
-        } catch (dbErr) {
-          console.warn('Erro ao atualizar foto em rh_funcionarios:', dbErr);
-        }
-      } else if (!isValidStorageHttpUrl) {
-        console.warn('[RH Foto] Storage não retornou uma URL pública válida. O PATCH em public.rh_funcionarios não foi disparado.');
-      }
-
-      // 5. Comunica o resultado para o componente pai usando base64 para preview (sem blob:) e URL pública se disponível
+      // 4. Comunica o resultado para o formulário pai usando o link de texto do bucket avatars
       await onConfirm({
         file: rawFile,
         previewUrl: base64DataUrl,
         publicUrl: isValidStorageHttpUrl ? publicStorageUrl! : undefined,
       });
 
-      // 6. Fecha o modal de ajuste automaticamente
+      // 5. Fecha o modal de ajuste automaticamente
       onClose();
     } catch (err: any) {
       console.error('Erro ao processar o recorte da foto:', err);

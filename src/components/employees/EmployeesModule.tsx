@@ -32,8 +32,10 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, upsertRhFuncionario } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../context/AuthContext';
+import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
 import { ManageableDropdown } from '../common/ManageableDropdown';
 import { RoleSelectDropdown } from './RoleSelectDropdown';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
@@ -99,6 +101,7 @@ const DEFAULT_CONTRACT_TYPES = [
 
 interface EmployeesModuleProps {
   employees: Employee[];
+  companyProfile?: CompanyProfile;
   onSaveEmployees: (employees: Employee[]) => void;
   onDeleteEmployee?: (id: string) => Promise<void> | void;
   externalNewEmployeeTrigger?: number;
@@ -107,6 +110,7 @@ interface EmployeesModuleProps {
 
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   employees,
+  companyProfile,
   onSaveEmployees,
   onDeleteEmployee,
   externalNewEmployeeTrigger,
@@ -122,7 +126,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // State for single-employee printable sheet
   const [employeeToPrint, setEmployeeToPrint] = useState<Partial<Employee> | null>(null);
 
-  const activeCompany = useMemo(() => getStoredCompanyProfile(), []);
+  const activeCompany = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -303,6 +307,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [signedRegistrationDoc, setSignedRegistrationDoc] = useState<EmployeeAttachment | null>(null);
 
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+  const { currentUser } = useAuth();
+  const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (employees) {
@@ -310,114 +317,152 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     }
   }, [employees]);
 
-  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios'
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com isolamento estrito
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
+    let channel: any = null;
 
-    const channelId = `employees_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const channel = supabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rh_funcionarios' },
-        async (payload: any) => {
-          console.info('📡 [Realtime RH - Funcionários] Alteração em rh_funcionarios:', payload.eventType, payload);
+    const setupRealtime = async () => {
+      let activeUid = currentUser?.id;
+      if (!activeUid) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          activeUid = authData?.user?.id;
+          if (!activeUid) {
+            const { data: sessData } = await supabase.auth.getSession();
+            activeUid = sessData?.session?.user?.id;
+          }
+        } catch (_) {}
+      }
+      if (!activeUid) return;
 
-          // 1. Atualização de estado imediata sem delay (Zero delay)
-          if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old?.id;
-            if (deletedId) {
+      const channelId = `employees_module_rt_${activeUid}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'rh_funcionarios',
+            filter: `user_id=eq.${activeUid}`
+          },
+          async (payload: any) => {
+            if (!isMounted) return;
+            console.info('📡 [Realtime RH - Funcionários] Alteração em rh_funcionarios:', payload.eventType, payload);
+
+            // Blindagem absoluta de isolamento: descarta eventos pertencentes a outros assinantes
+            if (payload.new) {
+              const rowUid = String(payload.new.user_id || '').trim();
+              if (rowUid && rowUid !== activeUid) {
+                return;
+              }
+            }
+
+            // 1. Atualização de estado imediata sem delay (Zero delay)
+            if (payload.eventType === 'DELETE') {
+              const deletedId = payload.old?.id;
+              if (deletedId) {
+                setLocalEmployees(prev => {
+                  const updated = prev.filter(e => e.id !== deletedId && toValidUUID(e.id) !== deletedId);
+                  saveStoredEmployees(updated);
+                  if (onSaveEmployees) onSaveEmployees(updated);
+                  return updated;
+                });
+              }
+            } else if (payload.eventType === 'INSERT' && payload.new) {
+              const baseMapped = mapRowToEmployee(payload.new);
+              const mapped: Employee = {
+                ...baseMapped,
+                user_id: activeUid,
+                userId: activeUid,
+                paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
+                bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
+                bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
+                bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
+                local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
+                banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
+                agencia: payload.new.agencia || baseMapped.bankAgency,
+                conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
+                photoUrl: payload.new.foto_url || baseMapped.photoUrl,
+                foto_url: payload.new.foto_url || baseMapped.foto_url,
+              };
               setLocalEmployees(prev => {
-                const updated = prev.filter(e => e.id !== deletedId && toValidUUID(e.id) !== deletedId);
+                const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
+                const updated = exists
+                  ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
+                  : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+                saveStoredEmployees(updated);
+                if (onSaveEmployees) onSaveEmployees(updated);
+                return updated;
+              });
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+              const baseMapped = mapRowToEmployee(payload.new);
+              const mapped: Employee = {
+                ...baseMapped,
+                user_id: activeUid,
+                userId: activeUid,
+                paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
+                bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
+                bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
+                bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
+                local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
+                banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
+                agencia: payload.new.agencia || baseMapped.bankAgency,
+                conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
+                photoUrl: payload.new.foto_url || baseMapped.photoUrl,
+                foto_url: payload.new.foto_url || baseMapped.foto_url,
+              };
+              setLocalEmployees(prev => {
+                const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
                 saveStoredEmployees(updated);
                 if (onSaveEmployees) onSaveEmployees(updated);
                 return updated;
               });
             }
-          } else if (payload.eventType === 'INSERT' && payload.new) {
-            const baseMapped = mapRowToEmployee(payload.new);
-            const mapped = {
-              ...baseMapped,
-              paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
-              bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
-              bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
-              bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
-              local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
-              banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
-              agencia: payload.new.agencia || baseMapped.bankAgency,
-              conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
-            };
-            setLocalEmployees(prev => {
-              const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
-              const updated = exists
-                ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
-                : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-              saveStoredEmployees(updated);
-              if (onSaveEmployees) onSaveEmployees(updated);
-              return updated;
-            });
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            const baseMapped = mapRowToEmployee(payload.new);
-            const mapped = {
-              ...baseMapped,
-              paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
-              bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
-              bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
-              bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
-              local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
-              banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
-              agencia: payload.new.agencia || baseMapped.bankAgency,
-              conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
-            };
-            setLocalEmployees(prev => {
-              const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
-              saveStoredEmployees(updated);
-              if (onSaveEmployees) onSaveEmployees(updated);
-              return updated;
-            });
-          }
 
-          // 2. Reconciliação completa com o banco para garantir todos os campos relacionais
-          try {
-            const fresh = await fetchRhFuncionarios();
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalEmployees(fresh);
-              saveStoredEmployees(fresh);
-              if (onSaveEmployees) onSaveEmployees(fresh);
+            // 2. Reconciliação completa com filtro estrito .eq('user_id', activeUid)
+            try {
+              const fresh = await fetchRhFuncionarios(undefined, activeUid);
+              if (isMounted && fresh && Array.isArray(fresh)) {
+                const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+                setLocalEmployees(strictlyMine);
+                saveStoredEmployees(strictlyMine);
+                if (onSaveEmployees) onSaveEmployees(strictlyMine);
+              }
+            } catch (err) {
+              console.warn('[EmployeesModule] Erro ao sincronizar funcionários em tempo real:', err);
             }
-          } catch (err) {
-            console.warn('Erro ao sincronizar funcionários em tempo real:', err);
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'funcionarios' },
-        async () => {
-          try {
-            const fresh = await fetchRhFuncionarios();
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalEmployees(fresh);
-              saveStoredEmployees(fresh);
-              if (onSaveEmployees) onSaveEmployees(fresh);
-            }
-          } catch (_) {}
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
 
     // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
     const handleFocus = async () => {
+      let activeUid = currentUser?.id;
+      if (!activeUid) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          activeUid = authData?.user?.id;
+        } catch (_) {}
+      }
+      if (!activeUid) return;
+
       try {
-        const fresh = await fetchRhFuncionarios();
+        const fresh = await fetchRhFuncionarios(undefined, activeUid);
         if (isMounted && fresh && Array.isArray(fresh)) {
-          setLocalEmployees(fresh);
-          saveStoredEmployees(fresh);
-          if (onSaveEmployees) onSaveEmployees(fresh);
+          const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+          setLocalEmployees(strictlyMine);
+          saveStoredEmployees(strictlyMine);
+          if (onSaveEmployees) onSaveEmployees(strictlyMine);
         }
       } catch (_) {}
     };
+
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
@@ -425,9 +470,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       isMounted = false;
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [onSaveEmployees]);
+  }, [currentUser?.id, onSaveEmployees]);
 
   const cnhReport = checkCnhStatus(localEmployees);
 
@@ -719,19 +766,46 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     handleOpenEmployeePrint(snapshot);
   };
 
-  // Profile Photo Upload Handler
+  // Profile Photo Upload & Crop Handler
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('A foto deve ter no máximo 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('A foto deve ter no máximo 10MB.');
       return;
     }
     const reader = new FileReader();
     reader.onload = (event) => {
-      setPhotoUrl(event.target?.result as string);
+      const result = event.target?.result as string;
+      setCropImageSrc(result);
+      setIsCropModalOpen(true);
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmCrop = async (result: { file: File; previewUrl: string; publicUrl?: string }) => {
+    if (result.publicUrl) {
+      setPhotoUrl(result.publicUrl);
+    } else {
+      try {
+        const fileExt = result.file.name.split('.').pop() || 'jpg';
+        const fileName = `emp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, result.file, { contentType: result.file.type || 'image/jpeg', upsert: true });
+        if (!error && data?.path) {
+          const { data: pubData } = supabase.storage.from('avatars').getPublicUrl(data.path);
+          if (pubData?.publicUrl) {
+            setPhotoUrl(pubData.publicUrl);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Aviso no fallback do avatar:', err);
+      }
+      setPhotoUrl(result.previewUrl);
+    }
   };
 
   // Document Upload Handler
@@ -816,6 +890,61 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     setIsSubmitting(true);
     try {
+      // 1. CARIMBO DE DONO OBRIGATÓRIO (FIM DO VAZAMENTO):
+      // Capture o ID do usuário logado antes de disparar o comando para o Supabase
+      let activeUid: string | undefined = undefined;
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+        if (!activeUid) {
+          const { data: sessData } = await supabase.auth.getSession();
+          activeUid = sessData?.session?.user?.id;
+        }
+      } catch (_) {}
+
+      if (!activeUid && currentUser?.id) {
+        activeUid = currentUser.id;
+      }
+
+      if (!activeUid) {
+        alert('Sessão expirada ou usuário não autenticado. Por favor, faça login novamente.');
+        return;
+      }
+
+      // Garante ID único estável e canônico
+      const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+      const targetValidUuid = toValidUUID(finalId);
+
+      // 3. ISOLAR O UPLOAD DA FOTO:
+      // Para a foto não travar o formulário, garanta que o arquivo recortado seja enviado para o bucket público 'avatars'
+      // (supabase.storage.from('avatars').upload) e que apenas o link de texto gerado (.getPublicUrl().data.publicUrl)
+      // seja anexado à coluna 'foto_url' do funcionário antes de salvar.
+      let finalFotoUrl: string | undefined = undefined;
+      if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim()) {
+        const rawPhoto = photoUrl.trim();
+        if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
+          finalFotoUrl = rawPhoto;
+        } else if (rawPhoto.startsWith('data:') || rawPhoto.startsWith('blob:')) {
+          try {
+            const uploadedUrl = await uploadEmployeePhotoToStorage(rawPhoto, finalId, activeCompany?.id || activeUid);
+            if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
+              finalFotoUrl = uploadedUrl;
+              setPhotoUrl(uploadedUrl);
+            }
+          } catch (photoErr) {
+            console.warn('[RH Foto] Falha no upload para avatars:', photoErr);
+          }
+        }
+      }
+
+      // 2. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO ROSA:
+      // Mapear e incluir no payload de salvamento as 4 caixas de texto da seção 3:
+      // 'local_recebimento', 'banco_chave_pix', 'agencia' e 'conta_corrente'.
+      const cleanLocalRecebimento = paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : null;
+      const cleanBancoChavePix = bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : null;
+      const cleanAgencia = bankAgency.trim() ? bankAgency.trim().toUpperCase() : null;
+      const cleanContaCorrente = bankAccount.trim() ? bankAccount.trim().toUpperCase() : null;
+
       const activeRoles: string[] = [];
       if (role1.trim()) activeRoles.push(role1.trim());
       if (role2.trim() && role2.trim().toLowerCase() !== role1.trim().toLowerCase()) activeRoles.push(role2.trim());
@@ -844,11 +973,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const formattedBirthDate = birthDate ? (formatIsoDateOnly(birthDate) || birthDate.trim()) : undefined;
       const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
 
-      // Garante ID único estável e nunca undefined
-      const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
-
+      // 1. CARIMBO DE DONO OBRIGATÓRIO (user_id: activeUid)
       const employeeData: Employee = {
         id: finalId,
+        user_id: activeUid,
+        userId: activeUid,
+        companyId: activeCompany?.id || activeUid,
         name: name.trim().toUpperCase(),
         registrationType: finalRegType,
         role: finalRole,
@@ -860,7 +990,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
         birthDate: formattedBirthDate,
         pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
-        photoUrl: photoUrl || undefined,
+        photoUrl: finalFotoUrl || undefined,
+        foto_url: finalFotoUrl || undefined,
+        avatar_url: finalFotoUrl || undefined,
         phone: phone.trim(),
         baseSalary: parsedSalary,
         salary: parsedSalary,
@@ -882,15 +1014,73 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         cnhExpiration: formattedCnhExpiration,
         cnhUpgradeDT,
         cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
-        paymentLocation: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : undefined,
-        bankPixKey: bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : undefined,
-        bankAgency: bankAgency.trim() ? bankAgency.trim().toUpperCase() : undefined,
-        bankAccount: bankAccount.trim() ? bankAccount.trim().toUpperCase() : undefined,
+        
+        // 2. Seção 3 - Rosa
+        local_recebimento: cleanLocalRecebimento || undefined,
+        paymentLocation: cleanLocalRecebimento || undefined,
+        banco_chave_pix: cleanBancoChavePix || undefined,
+        bankPixKey: cleanBancoChavePix || undefined,
+        agencia: cleanAgencia || undefined,
+        bankAgency: cleanAgencia || undefined,
+        conta_corrente: cleanContaCorrente || undefined,
+        bankAccount: cleanContaCorrente || undefined,
+
         admissionExamDoc: admissionExamDoc || undefined,
         experienceContractDoc: experienceContractDoc || undefined,
         generalDocs: generalDocs || undefined,
         signedRegistrationDoc: signedRegistrationDoc || undefined,
       };
+
+      // Dispara persistência com carimbo obrigatório do assinante no Supabase
+      if (isSupabaseConfigured) {
+        try {
+          const directRow: Record<string, any> = {
+            id: targetValidUuid,
+            user_id: activeUid,
+            company_id: activeCompany?.id ? String(activeCompany?.id).trim() : activeUid,
+            name: employeeData.name,
+            role: employeeData.role,
+            cpf: employeeData.cpf || null,
+            phone: employeeData.phone || null,
+            status: employeeData.status || 'ativo',
+            registration_type: employeeData.registrationType || 'Funcionário',
+            salary: employeeData.salary || 0,
+            admission_date: employeeData.admissionDate || null,
+            driver_license: employeeData.cnhNumber || null,
+            license_category: employeeData.cnhCategory || null,
+            license_expiry: employeeData.cnhExpiration || null,
+            // 4 Campos da Seção Rosa
+            local_recebimento: cleanLocalRecebimento,
+            banco_chave_pix: cleanBancoChavePix,
+            agencia: cleanAgencia,
+            conta_corrente: cleanContaCorrente,
+            // Foto de Perfil (link de texto do bucket avatars)
+            foto_url: finalFotoUrl || null,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (employeeData.receivesCommission) {
+            directRow.recebe_comissao = true;
+            directRow.comissao_hora = employeeData.commissionPerHour || 0;
+            directRow.comissao_alqueire = employeeData.commissionPerAlqueire || 0;
+            directRow.comissao_hectare = employeeData.commissionPerHectare || 0;
+          }
+
+          const { error: upsertErr } = await supabase
+            .from('rh_funcionarios')
+            .upsert(directRow, { onConflict: 'id' });
+
+          if (upsertErr) {
+            console.warn('[RH Salvar] Upsert direto falhou, acionando fallback com upsertRhFuncionario:', upsertErr.message);
+            await upsertRhFuncionario(employeeData, activeCompany?.id, activeUid);
+          } else {
+            console.info('✅ [RH Salvar] Registro gravado com sucesso em public.rh_funcionarios com user_id:', activeUid);
+          }
+        } catch (dbErr) {
+          console.warn('[RH Salvar] Exceção ao gravar no Supabase:', dbErr);
+          await upsertRhFuncionario(employeeData, activeCompany?.id, activeUid);
+        }
+      }
 
       let updatedList: Employee[] = [];
       if (editingEmployee) {
@@ -901,72 +1091,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         updatedList = [...localEmployees, employeeData];
       }
 
-      // Atualização imediata no estado local da tabela e no storage (renderização instantânea sem perda)
+      // Atualização imediata no estado local da tabela e no storage
       setLocalEmployees(updatedList);
       saveStoredEmployees(updatedList);
 
       // Notifica o manipulador superior para persistência no Supabase
-      try {
-        await onSaveEmployees(updatedList);
-      } catch (err: any) {
-        console.error('[RH Salvar Funcionário Error]', {
-          message: err?.message,
-          details: err,
-          employeeData
-        });
-      }
-
-      // Persistência direta e estrita dos campos comuns de texto de pagamento na tabela public.rh_funcionarios
-      if (isSupabaseConfigured) {
+      if (onSaveEmployees) {
         try {
-          const targetValidUuid = toValidUUID(finalId);
-          // Payload contendo estritamente os campos de texto comuns da seção de pagamento
-          const paymentPayload: Record<string, string | null> = {
-            local_recebimento: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : null,
-            banco_chave_pix: bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : null,
-            agencia: bankAgency.trim() ? bankAgency.trim().toUpperCase() : null,
-            conta_corrente: bankAccount.trim() ? bankAccount.trim().toUpperCase() : null,
-          };
-
-          // Obter identificador de isolamento do usuário logado / empresa ativa
-          const activeCid = activeCompany?.id || getActiveCompanyId();
-          let loggedInUserId: string | null = null;
-          try {
-            const { data: authData } = await supabase.auth.getUser();
-            if (authData?.user?.id) {
-              loggedInUserId = authData.user.id;
-            }
-          } catch (_) {}
-
-          const tenantId = loggedInUserId || activeCid;
-
-          // Executa o update com estrito isolamento por ID do colaborador e identificador do usuário logado
-          let query = supabase
-            .from('rh_funcionarios')
-            .update(paymentPayload)
-            .eq('id', targetValidUuid);
-
-          if (tenantId) {
-            query = query.or(`company_id.eq.${tenantId},user_id.eq.${tenantId}`);
-          }
-
-          const { error: updateErr } = await query;
-          if (updateErr) {
-            // Tenta fallback com ID original caso difira do UUID canônico
-            if (finalId !== targetValidUuid) {
-              await supabase
-                .from('rh_funcionarios')
-                .update(paymentPayload)
-                .eq('id', finalId);
-            }
-            console.warn('[RH Pagamentos] Aviso ao salvar campos de pagamento no Supabase:', updateErr.message);
-          } else {
-            console.info('[RH Pagamentos] Campos de pagamento salvos com sucesso em public.rh_funcionarios');
-          }
-        } catch (paymentErr) {
-          console.warn('[RH Pagamentos] Exceção ao persistir dados de pagamento no Supabase:', paymentErr);
+          await onSaveEmployees(updatedList);
+        } catch (err: any) {
+          console.error('[RH onSaveEmployees Error]', err);
         }
       }
+
       setIsModalOpen(false);
     } finally {
       setIsSubmitting(false);
@@ -2440,6 +2577,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             setRole2(selectedRole);
           }
         }}
+      />
+
+      {/* Modal de Recorte e Upload de Foto (Bucket Público 'avatars') */}
+      <EmployeePhotoCropModal
+        isOpen={isCropModalOpen}
+        imageSrc={cropImageSrc}
+        employeeId={editingEmployee?.id}
+        companyId={activeCompany?.id}
+        employeeName={name || 'Colaborador'}
+        onClose={() => {
+          setIsCropModalOpen(false);
+          setCropImageSrc(null);
+        }}
+        onConfirm={handleConfirmCrop}
       />
 
     </div>

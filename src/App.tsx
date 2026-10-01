@@ -666,9 +666,17 @@ export default function App() {
       // 1. Atualização ultra-rápida de foto e dados a partir do payload Realtime (.on)
       if ((payload?.eventType === 'INSERT' || payload?.eventType === 'UPDATE') && payload.new) {
         const row = payload.new;
+        const currentAuthUid = currentUser?.id;
+        const rowUid = String(row.user_id || '').trim();
+
+        // Blindagem estrita de isolamento de assinante: ignora qualquer evento de outro usuário
+        if (currentAuthUid && rowUid && rowUid !== currentAuthUid) {
+          return;
+        }
+
         const rowCid = String(row.company_id || row.tenant_id || row.user_id || '').trim();
         const validTenantUuid = toValidUUID(activeTenantId);
-        const isThisTenant = rowCid && (rowCid === activeTenantId || (validTenantUuid && rowCid === validTenantUuid));
+        const isThisTenant = (currentAuthUid && rowUid === currentAuthUid) || (rowCid && (rowCid === activeTenantId || (validTenantUuid && rowCid === validTenantUuid)));
 
         if (isThisTenant) {
           const livePhoto = row.foto_url || row.avatar_url || row.photo_url || row.photoUrl;

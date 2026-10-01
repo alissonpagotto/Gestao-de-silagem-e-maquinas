@@ -2421,10 +2421,14 @@ export function mapRowToEmployee(row: any): Employee {
     cnhExpiration: cnhExpiration,
     cnhUpgradeDT: Boolean(row.cnh_upgrade_dt || row.cnhUpgradeDT),
     cnhUpgradeCategory: row.cnh_upgrade_category || row.cnhUpgradeCategory || undefined,
-    paymentLocation: row.payment_location || row.local_pagamento || undefined,
-    bankPixKey: row.bank_pix_key || row.chave_pix || undefined,
-    bankAgency: row.bank_agency || row.agencia || undefined,
-    bankAccount: row.bank_account || row.conta || undefined,
+    paymentLocation: row.local_recebimento || row.payment_location || row.local_pagamento || undefined,
+    local_recebimento: row.local_recebimento || row.payment_location || row.local_pagamento || undefined,
+    bankPixKey: row.banco_chave_pix || row.bank_pix_key || row.chave_pix || undefined,
+    banco_chave_pix: row.banco_chave_pix || row.bank_pix_key || row.chave_pix || undefined,
+    bankAgency: row.agencia || row.bank_agency || undefined,
+    agencia: row.agencia || row.bank_agency || undefined,
+    bankAccount: row.conta_corrente || row.bank_account || row.conta || undefined,
+    conta_corrente: row.conta_corrente || row.bank_account || row.conta || undefined,
     photoUrl: (() => {
       const raw = row.photo_url || row.photoUrl || row.foto_url || row.fotoUrl || row.avatar_url || row.avatarUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
@@ -2482,20 +2486,13 @@ export function sanitizeRhFuncionarioPayload(
   user_id: string | null;
   updated_at: string;
   local_recebimento: string | null;
-  payment_location: string | null;
   banco_chave_pix: string | null;
-  bank_pix_key: string | null;
   agencia: string | null;
-  bank_agency: string | null;
   conta_corrente: string | null;
-  bank_account: string | null;
   exame_admissional_url: string | null;
-  aso_url: string | null;
   contrato_experiencia_url: string | null;
-  contrato_url: string | null;
   documentos_gerais_url: string | null;
   ficha_cadastral_assinada_url: string | null;
-  ficha_assinada_url: string | null;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
   const validId = toValidUUID(employee.id);
@@ -2554,20 +2551,13 @@ export function sanitizeRhFuncionarioPayload(
     user_id: effectiveUserId ? String(effectiveUserId).trim() : null,
     updated_at: new Date().toISOString(),
     local_recebimento: localRecebimento ? localRecebimento.toUpperCase() : null,
-    payment_location: localRecebimento ? localRecebimento.toUpperCase() : null,
     banco_chave_pix: bancoChavePix ? bancoChavePix.toUpperCase() : null,
-    bank_pix_key: bancoChavePix ? bancoChavePix.toUpperCase() : null,
     agencia: agencia ? agencia.toUpperCase() : null,
-    bank_agency: agencia ? agencia.toUpperCase() : null,
     conta_corrente: contaCorrente ? contaCorrente.toUpperCase() : null,
-    bank_account: contaCorrente ? contaCorrente.toUpperCase() : null,
     exame_admissional_url: asoUrl,
-    aso_url: asoUrl,
     contrato_experiencia_url: contratoUrl,
-    contrato_url: contratoUrl,
     documentos_gerais_url: docsGeraisUrl,
     ficha_cadastral_assinada_url: fichaAssinadaUrl,
-    ficha_assinada_url: fichaAssinadaUrl,
   };
 }
 
@@ -2693,13 +2683,27 @@ export async function uploadEmployeePhotoToStorage(
 
     // 1. Upload da Foto do Perfil configurado para apontar estritamente para o bucket 'avatars'
     try {
-      const { data, error } = await supabase.storage
+      let { data, error } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob, {
+        .upload(fileName, blob, {
           contentType: mimeType,
           cacheControl: '3600',
           upsert: true,
         });
+
+      if (error) {
+        const retry = await supabase.storage
+          .from('avatars')
+          .upload(filePath, blob, {
+            contentType: mimeType,
+            cacheControl: '3600',
+            upsert: true,
+          });
+        if (!retry.error) {
+          data = retry.data;
+          error = null;
+        }
+      }
 
       // Validação estrita: captura o link público retornado via .getPublicUrl().data.publicUrl
       if (!error && data && data.path) {

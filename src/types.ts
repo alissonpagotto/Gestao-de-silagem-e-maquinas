@@ -401,9 +401,13 @@ export interface Employee {
   
   // Informações Financeiras / Pagamento
   paymentLocation?: string; // Local de Recebimento
+  local_recebimento?: string; // Coluna banco Supabase: local_recebimento
   bankPixKey?: string; // Banco / Chave PIX
+  banco_chave_pix?: string; // Coluna banco Supabase: banco_chave_pix
   bankAgency?: string; // Agência (Ag.)
+  agencia?: string; // Coluna banco Supabase: agencia
   bankAccount?: string; // Conta Corrente (C.C.)
+  conta_corrente?: string; // Coluna banco Supabase: conta_corrente
 
   // Anexos de Retorno e Documentos
   admissionExamDoc?: EmployeeAttachment; // Exame Admissional
