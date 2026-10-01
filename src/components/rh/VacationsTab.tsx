@@ -10,11 +10,13 @@ import {
   Palmtree, 
   AlertCircle,
   X,
-  DollarSign
+  DollarSign,
+  Printer
 } from 'lucide-react';
 import { Employee, VacationRecord } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { VacationReceiptModal } from './VacationReceiptModal';
 
 interface VacationsTabProps {
 
@@ -33,6 +35,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVacation, setEditingVacation] = useState<VacationRecord | null>(null);
+  const [printingVacation, setPrintingVacation] = useState<VacationRecord | null>(null);
 
   // Form State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -371,6 +374,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       <div className="flex items-center justify-center space-x-1">
                         <button
                           type="button"
+                          onClick={() => setPrintingVacation(item)}
+                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          title="Imprimir Aviso/Recibo de Férias"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleOpenModal(item)}
                           className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Editar Férias"
@@ -601,6 +612,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Aviso e Recibo de Férias para Impressão */}
+      <VacationReceiptModal
+        isOpen={Boolean(printingVacation)}
+        vacation={printingVacation}
+        employee={employees.find(e => e.id === printingVacation?.employeeId || e.name === printingVacation?.employeeName)}
+        onClose={() => setPrintingVacation(null)}
+      />
 
     </div>
   );

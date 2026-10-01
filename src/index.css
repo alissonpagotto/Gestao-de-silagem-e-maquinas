@@ -1140,6 +1140,30 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     padding-bottom: 2px !important;
     line-height: 1.2 !important;
   }
+
+  /* ==========================================================================
+     ISOLAMENTO DE IMPRESSÃO DO AVISO E RECIBO DE FÉRIAS (A4 PORTRAIT)
+     ========================================================================== */
+  body.has-vacation-receipt-open,
+  body.printing-vacation-receipt {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body.has-vacation-receipt-open .recibo-ferias-container,
+  body.printing-vacation-receipt .recibo-ferias-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+  }
 }
 
 

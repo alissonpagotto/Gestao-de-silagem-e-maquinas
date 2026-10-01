@@ -21,7 +21,8 @@ import {
   RetiradaPecaRecord,
   MovimentacaoFerramentaRecord,
   CaixaFerramentaVeiculoRecord,
-  MaintenanceLog
+  MaintenanceLog,
+  VacationRecord
 } from '../types';
 export type {
   CompanyProfile,
@@ -2840,7 +2841,9 @@ export async function fetchRhFuncionarios(
 ): Promise<Employee[]> {
   if (!isSupabaseConfigured) return [];
 
-  // 1. Obtém o ID do usuário autenticado no sistema (auth.uid)
+  const targetCompanyId = companyId || getActiveCompanyId();
+
+  // 1. Obtém o ID do usuário autenticado no sistema (auth.uid), se disponível
   let currentUserId = authUserId;
   if (!currentUserId) {
     try {
@@ -2853,32 +2856,26 @@ export async function fetchRhFuncionarios(
     } catch (_) {}
   }
 
-  // Elimina qualquer tentativa de buscar registros sem a cláusula de amarração do usuário ativo
-  if (!currentUserId) {
-    console.warn('[RH] Nenhum usuário autenticado detectado. Bloqueando query de rh_funcionarios.');
-    return [];
-  }
-
   try {
-    // 2. Query estrita aplicando sempre o filtro do usuário ativo: .eq('user_id', currentUserId)
-    const res = await supabase
-      .from('rh_funcionarios')
-      .select('*')
-      .eq('user_id', currentUserId)
-      .order('name', { ascending: true });
+    // 2. Query transparente associada ao assinante ativo (company_id ou user_id)
+    let query = supabase.from('rh_funcionarios').select('*');
+    if (targetCompanyId && currentUserId && targetCompanyId !== currentUserId) {
+      query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId},user_id.eq.${currentUserId}`);
+    } else if (targetCompanyId) {
+      query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId}`);
+    } else if (currentUserId) {
+      query = query.eq('user_id', currentUserId);
+    }
+
+    const res = await query.order('name', { ascending: true });
 
     if (res.error) {
       console.warn('Supabase fetchRhFuncionarios notice:', res.error.message);
       return [];
     }
 
-    if (Array.isArray(res.data)) {
-      // 3. Limpeza Imediata: Garante que apenas registros do usuário autenticado apareçam
-      const strictlyFiltered = res.data.filter((row: any) => {
-        const rowUid = String(row.user_id || '').trim();
-        return rowUid === currentUserId;
-      });
-      return strictlyFiltered.map(mapRowToEmployee);
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      return res.data.map(mapRowToEmployee);
     }
     return [];
   } catch (err) {
@@ -2895,6 +2892,7 @@ export async function fetchRhFuncionarios(
 export async function fetchFleetDriversFromSupabase(companyId?: string, authUserId?: string): Promise<Employee[]> {
   if (!isSupabaseConfigured) return [];
   try {
+    const targetCompanyId = companyId || getActiveCompanyId();
     let currentUserId = authUserId;
     if (!currentUserId) {
       try {
@@ -2903,13 +2901,18 @@ export async function fetchFleetDriversFromSupabase(companyId?: string, authUser
       } catch (_) {}
     }
 
-    if (!currentUserId) return [];
-
     let query = supabase
       .from('rh_funcionarios')
       .select('*')
-      .eq('user_id', currentUserId)
       .or('role.eq.Motorista,role.ilike.%Motorista%');
+
+    if (targetCompanyId && currentUserId && targetCompanyId !== currentUserId) {
+      query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId},user_id.eq.${currentUserId}`);
+    } else if (targetCompanyId) {
+      query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId}`);
+    } else if (currentUserId) {
+      query = query.eq('user_id', currentUserId);
+    }
 
     let { data, error } = await query.order('name', { ascending: true });
 
@@ -2918,12 +2921,8 @@ export async function fetchFleetDriversFromSupabase(companyId?: string, authUser
       return [];
     }
 
-    if (Array.isArray(data)) {
-      const strictlyFiltered = data.filter((row: any) => {
-        const rowUid = String(row.user_id || '').trim();
-        return rowUid === currentUserId;
-      });
-      return strictlyFiltered.map(mapRowToEmployee);
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map(mapRowToEmployee);
     }
     return [];
   } catch (err) {
@@ -8720,6 +8719,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       `cloud_expenses_${cId}`,
       `cloud_terminations_${cId}`,
       `cloud_maintenance_${cId}`,
+      `cloud_vacations_${cId}`,
     ];
 
     const { data, error } = await supabase
@@ -8760,9 +8760,56 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       expenses: parseJson(`cloud_expenses_${cId}`) as Expense[] | null,
       terminations: parseJson(`cloud_terminations_${cId}`) as TerminationRecord[] | null,
       maintenanceLogs: parseJson(`cloud_maintenance_${cId}`) as MaintenanceLog[] | null,
+      vacations: parseJson(`cloud_vacations_${cId}`) as VacationRecord[] | null,
     };
   } catch (err) {
     console.warn('Erro ao carregar módulos do cliente do Supabase:', err);
+    return null;
+  }
+}
+
+/**
+ * Salva e sincroniza as Férias dos colaboradores na nuvem (Supabase)
+ */
+export async function saveCloudVacations(vacations: VacationRecord[], companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const cleanVacations = Array.isArray(vacations) ? vacations : [];
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_vacations_${cId}`,
+      hero_title: JSON.stringify(cleanVacations),
+      allow_free_trial: true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    return !error;
+  } catch (e) {
+    console.error('Falha ao persistir férias no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega as Férias dos colaboradores da nuvem (Supabase)
+ */
+export async function fetchCloudVacations(companyId?: string): Promise<VacationRecord[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('hero_title')
+      .eq('id', `cloud_vacations_${cId}`)
+      .maybeSingle();
+
+    if (!error && data?.hero_title) {
+      const parsed = JSON.parse(data.hero_title);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as VacationRecord[];
+      }
+    }
+    return null;
+  } catch (e) {
     return null;
   }
 }

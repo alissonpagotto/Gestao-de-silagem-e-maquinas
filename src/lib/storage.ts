@@ -1666,13 +1666,38 @@ export function saveStoredPayrolls(payrolls: PayrollRecord[]): void {
 }
 
 // RH: Vacations
+export const DEFAULT_INITIAL_VACATIONS: VacationRecord[] = [
+  {
+    id: 'vac_alisson_pag_01',
+    employeeId: 'ab80e2fa-5094-43b3-83bf-c34047bf1b42',
+    employeeName: 'ALISSON PAG',
+    acquisitionPeriodStart: '2025-01-01',
+    acquisitionPeriodEnd: '2025-12-31',
+    startDate: '2026-10-01',
+    endDate: '2026-10-31',
+    daysCount: 30,
+    sellDaysCount: 0,
+    baseSalary: 4000,
+    oneThirdBonus: 1000,
+    pecuniaryAllowance: 0,
+    thirteenthAdvance: false,
+    thirteenthAmount: 0,
+    totalAmount: 5000,
+    status: 'agendado',
+    notes: 'Aviso e Recibo de Férias - Período Regular',
+    createdAt: '2026-09-30T10:00:00.000Z',
+  }
+];
+
 export function getStoredVacations(): VacationRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.VACATIONS);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    if (!raw) return DEFAULT_INITIAL_VACATIONS;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_INITIAL_VACATIONS;
+    return parsed;
   } catch (e) {
-    return [];
+    return DEFAULT_INITIAL_VACATIONS;
   }
 }
 

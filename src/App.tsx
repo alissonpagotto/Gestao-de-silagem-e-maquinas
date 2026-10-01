@@ -161,6 +161,10 @@ import {
   fetchAllClientModulesFromSupabase,
   fetchAbastecimentos,
   saveCloudFuelLogs,
+  saveCloudMaintenanceLogs,
+  fetchCloudMaintenanceLogs,
+  saveCloudVacations,
+  fetchCloudVacations,
   getAbastecimentosTableName,
   fetchFrentesTrabalho,
   fetchFrentesTrabalhoMembros,
@@ -314,6 +318,8 @@ export default function App() {
     machineries?: string;
     expenses?: string;
     fuelLogs?: string;
+    maintenanceLogs?: string;
+    vacations?: string;
     rel_clients?: string;
     rel_suppliers?: string;
     rel_inventory?: string;
@@ -351,99 +357,101 @@ export default function App() {
             lastSyncedState.current.rel_inventory = JSON.stringify(cloudData.estoque);
             setInventory(cloudData.estoque);
           }
-          if (cloudData.rh_funcionarios !== undefined && Array.isArray(cloudData.rh_funcionarios)) {
-            const currentAuthUid = currentUser?.id;
+          if (cloudData.rh_funcionarios !== undefined && Array.isArray(cloudData.rh_funcionarios) && cloudData.rh_funcionarios.length > 0) {
+            const validTenantUuid = toValidUUID(activeTenantId);
             const tenantFilteredRh = cloudData.rh_funcionarios.filter(e => {
-              const uid = String(e.userId || (e as any).user_id || '').trim();
-              if (currentAuthUid && uid) return uid === currentAuthUid;
               const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
-              return currentAuthUid && cid === currentAuthUid;
+              const uid = String(e.userId || (e as any).user_id || '').trim();
+              if (cid && (cid === activeTenantId || (validTenantUuid && cid === validTenantUuid))) return true;
+              if (uid && (uid === activeTenantId || (validTenantUuid && uid === validTenantUuid))) return true;
+              if (currentUser?.id && (uid === currentUser.id || cid === currentUser.id)) return true;
+              return !cid && !uid;
             });
 
-            const currentStored = getStoredEmployees().filter(e => {
-              const uid = String(e.userId || (e as any).user_id || '').trim();
-              if (currentAuthUid && uid) return uid === currentAuthUid;
-              const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
-              return currentAuthUid && cid === currentAuthUid;
-            });
+            setEmployees(prev => {
+              const currentStored = prev.length > 0 ? prev : getStoredEmployees();
+              const mergedInitial = tenantFilteredRh.map(cloudEmp => {
+                const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
+                if (!localEmp) return cloudEmp;
+                const recComm = localEmp.receivesCommission !== undefined
+                  ? Boolean(localEmp.receivesCommission)
+                  : Boolean(cloudEmp.receivesCommission || (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0));
+                const commH = recComm
+                  ? ((localEmp.commissionPerHour !== undefined && localEmp.commissionPerHour > 0)
+                      ? localEmp.commissionPerHour
+                      : (cloudEmp.commissionPerHour || 0))
+                  : 0;
+                const commA = recComm
+                  ? ((localEmp.commissionPerAlqueire !== undefined && localEmp.commissionPerAlqueire > 0)
+                      ? localEmp.commissionPerAlqueire
+                      : (cloudEmp.commissionPerAlqueire || 0))
+                  : 0;
+                const commHa = recComm
+                  ? ((localEmp.commissionPerHectare !== undefined && localEmp.commissionPerHectare > 0)
+                      ? localEmp.commissionPerHectare
+                      : (cloudEmp.commissionPerHectare || 0))
+                  : 0;
+                return {
+                  ...cloudEmp,
+                  ...localEmp,
+                  photoUrl: localEmp.photoUrl || cloudEmp.photoUrl || (cloudEmp as any).foto_url || (cloudEmp as any).avatar_url,
+                  foto_url: localEmp.foto_url || cloudEmp.foto_url || localEmp.photoUrl || cloudEmp.photoUrl || (cloudEmp as any).avatar_url,
+                  avatar_url: (localEmp as any).avatar_url || (cloudEmp as any).avatar_url || localEmp.foto_url || cloudEmp.foto_url || localEmp.photoUrl || cloudEmp.photoUrl,
+                  commissionPerHour: commH,
+                  commissionPerAlqueire: commA,
+                  commissionPerHectare: commHa,
+                  comissao_hora: commH,
+                  comissao_alqueire: commA,
+                  comissao_hectare: commHa,
+                  recebe_comissao: recComm,
+                  bankPixKey: cloudEmp.bankPixKey || localEmp.bankPixKey,
+                  bankAgency: cloudEmp.bankAgency || localEmp.bankAgency,
+                  bankAccount: cloudEmp.bankAccount || localEmp.bankAccount,
+                  paymentLocation: cloudEmp.paymentLocation || localEmp.paymentLocation,
+                  admissionExamDoc: cloudEmp.admissionExamDoc || localEmp.admissionExamDoc,
+                  experienceContractDoc: cloudEmp.experienceContractDoc || localEmp.experienceContractDoc,
+                  generalDocs: cloudEmp.generalDocs || localEmp.generalDocs,
+                  signedRegistrationDoc: cloudEmp.signedRegistrationDoc || localEmp.signedRegistrationDoc,
+                };
+              });
 
-            const mergedInitial = tenantFilteredRh.map(cloudEmp => {
-              const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
-              if (!localEmp) return cloudEmp;
-              const recComm = localEmp.receivesCommission !== undefined
-                ? Boolean(localEmp.receivesCommission)
-                : Boolean(cloudEmp.receivesCommission || (cloudEmp.commissionPerHour && cloudEmp.commissionPerHour > 0));
-              const commH = recComm
-                ? ((localEmp.commissionPerHour !== undefined && localEmp.commissionPerHour > 0)
-                    ? localEmp.commissionPerHour
-                    : (cloudEmp.commissionPerHour || 0))
-                : 0;
-              const commA = recComm
-                ? ((localEmp.commissionPerAlqueire !== undefined && localEmp.commissionPerAlqueire > 0)
-                    ? localEmp.commissionPerAlqueire
-                    : (cloudEmp.commissionPerAlqueire || 0))
-                : 0;
-              const commHa = recComm
-                ? ((localEmp.commissionPerHectare !== undefined && localEmp.commissionPerHectare > 0)
-                    ? localEmp.commissionPerHectare
-                    : (cloudEmp.commissionPerHectare || 0))
-                : 0;
-              return {
-                ...cloudEmp,
-                ...localEmp,
-                photoUrl: localEmp.photoUrl || cloudEmp.photoUrl || (cloudEmp as any).foto_url || (cloudEmp as any).avatar_url,
-                foto_url: localEmp.foto_url || cloudEmp.foto_url || localEmp.photoUrl || cloudEmp.photoUrl || (cloudEmp as any).avatar_url,
-                avatar_url: (localEmp as any).avatar_url || (cloudEmp as any).avatar_url || localEmp.foto_url || cloudEmp.foto_url || localEmp.photoUrl || cloudEmp.photoUrl,
-                commissionPerHour: commH,
-                commissionPerAlqueire: commA,
-                commissionPerHectare: commHa,
-                comissao_hora: commH,
-                comissao_alqueire: commA,
-                comissao_hectare: commHa,
-                recebe_comissao: recComm,
-                bankPixKey: cloudEmp.bankPixKey || localEmp.bankPixKey,
-                bankAgency: cloudEmp.bankAgency || localEmp.bankAgency,
-                bankAccount: cloudEmp.bankAccount || localEmp.bankAccount,
-                paymentLocation: cloudEmp.paymentLocation || localEmp.paymentLocation,
-                admissionExamDoc: cloudEmp.admissionExamDoc || localEmp.admissionExamDoc,
-                experienceContractDoc: cloudEmp.experienceContractDoc || localEmp.experienceContractDoc,
-                generalDocs: cloudEmp.generalDocs || localEmp.generalDocs,
-                signedRegistrationDoc: cloudEmp.signedRegistrationDoc || localEmp.signedRegistrationDoc,
-              };
+              const cloudIds = new Set(mergedInitial.map(e => e.id));
+              const localOnly = currentStored.filter(e => !cloudIds.has(e.id) && !cloudIds.has(toValidUUID(e.id)));
+              const finalEmployees = [...mergedInitial, ...localOnly].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+              lastSyncedState.current.rel_employees = JSON.stringify(finalEmployees);
+              saveStoredEmployees(finalEmployees);
+              return finalEmployees;
             });
-            lastSyncedState.current.rel_employees = JSON.stringify(mergedInitial);
-            setEmployees(mergedInitial);
-            saveStoredEmployees(mergedInitial);
           }
           if (cloudData.gestao_frotas && cloudData.gestao_frotas.length > 0) {
             lastSyncedState.current.rel_machineries = JSON.stringify(cloudData.gestao_frotas);
             setMachineries(cloudData.gestao_frotas);
           }
-          if (cloudData.contas_a_pagar !== undefined && Array.isArray(cloudData.contas_a_pagar)) {
-            if (cloudData.contas_a_pagar.length === 0) {
-              lastSyncedState.current.rel_expenses = '[]';
-              setExpenses([]);
-              saveStoredExpenses([]);
-            } else {
-              const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => ({
-                id: d.id,
-                title: d.centro_custo || 'Parcela Fornecedor',
-                description: d.centro_custo || 'Parcela Fornecedor',
-                amount: Number(d.valor_parcela) || 0,
-                dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-                status: d.status_pago ? 'pago' : 'pendente',
-                categoryId: 'despesa_geral',
-                categoryColor: '#10b981',
-                category: 'despesa_geral',
-                categoryName: d.centro_custo || 'Geral',
-                paymentMethod: d.forma_pagamento || 'Boleto',
-                supplier: 'Fornecedor',
-                createdAt: d.created_at || new Date().toISOString()
-              } as unknown as Expense));
-              lastSyncedState.current.rel_expenses = JSON.stringify(mappedExpenses);
-              setExpenses(mappedExpenses);
-              saveStoredExpenses(mappedExpenses);
-            }
+          if (cloudData.contas_a_pagar !== undefined && Array.isArray(cloudData.contas_a_pagar) && cloudData.contas_a_pagar.length > 0) {
+            const mappedExpenses = cloudData.contas_a_pagar.map((d: any) => ({
+              id: d.id,
+              title: d.centro_custo || 'Parcela Fornecedor',
+              description: d.centro_custo || 'Parcela Fornecedor',
+              amount: Number(d.valor_parcela) || 0,
+              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+              status: d.status_pago ? 'pago' : 'pendente',
+              categoryId: 'despesa_geral',
+              categoryColor: '#10b981',
+              category: 'despesa_geral',
+              categoryName: d.centro_custo || 'Geral',
+              paymentMethod: d.forma_pagamento || 'Boleto',
+              supplier: 'Fornecedor',
+              createdAt: d.created_at || new Date().toISOString()
+            } as unknown as Expense));
+
+            setExpenses(prev => {
+              const map = new Map(prev.map(e => [e.id, e]));
+              mappedExpenses.forEach(e => map.set(e.id, e));
+              const merged = Array.from(map.values());
+              lastSyncedState.current.rel_expenses = JSON.stringify(merged);
+              saveStoredExpenses(merged);
+              return merged;
+            });
           }
         }
 
@@ -481,6 +489,7 @@ export default function App() {
                     ...existing,
                     hourMeter: Math.max(existing.hourMeter || 0, m.hourMeter || 0),
                     currentKm: Math.max(existing.currentKm || 0, m.currentKm || 0),
+                    totalMaintenanceExpenses: Math.max(existing.totalMaintenanceExpenses || 0, m.totalMaintenanceExpenses || 0),
                   });
                 } else {
                   map.set(m.id, m);
@@ -491,32 +500,78 @@ export default function App() {
               return merged;
             });
           }
-          if (Array.isArray(cloudModules.expenses)) {
-            if (cloudModules.expenses.length === 0 && (!cloudData?.contas_a_pagar || cloudData.contas_a_pagar.length === 0)) {
-              setExpenses([]);
-              saveStoredExpenses([]);
-            } else if (cloudModules.expenses.length > 0) {
-              lastSyncedState.current.expenses = JSON.stringify(cloudModules.expenses);
-              setExpenses(cloudModules.expenses);
-            }
+          if (Array.isArray(cloudModules.expenses) && cloudModules.expenses.length > 0) {
+            setExpenses(prev => {
+              const map = new Map(prev.map(e => [e.id, e]));
+              cloudModules.expenses!.forEach(e => map.set(e.id, e));
+              const merged = Array.from(map.values());
+              lastSyncedState.current.expenses = JSON.stringify(merged);
+              saveStoredExpenses(merged);
+              return merged;
+            });
           }
           if (Array.isArray(cloudModules.terminations) && cloudModules.terminations.length > 0) {
             saveStoredTerminations(cloudModules.terminations);
           }
+          if (Array.isArray(cloudModules.maintenanceLogs) && cloudModules.maintenanceLogs.length > 0) {
+            setMaintenanceLogs(prev => {
+              const map = new Map(prev.map(m => [m.id, m]));
+              cloudModules.maintenanceLogs!.forEach(m => map.set(m.id, m));
+              const merged = Array.from(map.values());
+              lastSyncedState.current.maintenanceLogs = JSON.stringify(merged);
+              saveStoredMaintenanceLogs(merged);
+              return merged;
+            });
+          }
+          if (Array.isArray(cloudModules.vacations) && cloudModules.vacations.length > 0) {
+            setVacations(prev => {
+              const map = new Map(prev.map(v => [v.id, v]));
+              cloudModules.vacations!.forEach(v => map.set(v.id, v));
+              const merged = Array.from(map.values());
+              lastSyncedState.current.vacations = JSON.stringify(merged);
+              saveStoredVacations(merged);
+              return merged;
+            });
+          }
         }
 
-        // 3. Carrega abastecimentos sincronizados em nuvem (tabela abastecimentos / site_settings)
+        // 3. Carrega Ordens de Serviço de Manutenção em nuvem (ex: OS de R$ 300,48 do veículo RHX3E15)
+        const cloudMaint = await fetchCloudMaintenanceLogs(activeTenantId);
+        if (Array.isArray(cloudMaint) && cloudMaint.length > 0 && isMounted) {
+          setMaintenanceLogs(prev => {
+            const map = new Map(prev.map(m => [m.id, m]));
+            cloudMaint.forEach(m => map.set(m.id, m));
+            const merged = Array.from(map.values());
+            lastSyncedState.current.maintenanceLogs = JSON.stringify(merged);
+            saveStoredMaintenanceLogs(merged);
+            return merged;
+          });
+        }
+
+        // 4. Carrega Férias da nuvem
+        const cloudVacs = await fetchCloudVacations(activeTenantId);
+        if (Array.isArray(cloudVacs) && cloudVacs.length > 0 && isMounted) {
+          setVacations(prev => {
+            const map = new Map(prev.map(v => [v.id, v]));
+            cloudVacs.forEach(v => map.set(v.id, v));
+            const merged = Array.from(map.values());
+            lastSyncedState.current.vacations = JSON.stringify(merged);
+            saveStoredVacations(merged);
+            return merged;
+          });
+        }
+
+        // 5. Carrega abastecimentos sincronizados em nuvem (tabela abastecimentos / site_settings)
         const cloudFuels = await fetchAbastecimentos(activeTenantId);
-        if (cloudFuels !== null && Array.isArray(cloudFuels) && isMounted) {
-          if (cloudFuels.length === 0) {
-            lastSyncedState.current.fuelLogs = '[]';
-            setFuelLogs([]);
-            saveStoredFuelLogs([]);
-          } else {
-            lastSyncedState.current.fuelLogs = JSON.stringify(cloudFuels);
-            setFuelLogs(cloudFuels);
-            saveStoredFuelLogs(cloudFuels);
-          }
+        if (cloudFuels !== null && Array.isArray(cloudFuels) && cloudFuels.length > 0 && isMounted) {
+          setFuelLogs(prev => {
+            const map = new Map(prev.map(f => [f.id, f]));
+            cloudFuels.forEach(f => map.set(f.id, f));
+            const merged = Array.from(map.values());
+            lastSyncedState.current.fuelLogs = JSON.stringify(merged);
+            saveStoredFuelLogs(merged);
+            return merged;
+          });
         }
 
         // 4. Carrega frentes de trabalho e alocações de equipe em nuvem (tabelas frentes_trabalho e frentes_trabalho_membros)
@@ -701,19 +756,17 @@ export default function App() {
 
       const currentAuthUid = currentUser?.id;
       fetchRhFuncionarios(activeTenantId, currentAuthUid).then(fresh => {
-        if (fresh && isMounted) {
+        if (fresh && isMounted && fresh.length > 0) {
+          const validTenantUuid = toValidUUID(activeTenantId);
           const strictlyFilteredFresh = fresh.filter(e => {
-            const uid = String(e.userId || (e as any).user_id || '').trim();
-            if (currentAuthUid && uid) return uid === currentAuthUid;
             const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
-            return currentAuthUid && cid === currentAuthUid;
-          });
-          const currentStored = getStoredEmployees().filter(e => {
             const uid = String(e.userId || (e as any).user_id || '').trim();
-            if (currentAuthUid && uid) return uid === currentAuthUid;
-            const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
-            return currentAuthUid && cid === currentAuthUid;
+            if (cid && (cid === activeTenantId || (validTenantUuid && cid === validTenantUuid))) return true;
+            if (uid && (uid === activeTenantId || (validTenantUuid && uid === validTenantUuid))) return true;
+            if (currentAuthUid && (uid === currentAuthUid || cid === currentAuthUid)) return true;
+            return !cid && !uid;
           });
+          const currentStored = getStoredEmployees();
           const merged = strictlyFilteredFresh.map(cloudEmp => {
             const localEmp = currentStored.find(l => toValidUUID(l.id) === cloudEmp.id || l.id === cloudEmp.id);
             if (!localEmp) return cloudEmp;
@@ -873,32 +926,32 @@ export default function App() {
 
     const unsubContas = subscribeToCloudTable('contas_a_pagar', () => {
       fetchContasAPagar(activeTenantId).then(fresh => {
-        if (fresh && isMounted) {
+        if (fresh && isMounted && fresh.length > 0) {
           const ser = JSON.stringify(fresh);
           if (ser !== lastSyncedState.current.rel_expenses) {
             lastSyncedState.current.rel_expenses = ser;
-            if (fresh.length === 0) {
-              setExpenses([]);
-              saveStoredExpenses([]);
-            } else {
-              const mapped = fresh.map((d: any) => ({
-                id: d.id,
-                title: d.centro_custo || 'Parcela Fornecedor',
-                description: d.centro_custo || 'Parcela Fornecedor',
-                amount: Number(d.valor_parcela) || 0,
-                dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-                status: d.status_pago ? 'pago' : 'pendente',
-                categoryId: 'despesa_geral',
-                categoryColor: '#10b981',
-                category: 'despesa_geral',
-                categoryName: d.centro_custo || 'Geral',
-                paymentMethod: d.forma_pagamento || 'Boleto',
-                supplier: 'Fornecedor',
-                createdAt: d.created_at || new Date().toISOString()
-              } as unknown as Expense));
-              setExpenses(mapped);
-              saveStoredExpenses(mapped);
-            }
+            const mapped = fresh.map((d: any) => ({
+              id: d.id,
+              title: d.centro_custo || 'Parcela Fornecedor',
+              description: d.centro_custo || 'Parcela Fornecedor',
+              amount: Number(d.valor_parcela) || 0,
+              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+              status: d.status_pago ? 'pago' : 'pendente',
+              categoryId: 'despesa_geral',
+              categoryColor: '#10b981',
+              category: 'despesa_geral',
+              categoryName: d.centro_custo || 'Geral',
+              paymentMethod: d.forma_pagamento || 'Boleto',
+              supplier: 'Fornecedor',
+              createdAt: d.created_at || new Date().toISOString()
+            } as unknown as Expense));
+            setExpenses(prev => {
+              const map = new Map(prev.map(e => [e.id, e]));
+              mapped.forEach(e => map.set(e.id, e));
+              const merged = Array.from(map.values());
+              saveStoredExpenses(merged);
+              return merged;
+            });
           }
         }
       });
@@ -953,7 +1006,39 @@ export default function App() {
             const ser = JSON.stringify(fresh.expenses);
             if (ser !== lastSyncedState.current.expenses) {
               lastSyncedState.current.expenses = ser;
-              setExpenses(fresh.expenses);
+              setExpenses(prev => {
+                const map = new Map(prev.map(e => [e.id, e]));
+                fresh.expenses!.forEach(e => map.set(e.id, e));
+                const merged = Array.from(map.values());
+                saveStoredExpenses(merged);
+                return merged;
+              });
+            }
+          }
+          if (Array.isArray(fresh.maintenanceLogs) && fresh.maintenanceLogs.length > 0) {
+            const ser = JSON.stringify(fresh.maintenanceLogs);
+            if (ser !== lastSyncedState.current.maintenanceLogs) {
+              lastSyncedState.current.maintenanceLogs = ser;
+              setMaintenanceLogs(prev => {
+                const map = new Map(prev.map(m => [m.id, m]));
+                fresh.maintenanceLogs!.forEach(m => map.set(m.id, m));
+                const merged = Array.from(map.values());
+                saveStoredMaintenanceLogs(merged);
+                return merged;
+              });
+            }
+          }
+          if (Array.isArray(fresh.vacations) && fresh.vacations.length > 0) {
+            const ser = JSON.stringify(fresh.vacations);
+            if (ser !== lastSyncedState.current.vacations) {
+              lastSyncedState.current.vacations = ser;
+              setVacations(prev => {
+                const map = new Map(prev.map(v => [v.id, v]));
+                fresh.vacations!.forEach(v => map.set(v.id, v));
+                const merged = Array.from(map.values());
+                saveStoredVacations(merged);
+                return merged;
+              });
             }
           }
         }
@@ -1325,6 +1410,30 @@ export default function App() {
     }, 1200);
     return () => clearTimeout(t);
   }, [fuelLogs, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current || !activeTenantId || maintenanceLogs.length === 0) return;
+    const currentSerialized = JSON.stringify(maintenanceLogs);
+    if (currentSerialized === lastSyncedState.current.maintenanceLogs) return;
+
+    const t = setTimeout(() => {
+      lastSyncedState.current.maintenanceLogs = currentSerialized;
+      saveCloudMaintenanceLogs(maintenanceLogs, activeTenantId);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [maintenanceLogs, activeTenantId]);
+
+  useEffect(() => {
+    if (!isInitialLoadDone.current || !activeTenantId || vacations.length === 0) return;
+    const currentSerialized = JSON.stringify(vacations);
+    if (currentSerialized === lastSyncedState.current.vacations) return;
+
+    const t = setTimeout(() => {
+      lastSyncedState.current.vacations = currentSerialized;
+      saveCloudVacations(vacations, activeTenantId);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [vacations, activeTenantId]);
 
   // Keep third-party settlements state fresh across component interactions
   useEffect(() => {
