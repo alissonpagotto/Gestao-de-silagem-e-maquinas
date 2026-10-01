@@ -1053,7 +1053,8 @@ export async function upsertContaAPagar(parcela: {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
-    const catFinal = parcela.categoria || parcela.tipo_despesa || parcela.centro_custo || 'Insumos & Entradas';
+    const catFinal = parcela.centro_custo || parcela.categoria || parcela.tipo_despesa || 'Insumos & Entradas';
+    // Schema estrito de public.contas_a_pagar: sem 'categoria' ou 'tipo_despesa' para evitar erro PGRST204
     const payload: Record<string, any> = {
       id: toValidUUID(parcela.id),
       company_id: activeCompanyId,
@@ -1062,9 +1063,7 @@ export async function upsertContaAPagar(parcela: {
       valor_parcela: Number(parcela.valor_parcela) || 0,
       data_vencimento: parcela.data_vencimento || new Date().toISOString().split('T')[0],
       forma_pagamento: parcela.forma_pagamento || 'Boleto',
-      centro_custo: parcela.centro_custo || catFinal,
-      categoria: catFinal,
-      tipo_despesa: catFinal,
+      centro_custo: catFinal,
       status_pago: Boolean(parcela.status_pago)
     };
 
@@ -1073,29 +1072,28 @@ export async function upsertContaAPagar(parcela: {
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      logPostgresError('upsertContaAPagar', error, { table: 'contas_a_pagar', action: 'UPSERT', payload });
       // Se for violação de FK 23503 em nota_fiscal_id, anula e retenta
       if (error.code === '23503' && payload.nota_fiscal_id) {
         payload.nota_fiscal_id = null;
         const retryNF = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
         if (!retryNF.error) return true;
+        error = retryNF.error;
       }
-      // Se for erro de coluna inexistente (ex: categoria ou tipo_despesa), remove as colunas adicionais e retenta
-      if (error.message && (error.message.includes('column') || error.code === '42703')) {
-        const leanPayload = { ...payload };
-        delete leanPayload.categoria;
-        delete leanPayload.tipo_despesa;
-        const retryCols = await supabase.from('contas_a_pagar').upsert(leanPayload, { onConflict: 'id' });
-        if (!retryCols.error) return true;
-      }
-      // Se for violação em company_id ou coluna inexistente
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
-        delete payload.company_id;
-        delete payload.categoria;
-        delete payload.tipo_despesa;
-        const retry = await supabase.from('contas_a_pagar').upsert(payload, { onConflict: 'id' });
+      // Se for violação em company_id ou coluna inexistente no cache do PostgREST (PGRST204 / 42703)
+      if (error && (error.code === '23503' || error.code === 'PGRST204' || error.code === '42703' || (error.message && (error.message.includes('company_id') || error.message.includes('column') || error.message.includes('schema cache'))))) {
+        const leanPayload: Record<string, any> = {
+          id: payload.id,
+          numero_parcela: payload.numero_parcela,
+          valor_parcela: payload.valor_parcela,
+          data_vencimento: payload.data_vencimento,
+          forma_pagamento: payload.forma_pagamento,
+          centro_custo: payload.centro_custo,
+          status_pago: payload.status_pago
+        };
+        const retry = await supabase.from('contas_a_pagar').upsert(leanPayload, { onConflict: 'id' });
         if (!retry.error) return true;
       }
+      logPostgresError('upsertContaAPagar', error, { table: 'contas_a_pagar', action: 'UPSERT', payload });
       return false;
     }
     return true;
@@ -1145,14 +1143,6 @@ export interface LancamentoContasAPagarEntradaInput {
 /**
  * Realiza POST automático na tabela public.contas_a_pagar do Supabase
  * ao concluir uma entrada manual (status = 'Finalizado').
- * Suporta fracionamento e vinculação de parcelas:
- * - fornecedor/credor (nome do fornecedor)
- * - documento_entrada_id (ID da entrada de mercadoria vinculada)
- * - valor_total / valor_parcela (valor da parcela e total consolidado)
- * - numero_parcela ('01/03', '02/03', etc.)
- * - descricao / centro_custo ('Entrada de mercadoria manual ref. documento ' + tipo_documento)
- * - data_emissao e data_vencimento
- * - forma_pagamento (Boleto, Pix, Cartão, Dinheiro, etc.)
  */
 export async function insertContaAPagarEntradaManual(
   dados: LancamentoContasAPagarEntradaInput,
@@ -1160,90 +1150,46 @@ export async function insertContaAPagarEntradaManual(
 ): Promise<{ success: boolean; data?: any; error?: any }> {
   const activeCompanyId = companyId || getActiveCompanyId();
   const uuid = toValidUUID(dados.id || generateUUID());
-  const desc = dados.descricao || `Entrada de mercadoria manual ref. documento ${dados.tipo_documento}`;
   const now = new Date().toISOString();
   const parcelaAmount = Number(dados.valor_parcela !== undefined ? dados.valor_parcela : dados.valor_total) || 0;
   const numParcela = dados.numero_parcela || '01/01';
-  const catFinal = dados.categoria || dados.tipo_despesa || 'Insumos & Entradas';
+  const catFinal = dados.centro_custo || dados.categoria || dados.tipo_despesa || 'Insumos & Entradas';
 
   if (!isSupabaseConfigured) {
     return { success: true };
   }
 
   try {
-    const fullPayload: Record<string, any> = {
+    const standardPayload: Record<string, any> = {
       id: uuid,
-      fornecedor: dados.fornecedor.trim(),
-      credor: dados.fornecedor.trim(),
-      valor_total: Number(dados.valor_total) || 0,
       valor_parcela: parcelaAmount,
-      descricao: desc,
-      centro_custo: dados.centro_custo || catFinal,
-      categoria: catFinal,
-      tipo_despesa: catFinal,
-      data_emissao: dados.data_emissao,
       data_vencimento: dados.data_vencimento,
+      centro_custo: catFinal,
       numero_parcela: numParcela,
       forma_pagamento: dados.forma_pagamento || 'Boleto',
       status_pago: false,
       created_at: now
     };
+    if (activeCompanyId) standardPayload.company_id = activeCompanyId;
 
-    if (dados.documento_entrada_id) {
-      fullPayload.documento_entrada_id = toValidUUID(dados.documento_entrada_id);
-    }
-
-    if (activeCompanyId) {
-      fullPayload.company_id = activeCompanyId;
-    }
-
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('contas_a_pagar')
-      .insert([fullPayload])
+      .upsert([standardPayload], { onConflict: 'id' })
       .select();
 
     if (error) {
-      logPostgresError('insertContaAPagarEntradaManual', error, { table: 'contas_a_pagar', action: 'INSERT', payload: fullPayload });
-
-      // Fallback 1: Esquema com categoria, valor_parcela, centro_custo, data_vencimento, numero_parcela, forma_pagamento
-      const standardPayload: Record<string, any> = {
-        id: uuid,
-        valor_parcela: parcelaAmount,
-        data_vencimento: dados.data_vencimento,
-        centro_custo: dados.centro_custo || catFinal,
-        categoria: catFinal,
-        tipo_despesa: catFinal,
-        numero_parcela: numParcela,
-        forma_pagamento: dados.forma_pagamento || 'Boleto',
-        status_pago: false,
-        created_at: now
-      };
-      if (activeCompanyId) standardPayload.company_id = activeCompanyId;
-
-      const retry1 = await supabase
+      const leanPayload = { ...standardPayload };
+      delete leanPayload.company_id;
+      const retry = await supabase
         .from('contas_a_pagar')
-        .insert([standardPayload])
+        .upsert([leanPayload], { onConflict: 'id' })
         .select();
 
-      if (!retry1.error) {
-        return { success: true, data: retry1.data };
+      if (!retry.error) {
+        return { success: true, data: retry.data };
       }
 
-      // Fallback 2: Remove colunas extras se não existirem no schema físico do Supabase
-      if (retry1.error) {
-        delete standardPayload.company_id;
-        delete standardPayload.categoria;
-        delete standardPayload.tipo_despesa;
-        const retry2 = await supabase
-          .from('contas_a_pagar')
-          .insert([standardPayload])
-          .select();
-
-        if (!retry2.error) {
-          return { success: true, data: retry2.data };
-        }
-      }
-
+      logPostgresError('insertContaAPagarEntradaManual', error, { table: 'contas_a_pagar', action: 'INSERT', payload: standardPayload });
       return { success: false, error };
     }
 
@@ -2387,8 +2333,45 @@ export function mapRowToEmployee(row: any): Employee {
   const finalPerAlq = receivesCommission ? commPerAlq : 0;
   const finalPerHa = receivesCommission ? commPerHa : 0;
 
+  const rowId = String(row.id || `emp_${Date.now()}`);
+  const localEmp = getStoredEmployees().find(
+    (e) => e.id === rowId || toValidUUID(e.id) === toValidUUID(rowId)
+  );
+
+  const acqStart = formatIsoDateOnly(
+    row.periodo_aquisitivo_inicio ||
+      row.acquisition_period_start ||
+      row.acquisitionPeriodStart ||
+      localEmp?.acquisitionPeriodStart ||
+      localEmp?.periodo_aquisitivo_inicio
+  ) || undefined;
+
+  const acqEnd = formatIsoDateOnly(
+    row.periodo_aquisitivo_fim ||
+      row.acquisition_period_end ||
+      row.acquisitionPeriodEnd ||
+      localEmp?.acquisitionPeriodEnd ||
+      localEmp?.periodo_aquisitivo_fim
+  ) || undefined;
+
+  const machId =
+    row.veiculo_id ||
+    row.machinery_id ||
+    row.machineryId ||
+    localEmp?.machineryId ||
+    localEmp?.veiculo_id ||
+    undefined;
+
+  const machName =
+    row.veiculo_vinculado ||
+    row.machinery_name ||
+    row.machineryName ||
+    localEmp?.machineryName ||
+    localEmp?.veiculo_vinculado ||
+    undefined;
+
   return {
-    id: String(row.id || `emp_${Date.now()}`),
+    id: rowId,
     companyId: row.company_id || undefined,
     name: String(row.name || row.nome || row.nome_funcionario || '').trim(),
     role: roleStr,
@@ -2406,6 +2389,14 @@ export function mapRowToEmployee(row: any): Employee {
     baseSalary: salaryNum,
     admissionDate: admissionDate,
     terminationDate: terminationDate,
+    acquisitionPeriodStart: acqStart,
+    acquisitionPeriodEnd: acqEnd,
+    periodo_aquisitivo_inicio: acqStart,
+    periodo_aquisitivo_fim: acqEnd,
+    machineryId: machId,
+    machineryName: machName,
+    veiculo_id: machId,
+    veiculo_vinculado: machName,
     receivesCommission: receivesCommission,
     commissionPerHour: finalPerHour,
     commissionPerAlqueire: finalPerAlq,
@@ -3334,6 +3325,8 @@ export async function upsertRhFuncionario(
     return false;
   }
 }
+
+export const upsertFuncionario = upsertRhFuncionario;
 
 export async function deleteRhFuncionario(id: string, _companyId?: string, authUserId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !id) return false;
@@ -5681,70 +5674,33 @@ export async function insertContaAPagarAbastecimento(
     : `Abastecimento Viagem (${dados.fornecedor}) - ${dados.veiculoNome}${dados.litros ? ` (${dados.litros}L ${dados.tipoCombustivel || ''})` : ''}`;
 
   try {
-    const fullPayload: Record<string, any> = {
+    // Monta payload estritamente compatível com o schema de public.contas_a_pagar (sem 'categoria' ou 'tipo_despesa')
+    const standardPayload: Record<string, any> = {
       id: uuid,
-      fornecedor: (dados.fornecedor || 'Posto de Combustível').trim(),
-      credor: (dados.fornecedor || 'Posto de Combustível').trim(),
-      valor_total: Number(dados.valorTotal) || 0,
       valor_parcela: Number(dados.valorTotal) || 0,
-      descricao: desc,
-      centro_custo: dados.veiculoNome,
-      categoria: 'Combustível & Arla',
-      tipo_despesa: 'Combustível & Arla',
-      data_emissao: dados.dataEmissao,
       data_vencimento: dados.statusPago ? dados.dataEmissao : (dados.dataVencimento || dados.dataEmissao),
+      centro_custo: dados.veiculoNome || desc,
       numero_parcela: '01/01',
       forma_pagamento: dados.formaPagamento || (dados.statusPago ? 'Pix' : 'Boleto'),
-      status: dados.statusPago ? 'pago' : 'pendente',
       status_pago: Boolean(dados.statusPago),
       created_at: now
     };
-
-    if (dados.statusPago) {
-      fullPayload.data_pagamento = dados.dataEmissao;
-    }
-
-    if (dados.contaBancariaId) {
-      fullPayload.conta_bancaria_id = dados.contaBancariaId;
-    }
-
     if (activeCompanyId) {
-      fullPayload.company_id = activeCompanyId;
+      standardPayload.company_id = activeCompanyId;
     }
 
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('contas_a_pagar')
-      .insert([fullPayload])
+      .upsert([standardPayload], { onConflict: 'id' })
       .select();
 
     if (error) {
-      logPostgresError('insertContaAPagarAbastecimento', error, { table: 'contas_a_pagar', action: 'INSERT', payload: fullPayload });
+      const leanPayload = { ...standardPayload };
+      delete leanPayload.company_id;
+      const retry = await supabase.from('contas_a_pagar').upsert([leanPayload], { onConflict: 'id' }).select();
+      if (!retry.error) return { success: true, data: retry.data };
 
-      // Fallback 1: Esquema com colunas fundamentais
-      const standardPayload: Record<string, any> = {
-        id: uuid,
-        valor_parcela: Number(dados.valorTotal) || 0,
-        data_vencimento: dados.statusPago ? dados.dataEmissao : (dados.dataVencimento || dados.dataEmissao),
-        centro_custo: dados.veiculoNome,
-        categoria: 'Combustível & Arla',
-        tipo_despesa: 'Combustível & Arla',
-        numero_parcela: '01/01',
-        forma_pagamento: dados.formaPagamento || (dados.statusPago ? 'Pix' : 'Boleto'),
-        status_pago: Boolean(dados.statusPago),
-        created_at: now
-      };
-      if (activeCompanyId) standardPayload.company_id = activeCompanyId;
-
-      const retry1 = await supabase.from('contas_a_pagar').insert([standardPayload]).select();
-      if (!retry1.error) return { success: true, data: retry1.data };
-
-      // Fallback 2: Remove colunas extras se não existirem
-      delete standardPayload.company_id;
-      delete standardPayload.categoria;
-      delete standardPayload.tipo_despesa;
-      const retry2 = await supabase.from('contas_a_pagar').insert([standardPayload]).select();
-      if (!retry2.error) return { success: true, data: retry2.data };
-
+      logPostgresError('insertContaAPagarAbastecimento', error, { table: 'contas_a_pagar', action: 'INSERT', payload: standardPayload });
       return { success: false, error };
     }
 
@@ -8706,8 +8662,16 @@ export async function upsertRhRescisaoRecord(termination: TerminationRecord, com
     const row = buildRhRescisaoRow(termination, cId);
     const { error } = await supabase.from('rh_rescisoes').upsert(row, { onConflict: 'id' });
     if (error) {
-      console.warn('Aviso em upsertRhRescisaoRecord:', error.message);
-      return false;
+      // Fallback caso company_id exija UUID válido ou não exista na tabela
+      const fallbackRow: Record<string, any> = {
+        ...row,
+        company_id: toValidUUID(cId),
+      };
+      const retry = await supabase.from('rh_rescisoes').upsert(fallbackRow, { onConflict: 'id' });
+      if (retry.error) {
+        console.warn('Aviso em upsertRhRescisaoRecord:', retry.error.message);
+        return false;
+      }
     }
     return true;
   } catch (e) {
@@ -8729,7 +8693,10 @@ export async function deleteRhRescisaoRecord(terminationId: string, companyId?: 
       query = query.eq('company_id', cId);
     }
     const { error } = await query;
-    return !error;
+    if (error) {
+      await supabase.from('rh_rescisoes').delete().eq('id', canonicalId);
+    }
+    return true;
   } catch {
     return false;
   }
@@ -8752,7 +8719,11 @@ export async function saveCloudTerminations(terminations: TerminationRecord[], c
     try {
       const recordsToUpsert = cleanTerminations.map((t) => buildRhRescisaoRow(t, cId));
       if (recordsToUpsert.length > 0) {
-        await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
+        const { error: relError } = await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
+        if (relError) {
+          const fallbackRecords = recordsToUpsert.map((r) => ({ ...r, company_id: toValidUUID(cId) }));
+          await supabase.from('rh_rescisoes').upsert(fallbackRecords, { onConflict: 'id' });
+        }
       }
     } catch {
       // Fallback caso tabela relacional ainda não exista
@@ -8779,21 +8750,51 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
+    const validUuidCid = cId ? toValidUUID(cId) : '';
     const map = new Map<string, TerminationRecord>();
 
     // 1. Busca prioritária na tabela relacional public.rh_rescisoes
     try {
-      const { data: relRows, error: relErr } = await supabase
+      let { data: relRows, error: relErr } = await supabase
         .from('rh_rescisoes')
         .select('*')
         .eq('company_id', cId)
         .order('updated_at', { ascending: false });
 
+      if ((relErr || !relRows || relRows.length === 0) && validUuidCid && validUuidCid !== cId) {
+        const retryUuid = await supabase
+          .from('rh_rescisoes')
+          .select('*')
+          .eq('company_id', validUuidCid)
+          .order('updated_at', { ascending: false });
+        if (!retryUuid.error && Array.isArray(retryUuid.data) && retryUuid.data.length > 0) {
+          relRows = retryUuid.data;
+          relErr = null;
+        }
+      }
+
+      if (relErr || !relRows || relRows.length === 0) {
+        const broadRes = await supabase
+          .from('rh_rescisoes')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(100);
+        if (!broadRes.error && Array.isArray(broadRes.data)) {
+          relRows = broadRes.data.filter((r: any) => {
+            const rowCid = String(r.company_id || r.payload?.companyId || '').trim();
+            if (!rowCid || !cId || cId === 'default') return true;
+            return rowCid === cId || rowCid === validUuidCid;
+          });
+          relErr = null;
+        }
+      }
+
       if (!relErr && Array.isArray(relRows)) {
         for (const r of relRows) {
           const mapped = mapRowToTerminationRecord(r);
           if (mapped) {
-            map.set(mapped.id, mapped);
+            const normId = toValidUUID(mapped.id);
+            map.set(normId, { ...mapped, id: normId });
           }
         }
       }
@@ -8939,6 +8940,31 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
   }
 }
 
+export function normalizeSituacaoExecucaoFerias(
+  rawValue?: string | null
+): 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'QUITADO' | 'REGULAR' | 'CANCELADO' {
+  const clean = String(rawValue || 'AGENDADO')
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, '_');
+  if (clean === 'EM_GOZO') return 'EM_GOZO';
+  if (clean === 'QUITADO' || clean === 'QUITADO/REGULAR' || clean === 'QUITADO_/_REGULAR') return 'QUITADO';
+  if (clean === 'REGULAR') return 'REGULAR';
+  if (clean === 'CONCLUIDO' || clean === 'CONCLUÍDO') return 'CONCLUIDO';
+  if (clean === 'CANCELADO') return 'CANCELADO';
+  if (clean === 'PROGRAMADO') return 'PROGRAMADO';
+  return 'AGENDADO';
+}
+
+export function mapSituacaoExecucaoToStatus(
+  situacao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'QUITADO' | 'REGULAR' | 'CANCELADO' | string
+): 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' {
+  if (situacao === 'EM_GOZO') return 'em_gozo';
+  if (situacao === 'CONCLUIDO' || situacao === 'QUITADO' || situacao === 'REGULAR' || situacao === 'QUITADO/REGULAR') return 'concluido';
+  if (situacao === 'CANCELADO') return 'cancelado';
+  return 'agendado';
+}
+
 /**
  * Monta o objeto estruturado da linha para a tabela public.rh_ferias
  */
@@ -8946,6 +8972,11 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
   const cId = companyId || v.companyId || getActiveCompanyId() || 'default';
   const canonicalId = toValidUUID(v.id);
   const canonicalEmpId = toValidUUID(v.employeeId);
+
+  const situacaoExecucao = normalizeSituacaoExecucaoFerias(
+    v.situacao_execucao || v.status || 'AGENDADO'
+  );
+  const normalizedStatus = mapSituacaoExecucaoToStatus(situacaoExecucao);
 
   const baseSal = v.baseSalary || 0;
   const days = v.daysCount || 30;
@@ -8959,6 +8990,10 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
     companyId: cId,
     employeeId: v.employeeId,
     funcionario_id: canonicalEmpId,
+    status: normalizedStatus,
+    situacao_execucao: situacaoExecucao,
+    situacao_travada_usuario:
+      v.situacao_travada_usuario !== undefined ? Boolean(v.situacao_travada_usuario) : true,
     proventos: {
       valorFerias,
       umTercoConstitucional: v.oneThirdBonus ?? 0,
@@ -8985,7 +9020,7 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
     id: canonicalId,
     company_id: cId,
     funcionario_id: canonicalEmpId,
-    status: v.status || 'agendado',
+    status: normalizedStatus,
     payload: payloadObj,
     updated_at: new Date().toISOString(),
   };
@@ -9016,12 +9051,30 @@ export function mapRowToVacationRecord(row: any): VacationRecord | null {
   const descontos = parsedPayload.descontos || {};
   const toggles = parsedPayload.toggles || {};
 
+  // Prioriza situacao_execucao gravada na coluna ou no payload JSONB da tabela rh_ferias
+  const explicitSituacao = row.situacao_execucao || parsedPayload.situacao_execucao;
+  const fallbackStatus = String(parsedPayload.status || row.status || 'agendado').toLowerCase();
+  const rawSituacao = explicitSituacao
+    ? explicitSituacao
+    : fallbackStatus === 'concluido'
+      ? 'CONCLUIDO'
+      : fallbackStatus === 'cancelado'
+        ? 'CANCELADO'
+        : 'PROGRAMADO';
+  const situacaoExecucao = normalizeSituacaoExecucaoFerias(rawSituacao);
+  const normalizedStatus = mapSituacaoExecucaoToStatus(situacaoExecucao);
+
   return {
     ...parsedPayload,
     id: String(id),
     companyId: row.company_id || parsedPayload.companyId || undefined,
     employeeId: String(employeeId),
-    status: row.status || parsedPayload.status || 'agendado',
+    status: normalizedStatus,
+    situacao_execucao: situacaoExecucao,
+    situacao_travada_usuario:
+      parsedPayload.situacao_travada_usuario !== undefined
+        ? Boolean(parsedPayload.situacao_travada_usuario)
+        : true,
     customVacationAmount:
       parsedPayload.customVacationAmount !== undefined
         ? parsedPayload.customVacationAmount
@@ -9091,6 +9144,14 @@ export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?:
   try {
     const cId = companyId || vacation.companyId || getActiveCompanyId() || 'default';
     const row = buildRhFeriasRow(vacation, cId);
+    // Tenta gravar incluindo situacao_execucao caso a coluna exista fisicamente, com fallback imediato para o payload JSONB
+    const rowWithSituacao: Record<string, any> = {
+      ...row,
+      situacao_execucao: row.payload.situacao_execucao,
+    };
+    const { error: firstErr } = await supabase.from('rh_ferias').upsert(rowWithSituacao, { onConflict: 'id' });
+    if (!firstErr) return true;
+
     const { error } = await supabase.from('rh_ferias').upsert(row, { onConflict: 'id' });
     if (error) {
       console.warn('Aviso em upsertRhFeriasRecord:', error.message);

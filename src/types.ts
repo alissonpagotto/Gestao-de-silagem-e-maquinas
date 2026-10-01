@@ -101,6 +101,11 @@ export interface Expense {
   paymentAuthenticationCode?: string; // Código de autenticação / comprovante
   isDreOnly?: boolean; // Lançamento exclusivo de DRE / custo gerencial sem contas a pagar
   skipAccountsPayable?: boolean; // Não insere na tabela contas_a_pagar
+  dreGrossAmount?: number; // Valor bruto total de férias/mão de obra para o DRE do veículo
+  dreCategory?: string; // Categoria gerencial no DRE do veículo (ex: 'Despesa Operacional de Mão de Obra/Pessoal')
+  competenceMonth?: string; // Mês de competência (YYYY-MM)
+  isVacationExpense?: boolean; // Lançamento originado do módulo de férias
+  vacationId?: string; // ID do registro de férias vinculado
   date?: string; // YYYY-MM-DD (compatibilidade)
   createdAt: string;
 }
@@ -398,6 +403,14 @@ export interface Employee {
   status: 'ativo' | 'ferias' | 'afastado' | 'inativo';
   salary?: number;
   teamId?: string; // ID da equipe à qual pertence (ex: 'team_maq_02')
+  machineryId?: string; // ID do veículo / maquinário fixo vinculado ao colaborador
+  machineryName?: string; // Nome / placa do veículo fixo vinculado ao colaborador
+  veiculo_id?: string; // Alias banco Supabase
+  veiculo_vinculado?: string; // Alias banco Supabase
+  acquisitionPeriodStart?: string; // Início do período aquisitivo atual de direito (YYYY-MM-DD)
+  acquisitionPeriodEnd?: string; // Fim do período aquisitivo atual de direito (YYYY-MM-DD)
+  periodo_aquisitivo_inicio?: string; // Alias banco Supabase
+  periodo_aquisitivo_fim?: string; // Alias banco Supabase
   
   // Informações Financeiras / Pagamento
   paymentLocation?: string; // Local de Recebimento
@@ -1132,7 +1145,18 @@ export interface VacationRecord {
   totalDiscounts?: number;
   netAmount?: number;
   totalAmount: number;
-  status: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado';
+  status: 'agendado' | 'programado' | 'em_gozo' | 'concluido' | 'quitado' | 'regular' | 'cancelado';
+  situacao_execucao?: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'QUITADO' | 'REGULAR' | 'QUITADO/REGULAR' | 'CANCELADO' | string;
+  situacao_travada_usuario?: boolean;
+  machineryId?: string;
+  machineryName?: string;
+  financePayableId?: string;
+  dreExpenseId?: string;
+  dreCompetenceMonth?: string;
+  archivedInHistory?: boolean;
+  returnedAt?: string;
+  nextAcquisitionPeriodStart?: string;
+  nextAcquisitionPeriodEnd?: string;
   notes?: string;
   createdAt: string;
   updatedAt?: string;

@@ -176,28 +176,45 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
             }
           }
 
-          // Reconciliação completa com Supabase
+          // Reconciliação completa com Supabase preservando metadados ricos locais (Férias, DRE de Veículo, Categorias)
           try {
             const fresh = await fetchContasAPagar(companyProfile?.id);
             if (isMounted && fresh && Array.isArray(fresh)) {
-              const mapped = fresh.map((d: any) => ({
-                id: d.id,
-                title: d.centro_custo || 'Parcela Fornecedor',
-                description: d.centro_custo || 'Parcela Fornecedor',
-                amount: Number(d.valor_parcela) || 0,
-                dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-                status: d.status_pago ? 'pago' : 'pendente',
-                categoryId: 'despesa_geral',
-                categoryColor: '#10b981',
-                category: 'despesa_geral',
-                categoryName: d.centro_custo || 'Geral',
-                paymentMethod: d.forma_pagamento || 'Boleto',
-                supplier: 'Fornecedor',
-                createdAt: d.created_at || new Date().toISOString()
-              } as unknown as Expense));
-              setLocalExpenses(mapped);
-              saveStoredExpenses(mapped);
-              if (onSaveExpenses) onSaveExpenses(mapped);
+              const currentStored = getStoredExpenses();
+              const existingMap = new Map(currentStored.map(e => [e.id, e]));
+              const mapped = fresh.map((d: any) => {
+                const existing = existingMap.get(d.id);
+                const baseExp = {
+                  id: d.id,
+                  title: d.centro_custo || 'Parcela Fornecedor',
+                  description: d.centro_custo || 'Parcela Fornecedor',
+                  amount: Number(d.valor_parcela) || 0,
+                  dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+                  status: d.status_pago ? 'pago' : 'pendente',
+                  categoryId: 'despesa_geral',
+                  categoryColor: '#10b981',
+                  category: 'despesa_geral',
+                  categoryName: d.centro_custo || 'Geral',
+                  paymentMethod: d.forma_pagamento || 'Boleto',
+                  supplier: 'Fornecedor',
+                  createdAt: d.created_at || new Date().toISOString()
+                } as unknown as Expense;
+                return existing
+                  ? ({
+                      ...baseExp,
+                      ...existing,
+                      amount: baseExp.amount,
+                      dueDate: baseExp.dueDate,
+                      status: baseExp.status,
+                    } as Expense)
+                  : baseExp;
+              });
+              const mergedMap = new Map(currentStored.map(e => [e.id, e]));
+              mapped.forEach(m => mergedMap.set(m.id, m));
+              const mergedList = Array.from(mergedMap.values());
+              setLocalExpenses(mergedList);
+              saveStoredExpenses(mergedList);
+              if (onSaveExpenses) onSaveExpenses(mergedList);
             }
           } catch (err) {
             console.warn('Erro ao sincronizar contas_a_pagar em tempo real:', err);
@@ -210,32 +227,56 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       try {
         const fresh = await fetchContasAPagar(companyProfile?.id);
         if (isMounted && fresh && Array.isArray(fresh)) {
-          const mapped = fresh.map((d: any) => ({
-            id: d.id,
-            title: d.centro_custo || 'Parcela Fornecedor',
-            description: d.centro_custo || 'Parcela Fornecedor',
-            amount: Number(d.valor_parcela) || 0,
-            dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
-            status: d.status_pago ? 'pago' : 'pendente',
-            categoryId: 'despesa_geral',
-            categoryColor: '#10b981',
-            category: 'despesa_geral',
-            categoryName: d.centro_custo || 'Geral',
-            paymentMethod: d.forma_pagamento || 'Boleto',
-            supplier: 'Fornecedor',
-            createdAt: d.created_at || new Date().toISOString()
-          } as unknown as Expense));
-          setLocalExpenses(mapped);
-          saveStoredExpenses(mapped);
-          if (onSaveExpenses) onSaveExpenses(mapped);
+          const currentStored = getStoredExpenses();
+          const existingMap = new Map(currentStored.map(e => [e.id, e]));
+          const mapped = fresh.map((d: any) => {
+            const existing = existingMap.get(d.id);
+            const baseExp = {
+              id: d.id,
+              title: d.centro_custo || 'Parcela Fornecedor',
+              description: d.centro_custo || 'Parcela Fornecedor',
+              amount: Number(d.valor_parcela) || 0,
+              dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
+              status: d.status_pago ? 'pago' : 'pendente',
+              categoryId: 'despesa_geral',
+              categoryColor: '#10b981',
+              category: 'despesa_geral',
+              categoryName: d.centro_custo || 'Geral',
+              paymentMethod: d.forma_pagamento || 'Boleto',
+              supplier: 'Fornecedor',
+              createdAt: d.created_at || new Date().toISOString()
+            } as unknown as Expense;
+            return existing
+              ? ({
+                  ...baseExp,
+                  ...existing,
+                  amount: baseExp.amount,
+                  dueDate: baseExp.dueDate,
+                  status: baseExp.status,
+                } as Expense)
+              : baseExp;
+          });
+          const mergedMap = new Map(currentStored.map(e => [e.id, e]));
+          mapped.forEach(m => mergedMap.set(m.id, m));
+          const mergedList = Array.from(mergedMap.values());
+          setLocalExpenses(mergedList);
+          saveStoredExpenses(mergedList);
+          if (onSaveExpenses) onSaveExpenses(mergedList);
         }
       } catch (_) {}
     };
+    const handleLocalExpensesEvent = (ev: any) => {
+      if (isMounted && Array.isArray(ev?.detail)) {
+        setLocalExpenses(ev.detail);
+      }
+    };
+    window.addEventListener('silagem_expenses_updated', handleLocalExpensesEvent);
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
       isMounted = false;
+      window.removeEventListener('silagem_expenses_updated', handleLocalExpensesEvent);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
       supabase.removeChannel(channel);

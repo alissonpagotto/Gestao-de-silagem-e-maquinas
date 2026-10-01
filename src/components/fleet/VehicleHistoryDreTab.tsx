@@ -77,14 +77,28 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
   const [viewingMaintenanceLog, setViewingMaintenanceLog] = useState<MaintenanceLog | null>(null);
   const [isAddingDriverExpense, setIsAddingDriverExpense] = useState(false);
   const [localExpenses, setLocalExpenses] = useState<Expense[]>(() => {
-    return propExpenses && propExpenses.length > 0 ? propExpenses : getStoredExpenses();
+    const stored = getStoredExpenses();
+    if (!propExpenses || propExpenses.length === 0) return stored;
+    const map = new Map<string, Expense>();
+    propExpenses.forEach((e) => map.set(e.id, e));
+    stored.forEach((e) => map.set(e.id, { ...map.get(e.id), ...e }));
+    return Array.from(map.values());
   });
 
-  // Keep localExpenses in sync if propExpenses changes
+  // Keep localExpenses in sync if propExpenses changes or silagem_expenses_updated fires
   React.useEffect(() => {
-    if (propExpenses && propExpenses.length > 0) {
-      setLocalExpenses(propExpenses);
-    }
+    const syncExpenses = () => {
+      const stored = getStoredExpenses();
+      const map = new Map<string, Expense>();
+      (propExpenses || []).forEach((e) => map.set(e.id, e));
+      stored.forEach((e) => map.set(e.id, { ...map.get(e.id), ...e }));
+      setLocalExpenses(Array.from(map.values()));
+    };
+    syncExpenses();
+    window.addEventListener('silagem_expenses_updated', syncExpenses);
+    return () => {
+      window.removeEventListener('silagem_expenses_updated', syncExpenses);
+    };
   }, [propExpenses]);
 
   // Quick form for driver expense
@@ -187,6 +201,11 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
         const cat = (exp.categoryName || exp.categoryId || '').toLowerCase();
         const desc = (exp.description || '').toLowerCase();
         const isDriverRelated = 
+          Boolean(exp.isVacationExpense) ||
+          Boolean(exp.dreGrossAmount) ||
+          cat.includes('férias') ||
+          cat.includes('ferias') ||
+          cat.includes('pessoal') ||
           cat.includes('aliment') || 
           cat.includes('refei') || 
           cat.includes('marmit') || 
@@ -198,6 +217,9 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
           cat.includes('motorist') || 
           cat.includes('mão de obra') || 
           cat.includes('adiant') ||
+          desc.includes('férias') ||
+          desc.includes('ferias') ||
+          desc.includes('mão de obra') ||
           desc.includes('aliment') || 
           desc.includes('refei') || 
           desc.includes('marmit') || 
@@ -239,17 +261,28 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     let outros = 0;
 
     vehicleDriverExpenses.forEach((exp) => {
-      const text = `${exp.categoryName || ''} ${exp.description || ''}`.toLowerCase();
-      if (text.includes('rescis') || text.includes('acerto') || text.includes('demiss') || text.includes('indeniz')) {
-        rescisao += exp.amount;
+      const text = `${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`.toLowerCase();
+      const effectiveAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      if (
+        exp.isVacationExpense ||
+        Boolean(exp.dreGrossAmount) ||
+        text.includes('férias') ||
+        text.includes('ferias') ||
+        text.includes('mão de obra/pessoal') ||
+        text.includes('rescis') ||
+        text.includes('acerto') ||
+        text.includes('demiss') ||
+        text.includes('indeniz')
+      ) {
+        rescisao += effectiveAmount;
       } else if (text.includes('aliment') || text.includes('refei') || text.includes('marmit') || text.includes('almoço') || text.includes('jantar')) {
-        alimentacao += exp.amount;
+        alimentacao += effectiveAmount;
       } else if (text.includes('diári') || text.includes('diari') || text.includes('viagem') || text.includes('pedágio')) {
-        diarias += exp.amount;
+        diarias += effectiveAmount;
       } else if (text.includes('salár') || text.includes('salar') || text.includes('adiant') || text.includes('folha') || text.includes('vale')) {
-        salarios += exp.amount;
+        salarios += effectiveAmount;
       } else {
-        outros += exp.amount;
+        outros += effectiveAmount;
       }
     });
 
@@ -831,7 +864,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
                   <span className="font-mono font-bold">{formatCurrencyBRL(driverExpensesByCategory.alimentacao)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>• Rescisões Trabalhistas, Encargos & Férias</span>
+                  <span>• Despesa Operacional de Mão de Obra/Pessoal (Férias, Encargos & Rescisões)</span>
                   <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{formatCurrencyBRL(driverExpensesByCategory.rescisao)}</span>
                 </div>
                 {driverExpensesByCategory.diarias > 0 && (

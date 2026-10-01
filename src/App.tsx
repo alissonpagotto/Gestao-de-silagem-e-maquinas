@@ -953,7 +953,21 @@ export default function App() {
             } as unknown as Expense));
             setExpenses(prev => {
               const map = new Map(prev.map(e => [e.id, e]));
-              mapped.forEach(e => map.set(e.id, e));
+              mapped.forEach(e => {
+                const existing = map.get(e.id);
+                map.set(
+                  e.id,
+                  existing
+                    ? {
+                        ...e,
+                        ...existing,
+                        amount: e.amount,
+                        dueDate: e.dueDate,
+                        status: e.status,
+                      }
+                    : e
+                );
+              });
               const merged = Array.from(map.values());
               saveStoredExpenses(merged);
               return merged;
@@ -962,6 +976,14 @@ export default function App() {
         }
       });
     });
+
+    const handleLocalExpensesUpdated = (ev: any) => {
+      const updated = ev?.detail;
+      if (Array.isArray(updated)) {
+        setExpenses(updated);
+      }
+    };
+    window.addEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
 
     const unsubSettings = subscribeToCloudTable('site_settings', () => {
       fetchAllClientModulesFromSupabase(activeTenantId).then(fresh => {

@@ -214,6 +214,11 @@ export function logPostgresError(
   const details = error.details || error.detail || '';
   const hint = error.hint || '';
 
+  if (code === 'PGRST204' || code === '42703') {
+    console.warn(`⚠️ [Schema Adaptive Notice] [${options?.action || 'QUERY'}] em '${context}' (${code}): ${message}`);
+    return;
+  }
+
   console.error(`🚨 [POSTGRES DBA ERROR] [${options?.action || 'QUERY'}] no contexto '${context}':`, {
     tabela: options?.table || 'N/A',
     codigoPostgres: code || 'SEM_CODIGO',

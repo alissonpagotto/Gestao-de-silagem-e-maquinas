@@ -174,21 +174,31 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
       if (mentionsDriver) return true;
 
       // Check if category relates to food / personnel and belongs to the vehicle's context
-      const isPersonnel = exp.categoryId === 'cat_alimentacao' || 
+      const catLower = (exp.categoryName || '').toLowerCase();
+      const descLower = (exp.description || '').toLowerCase();
+      const isPersonnel = Boolean(exp.isVacationExpense) ||
+                          Boolean(exp.dreGrossAmount) ||
+                          exp.categoryId === 'cat_pessoal' ||
+                          exp.categoryId === 'cat_alimentacao' || 
                           exp.categoryId === 'cat_mao_de_obra' || 
                           exp.categoryId === 'cat_salarios' ||
                           exp.categoryId === 'cat_rescisao' ||
                           exp.categoryId === 'cat_diarias' ||
-                          exp.categoryName?.toLowerCase().includes('aliment') || 
-                          exp.categoryName?.toLowerCase().includes('mão de obra') ||
-                          exp.categoryName?.toLowerCase().includes('salár') ||
-                          exp.categoryName?.toLowerCase().includes('salar') ||
-                          exp.categoryName?.toLowerCase().includes('rescis') ||
-                          exp.categoryName?.toLowerCase().includes('acerto') ||
-                          exp.categoryName?.toLowerCase().includes('diária') ||
-                          exp.categoryName?.toLowerCase().includes('diaria');
+                          catLower.includes('férias') ||
+                          catLower.includes('ferias') ||
+                          catLower.includes('pessoal') ||
+                          catLower.includes('aliment') || 
+                          catLower.includes('mão de obra') ||
+                          catLower.includes('salár') ||
+                          catLower.includes('salar') ||
+                          catLower.includes('rescis') ||
+                          catLower.includes('acerto') ||
+                          catLower.includes('diária') ||
+                          catLower.includes('diaria') ||
+                          descLower.includes('férias') ||
+                          descLower.includes('ferias');
 
-      if (isPersonnel && (exp.machineryId === vehicle.id || (vehicle.licensePlateOrSerial && exp.description.toLowerCase().includes(vehicle.licensePlateOrSerial.toLowerCase())))) {
+      if (isPersonnel && (exp.machineryId === vehicle.id || (vehicle.licensePlateOrSerial && descLower.includes(vehicle.licensePlateOrSerial.toLowerCase())))) {
         return true;
       }
 
@@ -313,10 +323,11 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
   }, [vehicleMaintenanceLogs]);
 
   const totalOtherVehicleExpenses = useMemo(() => {
+    const driverExpIds = new Set(driverExpenses.map(d => d.id));
     return vehicleDirectExpenses
-      .filter(e => !e.categoryId?.includes('combust') && !e.categoryId?.includes('manut'))
+      .filter(e => !e.categoryId?.includes('combust') && !e.categoryId?.includes('manut') && !driverExpIds.has(e.id) && !e.isVacationExpense)
       .reduce((acc, curr) => acc + curr.amount, 0);
-  }, [vehicleDirectExpenses]);
+  }, [vehicleDirectExpenses, driverExpenses]);
 
   const totalVehicleExpenses = totalFuelCost + totalMaintenanceCost + totalOtherVehicleExpenses;
 
@@ -334,17 +345,28 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
     let outros = 0;
 
     driverExpenses.forEach(exp => {
-      const text = `${exp.categoryName || ''} ${exp.description || ''}`.toLowerCase();
-      if (text.includes('rescis') || text.includes('acerto') || text.includes('demiss') || text.includes('indeniz')) {
-        rescisao += exp.amount;
+      const text = `${exp.categoryName || ''} ${exp.description || ''} ${exp.dreCategory || ''}`.toLowerCase();
+      const effectiveAmount = Number(exp.dreGrossAmount || exp.amount || 0);
+      if (
+        exp.isVacationExpense ||
+        Boolean(exp.dreGrossAmount) ||
+        text.includes('férias') ||
+        text.includes('ferias') ||
+        text.includes('mão de obra/pessoal') ||
+        text.includes('rescis') ||
+        text.includes('acerto') ||
+        text.includes('demiss') ||
+        text.includes('indeniz')
+      ) {
+        rescisao += effectiveAmount;
       } else if (text.includes('aliment') || text.includes('refei') || text.includes('marmit') || text.includes('almoço') || text.includes('jantar') || text.includes('café')) {
-        alimentacao += exp.amount;
+        alimentacao += effectiveAmount;
       } else if (text.includes('diári') || text.includes('diari') || text.includes('pernoite') || text.includes('viagem')) {
-        diarias += exp.amount;
+        diarias += effectiveAmount;
       } else if (text.includes('salár') || text.includes('salar') || text.includes('adiant') || text.includes('folha') || text.includes('vale')) {
-        salarios += exp.amount;
+        salarios += effectiveAmount;
       } else {
-        outros += exp.amount;
+        outros += effectiveAmount;
       }
     });
 
@@ -354,7 +376,7 @@ const VehicleHistoryModalContent: React.FC<VehicleHistoryModalProps & { vehicle:
 
   // Driver Expenses Breakdown
   const totalDriverExpensesFromLogs = useMemo(() => {
-    return driverExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+    return driverExpenses.reduce((acc, curr) => acc + Number(curr.dreGrossAmount || curr.amount || 0), 0);
   }, [driverExpenses]);
 
   // Driver monthly base salary sum (for context)

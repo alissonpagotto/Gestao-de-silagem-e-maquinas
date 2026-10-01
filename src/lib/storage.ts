@@ -287,6 +287,9 @@ export function getStoredExpenses(): Expense[] {
 export function saveStoredExpenses(expenses: Expense[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
+    }
   } catch (e) {
     console.error('Failed to save expenses', e);
   }
