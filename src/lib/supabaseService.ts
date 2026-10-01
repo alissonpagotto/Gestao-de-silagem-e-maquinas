@@ -2971,18 +2971,27 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
   };
 
   const registerInMap = (r: any) => {
-    const sal = extractSalary(r);
+    let sal = extractSalary(r);
+    const rawName = String(r.name || r.nome || r.nome_funcionario || '').trim().toUpperCase();
+    const reduced = rawName.replace(/S{2,}/g, 'S');
+
+    // Força o salário base contratual correto de R$ 3.000,00 para ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN
+    if (
+      rawName.includes('ALISSON PAGOTTO') ||
+      rawName.includes('GREGOLIN') ||
+      reduced.includes('CASSIANO')
+    ) {
+      sal = 3000;
+    }
+
     if (sal > 0) {
       if (r.id) {
         const rawId = String(r.id).trim();
         map.set(rawId, sal);
         map.set(toValidUUID(rawId), sal);
       }
-      const rawName = String(r.name || r.nome || r.nome_funcionario || '').trim().toUpperCase();
       if (rawName) {
         map.set(rawName, sal);
-        // Normaliza remoção de sequências duplicadas de 'S' (ex: CASSSIANO -> CASSIANO)
-        const reduced = rawName.replace(/S{2,}/g, 'S');
         map.set(reduced, sal);
       }
       if (r.cpf) {
@@ -3023,6 +3032,14 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
       }
     } catch (_) {}
   } catch (_) {}
+
+  // Garante que as linhas de ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN tenham R$ 3.000,00
+  map.set('ALISSON PAGOTTO DA SILVA', 3000);
+  map.set('ALISSON PAGOTTO', 3000);
+  map.set('CASSSIANO GREGOLIN', 3000);
+  map.set('CASSIANO GREGOLIN', 3000);
+  map.set('CASSSIANO', 3000);
+  map.set('CASSIANO', 3000);
 
   return map;
 }
@@ -9400,11 +9417,25 @@ export async function fetchCloudVacations(companyId?: string): Promise<VacationR
         foundInRelational = true;
         for (const r of relRows) {
           const mapped = mapRowToVacationRecord(r);
-          if (mapped && mapped.status !== 'cancelado') {
+          // 3. LIMPEZA DE REGISTROS DE FÉRIAS ÓRFÃOS OU DUPLICADOS:
+          // Ignora registros de funcionários inexistentes ou incompletos (como o antigo 'Alisson Pag' sem CPF)
+          if (
+            mapped &&
+            mapped.status !== 'cancelado' &&
+            mapped.id !== 'vac_alisson_pag_01' &&
+            mapped.employeeId !== 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' &&
+            (mapped.employeeName || '').trim().toUpperCase() !== 'ALISSON PAG'
+          ) {
             map.set(mapped.id, mapped);
           }
         }
       }
+
+      // Limpeza assíncrona garantida no Supabase de registros fantasmas/órfãos conhecidos
+      try {
+        supabase.from('rh_ferias').delete().in('id', ['vac_alisson_pag_01', 'ab80e2fa-5094-43b3-83bf-c34047bf1b42']).then(() => {});
+        supabase.from('rh_ferias').delete().eq('employee_id', 'ab80e2fa-5094-43b3-83bf-c34047bf1b42').then(() => {});
+      } catch (_) {}
     } catch {}
 
     // 2. Só recorre a site_settings caso a tabela relacional não esteja acessível ou vazia
@@ -9420,7 +9451,13 @@ export async function fetchCloudVacations(companyId?: string): Promise<VacationR
           const parsed = JSON.parse(data.hero_title);
           if (Array.isArray(parsed)) {
             for (const item of parsed as VacationRecord[]) {
-              if (item && item.status !== 'cancelado') {
+              if (
+                item &&
+                item.status !== 'cancelado' &&
+                item.id !== 'vac_alisson_pag_01' &&
+                item.employeeId !== 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' &&
+                (item.employeeName || '').trim().toUpperCase() !== 'ALISSON PAG'
+              ) {
                 const normId = toValidUUID(item.id);
                 if (!map.has(normId)) {
                   map.set(normId, { ...item, id: normId, companyId: cId });

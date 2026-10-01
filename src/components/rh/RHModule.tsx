@@ -227,11 +227,20 @@ export const RHModule: React.FC<RHModuleProps> = ({
           const empNameNorm = (emp.name || '').trim().toUpperCase();
           const empNameReduced = empNameNorm.replace(/S{2,}/g, 'S');
 
-          const sal =
+          let sal =
             salariesMap.get(emp.id) ||
             salariesMap.get(empUuid) ||
             (empNameNorm ? salariesMap.get(empNameNorm) : undefined) ||
             (empNameReduced ? salariesMap.get(empNameReduced) : undefined);
+
+          // Force obrigatório para ALISSON PAGOTTO DA SILVA e CASSSIANO GREGOLIN (R$ 3.000,00)
+          if (
+            empNameNorm.includes('ALISSON PAGOTTO') ||
+            empNameNorm.includes('GREGOLIN') ||
+            empNameReduced.includes('CASSIANO')
+          ) {
+            sal = 3000;
+          }
 
           if (sal && sal > 0) {
             return { ...emp, salary: sal, baseSalary: sal };
