@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Scale,
   BookmarkCheck,
-  FileEdit
+  FileEdit,
+  Search
 } from 'lucide-react';
 import { 
   Employee, 
@@ -59,6 +60,62 @@ import {
   formatEmployeeAdmissionDate 
 } from './payrollHelpers';
 import { useConfirm } from '../../context/ConfirmContext';
+import { EmployeeAvatar } from '../common/EmployeeAvatar';
+
+export interface ResignCalculationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}
+
+export const ResignCalculationModal: React.FC<ResignCalculationModalProps> = ({
+  isOpen,
+  onClose,
+  title = 'Simulador & Cálculo Rescisório CLT',
+  subtitle = 'Apuração completa de verbas rescisórias, férias, 13º proporcional, FGTS e deduções legais',
+  children,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-slate-50 dark:bg-stone-950 border border-slate-200 dark:border-stone-800 rounded-2xl w-full max-w-6xl shadow-2xl overflow-hidden my-auto max-h-[95vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+        {/* Cabeçalho do Modal */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-[#0963cb] text-white shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-xl bg-white/15 text-white">
+              <Calculator className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black tracking-tight text-white uppercase font-['Outfit']">
+                {title}
+              </h2>
+              <p className="text-[11px] sm:text-xs text-white/85 font-medium">
+                {subtitle}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition cursor-pointer"
+            title="Fechar Simulador de Rescisão"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Corpo do Simulador em Modal */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface RescisaoTabProps {
   employees: Employee[];
@@ -92,6 +149,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   useEffect(() => {
     terminationsRef.current = terminations;
   }, [terminations]);
+
+  // Estado do Modal de Cálculo Rescisório (inicia obrigatoriamente fechado: isOpen = false)
+  const [isCalculationModalOpen, setIsCalculationModalOpen] = useState<boolean>(false);
+  const [editingTerminationId, setEditingTerminationId] = useState<string | null>(null);
+
+  // Filtros de Busca na Listagem Histórica
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'homologado' | 'rascunho'>('all');
 
   // Estado do Formulário
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
@@ -972,7 +1037,88 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     notes,
   ]);
 
-  // Salvar Rescisão no Histórico
+  // Abrir modal para "+ Nova Rescisão" com campos limpos prontos para seleção do funcionário
+  const handleOpenNewRescisao = () => {
+    setEditingTerminationId(null);
+    lastLoadedEmployeeIdRef.current = null;
+    setSelectedEmployeeId('');
+    setReason('sem_justa_causa');
+    setNoticeType('indenizado');
+    setAdmissionDate('');
+    setTerminationDate(new Date().toISOString().split('T')[0]);
+    setBaseSalary(0);
+    setBaseSalaryDisplay('0,00');
+    setVacationExpiredPeriods(0);
+    setVacationExpiredInput('0');
+    setCustomFgtsBalance('');
+    setIsManualFgts(false);
+    setIncludeFgtsFine(false);
+    setIncludeInssDiscount(true);
+    setCustomAbsencesDiscount('0,00');
+    setCustomAdvancesDiscount('0,00');
+    setOtherDeductionsInput('0,00');
+    setMarkInactive(true);
+    setNotes('');
+    setDraftBannerMessage(null);
+    setVacationAlert(null);
+    setIsCalculationModalOpen(true);
+  };
+
+  // Visualizar / Editar rescisão ou rascunho existente na janela modal
+  const handleEditTermination = (record: TerminationRecord) => {
+    setEditingTerminationId(record.id);
+    lastLoadedEmployeeIdRef.current = record.employeeId;
+    setSelectedEmployeeId(record.employeeId);
+    setReason(record.reason || 'sem_justa_causa');
+    setNoticeType(record.noticeType || 'indenizado');
+
+    const emp = employees.find((e) => e.id === record.employeeId);
+    const adm = record.admissionDate || emp?.admissionDate?.split('T')[0] || '';
+    setAdmissionDate(adm);
+    setTerminationDate(record.terminationDate || new Date().toISOString().split('T')[0]);
+
+    const sal = record.baseSalary ?? emp?.baseSalary ?? emp?.salary ?? 0;
+    setBaseSalary(sal);
+    setBaseSalaryDisplay(formatNumberBRL(sal));
+
+    const vac = record.vacationExpiredPeriods ?? record.calculation?.vacationExpiredCount ?? 0;
+    setVacationExpiredPeriods(vac);
+    setVacationExpiredInput(vac > 0 ? String(vac) : '0');
+
+    setCustomFgtsBalance(record.customFgtsBalance || '');
+    setIsManualFgts(Boolean(record.isManualFgts || (record.customFgtsBalance && record.customFgtsBalance !== '0,00')));
+    setIncludeFgtsFine(Boolean(record.includeFgtsFine ?? record.calculation?.includeFgtsFine));
+    setIncludeInssDiscount(
+      record.includeInssDiscount !== undefined
+        ? record.includeInssDiscount
+        : record.calculation?.includeInssDiscount !== undefined
+          ? record.calculation.includeInssDiscount
+          : true
+    );
+    setCustomAbsencesDiscount(
+      record.customAbsencesDiscount ||
+        (record.calculation?.absenceDiscount ? formatNumberBRL(record.calculation.absenceDiscount) : '0,00')
+    );
+    setCustomAdvancesDiscount(
+      record.customAdvancesDiscount ||
+        (record.calculation?.advancesDiscount ? formatNumberBRL(record.calculation.advancesDiscount) : '0,00')
+    );
+    setOtherDeductionsInput(
+      record.otherDeductionsInput ||
+        (record.calculation?.otherDeductions ? formatNumberBRL(record.calculation.otherDeductions) : '0,00')
+    );
+    setMarkInactive(record.markEmployeeInactive !== undefined ? record.markEmployeeInactive : true);
+    setNotes(record.notes || '');
+    setVacationAlert(null);
+    setDraftBannerMessage(
+      record.status === 'rascunho'
+        ? `Rascunho de "${record.employeeName}" carregado para edição.`
+        : `Visualizando / editando rescisão de "${record.employeeName}".`
+    );
+    setIsCalculationModalOpen(true);
+  };
+
+  // Salvar Rescisão no Histórico e na tabela rh_rescisoes do Supabase
   const handleSaveTermination = async () => {
     if (!selectedEmployee) {
       await confirm({
@@ -996,14 +1142,16 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     if (!isConfirmed) return;
 
-    // Estratégia de upsert: se já houver rascunho ou registro para o mesmo funcionário, reutiliza o ID
-    const existingForEmployee = terminations.find(
-      (t) =>
-        t.employeeId === selectedEmployee.id &&
-        (t.status === 'rascunho' || t.terminationDate === terminationDate)
-    );
+    // Estratégia de upsert: reutiliza ID em edição ou registro existente do mesmo funcionário
+    const existingForEmployee = editingTerminationId
+      ? terminations.find((t) => toValidUUID(t.id) === toValidUUID(editingTerminationId))
+      : terminations.find(
+          (t) =>
+            t.employeeId === selectedEmployee.id &&
+            (t.status === 'rascunho' || t.terminationDate === terminationDate)
+        );
     const canonicalId = toValidUUID(
-      existingForEmployee?.id || `term_${activeTenantId}_${selectedEmployee.id}_${terminationDate}`
+      existingForEmployee?.id || editingTerminationId || `term_${activeTenantId}_${selectedEmployee.id}_${terminationDate}`
     );
 
     const newRecord: TerminationRecord = {
@@ -1034,15 +1182,16 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    // Remove eventual rascunho anterior deste funcionário
+    // Remove eventual rascunho anterior deste funcionário e atualiza lista imediatamente
     const otherTerminations = terminations.filter(
       (t) => !(t.employeeId === selectedEmployee.id && t.status === 'rascunho') && toValidUUID(t.id) !== canonicalId
     );
     const updated = [newRecord, ...otherTerminations];
     setTerminations(updated);
     saveStoredTerminations(updated);
+
     if (isSupabaseConfigured) {
-      upsertRhRescisaoRecord(newRecord, activeTenantId).catch(() => {});
+      await upsertRhRescisaoRecord(newRecord, activeTenantId).catch(() => {});
       saveCloudTerminations(updated, activeTenantId).catch(() => {});
       try {
         realtimeChannelRef.current?.send({
@@ -1056,7 +1205,9 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         });
       } catch (_) {}
     }
+
     setDraftBannerMessage(null);
+    setEditingTerminationId(null);
 
     // Atualizar status do funcionário se solicitado
     if (markInactive && onSaveEmployees) {
@@ -1074,7 +1225,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       onSaveEmployees(updatedEmployees);
     }
 
-    setViewingTRCT(newRecord);
+    // Fecha o modal de cálculo para exibir instantaneamente a listagem atualizada na página inicial
+    setIsCalculationModalOpen(false);
   };
 
   // Salvar Rascunho (Em Andamento) sem alterar o status do colaborador para inativo
@@ -1092,11 +1244,13 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     setIsSavingDraft(true);
     try {
-      const existingDraft = terminations.find(
-        (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
-      );
+      const existingDraft = editingTerminationId
+        ? terminations.find((t) => toValidUUID(t.id) === toValidUUID(editingTerminationId))
+        : terminations.find(
+            (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
+          );
       const canonicalId = toValidUUID(
-        existingDraft?.id || `draft_${activeTenantId}_${selectedEmployee.id}`
+        existingDraft?.id || editingTerminationId || `draft_${activeTenantId}_${selectedEmployee.id}`
       );
 
       const draftRecord: TerminationRecord = {
@@ -1159,33 +1313,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }
   };
 
-  // Retoma o preenchimento de um rascunho
-  const handleResumeDraft = (draft: TerminationRecord) => {
-    lastLoadedEmployeeIdRef.current = draft.employeeId;
-    setSelectedEmployeeId(draft.employeeId);
-    setReason(draft.reason || 'sem_justa_causa');
-    setNoticeType(draft.noticeType || 'indenizado');
-    setAdmissionDate(draft.admissionDate || '');
-    setTerminationDate(draft.terminationDate || new Date().toISOString().split('T')[0]);
-    setBaseSalary(draft.baseSalary || 0);
-    setBaseSalaryDisplay(formatNumberBRL(draft.baseSalary || 0));
-
-    const vac = draft.vacationExpiredPeriods ?? draft.calculation?.vacationExpiredCount ?? 0;
-    setVacationExpiredPeriods(vac);
-    setVacationExpiredInput(vac > 0 ? String(vac) : '0');
-
-    setCustomFgtsBalance(draft.customFgtsBalance || '');
-    setIsManualFgts(Boolean(draft.isManualFgts || (draft.customFgtsBalance && draft.customFgtsBalance !== '0,00')));
-    setIncludeFgtsFine(Boolean(draft.includeFgtsFine));
-    setIncludeInssDiscount(draft.includeInssDiscount !== undefined ? draft.includeInssDiscount : true);
-    setCustomAbsencesDiscount(draft.customAbsencesDiscount || '0,00');
-    setCustomAdvancesDiscount(draft.customAdvancesDiscount || '0,00');
-    setOtherDeductionsInput(draft.otherDeductionsInput || '0,00');
-    setNotes(draft.notes || '');
-    setDraftBannerMessage(`Rascunho de "${draft.employeeName}" carregado nos campos com sucesso. Continue o preenchimento!`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // Excluir registro ou rascunho do histórico
   const handleDeleteTermination = async (id: string, empName: string) => {
     const targetItem = terminations.find((t) => t.id === id);
@@ -1214,50 +1341,322 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const getReasonLabel = (r: TerminationReason): string => {
     switch (r) {
       case 'sem_justa_causa':
-        return 'Demissão sem Justa Causa (Empregador)';
+        return 'Sem Justa Causa (Empregador)';
       case 'com_justa_causa':
-        return 'Demissão com Justa Causa (Falta Grave)';
+        return 'Com Justa Causa (Falta Grave)';
       case 'pedido_demissao':
-        return 'Pedido de Demissão (Iniciativa do Empregado)';
+        return 'Pedido de Demissão (Empregado)';
       case 'acordo_mutuo':
         return 'Acordo entre as Partes (Art. 484-A CLT)';
       case 'termino_contrato':
-        return 'Término de Contrato de Experiência / Prazo';
+        return 'Término de Contrato / Experiência';
       default:
         return r;
     }
   };
 
+  // Filtragem da listagem histórica de rescisões
+  const filteredTerminations = useMemo(() => {
+    return terminations.filter((t) => {
+      const matchesSearch =
+        (t.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (t.employeeRole || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getReasonLabel(t.reason).toLowerCase().includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+      if (statusFilter === 'homologado' && t.status === 'rascunho') return false;
+      if (statusFilter === 'rascunho' && t.status !== 'rascunho') return false;
+      return true;
+    });
+  }, [terminations, searchTerm, statusFilter]);
+
+  const homologadosCount = useMemo(
+    () => terminations.filter((t) => t.status !== 'rascunho').length,
+    [terminations]
+  );
+  const rascunhosCount = useMemo(
+    () => terminations.filter((t) => t.status === 'rascunho').length,
+    [terminations]
+  );
+  const totalRescisoesLiquido = useMemo(
+    () => terminations.reduce((sum, t) => sum + (t.calculation?.netTotal || 0), 0),
+    [terminations]
+  );
+
   return (
-    <div className="w-full space-y-4 antialiased">
+    <div className="w-full space-y-3 sm:space-y-4 antialiased">
       
-      {/* 1. Grade Superior: Formulário de Cálculo & Resumo de Destaque */}
-      <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
-        {/* Formulário Principal (8 colunas) */}
-        <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-          
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
-                <Calculator className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">
-                  Simulador & Cálculo Rescisório CLT
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-stone-400">
-                  Preencha os dados do colaborador para apurar verbas, FGTS e deduções
-                </p>
-              </div>
-            </div>
-            
-            {selectedEmployee && (
-              <span className="hidden sm:inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 border border-slate-200 dark:border-stone-700">
-                Cargo: {selectedEmployee.role || 'Geral'}
-              </span>
-            )}
+      {/* ========================================================================= */}
+      {/* 1. CABEÇALHO SUPERIOR DA PÁGINA INICIAL DA ABA RESCISÃO                    */}
+      {/* ========================================================================= */}
+      <div className="no-print crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
+        <div className="flex items-center space-x-2.5">
+          <div className="p-2 rounded-lg bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
+            <UserX className="w-5 h-5" />
           </div>
+          <div>
+            <h3 className="text-sm font-black text-black dark:text-white">
+              Gestão e Histórico de Rescisões Contratuais (CLT)
+            </h3>
+            <p className="text-xs text-black/85 dark:text-stone-300 font-medium">
+              Controle de desligamentos processados, apuração de verbas rescisórias e emissão do TRCT oficial
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleOpenNewRescisao}
+          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl transition shadow-xs cursor-pointer active:scale-95"
+        >
+          <span>+ Nova Rescisão</span>
+        </button>
+      </div>
+
+      {/* KPIs Rápidos de Rescisões */}
+      <div className="no-print grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="crm-card bg-white dark:bg-stone-900 border border-emerald-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 block uppercase">
+            Rescisões Homologadas
+          </span>
+          <span className="text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit']">
+            {homologadosCount} registro(s)
+          </span>
+        </div>
+        <div className="crm-card bg-white dark:bg-stone-900 border border-amber-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 block uppercase">
+            Rascunhos em Andamento
+          </span>
+          <span className="text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit']">
+            {rascunhosCount} rascunho(s)
+          </span>
+        </div>
+        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-slate-700 dark:text-stone-300 block uppercase">
+            Total Líquido Rescisório
+          </span>
+          <span className="text-base font-black text-black dark:text-white font-['Outfit']">
+            {formatMoneyBRL(totalRescisoesLiquido)}
+          </span>
+        </div>
+      </div>
+
+      {/* Barra de Busca e Filtros de Status */}
+      <div className="no-print bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-black dark:text-white">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Buscar colaborador, cargo ou tipo de rescisão..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'all'
+                ? 'bg-[#0963cb] text-white border-[#0963cb]'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+            }`}
+          >
+            Todas ({terminations.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('homologado')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'homologado'
+                ? 'bg-emerald-600 text-white border-emerald-700'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+            }`}
+          >
+            Homologadas ({homologadosCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('rascunho')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'rascunho'
+                ? 'bg-amber-500 text-stone-950 border-amber-600'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+            }`}
+          >
+            Em Andamento ({rascunhosCount})
+          </button>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. TABELA DE HISTÓRICO DE RESCISÕES CALCULADAS / PROCESSADAS              */}
+      {/* ========================================================================= */}
+      <div className="no-print bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs sm:text-sm">
+            <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-stone-700">
+              <tr>
+                <th className="py-3 px-4">Colaborador</th>
+                <th className="py-3 px-4">Data de Admissão</th>
+                <th className="py-3 px-4">Data de Desligamento</th>
+                <th className="py-3 px-4">Tipo de Rescisão</th>
+                <th className="py-3 px-4 text-right">Valor Líquido Rescisório (R$)</th>
+                <th className="py-3 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+              {filteredTerminations.length > 0 ? (
+                filteredTerminations.map((t) => {
+                  const matchedEmp = employees.find((e) => e.id === t.employeeId);
+                  const displayAdmission = t.admissionDate || matchedEmp?.admissionDate || '';
+                  const displayRole = t.employeeRole || matchedEmp?.role || 'Colaborador';
+
+                  return (
+                    <tr key={t.id || t.employeeId} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
+                      {/* 1. Colaborador (Nome e Cargo) */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center space-x-3">
+                          <EmployeeAvatar
+                            photoUrl={matchedEmp?.photoUrl || (matchedEmp as any)?.foto_url}
+                            name={t.employeeName}
+                            size="sm"
+                            className="shrink-0 rounded-xl"
+                          />
+                          <div>
+                            <div className="font-bold text-black dark:text-white uppercase text-xs sm:text-sm">
+                              {t.employeeName}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-900 border border-sky-200/70">
+                                {displayRole}
+                              </span>
+                              {t.status === 'rascunho' ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  Em Andamento
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
+                                  <CheckCircle2 className="w-2.5 h-2.5" />
+                                  Homologado
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 2. Data de Admissão */}
+                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs font-semibold text-slate-700 dark:text-stone-300">
+                        {displayAdmission ? formatDateBR(displayAdmission) : 'Não informada'}
+                      </td>
+
+                      {/* 3. Data de Desligamento */}
+                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs font-bold text-slate-900 dark:text-white">
+                        {formatDateBR(t.terminationDate)}
+                      </td>
+
+                      {/* 4. Tipo de Rescisão */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-xs text-slate-800 dark:text-stone-200">
+                          {getReasonLabel(t.reason)}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-stone-400 font-medium capitalize">
+                          Aviso Prévio: {t.noticeType} ({t.calculation?.noticeDays || 30} dias)
+                        </div>
+                      </td>
+
+                      {/* 5. Valor Líquido Rescisório (R$) */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <span className="font-black text-sm text-emerald-700 dark:text-emerald-400 font-['Outfit']">
+                          {formatMoneyBRL(t.calculation?.netTotal || 0)}
+                        </span>
+                      </td>
+
+                      {/* 6. Ações: Visualizar/Editar e Imprimir TRCT (PDF) */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleEditTermination(t)}
+                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
+                            title="Visualizar ou Editar Cálculo Rescisório"
+                          >
+                            <FileEdit className="w-3.5 h-3.5 shrink-0" />
+                            <span>Visualizar/Editar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setViewingTRCT(t)}
+                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
+                            title="Imprimir Termo de Rescisão (TRCT PDF)"
+                          >
+                            <Printer className="w-3.5 h-3.5 shrink-0" />
+                            <span>Imprimir TRCT (PDF)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTermination(t.id, t.employeeName)}
+                            className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                            title={t.status === 'rascunho' ? 'Excluir rascunho' : 'Excluir rescisão do histórico'}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-500 dark:text-stone-400 text-xs font-semibold">
+                    Nenhuma rescisão processada ou rascunho encontrado. Clique em <strong className="text-emerald-700 dark:text-emerald-400">"+ Nova Rescisão"</strong> no topo à direita para iniciar um cálculo.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. MODAL DO SIMULADOR E CÁLCULO DE RESCISÃO (ResignCalculationModal)      */}
+      {/* ========================================================================= */}
+      <ResignCalculationModal
+        isOpen={isCalculationModalOpen}
+        onClose={() => setIsCalculationModalOpen(false)}
+        title={editingTerminationId ? 'Visualizar / Editar Rescisão Contratual' : 'Nova Rescisão — Simulador & Cálculo CLT'}
+      >
+        <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-4">
+          
+          {/* Formulário Principal (8 colunas) */}
+          <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+            
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">
+                    Simulador & Cálculo Rescisório CLT
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-stone-400">
+                    Preencha os dados do colaborador para apurar verbas, FGTS e deduções
+                  </p>
+                </div>
+              </div>
+              
+              {selectedEmployee && (
+                <span className="hidden sm:inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 border border-slate-200 dark:border-stone-700">
+                  Cargo: {selectedEmployee.role || 'Geral'}
+                </span>
+              )}
+            </div>
 
           {/* Banner de Feedback / Rascunho Recuperado */}
           {draftBannerMessage && (
@@ -1599,6 +1998,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             <div className="flex items-center gap-2.5 flex-wrap">
               <button
                 type="button"
+                onClick={() => setIsCalculationModalOpen(false)}
+                className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-700 dark:text-stone-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                <span>Cancelar</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleSaveDraft}
                 disabled={isSavingDraft || !selectedEmployee}
                 className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1632,7 +2039,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           {/* Card Principal de Valor Líquido */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl border border-slate-700 shadow-md space-y-3">
             <div className="flex items-center justify-between text-slate-300 text-xs">
-              <span className="uppercase font-bold tracking-wider">Valor Líquido da Rescisão</span>
+              <span className="uppercase font-bold tracking-wider">Valor Líquido a Pagar</span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
                 CLT Oficial
               </span>
@@ -1673,7 +2080,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 type="button"
                 onClick={() => {
                   setViewingTRCT({
-                    id: 'temp_preview',
+                    id: editingTerminationId || 'temp_preview',
                     employeeId: selectedEmployee.id,
                     employeeName: selectedEmployee.name,
                     employeeRole: selectedEmployee.role,
@@ -1806,116 +2213,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
         </div>
 
-      </div>
-
-      {/* 2. Histórico de Rescisões Salvas */}
-      <div className="no-print bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-800 pb-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <FileText className="w-4 h-4 text-slate-700 dark:text-stone-300" />
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              Histórico de Rescisões & Rascunhos
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300">
-              {terminations.length} registro(s)
-            </span>
-            {terminations.some((t) => t.status === 'rascunho') && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                {terminations.filter((t) => t.status === 'rascunho').length} em andamento
-              </span>
-            )}
-          </div>
         </div>
-
-        {terminations.length === 0 ? (
-          <div className="py-8 text-center text-slate-400 dark:text-stone-500 text-xs">
-            Nenhuma rescisão ou rascunho salvo até o momento. Utilize o simulador acima para calcular e salvar.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-stone-800 text-slate-500 dark:text-stone-400 font-bold">
-                  <th className="py-2.5 px-3">Funcionário</th>
-                  <th className="py-2.5 px-3">Cargo</th>
-                  <th className="py-2.5 px-3">Data Desligamento</th>
-                  <th className="py-2.5 px-3">Motivo</th>
-                  <th className="py-2.5 px-3 text-right">Total Líquido</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium text-slate-800 dark:text-stone-200">
-                {terminations.map((t) => (
-                  <tr key={t.id || t.employeeId} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
-                    <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">
-                      {t.employeeName}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-stone-400">
-                      {t.employeeRole || 'Geral'}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      {formatDateBR(t.terminationDate)}
-                    </td>
-                    <td className="py-2.5 px-3 max-w-[220px] truncate" title={getReasonLabel(t.reason)}>
-                      {getReasonLabel(t.reason)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
-                      {formatMoneyBRL(t.calculation.netTotal)}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {t.status === 'rascunho' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Em Andamento
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                          Homologado
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
-                      {t.status === 'rascunho' && (
-                        <button
-                          type="button"
-                          onClick={() => handleResumeDraft(t)}
-                          className="p-1.5 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 rounded-lg transition cursor-pointer"
-                          title="Continuar preenchimento deste rascunho"
-                        >
-                          <FileEdit className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setViewingTRCT(t)}
-                        className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-stone-400 dark:hover:text-white bg-slate-100 dark:bg-stone-800 rounded-lg transition cursor-pointer"
-                        title="Visualizar / Imprimir TRCT"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTermination(t.id, t.employeeName)}
-                        className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                        title={t.status === 'rascunho' ? "Excluir rascunho" : "Excluir do histórico"}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      </ResignCalculationModal>
 
       {/* ========================================================================= */}
-      {/* 3. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL)                 */}
+      {/* 4. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL)                 */}
       {/* ========================================================================= */}
       {viewingTRCT && (
-        <div className="modal-trct trct-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
+        <div className="modal-trct trct-modal-container fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
           <div className="modal-trct trct-modal-wrapper bg-white text-black w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 print:shadow-none print:border-none print:m-0 print:rounded-none">
             
             {/* Barra Superior com Controles */}

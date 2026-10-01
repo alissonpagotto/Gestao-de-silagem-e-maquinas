@@ -8706,8 +8706,16 @@ export async function upsertRhRescisaoRecord(termination: TerminationRecord, com
     const row = buildRhRescisaoRow(termination, cId);
     const { error } = await supabase.from('rh_rescisoes').upsert(row, { onConflict: 'id' });
     if (error) {
-      console.warn('Aviso em upsertRhRescisaoRecord:', error.message);
-      return false;
+      // Fallback caso company_id exija UUID válido ou não exista na tabela
+      const fallbackRow: Record<string, any> = {
+        ...row,
+        company_id: toValidUUID(cId),
+      };
+      const retry = await supabase.from('rh_rescisoes').upsert(fallbackRow, { onConflict: 'id' });
+      if (retry.error) {
+        console.warn('Aviso em upsertRhRescisaoRecord:', retry.error.message);
+        return false;
+      }
     }
     return true;
   } catch (e) {
@@ -8729,7 +8737,10 @@ export async function deleteRhRescisaoRecord(terminationId: string, companyId?: 
       query = query.eq('company_id', cId);
     }
     const { error } = await query;
-    return !error;
+    if (error) {
+      await supabase.from('rh_rescisoes').delete().eq('id', canonicalId);
+    }
+    return true;
   } catch {
     return false;
   }
@@ -8752,7 +8763,11 @@ export async function saveCloudTerminations(terminations: TerminationRecord[], c
     try {
       const recordsToUpsert = cleanTerminations.map((t) => buildRhRescisaoRow(t, cId));
       if (recordsToUpsert.length > 0) {
-        await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
+        const { error: relError } = await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
+        if (relError) {
+          const fallbackRecords = recordsToUpsert.map((r) => ({ ...r, company_id: toValidUUID(cId) }));
+          await supabase.from('rh_rescisoes').upsert(fallbackRecords, { onConflict: 'id' });
+        }
       }
     } catch {
       // Fallback caso tabela relacional ainda não exista
@@ -8779,21 +8794,51 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
+    const validUuidCid = cId ? toValidUUID(cId) : '';
     const map = new Map<string, TerminationRecord>();
 
     // 1. Busca prioritária na tabela relacional public.rh_rescisoes
     try {
-      const { data: relRows, error: relErr } = await supabase
+      let { data: relRows, error: relErr } = await supabase
         .from('rh_rescisoes')
         .select('*')
         .eq('company_id', cId)
         .order('updated_at', { ascending: false });
 
+      if ((relErr || !relRows || relRows.length === 0) && validUuidCid && validUuidCid !== cId) {
+        const retryUuid = await supabase
+          .from('rh_rescisoes')
+          .select('*')
+          .eq('company_id', validUuidCid)
+          .order('updated_at', { ascending: false });
+        if (!retryUuid.error && Array.isArray(retryUuid.data) && retryUuid.data.length > 0) {
+          relRows = retryUuid.data;
+          relErr = null;
+        }
+      }
+
+      if (relErr || !relRows || relRows.length === 0) {
+        const broadRes = await supabase
+          .from('rh_rescisoes')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(100);
+        if (!broadRes.error && Array.isArray(broadRes.data)) {
+          relRows = broadRes.data.filter((r: any) => {
+            const rowCid = String(r.company_id || r.payload?.companyId || '').trim();
+            if (!rowCid || !cId || cId === 'default') return true;
+            return rowCid === cId || rowCid === validUuidCid;
+          });
+          relErr = null;
+        }
+      }
+
       if (!relErr && Array.isArray(relRows)) {
         for (const r of relRows) {
           const mapped = mapRowToTerminationRecord(r);
           if (mapped) {
-            map.set(mapped.id, mapped);
+            const normId = toValidUUID(mapped.id);
+            map.set(normId, { ...mapped, id: normId });
           }
         }
       }
