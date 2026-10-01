@@ -1,7 +1,5 @@
-import React, { useMemo, useEffect, useState } from 'react';
-import { X, Printer, Download, CheckCircle2, User, Building, Calendar, DollarSign, FileText, CreditCard, CalendarX, AlertCircle, Loader2 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
+import React, { useMemo, useEffect } from 'react';
+import { X, Printer, Building, FileText, CreditCard, CalendarX } from 'lucide-react';
 import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, ServiceOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
@@ -33,8 +31,6 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   allEmployees,
   commissionsInfo,
 }) => {
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
   useEffect(() => {
     if (!isOpen || !payroll) return;
 
@@ -159,102 +155,146 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   // Safe early exit AFTER all hooks are called
   if (!isOpen || !payroll) return null;
 
-  const handleDownloadPDF = async () => {
-    if (!payroll) return;
+  // Abre uma nova aba limpa do navegador com o HTML/CSS do holerite e dispara printWindow.print()
+  const handlePrintPayslip = () => {
     const target = document.getElementById('recibo-holerite-branco');
     if (!target) {
-      console.warn('Elemento #recibo-holerite-branco não encontrado para exportação');
       window.print();
       return;
     }
 
-    try {
-      setIsGeneratingPdf(true);
-
-      // Padronização do nome do arquivo (Ex: "Holerite_PEDRO_SILVEIRA_09_2026.pdf")
-      const cleanName = (payroll.employeeName || 'COLABORADOR')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toUpperCase()
-        .trim()
-        .replace(/[^A-Z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '');
-
-      let cleanMonth = (payroll.referenceMonth || '').trim();
-      if (cleanMonth.includes('/')) {
-        cleanMonth = cleanMonth.replace(/\//g, '_');
-      } else if (cleanMonth.includes('-')) {
-        const parts = cleanMonth.split('-');
-        if (parts.length === 2 && parts[0].length === 4) {
-          cleanMonth = `${parts[1]}_${parts[0]}`;
-        } else {
-          cleanMonth = cleanMonth.replace(/-/g, '_');
-        }
-      } else if (!cleanMonth) {
-        cleanMonth = '09_2026';
-      }
-
-      const filename = `Holerite_${cleanName}_${cleanMonth}.pdf`;
-
-      // Captura o contêiner com qualidade nítida para impressão
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          clonedDoc.documentElement.classList.remove('dark');
-          clonedDoc.body.classList.remove('dark');
-          const clonedEl = clonedDoc.getElementById('recibo-holerite-branco');
-          if (clonedEl) {
-            clonedEl.classList.remove('dark:bg-stone-900', 'dark:text-stone-100');
-            clonedEl.style.backgroundColor = '#ffffff';
-            clonedEl.style.color = '#1c1917';
-          }
-        },
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-
-      const imgProps = pdf.getImageProperties(imgData);
-      const marginX = 8;
-      const marginY = 8;
-      const printableWidth = pdfWidth - marginX * 2;
-      const imgHeight = (imgProps.height * printableWidth) / imgProps.width;
-
-      let heightLeft = imgHeight;
-      let position = marginY;
-
-      // Primeira página
-      pdf.addImage(imgData, 'JPEG', marginX, position, printableWidth, imgHeight);
-      heightLeft -= (pdfHeight - marginY * 2);
-
-      // Se houver overflow e precisar de mais páginas
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + marginY;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', marginX, position, printableWidth, imgHeight);
-        heightLeft -= (pdfHeight - marginY * 2);
-      }
-
-      pdf.save(filename);
-    } catch (error) {
-      console.error('Erro ao gerar documento PDF do holerite:', error);
-      try {
-        window.print();
-      } catch (_) {}
-    } finally {
-      setIsGeneratingPdf(false);
+    const printWindow = window.open('', '_blank', 'width=960,height=1040');
+    if (!printWindow) {
+      window.print();
+      return;
     }
+
+    const estilosPai = Array.from(document.styleSheets)
+      .map(styleSheet => {
+        try {
+          return Array.from(styleSheet.cssRules)
+            .map(rule => rule.cssText)
+            .join('\n');
+        } catch (_) {
+          return '';
+        }
+      })
+      .join('\n');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8" />
+          <title>Holerite - ${payroll.employeeName} (${payroll.referenceMonth})</title>
+          <style>
+            ${estilosPai}
+            * {
+              box-sizing: border-box;
+            }
+            html, body {
+              background: #ffffff !important;
+              color: #0f172a !important;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+              margin: 0;
+              padding: 16px;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .header-company-info {
+              display: flex !important;
+              width: 100% !important;
+              justify-content: space-between !important;
+              gap: 15px !important;
+              overflow: visible !important;
+            }
+            .company-brand-block {
+              flex: 1 1 auto !important;
+              min-width: 0 !important;
+              overflow: visible !important;
+            }
+            .company-contact-block {
+              flex: 1 1 auto !important;
+              min-width: 0 !important;
+              white-space: nowrap !important;
+              overflow: visible !important;
+              font-size: 11px !important;
+              line-height: 1.35 !important;
+            }
+            .company-contact-line {
+              display: flex;
+              flex-wrap: wrap;
+              align-items: center;
+              column-gap: 8px;
+              row-gap: 2px;
+            }
+            .company-address-line {
+              white-space: normal !important;
+              font-size: 10.5px !important;
+            }
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm;
+              }
+              html, body {
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+              }
+              .no-print, .print\\:hidden {
+                display: none !important;
+              }
+              .header-company-info {
+                display: flex !important;
+                width: 100% !important;
+                justify-content: space-between !important;
+                gap: 15px !important;
+                overflow: visible !important;
+              }
+              .company-brand-block {
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
+                width: auto !important;
+                max-width: none !important;
+                overflow: visible !important;
+              }
+              .company-contact-block {
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
+                width: auto !important;
+                max-width: none !important;
+                white-space: nowrap !important;
+                overflow: visible !important;
+                font-size: 10.5px !important;
+                line-height: 1.3 !important;
+              }
+              .company-contact-block *,
+              .company-brand-block * {
+                overflow: visible !important;
+                text-overflow: clip !important;
+              }
+              .company-address-line {
+                white-space: normal !important;
+                font-size: 10px !important;
+              }
+            }
+          </style>
+        </head>
+        <body class="bg-white text-black antialiased">
+          <div id="recibo-holerite-branco" class="w-full max-w-4xl mx-auto p-4 bg-white text-stone-900 space-y-4">
+            ${target.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 350);
   };
 
   const totalEarnings = payroll.baseSalary + (payroll.overtimeAmount || 0) + (payroll.bonusAmount || 0) + (payroll.commissionAmount || 0);
@@ -291,22 +331,12 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             <button
               type="button"
               id="btn-print-payslip"
-              onClick={handleDownloadPDF}
-              disabled={isGeneratingPdf}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#0963cb] text-white text-xs font-bold hover:bg-blue-700 active:scale-95 transition cursor-pointer shadow-xs disabled:opacity-75 disabled:cursor-not-allowed"
-              title="Baixar Holerite em PDF"
+              onClick={handlePrintPayslip}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#0963cb] text-white text-xs font-bold hover:bg-blue-700 active:scale-95 transition cursor-pointer shadow-xs"
+              title="Abrir tela de impressão ou Salvar como PDF"
             >
-              {isGeneratingPdf ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Gerando PDF...</span>
-                </>
-              ) : (
-                <>
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir / PDF</span>
-                </>
-              )}
+              <Printer className="w-3.5 h-3.5" />
+              <span>Imprimir / PDF</span>
             </button>
             <button
               type="button"
@@ -319,16 +349,16 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
         </div>
 
         {/* Printable Holerite Content */}
-        <div className="p-6 sm:p-8 space-y-5 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-900 print:p-2" id="recibo-holerite-branco">
+        <div className="p-6 sm:p-8 space-y-5 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-900 print:p-2 font-sans" id="recibo-holerite-branco">
           
           {/* ========================================================================= */}
-          {/* CABEÇALHO PADRÃO ORDEM DE SERVIÇO (2 COLUNAS JUSTIFY-BETWEEN)             */}
+          {/* CABEÇALHO PADRÃO ORDEM DE SERVIÇO (FLEXBOX PROPORCIONAL SEM CORTES)       */}
           {/* ========================================================================= */}
-          <div className="flex items-start justify-between border-b-2 border-slate-900 dark:border-stone-700 pb-3 mb-2 gap-4">
+          <div className="header-company-info flex items-start justify-between border-b-2 border-slate-900 dark:border-stone-700 pb-3 mb-2 gap-[15px]">
             {/* LADO ESQUERDO: Dados da Empresa (Logo + Nome Marcante + Badge + Dados Cadastrais) */}
-            <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="company-brand-block flex items-start gap-3 flex-1 min-w-0">
               {/* Ícone / Logo quadrado da empresa */}
-              <div className="w-14 h-14 min-w-[56px] max-w-[56px] rounded-lg border border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 flex items-center justify-center overflow-hidden p-1 shrink-0 shadow-2xs">
+              <div className="w-14 h-14 min-w-[56px] max-w-[56px] rounded-lg border border-slate-200 dark:border-stone-700 bg-slate-50 dark:bg-stone-800 flex items-center justify-center p-1 shrink-0 shadow-2xs">
                 {companyProfile?.logoUrl ? (
                   <img
                     src={companyProfile.logoUrl}
@@ -344,10 +374,10 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
               </div>
 
               {/* Dados Institucionais */}
-              <div className="space-y-0.5 flex-1 min-w-0">
+              <div className="company-brand-block space-y-0.5 flex-1 min-w-0">
                 {/* Nome principal em negrito marcante + Badge descritiva cinza/azul clara */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-stone-100 uppercase truncate font-['Outfit']">
+                  <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-stone-100 uppercase font-sans">
                     {tradeName}
                   </h1>
                   <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border shrink-0 bg-blue-50 text-[#0963cb] border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60 tracking-wider">
@@ -357,37 +387,37 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
 
                 {/* Razão Social */}
                 {corporateName && (
-                  <p className="text-[11px] text-slate-700 dark:text-stone-300 font-semibold truncate">
+                  <p className="text-[11px] text-slate-700 dark:text-stone-300 font-semibold">
                     Razão Social: <span className="text-slate-900 dark:text-stone-100 font-bold">{corporateName}</span>
                   </p>
                 )}
 
-                {/* Informações cadastrais em fonte pequena (text-xs) e cor cinza escura */}
-                <div className="text-xs text-slate-600 dark:text-stone-400 leading-tight space-y-0.5 pt-0.5">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                {/* Informações cadastrais e de contato sem cortes (10px/11px na impressão) */}
+                <div className="company-contact-block text-[11px] print:text-[10.5px] text-slate-600 dark:text-stone-400 leading-tight space-y-0.5 pt-0.5">
+                  <div className="company-contact-line flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     {cnpj && (
-                      <span>
+                      <span className="whitespace-nowrap">
                         <strong className="text-slate-800 dark:text-stone-200">CNPJ/CPF:</strong> {cnpj}
                       </span>
                     )}
                     {companyProfile?.stateRegistration && (
-                      <span>
+                      <span className="whitespace-nowrap">
                         • <strong className="text-slate-800 dark:text-stone-200">IE:</strong> {companyProfile.stateRegistration}
                       </span>
                     )}
                     {companyProfile?.phone && (
-                      <span>
+                      <span className="whitespace-nowrap">
                         • <strong className="text-slate-800 dark:text-stone-200">Contato:</strong> {companyProfile.phone}
                       </span>
                     )}
                     {companyProfile?.email && (
-                      <span>
+                      <span className="whitespace-nowrap">
                         • <strong className="text-slate-800 dark:text-stone-200">E-mail:</strong> {companyProfile.email}
                       </span>
                     )}
                   </div>
                   {fullCompanyAddress && (
-                    <div className="truncate text-[11px] text-slate-500 dark:text-stone-400">
+                    <div className="company-address-line text-[10.5px] print:text-[10px] text-slate-500 dark:text-stone-400 whitespace-normal">
                       <strong className="text-slate-700 dark:text-stone-300">Endereço:</strong> {fullCompanyAddress}
                     </div>
                   )}
@@ -396,17 +426,17 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             </div>
 
             {/* LADO DIREITO: Identificação do Documento */}
-            <div className="text-right space-y-0.5 shrink-0 min-w-[170px] pt-0.5">
-              <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-stone-100 tracking-tight uppercase font-['Outfit']">
+            <div className="text-right space-y-0.5 shrink-0 pt-0.5">
+              <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-stone-100 tracking-tight uppercase font-sans whitespace-nowrap">
                 RECIBO DE PAGAMENTO Nº {docNumber}
               </p>
-              <p className="text-xs text-slate-600 dark:text-stone-400">
+              <p className="text-[11px] print:text-[10.5px] text-slate-600 dark:text-stone-400 whitespace-nowrap">
                 Data da Emissão: <strong className="text-slate-900 dark:text-stone-100">{issueDate}</strong>
               </p>
-              <p className="text-xs text-slate-600 dark:text-stone-400">
+              <p className="text-[11px] print:text-[10.5px] text-slate-600 dark:text-stone-400 whitespace-nowrap">
                 Referência: <strong className="text-[#0963cb] dark:text-blue-400 font-bold">{payroll.referenceMonth}</strong>
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-stone-400">
+              <p className="text-[10.5px] print:text-[10px] text-slate-500 dark:text-stone-400 whitespace-nowrap">
                 Regime: <strong className="text-slate-800 dark:text-stone-200 uppercase">{contractRegime}</strong>
               </p>
             </div>
@@ -417,11 +447,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1 sm:gap-y-1.5 print:gap-y-0.5 print:gap-x-2 text-xs">
               <div>
                 <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Colaborador:</span>
-                <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight truncate">{payroll.employeeName}</span>
+                <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight">{payroll.employeeName}</span>
               </div>
               <div>
                 <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Função / Cargo:</span>
-                <span className="font-semibold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight truncate">{payroll.employeeRole}</span>
+                <span className="font-semibold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight">{payroll.employeeRole}</span>
               </div>
               <div>
                 <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">CPF:</span>
@@ -447,7 +477,7 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
               </div>
               <div className="sm:col-span-3 lg:col-span-2">
                 <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Banco para Depósito:</span>
-                <span className="font-bold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs print:text-[9.5px] truncate block leading-tight" title={formatEmployeeBankDeposit(employee)}>
+                <span className="font-bold text-stone-800 dark:text-stone-200 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight" title={formatEmployeeBankDeposit(employee)}>
                   {formatEmployeeBankDeposit(employee)}
                 </span>
               </div>
