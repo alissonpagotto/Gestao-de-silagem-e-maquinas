@@ -307,7 +307,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             }
             if (completedP > 0) {
               const empVacs = (vacations || []).filter(
-                (v) => v.employeeId === selectedEmployee.id && (v.status === 'pago' || v.daysCount >= 20)
+                (v) => v.employeeId === selectedEmployee.id && (v.status === 'concluido' || v.status === 'em_gozo' || v.daysCount >= 20)
               );
               initialExpiredVacations = Math.max(0, completedP - empVacs.length);
             }
@@ -419,7 +419,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     // Histórico de Férias gozadas no sistema para este colaborador
     const empVacations = (vacations || []).filter(
-      (v) => v.employeeId === selectedEmployee?.id && (v.status === 'pago' || v.daysCount >= 20)
+      (v) => v.employeeId === selectedEmployee?.id && (v.status === 'concluido' || v.status === 'em_gozo' || v.daysCount >= 20)
     );
     const enjoyedVacationsCount = empVacations.length;
     const unexhaustedExpiredPeriods = contractHasLessThanOneYear
@@ -1182,24 +1182,39 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </div>
 
               {isManualFgts ? (
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={customFgtsBalance}
-                  onChange={handleMoneyChange(setCustomFgtsBalance)}
-                  onPaste={handleMoneyPaste(setCustomFgtsBalance)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="0,00"
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
-                />
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={customFgtsBalance}
+                    onChange={handleMoneyChange(setCustomFgtsBalance)}
+                    onPaste={handleMoneyPaste(setCustomFgtsBalance)}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="0,00"
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
+                  />
+                  {/* Trava: a base só pode aparecer se o usuário preencher com valor > 0 E a multa for > 0 */}
+                  {parseRawOrFormattedToFloat(customFgtsBalance) > 0 && includeFgtsFine && calculation.fgtsFineAmount > 0 && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
+                      (Base informada: {formatMoneyBRL(parseRawOrFormattedToFloat(customFgtsBalance))})
+                    </span>
+                  )}
+                </div>
               ) : (
                 <div className="px-2.5 py-1.5 bg-slate-200/70 dark:bg-stone-700/60 rounded-lg text-xs text-slate-800 dark:text-stone-200 font-bold flex items-center justify-between">
-                  <span>Estimado: {formatMoneyBRL(calculation.fgtsEstimatedBalance)}</span>
-                  <span className="text-[10px] text-slate-500 dark:text-stone-400 font-normal">
-                    {includeFgtsFine
-                      ? `(Multa: ${formatMoneyBRL(calculation.fgtsFineAmount)})`
-                      : '(Multa: R$ 0,00 - desmarcada)'}
-                  </span>
+                  {/* Trava CLT: Se a multa for R$ 0,00 ou não houver saldo real informado, a base estimada é OBRIGATORIAMENTE OCULTADA */}
+                  {includeFgtsFine && calculation.fgtsFineAmount > 0 ? (
+                    <>
+                      <span className="text-slate-700 dark:text-stone-300 font-medium">Estimativa automática da multa</span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                        (Multa {calculation.fgtsFineRate}%: {formatMoneyBRL(calculation.fgtsFineAmount)})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-500 dark:text-stone-400 font-normal text-[11px]">
+                      Multa FGTS não inclusa / Sem saldo real informado
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -1211,7 +1226,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   onChange={(e) => setIncludeFgtsFine(e.target.checked)}
                   className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                 />
-                <span>Calcular Multa do FGTS (40%)</span>
+                <span>Calcular Multa do FGTS ({calculation.fgtsFineRate}%)</span>
               </label>
             </div>
           </div>
@@ -1388,6 +1403,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     calculation,
                     includeFgtsFine,
                     includeInssDiscount,
+                    customFgtsBalance,
+                    isManualFgts,
                     status: 'rascunho',
                     createdAt: new Date().toISOString(),
                   });
@@ -1892,9 +1909,20 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   <span className="text-sm font-bold text-black print:text-xs">
                     {formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}
                   </span>
-                  <span className="text-[10px] text-slate-500 print:text-black block print:text-[8.5px]">
-                    (Base informada/estimada: {formatMoneyBRL(viewingTRCT.calculation.fgtsEstimatedBalance)})
-                  </span>
+                  {/* TRAVA DE EXIBIÇÃO: Oculta obrigatoriamente a base se a multa for R$ 0,00 ou não houver saldo real informado > 0 */}
+                  {(() => {
+                    const rawCustomFgts = parseRawOrFormattedToFloat(viewingTRCT.customFgtsBalance || '');
+                    const hasRealFgtsInformed = Boolean(viewingTRCT.isManualFgts && rawCustomFgts > 0);
+                    const shouldShowBase = viewingTRCT.calculation.fgtsFineAmount > 0 && hasRealFgtsInformed;
+
+                    if (!shouldShowBase) return null;
+
+                    return (
+                      <span className="text-[10px] text-slate-500 print:text-black block print:text-[8.5px]">
+                        (Base informada: {formatMoneyBRL(rawCustomFgts)})
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div className="text-right">
