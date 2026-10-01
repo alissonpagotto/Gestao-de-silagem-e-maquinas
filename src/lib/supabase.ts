@@ -195,14 +195,17 @@ export function logPostgresError(
 
   const message = error.message || String(error);
 
-  // Falhas de transporte de WebSocket (Realtime) não são erros de SQL/Postgres DBA
+  // Falhas de transporte de WebSocket (Realtime) ou falhas transitórias de rede (Failed to fetch) não são erros de SQL/Postgres DBA
   if (
     options?.action === 'SUBSCRIBE' ||
     message.includes('transport failure') ||
     message.includes('CHANNEL_ERROR') ||
-    message.includes('WebSocket')
+    message.includes('WebSocket') ||
+    message.includes('Failed to fetch') ||
+    message.includes('NetworkError') ||
+    message.includes('Load failed')
   ) {
-    console.warn(`⚠️ [Realtime Transport Notice] Falha no canal em tempo real '${context}': ${message}`);
+    console.warn(`⚠️ [Realtime/Network Notice] Aviso de conexão em '${context}': ${message}`);
     return;
   }
 

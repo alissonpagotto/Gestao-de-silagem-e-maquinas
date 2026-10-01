@@ -1106,6 +1106,7 @@ export interface PayrollRecord {
 
 export interface VacationRecord {
   id: string;
+  companyId?: string;
   employeeId: string;
   employeeName: string;
   acquisitionPeriodStart?: string;
@@ -1115,17 +1116,26 @@ export interface VacationRecord {
   daysCount: number; // 30, 20, etc.
   sellDaysCount: number; // Abono pecuniário (dias vendidos, ex: 10)
   baseSalary: number;
+  customVacationAmount?: number; // Valor das Férias editado manualmente
   oneThirdBonus: number; // 1/3 Constitucional
   pecuniaryAllowance: number; // Valor do abono pecuniário
+  pecuniaryAllowanceBase?: number; // Abono pecuniário base (10 dias)
+  pecuniaryAllowanceOneThird?: number; // 1/3 Constitucional sobre Abono Pecuniário
   thirteenthAdvance: boolean; // Adiantamento de 50% do 13º
   thirteenthAmount?: number;
+  inssEnabled?: boolean; // Switch Liga/Desliga para Desconto de INSS
+  irrfEnabled?: boolean; // Switch Liga/Desliga para Desconto de IRRF
+  baseINSS?: number; // Base Previdenciária
+  baseIRRF?: number; // Base IRRF
   inssDiscount?: number;
   irrfDiscount?: number;
+  totalDiscounts?: number;
   netAmount?: number;
   totalAmount: number;
   status: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado';
   notes?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface LeaveRecord {
