@@ -20,7 +20,9 @@ import {
   RefreshCw,
   Scale,
   BookmarkCheck,
-  FileEdit
+  FileEdit,
+  Edit2,
+  Search
 } from 'lucide-react';
 import { 
   Employee, 
@@ -118,6 +120,12 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [draftBannerMessage, setDraftBannerMessage] = useState<string | null>(null);
   const [vacationAlert, setVacationAlert] = useState<string | null>(null);
+
+  // Controle da Janela Modal de Cálculo e Listagem
+  const [isCalculationModalOpen, setIsCalculationModalOpen] = useState<boolean>(false);
+  const [editingTermination, setEditingTermination] = useState<TerminationRecord | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'homologado' | 'rascunho'>('all');
 
   // Sincronização inicial e Escuta Ativa (Supabase Realtime) da tabela public.rh_rescisoes
   useEffect(() => {
@@ -1074,6 +1082,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       onSaveEmployees(updatedEmployees);
     }
 
+    setIsCalculationModalOpen(false);
     setViewingTRCT(newRecord);
   };
 
@@ -1150,6 +1159,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         } catch (_) {}
       }
 
+      setIsCalculationModalOpen(false);
       setDraftBannerMessage(`Rascunho de "${selectedEmployee.name}" salvo com sucesso! O colaborador continua ATIVO.`);
     } catch (e) {
       console.error('Erro ao salvar rascunho no Supabase:', e);
@@ -1159,31 +1169,64 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }
   };
 
-  // Retoma o preenchimento de um rascunho
-  const handleResumeDraft = (draft: TerminationRecord) => {
-    lastLoadedEmployeeIdRef.current = draft.employeeId;
-    setSelectedEmployeeId(draft.employeeId);
-    setReason(draft.reason || 'sem_justa_causa');
-    setNoticeType(draft.noticeType || 'indenizado');
-    setAdmissionDate(draft.admissionDate || '');
-    setTerminationDate(draft.terminationDate || new Date().toISOString().split('T')[0]);
-    setBaseSalary(draft.baseSalary || 0);
-    setBaseSalaryDisplay(formatNumberBRL(draft.baseSalary || 0));
+  // Abrir Modal para Nova Rescisão (Campos Vazios / Prontos)
+  const handleOpenNewTermination = () => {
+    setEditingTermination(null);
+    lastLoadedEmployeeIdRef.current = null;
+    setSelectedEmployeeId('');
+    setReason('sem_justa_causa');
+    setNoticeType('indenizado');
+    setAdmissionDate('');
+    setTerminationDate(new Date().toISOString().split('T')[0]);
+    setBaseSalary(0);
+    setBaseSalaryDisplay('0,00');
+    setVacationExpiredPeriods(0);
+    setVacationExpiredInput('0');
+    setCustomFgtsBalance('');
+    setIsManualFgts(false);
+    setIncludeFgtsFine(false);
+    setIncludeInssDiscount(true);
+    setCustomAbsencesDiscount('0,00');
+    setCustomAdvancesDiscount('0,00');
+    setOtherDeductionsInput('0,00');
+    setNotes('');
+    setMarkInactive(true);
+    setDraftBannerMessage(null);
+    setIsCalculationModalOpen(true);
+  };
 
-    const vac = draft.vacationExpiredPeriods ?? draft.calculation?.vacationExpiredCount ?? 0;
+  // Abrir Modal para Visualizar / Editar Rescisão Salva ou Rascunho
+  const handleOpenEditTermination = (t: TerminationRecord) => {
+    setEditingTermination(t);
+    lastLoadedEmployeeIdRef.current = t.employeeId;
+    setSelectedEmployeeId(t.employeeId);
+    setReason(t.reason || 'sem_justa_causa');
+    setNoticeType(t.noticeType || 'indenizado');
+    setAdmissionDate(t.admissionDate || '');
+    setTerminationDate(t.terminationDate || new Date().toISOString().split('T')[0]);
+    setBaseSalary(t.baseSalary || 0);
+    setBaseSalaryDisplay(formatNumberBRL(t.baseSalary || 0));
+
+    const vac = t.vacationExpiredPeriods ?? t.calculation?.vacationExpiredCount ?? 0;
     setVacationExpiredPeriods(vac);
     setVacationExpiredInput(vac > 0 ? String(vac) : '0');
 
-    setCustomFgtsBalance(draft.customFgtsBalance || '');
-    setIsManualFgts(Boolean(draft.isManualFgts || (draft.customFgtsBalance && draft.customFgtsBalance !== '0,00')));
-    setIncludeFgtsFine(Boolean(draft.includeFgtsFine));
-    setIncludeInssDiscount(draft.includeInssDiscount !== undefined ? draft.includeInssDiscount : true);
-    setCustomAbsencesDiscount(draft.customAbsencesDiscount || '0,00');
-    setCustomAdvancesDiscount(draft.customAdvancesDiscount || '0,00');
-    setOtherDeductionsInput(draft.otherDeductionsInput || '0,00');
-    setNotes(draft.notes || '');
-    setDraftBannerMessage(`Rascunho de "${draft.employeeName}" carregado nos campos com sucesso. Continue o preenchimento!`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setCustomFgtsBalance(t.customFgtsBalance || '');
+    setIsManualFgts(Boolean(t.isManualFgts || (t.customFgtsBalance && t.customFgtsBalance !== '0,00')));
+    setIncludeFgtsFine(Boolean(t.includeFgtsFine));
+    setIncludeInssDiscount(t.includeInssDiscount !== undefined ? t.includeInssDiscount : true);
+    setCustomAbsencesDiscount(t.customAbsencesDiscount || '0,00');
+    setCustomAdvancesDiscount(t.customAdvancesDiscount || '0,00');
+    setOtherDeductionsInput(t.otherDeductionsInput || '0,00');
+    setNotes(t.notes || '');
+    setMarkInactive(Boolean(t.markEmployeeInactive ?? (t.status === 'homologado')));
+    setDraftBannerMessage(null);
+    setIsCalculationModalOpen(true);
+  };
+
+  // Retoma o preenchimento de um rascunho
+  const handleResumeDraft = (draft: TerminationRecord) => {
+    handleOpenEditTermination(draft);
   };
 
   // Excluir registro ou rascunho do histórico
