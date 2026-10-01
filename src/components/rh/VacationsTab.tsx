@@ -1308,91 +1308,120 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         </button>
       </div>
 
-      {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais) */}
+      {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais com Backgrounds Pastéis) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
+        {/* 1. PERÍODOS VENCIDOS (Vermelho claro/pastel #FEF2F2) */}
         <div
           onClick={() => setStatusFilter('vencido')}
-          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+          className={`bg-red-50 dark:bg-red-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
             statusFilter === 'vencido'
-              ? 'border-rose-500 ring-1 ring-rose-500/40'
-              : 'border-rose-200 dark:border-stone-800 hover:border-rose-300'
+              ? 'border-red-400 ring-1 ring-red-400/40'
+              : 'border-red-200 dark:border-red-900/60 hover:border-red-300'
           }`}
         >
-          <span className="text-[10px] font-black text-rose-700 dark:text-rose-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-red-600 dark:text-red-400 block uppercase tracking-wide">
             Períodos Vencidos
           </span>
-          <span className="text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] mt-1">
-            {vencidosCount} colaborador(es)
-          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-black text-red-600 dark:text-red-400 font-['Outfit']">
+              {vencidosCount}
+            </span>
+            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+              colaborador(es)
+            </span>
+          </div>
         </div>
 
+        {/* 2. PRÓXIMOS A VENCER (Laranja/Amarelo bem claro #FEF3C7) */}
         <div
           onClick={() => setStatusFilter('proximo')}
-          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+          className={`bg-amber-50 dark:bg-amber-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
             statusFilter === 'proximo'
-              ? 'border-amber-500 ring-1 ring-amber-500/40'
-              : 'border-amber-200 dark:border-stone-800 hover:border-amber-300'
+              ? 'border-amber-400 ring-1 ring-amber-400/40'
+              : 'border-amber-200 dark:border-amber-900/60 hover:border-amber-300'
           }`}
         >
-          <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 block uppercase tracking-wide">
             Próximos a Vencer
           </span>
-          <span className="text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] mt-1">
-            {proximosCount} colaborador(es)
-          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-black text-amber-600 dark:text-amber-400 font-['Outfit']">
+              {proximosCount}
+            </span>
+            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+              colaborador(es)
+            </span>
+          </div>
         </div>
 
-        {/* CARD 1: FÉRIAS PROGRAMADAS (Azul) */}
+        {/* 3. FÉRIAS PROGRAMADAS (Azul bem claro/pastel #EFF6FF) */}
         <div
           onClick={() => setStatusFilter('programados')}
-          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+          className={`bg-blue-50 dark:bg-blue-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
             statusFilter === 'programados'
-              ? 'border-blue-600 ring-1 ring-blue-600/40'
-              : 'border-blue-300 dark:border-blue-900/70 hover:border-blue-400'
+              ? 'border-blue-400 ring-1 ring-blue-400/40'
+              : 'border-blue-200 dark:border-blue-900/60 hover:border-blue-300'
           }`}
         >
-          <span className="text-[10px] font-black text-blue-700 dark:text-blue-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 block uppercase tracking-wide">
             Férias Programadas
           </span>
-          <span className="text-base font-black text-blue-700 dark:text-blue-400 font-['Outfit'] mt-1">
-            {programadosCount} colaborador(es)
-          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-black text-blue-600 dark:text-blue-400 font-['Outfit']">
+              {programadosCount}
+            </span>
+            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+              colaborador(es)
+            </span>
+          </div>
         </div>
 
-        {/* CARD 2: FÉRIAS EM GOZO AGORA (Roxo / Índigo) */}
+        {/* 4. FÉRIAS EM GOZO AGORA (Roxo/Índigo bem claro #EEF2FF) */}
         <div
           onClick={() => setStatusFilter('em_gozo')}
-          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+          className={`bg-indigo-50 dark:bg-indigo-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
             statusFilter === 'em_gozo'
-              ? 'border-indigo-600 ring-1 ring-indigo-600/40'
-              : 'border-indigo-300 dark:border-indigo-900/70 hover:border-indigo-400'
+              ? 'border-indigo-400 ring-1 ring-indigo-400/40'
+              : 'border-indigo-200 dark:border-indigo-900/60 hover:border-indigo-300'
           }`}
         >
-          <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 block uppercase tracking-wide">
             Férias em Gozo Agora
           </span>
-          <span className="text-base font-black text-indigo-700 dark:text-indigo-400 font-['Outfit'] mt-1">
-            {emGozoCount} colaborador(es)
-          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-black text-indigo-600 dark:text-indigo-400 font-['Outfit']">
+              {emGozoCount}
+            </span>
+            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+              colaborador(es)
+            </span>
+          </div>
         </div>
 
+        {/* 5. QUITADOS / REGULARES (Verde bem claro/pastel #F0FDF4) */}
         <div
           onClick={() => setStatusFilter('all')}
-          className="crm-card bg-white dark:bg-stone-900 border border-emerald-200 dark:border-stone-800 hover:border-emerald-300 rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between"
+          className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/60 hover:border-green-300 rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between"
         >
-          <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 block uppercase tracking-wide">
+          <span className="text-[10px] font-black text-green-600 dark:text-green-400 block uppercase tracking-wide">
             Quitados / Regulares
           </span>
-          <span className="text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] mt-1">
-            {quitadosCount} colaborador(es)
-          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-base font-black text-green-600 dark:text-green-400 font-['Outfit']">
+              {quitadosCount}
+            </span>
+            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
+              colaborador(es)
+            </span>
+          </div>
         </div>
 
-        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white flex flex-col justify-between">
+        {/* 6. TOTAL FÉRIAS LANÇADAS (Cinza neutro bem claro #F8FAFC) */}
+        <div className="bg-slate-50 dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs flex flex-col justify-between">
           <span className="text-[10px] font-black text-slate-700 dark:text-stone-300 block uppercase tracking-wide">
             Total Férias Lançadas
           </span>
-          <span className="text-base font-black text-black dark:text-white font-['Outfit'] mt-1">
+          <span className="text-base font-black text-slate-700 dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(totalValorFerias)}
           </span>
         </div>
