@@ -33,9 +33,22 @@ import {
   saveStoredAbsences,
   getStoredEmployees,
   saveStoredEmployees,
+  getStoredVacations,
+  saveStoredVacations,
+  getStoredTerminations,
+  saveStoredTerminations,
   getActiveCompanyId
 } from '../../lib/storage';
-import { toValidUUID, fetchRhFuncionarios, isSupabaseConfigured, mapRowToEmployee } from '../../lib/supabaseService';
+import {
+  toValidUUID,
+  fetchRhFuncionarios,
+  isSupabaseConfigured,
+  mapRowToEmployee,
+  fetchCloudVacations,
+  fetchCloudTerminations,
+  mapRowToVacationRecord,
+  mapRowToTerminationRecord,
+} from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { RHDashboardTab } from './RHDashboardTab';
@@ -241,7 +254,26 @@ export const RHModule: React.FC<RHModuleProps> = ({
           console.warn('[RHModule] Erro ao sincronizar funcionários:', err);
         }
 
-        // Canal de escuta Realtime (.on) com filtro estrito .eq('user_id', activeUid)
+        // Sincroniza férias e rescisões iniciais do locatário
+        const activeTenant = authCompanyId || activeUid || getActiveCompanyId() || 'default';
+        fetchCloudVacations(activeTenant)
+          .then((cloudVacs) => {
+            if (isMounted && cloudVacs && Array.isArray(cloudVacs) && cloudVacs.length > 0) {
+              saveStoredVacations(cloudVacs);
+              if (onSaveVacations) onSaveVacations(cloudVacs);
+            }
+          })
+          .catch(() => {});
+
+        fetchCloudTerminations(activeTenant)
+          .then((cloudTerms) => {
+            if (isMounted && cloudTerms && Array.isArray(cloudTerms) && cloudTerms.length > 0) {
+              saveStoredTerminations(cloudTerms);
+            }
+          })
+          .catch(() => {});
+
+        // Canal de escuta Realtime (.on) para tabelas do RH (rh_funcionarios, rh_ferias, rh_rescisoes)
         const channelId = `rh_module_rt_${activeUid}_${Date.now()}`;
         channel = supabase
           .channel(channelId)
@@ -271,6 +303,74 @@ export const RHModule: React.FC<RHModuleProps> = ({
                 const strictlyMineFresh = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
                 saveStoredEmployees(strictlyMineFresh);
                 if (onSaveEmployees) onSaveEmployees(strictlyMineFresh);
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'rh_ferias',
+            },
+            (payload: any) => {
+              if (!isMounted) return;
+              const eventType = payload?.eventType;
+              if (eventType === 'DELETE') {
+                const oldId = payload?.old?.id;
+                if (oldId) {
+                  const targetId = toValidUUID(String(oldId));
+                  const nextList = getStoredVacations().filter((v) => toValidUUID(v.id) !== targetId);
+                  saveStoredVacations(nextList);
+                  if (onSaveVacations) onSaveVacations(nextList);
+                }
+                return;
+              }
+              const row = payload?.new;
+              if (!row) return;
+              if (row.company_id && String(row.company_id) !== String(activeTenant)) return;
+              const mapped = mapRowToVacationRecord(row);
+              if (mapped) {
+                const current = getStoredVacations();
+                const exists = current.some((v) => toValidUUID(v.id) === toValidUUID(mapped.id));
+                const nextList = exists
+                  ? current.map((v) => (toValidUUID(v.id) === toValidUUID(mapped.id) ? { ...v, ...mapped } : v))
+                  : [mapped, ...current];
+                saveStoredVacations(nextList);
+                if (onSaveVacations) onSaveVacations(nextList);
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'rh_rescisoes',
+            },
+            (payload: any) => {
+              if (!isMounted) return;
+              const eventType = payload?.eventType;
+              if (eventType === 'DELETE') {
+                const oldId = payload?.old?.id;
+                if (oldId) {
+                  const targetId = toValidUUID(String(oldId));
+                  const nextList = getStoredTerminations().filter((t) => toValidUUID(t.id) !== targetId);
+                  saveStoredTerminations(nextList);
+                }
+                return;
+              }
+              const row = payload?.new;
+              if (!row) return;
+              if (row.company_id && String(row.company_id) !== String(activeTenant)) return;
+              const mapped = mapRowToTerminationRecord(row);
+              if (mapped) {
+                const current = getStoredTerminations();
+                const exists = current.some((t) => toValidUUID(t.id) === toValidUUID(mapped.id));
+                const nextList = exists
+                  ? current.map((t) => (toValidUUID(t.id) === toValidUUID(mapped.id) ? { ...t, ...mapped } : t))
+                  : [mapped, ...current];
+                saveStoredTerminations(nextList);
               }
             }
           )

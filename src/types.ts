@@ -1262,6 +1262,7 @@ export interface TerminationCalculation {
 
 export interface TerminationRecord {
   id: string;
+  companyId?: string;
   employeeId: string;
   employeeName: string;
   employeeRole: string;

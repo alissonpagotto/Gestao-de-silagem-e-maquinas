@@ -16,7 +16,13 @@ import { formatCurrencyBRL, formatDateBR, getActiveCompanyId, saveStoredVacation
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
 import { isSupabaseConfigured } from '../../lib/supabase';
-import { saveCloudVacations } from '../../lib/supabaseService';
+import {
+  saveCloudVacations,
+  fetchCloudVacations,
+  upsertRhFeriasRecord,
+  deleteRhFeriasRecord,
+  toValidUUID,
+} from '../../lib/supabaseService';
 import {
   VacationReceiptModal,
   subscribeToVacationRealtimeChannel,
@@ -436,41 +442,75 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return formatPaymentDeadline(startDate);
   }, [startDate]);
 
+  // Sincronização inicial com a tabela public.rh_ferias do Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured || !activeTenantId) return;
+    let isMounted = true;
+    fetchCloudVacations(activeTenantId)
+      .then((cloudVacations) => {
+        if (!isMounted || !cloudVacations || !Array.isArray(cloudVacations) || cloudVacations.length === 0) return;
+        const currentList = vacationsRef.current;
+        const map = new Map<string, VacationRecord>();
+        currentList.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
+        cloudVacations.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        saveStoredVacations(merged);
+        onSaveVacations(merged);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTenantId]);
+
   // Canal de Escuta Ativa (Supabase Realtime Channel) para sincronizar dispositivos do mesmo locatário
   useEffect(() => {
-    const applyIncomingRecord = (incoming: VacationRecord) => {
+    const applyIncomingRecord = (incoming: VacationRecord, isFromDatabase = false) => {
       if (!incoming) return;
+      const incomingId = toValidUUID(incoming.id);
+      const normalizedIncoming: VacationRecord = { ...incoming, id: incomingId };
 
-      // Atualiza na lista principal se já existir
+      // Atualiza na lista principal (UPDATE se existir, INSERT se vier do banco ou já estiver salvo)
       const currentList = vacationsRef.current;
-      if (currentList.some(v => v.id === incoming.id)) {
-        const nextList = currentList.map(v => (v.id === incoming.id ? { ...v, ...incoming } : v));
+      const existsInList = currentList.some(v => toValidUUID(v.id) === incomingId);
+      if (existsInList) {
+        const nextList = currentList.map(v =>
+          toValidUUID(v.id) === incomingId ? { ...v, ...normalizedIncoming, id: toValidUUID(v.id) } : v
+        );
+        saveStoredVacations(nextList);
+        onSaveVacations(nextList);
+      } else if (isFromDatabase) {
+        const nextList = [normalizedIncoming, ...currentList];
         saveStoredVacations(nextList);
         onSaveVacations(nextList);
       }
 
       // Se o modal de edição ou recibo estiver aberto para o mesmo registro, sincroniza os estados locais imediatamente
-      setPrintingVacation(prev => (prev && prev.id === incoming.id ? { ...prev, ...incoming } : prev));
+      setPrintingVacation(prev =>
+        prev && toValidUUID(prev.id) === incomingId ? { ...prev, ...normalizedIncoming } : prev
+      );
 
-      if (isModalOpen && (!activeDraftId || incoming.id === activeDraftId)) {
-        if (incoming.employeeId) setSelectedEmployeeId(incoming.employeeId);
-        if (incoming.acquisitionPeriodStart) setAcquisitionPeriodStart(incoming.acquisitionPeriodStart);
-        if (incoming.acquisitionPeriodEnd) setAcquisitionPeriodEnd(incoming.acquisitionPeriodEnd);
-        if (incoming.startDate) setStartDate(incoming.startDate);
-        if (incoming.endDate) setEndDate(incoming.endDate);
-        if (incoming.daysCount !== undefined) setDaysCount(incoming.daysCount);
-        if (incoming.sellDaysCount !== undefined) setSellDaysCount(incoming.sellDaysCount);
-        if (incoming.baseSalary !== undefined) setBaseSalary(incoming.baseSalary);
-        if (incoming.thirteenthAdvance !== undefined) setThirteenthAdvance(incoming.thirteenthAdvance);
-        if (incoming.status) setStatus(incoming.status);
-        if (incoming.notes !== undefined) setNotes(incoming.notes);
-        if (incoming.customVacationAmount !== undefined) setCustomFeriasGozo(incoming.customVacationAmount);
-        if (incoming.oneThirdBonus !== undefined) setCustomUmTercoGozo(incoming.oneThirdBonus);
-        if (incoming.thirteenthAmount !== undefined) setCustomDecimoAdiantamento(incoming.thirteenthAmount);
-        if (incoming.inssEnabled !== undefined) setInssEnabled(incoming.inssEnabled);
-        if (incoming.irrfEnabled !== undefined) setIrrfEnabled(incoming.irrfEnabled);
-        if (incoming.inssDiscount !== undefined) setCustomInssDiscount(incoming.inssDiscount);
-        if (incoming.irrfDiscount !== undefined) setCustomIrrfDiscount(incoming.irrfDiscount);
+      if (isModalOpen && (!activeDraftId || toValidUUID(activeDraftId) === incomingId)) {
+        if (normalizedIncoming.employeeId) setSelectedEmployeeId(normalizedIncoming.employeeId);
+        if (normalizedIncoming.acquisitionPeriodStart) setAcquisitionPeriodStart(normalizedIncoming.acquisitionPeriodStart);
+        if (normalizedIncoming.acquisitionPeriodEnd) setAcquisitionPeriodEnd(normalizedIncoming.acquisitionPeriodEnd);
+        if (normalizedIncoming.startDate) setStartDate(normalizedIncoming.startDate);
+        if (normalizedIncoming.endDate) setEndDate(normalizedIncoming.endDate);
+        if (normalizedIncoming.daysCount !== undefined) setDaysCount(normalizedIncoming.daysCount);
+        if (normalizedIncoming.sellDaysCount !== undefined) setSellDaysCount(normalizedIncoming.sellDaysCount);
+        if (normalizedIncoming.baseSalary !== undefined) setBaseSalary(normalizedIncoming.baseSalary);
+        if (normalizedIncoming.thirteenthAdvance !== undefined) setThirteenthAdvance(normalizedIncoming.thirteenthAdvance);
+        if (normalizedIncoming.status) setStatus(normalizedIncoming.status);
+        if (normalizedIncoming.notes !== undefined) setNotes(normalizedIncoming.notes);
+        if (normalizedIncoming.customVacationAmount !== undefined) setCustomFeriasGozo(normalizedIncoming.customVacationAmount);
+        if (normalizedIncoming.oneThirdBonus !== undefined) setCustomUmTercoGozo(normalizedIncoming.oneThirdBonus);
+        if (normalizedIncoming.thirteenthAmount !== undefined) setCustomDecimoAdiantamento(normalizedIncoming.thirteenthAmount);
+        if (normalizedIncoming.inssEnabled !== undefined) setInssEnabled(normalizedIncoming.inssEnabled);
+        if (normalizedIncoming.irrfEnabled !== undefined) setIrrfEnabled(normalizedIncoming.irrfEnabled);
+        if (normalizedIncoming.inssDiscount !== undefined) setCustomInssDiscount(normalizedIncoming.inssDiscount);
+        if (normalizedIncoming.irrfDiscount !== undefined) setCustomIrrfDiscount(normalizedIncoming.irrfDiscount);
       }
     };
 
@@ -479,7 +519,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       if (!detail || detail.senderId === clientInstanceIdRef.current) return;
       if (detail.tenantId && detail.tenantId !== activeTenantId) return;
       if (detail.vacation) {
-        applyIncomingRecord(detail.vacation);
+        applyIncomingRecord(detail.vacation, false);
       }
     };
 
@@ -490,16 +530,26 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       (payload: any) => {
         if (!payload || payload.senderId === clientInstanceIdRef.current) return;
         if (payload.tenantId && payload.tenantId !== activeTenantId) return;
+
+        if (payload.eventType === 'DELETE' && payload.deletedId) {
+          const targetId = toValidUUID(payload.deletedId);
+          const nextList = vacationsRef.current.filter(v => toValidUUID(v.id) !== targetId);
+          saveStoredVacations(nextList);
+          onSaveVacations(nextList);
+          return;
+        }
+
         if (payload.vacation) {
-          applyIncomingRecord(payload.vacation);
+          const isDbEvent = payload.senderId === 'postgres_rh_ferias' || Boolean(payload.eventType);
+          applyIncomingRecord(payload.vacation, isDbEvent);
         }
       },
       (parsed: VacationRecord[]) => {
         saveStoredVacations(parsed);
         onSaveVacations(parsed);
         if (isModalOpen && activeDraftId) {
-          const matched = parsed.find((v) => v.id === activeDraftId);
-          if (matched) applyIncomingRecord(matched);
+          const matched = parsed.find((v) => toValidUUID(v.id) === toValidUUID(activeDraftId));
+          if (matched) applyIncomingRecord(matched, true);
         }
       }
     );
@@ -514,8 +564,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const broadcastActiveVacationDraft = useCallback(
     (overrides?: Partial<VacationRecord>) => {
       const emp = employees.find(e => e.id === selectedEmployeeId);
+      const canonicalId = toValidUUID(activeDraftId || editingVacation?.id || 'vac_live_draft');
       const draftRecord: VacationRecord = {
-        id: activeDraftId || editingVacation?.id || 'vac_live_draft',
+        id: canonicalId,
         companyId: activeTenantId,
         employeeId: emp?.id || selectedEmployeeId,
         employeeName: emp?.name || editingVacation?.employeeName || 'Colaborador',
@@ -563,12 +614,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         sendVacationRealtimeBroadcast(activeTenantId, clientInstanceIdRef.current, draftRecord);
       }
 
-      // Se já é um registro salvo sendo editado, atualiza também na persistência para sincronizar listas
+      // Se já é um registro salvo sendo editado, atualiza via upsert em rh_ferias e na lista
       if (editingVacation) {
-        const nextList = vacationsRef.current.map(v => (v.id === editingVacation.id ? draftRecord : v));
+        const targetId = toValidUUID(editingVacation.id);
+        const nextList = vacationsRef.current.map(v => (toValidUUID(v.id) === targetId ? draftRecord : v));
         saveStoredVacations(nextList);
         onSaveVacations(nextList);
         if (isSupabaseConfigured) {
+          upsertRhFeriasRecord(draftRecord, activeTenantId).catch(() => {});
           saveCloudVacations(nextList, activeTenantId).catch(() => {});
         }
       }
@@ -672,7 +725,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setCustomInssDiscount(vacation.inssDiscount !== undefined ? vacation.inssDiscount : null);
       setCustomIrrfDiscount(vacation.irrfDiscount !== undefined ? vacation.irrfDiscount : null);
     } else {
-      const draftId = `vac_${Date.now()}`;
+      const draftId = toValidUUID(`vac_${Date.now()}`);
       setEditingVacation(null);
       setActiveDraftId(draftId);
       const firstActive = employees.find(e => e.status === 'ativo') || employees[0];
@@ -701,13 +754,33 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     setIsModalOpen(true);
   };
 
+  const handleCloseProgrammingModal = () => {
+    if (editingVacation) {
+      broadcastActiveVacationDraft();
+    }
+    setIsModalOpen(false);
+  };
+
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
+    // Estratégia de upsert: se já existir registro para o mesmo funcionário e mesmo período, reutiliza o ID
+    const existingSamePeriod = !editingVacation
+      ? vacations.find(
+          (v) =>
+            v.employeeId === emp.id &&
+            v.startDate === startDate &&
+            v.acquisitionPeriodStart === acquisitionPeriodStart
+        )
+      : null;
+
+    const targetRecord = editingVacation || existingSamePeriod;
+    const canonicalId = toValidUUID(targetRecord ? targetRecord.id : (activeDraftId || `vac_${Date.now()}`));
+
     const recordPayload: VacationRecord = {
-      id: editingVacation ? editingVacation.id : (activeDraftId || `vac_${Date.now()}`),
+      id: canonicalId,
       companyId: activeTenantId,
       employeeId: emp.id,
       employeeName: emp.name,
@@ -734,15 +807,20 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       totalAmount: financials.totalBruto,
       status,
       notes,
-      createdAt: editingVacation?.createdAt || new Date().toISOString(),
+      createdAt: targetRecord?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    const nextVacations = editingVacation
-      ? vacations.map(v => (v.id === editingVacation.id ? recordPayload : v))
+    const nextVacations = targetRecord
+      ? vacations.map(v => (toValidUUID(v.id) === canonicalId ? recordPayload : v))
       : [recordPayload, ...vacations];
 
+    saveStoredVacations(nextVacations);
     onSaveVacations(nextVacations);
+    if (isSupabaseConfigured) {
+      upsertRhFeriasRecord(recordPayload, activeTenantId).catch(() => {});
+      saveCloudVacations(nextVacations, activeTenantId).catch(() => {});
+    }
     broadcastActiveVacationDraft(recordPayload);
     setIsModalOpen(false);
   };
@@ -759,13 +837,27 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveVacations(vacations.filter(v => v.id !== id));
+      const nextList = vacations.filter(v => v.id !== id);
+      saveStoredVacations(nextList);
+      onSaveVacations(nextList);
+      if (isSupabaseConfigured) {
+        deleteRhFeriasRecord(id, activeTenantId).catch(() => {});
+        saveCloudVacations(nextList, activeTenantId).catch(() => {});
+      }
     }
   };
 
   const handleToggleStatus = (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'agendado' ? 'em_gozo' : currentStatus === 'em_gozo' ? 'concluido' : 'agendado';
-    onSaveVacations(vacations.map(v => v.id === id ? { ...v, status: nextStatus as any } : v));
+    const nextList = vacations.map(v => (v.id === id ? { ...v, status: nextStatus as any, updatedAt: new Date().toISOString() } : v));
+    saveStoredVacations(nextList);
+    onSaveVacations(nextList);
+    const updatedItem = nextList.find(v => v.id === id);
+    if (updatedItem && isSupabaseConfigured) {
+      upsertRhFeriasRecord(updatedItem, activeTenantId).catch(() => {});
+      saveCloudVacations(nextList, activeTenantId).catch(() => {});
+      sendVacationRealtimeBroadcast(activeTenantId, clientInstanceIdRef.current, updatedItem);
+    }
   };
 
   const handlePreviewReceipt = () => {
@@ -896,7 +988,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900">
               {filtered.length > 0 ? (
                 filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
+                  <tr key={item.id || item.employeeId} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
                     <td className="py-2 px-3">
                       <button
                         type="button"
@@ -1042,7 +1134,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={handleCloseProgrammingModal}
                   className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
                   title="Fechar"
                 >
@@ -1527,7 +1619,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={handleCloseProgrammingModal}
                     className="px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-bold text-xs hover:bg-stone-50 dark:hover:bg-stone-700 cursor-pointer transition"
                   >
                     Cancelar

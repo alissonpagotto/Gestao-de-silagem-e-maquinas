@@ -8613,38 +8613,157 @@ export async function fetchCloudExpenses(companyId?: string): Promise<Expense[] 
 }
 
 /**
- * Salva e sincroniza as Rescisões Contratuais e Rascunhos no Supabase
+ * Monta o objeto estruturado da linha para a tabela public.rh_rescisoes
+ */
+export function buildRhRescisaoRow(t: TerminationRecord, companyId?: string) {
+  const cId = companyId || t.companyId || getActiveCompanyId() || 'default';
+  const canonicalId = toValidUUID(t.id);
+  const canonicalEmpId = toValidUUID(t.employeeId);
+
+  const payloadObj = {
+    ...t,
+    id: canonicalId,
+    companyId: cId,
+    employeeId: t.employeeId,
+    funcionario_id: canonicalEmpId,
+    proventos: {
+      saldoSalario: t.calculation?.salaryBalance ?? 0,
+      avisoPrevio: t.calculation?.noticeAmount ?? 0,
+      decimoTerceiroProporcional: t.calculation?.thirteenthProportionalAmount ?? 0,
+      feriasVencidas: t.calculation?.vacationExpiredAmount ?? 0,
+      feriasProporcionais: t.calculation?.vacationProportionalAmount ?? 0,
+      umTercoFerias: t.calculation?.vacationOneThirdBonus ?? 0,
+      multaFgts: t.calculation?.fgtsFineAmount ?? 0,
+      totalBruto: t.calculation?.grossTotal ?? 0,
+    },
+    descontos: {
+      inssSaldoSalario: t.calculation?.inssSalaryBalance ?? 0,
+      inssDecimoTerceiro: t.calculation?.inssThirteenth ?? 0,
+      adiantamentos: t.calculation?.advancesDiscount ?? 0,
+      faltas: t.calculation?.absenceDiscount ?? 0,
+      avisoPrevioNaoCumprido: t.calculation?.noticeDeduction ?? 0,
+      outrasDeducoes: t.calculation?.otherDeductions ?? 0,
+      totalDescontos: t.calculation?.totalDeductions ?? 0,
+    },
+    toggles: {
+      includeFgtsFine: Boolean(t.includeFgtsFine),
+      includeInssDiscount: t.includeInssDiscount !== undefined ? t.includeInssDiscount : true,
+      isManualFgts: Boolean(t.isManualFgts),
+      markEmployeeInactive: Boolean(t.markEmployeeInactive),
+    },
+    valorLiquido: t.calculation?.netTotal ?? 0,
+  };
+
+  return {
+    id: canonicalId,
+    company_id: cId,
+    funcionario_id: canonicalEmpId,
+    status: t.status || 'rascunho',
+    payload: payloadObj,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Converte uma linha da tabela public.rh_rescisoes em TerminationRecord
+ */
+export function mapRowToTerminationRecord(row: any): TerminationRecord | null {
+  if (!row) return null;
+  let parsedPayload: any = row.payload;
+  if (typeof parsedPayload === 'string') {
+    try {
+      parsedPayload = JSON.parse(parsedPayload);
+    } catch {
+      parsedPayload = {};
+    }
+  }
+  if (!parsedPayload || typeof parsedPayload !== 'object') {
+    parsedPayload = {};
+  }
+
+  const id = row.id || parsedPayload.id;
+  const employeeId = parsedPayload.employeeId || row.funcionario_id || '';
+  if (!id || !employeeId) return null;
+
+  return {
+    ...parsedPayload,
+    id: String(id),
+    companyId: row.company_id || parsedPayload.companyId || undefined,
+    employeeId: String(employeeId),
+    status: row.status || parsedPayload.status || 'rascunho',
+    updatedAt: row.updated_at || parsedPayload.updatedAt || new Date().toISOString(),
+    createdAt: parsedPayload.createdAt || row.created_at || new Date().toISOString(),
+  } as TerminationRecord;
+}
+
+/**
+ * Realiza upsert individual de uma rescisão ou rascunho na tabela public.rh_rescisoes
+ */
+export async function upsertRhRescisaoRecord(termination: TerminationRecord, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !termination) return false;
+  try {
+    const cId = companyId || termination.companyId || getActiveCompanyId() || 'default';
+    const row = buildRhRescisaoRow(termination, cId);
+    const { error } = await supabase.from('rh_rescisoes').upsert(row, { onConflict: 'id' });
+    if (error) {
+      console.warn('Aviso em upsertRhRescisaoRecord:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Falha ao executar upsert em rh_rescisoes:', e);
+    return false;
+  }
+}
+
+/**
+ * Remove um registro de rescisão da tabela public.rh_rescisoes
+ */
+export async function deleteRhRescisaoRecord(terminationId: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !terminationId) return false;
+  try {
+    const canonicalId = toValidUUID(terminationId);
+    const cId = companyId || getActiveCompanyId();
+    let query = supabase.from('rh_rescisoes').delete().eq('id', canonicalId);
+    if (cId) {
+      query = query.eq('company_id', cId);
+    }
+    const { error } = await query;
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Salva e sincroniza as Rescisões Contratuais e Rascunhos no Supabase (rh_rescisoes + site_settings)
  */
 export async function saveCloudTerminations(terminations: TerminationRecord[], companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
-    const { error } = await supabase.from('site_settings').upsert({
-      id: `cloud_terminations_${cId}`,
-      hero_title: JSON.stringify(terminations),
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'id' });
+    const cleanTerminations = (Array.isArray(terminations) ? terminations : []).map((t) => ({
+      ...t,
+      id: toValidUUID(t.id),
+      companyId: cId,
+    }));
 
-    // Sincroniza também na tabela relacional rh_rescisoes se disponível
+    // 1. Upsert estruturado na tabela oficial public.rh_rescisoes
     try {
-      const recordsToUpsert = terminations.map(t => ({
-        id: t.id,
-        company_id: cId,
-        employee_id: t.employeeId,
-        employee_name: t.employeeName,
-        termination_date: t.terminationDate,
-        reason: t.reason,
-        net_total: t.calculation?.netTotal || 0,
-        status: t.status,
-        payload: JSON.stringify(t),
-        updated_at: new Date().toISOString()
-      }));
+      const recordsToUpsert = cleanTerminations.map((t) => buildRhRescisaoRow(t, cId));
       if (recordsToUpsert.length > 0) {
         await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
       }
     } catch {
-      // Ignora silenciosamente caso tabela relacional ainda não exista
+      // Fallback caso tabela relacional ainda não exista
     }
+
+    // 2. Mantém espelhamento em site_settings para resiliência
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_terminations_${cId}`,
+      hero_title: JSON.stringify(cleanTerminations),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
 
     return !error;
   } catch (e) {
@@ -8654,12 +8773,33 @@ export async function saveCloudTerminations(terminations: TerminationRecord[], c
 }
 
 /**
- * Carrega as Rescisões Contratuais e Rascunhos da nuvem (Supabase)
+ * Carrega as Rescisões Contratuais e Rascunhos da nuvem (Supabase: rh_rescisoes + site_settings)
  */
 export async function fetchCloudTerminations(companyId?: string): Promise<TerminationRecord[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
+    const map = new Map<string, TerminationRecord>();
+
+    // 1. Busca prioritária na tabela relacional public.rh_rescisoes
+    try {
+      const { data: relRows, error: relErr } = await supabase
+        .from('rh_rescisoes')
+        .select('*')
+        .eq('company_id', cId)
+        .order('updated_at', { ascending: false });
+
+      if (!relErr && Array.isArray(relRows)) {
+        for (const r of relRows) {
+          const mapped = mapRowToTerminationRecord(r);
+          if (mapped) {
+            map.set(mapped.id, mapped);
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Complementa com site_settings caso existam registros legados
     const { data, error } = await supabase
       .from('site_settings')
       .select('hero_title')
@@ -8667,9 +8807,20 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
       .maybeSingle();
 
     if (!error && data?.hero_title) {
-      return JSON.parse(data.hero_title) as TerminationRecord[];
+      try {
+        const parsed = JSON.parse(data.hero_title) as TerminationRecord[];
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            const normId = toValidUUID(item.id);
+            if (!map.has(normId)) {
+              map.set(normId, { ...item, id: normId, companyId: cId });
+            }
+          }
+        }
+      } catch {}
     }
-    return null;
+
+    return map.size > 0 ? Array.from(map.values()) : null;
   } catch (e) {
     return null;
   }
@@ -8789,13 +8940,212 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
 }
 
 /**
- * Salva e sincroniza as Férias dos colaboradores na nuvem (Supabase)
+ * Monta o objeto estruturado da linha para a tabela public.rh_ferias
+ */
+export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
+  const cId = companyId || v.companyId || getActiveCompanyId() || 'default';
+  const canonicalId = toValidUUID(v.id);
+  const canonicalEmpId = toValidUUID(v.employeeId);
+
+  const baseSal = v.baseSalary || 0;
+  const days = v.daysCount || 30;
+  const valorFerias = v.customVacationAmount !== undefined
+    ? v.customVacationAmount
+    : Math.round(((baseSal / 30) * days) * 100) / 100;
+
+  const payloadObj = {
+    ...v,
+    id: canonicalId,
+    companyId: cId,
+    employeeId: v.employeeId,
+    funcionario_id: canonicalEmpId,
+    proventos: {
+      valorFerias,
+      umTercoConstitucional: v.oneThirdBonus ?? 0,
+      abonoPecuniario: v.pecuniaryAllowance ?? 0,
+      adiantamentoDecimoTerceiro: v.thirteenthAmount ?? 0,
+      totalBruto: v.totalAmount ?? 0,
+    },
+    descontos: {
+      inssDiscount: v.inssDiscount ?? 0,
+      irrfDiscount: v.irrfDiscount ?? 0,
+      baseINSS: v.baseINSS ?? 0,
+      baseIRRF: v.baseIRRF ?? 0,
+      totalDescontos: v.totalDiscounts ?? ((v.inssDiscount || 0) + (v.irrfDiscount || 0)),
+    },
+    toggles: {
+      inssEnabled: v.inssEnabled !== undefined ? v.inssEnabled : true,
+      irrfEnabled: v.irrfEnabled !== undefined ? v.irrfEnabled : true,
+      thirteenthAdvance: Boolean(v.thirteenthAdvance),
+    },
+    valorLiquido: v.netAmount ?? 0,
+  };
+
+  return {
+    id: canonicalId,
+    company_id: cId,
+    funcionario_id: canonicalEmpId,
+    status: v.status || 'agendado',
+    payload: payloadObj,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Converte uma linha da tabela public.rh_ferias em VacationRecord
+ */
+export function mapRowToVacationRecord(row: any): VacationRecord | null {
+  if (!row) return null;
+  let parsedPayload: any = row.payload;
+  if (typeof parsedPayload === 'string') {
+    try {
+      parsedPayload = JSON.parse(parsedPayload);
+    } catch {
+      parsedPayload = {};
+    }
+  }
+  if (!parsedPayload || typeof parsedPayload !== 'object') {
+    parsedPayload = {};
+  }
+
+  const id = row.id || parsedPayload.id;
+  const employeeId = parsedPayload.employeeId || row.funcionario_id || '';
+  if (!id || !employeeId) return null;
+
+  const proventos = parsedPayload.proventos || {};
+  const descontos = parsedPayload.descontos || {};
+  const toggles = parsedPayload.toggles || {};
+
+  return {
+    ...parsedPayload,
+    id: String(id),
+    companyId: row.company_id || parsedPayload.companyId || undefined,
+    employeeId: String(employeeId),
+    status: row.status || parsedPayload.status || 'agendado',
+    customVacationAmount:
+      parsedPayload.customVacationAmount !== undefined
+        ? parsedPayload.customVacationAmount
+        : proventos.valorFerias,
+    oneThirdBonus:
+      parsedPayload.oneThirdBonus !== undefined
+        ? parsedPayload.oneThirdBonus
+        : (proventos.umTercoConstitucional ?? 0),
+    pecuniaryAllowance:
+      parsedPayload.pecuniaryAllowance !== undefined
+        ? parsedPayload.pecuniaryAllowance
+        : proventos.abonoPecuniario,
+    thirteenthAmount:
+      parsedPayload.thirteenthAmount !== undefined
+        ? parsedPayload.thirteenthAmount
+        : proventos.adiantamentoDecimoTerceiro,
+    totalAmount:
+      parsedPayload.totalAmount !== undefined
+        ? parsedPayload.totalAmount
+        : (proventos.totalBruto ?? 0),
+    inssDiscount:
+      parsedPayload.inssDiscount !== undefined
+        ? parsedPayload.inssDiscount
+        : descontos.inssDiscount,
+    irrfDiscount:
+      parsedPayload.irrfDiscount !== undefined
+        ? parsedPayload.irrfDiscount
+        : descontos.irrfDiscount,
+    baseINSS:
+      parsedPayload.baseINSS !== undefined
+        ? parsedPayload.baseINSS
+        : descontos.baseINSS,
+    baseIRRF:
+      parsedPayload.baseIRRF !== undefined
+        ? parsedPayload.baseIRRF
+        : descontos.baseIRRF,
+    totalDiscounts:
+      parsedPayload.totalDiscounts !== undefined
+        ? parsedPayload.totalDiscounts
+        : descontos.totalDescontos,
+    inssEnabled:
+      parsedPayload.inssEnabled !== undefined
+        ? parsedPayload.inssEnabled
+        : (toggles.inssEnabled !== undefined ? toggles.inssEnabled : true),
+    irrfEnabled:
+      parsedPayload.irrfEnabled !== undefined
+        ? parsedPayload.irrfEnabled
+        : (toggles.irrfEnabled !== undefined ? toggles.irrfEnabled : true),
+    thirteenthAdvance:
+      parsedPayload.thirteenthAdvance !== undefined
+        ? parsedPayload.thirteenthAdvance
+        : Boolean(toggles.thirteenthAdvance),
+    netAmount:
+      parsedPayload.netAmount !== undefined
+        ? parsedPayload.netAmount
+        : parsedPayload.valorLiquido,
+    updatedAt: row.updated_at || parsedPayload.updatedAt || new Date().toISOString(),
+    createdAt: parsedPayload.createdAt || row.created_at || new Date().toISOString(),
+  } as VacationRecord;
+}
+
+/**
+ * Realiza upsert individual de uma programação/recibo de férias na tabela public.rh_ferias
+ */
+export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !vacation) return false;
+  try {
+    const cId = companyId || vacation.companyId || getActiveCompanyId() || 'default';
+    const row = buildRhFeriasRow(vacation, cId);
+    const { error } = await supabase.from('rh_ferias').upsert(row, { onConflict: 'id' });
+    if (error) {
+      console.warn('Aviso em upsertRhFeriasRecord:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Falha ao executar upsert em rh_ferias:', e);
+    return false;
+  }
+}
+
+/**
+ * Remove um registro de férias da tabela public.rh_ferias
+ */
+export async function deleteRhFeriasRecord(vacationId: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !vacationId) return false;
+  try {
+    const canonicalId = toValidUUID(vacationId);
+    const cId = companyId || getActiveCompanyId();
+    let query = supabase.from('rh_ferias').delete().eq('id', canonicalId);
+    if (cId) {
+      query = query.eq('company_id', cId);
+    }
+    const { error } = await query;
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Salva e sincroniza as Férias dos colaboradores na nuvem (Supabase: rh_ferias + site_settings)
  */
 export async function saveCloudVacations(vacations: VacationRecord[], companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
-    const cleanVacations = Array.isArray(vacations) ? vacations : [];
+    const cleanVacations = (Array.isArray(vacations) ? vacations : []).map((v) => ({
+      ...v,
+      id: toValidUUID(v.id),
+      companyId: cId,
+    }));
+
+    // 1. Upsert estruturado na tabela oficial public.rh_ferias
+    try {
+      const rowsToUpsert = cleanVacations.map((v) => buildRhFeriasRow(v, cId));
+      if (rowsToUpsert.length > 0) {
+        await supabase.from('rh_ferias').upsert(rowsToUpsert, { onConflict: 'id' });
+      }
+    } catch {
+      // Fallback caso tabela relacional ainda não exista
+    }
+
+    // 2. Mantém espelhamento em site_settings para resiliência
     const { error } = await supabase.from('site_settings').upsert({
       id: `cloud_vacations_${cId}`,
       hero_title: JSON.stringify(cleanVacations),
@@ -8810,12 +9160,33 @@ export async function saveCloudVacations(vacations: VacationRecord[], companyId?
 }
 
 /**
- * Carrega as Férias dos colaboradores da nuvem (Supabase)
+ * Carrega as Férias dos colaboradores da nuvem (Supabase: rh_ferias + site_settings)
  */
 export async function fetchCloudVacations(companyId?: string): Promise<VacationRecord[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
+    const map = new Map<string, VacationRecord>();
+
+    // 1. Busca prioritária na tabela relacional public.rh_ferias
+    try {
+      const { data: relRows, error: relErr } = await supabase
+        .from('rh_ferias')
+        .select('*')
+        .eq('company_id', cId)
+        .order('updated_at', { ascending: false });
+
+      if (!relErr && Array.isArray(relRows)) {
+        for (const r of relRows) {
+          const mapped = mapRowToVacationRecord(r);
+          if (mapped) {
+            map.set(mapped.id, mapped);
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Complementa com site_settings caso existam registros legados
     const { data, error } = await supabase
       .from('site_settings')
       .select('hero_title')
@@ -8823,12 +9194,20 @@ export async function fetchCloudVacations(companyId?: string): Promise<VacationR
       .maybeSingle();
 
     if (!error && data?.hero_title) {
-      const parsed = JSON.parse(data.hero_title);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as VacationRecord[];
-      }
+      try {
+        const parsed = JSON.parse(data.hero_title);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed as VacationRecord[]) {
+            const normId = toValidUUID(item.id);
+            if (!map.has(normId)) {
+              map.set(normId, { ...item, id: normId, companyId: cId });
+            }
+          }
+        }
+      } catch {}
     }
-    return null;
+
+    return map.size > 0 ? Array.from(map.values()) : null;
   } catch (e) {
     return null;
   }

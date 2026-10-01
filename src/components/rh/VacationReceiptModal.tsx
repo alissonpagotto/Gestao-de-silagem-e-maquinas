@@ -3,7 +3,12 @@ import { X, Printer, Palmtree, Wifi } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
 import { formatDateBR, getStoredCompanyProfile, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { saveCloudVacations } from '../../lib/supabaseService';
+import {
+  saveCloudVacations,
+  upsertRhFeriasRecord,
+  mapRowToVacationRecord,
+  toValidUUID,
+} from '../../lib/supabaseService';
 import { useAuth } from '../../context/AuthContext';
 
 export interface VacationReceiptModalProps {
@@ -271,6 +276,51 @@ export function subscribeToVacationRealtimeChannel(
           {
             event: '*',
             schema: 'public',
+            table: 'rh_ferias',
+          },
+          (payload: any) => {
+            const eventType = payload?.eventType;
+            if (eventType === 'DELETE') {
+              const oldId = payload?.old?.id;
+              if (oldId) {
+                broadcastListeners.forEach((listener) => {
+                  try {
+                    listener({
+                      tenantId,
+                      senderId: 'postgres_rh_ferias',
+                      eventType: 'DELETE',
+                      deletedId: String(oldId),
+                    });
+                  } catch (_) {}
+                });
+              }
+              return;
+            }
+
+            const row = payload?.new;
+            if (!row) return;
+            if (row.company_id && String(row.company_id) !== String(tenantId)) return;
+
+            const mapped = mapRowToVacationRecord(row);
+            if (mapped) {
+              broadcastListeners.forEach((listener) => {
+                try {
+                  listener({
+                    tenantId,
+                    senderId: 'postgres_rh_ferias',
+                    eventType: eventType || 'UPDATE',
+                    vacation: mapped,
+                  });
+                } catch (_) {}
+              });
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
             table: 'site_settings',
             filter: `id=eq.cloud_vacations_${tenantId}`,
           },
@@ -530,8 +580,10 @@ export function VacationReceiptModal({
     const nextDescontos = Math.round((nextInss + nextIrrf) * 100) / 100;
     const nextLiquido = Math.max(0, Math.round((nextBruto - nextDescontos) * 100) / 100);
 
+    const canonicalId = toValidUUID(sourceVacation.id);
     const updatedRecord: VacationRecord = {
       ...sourceVacation,
+      id: canonicalId,
       companyId: activeTenantId,
       customVacationAmount: nextFerias,
       oneThirdBonus: nextUmTerco,
@@ -554,8 +606,8 @@ export function VacationReceiptModal({
       onSaveVacation(updatedRecord);
     }
     const stored = getStoredVacations();
-    const updatedList = stored.some(v => v.id === updatedRecord.id)
-      ? stored.map(v => (v.id === updatedRecord.id ? updatedRecord : v))
+    const updatedList = stored.some(v => toValidUUID(v.id) === canonicalId)
+      ? stored.map(v => (toValidUUID(v.id) === canonicalId ? updatedRecord : v))
       : [updatedRecord, ...stored];
     saveStoredVacations(updatedList);
 
@@ -572,9 +624,10 @@ export function VacationReceiptModal({
       );
     }
 
-    // 3. Propaga via Broadcast do Supabase Realtime e persiste em nuvem para outros dispositivos
+    // 3. Propaga via Broadcast e Upsert na tabela rh_ferias do Supabase para outros dispositivos
     if (isSupabaseConfigured) {
       sendVacationRealtimeBroadcast(activeTenantId, clientInstanceIdRef.current, updatedRecord);
+      upsertRhFeriasRecord(updatedRecord, activeTenantId).catch(() => {});
       saveCloudVacations(updatedList, activeTenantId).catch(() => {});
     }
   }, [
@@ -597,7 +650,7 @@ export function VacationReceiptModal({
 
     const applyIncomingVacation = (incoming: VacationRecord) => {
       if (!incoming) return;
-      if (sourceVacation && incoming.id !== sourceVacation.id) return;
+      if (sourceVacation && toValidUUID(incoming.id) !== toValidUUID(sourceVacation.id)) return;
 
       const baseSal = incoming.baseSalary || 4000;
       const days = incoming.daysCount || 30;
@@ -1241,6 +1294,11 @@ export function VacationReceiptModal({
     });
   };
 
+  const handleCloseModal = () => {
+    propagateRealtimeMutation({});
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/70 backdrop-blur-xs overflow-y-hidden"
@@ -1325,7 +1383,7 @@ export function VacationReceiptModal({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
               title="Fechar Janela"
             >
@@ -1662,7 +1720,7 @@ export function VacationReceiptModal({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="px-3 py-1 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold rounded-lg transition cursor-pointer"
             >
               Fechar

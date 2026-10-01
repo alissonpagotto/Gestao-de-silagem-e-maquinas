@@ -36,13 +36,20 @@ import {
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
+  getActiveCompanyId,
   getStoredTerminations, 
   saveStoredTerminations 
 } from '../../lib/storage';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   saveCloudTerminations,
-  fetchCloudTerminations
+  fetchCloudTerminations,
+  upsertRhRescisaoRecord,
+  deleteRhRescisaoRecord,
+  mapRowToTerminationRecord,
+  toValidUUID,
 } from '../../lib/supabaseService';
+import { useAuth } from '../../context/AuthContext';
 import { 
   formatMoneyBRL, 
   parseMoneyToFloat, 
@@ -71,9 +78,20 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   onSaveEmployees,
 }) => {
   const { confirm } = useConfirm();
+  const { currentUser, companyId: authCompanyId } = useAuth();
+  const activeTenantId = useMemo(() => {
+    return authCompanyId || currentUser?.id || getActiveCompanyId() || 'default';
+  }, [authCompanyId, currentUser?.id]);
+
+  const clientInstanceIdRef = useRef<string>(`resc_tab_${Math.random().toString(36).slice(2, 10)}`);
+  const realtimeChannelRef = useRef<any>(null);
 
   // Histórico de Rescisões persistido
   const [terminations, setTerminations] = useState<TerminationRecord[]>(() => getStoredTerminations());
+  const terminationsRef = useRef<TerminationRecord[]>(terminations);
+  useEffect(() => {
+    terminationsRef.current = terminations;
+  }, [terminations]);
 
   // Estado do Formulário
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
@@ -101,14 +119,14 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const [draftBannerMessage, setDraftBannerMessage] = useState<string | null>(null);
   const [vacationAlert, setVacationAlert] = useState<string | null>(null);
 
-  // Sincronização inicial com o Supabase
+  // Sincronização inicial e Escuta Ativa (Supabase Realtime) da tabela public.rh_rescisoes
   useEffect(() => {
-    fetchCloudTerminations().then((cloudList) => {
+    fetchCloudTerminations(activeTenantId).then((cloudList) => {
       if (cloudList && Array.isArray(cloudList) && cloudList.length > 0) {
         setTerminations((prev) => {
           const map = new Map<string, TerminationRecord>();
-          prev.forEach((t) => map.set(t.id, t));
-          cloudList.forEach((t) => map.set(t.id, t));
+          prev.forEach((t) => map.set(toValidUUID(t.id), { ...t, id: toValidUUID(t.id) }));
+          cloudList.forEach((t) => map.set(toValidUUID(t.id), { ...t, id: toValidUUID(t.id) }));
           const merged = Array.from(map.values()).sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
@@ -117,7 +135,144 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         });
       }
     }).catch((err) => console.warn('Aviso ao sincronizar rescisões com o Supabase:', err));
-  }, []);
+  }, [activeTenantId]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !activeTenantId) return;
+
+    const applyIncomingTermination = (incoming: TerminationRecord) => {
+      if (!incoming) return;
+      const incomingId = toValidUUID(incoming.id);
+      const normalized: TerminationRecord = { ...incoming, id: incomingId, companyId: activeTenantId };
+
+      setTerminations((prev) => {
+        const exists = prev.some((t) => toValidUUID(t.id) === incomingId);
+        const next = exists
+          ? prev.map((t) => (toValidUUID(t.id) === incomingId ? { ...t, ...normalized, id: incomingId } : t))
+          : [normalized, ...prev];
+        saveStoredTerminations(next);
+        return next;
+      });
+
+      setViewingTRCT((prev) =>
+        prev && toValidUUID(prev.id) === incomingId ? { ...prev, ...normalized } : prev
+      );
+
+      // Se o colaborador desta rescisão estiver selecionado na tela, atualiza os campos locais automaticamente
+      if (selectedEmployeeId && normalized.employeeId === selectedEmployeeId) {
+        if (normalized.reason) setReason(normalized.reason);
+        if (normalized.noticeType) setNoticeType(normalized.noticeType);
+        if (normalized.admissionDate) setAdmissionDate(normalized.admissionDate);
+        if (normalized.terminationDate) setTerminationDate(normalized.terminationDate);
+        if (normalized.baseSalary !== undefined) {
+          setBaseSalary(normalized.baseSalary);
+          setBaseSalaryDisplay(formatNumberBRL(normalized.baseSalary));
+        }
+        if (normalized.vacationExpiredPeriods !== undefined) {
+          setVacationExpiredPeriods(normalized.vacationExpiredPeriods);
+          setVacationExpiredInput(String(normalized.vacationExpiredPeriods));
+        }
+        if (normalized.customFgtsBalance !== undefined) setCustomFgtsBalance(normalized.customFgtsBalance);
+        if (normalized.isManualFgts !== undefined) setIsManualFgts(Boolean(normalized.isManualFgts));
+        if (normalized.includeFgtsFine !== undefined) setIncludeFgtsFine(Boolean(normalized.includeFgtsFine));
+        if (normalized.includeInssDiscount !== undefined) setIncludeInssDiscount(Boolean(normalized.includeInssDiscount));
+        if (normalized.customAbsencesDiscount !== undefined) setCustomAbsencesDiscount(normalized.customAbsencesDiscount);
+        if (normalized.customAdvancesDiscount !== undefined) setCustomAdvancesDiscount(normalized.customAdvancesDiscount);
+        if (normalized.otherDeductionsInput !== undefined) setOtherDeductionsInput(normalized.otherDeductionsInput);
+        if (normalized.notes !== undefined) setNotes(normalized.notes);
+      }
+    };
+
+    const channelTopic = `rh-rescisoes-realtime-${activeTenantId}`;
+    let channel: any = null;
+
+    try {
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
+          try {
+            supabase.removeChannel(ch);
+          } catch (_) {}
+        }
+      }
+
+      channel = supabase
+        .channel(channelTopic, {
+          config: { broadcast: { self: false } },
+        })
+        .on('broadcast', { event: 'termination_mutation' }, (msg: any) => {
+          const payload = msg?.payload || msg;
+          if (!payload || payload.senderId === clientInstanceIdRef.current) return;
+          if (payload.tenantId && payload.tenantId !== activeTenantId) return;
+          if (payload.termination) {
+            applyIncomingTermination(payload.termination);
+          }
+        })
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rh_rescisoes' },
+          (payload: any) => {
+            const eventType = payload?.eventType;
+            if (eventType === 'DELETE') {
+              const oldId = payload?.old?.id;
+              if (oldId) {
+                const targetId = toValidUUID(String(oldId));
+                setTerminations((prev) => {
+                  const next = prev.filter((t) => toValidUUID(t.id) !== targetId);
+                  saveStoredTerminations(next);
+                  return next;
+                });
+              }
+              return;
+            }
+
+            const row = payload?.new;
+            if (!row) return;
+            if (row.company_id && String(row.company_id) !== String(activeTenantId)) return;
+
+            const mapped = mapRowToTerminationRecord(row);
+            if (mapped) {
+              applyIncomingTermination(mapped);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'site_settings',
+            filter: `id=eq.cloud_terminations_${activeTenantId}`,
+          },
+          (payload: any) => {
+            const row = payload?.new;
+            if (row?.hero_title) {
+              try {
+                const parsed = JSON.parse(row.hero_title) as TerminationRecord[];
+                if (Array.isArray(parsed)) {
+                  setTerminations(parsed);
+                  saveStoredTerminations(parsed);
+                }
+              } catch (_) {}
+            }
+          }
+        )
+        .subscribe();
+
+      realtimeChannelRef.current = channel;
+    } catch (err) {
+      console.warn('⚠️ [Realtime Rescisões Notice]:', err);
+    }
+
+    return () => {
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (_) {}
+      }
+      realtimeChannelRef.current = null;
+    };
+  }, [activeTenantId, selectedEmployeeId]);
 
   // Deduções adicionais ajustáveis
   const [customAbsencesDiscount, setCustomAbsencesDiscount] = useState<string>('0,00');
@@ -736,6 +891,87 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     includeInssDiscount,
   ]);
 
+  // Sincroniza automaticamente edições manuais de rascunhos existentes na tabela rh_rescisoes
+  useEffect(() => {
+    if (!selectedEmployee) return;
+    const existingDraft = terminationsRef.current.find(
+      (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
+    );
+    if (!existingDraft) return;
+
+    const timer = setTimeout(() => {
+      const canonicalId = toValidUUID(existingDraft.id);
+      const updatedDraft: TerminationRecord = {
+        ...existingDraft,
+        id: canonicalId,
+        companyId: activeTenantId,
+        employeeId: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        employeeRole: selectedEmployee.role || 'Colaborador',
+        employeeCpf: selectedEmployee.cpf,
+        admissionDate: admissionDate || selectedEmployee.admissionDate || '',
+        terminationDate,
+        reason,
+        noticeType,
+        baseSalary,
+        calculation,
+        includeFgtsFine,
+        includeInssDiscount,
+        vacationExpiredPeriods,
+        customFgtsBalance,
+        isManualFgts,
+        customAbsencesDiscount,
+        customAdvancesDiscount,
+        otherDeductionsInput,
+        notes,
+        status: 'rascunho',
+        markEmployeeInactive: false,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const nextList = terminationsRef.current.map((t) =>
+        toValidUUID(t.id) === canonicalId ? updatedDraft : t
+      );
+      setTerminations(nextList);
+      saveStoredTerminations(nextList);
+
+      if (isSupabaseConfigured) {
+        upsertRhRescisaoRecord(updatedDraft, activeTenantId).catch(() => {});
+        try {
+          realtimeChannelRef.current?.send({
+            type: 'broadcast',
+            event: 'termination_mutation',
+            payload: {
+              tenantId: activeTenantId,
+              senderId: clientInstanceIdRef.current,
+              termination: updatedDraft,
+            },
+          });
+        } catch (_) {}
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [
+    selectedEmployee,
+    activeTenantId,
+    admissionDate,
+    terminationDate,
+    reason,
+    noticeType,
+    baseSalary,
+    calculation,
+    includeFgtsFine,
+    includeInssDiscount,
+    vacationExpiredPeriods,
+    customFgtsBalance,
+    isManualFgts,
+    customAbsencesDiscount,
+    customAdvancesDiscount,
+    otherDeductionsInput,
+    notes,
+  ]);
+
   // Salvar Rescisão no Histórico
   const handleSaveTermination = async () => {
     if (!selectedEmployee) {
@@ -760,8 +996,19 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
     if (!isConfirmed) return;
 
+    // Estratégia de upsert: se já houver rascunho ou registro para o mesmo funcionário, reutiliza o ID
+    const existingForEmployee = terminations.find(
+      (t) =>
+        t.employeeId === selectedEmployee.id &&
+        (t.status === 'rascunho' || t.terminationDate === terminationDate)
+    );
+    const canonicalId = toValidUUID(
+      existingForEmployee?.id || `term_${activeTenantId}_${selectedEmployee.id}_${terminationDate}`
+    );
+
     const newRecord: TerminationRecord = {
-      id: `term_${Date.now()}`,
+      id: canonicalId,
+      companyId: activeTenantId,
       employeeId: selectedEmployee.id,
       employeeName: selectedEmployee.name,
       employeeRole: selectedEmployee.role,
@@ -783,17 +1030,32 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       notes,
       status: 'homologado',
       markEmployeeInactive: markInactive,
-      createdAt: new Date().toISOString(),
+      createdAt: existingForEmployee?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Remove eventual rascunho anterior deste funcionário
     const otherTerminations = terminations.filter(
-      (t) => !(t.employeeId === selectedEmployee.id && t.status === 'rascunho') && t.id !== newRecord.id
+      (t) => !(t.employeeId === selectedEmployee.id && t.status === 'rascunho') && toValidUUID(t.id) !== canonicalId
     );
     const updated = [newRecord, ...otherTerminations];
     setTerminations(updated);
     saveStoredTerminations(updated);
-    saveCloudTerminations(updated).catch(() => {});
+    if (isSupabaseConfigured) {
+      upsertRhRescisaoRecord(newRecord, activeTenantId).catch(() => {});
+      saveCloudTerminations(updated, activeTenantId).catch(() => {});
+      try {
+        realtimeChannelRef.current?.send({
+          type: 'broadcast',
+          event: 'termination_mutation',
+          payload: {
+            tenantId: activeTenantId,
+            senderId: clientInstanceIdRef.current,
+            termination: newRecord,
+          },
+        });
+      } catch (_) {}
+    }
     setDraftBannerMessage(null);
 
     // Atualizar status do funcionário se solicitado
@@ -833,9 +1095,13 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const existingDraft = terminations.find(
         (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
       );
+      const canonicalId = toValidUUID(
+        existingDraft?.id || `draft_${activeTenantId}_${selectedEmployee.id}`
+      );
 
       const draftRecord: TerminationRecord = {
-        id: existingDraft?.id || `draft_${Date.now()}`,
+        id: canonicalId,
+        companyId: activeTenantId,
         employeeId: selectedEmployee.id,
         employeeName: selectedEmployee.name,
         employeeRole: selectedEmployee.role || 'Colaborador',
@@ -861,14 +1127,28 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         updatedAt: new Date().toISOString(),
       };
 
-      const otherTerminations = terminations.filter((t) => t.id !== draftRecord.id);
+      const otherTerminations = terminations.filter((t) => toValidUUID(t.id) !== canonicalId);
       const updated = [draftRecord, ...otherTerminations];
 
       setTerminations(updated);
       saveStoredTerminations(updated);
 
-      // Persistência na nuvem (Supabase)
-      await saveCloudTerminations(updated);
+      // Persistência na nuvem (Supabase: rh_rescisoes + site_settings)
+      if (isSupabaseConfigured) {
+        await upsertRhRescisaoRecord(draftRecord, activeTenantId);
+        await saveCloudTerminations(updated, activeTenantId);
+        try {
+          realtimeChannelRef.current?.send({
+            type: 'broadcast',
+            event: 'termination_mutation',
+            payload: {
+              tenantId: activeTenantId,
+              senderId: clientInstanceIdRef.current,
+              termination: draftRecord,
+            },
+          });
+        } catch (_) {}
+      }
 
       setDraftBannerMessage(`Rascunho de "${selectedEmployee.name}" salvo com sucesso! O colaborador continua ATIVO.`);
     } catch (e) {
@@ -923,7 +1203,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       const updated = terminations.filter((t) => t.id !== id);
       setTerminations(updated);
       saveStoredTerminations(updated);
-      saveCloudTerminations(updated).catch(() => {});
+      if (isSupabaseConfigured) {
+        deleteRhRescisaoRecord(id, activeTenantId).catch(() => {});
+        saveCloudTerminations(updated, activeTenantId).catch(() => {});
+      }
     }
   };
 
@@ -1564,7 +1847,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium text-slate-800 dark:text-stone-200">
                 {terminations.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
+                  <tr key={t.id || t.employeeId} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
                     <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">
                       {t.employeeName}
                     </td>
@@ -1654,7 +1937,12 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewingTRCT(null)}
+                  onClick={() => {
+                    if (viewingTRCT && isSupabaseConfigured) {
+                      upsertRhRescisaoRecord(viewingTRCT, activeTenantId).catch(() => {});
+                    }
+                    setViewingTRCT(null);
+                  }}
                   className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />

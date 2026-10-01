@@ -140,6 +140,19 @@ CREATE INDEX IF NOT EXISTS idx_notas_fiscais_company_id ON public.notas_fiscais(
 -- PARTE 4: CRIAÇÃO DE TABELAS AUXILIARES / RESILIÊNCIA (ELIMINA ERRO 42P01)
 -- ==============================================================================
 
+-- Tabela para programação e recibos de férias trabalhistas
+CREATE TABLE IF NOT EXISTS public.rh_ferias (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id TEXT,
+    funcionario_id UUID,
+    status TEXT DEFAULT 'agendado',
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rh_ferias_company_id ON public.rh_ferias(company_id);
+CREATE INDEX IF NOT EXISTS idx_rh_ferias_funcionario_id ON public.rh_ferias(funcionario_id);
+
 -- Tabela para rescisões trabalhistas
 CREATE TABLE IF NOT EXISTS public.rh_rescisoes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -151,6 +164,7 @@ CREATE TABLE IF NOT EXISTS public.rh_rescisoes (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_rh_rescisoes_company_id ON public.rh_rescisoes(company_id);
+CREATE INDEX IF NOT EXISTS idx_rh_rescisoes_funcionario_id ON public.rh_rescisoes(funcionario_id);
 
 -- Tabela site_settings para módulos operacionais serializados
 CREATE TABLE IF NOT EXISTS public.site_settings (
@@ -176,12 +190,13 @@ ALTER TABLE public.estoque ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agendamentos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notas_fiscais ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rh_ferias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_rescisoes ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
     tbl text;
-    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_rescisoes'];
+    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes'];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
         EXECUTE 'DROP POLICY IF EXISTS "policy_all_' || tbl || '" ON public.' || quote_ident(tbl);
