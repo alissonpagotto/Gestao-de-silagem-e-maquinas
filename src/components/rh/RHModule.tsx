@@ -165,6 +165,13 @@ export const RHModule: React.FC<RHModuleProps> = ({
     if (!currentUserId) return [];
 
     return employees.filter(emp => {
+      if (!emp || !emp.name || emp.name.trim() === '') return false;
+      const st = String(emp.status || '').toLowerCase();
+      if (st === 'excluido' || st === 'inativo' || emp.active === false) return false;
+      // Ignora registro duplicado/antigo do ALISSON PAG sem CPF
+      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+        return false;
+      }
       const empUid = String(emp.userId || (emp as any).user_id || '').trim();
       if (!empUid) {
         const empCid = String(emp.companyId || (emp as any).company_id || '').trim();

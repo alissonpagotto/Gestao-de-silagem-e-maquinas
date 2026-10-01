@@ -617,6 +617,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       <VacationReceiptModal
         isOpen={Boolean(printingVacation)}
         vacation={printingVacation}
+        vacationData={printingVacation}
         employee={employees.find(e => e.id === printingVacation?.employeeId || e.name === printingVacation?.employeeName)}
         onClose={() => setPrintingVacation(null)}
       />

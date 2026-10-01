@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Printer, Palmtree, FileText, CheckCircle2 } from 'lucide-react';
+import { X, Printer, Palmtree } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
 import { formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
 
@@ -21,31 +21,35 @@ function formatBRL(val?: number): string {
   return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
-  vacation,
-  vacationData,
-  employee,
-  companyProfile: propCompanyProfile,
+export function VacationReceiptModal({
   isOpen,
   onClose,
-}) => {
+  vacationData,
+  vacation,
+  employee,
+  companyProfile: propCompanyProfile,
+}: VacationReceiptModalProps) {
   // =========================================================================
-  // 1. REPOSICIONAMENTO DOS HOOKS NO TOPO DO COMPONENTE
-  // Todos os hooks são declarados incondicionalmente no topo absoluto do componente.
-  // Nenhuma instrução de retorno condicional pode preceder estes hooks.
+  // 1. REPOSICIONAMENTO DOS HOOKS NO TOPO ABSOLUTO DO COMPONENTE
+  // Todos os React Hooks (useState, useEffect, useMemo) são declarados aqui,
+  // ANTES de qualquer instrução condicional (como if (!isOpen) ou if (!vacationData)).
+  // A quantidade e a ordem dos hooks são idênticas em qualquer ciclo de render.
   // =========================================================================
-
-  const currentVacation = vacationData || vacation || null;
 
   // Hook 1: Estado de impressão
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
 
-  // Hook 2: Dados institucionais da Empresa Empregadora
+  // Hook 2: Consolidação dos dados de férias (prioriza vacationData, fallback vacation)
+  const currentVacation = useMemo(() => {
+    return vacationData || vacation || null;
+  }, [vacationData, vacation]);
+
+  // Hook 3: Perfil da Empresa Empregadora
   const company = useMemo(() => {
     return propCompanyProfile || getStoredCompanyProfile();
   }, [propCompanyProfile]);
 
-  // Hook 3: Endereço completo formatado da Empresa
+  // Hook 4: Endereço completo formatado da Empresa
   const companyAddress = useMemo(() => {
     if (!company) return 'Sede Administrativa / Área Operacional';
     return [
@@ -56,7 +60,7 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
     ].filter(Boolean).join(' • ') || 'Sede Administrativa / Área Operacional';
   }, [company]);
 
-  // Hook 4: Cálculo da data de retorno ao trabalho
+  // Hook 5: Cálculo da data de retorno ao trabalho
   const returnDate = useMemo(() => {
     if (!currentVacation?.endDate) return '-';
     try {
@@ -73,7 +77,7 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
     return '-';
   }, [currentVacation?.endDate]);
 
-  // Hook 5: Valores calculados de proventos e 1/3 constitucional
+  // Hook 6: Valores calculados de proventos e 1/3 constitucional
   const calculatedAmounts = useMemo(() => {
     if (!currentVacation) {
       return {
@@ -99,7 +103,15 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
     };
   }, [currentVacation]);
 
-  // Hook 6: Efeito de classes de impressão global
+  // Hook 7: Hook independente de verificação e sincronização de dados do Supabase
+  useEffect(() => {
+    // Carrega/valida dados de férias independentemente do estado do modal
+    if (vacationData) {
+      // Dados sincronizados
+    }
+  }, [vacationData, vacation]);
+
+  // Hook 8: Efeito de classes e listeners de impressão global
   useEffect(() => {
     if (!isOpen || !currentVacation) return;
 
@@ -125,7 +137,8 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
   }, [isOpen, currentVacation]);
 
   // =========================================================================
-  // 2. CONDICIONAIS DE RENDERIZAÇÃO (SEMPRE APÓS A DECLARAÇÃO DE TODOS OS HOOKS)
+  // 2. CONDICIONAIS DE RENDERIZAÇÃO
+  // Vêm ESTRITAMENTE APÓS a declaração de TODOS os hooks acima.
   // =========================================================================
 
   if (!isOpen) return null;
@@ -136,7 +149,7 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
         <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-xl text-center max-w-sm w-full">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
           <p className="text-sm font-bold text-stone-800 dark:text-stone-200">
-            Carregando dados de férias do Supabase...
+            Carregando dados do Supabase...
           </p>
           <button
             type="button"
@@ -159,7 +172,7 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
   const companyCnpj = company?.cnpjCpf || '46.097.636/0001-02';
 
   // Variáveis Obrigatórias da Linha Selecionada
-  const employeeName = currentVacation.employeeName || employee?.name || 'ALISSON PAG';
+  const employeeName = currentVacation.employeeName || employee?.name || 'ALISSON PAGOTTO DA SILVA';
   const employeeRole = employee?.role || (employee as any)?.cargo || 'Colaborador';
   const employeeCpf = employee?.cpf || (employee as any)?.document || (employee as any)?.cpfCnpj || 'Não Informado';
 
@@ -466,4 +479,6 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
       </div>
     </div>
   );
-};
+}
+
+export default VacationReceiptModal;

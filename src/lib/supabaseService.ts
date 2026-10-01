@@ -2857,8 +2857,14 @@ export async function fetchRhFuncionarios(
   }
 
   try {
-    // 2. Query transparente associada ao assinante ativo (company_id ou user_id)
-    let query = supabase.from('rh_funcionarios').select('*');
+    // 2. Query transparente associada ao assinante ativo com filtro estrito de colaboradores ativos (ignora excluídos)
+    let query = supabase
+      .from('rh_funcionarios')
+      .select('*')
+      .neq('status', 'excluido')
+      .neq('status', 'inativo')
+      .or('status.eq.ativo,status.eq.ATIVO');
+
     if (targetCompanyId && currentUserId && targetCompanyId !== currentUserId) {
       query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId},user_id.eq.${currentUserId}`);
     } else if (targetCompanyId) {
@@ -2875,7 +2881,19 @@ export async function fetchRhFuncionarios(
     }
 
     if (Array.isArray(res.data) && res.data.length > 0) {
-      return res.data.map(mapRowToEmployee);
+      return res.data
+        .map(mapRowToEmployee)
+        .filter(emp => {
+          // Ignora registros sem dados essenciais ou marcados como excluídos/inativos
+          if (!emp || !emp.name || emp.name.trim() === '') return false;
+          const st = String(emp.status || '').toLowerCase();
+          if (st === 'excluido' || st === 'inativo' || emp.active === false) return false;
+          // Ignora registro duplicado/antigo de ALISSON PAG sem CPF
+          if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+            return false;
+          }
+          return true;
+        });
     }
     return [];
   } catch (err) {
@@ -2904,6 +2922,8 @@ export async function fetchFleetDriversFromSupabase(companyId?: string, authUser
     let query = supabase
       .from('rh_funcionarios')
       .select('*')
+      .neq('status', 'excluido')
+      .neq('status', 'inativo')
       .or('role.eq.Motorista,role.ilike.%Motorista%');
 
     if (targetCompanyId && currentUserId && targetCompanyId !== currentUserId) {

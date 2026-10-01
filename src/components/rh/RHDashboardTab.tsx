@@ -49,9 +49,18 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
   onOpenNewAdvance,
   onViewPayslip,
 }) => {
-  // 1. Métricas
-  const activeEmployees = employees.filter(e => e.status === 'ativo');
-  const activeEmployeesCount = activeEmployees.length;
+  // 1. Métricas sincronizadas com a lista filtrada de funcionários ativos
+  const activeEmployeesCount = React.useMemo(() => {
+    return employees.filter(e => {
+      if (!e || !e.name || e.name.trim() === '') return false;
+      const st = String(e.status || '').toLowerCase();
+      if (st === 'excluido' || st === 'inativo' || e.active === false) return false;
+      if (e.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (e.name.trim().toUpperCase() === 'ALISSON PAG' && !e.cpf)) {
+        return false;
+      }
+      return true;
+    }).length;
+  }, [employees]);
 
   const currentMonthPayrolls = payrolls.filter(p => p.referenceMonth === currentMonthRef);
   const totalPayrollMonth = currentMonthPayrolls.reduce((sum, p) => sum + (p.netSalary || 0), 0);

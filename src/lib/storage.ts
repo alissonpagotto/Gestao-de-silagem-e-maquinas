@@ -464,7 +464,24 @@ export function getStoredEmployees(): Employee[] {
     const parsed: Employee[] = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
     let modified = false;
-    const cleaned = parsed.map(emp => {
+
+    // Filtra colaboradores excluídos e registros antigos/duplicados sem dados essenciais
+    const filtered = parsed.filter(emp => {
+      if (!emp || !emp.name || emp.name.trim() === '') return false;
+      const st = String(emp.status || '').toLowerCase();
+      if (st === 'excluido' || st === 'inativo' || emp.active === false) {
+        modified = true;
+        return false;
+      }
+      // Ignora o registro antigo/duplicado de ALISSON PAG sem CPF
+      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+        modified = true;
+        return false;
+      }
+      return true;
+    });
+
+    const cleaned = filtered.map(emp => {
       const p = emp.photoUrl || (emp as any).foto_url;
       if (p && (p.includes('wix_mp.com') || p.includes('wix_mp') || p.includes('static.wixstatic.com') || (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p)))) {
         modified = true;
@@ -472,7 +489,7 @@ export function getStoredEmployees(): Employee[] {
       }
       return emp;
     });
-    if (modified) {
+    if (modified || cleaned.length !== parsed.length) {
       localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(cleaned));
     }
     return cleaned;
@@ -1669,8 +1686,8 @@ export function saveStoredPayrolls(payrolls: PayrollRecord[]): void {
 export const DEFAULT_INITIAL_VACATIONS: VacationRecord[] = [
   {
     id: 'vac_alisson_pag_01',
-    employeeId: 'ab80e2fa-5094-43b3-83bf-c34047bf1b42',
-    employeeName: 'ALISSON PAG',
+    employeeId: 'c2e3656b-f149-4c59-b5f0-eb83b563352c',
+    employeeName: 'ALISSON PAGOTTO DA SILVA',
     acquisitionPeriodStart: '2025-01-01',
     acquisitionPeriodEnd: '2025-12-31',
     startDate: '2026-10-01',

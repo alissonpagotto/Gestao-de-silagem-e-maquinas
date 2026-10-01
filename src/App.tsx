@@ -360,6 +360,12 @@ export default function App() {
           if (cloudData.rh_funcionarios !== undefined && Array.isArray(cloudData.rh_funcionarios) && cloudData.rh_funcionarios.length > 0) {
             const validTenantUuid = toValidUUID(activeTenantId);
             const tenantFilteredRh = cloudData.rh_funcionarios.filter(e => {
+              if (!e || !e.name || e.name.trim() === '') return false;
+              const st = String(e.status || '').toLowerCase();
+              if (st === 'excluido' || st === 'inativo' || e.active === false) return false;
+              if (e.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (e.name.trim().toUpperCase() === 'ALISSON PAG' && !e.cpf)) {
+                return false;
+              }
               const cid = String(e.companyId || (e as any).company_id || (e as any).tenant_id || '').trim();
               const uid = String(e.userId || (e as any).user_id || '').trim();
               if (cid && (cid === activeTenantId || (validTenantUuid && cid === validTenantUuid))) return true;
@@ -1698,6 +1704,12 @@ export default function App() {
     const seen = new Set<string>();
     const deduplicatedEmployees: Employee[] = [];
     for (const emp of newEmployees) {
+      if (!emp || !emp.name || emp.name.trim() === '') continue;
+      const st = String(emp.status || '').toLowerCase();
+      if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;
+      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+        continue;
+      }
       const k = emp.id ? String(emp.id) : (emp.cpf ? `cpf_${emp.cpf}` : `name_${emp.name}`);
       if (!seen.has(k)) {
         seen.add(k);

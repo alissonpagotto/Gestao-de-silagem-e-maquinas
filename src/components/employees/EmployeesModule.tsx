@@ -486,6 +486,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const seen = new Set<string>();
     const deduplicated: Employee[] = [];
     for (const emp of localEmployees) {
+      if (!emp || !emp.name || emp.name.trim() === '') continue;
+      const st = String(emp.status || '').toLowerCase();
+      if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;
+      // Ignora o registro antigo/duplicado de ALISSON PAG sem CPF
+      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+        continue;
+      }
       const key = emp.id ? String(emp.id) : `${emp.name?.trim().toUpperCase()}_${emp.cpf || ''}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -515,6 +522,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
     );
   }, [filteredEmployees]);
+
+  // 2. SINCRONIZAÇÃO DO CONTADOR (USEMEMO):
+  // Altera o valor do card "TOTAL DE COLABORADORES" para refletir exatamente o tamanho da array
+  // de funcionários ativos já filtrados no front-end, garantindo que o número visualizado seja
+  // fixo e rigorosamente idêntico à quantidade de linhas exibidas na tabela.
+  const totalColaboradoresCount = useMemo(() => {
+    return listaOrdenada.length;
+  }, [listaOrdenada]);
+
+  const activeColaboradoresCount = useMemo(() => {
+    return listaOrdenada.filter(e => e.active !== false && String(e.status || '').toLowerCase() !== 'inativo' && String(e.status || '').toLowerCase() !== 'excluido').length;
+  }, [listaOrdenada]);
 
   const handleOpenNew = () => {
     setEditingEmployee(null);
@@ -1424,10 +1443,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               Total de Colaboradores
             </span>
             <div className="text-xl sm:text-2xl font-black text-black font-['Outfit'] mt-0.5">
-              {employees.length}
+              {totalColaboradoresCount}
             </div>
             <p className="text-[10px] sm:text-[11px] text-black/75 font-medium mt-0.5">
-              {employees.filter(e => e.active !== false && e.status !== 'inativo').length} ativos no momento
+              {activeColaboradoresCount} ativos no momento
             </p>
           </div>
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 border border-slate-200 text-black flex items-center justify-center">
@@ -1465,10 +1484,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {listaOrdenada.map((emp, index) => {
-                const uniqueRowKey = emp.id ? String(emp.id) : `emp_${index}_${emp.cpf || emp.name}`;
+              {listaOrdenada.map((emp) => {
                 return (
-                  <tr key={uniqueRowKey} className="hover:bg-slate-50 transition">
+                  <tr key={emp.id} className="hover:bg-slate-50 transition">
                   <td className="py-3.5 px-4">
                     <div className="flex items-center space-x-3">
                       <EmployeeAvatar
