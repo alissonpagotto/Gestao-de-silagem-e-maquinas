@@ -1119,6 +1119,9 @@ export interface VacationRecord {
   pecuniaryAllowance: number; // Valor do abono pecuniário
   thirteenthAdvance: boolean; // Adiantamento de 50% do 13º
   thirteenthAmount?: number;
+  inssDiscount?: number;
+  irrfDiscount?: number;
+  netAmount?: number;
   totalAmount: number;
   status: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado';
   notes?: string;

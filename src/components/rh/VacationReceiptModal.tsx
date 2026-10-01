@@ -86,6 +86,10 @@ export function VacationReceiptModal({
         valorAbono: 0,
         valorDecimo: 0,
         totalBruto: 5000,
+        inssDiscount: 0,
+        irrfDiscount: 0,
+        totalDescontos: 0,
+        valorLiquido: 5000,
       };
     }
     const valorFerias = currentVacation.baseSalary || 4000;
@@ -93,6 +97,10 @@ export function VacationReceiptModal({
     const valorAbono = currentVacation.pecuniaryAllowance || 0;
     const valorDecimo = currentVacation.thirteenthAmount || 0;
     const totalBruto = currentVacation.totalAmount || (valorFerias + valorUmTerco + valorAbono + valorDecimo) || 5000;
+    const inssDiscount = currentVacation.inssDiscount || 0;
+    const irrfDiscount = currentVacation.irrfDiscount || 0;
+    const totalDescontos = inssDiscount + irrfDiscount;
+    const valorLiquido = currentVacation.netAmount || (totalBruto - totalDescontos);
 
     return {
       valorFerias,
@@ -100,6 +108,10 @@ export function VacationReceiptModal({
       valorAbono,
       valorDecimo,
       totalBruto,
+      inssDiscount,
+      irrfDiscount,
+      totalDescontos,
+      valorLiquido,
     };
   }, [currentVacation]);
 
@@ -188,7 +200,7 @@ export function VacationReceiptModal({
   const daysCount = currentVacation.daysCount || 30;
 
   // Valores Extraídos do Hook
-  const { valorFerias, valorUmTerco, valorAbono, valorDecimo, totalBruto } = calculatedAmounts;
+  const { valorFerias, valorUmTerco, valorAbono, valorDecimo, totalBruto, inssDiscount, irrfDiscount, totalDescontos, valorLiquido } = calculatedAmounts;
 
   // Local e Data Atual
   const issueCity = company?.city || 'Brasil';
@@ -416,12 +428,48 @@ export function VacationReceiptModal({
                       {formatBRL(totalBruto)}
                     </td>
                   </tr>
+                  {inssDiscount > 0 && (
+                    <tr className="text-stone-800">
+                      <td className="py-1.5 px-2 border-r border-stone-300 font-medium">
+                        (-) Desconto de INSS sobre Férias (Tabela Progressiva)
+                      </td>
+                      <td className="py-1.5 px-2 border-r border-stone-300 text-center font-bold text-stone-600">
+                        Previdência
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-bold font-mono text-stone-800">
+                        - {formatBRL(inssDiscount)}
+                      </td>
+                    </tr>
+                  )}
+                  {irrfDiscount > 0 && (
+                    <tr className="text-stone-800">
+                      <td className="py-1.5 px-2 border-r border-stone-300 font-medium">
+                        (-) Desconto de IRRF sobre Férias (Retenção na Fonte)
+                      </td>
+                      <td className="py-1.5 px-2 border-r border-stone-300 text-center font-bold text-stone-600">
+                        Tributário
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-bold font-mono text-stone-800">
+                        - {formatBRL(irrfDiscount)}
+                      </td>
+                    </tr>
+                  )}
+                  {totalDescontos > 0 && (
+                    <tr className="bg-stone-100 font-black border-t-2 border-stone-500">
+                      <td colSpan={2} className="py-1.5 px-2 border-r border-stone-300 uppercase tracking-wide text-stone-950 font-black">
+                        VALOR LÍQUIDO A RECEBER:
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-mono text-xs text-black font-black">
+                        {formatBRL(valorLiquido)}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
 
               {/* Texto do Recibo de Quitação */}
               <p className="text-[10.5px] text-justify text-stone-800 leading-normal border-t border-stone-300 pt-2">
-                <strong>RECIBO DE QUITAÇÃO:</strong> Recebi de <strong>{companyName}</strong>, inscrita no CNPJ/MF sob o nº <strong>{companyCnpj}</strong>, a importância líquida supra de <strong>{formatBRL(totalBruto)}</strong>, correspondente à quitação das férias regulamentares e do respectivo adicional constitucional ora concedidos, das quais dou plena, rasa e irrevogável quitação.
+                <strong>RECIBO DE QUITAÇÃO:</strong> Recebi de <strong>{companyName}</strong>, inscrita no CNPJ/MF sob o nº <strong>{companyCnpj}</strong>, a importância líquida supra de <strong>{formatBRL(valorLiquido || totalBruto)}</strong>, correspondente à quitação das férias regulamentares e do respectivo adicional constitucional ora concedidos, das quais dou plena, rasa e irrevogável quitação.
               </p>
             </div>
 
