@@ -138,9 +138,6 @@ CREATE TABLE IF NOT EXISTS public.clientes (
 
 CREATE TABLE IF NOT EXISTS public.rh_funcionarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id TEXT,
-    tenant_id TEXT,
-    user_id TEXT,
     name TEXT NOT NULL,
     role TEXT,
     cpf TEXT,
@@ -153,9 +150,6 @@ CREATE TABLE IF NOT EXISTS public.rh_funcionarios (
     driver_license TEXT,
     license_category TEXT,
     license_expiry DATE,
-    foto_url TEXT,
-    avatar_url TEXT,
-    photo_url TEXT,
     comissao_hora NUMERIC(15,2) DEFAULT 0,
     comissao_alqueire NUMERIC(15,2) DEFAULT 0,
     comissao_hectare NUMERIC(15,2) DEFAULT 0,
@@ -527,30 +521,10 @@ ALTER TABLE public.notas_fiscais ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
-ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS tenant_id TEXT;
-ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS user_id TEXT;
-ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS foto_url TEXT;
-ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hora NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_alqueire NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hectare NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS recebe_comissao BOOLEAN DEFAULT false;
-
--- Storage buckets para fotos e avatares de funcionários
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('avatars', 'avatars', true) 
-ON CONFLICT (id) DO UPDATE SET public = true;
-
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('rh_fotos', 'rh_fotos', true) 
-ON CONFLICT (id) DO UPDATE SET public = true;
-
--- Políticas de acesso público para o bucket de fotos/avatares
-DROP POLICY IF EXISTS "Public Access Avatars" ON storage.objects;
-CREATE POLICY "Public Access Avatars" ON storage.objects 
-FOR ALL USING (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios')) 
-WITH CHECK (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios'));
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;

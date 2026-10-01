@@ -252,8 +252,8 @@ export const INITIAL_MAINTENANCE_LOGS: MaintenanceLog[] = [
     machineryPlateOrName: 'RHX3E15 - SR/WM PRANCHA 3E',
     type: 'corretiva',
     serviceCategory: 'Solda, Funilaria & Estrutura',
-    location: 'oficina_interna',
-    executorType: 'equipe_propria',
+    location: 'Oficina Interna',
+    executorType: 'Equipe Própria',
     executorName: 'Mecânico Responsável',
     description: 'Ordem de Serviço de manutenção e revisão estrutural na prancha RHX3E15',
     workshopOrMechanic: 'Oficina Interna',
@@ -262,7 +262,6 @@ export const INITIAL_MAINTENANCE_LOGS: MaintenanceLog[] = [
     totalCost: 300.48,
     currentHourMeterOrKm: 0,
     status: 'concluida',
-    createdAt: '2026-09-30T00:00:00.000Z',
     companyId: 'e5b34cd7-aab4-4ce2-b5f0-45040c9ee7a4'
   }
 ];

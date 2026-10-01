@@ -360,8 +360,6 @@ export type EmployeeRegistrationType =
 export interface Employee {
   id: string;
   companyId?: string; // ID da Empresa
-  userId?: string; // ID do Usuário Autenticado (auth.uid) para isolamento estrito via RLS
-  user_id?: string; // Alias banco Supabase (user_id)
   name: string;
   registrationType?: EmployeeRegistrationType;
   role: EmployeeRole | string; // 'Operador de Ensiladeira', 'Tratorista', 'Motorista de Caminhão', 'Mecânico', etc.
@@ -372,7 +370,6 @@ export interface Employee {
   pis?: string; // Número do PIS
   photoUrl?: string; // Foto de perfil
   foto_url?: string; // Alias banco Supabase (foto_url)
-  avatar_url?: string; // Alias banco Supabase (avatar_url)
   phone: string;
   baseSalary?: number; // Salário Base (R$)
   contractType?: 'Registrado (CLT)' | 'Diarista / Safrista' | 'PJ / Prestador de Serviço' | 'Autônomo' | 'Comissionado' | string;
@@ -960,7 +957,6 @@ export interface MaintenanceLog {
   status: 'concluida' | 'em_andamento' | 'agendada' | 'aguardando_pecas' | 'cancelada';
   nfeLink?: MaintenanceNfeLink;
   financialConditions?: MaintenanceFinancialConditions;
-  companyId?: string;
   skipAccountsPayableDreOnly?: boolean;
   purchaseRequestId?: string;
   stockDeducted?: boolean;

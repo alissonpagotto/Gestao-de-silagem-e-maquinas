@@ -466,7 +466,7 @@ export function getStoredEmployees(): Employee[] {
     let modified = false;
     const cleaned = parsed.map(emp => {
       const p = emp.photoUrl || (emp as any).foto_url;
-      if (p && (p.includes('wix_mp.com') || p.includes('wix_mp') || p.includes('static.wixstatic.com') || (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p)))) {
+      if (p && (p.includes('wix_mp.com') || p.includes('wix_mp') || p.includes('static.wixstatic.com') || p.includes('/_upload/') || p.includes('/upload/') || (p.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(p)))) {
         modified = true;
         return { ...emp, photoUrl: undefined, foto_url: undefined };
       }

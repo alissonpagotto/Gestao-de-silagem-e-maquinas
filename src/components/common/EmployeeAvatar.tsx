@@ -14,7 +14,9 @@ export function isBrokenAvatarUrl(url?: string | null): boolean {
     trimmed === 'undefined' ||
     trimmed.includes('wix_mp.com') ||
     trimmed.includes('wix_mp') ||
-    trimmed.includes('static.wixstatic.com')
+    trimmed.includes('static.wixstatic.com') ||
+    trimmed.includes('/_upload/') ||
+    trimmed.includes('/upload/')
   ) {
     return true;
   }
@@ -48,10 +50,6 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
 }) => {
   const [hasError, setHasError] = useState(false);
 
-  React.useEffect(() => {
-    setHasError(false);
-  }, [photoUrl]);
-
   // Tamanhos pré-configurados
   const sizeClasses: Record<string, { container: string; icon: string; text: string }> = {
     xs: { container: 'w-6 h-6 rounded-lg', icon: 'w-3.5 h-3.5', text: 'text-[10px]' },
@@ -66,27 +64,22 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
 
   const initials = (name || '').trim().substring(0, 2).toUpperCase() || 'OP';
 
-  if (!isBroken && photoUrl && photoUrl.trim()) {
+  if (!isBroken && photoUrl) {
     return (
       <img
         src={photoUrl.trim()}
         alt={name || 'Colaborador'}
-        crossOrigin="anonymous"
-        decoding="async"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none';
-          setHasError(true);
-        }}
+        onError={() => setHasError(true)}
         className={`${currentSize.container} object-cover shrink-0 border border-stone-200 dark:border-stone-700 shadow-xs ${className}`}
         loading="lazy"
       />
     );
   }
 
-  // Fallback: Ícone padrão em cinza neutro impedindo que a linha quebre visualmente
+  // Fallback: Ícone padrão do Lucide ou Iniciais
   return (
     <div
-      className={`${currentSize.container} bg-slate-100 dark:bg-stone-800 text-slate-500 dark:text-stone-400 font-bold flex items-center justify-center shrink-0 border border-slate-200 dark:border-stone-700 shadow-xs select-none ${className}`}
+      className={`${currentSize.container} bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300 font-bold flex items-center justify-center shrink-0 border border-stone-300 dark:border-stone-700 shadow-xs select-none ${className}`}
       title={name || 'Colaborador'}
     >
       {showInitials && name ? (
@@ -96,7 +89,7 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
       ) : fallbackIcon ? (
         fallbackIcon
       ) : (
-        <User className={`${currentSize.icon} text-slate-400 dark:text-stone-400`} />
+        <User className={`${currentSize.icon} text-stone-500 dark:text-stone-400`} />
       )}
     </div>
   );

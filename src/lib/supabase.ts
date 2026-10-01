@@ -128,8 +128,6 @@ export const supabase: SupabaseClient = createClient(
     global: {
       headers: {
         'x-application-name': 'agrocontrol-silagem',
-        'x-client-info': 'agrocontrol-silagem-web',
-        'Accept': '*/*',
       }
     },
     realtime: isRealtimeEnabledInEnv ? {
