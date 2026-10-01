@@ -645,6 +645,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         <VacationsTab
           employees={sortedEmployees}
           vacations={vacations}
+          absences={absences}
           onSaveVacations={onSaveVacations}
         />
       )}

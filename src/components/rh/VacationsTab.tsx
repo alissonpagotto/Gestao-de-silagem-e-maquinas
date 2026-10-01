@@ -9,18 +9,23 @@ import {
   X,
   Printer,
   FileText,
-  Wifi
+  Wifi,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
-import { Employee, VacationRecord } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getActiveCompanyId, saveStoredVacations } from '../../lib/storage';
+import { Employee, VacationRecord, AbsenceRecord } from '../../types';
+import { formatCurrencyBRL, formatDateBR, getActiveCompanyId, saveStoredVacations, getStoredAbsences } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   saveCloudVacations,
   fetchCloudVacations,
   upsertRhFeriasRecord,
   deleteRhFeriasRecord,
+  mapRowToVacationRecord,
+  formatIsoDateOnly,
   toValidUUID,
 } from '../../lib/supabaseService';
 import {
@@ -29,10 +34,12 @@ import {
   sendVacationRealtimeBroadcast,
 } from './VacationReceiptModal';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
+import { evaluateEmployeeVacationAlert } from '../employees/EmployeesModule';
 
 interface VacationsTabProps {
   employees: Employee[];
   vacations: VacationRecord[];
+  absences?: AbsenceRecord[];
   onSaveVacations: (vacations: VacationRecord[]) => void;
 }
 
@@ -284,9 +291,102 @@ function formatPaymentDeadline(startStr: string): string {
   return '-';
 }
 
+/**
+ * Calcula o fim do período aquisitivo (12 meses após o início, menos 1 dia).
+ * Ex: Início 2025-03-01 -> Fim 2026-02-28.
+ */
+function calculateAcquisitionEndIso(startIso: string): string {
+  const clean = formatIsoDateOnly(startIso);
+  if (!clean) return '';
+  const parts = clean.split('-').map(Number);
+  if (parts.length !== 3 || isNaN(parts[0])) return '';
+  const endObj = new Date(parts[0] + 1, parts[1] - 1, parts[2] - 1, 12, 0, 0);
+  return formatIsoDateOnly(endObj.toISOString()) || '';
+}
+
+/**
+ * Calcula a data Limite para Gozo (data final do período concessivo),
+ * somando estritamente 11 meses ao fim do período aquisitivo para evitar pagamento em dobro.
+ */
+function calculateConcessiveLimitIso(acquisitionEndIso: string): string {
+  const clean = formatIsoDateOnly(acquisitionEndIso);
+  if (!clean) return '';
+  const parts = clean.split('-').map(Number);
+  if (parts.length !== 3 || isNaN(parts[0])) return '';
+  const targetYear = parts[0];
+  const targetMonthIndex = (parts[1] - 1) + 11;
+  const origDay = parts[2];
+  // Clampa para o último dia do mês alvo caso o dia original exceda (ex: 31 em mês de 30 dias)
+  const daysInTargetMonth = new Date(targetYear, targetMonthIndex + 1, 0).getDate();
+  const safeDay = Math.min(origDay, daysInTargetMonth);
+  const limitObj = new Date(targetYear, targetMonthIndex, safeDay, 12, 0, 0);
+  return formatIsoDateOnly(limitObj.toISOString()) || '';
+}
+
+/**
+ * Calcula os Dias de Direito de férias conforme o Art. 130 da CLT,
+ * reduzindo o padrão de 30 dias caso haja excesso de faltas injustificadas acumuladas no período aquisitivo.
+ */
+function calculateCltRightDays(
+  empId: string,
+  empName: string,
+  acqStartIso: string,
+  acqEndIso: string,
+  absences: AbsenceRecord[]
+): { rightDays: number; unjustifiedAbsencesCount: number } {
+  const empUuid = toValidUUID(empId);
+  const nameNorm = (empName || '').trim().toUpperCase();
+
+  const empAbsences = (absences || []).filter((a) => {
+    if (!a) return false;
+    // Ignora faltas abonadas/justificadas
+    if ((a as any).justified === true || String((a as any).status || '').toLowerCase() === 'abonada') {
+      return false;
+    }
+    const matchId = a.employeeId === empId || toValidUUID(a.employeeId) === empUuid;
+    const matchName = nameNorm && (a.employeeName || '').trim().toUpperCase() === nameNorm;
+    if (!matchId && !matchName) return false;
+
+    const absDate = formatIsoDateOnly(a.date || '');
+    if (absDate && acqStartIso && acqEndIso) {
+      return absDate >= acqStartIso && absDate <= acqEndIso;
+    }
+    return true;
+  });
+
+  const totalFaltas = empAbsences.reduce((acc, a) => {
+    const qty = Number((a as any).daysCount || (a as any).days || 1);
+    return acc + (isNaN(qty) || qty <= 0 ? 1 : qty);
+  }, 0);
+
+  let rightDays = 30;
+  if (totalFaltas <= 5) rightDays = 30;
+  else if (totalFaltas <= 14) rightDays = 24;
+  else if (totalFaltas <= 23) rightDays = 18;
+  else if (totalFaltas <= 32) rightDays = 12;
+  else rightDays = 0;
+
+  return { rightDays, unjustifiedAbsencesCount: totalFaltas };
+}
+
+export interface VacationManagementRow {
+  rowKey: string;
+  employee: Employee;
+  roleLabel: string;
+  acquisitionStart: string;
+  acquisitionEnd: string;
+  concessiveLimit: string;
+  rightDays: number;
+  unjustifiedAbsencesCount: number;
+  periodStatus: 'vencido' | 'proximo' | 'quitado';
+  monthsLabel: string;
+  vacationRecord: VacationRecord | null;
+}
+
 export const VacationsTab: React.FC<VacationsTabProps> = ({
   employees,
   vacations,
+  absences: propAbsences,
   onSaveVacations,
 }) => {
   const { confirm } = useConfirm();
@@ -302,6 +402,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   }, [vacations]);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'vencido' | 'proximo' | 'quitado'>('all');
+
+  const activeAbsences = useMemo(() => {
+    return propAbsences && propAbsences.length > 0 ? propAbsences : getStoredAbsences();
+  }, [propAbsences]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVacation, setEditingVacation] = useState<VacationRecord | null>(null);
@@ -337,18 +442,133 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return employees.find(e => e.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
 
-  // Filtragem da lista principal
-  const filtered = useMemo(() => {
-    return vacations.filter(v => 
-      v.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [vacations, searchTerm]);
+  // Construção reativa da Tabela de Gestão de Períodos Aquisitivos e Concessivos
+  const periodRows = useMemo<VacationManagementRow[]>(() => {
+    const seenEmp = new Set<string>();
+    const activeEmployees: Employee[] = [];
 
-  // Totais dos KPIs
-  const emGozoCount = vacations.filter(v => v.status === 'em_gozo').length;
-  const agendadasCount = vacations.filter(v => v.status === 'agendado').length;
-  const concluidasCount = vacations.filter(v => v.status === 'concluido').length;
-  const totalValorFerias = vacations.reduce((sum, v) => sum + (v.totalAmount || 0), 0);
+    for (const emp of employees || []) {
+      if (!emp || !emp.name || emp.name.trim() === '') continue;
+      const st = String(emp.status || '').toLowerCase();
+      if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;
+      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
+        continue;
+      }
+      const key = emp.id ? String(emp.id) : `${emp.name.trim().toUpperCase()}_${emp.cpf || ''}`;
+      if (!seenEmp.has(key)) {
+        seenEmp.add(key);
+        activeEmployees.push(emp);
+      }
+    }
+
+    activeEmployees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+
+    const rows: VacationManagementRow[] = activeEmployees.map((emp) => {
+      const empUuid = toValidUUID(emp.id);
+      const empNameNorm = (emp.name || '').trim().toUpperCase();
+
+      // Busca registros de férias deste colaborador na tabela rh_ferias (estado reativo)
+      const empVacations = (vacations || []).filter((v) => {
+        if (!v || v.status === 'cancelado') return false;
+        if (v.employeeId === emp.id || toValidUUID(v.employeeId) === empUuid) return true;
+        if (empNameNorm && (v.employeeName || '').trim().toUpperCase() === empNameNorm) return true;
+        return false;
+      });
+
+      // Avalia o alerta automático de férias (mesma função unificada da aba Funcionários)
+      const alertInfo = evaluateEmployeeVacationAlert(emp, vacations);
+
+      const rawAdm =
+        formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at || '') ||
+        new Date().toISOString().split('T')[0];
+
+      // Se houver registro salvo para o período atual (ou último registro salvo quando quitado)
+      const latestRecord = empVacations.length > 0 ? empVacations[0] : null;
+
+      let acqStart = alertInfo.vestingStart || latestRecord?.acquisitionPeriodStart || rawAdm;
+      let acqEnd = alertInfo.vestingEnd || latestRecord?.acquisitionPeriodEnd || calculateAcquisitionEndIso(acqStart);
+
+      // Se o colaborador já quitou o período anterior e está regular no novo período, mas possui um registro salvo recente,
+      // exibe o período aquisitivo correspondente ao registro salvo ou ao ciclo atual
+      if (alertInfo.level === 'none' && latestRecord?.acquisitionPeriodStart) {
+        acqStart = formatIsoDateOnly(latestRecord.acquisitionPeriodStart) || acqStart;
+        acqEnd =
+          formatIsoDateOnly(latestRecord.acquisitionPeriodEnd || '') ||
+          calculateAcquisitionEndIso(acqStart) ||
+          acqEnd;
+      }
+
+      if (!acqEnd && acqStart) {
+        acqEnd = calculateAcquisitionEndIso(acqStart);
+      }
+
+      const concessiveLimit = calculateConcessiveLimitIso(acqEnd);
+
+      const { rightDays, unjustifiedAbsencesCount } = calculateCltRightDays(
+        emp.id,
+        emp.name,
+        acqStart,
+        acqEnd,
+        activeAbsences
+      );
+
+      let periodStatus: 'vencido' | 'proximo' | 'quitado' = 'quitado';
+      if (alertInfo.level === 'expired') {
+        periodStatus = 'vencido';
+      } else if (alertInfo.level === 'warning') {
+        periodStatus = 'proximo';
+      } else {
+        periodStatus = 'quitado';
+      }
+
+      // Vincula o registro de férias correspondente a este período (se existir)
+      const matchingRecord =
+        empVacations.find(
+          (v) =>
+            formatIsoDateOnly(v.acquisitionPeriodStart || '') === acqStart ||
+            formatIsoDateOnly(v.acquisitionPeriodEnd || '') === acqEnd
+        ) || latestRecord;
+
+      const roleLabel =
+        Array.isArray(emp.roles) && emp.roles.length > 0
+          ? emp.roles.join(', ')
+          : emp.role || 'Colaborador';
+
+      return {
+        rowKey: matchingRecord?.id ? toValidUUID(matchingRecord.id) : empUuid,
+        employee: emp,
+        roleLabel,
+        acquisitionStart: acqStart,
+        acquisitionEnd: acqEnd,
+        concessiveLimit,
+        rightDays,
+        unjustifiedAbsencesCount,
+        periodStatus,
+        monthsLabel: alertInfo.monthsLabel,
+        vacationRecord: matchingRecord,
+      };
+    });
+
+    return rows;
+  }, [employees, vacations, activeAbsences]);
+
+  // Filtragem da lista principal por busca e por status do período
+  const filteredRows = useMemo(() => {
+    return periodRows.filter((row) => {
+      const matchesSearch =
+        row.employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.roleLabel.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+      if (statusFilter !== 'all' && row.periodStatus !== statusFilter) return false;
+      return true;
+    });
+  }, [periodRows, searchTerm, statusFilter]);
+
+  // Totais dos KPIs de Gestão de Períodos
+  const vencidosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'vencido').length, [periodRows]);
+  const proximosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'proximo').length, [periodRows]);
+  const quitadosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'quitado').length, [periodRows]);
+  const totalValorFerias = useMemo(() => vacations.reduce((sum, v) => sum + (v.totalAmount || 0), 0), [vacations]);
 
   // Cálculos financeiros dinâmicos completos da janela modal (recalcula instantaneamente no front-end)
   const financials = useMemo(() => {
@@ -442,28 +662,66 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return formatPaymentDeadline(startDate);
   }, [startDate]);
 
-  // Sincronização inicial com a tabela public.rh_ferias do Supabase
+  // Sincronização inicial e canal Realtime direto na tabela public.rh_ferias do Supabase
   useEffect(() => {
-    if (!isSupabaseConfigured || !activeTenantId) return;
+    if (!isSupabaseConfigured) return;
     let isMounted = true;
-    fetchCloudVacations(activeTenantId)
-      .then((cloudVacations) => {
-        if (!isMounted || !cloudVacations || !Array.isArray(cloudVacations) || cloudVacations.length === 0) return;
-        const currentList = vacationsRef.current;
-        const map = new Map<string, VacationRecord>();
-        currentList.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
-        cloudVacations.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
-        const merged = Array.from(map.values()).sort(
-          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-        );
-        saveStoredVacations(merged);
-        onSaveVacations(merged);
-      })
-      .catch(() => {});
+
+    const loadInitialFromSupabase = async () => {
+      try {
+        const cloudVacations = await fetchCloudVacations(activeTenantId);
+        if (!isMounted || !Array.isArray(cloudVacations)) return;
+        if (cloudVacations.length > 0) {
+          const currentList = vacationsRef.current;
+          const map = new Map<string, VacationRecord>();
+          currentList.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
+          cloudVacations.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+          saveStoredVacations(merged);
+          onSaveVacations(merged);
+        }
+      } catch (_) {}
+    };
+
+    loadInitialFromSupabase();
+
+    // Assinatura Realtime direta na tabela public.rh_ferias
+    const directChannel = supabase
+      .channel(`rh_ferias_tab_direct_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_ferias' },
+        (payload: any) => {
+          if (!isMounted) return;
+          if (payload.eventType === 'DELETE' && payload.old?.id) {
+            const deletedId = toValidUUID(payload.old.id);
+            const nextList = vacationsRef.current.filter((v) => toValidUUID(v.id) !== deletedId);
+            saveStoredVacations(nextList);
+            onSaveVacations(nextList);
+            return;
+          }
+          if (payload.new) {
+            const mapped = mapRowToVacationRecord(payload.new);
+            const mappedId = toValidUUID(mapped.id);
+            const currentList = vacationsRef.current;
+            const exists = currentList.some((v) => toValidUUID(v.id) === mappedId);
+            const nextList = exists
+              ? currentList.map((v) => (toValidUUID(v.id) === mappedId ? { ...v, ...mapped, id: mappedId } : v))
+              : [{ ...mapped, id: mappedId }, ...currentList];
+            saveStoredVacations(nextList);
+            onSaveVacations(nextList);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
+      supabase.removeChannel(directChannel);
     };
-  }, [activeTenantId]);
+  }, [activeTenantId, onSaveVacations]);
 
   // Canal de Escuta Ativa (Supabase Realtime Channel) para sincronizar dispositivos do mesmo locatário
   useEffect(() => {
@@ -699,6 +957,87 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     }
   };
 
+  // Abre o modal de Programação/Edição de Férias a partir de uma linha de Período Aquisitivo
+  const handleOpenModalForRow = (row: VacationManagementRow) => {
+    if (row.vacationRecord) {
+      handleOpenModal(row.vacationRecord);
+      return;
+    }
+    const draftId = toValidUUID(`vac_${row.employee.id}_${row.acquisitionStart}`);
+    setEditingVacation(null);
+    setActiveDraftId(draftId);
+    setSelectedEmployeeId(row.employee.id);
+    const salary = row.employee.salary || row.employee.baseSalary || 3000;
+    setBaseSalary(salary);
+    setAcquisitionPeriodStart(row.acquisitionStart || '2025-01-01');
+    setAcquisitionPeriodEnd(row.acquisitionEnd || '2025-12-31');
+    const today = new Date().toISOString().split('T')[0];
+    const initialDays = row.rightDays > 0 ? row.rightDays : 30;
+    setStartDate(today);
+    setEndDate(calculateEndDateFromStart(today, initialDays));
+    setDaysCount(initialDays);
+    setSellDaysCount(0);
+    setThirteenthAdvance(false);
+    setStatus('concluido');
+    setNotes('');
+    setInssEnabled(true);
+    setIrrfEnabled(true);
+    resetCustomOverrides();
+    setIsModalOpen(true);
+  };
+
+  // Abre o modal de Recibo/Impressão diretamente para uma linha da tabela (mesmo que ainda não tenha sido salva)
+  const handlePrintReceiptForRow = (row: VacationManagementRow) => {
+    if (row.vacationRecord) {
+      setPrintingVacation(row.vacationRecord);
+      return;
+    }
+    const salary = row.employee.salary || row.employee.baseSalary || 3000;
+    const gozoDays = row.rightDays > 0 ? row.rightDays : 30;
+    const dailyRate = salary / 30;
+    const valorFeriasGozo = Math.round(dailyRate * gozoDays * 100) / 100;
+    const valorUmTerco = Math.round((valorFeriasGozo / 3) * 100) / 100;
+    const totalBruto = Math.round((valorFeriasGozo + valorUmTerco) * 100) / 100;
+    const inssCalc = calculateVacationINSS(totalBruto);
+    const baseIrrf = Math.max(0, Math.round((totalBruto - inssCalc.inssAmount) * 100) / 100);
+    const irrfCalc = calculateVacationIRRF(baseIrrf);
+    const totalDescontos = Math.round((inssCalc.inssAmount + irrfCalc.irrfAmount) * 100) / 100;
+    const valorLiquido = Math.max(0, Math.round((totalBruto - totalDescontos) * 100) / 100);
+    const today = new Date().toISOString().split('T')[0];
+
+    const generatedReceipt: VacationRecord = {
+      id: toValidUUID(`vac_${row.employee.id}_${row.acquisitionStart}`),
+      companyId: activeTenantId,
+      employeeId: row.employee.id,
+      employeeName: row.employee.name,
+      acquisitionPeriodStart: row.acquisitionStart,
+      acquisitionPeriodEnd: row.acquisitionEnd,
+      startDate: today,
+      endDate: calculateEndDateFromStart(today, gozoDays),
+      daysCount: gozoDays,
+      sellDaysCount: 0,
+      baseSalary: salary,
+      customVacationAmount: valorFeriasGozo,
+      oneThirdBonus: valorUmTerco,
+      pecuniaryAllowance: 0,
+      thirteenthAdvance: false,
+      thirteenthAmount: 0,
+      inssEnabled: true,
+      irrfEnabled: true,
+      baseINSS: totalBruto,
+      baseIRRF: baseIrrf,
+      inssDiscount: inssCalc.inssAmount,
+      irrfDiscount: irrfCalc.irrfAmount,
+      totalDiscounts: totalDescontos,
+      netAmount: valorLiquido,
+      totalAmount: totalBruto,
+      status: 'agendado',
+      notes: '',
+      createdAt: new Date().toISOString(),
+    };
+    setPrintingVacation(generatedReceipt);
+  };
+
   const handleOpenModal = (vacation?: VacationRecord) => {
     if (vacation) {
       setEditingVacation(vacation);
@@ -906,10 +1245,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-black text-black dark:text-white">
-              Controle e Agendamento de Férias
+              Gestão de Períodos Aquisitivos e Concessivos de Férias
             </h3>
             <p className="text-xs text-black/85 dark:text-stone-300 font-medium">
-              Planejamento de períodos aquisitivos, gozo e 1/3 constitucional
+              Controle automático de vencimentos, dias de direito (CLT), limite concessivo (+11 meses) e emissão de recibos
             </p>
           </div>
         </div>
@@ -920,163 +1259,290 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Agendar Férias</span>
+          <span>Programar Férias</span>
         </button>
       </div>
 
       {/* Quick Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Férias Agendadas</span>
-          <span className="text-base font-black text-black dark:text-sky-400 font-['Outfit']">
-            {agendadasCount} colaborador(es)
+        <div className="crm-card bg-white dark:bg-stone-900 border border-rose-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-rose-700 dark:text-rose-400 block uppercase">Períodos Vencidos</span>
+          <span className="text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit']">
+            {vencidosCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Em Gozo Atual</span>
-          <span className="text-base font-black text-black dark:text-amber-400 font-['Outfit']">
-            {emGozoCount} colaborador(es)
+        <div className="crm-card bg-white dark:bg-stone-900 border border-amber-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 block uppercase">Próximos a Vencer</span>
+          <span className="text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit']">
+            {proximosCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Concluídas</span>
-          <span className="text-base font-black text-black dark:text-emerald-400 font-['Outfit']">
-            {concluidasCount} registro(s)
+        <div className="crm-card bg-white dark:bg-stone-900 border border-emerald-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 block uppercase">Quitados / Regulares</span>
+          <span className="text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit']">
+            {quitadosCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Total Férias Lançadas</span>
+        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-slate-700 dark:text-stone-300 block uppercase">Total Férias Lançadas</span>
           <span className="text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalValorFerias)}
           </span>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
+      {/* Search Bar & Status Filter Badges */}
+      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-black dark:text-white">
         <div className="relative w-full sm:w-80">
-          <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar colaborador..."
+            placeholder="Buscar colaborador ou cargo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
-        <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
-          {filtered.length} registro(s) de férias
-        </span>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'all'
+                ? 'bg-[#0963cb] text-white border-[#0963cb]'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+            }`}
+          >
+            Todos ({periodRows.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('vencido')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'vencido'
+                ? 'bg-rose-600 text-white border-rose-700'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+            }`}
+          >
+            Vencidos ({vencidosCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('proximo')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'proximo'
+                ? 'bg-amber-500 text-stone-950 border-amber-600'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+            }`}
+          >
+            Próximos a Vencer ({proximosCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('quitado')}
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              statusFilter === 'quitado'
+                ? 'bg-emerald-600 text-white border-emerald-700'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+            }`}
+          >
+            Quitados ({quitadosCount})
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+      {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
+      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
+          <table className="w-full text-left text-xs sm:text-sm">
+            <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-stone-700">
               <tr>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Colaborador</th>
-                <th className="py-2.5 px-3">Período de Gozo</th>
-                <th className="py-2.5 px-3 text-center">Dias / Venda</th>
-                <th className="py-2.5 px-3 text-right">1/3 Constitucional</th>
-                <th className="py-2.5 px-3 text-right">Abono Pecuniário</th>
-                <th className="py-2.5 px-3 text-right">Total Férias</th>
-                <th className="py-2.5 px-3 text-center">Ações</th>
+                <th className="py-3 px-4">Colaborador</th>
+                <th className="py-3 px-4">Período Aquisitivo</th>
+                <th className="py-3 px-4 text-center">Dias de Direito</th>
+                <th className="py-3 px-4 text-center">Status do Período</th>
+                <th className="py-3 px-4">Limite para Gozo</th>
+                <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900">
-              {filtered.length > 0 ? (
-                filtered.map((item) => (
-                  <tr key={item.id || item.employeeId} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
-                    <td className="py-2 px-3">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(item.id, item.status)}
-                        className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
-                          item.status === 'em_gozo'
-                            ? 'bg-amber-100 border-amber-300 text-amber-900'
-                            : item.status === 'concluido'
-                            ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                            : 'bg-blue-100 border-blue-300 text-blue-900'
-                        }`}
-                      >
-                        <span>
-                          {item.status === 'em_gozo' ? 'Em Gozo' : item.status === 'concluido' ? 'Concluído' : 'Agendado'}
-                        </span>
-                      </button>
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <div className="font-bold text-black dark:text-white text-xs">
-                        {item.employeeName}
-                      </div>
-                      {item.acquisitionPeriodStart && (
-                        <div className="text-[10px] text-black/80 dark:text-stone-300 font-medium">
-                          Aq: {formatDateBR(item.acquisitionPeriodStart)} a {formatDateBR(item.acquisitionPeriodEnd)}
+            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
+              {filteredRows.length > 0 ? (
+                filteredRows.map((row) => {
+                  const vac = row.vacationRecord;
+                  return (
+                    <tr key={row.rowKey} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
+                      {/* 1. Colaborador (Nome e Cargo) */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center space-x-3">
+                          <EmployeeAvatar
+                            photoUrl={row.employee.photoUrl || (row.employee as any).foto_url}
+                            name={row.employee.name}
+                            size="sm"
+                            className="shrink-0 rounded-xl"
+                          />
+                          <div>
+                            <div className="font-bold text-black dark:text-white uppercase text-xs sm:text-sm">
+                              {row.employee.name}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-900 border border-sky-200/70">
+                                {row.roleLabel}
+                              </span>
+                              {row.employee.admissionDate && (
+                                <span className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
+                                  Adm: {formatDateBR(row.employee.admissionDate)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="py-2 px-3 text-black/85 dark:text-stone-300 font-medium text-xs whitespace-nowrap">
-                      {formatDateBR(item.startDate)} até {formatDateBR(item.endDate)}
-                    </td>
+                      {/* 2. Período Aquisitivo (Início e Fim) */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="inline-flex items-center space-x-1.5 font-mono font-bold text-xs text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-stone-700">
+                          <Calendar className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
+                          <span>
+                            {formatDateBR(row.acquisitionStart)} a {formatDateBR(row.acquisitionEnd)}
+                          </span>
+                        </div>
+                        {vac && (
+                          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold mt-1">
+                            Gozo programado: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
+                          </div>
+                        )}
+                      </td>
 
-                    <td className="py-2 px-3 text-center text-xs">
-                      <span className="font-bold text-black dark:text-white">{item.daysCount} dias</span>
-                      {item.sellDaysCount > 0 && (
-                        <span className="text-[10px] block text-amber-900 dark:text-amber-300 font-bold">
-                          (+ {item.sellDaysCount}d vendidos)
-                        </span>
-                      )}
-                    </td>
+                      {/* 3. Dias de Direito (Padrão 30 dias, reduzido por faltas CLT) */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="inline-flex flex-col items-center">
+                          <span
+                            className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
+                              row.rightDays < 30
+                                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                : 'bg-slate-100 text-slate-900 border-slate-300'
+                            }`}
+                          >
+                            {vac ? `${vac.daysCount} dias` : `${row.rightDays} dias`}
+                          </span>
+                          {row.unjustifiedAbsencesCount > 0 ? (
+                            <span className="text-[10px] text-rose-600 font-bold mt-0.5">
+                              {row.unjustifiedAbsencesCount} falta(s) no período
+                            </span>
+                          ) : vac && vac.sellDaysCount > 0 ? (
+                            <span className="text-[10px] text-amber-800 font-bold mt-0.5">
+                              + {vac.sellDaysCount} dias abono
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Direito integral CLT
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    <td className="py-2 px-3 text-right font-medium text-black dark:text-stone-200 text-xs font-['Outfit']">
-                      {formatCurrencyBRL(item.oneThirdBonus)}
-                    </td>
+                      {/* 4. Status do Período ("Vencido" vermelho, "Próximo a Vencer" amarelo/laranja, "Quitado" verde) */}
+                      <td className="py-3.5 px-4 text-center">
+                        {row.periodStatus === 'vencido' && (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-rose-600 text-white shadow-2xs">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>Vencido</span>
+                            </span>
+                            {row.monthsLabel && (
+                              <span className="text-[10px] font-bold text-rose-700 mt-0.5">
+                                {row.monthsLabel} acumulados
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {row.periodStatus === 'proximo' && (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                              <span>Próximo a Vencer</span>
+                            </span>
+                            {row.monthsLabel && (
+                              <span className="text-[10px] font-bold text-amber-800 mt-0.5">
+                                {row.monthsLabel} acumulados
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {row.periodStatus === 'quitado' && (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-emerald-600 text-white shadow-2xs">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>Quitado</span>
+                            </span>
+                            <span className="text-[10px] font-semibold text-emerald-700 mt-0.5">
+                              {vac ? formatCurrencyBRL(vac.totalAmount) : 'Período em dia'}
+                            </span>
+                          </div>
+                        )}
+                      </td>
 
-                    <td className="py-2 px-3 text-right font-medium text-black dark:text-stone-200 text-xs font-['Outfit']">
-                      {item.pecuniaryAllowance ? formatCurrencyBRL(item.pecuniaryAllowance) : '-'}
-                    </td>
-
-                    <td className="py-2 px-3 text-right font-black text-black dark:text-white text-xs whitespace-nowrap font-['Outfit']">
-                      {formatCurrencyBRL(item.totalAmount)}
-                    </td>
-
-                    <td className="py-2 px-3 text-center">
-                      <div className="flex items-center justify-center space-x-1">
-                        <button
-                          type="button"
-                          onClick={() => setPrintingVacation(item)}
-                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
-                          title="Imprimir Aviso/Recibo de Férias"
+                      {/* 5. Limite para Gozo (Fim do período aquisitivo + 11 meses) */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div
+                          className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
+                            row.periodStatus === 'vencido'
+                              ? 'bg-rose-50 text-rose-900 border-rose-300'
+                              : row.periodStatus === 'proximo'
+                                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                : 'bg-emerald-50/70 text-emerald-900 border-emerald-200'
+                          }`}
                         >
-                          <Printer className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenModal(item)}
-                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
-                          title="Editar Férias"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1 text-black/70 dark:text-stone-400 hover:text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
-                          title="Excluir Férias"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          <span>{formatDateBR(row.concessiveLimit)}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                          Limite concessivo (+11 meses)
+                        </div>
+                      </td>
+
+                      {/* 6. Ações: Programar/Editar Férias (Calendário) e Imprimir Recibo (Impressora) */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenModalForRow(row)}
+                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
+                            title="Programar/Editar Férias"
+                          >
+                            <Calendar className="w-3.5 h-3.5 shrink-0" />
+                            <span>Programar/Editar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handlePrintReceiptForRow(row)}
+                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
+                            title="Imprimir Recibo de Férias"
+                          >
+                            <Printer className="w-3.5 h-3.5 shrink-0" />
+                            <span>Imprimir Recibo</span>
+                          </button>
+
+                          {vac && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(vac.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                              title="Excluir programação salva"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-black/75 dark:text-stone-400 text-xs">
-                    Nenhum registro de férias cadastrado.
+                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-semibold">
+                    Nenhum período aquisitivo encontrado para o filtro selecionado.
                   </td>
                 </tr>
               )}

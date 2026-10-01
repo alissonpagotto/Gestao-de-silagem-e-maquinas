@@ -256,47 +256,27 @@ export function evaluateEmployeeVacationAlert(
 
   if (isCurrentlyOnVacation) return emptyAlert;
 
-  // Determina o início do Período Aquisitivo aberto (sem gozo de férias registrado)
-  const enjoyedVacations = empVacations.filter(v => {
+  // Determina o início do Período Aquisitivo aberto (sem programação/gozo de férias ativo no Supabase)
+  const settledVacations = empVacations.filter(v => {
     const vst = String(v.status || '').toLowerCase();
-    return vst === 'concluido' || vst === 'concluida' || vst === 'gozadas' || vst === 'em_gozo';
+    return vst === 'concluido' || vst === 'concluida' || vst === 'gozadas' || vst === 'em_gozo' || vst === 'agendado' || vst === 'programada' || vst === 'quitado';
   });
 
   let cycleStart = new Date(admDate.getTime());
 
-  if (enjoyedVacations.length > 0) {
-    // Avança o ciclo aquisitivo com base na quantidade de períodos já gozados ou no maior acquisitionPeriodEnd gozado
-    const byCountDate = new Date(admDate.getFullYear() + enjoyedVacations.length, admDate.getMonth(), admDate.getDate(), 12, 0, 0);
+  if (settledVacations.length > 0) {
+    // Avança o ciclo aquisitivo com base na quantidade de períodos já programados/quitados ou no maior acquisitionPeriodEnd
+    const byCountDate = new Date(admDate.getFullYear() + settledVacations.length, admDate.getMonth(), admDate.getDate(), 12, 0, 0);
     cycleStart = byCountDate;
 
-    for (const v of enjoyedVacations) {
+    for (const v of settledVacations) {
       const vEndIso = formatIsoDateOnly(v.acquisitionPeriodEnd || (v as any).vestingPeriodEnd || '');
       if (vEndIso) {
         const ep = vEndIso.split('-').map(Number);
         if (ep.length === 3 && !isNaN(ep[0])) {
           const nextCycle = new Date(ep[0], ep[1] - 1, ep[2] + 1, 12, 0, 0);
-          if (nextCycle > cycleStart && nextCycle <= today) {
+          if (nextCycle > cycleStart) {
             cycleStart = nextCycle;
-          }
-        }
-      }
-    }
-  } else {
-    // Verifica se há um registro de férias pendente/agendado/vencido com Período Aquisitivo explícito no Supabase
-    const openVacWithVesting = empVacations.find(v => {
-      const vst = String(v.status || '').toLowerCase();
-      const acqStart = v.acquisitionPeriodStart || (v as any).vestingPeriodStart;
-      return (vst === 'agendado' || vst === 'programada' || vst === 'vencida' || vst === 'pendente') && Boolean(acqStart);
-    });
-    const rawAcqStart = openVacWithVesting?.acquisitionPeriodStart || (openVacWithVesting as any)?.vestingPeriodStart;
-    if (rawAcqStart) {
-      const vsIso = formatIsoDateOnly(rawAcqStart);
-      if (vsIso) {
-        const vp = vsIso.split('-').map(Number);
-        if (vp.length === 3 && !isNaN(vp[0])) {
-          const parsedStart = new Date(vp[0], vp[1] - 1, vp[2], 12, 0, 0);
-          if (parsedStart <= today) {
-            cycleStart = parsedStart;
           }
         }
       }
@@ -305,7 +285,6 @@ export function evaluateEmployeeVacationAlert(
 
   const elevenMonthsDate = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 11, cycleStart.getDate(), 12, 0, 0);
   const twelveMonthsDate = new Date(cycleStart.getFullYear() + 1, cycleStart.getMonth(), cycleStart.getDate(), 12, 0, 0);
-  const concessiveLimitDate = new Date(cycleStart.getFullYear() + 2, cycleStart.getMonth(), cycleStart.getDate() - 1, 12, 0, 0);
 
   // Cálculo preciso de meses acumulados de trabalho sem gozar férias
   let wholeMonths = (today.getFullYear() - cycleStart.getFullYear()) * 12 + (today.getMonth() - cycleStart.getMonth());
@@ -320,6 +299,8 @@ export function evaluateEmployeeVacationAlert(
   const vestingStartStr = formatIsoDateOnly(cycleStart.toISOString()) || rawAdmission;
   const vestingEndEndObj = new Date(twelveMonthsDate.getFullYear(), twelveMonthsDate.getMonth(), twelveMonthsDate.getDate() - 1, 12, 0, 0);
   const vestingEndStr = formatIsoDateOnly(vestingEndEndObj.toISOString()) || '';
+  // Limite para Gozo: somando 11 meses ao fim do período aquisitivo para evitar pagamento em dobro
+  const concessiveLimitDate = new Date(vestingEndEndObj.getFullYear(), vestingEndEndObj.getMonth() + 11, vestingEndEndObj.getDate(), 12, 0, 0);
   const concessiveLimitStr = formatIsoDateOnly(concessiveLimitDate.toISOString()) || '';
 
   const monthsText =
@@ -494,6 +475,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 }) => {
   const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
+  const [vacationQuickFilter, setVacationQuickFilter] = useState<'all' | 'expired' | 'warning'>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [singleEmployeePrintOptions, setSingleEmployeePrintOptions] = useState<PrintDocumentOptions | null>(null);
@@ -739,8 +721,23 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       )
       .subscribe();
 
+    const handleLocalVacationMutation = (e: any) => {
+      const incoming = e?.detail?.vacation as VacationRecord | undefined;
+      if (!incoming || !isMounted) return;
+      const targetId = toValidUUID(incoming.id);
+      setLocalVacations(prev => {
+        const exists = prev.some(v => v.id === incoming.id || toValidUUID(v.id) === targetId);
+        return exists
+          ? prev.map(v => (v.id === incoming.id || toValidUUID(v.id) === targetId ? { ...v, ...incoming } : v))
+          : [incoming, ...prev];
+      });
+    };
+
+    window.addEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
       supabase.removeChannel(vacChannel);
     };
   }, [activeCompany?.id]);
@@ -985,6 +982,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     }
     return { expiredCount, warningCount, totalAlerts: expiredCount + warningCount };
   }, [listaOrdenada, vacationAlertsByEmployeeId]);
+
+  // Lista exibida após aplicação do filtro rápido de férias (Todos, Férias Vencidas, Férias a Vencer)
+  const displayedEmployees = useMemo(() => {
+    if (vacationQuickFilter === 'expired') {
+      return listaOrdenada.filter(emp => vacationAlertsByEmployeeId[emp.id]?.level === 'expired');
+    }
+    if (vacationQuickFilter === 'warning') {
+      return listaOrdenada.filter(emp => vacationAlertsByEmployeeId[emp.id]?.level === 'warning');
+    }
+    return listaOrdenada;
+  }, [listaOrdenada, vacationQuickFilter, vacationAlertsByEmployeeId]);
 
   // Alerta de Férias dinâmico para o colaborador aberto no modal de edição/cadastro
   const modalVacationAlert = useMemo(() => {
@@ -1990,8 +1998,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs flex items-center space-x-3 text-black">
+      {/* Search Bar & Quick Vacation Alert Filter Badges */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-xs space-y-2.5 text-black">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-black absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -2001,6 +2009,48 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm text-black placeholder-slate-400 focus:ring-1 focus:ring-sky-600 outline-none"
           />
+        </div>
+
+        {/* Linha de Botões de Filtro Rápido (Filtros Estilizados como Badges) */}
+        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+          <button
+            type="button"
+            onClick={() => setVacationQuickFilter('all')}
+            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              vacationQuickFilter === 'all'
+                ? 'bg-[#0963cb] text-white border-[#0963cb] shadow-2xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+            }`}
+          >
+            <UserSquare2 className="w-3.5 h-3.5 shrink-0" />
+            <span>Todos os Colaboradores ({listaOrdenada.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVacationQuickFilter('expired')}
+            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              vacationQuickFilter === 'expired'
+                ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+            }`}
+          >
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>Férias Vencidas ({vacationAlertsSummary.expiredCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVacationQuickFilter('warning')}
+            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+              vacationQuickFilter === 'warning'
+                ? 'bg-amber-500 text-stone-950 border-amber-600 shadow-2xs'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span>Férias a Vencer ({vacationAlertsSummary.warningCount})</span>
+          </button>
         </div>
       </div>
 
@@ -2019,7 +2069,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {listaOrdenada.map((emp) => {
+              {displayedEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-semibold">
+                    {vacationQuickFilter === 'expired'
+                      ? 'Nenhum colaborador com Férias Vencidas no momento.'
+                      : vacationQuickFilter === 'warning'
+                        ? 'Nenhum colaborador com Férias Próximas a Vencer no momento.'
+                        : 'Nenhum colaborador encontrado.'}
+                  </td>
+                </tr>
+              ) : displayedEmployees.map((emp) => {
                 const vacAlert = vacationAlertsByEmployeeId[emp.id];
                 return (
                   <tr key={emp.id} className="hover:bg-slate-50 transition">
