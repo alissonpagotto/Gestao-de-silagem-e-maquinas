@@ -3118,6 +3118,11 @@ export async function upsertRhFuncionario(
         if (v instanceof File || v instanceof Blob || v instanceof Uint8Array) {
           continue; // Remove qualquer objeto binário para evitar o erro 400
         }
+        if (typeof v === 'string' && (v.startsWith('data:') || v.startsWith('blob:') || v.length > 50000)) {
+          // Descarta payload binário pesado em string (como base64 cru) para evitar violação de dados
+          result[k] = null;
+          continue;
+        }
         if (typeof v === 'function' || typeof v === 'symbol') {
           continue;
         }

@@ -924,11 +924,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const finalId = editingEmployee?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `emp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
       const targetValidUuid = toValidUUID(finalId);
 
-      // 3. ISOLAR O UPLOAD DA FOTO:
-      // Para a foto não travar o formulário, garanta que o arquivo recortado seja enviado para o bucket público 'avatars'
-      // (supabase.storage.from('avatars').upload) e que apenas o link de texto gerado (.getPublicUrl().data.publicUrl)
-      // seja anexado à coluna 'foto_url' do funcionário antes de salvar.
-      let finalFotoUrl: string | undefined = undefined;
+      // 1. UPLOAD RESILIENTE DA FOTO (bucket 'avatars'):
+      // Captura o link de retorno textual do Storage e descarta qualquer payload binário pesado.
+      // Se falhar por qualquer motivo de RLS ou rede, exibe aviso e NÃO interrompe a gravação das informações cadastrais e bancárias.
+      let finalFotoUrl: string | null = null;
       if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim()) {
         const rawPhoto = photoUrl.trim();
         if (rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://')) {
@@ -939,14 +938,25 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) {
               finalFotoUrl = uploadedUrl;
               setPhotoUrl(uploadedUrl);
+            } else {
+              console.warn('[RH Foto] Aviso: O upload da foto para o bucket "avatars" não retornou uma URL válida. O salvamento prosseguirá sem a foto.');
             }
-          } catch (photoErr) {
-            console.warn('[RH Foto] Falha no upload para avatars:', photoErr);
+          } catch (photoErr: any) {
+            console.warn('[RH Foto] Aviso no upload da foto (Storage/RLS). Prosseguindo com o salvamento das informações cadastrais e bancárias:', photoErr?.message || photoErr);
           }
         }
       }
 
-      // Extração e tratamento do Contrato de Experiência (URL limpa ou upload para storage)
+      // Preserva foto existente se for uma URL válida prévia e nenhum novo upload tiver sido concluído
+      if (!finalFotoUrl && editingEmployee?.foto_url && (editingEmployee.foto_url.startsWith('http://') || editingEmployee.foto_url.startsWith('https://'))) {
+        finalFotoUrl = editingEmployee.foto_url;
+      } else if (!finalFotoUrl && editingEmployee?.photoUrl && (editingEmployee.photoUrl.startsWith('http://') || editingEmployee.photoUrl.startsWith('https://'))) {
+        finalFotoUrl = editingEmployee.photoUrl;
+      }
+
+      // 2. UPLOAD RESILIENTE DO CONTRATO DE EXPERIÊNCIA (bucket 'documentos'):
+      // Captura o link de retorno textual do Storage e descarta qualquer payload binário pesado.
+      // Se falhar por qualquer motivo de RLS ou rede, exibe aviso e NÃO interrompe a gravação das informações.
       let finalContratoUrl: string | null = null;
       if (experienceContractDoc) {
         const rawDoc: any = experienceContractDoc;
@@ -965,26 +975,30 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 activeCompany?.id || activeUid,
                 rawDoc.name
               );
-              if (uploadedDoc) {
+              if (uploadedDoc && (uploadedDoc.startsWith('http://') || uploadedDoc.startsWith('https://'))) {
                 finalContratoUrl = uploadedDoc;
+              } else {
+                console.warn('[RH Contrato] Aviso: O upload do contrato não retornou URL pública válida. O salvamento prosseguirá normalmente.');
               }
-            } catch (docErr) {
-              console.warn('[RH Contrato] Falha no upload para documentos:', docErr);
+            } catch (docErr: any) {
+              console.warn('[RH Contrato] Aviso no upload do contrato (Storage/RLS). Prosseguindo com o salvamento das informações cadastrais e bancárias:', docErr?.message || docErr);
             }
           }
         }
       }
-      if (!finalContratoUrl && editingEmployee?.contrato_experiencia_url) {
+
+      // Preserva o contrato de experiência existente se for uma URL HTTP válida prévia
+      if (!finalContratoUrl && editingEmployee?.contrato_experiencia_url && (editingEmployee.contrato_experiencia_url.startsWith('http://') || editingEmployee.contrato_experiencia_url.startsWith('https://'))) {
         finalContratoUrl = editingEmployee.contrato_experiencia_url;
       }
 
-      // 2. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO ROSA:
+      // 3. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO ROSA:
       // Mapear e incluir no payload de salvamento as 4 caixas de texto da seção 3:
       // 'local_recebimento', 'banco_chave_pix', 'agencia' e 'conta_corrente'.
-      const cleanLocalRecebimento = paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : null;
-      const cleanBancoChavePix = bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : null;
-      const cleanAgencia = bankAgency.trim() ? bankAgency.trim().toUpperCase() : null;
-      const cleanContaCorrente = bankAccount.trim() ? bankAccount.trim().toUpperCase() : null;
+      const cleanLocalRecebimento = paymentLocation && paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : null;
+      const cleanBancoChavePix = bankPixKey && bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : null;
+      const cleanAgencia = bankAgency && bankAgency.trim() ? bankAgency.trim().toUpperCase() : null;
+      const cleanContaCorrente = bankAccount && bankAccount.trim() ? bankAccount.trim().toUpperCase() : null;
 
       const activeRoles: string[] = [];
       if (role1.trim()) activeRoles.push(role1.trim());
@@ -1068,7 +1082,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         bankAccount: cleanContaCorrente || undefined,
 
         admissionExamDoc: admissionExamDoc || undefined,
-        experienceContractDoc: experienceContractDoc || undefined,
+        experienceContractDoc: finalContratoUrl ? {
+          name: experienceContractDoc?.name || 'Contrato de Experiência',
+          fileData: finalContratoUrl,
+          uploadedAt: new Date().toISOString(),
+        } : (experienceContractDoc && typeof experienceContractDoc.fileData === 'string' && experienceContractDoc.fileData.startsWith('http') ? experienceContractDoc : undefined),
         generalDocs: generalDocs || undefined,
         signedRegistrationDoc: signedRegistrationDoc || undefined,
       };
