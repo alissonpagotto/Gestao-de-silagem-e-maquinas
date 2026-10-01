@@ -8706,16 +8706,8 @@ export async function upsertRhRescisaoRecord(termination: TerminationRecord, com
     const row = buildRhRescisaoRow(termination, cId);
     const { error } = await supabase.from('rh_rescisoes').upsert(row, { onConflict: 'id' });
     if (error) {
-      // Fallback caso company_id exija UUID válido ou não exista na tabela
-      const fallbackRow: Record<string, any> = {
-        ...row,
-        company_id: toValidUUID(cId),
-      };
-      const retry = await supabase.from('rh_rescisoes').upsert(fallbackRow, { onConflict: 'id' });
-      if (retry.error) {
-        console.warn('Aviso em upsertRhRescisaoRecord:', retry.error.message);
-        return false;
-      }
+      console.warn('Aviso em upsertRhRescisaoRecord:', error.message);
+      return false;
     }
     return true;
   } catch (e) {
@@ -8737,10 +8729,7 @@ export async function deleteRhRescisaoRecord(terminationId: string, companyId?: 
       query = query.eq('company_id', cId);
     }
     const { error } = await query;
-    if (error) {
-      await supabase.from('rh_rescisoes').delete().eq('id', canonicalId);
-    }
-    return true;
+    return !error;
   } catch {
     return false;
   }
@@ -8763,11 +8752,7 @@ export async function saveCloudTerminations(terminations: TerminationRecord[], c
     try {
       const recordsToUpsert = cleanTerminations.map((t) => buildRhRescisaoRow(t, cId));
       if (recordsToUpsert.length > 0) {
-        const { error: relError } = await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
-        if (relError) {
-          const fallbackRecords = recordsToUpsert.map((r) => ({ ...r, company_id: toValidUUID(cId) }));
-          await supabase.from('rh_rescisoes').upsert(fallbackRecords, { onConflict: 'id' });
-        }
+        await supabase.from('rh_rescisoes').upsert(recordsToUpsert, { onConflict: 'id' });
       }
     } catch {
       // Fallback caso tabela relacional ainda não exista
@@ -8794,51 +8779,21 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
-    const validUuidCid = cId ? toValidUUID(cId) : '';
     const map = new Map<string, TerminationRecord>();
 
     // 1. Busca prioritária na tabela relacional public.rh_rescisoes
     try {
-      let { data: relRows, error: relErr } = await supabase
+      const { data: relRows, error: relErr } = await supabase
         .from('rh_rescisoes')
         .select('*')
         .eq('company_id', cId)
         .order('updated_at', { ascending: false });
 
-      if ((relErr || !relRows || relRows.length === 0) && validUuidCid && validUuidCid !== cId) {
-        const retryUuid = await supabase
-          .from('rh_rescisoes')
-          .select('*')
-          .eq('company_id', validUuidCid)
-          .order('updated_at', { ascending: false });
-        if (!retryUuid.error && Array.isArray(retryUuid.data) && retryUuid.data.length > 0) {
-          relRows = retryUuid.data;
-          relErr = null;
-        }
-      }
-
-      if (relErr || !relRows || relRows.length === 0) {
-        const broadRes = await supabase
-          .from('rh_rescisoes')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(100);
-        if (!broadRes.error && Array.isArray(broadRes.data)) {
-          relRows = broadRes.data.filter((r: any) => {
-            const rowCid = String(r.company_id || r.payload?.companyId || '').trim();
-            if (!rowCid || !cId || cId === 'default') return true;
-            return rowCid === cId || rowCid === validUuidCid;
-          });
-          relErr = null;
-        }
-      }
-
       if (!relErr && Array.isArray(relRows)) {
         for (const r of relRows) {
           const mapped = mapRowToTerminationRecord(r);
           if (mapped) {
-            const normId = toValidUUID(mapped.id);
-            map.set(normId, { ...mapped, id: normId });
+            map.set(mapped.id, mapped);
           }
         }
       }
@@ -8984,29 +8939,6 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
   }
 }
 
-export function normalizeSituacaoExecucaoFerias(
-  rawValue?: string | null
-): 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' {
-  const clean = String(rawValue || 'AGENDADO')
-    .toUpperCase()
-    .trim()
-    .replace(/\s+/g, '_');
-  if (clean === 'EM_GOZO') return 'EM_GOZO';
-  if (clean === 'CONCLUIDO' || clean === 'CONCLUÍDO') return 'CONCLUIDO';
-  if (clean === 'CANCELADO') return 'CANCELADO';
-  if (clean === 'PROGRAMADO') return 'PROGRAMADO';
-  return 'AGENDADO';
-}
-
-export function mapSituacaoExecucaoToStatus(
-  situacao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO'
-): 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' {
-  if (situacao === 'EM_GOZO') return 'em_gozo';
-  if (situacao === 'CONCLUIDO') return 'concluido';
-  if (situacao === 'CANCELADO') return 'cancelado';
-  return 'agendado';
-}
-
 /**
  * Monta o objeto estruturado da linha para a tabela public.rh_ferias
  */
@@ -9014,11 +8946,6 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
   const cId = companyId || v.companyId || getActiveCompanyId() || 'default';
   const canonicalId = toValidUUID(v.id);
   const canonicalEmpId = toValidUUID(v.employeeId);
-
-  const situacaoExecucao = normalizeSituacaoExecucaoFerias(
-    v.situacao_execucao || v.status || 'AGENDADO'
-  );
-  const normalizedStatus = mapSituacaoExecucaoToStatus(situacaoExecucao);
 
   const baseSal = v.baseSalary || 0;
   const days = v.daysCount || 30;
@@ -9032,10 +8959,6 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
     companyId: cId,
     employeeId: v.employeeId,
     funcionario_id: canonicalEmpId,
-    status: normalizedStatus,
-    situacao_execucao: situacaoExecucao,
-    situacao_travada_usuario:
-      v.situacao_travada_usuario !== undefined ? Boolean(v.situacao_travada_usuario) : true,
     proventos: {
       valorFerias,
       umTercoConstitucional: v.oneThirdBonus ?? 0,
@@ -9062,7 +8985,7 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
     id: canonicalId,
     company_id: cId,
     funcionario_id: canonicalEmpId,
-    status: normalizedStatus,
+    status: v.status || 'agendado',
     payload: payloadObj,
     updated_at: new Date().toISOString(),
   };
@@ -9093,30 +9016,12 @@ export function mapRowToVacationRecord(row: any): VacationRecord | null {
   const descontos = parsedPayload.descontos || {};
   const toggles = parsedPayload.toggles || {};
 
-  // Prioriza situacao_execucao gravada na coluna ou no payload JSONB da tabela rh_ferias
-  const explicitSituacao = row.situacao_execucao || parsedPayload.situacao_execucao;
-  const fallbackStatus = String(parsedPayload.status || row.status || 'agendado').toLowerCase();
-  const rawSituacao = explicitSituacao
-    ? explicitSituacao
-    : fallbackStatus === 'concluido'
-      ? 'CONCLUIDO'
-      : fallbackStatus === 'cancelado'
-        ? 'CANCELADO'
-        : 'PROGRAMADO';
-  const situacaoExecucao = normalizeSituacaoExecucaoFerias(rawSituacao);
-  const normalizedStatus = mapSituacaoExecucaoToStatus(situacaoExecucao);
-
   return {
     ...parsedPayload,
     id: String(id),
     companyId: row.company_id || parsedPayload.companyId || undefined,
     employeeId: String(employeeId),
-    status: normalizedStatus,
-    situacao_execucao: situacaoExecucao,
-    situacao_travada_usuario:
-      parsedPayload.situacao_travada_usuario !== undefined
-        ? Boolean(parsedPayload.situacao_travada_usuario)
-        : true,
+    status: row.status || parsedPayload.status || 'agendado',
     customVacationAmount:
       parsedPayload.customVacationAmount !== undefined
         ? parsedPayload.customVacationAmount
@@ -9186,14 +9091,6 @@ export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?:
   try {
     const cId = companyId || vacation.companyId || getActiveCompanyId() || 'default';
     const row = buildRhFeriasRow(vacation, cId);
-    // Tenta gravar incluindo situacao_execucao caso a coluna exista fisicamente, com fallback imediato para o payload JSONB
-    const rowWithSituacao: Record<string, any> = {
-      ...row,
-      situacao_execucao: row.payload.situacao_execucao,
-    };
-    const { error: firstErr } = await supabase.from('rh_ferias').upsert(rowWithSituacao, { onConflict: 'id' });
-    if (!firstErr) return true;
-
     const { error } = await supabase.from('rh_ferias').upsert(row, { onConflict: 'id' });
     if (error) {
       console.warn('Aviso em upsertRhFeriasRecord:', error.message);

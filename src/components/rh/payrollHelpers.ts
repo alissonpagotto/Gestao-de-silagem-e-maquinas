@@ -616,85 +616,23 @@ export const formatEmployeeAdmissionDate = (dateStr?: string | null): string => 
 
 /**
  * Formata as informações bancárias cadastradas do colaborador:
- * - Conta Corrente: "[Nome_Banco] Ag: [0000] Cc: [00000-0]"
- * - Pix: "[Nome_Banco] Ag: [0000] Chave Pix: [valor_da_chave]"
+ * Padrão: "[Nome_Banco] Ag: [0000] Cc: [00000-0]"
  */
 export const formatEmployeeBankDeposit = (emp?: Partial<Employee> | null): string => {
   if (!emp) return 'Banco Não Informado Ag: 0000 Cc: 00000-0';
 
-  const rawLocation = String((emp as any).local_recebimento || emp.paymentLocation || '').trim();
-  const rawBankField = String((emp as any).banco_chave_pix || emp.bankPixKey || '').trim();
-  const rawAgency = String((emp as any).agencia || emp.bankAgency || '').trim();
-  const rawAccount = String((emp as any).conta_corrente || emp.bankAccount || '').trim();
-
-  const isGenericLocation = (val: string) => {
-    const lower = val.toLowerCase();
-    return (
-      !lower ||
-      lower === 'conta pessoal' ||
-      lower === 'conta de terceiro' ||
-      lower === 'pix' ||
-      lower === 'chave pix' ||
-      lower.includes('sede da empresa') ||
-      lower.includes('matriz')
-    );
-  };
-
-  const looksLikePixKeyOnly = (val: string) => {
-    if (!val) return false;
-    if (val.includes('@')) return true;
-    if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(val)) return true;
-    if (/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(val)) return true;
-    if (/^\(?\d{2}\)?\s?\d{4,5}-\d{4}$/.test(val) || /^\+55\d{10,11}$/.test(val)) return true;
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) return true;
-    if (/^\d{10,11}$/.test(val) || /^\d{14}$/.test(val)) return true;
-    return false;
-  };
-
-  let bankName = '';
-  if (rawBankField && !isGenericLocation(rawBankField) && !looksLikePixKeyOnly(rawBankField)) {
-    bankName = rawBankField;
-  } else if (rawLocation && !isGenericLocation(rawLocation) && !looksLikePixKeyOnly(rawLocation)) {
-    bankName = rawLocation;
-  } else if (rawBankField && !looksLikePixKeyOnly(rawBankField)) {
-    bankName = rawBankField;
-  } else if (rawLocation) {
-    bankName = rawLocation;
+  let bankName = (emp.paymentLocation || '').trim();
+  if (!bankName && emp.bankPixKey && !emp.bankPixKey.includes('@') && !/^\d{11}$/.test(emp.bankPixKey.replace(/\D/g, ''))) {
+    bankName = emp.bankPixKey.trim();
   }
   if (!bankName) {
     bankName = 'Banco do Brasil';
   }
 
-  const agency = rawAgency || '0000';
-  const accountSource = rawAccount || (looksLikePixKeyOnly(rawBankField) ? rawBankField : '') || '00000-0';
+  const agency = (emp.bankAgency || '').trim() || '0000';
+  const account = (emp.bankAccount || '').trim() || '00000-0';
 
-  const cleanAccountValue = accountSource
-    .replace(/^(chave\s+pix|pix|c\.?c\.?|conta\s+corrente)\s*:\s*/i, '')
-    .trim();
-
-  const empCpfDigits = String(emp.cpf || '').replace(/\D/g, '');
-  const empPhoneDigits = String(emp.phone || '').replace(/\D/g, '');
-  const accountDigits = cleanAccountValue.replace(/\D/g, '');
-
-  const isExplicitPix =
-    /\bpix\b/i.test(rawLocation) ||
-    /\bpix\b/i.test(rawBankField) ||
-    /\bpix\b/i.test(rawAccount) ||
-    /\bpix\b/i.test(String((emp as any).tipo_conta || (emp as any).accountType || ''));
-
-  const isPixKeyPattern =
-    looksLikePixKeyOnly(cleanAccountValue) ||
-    (cleanAccountValue.length >= 20 && /[a-zA-Z]/.test(cleanAccountValue) && /\d/.test(cleanAccountValue)) ||
-    (accountDigits.length >= 10 && !cleanAccountValue.includes('-') && (
-      (empCpfDigits.length === 11 && accountDigits === empCpfDigits) ||
-      (empPhoneDigits.length >= 10 && accountDigits === empPhoneDigits)
-    ));
-
-  if (isExplicitPix || isPixKeyPattern) {
-    return `${bankName} Ag: ${agency} Chave Pix: ${cleanAccountValue}`;
-  }
-
-  return `${bankName} Ag: ${agency} Cc: ${cleanAccountValue}`;
+  return `${bankName} Ag: ${agency} Cc: ${account}`;
 };
 
 /**

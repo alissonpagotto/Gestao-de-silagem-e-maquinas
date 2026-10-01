@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { X, Printer, Palmtree, Wifi, Building } from 'lucide-react';
+import { X, Printer, Palmtree, Wifi } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
-import { formatDateBR, getStoredCompanyProfile, getActiveCompanyId, getStoredVacations, saveStoredVacations, getStoredEmployees } from '../../lib/storage';
-import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit } from './payrollHelpers';
+import { formatDateBR, getStoredCompanyProfile, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   saveCloudVacations,
@@ -777,63 +776,11 @@ export function VacationReceiptModal({
   // =========================================================================
 
   const companyName = company?.tradeName || company?.companyName || company?.corporateName || 'COLACA SILAGEM LTDA';
-  const corporateName =
-    company?.corporateName && company.corporateName !== companyName
-      ? company.corporateName
-      : null;
-  const companyCnpj = company?.cnpjCpf || (company as any)?.cnpj || '46.097.636/0001-02';
-  const companyIe = company?.stateRegistration || 'ISENTO';
-  const companyPhone = company?.phone || '';
-  const companyEmail = company?.email || '';
+  const companyCnpj = company?.cnpjCpf || '46.097.636/0001-02';
 
-  const resolvedEmployee = employee || (() => {
-    const allEmps = getStoredEmployees();
-    return allEmps.find(
-      (e) =>
-        e.id === sourceVacation.employeeId ||
-        toValidUUID(e.id) === toValidUUID(sourceVacation.employeeId) ||
-        (e.name && sourceVacation.employeeName && e.name.trim().toUpperCase() === sourceVacation.employeeName.trim().toUpperCase())
-    );
-  })();
-
-  const employeeName = sourceVacation.employeeName || resolvedEmployee?.name || 'ALISSON PAGOTTO DA SILVA';
-  const employeeRole = resolvedEmployee?.role || (resolvedEmployee as any)?.cargo || 'Colaborador';
-  const employeeCpf = formatCPF(resolvedEmployee?.cpf || (resolvedEmployee as any)?.document || (resolvedEmployee as any)?.cpfCnpj);
-  const employeeAdmissionDate = formatEmployeeAdmissionDate(resolvedEmployee?.admissionDate || (resolvedEmployee as any)?.data_admissao);
-  const employeeBankDeposit = formatEmployeeBankDeposit(resolvedEmployee);
-
-  const contractRegime = (() => {
-    const type = resolvedEmployee?.registrationType || resolvedEmployee?.contractType;
-    if (!type) return 'CLT (REGISTRADO)';
-    const upper = type.toUpperCase().trim();
-    if (upper === 'CLT' || upper === 'FUNCIONÁRIO' || upper.includes('REGISTRADO')) {
-      return 'CLT (REGISTRADO)';
-    }
-    if (upper.includes('DIARISTA') || upper.includes('SAFRISTA')) {
-      return 'DIARISTA / SAFRISTA';
-    }
-    if (upper.includes('PRESTADOR')) {
-      return 'PRESTADOR DE SERVIÇO';
-    }
-    return upper;
-  })();
-
-  const issueDateBR = formatDateBR(new Date().toISOString().split('T')[0]);
-  const referenceMonthStr = (() => {
-    if (sourceVacation.startDate) {
-      const clean = sourceVacation.startDate.split('T')[0];
-      if (clean.includes('-')) {
-        const parts = clean.split('-');
-        if (parts.length >= 2) return `${parts[1].padStart(2, '0')}/${parts[0]}`;
-      }
-      if (clean.includes('/')) {
-        const parts = clean.split('/');
-        if (parts.length === 3) return `${parts[1].padStart(2, '0')}/${parts[2]}`;
-      }
-    }
-    const now = new Date();
-    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-  })();
+  const employeeName = sourceVacation.employeeName || employee?.name || 'ALISSON PAGOTTO DA SILVA';
+  const employeeRole = employee?.role || (employee as any)?.cargo || 'Colaborador';
+  const employeeCpf = employee?.cpf || (employee as any)?.document || (employee as any)?.cpfCnpj || 'Não Informado';
 
   const acquisitionStart = sourceVacation.acquisitionPeriodStart ? formatDateBR(sourceVacation.acquisitionPeriodStart) : '01/01/2025';
   const acquisitionEnd = sourceVacation.acquisitionPeriodEnd ? formatDateBR(sourceVacation.acquisitionPeriodEnd) : '31/12/2025';
@@ -902,38 +849,18 @@ export function VacationReceiptModal({
         ? `${irrfRate.toFixed(1).replace('.', ',')}%`
         : 'Isento';
 
-    const logoHtml = company?.logoUrl
-      ? `<img src="${company.logoUrl}" alt="${companyName}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />`
-      : `<div style="width: 100%; height: 100%; background: #eff6ff; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #0963cb; border-radius: 4px; font-weight: 900; font-size: 9px;">ERP</div>`;
-
     const content = `
       <div class="recibo-ferias-container">
-        <!-- CABEÇALHO EMPRESARIAL PADRONIZADO (CAIXA DUPLA IGUAL AO HOLERITE) -->
+        <!-- CABEÇALHO EMPRESARIAL -->
         <div class="header-box">
-          <div class="header-left-group">
-            <div class="company-logo-box">
-              ${logoHtml}
-            </div>
-            <div class="header-left">
-              <div class="company-title-row">
-                <h1 class="company-title">${companyName}</h1>
-                <span class="company-type-pill">AVISO E RECIBO DE FÉRIAS</span>
-              </div>
-              ${corporateName ? `<p class="company-corp">Razão Social: <strong>${corporateName}</strong></p>` : ''}
-              <p class="company-sub">
-                <strong>CNPJ/CPF:</strong> ${companyCnpj}
-                ${companyIe ? ` • <strong>IE:</strong> ${companyIe}` : ''}
-                ${companyPhone ? ` • <strong>Contato:</strong> ${companyPhone}` : ''}
-                ${companyEmail ? ` • <strong>E-mail:</strong> ${companyEmail}` : ''}
-              </p>
-              ${companyAddress ? `<p class="company-addr"><strong>Endereço:</strong> ${companyAddress}</p>` : ''}
-            </div>
+          <div class="header-left">
+            <h1 class="company-title">${companyName}</h1>
+            <p class="company-sub">
+              CNPJ/MF: ${companyCnpj} ${companyAddress ? `• ${companyAddress}` : ''}
+            </p>
           </div>
-          <div class="header-right">
-            <p class="doc-right-title">AVISO E RECIBO DE FÉRIAS</p>
-            <p class="doc-right-meta">Data da Emissão: <strong>${issueDateBR}</strong></p>
-            <p class="doc-right-meta">Referência: <strong class="text-blue">${referenceMonthStr}</strong></p>
-            <p class="doc-right-meta">Regime: <strong>${contractRegime}</strong></p>
+          <div class="header-badge">
+            <span>AVISO E RECIBO DE FÉRIAS</span>
           </div>
         </div>
 
@@ -965,18 +892,6 @@ export function VacationReceiptModal({
               <span class="info-label">Gozo (${daysCount}d):</span>
               <span class="info-val-blue">${periodGozo}</span>
             </div>
-            <div class="info-col-wide" style="padding-top: 2px; border-top: 1px solid #e7e5e4;">
-              <span class="info-label">Data de Admissão:</span>
-              <span class="info-val">${employeeAdmissionDate}</span>
-            </div>
-            <div style="grid-column: span 4; padding-top: 2px; border-top: 1px solid #e7e5e4;">
-              <span class="info-label">Regime / Vínculo:</span>
-              <span class="info-val">${resolvedEmployee?.registrationType || resolvedEmployee?.contractType || 'Funcionário'}</span>
-            </div>
-            <div style="grid-column: 1 / -1;">
-              <span class="info-label">Banco para Depósito:</span>
-              <span class="info-val-strong">${employeeBankDeposit}</span>
-            </div>
           </div>
         </div>
 
@@ -990,7 +905,7 @@ export function VacationReceiptModal({
           <table class="fin-table">
             <thead>
               <tr>
-                <th class="cell-left">DISCRIMINAÇÃO</th>
+                <th class="cell-left">Rubrica / Discriminação</th>
                 <th class="cell-center" style="width: 96px;">Referência</th>
                 <th class="cell-right text-emerald" style="width: 130px;">PROVENTOS (+)</th>
                 <th class="cell-right text-rose" style="width: 130px;">DESCONTOS (-)</th>
@@ -1111,97 +1026,34 @@ export function VacationReceiptModal({
           gap: 12px;
         }
         .header-box {
-          border-bottom: 2px solid #0f172a;
-          padding-bottom: 10px;
+          border-bottom: 2px solid #000000;
+          padding-bottom: 8px;
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 12px;
-        }
-        .header-left-group {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          flex: 1;
-          min-width: 0;
-        }
-        .company-logo-box {
-          width: 52px;
-          height: 52px;
-          min-width: 52px;
-          border-radius: 8px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 4px;
-          overflow: hidden;
-        }
-        .header-left {
-          flex: 1;
-          min-width: 0;
-        }
-        .company-title-row {
-          display: flex;
-          align-items: center;
           gap: 8px;
-          flex-wrap: wrap;
         }
         .company-title {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 900;
           text-transform: uppercase;
-          letter-spacing: -0.01em;
-          color: #0f172a;
-        }
-        .company-type-pill {
-          font-size: 9px;
-          font-weight: 800;
-          text-transform: uppercase;
-          padding: 2px 7px;
-          border-radius: 4px;
-          background: #eff6ff;
-          color: #0963cb;
-          border: 1px solid #bfdbfe;
           letter-spacing: 0.04em;
         }
-        .company-corp {
-          font-size: 10px;
-          color: #334155;
-          margin-top: 1px;
-        }
         .company-sub {
-          font-size: 10.5px;
-          color: #475569;
-          margin-top: 2px;
-          line-height: 1.3;
-        }
-        .company-addr {
           font-size: 10px;
-          color: #64748b;
-          margin-top: 1px;
+          font-weight: 700;
+          color: #333333;
+          margin-top: 2px;
         }
-        .header-right {
-          text-align: right;
-          flex-shrink: 0;
-          min-width: 170px;
-          padding-top: 2px;
-        }
-        .doc-right-title {
-          font-size: 12px;
+        .header-badge {
+          border: 2px solid #000000;
+          padding: 3px 10px;
+          background: #f9fafb;
+          font-size: 11px;
           font-weight: 900;
           text-transform: uppercase;
-          color: #0f172a;
-          letter-spacing: -0.01em;
-        }
-        .doc-right-meta {
-          font-size: 10.5px;
-          color: #475569;
-          margin-top: 2px;
-        }
-        .text-blue {
-          color: #0963cb;
+          letter-spacing: 0.05em;
+          white-space: nowrap;
         }
         .section-box {
           border: 1px solid #78716c;
@@ -1550,87 +1402,20 @@ export function VacationReceiptModal({
             className="recibo-ferias-container bg-white text-black w-full max-w-[210mm] border border-stone-300 p-4 rounded-lg shadow-sm text-xs leading-snug font-sans flex flex-col gap-3 overflow-y-hidden"
             style={{ padding: '16px', gap: '0.75rem', overflowY: 'hidden' }}
           >
-            {/* CABEÇALHO PADRONIZADO (CAIXA DUPLA SIMÉTRICA AO HOLERITE) */}
-            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-2.5 gap-4">
-              {/* LADO ESQUERDO: Logotipo + Nome da Empresa + Badge + CNPJ, IE, Contato, E-mail e Endereço */}
-              <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="w-14 h-14 min-w-[56px] max-w-[56px] rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden p-1 shrink-0 shadow-2xs">
-                  {company?.logoUrl ? (
-                    <img
-                      src={company.logoUrl}
-                      alt={companyName}
-                      className="max-w-full max-h-full object-contain"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-blue-50 flex flex-col items-center justify-center text-[#0963cb] p-0.5 rounded">
-                      <Building className="w-6 h-6 stroke-[1.8]" />
-                      <span className="text-[8px] font-black uppercase tracking-wider mt-0.5">ERP</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-0.5 flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 uppercase truncate font-['Outfit']">
-                      {companyName}
-                    </h1>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border shrink-0 bg-blue-50 text-[#0963cb] border-blue-200 tracking-wider">
-                      AVISO E RECIBO DE FÉRIAS
-                    </span>
-                  </div>
-
-                  {corporateName && (
-                    <p className="text-[11px] text-slate-700 font-semibold truncate">
-                      Razão Social: <span className="text-slate-900 font-bold">{corporateName}</span>
-                    </p>
-                  )}
-
-                  <div className="text-xs text-slate-600 leading-tight space-y-0.5 pt-0.5">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      {companyCnpj && (
-                        <span>
-                          <strong className="text-slate-800">CNPJ/CPF:</strong> {companyCnpj}
-                        </span>
-                      )}
-                      {companyIe && (
-                        <span>
-                          • <strong className="text-slate-800">IE:</strong> {companyIe}
-                        </span>
-                      )}
-                      {companyPhone && (
-                        <span>
-                          • <strong className="text-slate-800">Contato:</strong> {companyPhone}
-                        </span>
-                      )}
-                      {companyEmail && (
-                        <span>
-                          • <strong className="text-slate-800">E-mail:</strong> {companyEmail}
-                        </span>
-                      )}
-                    </div>
-                    {companyAddress && (
-                      <div className="truncate text-[11px] text-slate-500">
-                        <strong className="text-slate-700">Endereço:</strong> {companyAddress}
-                      </div>
-                    )}
-                  </div>
-                </div>
+            {/* CABEÇALHO EMPRESARIAL COMPACTO */}
+            <div className="border-b-2 border-black pb-2 text-center flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <div className="text-left">
+                <h1 className="text-sm font-black uppercase tracking-wider text-black">
+                  {companyName}
+                </h1>
+                <p className="text-[10px] font-bold text-stone-700">
+                  CNPJ/MF: {companyCnpj} {companyAddress ? `• ${companyAddress}` : ''}
+                </p>
               </div>
-
-              {/* LADO DIREITO: Título Isolado + Data da Emissão + Referência + Regime */}
-              <div className="text-right space-y-0.5 shrink-0 min-w-[170px] pt-0.5">
-                <p className="text-xs sm:text-sm font-black text-slate-900 tracking-tight uppercase font-['Outfit']">
+              <div className="inline-block border-2 border-black px-3 py-0.5 rounded-sm bg-stone-50 self-center sm:self-auto shrink-0">
+                <span className="text-[11px] font-black tracking-wider uppercase text-black">
                   AVISO E RECIBO DE FÉRIAS
-                </p>
-                <p className="text-xs text-slate-600">
-                  Data da Emissão: <strong className="text-slate-900">{issueDateBR}</strong>
-                </p>
-                <p className="text-xs text-slate-600">
-                  Referência: <strong className="text-[#0963cb] font-bold">{referenceMonthStr}</strong>
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Regime: <strong className="text-slate-800 uppercase">{contractRegime}</strong>
-                </p>
+                </span>
               </div>
             </div>
 
@@ -1641,47 +1426,27 @@ export function VacationReceiptModal({
                 <span className="text-[9px] font-semibold text-stone-600">Comunicação Formal ao Empregado</span>
               </div>
 
-              {/* Tabela dos Dados Cadastrais, Data de Admissão, Banco para Depósito e Períodos */}
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-x-3 gap-y-1.5 border border-stone-300 p-2 bg-white rounded-xs text-[11px]">
+              {/* Tabela dos Dados Cadastrais e Períodos */}
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 border border-stone-300 p-2 bg-white rounded-xs text-[11px]">
                 <div className="sm:col-span-2">
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Colaborador(a):</span>
-                  <span className="font-black text-black text-[11px] truncate block leading-tight">{employeeName}</span>
+                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Colaborador(a):</span>
+                  <span className="font-black text-black text-[11px] truncate block">{employeeName}</span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Cargo / Função:</span>
-                  <span className="font-bold text-stone-900 truncate block leading-tight">{employeeRole}</span>
+                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Cargo / Função:</span>
+                  <span className="font-bold text-stone-900 truncate block">{employeeRole}</span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">CPF:</span>
-                  <span className="font-bold text-stone-900 leading-tight block">{employeeCpf}</span>
+                  <span className="block text-[9px] font-bold text-stone-500 uppercase">CPF:</span>
+                  <span className="font-bold text-stone-900">{employeeCpf}</span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Per. Aquisitivo:</span>
-                  <span className="font-black text-stone-900 text-[10px] leading-tight block">{periodAcquisitive}</span>
+                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Per. Aquisitivo:</span>
+                  <span className="font-black text-stone-900 text-[10px]">{periodAcquisitive}</span>
                 </div>
                 <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Gozo ({daysCount}d):</span>
-                  <span className="font-black text-blue-900 text-[10px] leading-tight block">{periodGozo}</span>
-                </div>
-
-                {/* Linha 2: Data de Admissão e Regime / Vínculo */}
-                <div className="sm:col-span-2 pt-1 border-t border-stone-200/80">
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Data de Admissão:</span>
-                  <span className="font-bold text-stone-900 text-[11px] leading-tight block">{employeeAdmissionDate}</span>
-                </div>
-                <div className="sm:col-span-4 pt-1 border-t border-stone-200/80">
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Regime / Vínculo:</span>
-                  <span className="font-bold text-stone-900 text-[11px] leading-tight block">
-                    {resolvedEmployee?.registrationType || resolvedEmployee?.contractType || 'Funcionário'}
-                  </span>
-                </div>
-
-                {/* Linha 3: Banco para Depósito posicionado exatamente abaixo da Data de Admissão */}
-                <div className="col-span-2 sm:col-span-6">
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase leading-tight">Banco para Depósito:</span>
-                  <span className="font-bold text-stone-900 text-[11px] truncate block leading-tight" title={employeeBankDeposit}>
-                    {employeeBankDeposit}
-                  </span>
+                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Gozo ({daysCount}d):</span>
+                  <span className="font-black text-blue-900 text-[10px]">{periodGozo}</span>
                 </div>
               </div>
             </div>
@@ -1703,7 +1468,7 @@ export function VacationReceiptModal({
                 <thead>
                   <tr className="bg-stone-100 text-stone-800 border-b border-stone-300 text-left">
                     <th className="py-1 px-2.5 border-r border-stone-300 font-bold uppercase text-[11px]">
-                      DISCRIMINAÇÃO
+                      Rubrica / Discriminação
                     </th>
                     <th className="py-1 px-2 border-r border-stone-300 font-bold uppercase text-[11px] text-center w-24">
                       Referência

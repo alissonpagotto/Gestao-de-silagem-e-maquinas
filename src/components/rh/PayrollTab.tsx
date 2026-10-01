@@ -323,7 +323,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const reciboElement = document.getElementById('recibo-holerite-branco');
     if (!reciboElement) return;
 
-    const printWindow = window.open('', '_blank', 'width=960,height=1040');
+    const printWindow = window.open('', '_blank', 'width=900,height=1000');
     if (printWindow) {
       // Captura todas as folhas de estilo ativas no sistema principal
       const estilosPai = Array.from(document.styleSheets)
@@ -339,39 +339,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         .join('\n');
 
       printWindow.document.write(`
-        <!DOCTYPE html>
-        <html lang="pt-BR">
+        <html>
           <head>
-            <meta charset="UTF-8" />
             <title>Imprimir Holerite</title>
             <style>
               ${estilosPai}
-              * { box-sizing: border-box; }
-              html, body {
-                background: #ffffff !important;
-                color: #0f172a !important;
-                padding: 16px;
-                margin: 0;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .header-company-info { display: flex !important; width: 100% !important; justify-content: space-between !important; gap: 15px !important; overflow: visible !important; }
-              .company-brand-block { flex: 1 1 auto !important; min-width: 0 !important; overflow: visible !important; }
-              .company-contact-block { flex: 1 1 auto !important; min-width: 0 !important; white-space: nowrap !important; overflow: visible !important; font-size: 11px !important; line-height: 1.35 !important; }
+              body { background: white !important; color: black !important; padding: 24px; font-family: sans-serif; }
               @media print {
-                @page { size: A4 portrait; margin: 8mm 10mm; }
-                html, body { padding: 0 !important; margin: 0 !important; width: 100% !important; }
-                .no-print, .print\\:hidden { display: none !important; }
-                .header-company-info { display: flex !important; width: 100% !important; justify-content: space-between !important; gap: 15px !important; overflow: visible !important; }
-                .company-brand-block { flex: 1 1 auto !important; min-width: 0 !important; width: auto !important; max-width: none !important; overflow: visible !important; }
-                .company-contact-block { flex: 1 1 auto !important; min-width: 0 !important; width: auto !important; max-width: none !important; white-space: nowrap !important; overflow: visible !important; font-size: 10.5px !important; line-height: 1.3 !important; }
-                .company-contact-block *, .company-brand-block * { overflow: visible !important; text-overflow: clip !important; }
+                body { padding: 0; }
+                .no-print { display: none !important; }
               }
             </style>
           </head>
           <body class="bg-white text-black antialiased">
-            <div id="recibo-holerite-branco" class="w-full max-w-4xl mx-auto p-4 bg-white text-stone-900 space-y-4">
+            <div class="w-full max-w-4xl mx-auto p-4 bg-white border border-gray-200 rounded-xl shadow-none">
               ${reciboElement.innerHTML}
             </div>
           </body>
@@ -383,7 +364,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setTimeout(() => {
         printWindow.focus();
         printWindow.print();
-      }, 350);
+      }, 600);
     }
   };
 

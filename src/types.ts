@@ -1132,9 +1132,7 @@ export interface VacationRecord {
   totalDiscounts?: number;
   netAmount?: number;
   totalAmount: number;
-  status: 'agendado' | 'programado' | 'em_gozo' | 'concluido' | 'cancelado';
-  situacao_execucao?: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' | string;
-  situacao_travada_usuario?: boolean;
+  status: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado';
   notes?: string;
   createdAt: string;
   updatedAt?: string;

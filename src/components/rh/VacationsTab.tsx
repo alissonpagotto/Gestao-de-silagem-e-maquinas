@@ -9,25 +9,18 @@ import {
   X,
   Printer,
   FileText,
-  Wifi,
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2
+  Wifi
 } from 'lucide-react';
-import { Employee, VacationRecord, AbsenceRecord } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getActiveCompanyId, saveStoredVacations, getStoredAbsences } from '../../lib/storage';
+import { Employee, VacationRecord } from '../../types';
+import { formatCurrencyBRL, formatDateBR, getActiveCompanyId, saveStoredVacations } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { isSupabaseConfigured } from '../../lib/supabase';
 import {
   saveCloudVacations,
   fetchCloudVacations,
   upsertRhFeriasRecord,
   deleteRhFeriasRecord,
-  mapRowToVacationRecord,
-  normalizeSituacaoExecucaoFerias,
-  mapSituacaoExecucaoToStatus,
-  formatIsoDateOnly,
   toValidUUID,
 } from '../../lib/supabaseService';
 import {
@@ -36,12 +29,10 @@ import {
   sendVacationRealtimeBroadcast,
 } from './VacationReceiptModal';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
-import { evaluateEmployeeVacationAlert } from '../employees/EmployeesModule';
 
 interface VacationsTabProps {
   employees: Employee[];
   vacations: VacationRecord[];
-  absences?: AbsenceRecord[];
   onSaveVacations: (vacations: VacationRecord[]) => void;
 }
 
@@ -293,104 +284,9 @@ function formatPaymentDeadline(startStr: string): string {
   return '-';
 }
 
-/**
- * Calcula o fim do período aquisitivo (12 meses após o início, menos 1 dia).
- * Ex: Início 2025-03-01 -> Fim 2026-02-28.
- */
-function calculateAcquisitionEndIso(startIso: string): string {
-  const clean = formatIsoDateOnly(startIso);
-  if (!clean) return '';
-  const parts = clean.split('-').map(Number);
-  if (parts.length !== 3 || isNaN(parts[0])) return '';
-  const endObj = new Date(parts[0] + 1, parts[1] - 1, parts[2] - 1, 12, 0, 0);
-  return formatIsoDateOnly(endObj.toISOString()) || '';
-}
-
-/**
- * Calcula a data Limite para Gozo (data final do período concessivo),
- * somando estritamente 11 meses ao fim do período aquisitivo para evitar pagamento em dobro.
- */
-function calculateConcessiveLimitIso(acquisitionEndIso: string): string {
-  const clean = formatIsoDateOnly(acquisitionEndIso);
-  if (!clean) return '';
-  const parts = clean.split('-').map(Number);
-  if (parts.length !== 3 || isNaN(parts[0])) return '';
-  const targetYear = parts[0];
-  const targetMonthIndex = (parts[1] - 1) + 11;
-  const origDay = parts[2];
-  // Clampa para o último dia do mês alvo caso o dia original exceda (ex: 31 em mês de 30 dias)
-  const daysInTargetMonth = new Date(targetYear, targetMonthIndex + 1, 0).getDate();
-  const safeDay = Math.min(origDay, daysInTargetMonth);
-  const limitObj = new Date(targetYear, targetMonthIndex, safeDay, 12, 0, 0);
-  return formatIsoDateOnly(limitObj.toISOString()) || '';
-}
-
-/**
- * Calcula os Dias de Direito de férias conforme o Art. 130 da CLT,
- * reduzindo o padrão de 30 dias caso haja excesso de faltas injustificadas acumuladas no período aquisitivo.
- */
-function calculateCltRightDays(
-  empId: string,
-  empName: string,
-  acqStartIso: string,
-  acqEndIso: string,
-  absences: AbsenceRecord[]
-): { rightDays: number; unjustifiedAbsencesCount: number } {
-  const empUuid = toValidUUID(empId);
-  const nameNorm = (empName || '').trim().toUpperCase();
-
-  const empAbsences = (absences || []).filter((a) => {
-    if (!a) return false;
-    // Ignora faltas abonadas/justificadas
-    if ((a as any).justified === true || String((a as any).status || '').toLowerCase() === 'abonada') {
-      return false;
-    }
-    const matchId = a.employeeId === empId || toValidUUID(a.employeeId) === empUuid;
-    const matchName = nameNorm && (a.employeeName || '').trim().toUpperCase() === nameNorm;
-    if (!matchId && !matchName) return false;
-
-    const absDate = formatIsoDateOnly(a.date || '');
-    if (absDate && acqStartIso && acqEndIso) {
-      return absDate >= acqStartIso && absDate <= acqEndIso;
-    }
-    return true;
-  });
-
-  const totalFaltas = empAbsences.reduce((acc, a) => {
-    const qty = Number((a as any).daysCount || (a as any).days || 1);
-    return acc + (isNaN(qty) || qty <= 0 ? 1 : qty);
-  }, 0);
-
-  let rightDays = 30;
-  if (totalFaltas <= 5) rightDays = 30;
-  else if (totalFaltas <= 14) rightDays = 24;
-  else if (totalFaltas <= 23) rightDays = 18;
-  else if (totalFaltas <= 32) rightDays = 12;
-  else rightDays = 0;
-
-  return { rightDays, unjustifiedAbsencesCount: totalFaltas };
-}
-
-export interface VacationManagementRow {
-  rowKey: string;
-  employee: Employee;
-  roleLabel: string;
-  acquisitionStart: string;
-  acquisitionEnd: string;
-  concessiveLimit: string;
-  rightDays: number;
-  unjustifiedAbsencesCount: number;
-  periodStatus: 'vencido' | 'proximo' | 'quitado';
-  isProgramado: boolean;
-  isEmGozo: boolean;
-  monthsLabel: string;
-  vacationRecord: VacationRecord | null;
-}
-
 export const VacationsTab: React.FC<VacationsTabProps> = ({
   employees,
   vacations,
-  absences: propAbsences,
   onSaveVacations,
 }) => {
   const { confirm } = useConfirm();
@@ -406,11 +302,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   }, [vacations]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'vencido' | 'proximo' | 'programados' | 'em_gozo'>('all');
-
-  const activeAbsences = useMemo(() => {
-    return propAbsences && propAbsences.length > 0 ? propAbsences : getStoredAbsences();
-  }, [propAbsences]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVacation, setEditingVacation] = useState<VacationRecord | null>(null);
@@ -428,7 +319,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const [baseSalary, setBaseSalary] = useState<number>(0);
   const [thirteenthAdvance, setThirteenthAdvance] = useState<boolean>(false);
   const [status, setStatus] = useState<'agendado' | 'em_gozo' | 'concluido' | 'cancelado'>('agendado');
-  const statusSelectRef = useRef<HTMLSelectElement | null>(null);
   const [notes, setNotes] = useState('');
 
   // Editable Financial Overrides & Switches
@@ -447,222 +337,18 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return employees.find(e => e.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
 
-  // Verificação diária em background (rotina): muda de 'PROGRAMADO' para 'EM_GOZO'
-  // APENAS se a Situação original NÃO estiver travada como agendada pelo usuário (situacao_travada_usuario === false)
-  useEffect(() => {
-    if (!Array.isArray(vacations) || vacations.length === 0) return;
-    const now = new Date();
-    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // Filtragem da lista principal
+  const filtered = useMemo(() => {
+    return vacations.filter(v => 
+      v.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [vacations, searchTerm]);
 
-    let hasChanges = false;
-    const updatedList = vacations.map((v) => {
-      if (!v) return v;
-      const sit = normalizeSituacaoExecucaoFerias(v.situacao_execucao || v.status);
-      const isLockedByUser = v.situacao_travada_usuario !== false;
-      const sIso = formatIsoDateOnly(v.startDate || '');
-      const eIso = formatIsoDateOnly(v.endDate || '');
-
-      if (
-        (sit === 'PROGRAMADO' || sit === 'AGENDADO') &&
-        !isLockedByUser &&
-        sIso &&
-        eIso &&
-        todayIso >= sIso &&
-        todayIso <= eIso
-      ) {
-        hasChanges = true;
-        const promoted: VacationRecord = {
-          ...v,
-          status: 'em_gozo',
-          situacao_execucao: 'EM_GOZO',
-          updatedAt: new Date().toISOString(),
-        };
-        if (isSupabaseConfigured) {
-          upsertRhFeriasRecord(promoted, activeTenantId).catch(() => {});
-        }
-        return promoted;
-      }
-      return v;
-    });
-
-    if (hasChanges) {
-      saveStoredVacations(updatedList);
-      onSaveVacations(updatedList);
-      if (isSupabaseConfigured) {
-        saveCloudVacations(updatedList, activeTenantId).catch(() => {});
-      }
-    }
-  }, [vacations, activeTenantId, onSaveVacations]);
-
-  // Construção reativa da Tabela de Gestão de Períodos Aquisitivos e Concessivos
-  const periodRows = useMemo<VacationManagementRow[]>(() => {
-    const now = new Date();
-    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-    const seenEmp = new Set<string>();
-    const activeEmployees: Employee[] = [];
-
-    for (const emp of employees || []) {
-      if (!emp || !emp.name || emp.name.trim() === '') continue;
-      const st = String(emp.status || '').toLowerCase();
-      if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;
-      if (emp.id === 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' || (emp.name.trim().toUpperCase() === 'ALISSON PAG' && !emp.cpf)) {
-        continue;
-      }
-      const key = emp.id ? String(emp.id) : `${emp.name.trim().toUpperCase()}_${emp.cpf || ''}`;
-      if (!seenEmp.has(key)) {
-        seenEmp.add(key);
-        activeEmployees.push(emp);
-      }
-    }
-
-    activeEmployees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-
-    const rows: VacationManagementRow[] = activeEmployees.map((emp) => {
-      const empUuid = toValidUUID(emp.id);
-      const empNameNorm = (emp.name || '').trim().toUpperCase();
-
-      // Busca registros de férias deste colaborador na tabela rh_ferias ordenados pelo mais recente
-      const empVacations = (vacations || [])
-        .filter((v) => {
-          if (!v || v.status === 'cancelado' || String(v.situacao_execucao || '').toUpperCase() === 'CANCELADO') {
-            return false;
-          }
-          if (v.employeeId === emp.id || toValidUUID(v.employeeId) === empUuid) return true;
-          if (empNameNorm && (v.employeeName || '').trim().toUpperCase() === empNameNorm) return true;
-          return false;
-        })
-        .sort(
-          (a, b) =>
-            new Date(b.updatedAt || b.createdAt || 0).getTime() -
-            new Date(a.updatedAt || a.createdAt || 0).getTime()
-        );
-
-      // Avalia o alerta automático de férias (mesma função unificada da aba Funcionários)
-      const alertInfo = evaluateEmployeeVacationAlert(emp, vacations);
-
-      const rawAdm =
-        formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at || '') ||
-        todayIso;
-
-      // Prioriza qualquer registro ativo ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO') salvo para este colaborador
-      const activeExecutionRecord = empVacations.find((v) => {
-        const sit = normalizeSituacaoExecucaoFerias(v.situacao_execucao || v.status);
-        return sit === 'PROGRAMADO' || sit === 'AGENDADO' || sit === 'EM_GOZO';
-      });
-
-      const latestRecord = activeExecutionRecord || (empVacations.length > 0 ? empVacations[0] : null);
-
-      let acqStart = alertInfo.vestingStart || latestRecord?.acquisitionPeriodStart || rawAdm;
-      let acqEnd = alertInfo.vestingEnd || latestRecord?.acquisitionPeriodEnd || calculateAcquisitionEndIso(acqStart);
-
-      // Se houver registro ativo ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO') ou se o alerta estiver quitado,
-      // exibe o período aquisitivo correspondente ao registro salvo
-      if ((activeExecutionRecord || alertInfo.level === 'none') && latestRecord?.acquisitionPeriodStart) {
-        acqStart = formatIsoDateOnly(latestRecord.acquisitionPeriodStart) || acqStart;
-        acqEnd =
-          formatIsoDateOnly(latestRecord.acquisitionPeriodEnd || '') ||
-          calculateAcquisitionEndIso(acqStart) ||
-          acqEnd;
-      }
-
-      if (!acqEnd && acqStart) {
-        acqEnd = calculateAcquisitionEndIso(acqStart);
-      }
-
-      const concessiveLimit = calculateConcessiveLimitIso(acqEnd);
-
-      const { rightDays, unjustifiedAbsencesCount } = calculateCltRightDays(
-        emp.id,
-        emp.name,
-        acqStart,
-        acqEnd,
-        activeAbsences
-      );
-
-      let periodStatus: 'vencido' | 'proximo' | 'quitado' = 'quitado';
-      if (alertInfo.level === 'expired') {
-        periodStatus = 'vencido';
-      } else if (alertInfo.level === 'warning') {
-        periodStatus = 'proximo';
-      } else {
-        periodStatus = 'quitado';
-      }
-
-      // Vincula o registro de férias correspondente a este período (priorizando o registro de execução ativo)
-      const matchingRecord =
-        activeExecutionRecord ||
-        empVacations.find(
-          (v) =>
-            formatIsoDateOnly(v.acquisitionPeriodStart || '') === acqStart ||
-            formatIsoDateOnly(v.acquisitionPeriodEnd || '') === acqEnd
-        ) ||
-        latestRecord;
-
-      const situacaoExecucao = matchingRecord
-        ? normalizeSituacaoExecucaoFerias(matchingRecord.situacao_execucao || matchingRecord.status)
-        : null;
-
-      // CARD "FÉRIAS PROGRAMADAS": registros onde 'situacao_execucao' seja igual a 'PROGRAMADO' ou 'AGENDADO',
-      // independentemente se a data de início é a data de hoje
-      const isProgramado = Boolean(
-        matchingRecord &&
-        (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO')
-      );
-
-      // CARD "FÉRIAS EM GOZO AGORA": APENAS os registros onde a 'situacao_execucao' seja explicitamente 'EM_GOZO'
-      const isEmGozo = Boolean(
-        matchingRecord &&
-        situacaoExecucao === 'EM_GOZO'
-      );
-
-      const roleLabel =
-        Array.isArray(emp.roles) && emp.roles.length > 0
-          ? emp.roles.join(', ')
-          : emp.role || 'Colaborador';
-
-      return {
-        rowKey: matchingRecord?.id ? toValidUUID(matchingRecord.id) : empUuid,
-        employee: emp,
-        roleLabel,
-        acquisitionStart: acqStart,
-        acquisitionEnd: acqEnd,
-        concessiveLimit,
-        rightDays,
-        unjustifiedAbsencesCount,
-        periodStatus,
-        isProgramado,
-        isEmGozo,
-        monthsLabel: alertInfo.monthsLabel,
-        vacationRecord: matchingRecord,
-      };
-    });
-
-    return rows;
-  }, [employees, vacations, activeAbsences]);
-
-  // Filtragem da lista principal por busca e pelas 5 sub-abas unificadas
-  const filteredRows = useMemo(() => {
-    return periodRows.filter((row) => {
-      const matchesSearch =
-        row.employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.roleLabel.toLowerCase().includes(searchTerm.toLowerCase());
-      if (!matchesSearch) return false;
-      if (statusFilter === 'vencido') return row.periodStatus === 'vencido';
-      if (statusFilter === 'proximo') return row.periodStatus === 'proximo';
-      if (statusFilter === 'programados') return row.isProgramado;
-      if (statusFilter === 'em_gozo') return row.isEmGozo;
-      return true;
-    });
-  }, [periodRows, searchTerm, statusFilter]);
-
-  // Totais dos KPIs de Gestão de Períodos e Execução de Férias
-  const vencidosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'vencido').length, [periodRows]);
-  const proximosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'proximo').length, [periodRows]);
-  const programadosCount = useMemo(() => periodRows.filter(r => r.isProgramado).length, [periodRows]);
-  const emGozoCount = useMemo(() => periodRows.filter(r => r.isEmGozo).length, [periodRows]);
-  const quitadosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'quitado').length, [periodRows]);
-  const totalValorFerias = useMemo(() => vacations.reduce((sum, v) => sum + (v.totalAmount || 0), 0), [vacations]);
+  // Totais dos KPIs
+  const emGozoCount = vacations.filter(v => v.status === 'em_gozo').length;
+  const agendadasCount = vacations.filter(v => v.status === 'agendado').length;
+  const concluidasCount = vacations.filter(v => v.status === 'concluido').length;
+  const totalValorFerias = vacations.reduce((sum, v) => sum + (v.totalAmount || 0), 0);
 
   // Cálculos financeiros dinâmicos completos da janela modal (recalcula instantaneamente no front-end)
   const financials = useMemo(() => {
@@ -756,66 +442,28 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return formatPaymentDeadline(startDate);
   }, [startDate]);
 
-  // Sincronização inicial e canal Realtime direto na tabela public.rh_ferias do Supabase
+  // Sincronização inicial com a tabela public.rh_ferias do Supabase
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !activeTenantId) return;
     let isMounted = true;
-
-    const loadInitialFromSupabase = async () => {
-      try {
-        const cloudVacations = await fetchCloudVacations(activeTenantId);
-        if (!isMounted || !Array.isArray(cloudVacations)) return;
-        if (cloudVacations.length > 0) {
-          const currentList = vacationsRef.current;
-          const map = new Map<string, VacationRecord>();
-          currentList.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
-          cloudVacations.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          );
-          saveStoredVacations(merged);
-          onSaveVacations(merged);
-        }
-      } catch (_) {}
-    };
-
-    loadInitialFromSupabase();
-
-    // Assinatura Realtime direta na tabela public.rh_ferias
-    const directChannel = supabase
-      .channel(`rh_ferias_tab_direct_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rh_ferias' },
-        (payload: any) => {
-          if (!isMounted) return;
-          if (payload.eventType === 'DELETE' && payload.old?.id) {
-            const deletedId = toValidUUID(payload.old.id);
-            const nextList = vacationsRef.current.filter((v) => toValidUUID(v.id) !== deletedId);
-            saveStoredVacations(nextList);
-            onSaveVacations(nextList);
-            return;
-          }
-          if (payload.new) {
-            const mapped = mapRowToVacationRecord(payload.new);
-            const mappedId = toValidUUID(mapped.id);
-            const currentList = vacationsRef.current;
-            const exists = currentList.some((v) => toValidUUID(v.id) === mappedId);
-            const nextList = exists
-              ? currentList.map((v) => (toValidUUID(v.id) === mappedId ? { ...v, ...mapped, id: mappedId } : v))
-              : [{ ...mapped, id: mappedId }, ...currentList];
-            saveStoredVacations(nextList);
-            onSaveVacations(nextList);
-          }
-        }
-      )
-      .subscribe();
-
+    fetchCloudVacations(activeTenantId)
+      .then((cloudVacations) => {
+        if (!isMounted || !cloudVacations || !Array.isArray(cloudVacations) || cloudVacations.length === 0) return;
+        const currentList = vacationsRef.current;
+        const map = new Map<string, VacationRecord>();
+        currentList.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
+        cloudVacations.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        saveStoredVacations(merged);
+        onSaveVacations(merged);
+      })
+      .catch(() => {});
     return () => {
       isMounted = false;
-      supabase.removeChannel(directChannel);
     };
-  }, [activeTenantId, onSaveVacations]);
+  }, [activeTenantId]);
 
   // Canal de Escuta Ativa (Supabase Realtime Channel) para sincronizar dispositivos do mesmo locatário
   useEffect(() => {
@@ -917,20 +565,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     (overrides?: Partial<VacationRecord>) => {
       const emp = employees.find(e => e.id === selectedEmployeeId);
       const canonicalId = toValidUUID(activeDraftId || editingVacation?.id || 'vac_live_draft');
-      const currentSelectedStatus = (statusSelectRef.current?.value || status || 'agendado') as
-        | 'agendado'
-        | 'em_gozo'
-        | 'concluido'
-        | 'cancelado';
-      const currentSituacaoExecucao =
-        currentSelectedStatus === 'em_gozo'
-          ? 'EM_GOZO'
-          : currentSelectedStatus === 'concluido'
-            ? 'CONCLUIDO'
-            : currentSelectedStatus === 'cancelado'
-              ? 'CANCELADO'
-              : 'PROGRAMADO';
-
       const draftRecord: VacationRecord = {
         id: canonicalId,
         companyId: activeTenantId,
@@ -957,9 +591,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         totalDiscounts: financials.totalDescontos,
         netAmount: financials.valorLiquido,
         totalAmount: financials.totalBruto,
-        status: currentSelectedStatus,
-        situacao_execucao: currentSituacaoExecucao,
-        situacao_travada_usuario: currentSelectedStatus === 'agendado',
+        status,
         notes,
         createdAt: editingVacation?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1040,8 +672,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const handleStartDateChange = (newStart: string) => {
     setStartDate(newStart);
     if (newStart && daysCount > 0) {
-      const calcEnd = calculateEndDateFromStart(newStart, daysCount);
-      setEndDate(calcEnd);
+      setEndDate(calculateEndDateFromStart(newStart, daysCount));
     }
   };
 
@@ -1068,89 +699,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     }
   };
 
-  // Abre o modal de Programação/Edição de Férias a partir de uma linha de Período Aquisitivo
-  const handleOpenModalForRow = (row: VacationManagementRow) => {
-    if (row.vacationRecord) {
-      handleOpenModal(row.vacationRecord);
-      return;
-    }
-    const draftId = toValidUUID(`vac_${row.employee.id}_${row.acquisitionStart}`);
-    setEditingVacation(null);
-    setActiveDraftId(draftId);
-    setSelectedEmployeeId(row.employee.id);
-    const salary = row.employee.salary || row.employee.baseSalary || 3000;
-    setBaseSalary(salary);
-    setAcquisitionPeriodStart(row.acquisitionStart || '2025-01-01');
-    setAcquisitionPeriodEnd(row.acquisitionEnd || '2025-12-31');
-    const today = new Date().toISOString().split('T')[0];
-    const initialDays = row.rightDays > 0 ? row.rightDays : 30;
-    setStartDate(today);
-    setEndDate(calculateEndDateFromStart(today, initialDays));
-    setDaysCount(initialDays);
-    setSellDaysCount(0);
-    setThirteenthAdvance(false);
-    setStatus('agendado');
-    setNotes('');
-    setInssEnabled(true);
-    setIrrfEnabled(true);
-    resetCustomOverrides();
-    setIsModalOpen(true);
-  };
-
-  // Abre o modal de Recibo/Impressão diretamente para uma linha da tabela (mesmo que ainda não tenha sido salva)
-  const handlePrintReceiptForRow = (row: VacationManagementRow) => {
-    if (row.vacationRecord) {
-      setPrintingVacation(row.vacationRecord);
-      return;
-    }
-    const salary = row.employee.salary || row.employee.baseSalary || 3000;
-    const gozoDays = row.rightDays > 0 ? row.rightDays : 30;
-    const dailyRate = salary / 30;
-    const valorFeriasGozo = Math.round(dailyRate * gozoDays * 100) / 100;
-    const valorUmTerco = Math.round((valorFeriasGozo / 3) * 100) / 100;
-    const totalBruto = Math.round((valorFeriasGozo + valorUmTerco) * 100) / 100;
-    const inssCalc = calculateVacationINSS(totalBruto);
-    const baseIrrf = Math.max(0, Math.round((totalBruto - inssCalc.inssAmount) * 100) / 100);
-    const irrfCalc = calculateVacationIRRF(baseIrrf);
-    const totalDescontos = Math.round((inssCalc.inssAmount + irrfCalc.irrfAmount) * 100) / 100;
-    const valorLiquido = Math.max(0, Math.round((totalBruto - totalDescontos) * 100) / 100);
-    const today = new Date().toISOString().split('T')[0];
-
-    const generatedReceipt: VacationRecord = {
-      id: toValidUUID(`vac_${row.employee.id}_${row.acquisitionStart}`),
-      companyId: activeTenantId,
-      employeeId: row.employee.id,
-      employeeName: row.employee.name,
-      acquisitionPeriodStart: row.acquisitionStart,
-      acquisitionPeriodEnd: row.acquisitionEnd,
-      startDate: today,
-      endDate: calculateEndDateFromStart(today, gozoDays),
-      daysCount: gozoDays,
-      sellDaysCount: 0,
-      baseSalary: salary,
-      customVacationAmount: valorFeriasGozo,
-      oneThirdBonus: valorUmTerco,
-      pecuniaryAllowance: 0,
-      thirteenthAdvance: false,
-      thirteenthAmount: 0,
-      inssEnabled: true,
-      irrfEnabled: true,
-      baseINSS: totalBruto,
-      baseIRRF: baseIrrf,
-      inssDiscount: inssCalc.inssAmount,
-      irrfDiscount: irrfCalc.irrfAmount,
-      totalDiscounts: totalDescontos,
-      netAmount: valorLiquido,
-      totalAmount: totalBruto,
-      status: 'agendado',
-      situacao_execucao: 'PROGRAMADO',
-      situacao_travada_usuario: true,
-      notes: '',
-      createdAt: new Date().toISOString(),
-    };
-    setPrintingVacation(generatedReceipt);
-  };
-
   const handleOpenModal = (vacation?: VacationRecord) => {
     if (vacation) {
       setEditingVacation(vacation);
@@ -1164,8 +712,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setSellDaysCount(vacation.sellDaysCount || 0);
       setBaseSalary(vacation.baseSalary);
       setThirteenthAdvance(vacation.thirteenthAdvance || false);
-      const execSit = normalizeSituacaoExecucaoFerias(vacation.situacao_execucao || vacation.status);
-      setStatus(mapSituacaoExecucaoToStatus(execSit));
+      setStatus(vacation.status);
       setNotes(vacation.notes || '');
 
       setCustomFeriasGozo(vacation.customVacationAmount !== undefined ? vacation.customVacationAmount : null);
@@ -1208,50 +755,24 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   };
 
   const handleCloseProgrammingModal = () => {
+    if (editingVacation) {
+      broadcastActiveVacationDraft();
+    }
     setIsModalOpen(false);
   };
 
-  const handleSaveModal = (e?: React.FormEvent | React.MouseEvent) => {
-    if (e) e.preventDefault();
+  const handleSaveModal = (e: React.FormEvent) => {
+    e.preventDefault();
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
-
-    // Captura o valor exato selecionado no dropdown "Situação" no momento do clique em "Salvar Férias"
-    const rawDropdownVal = String(statusSelectRef.current?.value || status || 'agendado')
-      .toLowerCase()
-      .trim();
-
-    let finalStatus: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' = 'agendado';
-    let situacaoExecucao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' = 'PROGRAMADO';
-    let situacaoTravadaUsuario = true;
-
-    if (rawDropdownVal === 'em_gozo') {
-      finalStatus = 'em_gozo';
-      situacaoExecucao = 'EM_GOZO';
-      situacaoTravadaUsuario = false;
-    } else if (rawDropdownVal === 'concluido') {
-      finalStatus = 'concluido';
-      situacaoExecucao = 'CONCLUIDO';
-      situacaoTravadaUsuario = false;
-    } else if (rawDropdownVal === 'cancelado') {
-      finalStatus = 'cancelado';
-      situacaoExecucao = 'CANCELADO';
-      situacaoTravadaUsuario = false;
-    } else {
-      // Quando marcado como "Agendado" (ou badge 'AGENDADO'), grava obrigatoriamente como 'PROGRAMADO' / 'agendado'
-      finalStatus = 'agendado';
-      situacaoExecucao = 'PROGRAMADO';
-      situacaoTravadaUsuario = true;
-    }
-
-    setStatus(finalStatus);
 
     // Estratégia de upsert: se já existir registro para o mesmo funcionário e mesmo período, reutiliza o ID
     const existingSamePeriod = !editingVacation
       ? vacations.find(
           (v) =>
             v.employeeId === emp.id &&
-            (v.startDate === startDate || v.acquisitionPeriodStart === acquisitionPeriodStart)
+            v.startDate === startDate &&
+            v.acquisitionPeriodStart === acquisitionPeriodStart
         )
       : null;
 
@@ -1284,9 +805,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       totalDiscounts: financials.totalDescontos,
       netAmount: financials.valorLiquido,
       totalAmount: financials.totalBruto,
-      status: finalStatus,
-      situacao_execucao: situacaoExecucao,
-      situacao_travada_usuario: situacaoTravadaUsuario,
+      status,
       notes,
       createdAt: targetRecord?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1304,15 +823,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     }
     broadcastActiveVacationDraft(recordPayload);
     setIsModalOpen(false);
-
-    // Força a renderização na sub-aba correspondente após o fechamento do modal
-    if (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO') {
-      setStatusFilter('programados');
-    } else if (situacaoExecucao === 'EM_GOZO') {
-      setStatusFilter('em_gozo');
-    } else if (statusFilter === 'programados' || statusFilter === 'em_gozo') {
-      setStatusFilter('all');
-    }
   };
 
   const handleDelete = async (id: string) => {
@@ -1339,19 +849,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   const handleToggleStatus = (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'agendado' ? 'em_gozo' : currentStatus === 'em_gozo' ? 'concluido' : 'agendado';
-    const nextSituacaoExecucao =
-      nextStatus === 'em_gozo' ? 'EM_GOZO' : nextStatus === 'concluido' ? 'CONCLUIDO' : 'PROGRAMADO';
-    const nextList = vacations.map(v =>
-      v.id === id
-        ? {
-            ...v,
-            status: nextStatus as any,
-            situacao_execucao: nextSituacaoExecucao,
-            situacao_travada_usuario: nextStatus === 'agendado',
-            updatedAt: new Date().toISOString(),
-          }
-        : v
-    );
+    const nextList = vacations.map(v => (v.id === id ? { ...v, status: nextStatus as any, updatedAt: new Date().toISOString() } : v));
     saveStoredVacations(nextList);
     onSaveVacations(nextList);
     const updatedItem = nextList.find(v => v.id === id);
@@ -1408,10 +906,10 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-black text-black dark:text-white">
-              Gestão de Períodos Aquisitivos e Concessivos de Férias
+              Controle e Agendamento de Férias
             </h3>
             <p className="text-xs text-black/85 dark:text-stone-300 font-medium">
-              Controle automático de vencimentos, dias de direito (CLT), limite concessivo (+11 meses) e emissão de recibos
+              Planejamento de períodos aquisitivos, gozo e 1/3 constitucional
             </p>
           </div>
         </div>
@@ -1422,423 +920,163 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Programar Férias</span>
+          <span>Agendar Férias</span>
         </button>
       </div>
 
-      {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais com Backgrounds Pastéis) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
-        {/* 1. PERÍODOS VENCIDOS (Vermelho claro/pastel #FEF2F2) */}
-        <div
-          onClick={() => setStatusFilter('vencido')}
-          className={`bg-red-50 dark:bg-red-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'vencido'
-              ? 'border-red-400 ring-1 ring-red-400/40'
-              : 'border-red-200 dark:border-red-900/60 hover:border-red-300'
-          }`}
-        >
-          <span className="text-[10px] font-black text-red-600 dark:text-red-400 block uppercase tracking-wide">
-            Períodos Vencidos
+      {/* Quick Summary KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Férias Agendadas</span>
+          <span className="text-base font-black text-black dark:text-sky-400 font-['Outfit']">
+            {agendadasCount} colaborador(es)
           </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-red-600 dark:text-red-400 font-['Outfit']">
-              {vencidosCount}
-            </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
-            </span>
-          </div>
         </div>
-
-        {/* 2. PRÓXIMOS A VENCER (Laranja/Amarelo bem claro #FEF3C7) */}
-        <div
-          onClick={() => setStatusFilter('proximo')}
-          className={`bg-amber-50 dark:bg-amber-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'proximo'
-              ? 'border-amber-400 ring-1 ring-amber-400/40'
-              : 'border-amber-200 dark:border-amber-900/60 hover:border-amber-300'
-          }`}
-        >
-          <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 block uppercase tracking-wide">
-            Próximos a Vencer
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Em Gozo Atual</span>
+          <span className="text-base font-black text-black dark:text-amber-400 font-['Outfit']">
+            {emGozoCount} colaborador(es)
           </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-amber-600 dark:text-amber-400 font-['Outfit']">
-              {proximosCount}
-            </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
-            </span>
-          </div>
         </div>
-
-        {/* 3. FÉRIAS PROGRAMADAS (Azul bem claro/pastel #EFF6FF) */}
-        <div
-          onClick={() => setStatusFilter('programados')}
-          className={`bg-blue-50 dark:bg-blue-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'programados'
-              ? 'border-blue-400 ring-1 ring-blue-400/40'
-              : 'border-blue-200 dark:border-blue-900/60 hover:border-blue-300'
-          }`}
-        >
-          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 block uppercase tracking-wide">
-            Férias Programadas
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Concluídas</span>
+          <span className="text-base font-black text-black dark:text-emerald-400 font-['Outfit']">
+            {concluidasCount} registro(s)
           </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-blue-600 dark:text-blue-400 font-['Outfit']">
-              {programadosCount}
-            </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
-            </span>
-          </div>
         </div>
-
-        {/* 4. FÉRIAS EM GOZO AGORA (Roxo/Índigo bem claro #EEF2FF) */}
-        <div
-          onClick={() => setStatusFilter('em_gozo')}
-          className={`bg-indigo-50 dark:bg-indigo-950/30 border rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between ${
-            statusFilter === 'em_gozo'
-              ? 'border-indigo-400 ring-1 ring-indigo-400/40'
-              : 'border-indigo-200 dark:border-indigo-900/60 hover:border-indigo-300'
-          }`}
-        >
-          <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 block uppercase tracking-wide">
-            Férias em Gozo Agora
-          </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-indigo-600 dark:text-indigo-400 font-['Outfit']">
-              {emGozoCount}
-            </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
-            </span>
-          </div>
-        </div>
-
-        {/* 5. QUITADOS / REGULARES (Verde bem claro/pastel #F0FDF4) */}
-        <div
-          onClick={() => setStatusFilter('all')}
-          className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/60 hover:border-green-300 rounded-xl p-2.5 shadow-xs cursor-pointer transition flex flex-col justify-between"
-        >
-          <span className="text-[10px] font-black text-green-600 dark:text-green-400 block uppercase tracking-wide">
-            Quitados / Regulares
-          </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base font-black text-green-600 dark:text-green-400 font-['Outfit']">
-              {quitadosCount}
-            </span>
-            <span className="text-xs font-bold text-slate-700 dark:text-stone-300">
-              colaborador(es)
-            </span>
-          </div>
-        </div>
-
-        {/* 6. TOTAL FÉRIAS LANÇADAS (Cinza neutro bem claro #F8FAFC) */}
-        <div className="bg-slate-50 dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs flex flex-col justify-between">
-          <span className="text-[10px] font-black text-slate-700 dark:text-stone-300 block uppercase tracking-wide">
-            Total Férias Lançadas
-          </span>
-          <span className="text-base font-black text-slate-700 dark:text-white font-['Outfit'] mt-1">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
+          <span className="text-[11px] font-black text-black dark:text-stone-300 block uppercase">Total Férias Lançadas</span>
+          <span className="text-base font-black text-black dark:text-white font-['Outfit']">
             {formatCurrencyBRL(totalValorFerias)}
           </span>
         </div>
       </div>
 
-      {/* Barra Unificada de Busca e Sub-Abas (Segmented Control) */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-black dark:text-white">
-        <div className="relative w-full lg:w-72 shrink-0">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+      {/* Search Bar */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl px-3 py-2 shadow-xs flex items-center justify-between text-black dark:text-white">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-3.5 h-3.5 text-black dark:text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar colaborador ou cargo..."
+            placeholder="Buscar colaborador..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-slate-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-sky-600"
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-sky-600"
           />
         </div>
-
-        {/* Segmented Control: 5 Sub-Abas Sequenciais Unificadas */}
-        <div
-          role="tablist"
-          aria-label="Filtros de Férias"
-          className="inline-flex flex-wrap items-center p-1 rounded-xl bg-slate-100 dark:bg-stone-800 border border-slate-200/90 dark:border-stone-700 gap-1 w-full lg:w-auto"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === 'all'}
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
-              statusFilter === 'all'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
-            }`}
-          >
-            Todos ({periodRows.length})
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === 'vencido'}
-            onClick={() => setStatusFilter('vencido')}
-            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
-              statusFilter === 'vencido'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
-            }`}
-          >
-            Vencidos ({vencidosCount})
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === 'proximo'}
-            onClick={() => setStatusFilter('proximo')}
-            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
-              statusFilter === 'proximo'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
-            }`}
-          >
-            Próximos a Vencer ({proximosCount})
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === 'programados'}
-            onClick={() => setStatusFilter('programados')}
-            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
-              statusFilter === 'programados'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
-            }`}
-          >
-            Programados ({programadosCount})
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={statusFilter === 'em_gozo'}
-            onClick={() => setStatusFilter('em_gozo')}
-            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
-              statusFilter === 'em_gozo'
-                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
-                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
-            }`}
-          >
-            Em Gozo ({emGozoCount})
-          </button>
-        </div>
+        <span className="text-xs text-black/85 dark:text-stone-300 font-bold hidden sm:block">
+          {filtered.length} registro(s) de férias
+        </span>
       </div>
 
-      {/* Tabela Exclusiva de Gestão de Períodos Aquisitivos e Concessivos */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+      {/* Table */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-slate-50 dark:bg-stone-800 text-[10px] sm:text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-stone-700">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
               <tr>
-                <th className="py-3 px-4">Colaborador</th>
-                <th className="py-3 px-4">Período Aquisitivo</th>
-                <th className="py-3 px-4 text-center">Dias de Direito</th>
-                <th className="py-3 px-4 text-center">Status do Período</th>
-                <th className="py-3 px-4">Limite para Gozo</th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Colaborador</th>
+                <th className="py-2.5 px-3">Período de Gozo</th>
+                <th className="py-2.5 px-3 text-center">Dias / Venda</th>
+                <th className="py-2.5 px-3 text-right">1/3 Constitucional</th>
+                <th className="py-2.5 px-3 text-right">Abono Pecuniário</th>
+                <th className="py-2.5 px-3 text-right">Total Férias</th>
+                <th className="py-2.5 px-3 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-stone-800">
-              {filteredRows.length > 0 ? (
-                filteredRows.map((row) => {
-                  const vac = row.vacationRecord;
-                  return (
-                    <tr key={row.rowKey} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
-                      {/* 1. Colaborador (Nome e Cargo) */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center space-x-3">
-                          <EmployeeAvatar
-                            photoUrl={row.employee.photoUrl || (row.employee as any).foto_url}
-                            name={row.employee.name}
-                            size="sm"
-                            className="shrink-0 rounded-xl"
-                          />
-                          <div>
-                            <div className="font-bold text-black dark:text-white uppercase text-xs sm:text-sm">
-                              {row.employee.name}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-900 border border-sky-200/70">
-                                {row.roleLabel}
-                              </span>
-                              {row.employee.admissionDate && (
-                                <span className="text-[11px] text-slate-600 dark:text-stone-400 font-medium">
-                                  Adm: {formatDateBR(row.employee.admissionDate)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+            <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900">
+              {filtered.length > 0 ? (
+                filtered.map((item) => (
+                  <tr key={item.id || item.employeeId} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
+                    <td className="py-2 px-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(item.id, item.status)}
+                        className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
+                          item.status === 'em_gozo'
+                            ? 'bg-amber-100 border-amber-300 text-amber-900'
+                            : item.status === 'concluido'
+                            ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
+                            : 'bg-blue-100 border-blue-300 text-blue-900'
+                        }`}
+                      >
+                        <span>
+                          {item.status === 'em_gozo' ? 'Em Gozo' : item.status === 'concluido' ? 'Concluído' : 'Agendado'}
+                        </span>
+                      </button>
+                    </td>
+
+                    <td className="py-2 px-3">
+                      <div className="font-bold text-black dark:text-white text-xs">
+                        {item.employeeName}
+                      </div>
+                      {item.acquisitionPeriodStart && (
+                        <div className="text-[10px] text-black/80 dark:text-stone-300 font-medium">
+                          Aq: {formatDateBR(item.acquisitionPeriodStart)} a {formatDateBR(item.acquisitionPeriodEnd)}
                         </div>
-                      </td>
+                      )}
+                    </td>
 
-                      {/* 2. Período Aquisitivo (Início e Fim) */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="inline-flex items-center space-x-1.5 font-mono font-bold text-xs text-black dark:text-white bg-slate-100 dark:bg-stone-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-stone-700">
-                          <Calendar className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                          <span>
-                            {formatDateBR(row.acquisitionStart)} a {formatDateBR(row.acquisitionEnd)}
-                          </span>
-                        </div>
-                        {vac && (
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
-                              Gozo programado: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
-                            </span>
-                            {row.isProgramado && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
-                                Programado
-                              </span>
-                            )}
-                            {row.isEmGozo && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                Em Gozo
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
+                    <td className="py-2 px-3 text-black/85 dark:text-stone-300 font-medium text-xs whitespace-nowrap">
+                      {formatDateBR(item.startDate)} até {formatDateBR(item.endDate)}
+                    </td>
 
-                      {/* 3. Dias de Direito (Padrão 30 dias, reduzido por faltas CLT) */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="inline-flex flex-col items-center">
-                          <span
-                            className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
-                              row.rightDays < 30
-                                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                : 'bg-slate-100 text-slate-900 border-slate-300'
-                            }`}
-                          >
-                            {vac ? `${vac.daysCount} dias` : `${row.rightDays} dias`}
-                          </span>
-                          {row.unjustifiedAbsencesCount > 0 ? (
-                            <span className="text-[10px] text-rose-600 font-bold mt-0.5">
-                              {row.unjustifiedAbsencesCount} falta(s) no período
-                            </span>
-                          ) : vac && vac.sellDaysCount > 0 ? (
-                            <span className="text-[10px] text-amber-800 font-bold mt-0.5">
-                              + {vac.sellDaysCount} dias abono
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-500 font-medium mt-0.5">
-                              Direito integral CLT
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                    <td className="py-2 px-3 text-center text-xs">
+                      <span className="font-bold text-black dark:text-white">{item.daysCount} dias</span>
+                      {item.sellDaysCount > 0 && (
+                        <span className="text-[10px] block text-amber-900 dark:text-amber-300 font-bold">
+                          (+ {item.sellDaysCount}d vendidos)
+                        </span>
+                      )}
+                    </td>
 
-                      {/* 4. Status do Período ("Vencido" vermelho, "Próximo a Vencer" amarelo/laranja, "Quitado" verde) */}
-                      <td className="py-3.5 px-4 text-center">
-                        {row.periodStatus === 'vencido' && (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-rose-600 text-white shadow-2xs">
-                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                              <span>Vencido</span>
-                            </span>
-                            {row.monthsLabel && (
-                              <span className="text-[10px] font-bold text-rose-700 mt-0.5">
-                                {row.monthsLabel} acumulados
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {row.periodStatus === 'proximo' && (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-amber-500 text-stone-950 shadow-2xs">
-                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                              <span>Próximo a Vencer</span>
-                            </span>
-                            {row.monthsLabel && (
-                              <span className="text-[10px] font-bold text-amber-800 mt-0.5">
-                                {row.monthsLabel} acumulados
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {row.periodStatus === 'quitado' && (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-emerald-600 text-white shadow-2xs">
-                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                              <span>Quitado</span>
-                            </span>
-                            <span className="text-[10px] font-semibold text-emerald-700 mt-0.5">
-                              {vac ? formatCurrencyBRL(vac.totalAmount) : 'Período em dia'}
-                            </span>
-                          </div>
-                        )}
-                      </td>
+                    <td className="py-2 px-3 text-right font-medium text-black dark:text-stone-200 text-xs font-['Outfit']">
+                      {formatCurrencyBRL(item.oneThirdBonus)}
+                    </td>
 
-                      {/* 5. Limite para Gozo (Fim do período aquisitivo + 11 meses) */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div
-                          className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
-                            row.periodStatus === 'vencido'
-                              ? 'bg-rose-50 text-rose-900 border-rose-300'
-                              : row.periodStatus === 'proximo'
-                                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                                : 'bg-emerald-50/70 text-emerald-900 border-emerald-200'
-                          }`}
+                    <td className="py-2 px-3 text-right font-medium text-black dark:text-stone-200 text-xs font-['Outfit']">
+                      {item.pecuniaryAllowance ? formatCurrencyBRL(item.pecuniaryAllowance) : '-'}
+                    </td>
+
+                    <td className="py-2 px-3 text-right font-black text-black dark:text-white text-xs whitespace-nowrap font-['Outfit']">
+                      {formatCurrencyBRL(item.totalAmount)}
+                    </td>
+
+                    <td className="py-2 px-3 text-center">
+                      <div className="flex items-center justify-center space-x-1">
+                        <button
+                          type="button"
+                          onClick={() => setPrintingVacation(item)}
+                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          title="Imprimir Aviso/Recibo de Férias"
                         >
-                          <span>{formatDateBR(row.concessiveLimit)}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                          Limite concessivo (+11 meses)
-                        </div>
-                      </td>
-
-                      {/* 6. Ações: Programar/Editar Férias (Calendário) e Imprimir Recibo (Impressora) */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center justify-end space-x-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenModalForRow(row)}
-                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
-                            title="Programar/Editar Férias"
-                          >
-                            <Calendar className="w-3.5 h-3.5 shrink-0" />
-                            <span>Programar/Editar</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handlePrintReceiptForRow(row)}
-                            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
-                            title="Imprimir Recibo de Férias"
-                          >
-                            <Printer className="w-3.5 h-3.5 shrink-0" />
-                            <span>Imprimir Recibo</span>
-                          </button>
-
-                          {vac && (
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(vac.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                              title="Excluir programação salva"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenModal(item)}
+                          className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
+                          title="Editar Férias"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id)}
+                          className="p-1 text-black/70 dark:text-stone-400 hover:text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded transition cursor-pointer"
+                          title="Excluir Férias"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-semibold">
-                    Nenhum período aquisitivo encontrado para o filtro selecionado.
+                  <td colSpan={8} className="py-8 text-center text-black/75 dark:text-stone-400 text-xs">
+                    Nenhum registro de férias cadastrado.
                   </td>
                 </tr>
               )}
@@ -2046,7 +1284,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       Situação
                     </label>
                     <select
-                      ref={statusSelectRef}
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
                       className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
@@ -2081,7 +1318,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   >
                     <thead className="bg-stone-100/90 dark:bg-stone-800 text-[10px] font-black uppercase text-stone-700 dark:text-stone-300 border-b border-stone-200 dark:border-stone-800">
                       <tr>
-                        <th className="py-1.5 px-3 text-left">DISCRIMINAÇÃO</th>
+                        <th className="py-1.5 px-3 text-left">Rubrica / Discriminação</th>
                         <th className="py-1.5 px-2 text-center w-24">Referência</th>
                         <th className="py-1.5 px-3 text-right w-36 text-emerald-700 dark:text-emerald-400">PROVENTOS (+)</th>
                         <th className="py-1.5 px-3 text-right w-36 text-rose-700 dark:text-rose-400">DESCONTOS (-)</th>
@@ -2390,7 +1627,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
                   <button
                     type="submit"
-                    onClick={handleSaveModal}
                     className="px-4 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold text-xs transition shadow-sm cursor-pointer active:scale-95"
                   >
                     Salvar Férias

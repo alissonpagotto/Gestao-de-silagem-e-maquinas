@@ -1701,8 +1701,6 @@ export const DEFAULT_INITIAL_VACATIONS: VacationRecord[] = [
     thirteenthAmount: 0,
     totalAmount: 5000,
     status: 'agendado',
-    situacao_execucao: 'PROGRAMADO',
-    situacao_travada_usuario: true,
     notes: 'Aviso e Recibo de Férias - Período Regular',
     createdAt: '2026-09-30T10:00:00.000Z',
   }
@@ -1714,27 +1712,7 @@ export function getStoredVacations(): VacationRecord[] {
     if (!raw) return DEFAULT_INITIAL_VACATIONS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_INITIAL_VACATIONS;
-    return parsed.map((v: any) => {
-      if (!v) return v;
-      // Se o registro legado não possuía situacao_execucao gravada explicitamente,
-      // preserva 'PROGRAMADO' / 'agendado' para evitar pulo indevido para 'EM_GOZO' por coincidência de data
-      if (!v.situacao_execucao) {
-        const rawSt = String(v.status || 'agendado').toLowerCase();
-        if (rawSt === 'concluido') {
-          return { ...v, status: 'concluido', situacao_execucao: 'CONCLUIDO', situacao_travada_usuario: false };
-        }
-        if (rawSt === 'cancelado') {
-          return { ...v, status: 'cancelado', situacao_execucao: 'CANCELADO', situacao_travada_usuario: false };
-        }
-        return {
-          ...v,
-          status: 'agendado',
-          situacao_execucao: 'PROGRAMADO',
-          situacao_travada_usuario: true,
-        };
-      }
-      return v;
-    });
+    return parsed;
   } catch (e) {
     return DEFAULT_INITIAL_VACATIONS;
   }
