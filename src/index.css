@@ -997,7 +997,28 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
    ISOLAMENTO DE IMPRESSÃO DO TERMO DE RESCISÃO CONTRATUAL (TRCT)
    ========================================================================== */
 @media print {
-  /* 1. Ocultação seletiva de elementos de navegação e controles do sistema */
+  /* 1. Tamanho da página e margem padrão A4 (1cm) */
+  @page {
+    size: A4 portrait;
+    margin: 1cm;
+  }
+
+  /* 2. Reset global do documento para centralização perfeita e remoção de deslocamentos */
+  html,
+  body {
+    visibility: visible !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 3. Ocultação estrita de botões, cabeçalhos do modal e controles do sistema */
   aside, 
   nav, 
   header, 
@@ -1006,26 +1027,25 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
   .navbar, 
   button, 
   .no-print,
-  .no-print-bg {
+  .no-print-bg,
+  .header-modal-trct, 
+  .btn-print-action, 
+  .ai-studio-sidebar {
     display: none !important;
   }
 
-  /* 2. Reset global do documento para impressão em preto e branco nítida */
-  html, 
-  body {
-    visibility: visible !important;
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  /* 4. Alinhamento lateral total e centralização (sem deslocamento à direita) */
+  .modal-trct, 
+  #trct-print-area {
     width: 100% !important;
-    height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    position: static !important;
+    float: none !important;
+    box-sizing: border-box !important;
   }
 
-  /* 3. Desativa o modal overlay (backdrop escuro, blur, overflow fixo) */
   .trct-modal-container {
     position: static !important;
     inset: auto !important;
@@ -1053,15 +1073,15 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     overflow: visible !important;
   }
 
-  /* 4. Estilo do documento TRCT impresso */
+  /* 5. Documento TRCT impresso: visibilidade e cores nítidas */
   .trct-print-document {
     display: block !important;
     visibility: visible !important;
     position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
-    padding: 10px 15px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
@@ -1076,7 +1096,9 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     opacity: 1 !important;
   }
 
-  /* 5. Prevenção rigorosa de quebra de página em blocos vitais e assinaturas */
+  /* 6. Encaixe completo em uma página só (Prevenção de quebra de página) */
+  tr, 
+  .block-rescisao,
   .trct-avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -1084,13 +1106,10 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     break-after: auto !important;
   }
 
-  /* Bloco indivisível de assinaturas e quitação: NUNCA corta ao meio */
   .trct-signature-block {
     display: block !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-before: auto !important;
-    break-before: auto !important;
     width: 100% !important;
     clear: both !important;
   }
@@ -1101,29 +1120,25 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
     text-align: center !important;
   }
 
-  /* 6. Alta legibilidade e compactação para tabelas e bordas */
+  /* 7. Redução sutil das tabelas e compactação de entrelinha para A4 */
+  #trct-print-area table,
+  .modal-trct table,
   .trct-print-document table {
     width: 100% !important;
     border-collapse: collapse !important;
-    page-break-inside: auto !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
   }
 
+  #trct-print-area th,
+  #trct-print-area td,
   .trct-print-document th,
   .trct-print-document td {
     color: #000000 !important;
     border-color: #000000 !important;
-    padding-top: 3px !important;
-    padding-bottom: 3px !important;
-    line-height: 1.25 !important;
-  }
-
-  @page {
-    margin: 0;
-    size: A4;
-  }
-
-  body {
-    margin: 10mm !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    line-height: 1.2 !important;
   }
 }
 

@@ -1632,11 +1632,11 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       {/* 3. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL)                 */}
       {/* ========================================================================= */}
       {viewingTRCT && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible trct-modal-container">
-          <div className="bg-white text-black w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 trct-modal-wrapper print:shadow-none print:border-none print:m-0 print:rounded-none">
+        <div className="modal-trct trct-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <div className="modal-trct trct-modal-wrapper bg-white text-black w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 print:shadow-none print:border-none print:m-0 print:rounded-none">
             
             {/* Barra Superior com Controles */}
-            <div className="no-print bg-slate-900 text-white p-3 sm:p-4 flex items-center justify-between">
+            <div className="no-print header-modal-trct bg-slate-900 text-white p-3 sm:p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Printer className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs sm:text-sm font-black">
@@ -1647,7 +1647,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="btn-print-action px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs relative z-20 pointer-events-auto"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir / Salvar PDF</span>
@@ -1663,20 +1663,20 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             </div>
 
             {/* Documento Imprimível A4 */}
-            <div className="trct-print-document p-6 sm:p-8 space-y-3.5 text-xs font-sans bg-white print:p-0 print:space-y-2.5">
+            <div id="trct-print-area" className="modal-trct trct-print-document p-6 sm:p-8 space-y-3 text-xs font-sans bg-white print:p-0 print:space-y-1.5">
               
               {/* Cabeçalho da Empresa */}
-              <div className="trct-avoid-break flex items-start justify-between border-b-2 border-black pb-2.5 gap-3">
+              <div className="block-rescisao trct-avoid-break flex items-start justify-between border-b-2 border-black pb-2.5 gap-3 print:pb-1.5">
                 <div className="flex items-center gap-3">
                   {companyProfile?.logoUrl ? (
                     <img 
                       src={companyProfile.logoUrl} 
                       alt="Logo" 
-                      className="h-12 w-auto max-w-[110px] object-contain" 
+                      className="h-12 w-auto max-w-[110px] object-contain print:h-10" 
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="p-2 border-2 border-black font-black text-sm tracking-tighter">
+                    <div className="p-2 border-2 border-black font-black text-sm tracking-tighter print:p-1.5">
                       {companyProfile?.tradeName || companyProfile?.corporateName || 'EMPRESA'}
                     </div>
                   )}
@@ -1702,7 +1702,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="font-black text-xs sm:text-sm uppercase tracking-tight block border border-black px-2 py-1 bg-slate-100 print:bg-white text-black">
+                  <span className="font-black text-xs sm:text-sm uppercase tracking-tight block border border-black px-2 py-1 bg-slate-100 print:bg-white text-black print:py-0.5">
                     TRCT - TERMO RESCISÓRIO
                   </span>
                   <span className="text-[10px] text-slate-600 print:text-black print:text-[9px] font-mono mt-0.5 block">
@@ -1712,52 +1712,52 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </div>
 
               {/* Dados do Contrato e Empregado */}
-              <div className="trct-avoid-break border border-black p-2.5 rounded-md space-y-1.5 bg-slate-50/50 print:bg-white print:p-2">
-                <div className="font-bold text-[11px] uppercase border-b border-black pb-1 text-black print:text-[10px]">
+              <div className="block-rescisao trct-avoid-break border border-black p-2.5 rounded-md space-y-1.5 bg-slate-50/50 print:bg-white print:p-1.5">
+                <div className="font-bold text-[11px] uppercase border-b border-black pb-1 text-black print:text-[10px] print:pb-0.5">
                   Identificação do Empregado e do Contrato de Trabalho
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 print:gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 print:gap-1">
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Nome do Empregado:</span>
-                    <span className="font-bold text-xs text-black print:text-[10.5px]">{viewingTRCT.employeeName}</span>
+                    <span className="font-bold text-xs text-black print:text-[10px]">{viewingTRCT.employeeName}</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">CPF:</span>
-                    <span className="font-semibold text-black print:text-[10px]">{formatCPF(viewingTRCT.employeeCpf)}</span>
+                    <span className="font-semibold text-black print:text-[9.5px]">{formatCPF(viewingTRCT.employeeCpf)}</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Cargo / Função:</span>
-                    <span className="font-semibold text-black print:text-[10px]">{viewingTRCT.employeeRole || 'Geral'}</span>
+                    <span className="font-semibold text-black print:text-[9.5px]">{viewingTRCT.employeeRole || 'Geral'}</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Salário Base:</span>
-                    <span className="font-bold text-emerald-700 print:text-black print:text-[10.5px]">{formatMoneyBRL(viewingTRCT.baseSalary)}</span>
+                    <span className="font-bold text-emerald-700 print:text-black print:text-[10px]">{formatMoneyBRL(viewingTRCT.baseSalary)}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-black print:gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-black print:gap-1 print:pt-0.5">
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Data Admissão:</span>
-                    <span className="font-semibold text-black print:text-[10px]">{formatEmployeeAdmissionDate(viewingTRCT.admissionDate)}</span>
+                    <span className="font-semibold text-black print:text-[9.5px]">{formatEmployeeAdmissionDate(viewingTRCT.admissionDate)}</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Data Afastamento:</span>
-                    <span className="font-semibold text-black print:text-[10px]">{formatDateBR(viewingTRCT.terminationDate)}</span>
+                    <span className="font-semibold text-black print:text-[9.5px]">{formatDateBR(viewingTRCT.terminationDate)}</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Aviso Prévio:</span>
-                    <span className="font-semibold capitalize text-black print:text-[10px]">{viewingTRCT.noticeType} ({viewingTRCT.calculation.noticeDays} dias)</span>
+                    <span className="font-semibold capitalize text-black print:text-[9.5px]">{viewingTRCT.noticeType} ({viewingTRCT.calculation.noticeDays} dias)</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Causa do Afastamento:</span>
-                    <span className="font-semibold text-black print:text-[10px]">{getReasonLabel(viewingTRCT.reason)}</span>
+                    <span className="font-semibold text-black print:text-[9.5px]">{getReasonLabel(viewingTRCT.reason)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Tabela de Verbas Rescisórias (Proventos) */}
-              <div className="trct-avoid-break border border-black rounded-md overflow-hidden">
-                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black print:text-[10px] print:py-1">
+              <div className="block-rescisao trct-avoid-break border border-black rounded-md overflow-hidden">
+                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black print:text-[10px] print:py-0.5">
                   Discriminação das Verbas Rescisórias (Proventos)
                 </div>
                 <table className="w-full text-left text-[11px] border-collapse print:text-[10px]">
@@ -1829,8 +1829,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </div>
 
               {/* Tabela de Deduções */}
-              <div className="trct-avoid-break border border-black rounded-md overflow-hidden">
-                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black print:text-[10px] print:py-1">
+              <div className="block-rescisao trct-avoid-break border border-black rounded-md overflow-hidden">
+                <div className="bg-slate-200 print:bg-slate-100 font-black text-[11px] uppercase p-1.5 border-b border-black text-black print:text-[10px] print:py-0.5">
                   Deduções e Descontos Rescisórios
                 </div>
                 <table className="w-full text-left text-[11px] border-collapse print:text-[10px]">
@@ -1903,7 +1903,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </div>
 
               {/* Quadro Resumo com Líquido e Multa FGTS */}
-              <div className="trct-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-2.5 border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-2">
+              <div className="block-rescisao trct-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-2 border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-1.5">
                 <div>
                   <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%):</span>
                   <span className="text-sm font-bold text-black print:text-xs">
@@ -1934,29 +1934,29 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               </div>
 
               {/* Container Exclusivo e Indivisível de Quitação e Assinaturas (Sem quebras de página) */}
-              <div className="trct-signature-block trct-avoid-break pt-2 space-y-3 print:pt-1.5 print:space-y-2">
+              <div className="block-rescisao trct-signature-block trct-avoid-break pt-1.5 space-y-2 print:pt-1 print:space-y-1.5">
                 
                 {/* Termo de Quitação */}
-                <p className="text-[9.5px] text-slate-700 print:text-black text-justify leading-relaxed print:text-[9px] print:leading-tight m-0">
+                <p className="text-[9.5px] text-slate-700 print:text-black text-justify leading-relaxed print:text-[8.5px] print:leading-tight m-0">
                   Foi prestada, sem ônus para o empregado, a assistência e conferência da presente rescisão contratual, tendo o colaborador recebido os valores líquidos discriminados acima, dando plena e geral quitação das parcelas expressamente consignadas neste termo.
                 </p>
 
                 {/* Linhas de Assinatura com textos centralizados e margem correta */}
-                <div className="pt-4 pb-2 grid grid-cols-2 gap-8 text-center text-xs print:pt-5 print:gap-6 print:pb-1">
-                  <div className="trct-signature-box border-t-2 border-black pt-2 flex flex-col items-center justify-center text-center">
-                    <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[10px] max-w-[90%] truncate">
+                <div className="pt-4 pb-2 grid grid-cols-2 gap-8 text-center text-xs print:pt-3 print:gap-6 print:pb-0">
+                  <div className="trct-signature-box border-t-2 border-black pt-1.5 flex flex-col items-center justify-center text-center">
+                    <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[9.5px] max-w-[90%] truncate">
                       {companyProfile?.tradeName || companyProfile?.corporateName || 'Empregador'}
                     </span>
-                    <span className="text-[9.5px] text-slate-600 print:text-black mt-1 block font-medium print:text-[8.5px]">
+                    <span className="text-[9.5px] text-slate-600 print:text-black mt-0.5 block font-medium print:text-[8px]">
                       Assinatura do Empregador / Responsável
                     </span>
                   </div>
 
-                  <div className="trct-signature-box border-t-2 border-black pt-2 flex flex-col items-center justify-center text-center">
-                    <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[10px] max-w-[90%] truncate">
+                  <div className="trct-signature-box border-t-2 border-black pt-1.5 flex flex-col items-center justify-center text-center">
+                    <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[9.5px] max-w-[90%] truncate">
                       {viewingTRCT.employeeName}
                     </span>
-                    <span className="text-[9.5px] text-slate-600 print:text-black mt-1 block font-medium print:text-[8.5px]">
+                    <span className="text-[9.5px] text-slate-600 print:text-black mt-0.5 block font-medium print:text-[8px]">
                       Assinatura do Empregado / Colaborador
                     </span>
                   </div>
