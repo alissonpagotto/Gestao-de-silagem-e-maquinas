@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Printer, Palmtree, FileText, CheckCircle2 } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
 import { formatDateBR, getStoredCompanyProfile } from '../../lib/storage';
 
-interface VacationReceiptModalProps {
-  vacation: VacationRecord | null;
+export interface VacationReceiptModalProps {
+  vacation?: VacationRecord | null;
+  vacationData?: VacationRecord | null;
   employee?: Employee;
   companyProfile?: CompanyProfile;
   isOpen: boolean;
@@ -22,23 +23,93 @@ function formatBRL(val?: number): string {
 
 export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
   vacation,
+  vacationData,
   employee,
   companyProfile: propCompanyProfile,
   isOpen,
   onClose,
 }) => {
+  // =========================================================================
+  // 1. REPOSICIONAMENTO DOS HOOKS NO TOPO DO COMPONENTE
+  // Todos os hooks são declarados incondicionalmente no topo absoluto do componente.
+  // Nenhuma instrução de retorno condicional pode preceder estes hooks.
+  // =========================================================================
+
+  const currentVacation = vacationData || vacation || null;
+
+  // Hook 1: Estado de impressão
+  const [isPrinting, setIsPrinting] = useState<boolean>(false);
+
+  // Hook 2: Dados institucionais da Empresa Empregadora
   const company = useMemo(() => {
     return propCompanyProfile || getStoredCompanyProfile();
   }, [propCompanyProfile]);
 
+  // Hook 3: Endereço completo formatado da Empresa
+  const companyAddress = useMemo(() => {
+    if (!company) return 'Sede Administrativa / Área Operacional';
+    return [
+      company.address ? `${company.address}${company.number ? `, nº ${company.number}` : ''}` : '',
+      company.neighborhood ? `Bairro ${company.neighborhood}` : '',
+      company.city ? `${company.city}${company.state ? `/${company.state}` : ''}` : '',
+      company.zipCode ? `CEP: ${company.zipCode}` : '',
+    ].filter(Boolean).join(' • ') || 'Sede Administrativa / Área Operacional';
+  }, [company]);
+
+  // Hook 4: Cálculo da data de retorno ao trabalho
+  const returnDate = useMemo(() => {
+    if (!currentVacation?.endDate) return '-';
+    try {
+      const parts = currentVacation.endDate.split('-');
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        d.setDate(d.getDate() + 1);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+    } catch (_) {}
+    return '-';
+  }, [currentVacation?.endDate]);
+
+  // Hook 5: Valores calculados de proventos e 1/3 constitucional
+  const calculatedAmounts = useMemo(() => {
+    if (!currentVacation) {
+      return {
+        valorFerias: 4000,
+        valorUmTerco: 1000,
+        valorAbono: 0,
+        valorDecimo: 0,
+        totalBruto: 5000,
+      };
+    }
+    const valorFerias = currentVacation.baseSalary || 4000;
+    const valorUmTerco = currentVacation.oneThirdBonus || (valorFerias / 3) || 1000;
+    const valorAbono = currentVacation.pecuniaryAllowance || 0;
+    const valorDecimo = currentVacation.thirteenthAmount || 0;
+    const totalBruto = currentVacation.totalAmount || (valorFerias + valorUmTerco + valorAbono + valorDecimo) || 5000;
+
+    return {
+      valorFerias,
+      valorUmTerco,
+      valorAbono,
+      valorDecimo,
+      totalBruto,
+    };
+  }, [currentVacation]);
+
+  // Hook 6: Efeito de classes de impressão global
   useEffect(() => {
-    if (!isOpen || !vacation) return;
+    if (!isOpen || !currentVacation) return;
 
     document.body.classList.add('has-vacation-receipt-open');
     const handleBeforePrint = () => {
+      setIsPrinting(true);
       document.body.classList.add('printing-vacation-receipt');
     };
     const handleAfterPrint = () => {
+      setIsPrinting(false);
       document.body.classList.remove('printing-vacation-receipt');
     };
 
@@ -51,61 +122,62 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
       window.removeEventListener('beforeprint', handleBeforePrint);
       window.removeEventListener('afterprint', handleAfterPrint);
     };
-  }, [isOpen, vacation]);
+  }, [isOpen, currentVacation]);
 
-  if (!isOpen || !vacation) return null;
+  // =========================================================================
+  // 2. CONDICIONAIS DE RENDERIZAÇÃO (SEMPRE APÓS A DECLARAÇÃO DE TODOS OS HOOKS)
+  // =========================================================================
 
-  // Dados da Empresa Empregadora
+  if (!isOpen) return null;
+
+  if (!currentVacation) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-xl text-center max-w-sm w-full">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-sm font-bold text-stone-800 dark:text-stone-200">
+            Carregando dados de férias do Supabase...
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-4 px-4 py-1.5 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-xs font-bold rounded-lg transition cursor-pointer"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 3. RENDERIZAÇÃO DO DOCUMENTO CONSOLIDADO (AVISO E RECIBO DE FÉRIAS A4)
+  // =========================================================================
+
+  // Dados da Empresa
   const companyName = company?.tradeName || company?.companyName || company?.corporateName || 'COLACA SILAGEM LTDA';
   const companyCnpj = company?.cnpjCpf || '46.097.636/0001-02';
-  const companyAddress = [
-    company?.address ? `${company.address}${company.number ? `, nº ${company.number}` : ''}` : '',
-    company?.neighborhood ? `Bairro ${company.neighborhood}` : '',
-    company?.city ? `${company.city}${company.state ? `/${company.state}` : ''}` : '',
-    company?.zipCode ? `CEP: ${company.zipCode}` : '',
-  ].filter(Boolean).join(' • ') || 'Sede Administrativa / Área Operacional';
 
   // Variáveis Obrigatórias da Linha Selecionada
-  const employeeName = vacation.employeeName || employee?.name || 'ALISSON PAG';
+  const employeeName = currentVacation.employeeName || employee?.name || 'ALISSON PAG';
   const employeeRole = employee?.role || (employee as any)?.cargo || 'Colaborador';
   const employeeCpf = employee?.cpf || (employee as any)?.document || (employee as any)?.cpfCnpj || 'Não Informado';
 
   // Períodos
-  const acquisitionStart = vacation.acquisitionPeriodStart ? formatDateBR(vacation.acquisitionPeriodStart) : '01/01/2025';
-  const acquisitionEnd = vacation.acquisitionPeriodEnd ? formatDateBR(vacation.acquisitionPeriodEnd) : '31/12/2025';
+  const acquisitionStart = currentVacation.acquisitionPeriodStart ? formatDateBR(currentVacation.acquisitionPeriodStart) : '01/01/2025';
+  const acquisitionEnd = currentVacation.acquisitionPeriodEnd ? formatDateBR(currentVacation.acquisitionPeriodEnd) : '31/12/2025';
   const periodAcquisitive = `${acquisitionStart} a ${acquisitionEnd}`;
 
-  const periodGozoStart = formatDateBR(vacation.startDate) || '01/10/2026';
-  const periodGozoEnd = formatDateBR(vacation.endDate) || '31/10/2026';
+  const periodGozoStart = formatDateBR(currentVacation.startDate) || '01/10/2026';
+  const periodGozoEnd = formatDateBR(currentVacation.endDate) || '31/10/2026';
   const periodGozo = `${periodGozoStart} até ${periodGozoEnd}`;
 
-  const daysCount = vacation.daysCount || 30;
+  const daysCount = currentVacation.daysCount || 30;
 
-  // Retorno ao trabalho (dia seguinte ao término)
-  const returnDate = useMemo(() => {
-    if (!vacation.endDate) return '-';
-    try {
-      const parts = vacation.endDate.split('-');
-      if (parts.length === 3) {
-        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        d.setDate(d.getDate() + 1);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
-      }
-    } catch (_) {}
-    return '-';
-  }, [vacation.endDate]);
+  // Valores Extraídos do Hook
+  const { valorFerias, valorUmTerco, valorAbono, valorDecimo, totalBruto } = calculatedAmounts;
 
-  // Valores Obrigatórios (Regra de Moeda PT-BR R$ #.##0,00)
-  const valorFerias = vacation.baseSalary || 4000;
-  const valorUmTerco = vacation.oneThirdBonus || (valorFerias / 3) || 1000;
-  const valorAbono = vacation.pecuniaryAllowance || 0;
-  const valorDecimo = vacation.thirteenthAmount || 0;
-  const totalBruto = vacation.totalAmount || (valorFerias + valorUmTerco + valorAbono + valorDecimo) || 5000;
-
-  // Data de Emissão e Cidade
+  // Local e Data Atual
   const issueCity = company?.city || 'Brasil';
   const todayFormatted = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -175,11 +247,12 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+              disabled={isPrinting}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
               title="Imprimir Aviso/Recibo de Férias (A4 em uma página)"
             >
               <Printer className="w-4 h-4" />
-              <span>Imprimir Documento</span>
+              <span>{isPrinting ? 'Preparando...' : 'Imprimir Documento'}</span>
             </button>
             <button
               type="button"
@@ -299,10 +372,10 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
                   {valorAbono > 0 && (
                     <tr>
                       <td className="py-1.5 px-2 border-r border-stone-300 font-medium">
-                        Abono Pecuniário de Férias ({vacation.sellDaysCount || 0} dias)
+                        Abono Pecuniário de Férias ({currentVacation.sellDaysCount || 0} dias)
                       </td>
                       <td className="py-1.5 px-2 border-r border-stone-300 text-center font-bold">
-                        {vacation.sellDaysCount || 0} dias
+                        {currentVacation.sellDaysCount || 0} dias
                       </td>
                       <td className="py-1.5 px-2 text-right font-black font-mono">
                         {formatBRL(valorAbono)}
@@ -374,7 +447,8 @@ export const VacationReceiptModal: React.FC<VacationReceiptModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-[#0963cb] hover:bg-blue-700 text-white font-bold rounded-lg transition cursor-pointer"
+              disabled={isPrinting}
+              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-[#0963cb] hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimir</span>
