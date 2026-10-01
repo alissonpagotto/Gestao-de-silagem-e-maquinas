@@ -32,7 +32,7 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, upsertRhFuncionario } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
@@ -387,6 +387,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
                 photoUrl: payload.new.foto_url || baseMapped.photoUrl,
                 foto_url: payload.new.foto_url || baseMapped.foto_url,
+                contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
               };
               setLocalEmployees(prev => {
                 const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
@@ -413,6 +414,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
                 photoUrl: payload.new.foto_url || baseMapped.photoUrl,
                 foto_url: payload.new.foto_url || baseMapped.foto_url,
+                contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
               };
               setLocalEmployees(prev => {
                 const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
@@ -669,7 +671,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setBankAccount(((emp as any).conta_corrente || emp.bankAccount || '').toUpperCase());
 
     setAdmissionExamDoc(emp.admissionExamDoc || null);
-    setExperienceContractDoc(emp.experienceContractDoc || null);
+    const expDoc = emp.experienceContractDoc || (
+      (emp.contrato_experiencia_url || (emp as any).contrato_experiencia_url) ? {
+        name: 'Contrato de Experiência',
+        fileData: (emp.contrato_experiencia_url || (emp as any).contrato_experiencia_url),
+        uploadedAt: new Date().toISOString(),
+      } : null
+    );
+    setExperienceContractDoc(expDoc);
     setGeneralDocs(emp.generalDocs || null);
     setSignedRegistrationDoc(emp.signedRegistrationDoc || null);
 
@@ -937,6 +946,38 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         }
       }
 
+      // Extração e tratamento do Contrato de Experiência (URL limpa ou upload para storage)
+      let finalContratoUrl: string | null = null;
+      if (experienceContractDoc) {
+        const rawDoc: any = experienceContractDoc;
+        if (typeof rawDoc === 'string' && (rawDoc.startsWith('http://') || rawDoc.startsWith('https://'))) {
+          finalContratoUrl = rawDoc.trim();
+        } else if (typeof rawDoc === 'object' && rawDoc.fileData) {
+          const fData = String(rawDoc.fileData || '');
+          if (fData.startsWith('http://') || fData.startsWith('https://')) {
+            finalContratoUrl = fData.trim();
+          } else if (fData.startsWith('data:') || fData.startsWith('blob:')) {
+            try {
+              const uploadedDoc = await uploadEmployeeDocumentToStorage(
+                fData,
+                finalId,
+                'contrato_experiencia',
+                activeCompany?.id || activeUid,
+                rawDoc.name
+              );
+              if (uploadedDoc) {
+                finalContratoUrl = uploadedDoc;
+              }
+            } catch (docErr) {
+              console.warn('[RH Contrato] Falha no upload para documentos:', docErr);
+            }
+          }
+        }
+      }
+      if (!finalContratoUrl && editingEmployee?.contrato_experiencia_url) {
+        finalContratoUrl = editingEmployee.contrato_experiencia_url;
+      }
+
       // 2. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO ROSA:
       // Mapear e incluir no payload de salvamento as 4 caixas de texto da seção 3:
       // 'local_recebimento', 'banco_chave_pix', 'agencia' e 'conta_corrente'.
@@ -993,6 +1034,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         photoUrl: finalFotoUrl || undefined,
         foto_url: finalFotoUrl || undefined,
         avatar_url: finalFotoUrl || undefined,
+        contrato_experiencia_url: finalContratoUrl || undefined,
         phone: phone.trim(),
         baseSalary: parsedSalary,
         salary: parsedSalary,
@@ -1032,12 +1074,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       };
 
       // Dispara persistência com carimbo obrigatório do assinante no Supabase
-      if (isSupabaseConfigured) {
+      if (isSupabaseConfigured && activeUid) {
         try {
+          const activeCompanyId = activeCompany?.id || activeUid;
+          const safeCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
+
+          // Payload alinhado estritamente com as colunas físicas da tabela public.rh_funcionarios:
+          // 'local_recebimento', 'banco_chave_pix', 'agencia', 'conta_corrente', 'foto_url' e 'contrato_experiencia_url'
           const directRow: Record<string, any> = {
             id: targetValidUuid,
             user_id: activeUid,
-            company_id: activeCompany?.id ? String(activeCompany?.id).trim() : activeUid,
             name: employeeData.name,
             role: employeeData.role,
             cpf: employeeData.cpf || null,
@@ -1050,31 +1096,44 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             license_category: employeeData.cnhCategory || null,
             license_expiry: employeeData.cnhExpiration || null,
             // 4 Campos da Seção Rosa
-            local_recebimento: cleanLocalRecebimento,
-            banco_chave_pix: cleanBancoChavePix,
-            agencia: cleanAgencia,
-            conta_corrente: cleanContaCorrente,
+            local_recebimento: cleanLocalRecebimento || null,
+            banco_chave_pix: cleanBancoChavePix || null,
+            agencia: cleanAgencia || null,
+            conta_corrente: cleanContaCorrente || null,
             // Foto de Perfil (link de texto do bucket avatars)
             foto_url: finalFotoUrl || null,
+            // Contrato de Experiência
+            contrato_experiencia_url: finalContratoUrl || null,
             updated_at: new Date().toISOString(),
           };
 
-          if (employeeData.receivesCommission) {
-            directRow.recebe_comissao = true;
-            directRow.comissao_hora = employeeData.commissionPerHour || 0;
-            directRow.comissao_alqueire = employeeData.commissionPerAlqueire || 0;
-            directRow.comissao_hectare = employeeData.commissionPerHectare || 0;
+          if (safeCompanyUuid) {
+            directRow.company_id = safeCompanyUuid;
           }
 
-          const { error: upsertErr } = await supabase
+          // 1. Tenta atualizar com PATCH com isolamento estrito por id e user_id
+          const { id: _ignoredId, ...patchBody } = directRow;
+          const updateRes = await supabase
             .from('rh_funcionarios')
-            .upsert(directRow, { onConflict: 'id' });
+            .update(patchBody)
+            .eq('id', targetValidUuid)
+            .eq('user_id', activeUid)
+            .select('id');
 
-          if (upsertErr) {
-            console.warn('[RH Salvar] Upsert direto falhou, acionando fallback com upsertRhFuncionario:', upsertErr.message);
-            await upsertRhFuncionario(employeeData, activeCompany?.id, activeUid);
+          if (!updateRes.error && Array.isArray(updateRes.data) && updateRes.data.length > 0) {
+            console.info('✅ [RH Salvar] Registro atualizado (PATCH) em public.rh_funcionarios com user_id:', activeUid);
           } else {
-            console.info('✅ [RH Salvar] Registro gravado com sucesso em public.rh_funcionarios com user_id:', activeUid);
+            // 2. Se o registro ainda não existia ou update retornou 0 linhas, executa UPSERT com user_id
+            const { error: upsertErr } = await supabase
+              .from('rh_funcionarios')
+              .upsert(directRow, { onConflict: 'id' });
+
+            if (upsertErr) {
+              console.warn('[RH Salvar] Upsert direto falhou, acionando fallback com upsertRhFuncionario:', upsertErr.message);
+              await upsertRhFuncionario(employeeData, activeCompany?.id, activeUid);
+            } else {
+              console.info('✅ [RH Salvar] Registro gravado com sucesso em public.rh_funcionarios (UPSERT) com user_id:', activeUid);
+            }
           }
         } catch (dbErr) {
           console.warn('[RH Salvar] Exceção ao gravar no Supabase:', dbErr);

@@ -2441,6 +2441,12 @@ export function mapRowToEmployee(row: any): Employee {
       const raw = row.avatar_url || row.avatarUrl || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
+    contrato_experiencia_url: row.contrato_experiencia_url || row.contrato_url || undefined,
+    experienceContractDoc: (row.contrato_experiencia_url || row.contrato_url) ? {
+      name: 'Contrato de Experiência',
+      fileData: row.contrato_experiencia_url || row.contrato_url,
+      uploadedAt: row.updated_at || new Date().toISOString(),
+    } : undefined,
     userId: row.user_id || row.userId || undefined,
     user_id: row.user_id || row.userId || undefined,
   };
@@ -2472,15 +2478,14 @@ export function sanitizeRhFuncionarioPayload(
   id: string;
   name: string;
   role: string;
-  cpf: string;
-  phone: string;
-  email: string;
+  cpf: string | null;
+  phone: string | null;
   status: string;
   registration_type: string;
   salary: number;
   admission_date: string | null;
-  driver_license: string;
-  license_category: string;
+  driver_license: string | null;
+  license_category: string | null;
   license_expiry: string | null;
   company_id: string | null;
   user_id: string | null;
@@ -2489,10 +2494,8 @@ export function sanitizeRhFuncionarioPayload(
   banco_chave_pix: string | null;
   agencia: string | null;
   conta_corrente: string | null;
-  exame_admissional_url: string | null;
+  foto_url: string | null;
   contrato_experiencia_url: string | null;
-  documentos_gerais_url: string | null;
-  ficha_cadastral_assinada_url: string | null;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
   const validId = toValidUUID(employee.id);
@@ -2528,36 +2531,34 @@ export function sanitizeRhFuncionarioPayload(
     return null;
   };
 
-  const asoUrl = extractCleanUrl(employee.exame_admissional_url || employee.aso_url || employee.admissionExamDoc);
   const contratoUrl = extractCleanUrl(employee.contrato_experiencia_url || employee.contrato_url || employee.experienceContractDoc);
-  const docsGeraisUrl = extractCleanUrl(employee.documentos_gerais_url || employee.generalDocs);
-  const fichaAssinadaUrl = extractCleanUrl(employee.ficha_cadastral_assinada_url || employee.ficha_assinada_url || employee.signedRegistrationDoc);
+  const photoUrl = extractCleanUrl(employee.foto_url || employee.photoUrl || (employee as any).avatar_url);
+
+  // Validação segura de company_id como UUID válido (evita erro 22P02 caso venha 'company_default' ou string inválida)
+  const validCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
 
   return {
     id: validId,
     name: String(employee.name || employee.nome || '').trim(),
     role: roleStr || 'Operador de Forrageira',
-    cpf: String(employee.cpf || '').trim(),
-    phone: String(employee.phone || employee.telefone || '').trim(),
-    email: String(employee.email || '').trim(),
+    cpf: employee.cpf ? String(employee.cpf).trim() : null,
+    phone: employee.phone ? String(employee.phone || employee.telefone).trim() : null,
     status: String(employee.status || 'ativo').trim().toLowerCase(),
     registration_type: regTypeStr || 'Funcionário',
     salary: salaryNum,
     admission_date: admissionDateIso || null,
-    driver_license: String(employee.cnhNumber || employee.driver_license || employee.cnh_numero || '').trim(),
-    license_category: String(employee.cnhCategory || employee.license_category || employee.cnh_categoria || '').trim(),
+    driver_license: employee.cnhNumber || employee.driver_license || employee.cnh_numero ? String(employee.cnhNumber || employee.driver_license || employee.cnh_numero).trim() : null,
+    license_category: employee.cnhCategory || employee.license_category || employee.cnh_categoria ? String(employee.cnhCategory || employee.license_category || employee.cnh_categoria).trim() : null,
     license_expiry: licenseExpiryIso || null,
-    company_id: activeCompanyId ? String(activeCompanyId).trim() : null,
+    company_id: validCompanyUuid,
     user_id: effectiveUserId ? String(effectiveUserId).trim() : null,
     updated_at: new Date().toISOString(),
     local_recebimento: localRecebimento ? localRecebimento.toUpperCase() : null,
     banco_chave_pix: bancoChavePix ? bancoChavePix.toUpperCase() : null,
     agencia: agencia ? agencia.toUpperCase() : null,
     conta_corrente: contaCorrente ? contaCorrente.toUpperCase() : null,
-    exame_admissional_url: asoUrl,
-    contrato_experiencia_url: contratoUrl,
-    documentos_gerais_url: docsGeraisUrl,
-    ficha_cadastral_assinada_url: fichaAssinadaUrl,
+    foto_url: photoUrl ? photoUrl.trim() : null,
+    contrato_experiencia_url: contratoUrl ? contratoUrl.trim() : null,
   };
 }
 
@@ -3101,7 +3102,7 @@ export async function upsertRhFuncionario(
     if (effectiveUserId) {
       payloadToSend.user_id = String(effectiveUserId).trim();
     }
-    if (hasRhCommissionColumns !== false) {
+    if (hasRhCommissionColumns === true) {
       payloadToSend = { ...payloadToSend, ...commPayload };
     }
     // Salva na coluna 'foto_url' estritamente se for link HTTP público válido e coluna não tiver sido descartada

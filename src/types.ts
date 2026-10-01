@@ -412,6 +412,7 @@ export interface Employee {
   // Anexos de Retorno e Documentos
   admissionExamDoc?: EmployeeAttachment; // Exame Admissional
   experienceContractDoc?: EmployeeAttachment; // Contrato de Experiência
+  contrato_experiencia_url?: string; // Coluna banco Supabase: contrato_experiencia_url
   generalDocs?: EmployeeAttachment; // Documentos Gerais (RE + CNH)
   signedRegistrationDoc?: EmployeeAttachment; // Cadastro Assinado (Ficha com assinatura)
 }
