@@ -1223,6 +1223,111 @@ export const upsertParcelaFinanceira = async (parcela: {
   });
 };
 
+/**
+ * Realiza o lançamento automático de título na tabela 'public.financeiro_contas_a_pagar' do Supabase,
+ * garantindo compatibilidade também com a tabela relacional 'public.contas_a_pagar'.
+ */
+export async function insertFinanceiroContasAPagar(dados: {
+  id?: string;
+  valor: number;
+  descricao: string;
+  historico?: string;
+  categoria?: string;
+  categoria_financeira?: string;
+  centro_custo?: string;
+  data_vencimento: string;
+  forma_pagamento?: string;
+  employee_id?: string;
+  colaborador_id?: string;
+  colaborador_nome?: string;
+  competencia?: string;
+  veiculo_id?: string;
+  placa?: string;
+  veiculo_nome?: string;
+  custo_dre?: number;
+}, companyId?: string): Promise<{ success: boolean; data?: any; error?: any }> {
+  const activeCompanyId = companyId || getActiveCompanyId();
+  const uuid = toValidUUID(dados.id || generateUUID());
+  const now = new Date().toISOString();
+
+  if (!isSupabaseConfigured) {
+    return { success: true };
+  }
+
+  try {
+    const standardPayload: Record<string, any> = {
+      id: uuid,
+      valor: Number(dados.valor) || 0,
+      valor_titulo: Number(dados.valor) || 0,
+      valor_parcela: Number(dados.valor) || 0,
+      descricao: dados.descricao,
+      historico: dados.historico || dados.descricao,
+      categoria: dados.categoria || 'Despesas com Pessoal / Salários',
+      categoria_financeira: dados.categoria_financeira || 'Despesas com Pessoal / Salários',
+      centro_custo: dados.centro_custo || 'Despesas com Pessoal / Salários',
+      data_vencimento: dados.data_vencimento,
+      vencimento: dados.data_vencimento,
+      status: 'pendente',
+      status_pago: false,
+      tipo: 'debito',
+      tipo_lancamento: 'debito',
+      numero_parcela: '01/01',
+      forma_pagamento: dados.forma_pagamento || 'pix',
+      employee_id: dados.employee_id ? toValidUUID(dados.employee_id) : null,
+      colaborador_id: dados.colaborador_id ? toValidUUID(dados.colaborador_id) : null,
+      colaborador_nome: dados.colaborador_nome,
+      competencia: dados.competencia,
+      created_at: now
+    };
+    if (activeCompanyId) standardPayload.company_id = activeCompanyId;
+    if (dados.veiculo_id) {
+      standardPayload.veiculo_id = dados.veiculo_id;
+      standardPayload.placa = dados.placa;
+      standardPayload.veiculo_nome = dados.veiculo_nome;
+      standardPayload.custo_dre = dados.custo_dre;
+    }
+
+    try {
+      const { data: finData, error: finError } = await supabase
+        .from('financeiro_contas_a_pagar')
+        .upsert([standardPayload], { onConflict: 'id' })
+        .select();
+
+      if (!finError) {
+        // Gravado com sucesso na tabela primária financeiro_contas_a_pagar
+      } else {
+        const lean = {
+          id: uuid,
+          valor: Number(dados.valor) || 0,
+          descricao: dados.descricao,
+          categoria: dados.categoria || 'Despesas com Pessoal / Salários',
+          data_vencimento: dados.data_vencimento,
+          status: 'pendente'
+        };
+        await supabase.from('financeiro_contas_a_pagar').upsert([lean], { onConflict: 'id' });
+      }
+    } catch (_) {}
+
+    // Mantém compatibilidade relacional estrita com a tabela pública contas_a_pagar
+    await upsertContaAPagar({
+      id: uuid,
+      numero_parcela: '01/01',
+      valor_parcela: Number(dados.valor) || 0,
+      data_vencimento: dados.data_vencimento,
+      forma_pagamento: dados.forma_pagamento || 'pix',
+      centro_custo: dados.centro_custo || dados.descricao,
+      categoria: 'Despesas com Pessoal / Salários',
+      status_pago: false
+    }, activeCompanyId);
+
+    return { success: true };
+  } catch (err) {
+    console.warn('Supabase insertFinanceiroContasAPagar notice:', err);
+    return { success: false, error: err };
+  }
+}
+
+
 // ===========================================================================
 // 4. Estoque (Tabela principal: public.estoque_produtos, fallback: public.estoque)
 // Mapeamento das colunas reais de 'estoque_produtos':

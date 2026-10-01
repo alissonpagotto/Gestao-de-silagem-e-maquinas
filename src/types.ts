@@ -1111,8 +1111,11 @@ export interface PayrollRecord {
   advancesDiscount: number; // Vales e adiantamentos descontados
   otherDiscounts: number; // Faltas, atrasos, convênios
   netSalary: number;
-  status: 'pendente' | 'pago';
+  status: 'pendente' | 'pago' | 'integrado' | 'lancado' | string;
   paymentDate?: string;
+  isIntegrated?: boolean;
+  integratedAt?: string;
+  financePayableId?: string;
   notes?: string;
   createdAt: string;
 }

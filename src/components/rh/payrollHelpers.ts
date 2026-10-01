@@ -716,3 +716,170 @@ export const calculateAdvanceInstallmentPlan = (
   };
 };
 
+/**
+ * Calcula a data de vencimento da folha de pagamento:
+ * Estritamente o 5º dia útil do mês subsequente à competência da folha (MM/AAAA ou AAAA-MM).
+ * Dias úteis desconsideram sábados (dia 6) e domingos (dia 0).
+ */
+export const getFifthBusinessDayOfSubsequentMonth = (referenceMonth: string): string => {
+  let month = 1;
+  let year = new Date().getFullYear();
+
+  if (referenceMonth.includes('/')) {
+    const [m, y] = referenceMonth.split('/');
+    month = parseInt(m, 10);
+    year = parseInt(y, 10);
+  } else if (referenceMonth.includes('-')) {
+    const [y, m] = referenceMonth.split('-');
+    year = parseInt(y, 10);
+    month = parseInt(m, 10);
+  }
+
+  let nextMonth = month + 1;
+  let nextYear = year;
+  if (nextMonth > 12) {
+    nextMonth = 1;
+    nextYear += 1;
+  }
+
+  let businessDays = 0;
+  let day = 1;
+  // Limite razoável de segurança para o mês (até 31 dias)
+  while (businessDays < 5 && day <= 31) {
+    const d = new Date(nextYear, nextMonth - 1, day, 12, 0, 0);
+    const dayOfWeek = d.getDay(); // 0 = Domingo, 6 = Sábado
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      businessDays++;
+      if (businessDays === 5) {
+        const mm = String(nextMonth).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        return `${nextYear}-${mm}-${dd}`;
+      }
+    }
+    day++;
+  }
+
+  const mm = String(nextMonth).padStart(2, '0');
+  const dd = String(Math.min(7, day)).padStart(2, '0');
+  return `${nextYear}-${mm}-${dd}`;
+};
+
+/**
+ * Localiza o veículo ou maquinário fixo vinculado ao colaborador
+ * (via cadastro do colaborador, lista de operadores/motoristas da frota ou cargo)
+ */
+export const findEmployeeLinkedMachinery = (
+  emp: Employee | null | undefined,
+  machineries: any[]
+): any | null => {
+  if (!emp || !Array.isArray(machineries) || machineries.length === 0) return null;
+
+  const empId = String(emp.id || '').trim();
+  const empNameLower = String(emp.name || '').trim().toLowerCase();
+  const empFirstName = empNameLower.split(/\s+/)[0] || '';
+  const normalizeToken = (s: string) => s.toLowerCase().replace(/s{2,}/g, 's').trim();
+  const empFirstNorm = normalizeToken(empFirstName);
+
+  // 1. Vínculo explícito gravado no cadastro do funcionário
+  const explicitMachId = String(emp.machineryId || (emp as any).veiculo_id || '').trim();
+  if (explicitMachId) {
+    const byId = machineries.find((m) => m.id === explicitMachId || String(m.id).toLowerCase() === explicitMachId.toLowerCase());
+    if (byId) return byId;
+  }
+
+  const explicitMachName = String(emp.machineryName || (emp as any).veiculo_vinculado || '').trim().toLowerCase();
+  if (explicitMachName) {
+    const byName = machineries.find(
+      (m) =>
+        (m.name && m.name.toLowerCase().includes(explicitMachName)) ||
+        (m.model && m.model.toLowerCase().includes(explicitMachName)) ||
+        (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(explicitMachName))
+    );
+    if (byName) return byName;
+  }
+
+  // 2. Vínculo direto no cadastro de Veículos/Maquinários da Frota (assignedDriverIds, operatorOrDriver, assignedDrivers)
+  const byDirectAssignment = machineries.find((m) => {
+    if (m.assignedDriverIds && Array.isArray(m.assignedDriverIds)) {
+      if (m.assignedDriverIds.some((id: string) => id === empId)) return true;
+    }
+    if (m.driver_id && m.driver_id === empId) return true;
+    if (m.operatorOrDriver) {
+      const parts = m.operatorOrDriver.split(',').map((s: string) => s.trim().toLowerCase());
+      if (
+        parts.includes(empNameLower) ||
+        (empFirstNorm.length >= 3 && parts.some((p: string) => normalizeToken(p.split(/\s+/)[0]) === empFirstNorm))
+      ) {
+        return true;
+      }
+    }
+    if (m.assignedDrivers && Array.isArray(m.assignedDrivers)) {
+      const matched = m.assignedDrivers.some((d: any) => {
+        if (typeof d === 'object' && d !== null) {
+          const dName = String(d.name || '').trim().toLowerCase();
+          return (
+            d.id === empId ||
+            dName === empNameLower ||
+            (empFirstNorm.length >= 3 && normalizeToken(dName.split(/\s+/)[0]) === empFirstNorm)
+          );
+        }
+        const dStr = String(d || '').trim().toLowerCase();
+        return (
+          dStr === empNameLower ||
+          (empFirstNorm.length >= 3 && normalizeToken(dStr.split(/\s+/)[0]) === empFirstNorm)
+        );
+      });
+      if (matched) return true;
+    }
+    return false;
+  });
+
+  if (byDirectAssignment) return byDirectAssignment;
+
+  // 3. Vínculo operacional pelo cargo do colaborador (ex: Operador de Trator -> Trator, Motorista -> Caminhão)
+  const rolesStr = [emp.role || '', ...(Array.isArray(emp.roles) ? emp.roles : [])]
+    .join(' ')
+    .toLowerCase();
+
+  const activeMachines = machineries.filter((m) => (m.status as string) !== 'inativo');
+  const pool = activeMachines.length > 0 ? activeMachines : machineries;
+
+  if (rolesStr.includes('trator')) {
+    return (
+      pool.find(
+        (m) =>
+          String(m.categoryType || m.tipo || '').toLowerCase().includes('trator') ||
+          String(m.name || '').toLowerCase().includes('trator') ||
+          String(m.model || '').toLowerCase().includes('trator')
+      ) || null
+    );
+  }
+
+  if (rolesStr.includes('forrageira') || rolesStr.includes('colheitadeira') || rolesStr.includes('ensiladeira')) {
+    return (
+      pool.find(
+        (m) =>
+          String(m.categoryType || m.tipo || '').toLowerCase().includes('forrageira') ||
+          String(m.categoryType || m.tipo || '').toLowerCase().includes('colheitadeira') ||
+          String(m.name || '').toLowerCase().includes('forrageira') ||
+          String(m.model || '').toLowerCase().includes('jaguar')
+      ) || null
+    );
+  }
+
+  if (rolesStr.includes('motorista') || rolesStr.includes('caminhão') || rolesStr.includes('caminhao')) {
+    return (
+      pool.find(
+        (m) =>
+          String(m.categoryType || m.tipo || '').toLowerCase().includes('caminh') ||
+          String(m.categoryType || m.tipo || '').toLowerCase().includes('truck') ||
+          String(m.name || '').toLowerCase().includes('axor') ||
+          String(m.model || '').toLowerCase().includes('axor')
+      ) || null
+    );
+  }
+
+  return null;
+};
+
+

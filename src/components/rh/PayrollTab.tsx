@@ -23,10 +23,31 @@ import {
   Building2,
   ShieldAlert,
   ShieldCheck,
-  CalendarX
+  CalendarX,
+  Eye,
+  ArrowUpRight,
+  Send,
+  Share2
 } from 'lucide-react';
-import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredCompanyProfile, getStoredAbsences } from '../../lib/storage';
+import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord, Expense } from '../../types';
+import { 
+  formatCurrencyBRL, 
+  formatDateBR, 
+  getStoredServices, 
+  getStoredCompanyProfile, 
+  getStoredAbsences,
+  getStoredMachineries,
+  getStoredExpenses,
+  saveStoredExpenses,
+  saveStoredPayrolls,
+  getActiveCompanyId
+} from '../../lib/storage';
+import { 
+  insertFinanceiroContasAPagar, 
+  saveCloudExpenses, 
+  isSupabaseConfigured, 
+  toValidUUID 
+} from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getEmployeeMonthCommissions, 
@@ -35,7 +56,9 @@ import {
   parseMoneyToFloat,
   formatCPF,
   formatEmployeeAdmissionDate,
-  formatEmployeeBankDeposit
+  formatEmployeeBankDeposit,
+  getFifthBusinessDayOfSubsequentMonth,
+  findEmployeeLinkedMachinery
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 
@@ -308,8 +331,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [inssDiscount, setInssDiscount] = useState<number>(0);
   const [advancesDiscount, setAdvancesDiscount] = useState<number>(0);
   const [otherDiscounts, setOtherDiscounts] = useState<number>(0);
-  const [payrollStatus, setPayrollStatus] = useState<'pendente' | 'pago'>('pendente');
+  const [payrollStatus, setPayrollStatus] = useState<'pendente' | 'pago' | 'integrado' | 'lancado' | string>('pendente');
   const [notes, setNotes] = useState('');
+  const [integratingId, setIntegratingId] = useState<string | null>(null);
+  const [integrationBanner, setIntegrationBanner] = useState<{
+    type: 'success' | 'info' | 'error';
+    title: string;
+    details: string;
+  } | null>(null);
 
   // Detalhamento e sincronização de Vales e Faltas no Modal
   const [syncedAdvances, setSyncedAdvances] = useState<SalaryAdvance[]>([]);
@@ -768,12 +797,206 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     }
   };
 
+  /**
+   * PROJETO DE INTEGRAÇÃO FINANCEIRA (BOTÃO INTEGRAR FOLHA AO CONTAS A PAGAR E DRE):
+   * 1. Lê a linha correspondente da folha (item).
+   * 2. Lança registro de débito na tabela 'public.financeiro_contas_a_pagar' do Supabase:
+   *    - Valor do Título: exatamente a coluna "LÍQUIDO A PAGAR" (netSalary).
+   *    - Descrição: "Pagamento de Salário - [Nome] - Competência [MM/AAAA]".
+   *    - Categoria: "Despesas com Pessoal / Salários".
+   *    - Data de Vencimento: 5º dia útil do mês subsequente à competência.
+   * 3. Lança despesa no DRE do Veículo/Máquina vinculado (pelo valor dos Proventos / Custo Total)
+   *    ou no DRE Geral da Empresa sob a categoria "Custos Administrativos / Escritório".
+   * 4. Muda status da linha para "Integrado" e desabilita o botão para impedir duplicidade.
+   */
+  const handleIntegrarFolhaFinanceiro = async (item: PayrollRecord) => {
+    if (item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated)) {
+      return;
+    }
+
+    setIntegratingId(item.id);
+    try {
+      const activeTenantId = getActiveCompanyId() || 'default';
+      const canonicalId = toValidUUID(item.id);
+      const payableId = toValidUUID(`cap_folha_${canonicalId}`);
+
+      // 1. Data de Vencimento: 5º dia útil do mês subsequente à competência da folha
+      const dueDateIso = getFifthBusinessDayOfSubsequentMonth(item.referenceMonth);
+
+      // 2. Colaborador ativo e verificação de veículo / maquinário fixo vinculado
+      const emp = employees.find(
+        (e) => e.id === item.employeeId || e.name.trim().toLowerCase() === item.employeeName.trim().toLowerCase()
+      );
+      const machineriesList = getStoredMachineries();
+      const linkedMachinery = findEmployeeLinkedMachinery(emp, machineriesList);
+      const vehicleLabel = linkedMachinery
+        ? `${linkedMachinery.name || linkedMachinery.model || 'Veículo'}${
+            linkedMachinery.licensePlateOrSerial ? ` (${linkedMachinery.licensePlateOrSerial})` : ''
+          }`
+        : undefined;
+
+      // 3. Valores da Folha:
+      // Valor do Título = exatamente o valor da coluna "LÍQUIDO A PAGAR"
+      const netSalaryVal = Math.max(0, Math.round(Number(item.netSalary || 0) * 100) / 100);
+      // Proventos (+) / Custo total da folha daquele colaborador
+      const additionalEarnings = (item.overtimeAmount || 0) + (item.bonusAmount || 0) + (item.commissionAmount || 0);
+      const totalEarningsVal = Math.max(0, Math.round(((item.baseSalary || 0) + additionalEarnings) * 100) / 100);
+      const proventosDRE = totalEarningsVal > 0 ? totalEarningsVal : netSalaryVal;
+
+      let compMonthIso = new Date().toISOString().slice(0, 7);
+      if (item.referenceMonth.includes('/')) {
+        const [m, y] = item.referenceMonth.split('/');
+        compMonthIso = `${y}-${m.padStart(2, '0')}`;
+      } else if (item.referenceMonth.includes('-')) {
+        compMonthIso = item.referenceMonth.slice(0, 7);
+      }
+
+      // 4. REGRA DE NEGÓCIO 1: Lançamento no Contas a Pagar (tabela 'public.financeiro_contas_a_pagar' do Supabase)
+      await insertFinanceiroContasAPagar({
+        id: payableId,
+        valor: netSalaryVal,
+        descricao: `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth}`,
+        historico: `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth}`,
+        categoria: 'Despesas com Pessoal / Salários',
+        categoria_financeira: 'Despesas com Pessoal / Salários',
+        centro_custo: linkedMachinery
+          ? `DRE Veículo: ${vehicleLabel}`
+          : 'Custos Administrativos / Escritório',
+        data_vencimento: dueDateIso,
+        employee_id: item.employeeId,
+        colaborador_id: item.employeeId,
+        colaborador_nome: item.employeeName,
+        competencia: item.referenceMonth,
+        veiculo_id: linkedMachinery?.id,
+        placa: linkedMachinery?.licensePlateOrSerial,
+        veiculo_nome: vehicleLabel,
+        custo_dre: proventosDRE,
+      }, activeTenantId);
+
+      // 5. REGRA DE NEGÓCIO 2: Lançamento no DRE do Veículo / DRE Geral da Empresa
+      const expenseEntry: Expense = {
+        id: payableId,
+        companyId: activeTenantId,
+        description: linkedMachinery
+          ? `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth} | DRE Veículo: ${vehicleLabel}`
+          : `Pagamento de Salário - ${item.employeeName} - Competência ${item.referenceMonth} | Custos Administrativos / Escritório`,
+        amount: netSalaryVal,
+        dreGrossAmount: proventosDRE,
+        dreCategory: linkedMachinery
+          ? 'Despesa Operacional de Mão de Obra/Pessoal'
+          : 'Custos Administrativos / Escritório',
+        competenceMonth: compMonthIso,
+        categoryId: linkedMachinery ? 'cat_mao_de_obra' : 'cat_administrativo',
+        categoryName: linkedMachinery
+          ? 'Despesas com Pessoal / Salários'
+          : 'Custos Administrativos / Escritório',
+        categoryColor: linkedMachinery ? '#0284c7' : '#64748b',
+        dueDate: dueDateIso,
+        date: `${compMonthIso}-01`,
+        status: 'pendente',
+        paymentMethod: 'pix',
+        supplier: item.employeeName,
+        employeeId: item.employeeId,
+        employeeName: item.employeeName,
+        machineryId: linkedMachinery?.id,
+        machineryName: vehicleLabel,
+        costCenterName: linkedMachinery
+          ? `DRE Veículo: ${vehicleLabel}`
+          : 'Custos Administrativos / Escritório',
+        notes: linkedMachinery
+          ? `Contas a Pagar: ${formatCurrencyBRL(netSalaryVal)} (Venc. ${formatDateBR(dueDateIso)}) • DRE Veículo: ${vehicleLabel} [${formatCurrencyBRL(proventosDRE)} Bruto]`
+          : `Contas a Pagar: ${formatCurrencyBRL(netSalaryVal)} (Venc. ${formatDateBR(dueDateIso)}) • DRE Geral Escritório [${formatCurrencyBRL(proventosDRE)} Bruto]`,
+        createdAt: new Date().toISOString(),
+      };
+
+      const storedExpenses = getStoredExpenses();
+      const existingExpIdx = storedExpenses.findIndex(
+        (e) => e.id === payableId || toValidUUID(e.id) === payableId
+      );
+      let updatedExpenses: Expense[];
+      if (existingExpIdx >= 0) {
+        updatedExpenses = storedExpenses.map((e, idx) =>
+          idx === existingExpIdx ? { ...e, ...expenseEntry } : e
+        );
+      } else {
+        updatedExpenses = [expenseEntry, ...storedExpenses];
+      }
+      saveStoredExpenses(updatedExpenses);
+      if (isSupabaseConfigured) {
+        saveCloudExpenses(updatedExpenses, activeTenantId).catch(() => {});
+      }
+      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+
+      // 6. FEEDBACK VISUAL E TRAVA DE SEGURANÇA:
+      // Status da linha muda para "Integrado" e botão fica disabled
+      const updatedPayrolls = payrolls.map((p) => {
+        if (p.id === item.id) {
+          return {
+            ...p,
+            status: 'integrado' as const,
+            isIntegrated: true,
+            integratedAt: new Date().toISOString(),
+            financePayableId: payableId,
+          };
+        }
+        return p;
+      });
+      onSavePayrolls(updatedPayrolls);
+      saveStoredPayrolls(updatedPayrolls);
+
+      // 7. Feedback visual de sucesso
+      setIntegrationBanner({
+        type: 'success',
+        title: `Salário Integrado ao Financeiro: ${item.employeeName}`,
+        details: linkedMachinery
+          ? `Título de ${formatCurrencyBRL(netSalaryVal)} lançado no Contas a Pagar (vencimento em ${formatDateBR(dueDateIso)}) • Custo de ${formatCurrencyBRL(proventosDRE)} lançado no DRE do Veículo [${vehicleLabel}] como Despesa Operacional de Mão de Obra/Pessoal.`
+          : `Título de ${formatCurrencyBRL(netSalaryVal)} lançado no Contas a Pagar (vencimento em ${formatDateBR(dueDateIso)}) • Custo de ${formatCurrencyBRL(proventosDRE)} lançado no DRE Geral da Empresa como Custos Administrativos / Escritório.`,
+      });
+    } catch (err) {
+      console.error('Erro na integração financeira:', err);
+      setIntegrationBanner({
+        type: 'error',
+        title: 'Erro na Integração Financeira',
+        details: 'Não foi possível concluir o lançamento no Supabase. Verifique a conexão e tente novamente.',
+      });
+    } finally {
+      setIntegratingId(null);
+    }
+  };
 
   const calculatedModalNet = Math.max(0, (baseSalary + overtimeAmount + bonusAmount + commissionAmount) - (inssDiscount + advancesDiscount + otherDiscounts));
 
   return (
     <div className="space-y-3 sm:space-y-4">
       
+      {/* Banner de Feedback da Integração Financeira */}
+      {integrationBanner && (
+        <div
+          className={`p-3 rounded-xl border flex items-start justify-between gap-3 shadow-xs ${
+            integrationBanner.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200'
+              : integrationBanner.type === 'error'
+              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-200'
+              : 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-950 dark:text-blue-200'
+          }`}
+        >
+          <div className="flex items-start space-x-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-black">{integrationBanner.title}</p>
+              <p className="text-[11px] font-medium opacity-90 mt-0.5">{integrationBanner.details}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIntegrationBanner(null)}
+            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded transition cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Month Selector Bar & Action Controls */}
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-black dark:text-white">
         
@@ -909,27 +1132,37 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 filtered.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
                     <td className="py-2 px-3">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(item.id)}
-                        className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
-                          item.status === 'pago'
-                            ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                            : 'bg-amber-100 border-amber-300 text-amber-900'
-                        }`}
-                      >
-                        {item.status === 'pago' ? (
-                          <>
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Pago</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-3 h-3" />
-                            <span>A Pagar</span>
-                          </>
-                        )}
-                      </button>
+                      {item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated) ? (
+                        <span
+                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
+                          title="Lançado e integrado ao Contas a Pagar e DRE"
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                          <span>Integrado</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(item.id)}
+                          className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition border ${
+                            item.status === 'pago'
+                              ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
+                              : 'bg-amber-100 border-amber-300 text-amber-900'
+                          }`}
+                        >
+                          {item.status === 'pago' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Pago</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3" />
+                              <span>A Pagar</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </td>
 
                     <td className="py-2 px-3">
@@ -974,13 +1207,49 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
                     <td className="py-2 px-3 text-center">
                       <div className="flex items-center justify-center space-x-1">
+                        {/* 1. Botão de Integração Financeira (antes do ícone do olho) */}
+                        <button
+                          type="button"
+                          onClick={() => handleIntegrarFolhaFinanceiro(item)}
+                          disabled={item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated) || integratingId === item.id}
+                          className={`p-1 rounded transition ${
+                            item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated)
+                              ? 'text-slate-400 dark:text-stone-600 opacity-40 cursor-not-allowed'
+                              : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100/70 dark:hover:bg-stone-800 cursor-pointer active:scale-95'
+                          }`}
+                          title={
+                            item.status === 'integrado' || item.status === 'lancado' || Boolean(item.isIntegrated)
+                              ? 'Salário já integrado ao Contas a Pagar e DRE do Veículo'
+                              : 'Enviar para Contas a Pagar e DRE do Veículo'
+                          }
+                        >
+                          {integratingId === item.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                          ) : (
+                            <svg
+                              className="w-3.5 h-3.5 shrink-0"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                              <polyline points="16 6 12 2 8 6" />
+                              <line x1="12" y1="2" x2="12" y2="15" />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* 2. Ícone do Olho (Ver / Imprimir Holerite) */}
                         <button
                           type="button"
                           onClick={() => onViewPayslip(item)}
                           className="p-1 text-black dark:text-sky-400 hover:bg-blue-200/60 dark:hover:bg-stone-800 rounded transition cursor-pointer"
                           title="Ver / Imprimir Holerite"
                         >
-                          <FileText className="w-3.5 h-3.5" />
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
