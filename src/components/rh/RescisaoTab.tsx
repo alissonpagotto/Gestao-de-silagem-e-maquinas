@@ -30,7 +30,8 @@ import {
   TerminationRecord, 
   TerminationReason, 
   NoticeType,
-  TerminationCalculation 
+  TerminationCalculation,
+  VacationRecord
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -54,6 +55,7 @@ import { useConfirm } from '../../context/ConfirmContext';
 
 interface RescisaoTabProps {
   employees: Employee[];
+  vacations?: VacationRecord[];
   companyProfile?: CompanyProfile;
   advances?: SalaryAdvance[];
   absences?: AbsenceRecord[];
@@ -62,6 +64,7 @@ interface RescisaoTabProps {
 
 export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   employees = [],
+  vacations = [],
   companyProfile,
   advances = [],
   absences = [],
@@ -96,6 +99,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   // Controle de Rascunhos e Persistência
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [draftBannerMessage, setDraftBannerMessage] = useState<string | null>(null);
+  const [vacationAlert, setVacationAlert] = useState<string | null>(null);
 
   // Sincronização inicial com o Supabase
   useEffect(() => {
@@ -171,20 +175,47 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   // Referência para evitar re-carregamento desnecessário enquanto o usuário edita campos
   const lastLoadedEmployeeIdRef = useRef<string | null>(null);
 
-  // Manipulador para férias vencidas aceitando frações e decimais (ex: 1.4, 1.5, etc.)
+  // Manipulador para férias vencidas aceitando apenas períodos inteiros legais (CLT Art. 130)
   const handleVacationExpiredChange = (valStr: string) => {
-    setVacationExpiredInput(valStr);
+    // 1. Bloqueio automático para contratos menores de 12 meses
+    if (dateAnalysis.contractHasLessThanOneYear) {
+      setVacationExpiredPeriods(0);
+      setVacationExpiredInput('0');
+      setVacationAlert(
+        `Trava de Segurança CLT / Antiduplicação:\nO contrato possui menos de 12 meses (${dateAnalysis.totalDays} dias trabalhados). É proibido lançar férias vencidas (nem frações como 0,5 período), pois não houve aquisição de período integral (Art. 130 CLT). O período trabalhado é pago exclusivamente nas Férias Proporcionais (${dateAnalysis.vacationProportionalMonths}/12 avos).`
+      );
+      return;
+    }
+
     const normalized = valStr.replace(',', '.').trim();
     if (!normalized) {
       setVacationExpiredPeriods(0);
+      setVacationExpiredInput('0');
+      setVacationAlert(null);
       return;
     }
-    const num = parseFloat(normalized);
-    if (!isNaN(num) && num >= 0) {
-      setVacationExpiredPeriods(Number(num.toFixed(2)));
-    } else {
+    const num = Math.floor(parseFloat(normalized));
+    if (isNaN(num) || num <= 0) {
       setVacationExpiredPeriods(0);
+      setVacationExpiredInput('0');
+      setVacationAlert(null);
+      return;
     }
+
+    // Regra antiduplicação CLT: não pode exceder o número de períodos aquisitivos completos do contrato
+    const maxAllowed = dateAnalysis.completedAcquisitionPeriods;
+    if (num > maxAllowed) {
+      setVacationAlert(
+        `Alerta de Parametrização CLT / Antiduplicação:\nO contrato possui ${maxAllowed} período(s) aquisitivo(s) completo(s) de 12 meses. O valor foi ajustado para ${maxAllowed} para evitar pagamento em duplicidade ou cálculo inflado.`
+      );
+      setVacationExpiredPeriods(maxAllowed);
+      setVacationExpiredInput(String(maxAllowed));
+      return;
+    }
+
+    setVacationAlert(null);
+    setVacationExpiredPeriods(num);
+    setVacationExpiredInput(String(num));
   };
 
   // Colaborador Selecionado
@@ -192,7 +223,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     return employees.find((e) => e.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
 
-  // Ao selecionar funcionário, verifica se há rascunho salvo para restaurar ou preenche com dados cadastrais
+  // Ao selecionar funcionário, verifica se há rascunho salvo para restaurar ou preenche com dados cadastrais e cálculo retroativo de férias
   useEffect(() => {
     if (selectedEmployee) {
       // Se este funcionário já foi carregado ativamente, não sobrescreve os campos que o usuário está digitando
@@ -210,14 +241,26 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         // Carrega com fidelidade todos os campos salvos no rascunho
         setReason(existingDraft.reason || 'sem_justa_causa');
         setNoticeType(existingDraft.noticeType || 'indenizado');
-        setAdmissionDate(existingDraft.admissionDate || selectedEmployee.admissionDate?.split('T')[0] || '');
-        setTerminationDate(existingDraft.terminationDate || new Date().toISOString().split('T')[0]);
+        const adm = existingDraft.admissionDate || selectedEmployee.admissionDate?.split('T')[0] || '';
+        const term = existingDraft.terminationDate || new Date().toISOString().split('T')[0];
+        setAdmissionDate(adm);
+        setTerminationDate(term);
 
         const sal = existingDraft.baseSalary ?? (selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0);
         setBaseSalary(sal);
         setBaseSalaryDisplay(formatNumberBRL(sal));
 
-        const vacCount = existingDraft.vacationExpiredPeriods ?? existingDraft.calculation?.vacationExpiredCount ?? 0;
+        // Aplica a trava antiduplicação mesmo em rascunhos antigos se o contrato tiver < 12 meses
+        const s = adm ? new Date(adm + 'T12:00:00') : null;
+        const e = term ? new Date(term + 'T12:00:00') : null;
+        let isShortContract = true;
+        if (s && e && !isNaN(s.getTime()) && !isNaN(e.getTime())) {
+          const nextYear = new Date(s);
+          nextYear.setFullYear(nextYear.getFullYear() + 1);
+          isShortContract = nextYear > e;
+        }
+
+        const vacCount = isShortContract ? 0 : (existingDraft.vacationExpiredPeriods ?? existingDraft.calculation?.vacationExpiredCount ?? 0);
         setVacationExpiredPeriods(vacCount);
         setVacationExpiredInput(vacCount > 0 ? String(vacCount) : '0');
 
@@ -237,16 +280,41 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         setBaseSalary(sal);
         setBaseSalaryDisplay(formatNumberBRL(sal));
         
-        if (selectedEmployee.admissionDate) {
-          const cleanDate = selectedEmployee.admissionDate.split('T')[0];
-          setAdmissionDate(cleanDate);
-        } else {
-          setAdmissionDate('');
-        }
+        const cleanAdm = selectedEmployee.admissionDate ? selectedEmployee.admissionDate.split('T')[0] : '';
+        setAdmissionDate(cleanAdm);
+        const todayIso = new Date().toISOString().split('T')[0];
+        setTerminationDate(todayIso);
 
-        setTerminationDate(new Date().toISOString().split('T')[0]);
-        setVacationExpiredPeriods(0);
-        setVacationExpiredInput('0');
+        // 1. TRATAMENTO DE HISTÓRICO DE FÉRIAS (DADOS AUSENTES OU ZERADOS):
+        // Se contrato < 12 meses: Férias Vencidas OBRIGATORIAMENTE 0.
+        // Se contrato > 12 meses e NÃO houver férias gozadas: calcula retroativamente quantos períodos vencidos existem.
+        let initialExpiredVacations = 0;
+        if (cleanAdm) {
+          const s = new Date(cleanAdm + 'T12:00:00');
+          const e = new Date(todayIso + 'T12:00:00');
+          if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+            let completedP = 0;
+            let anniv = new Date(s);
+            while (true) {
+              const nextA = new Date(anniv);
+              nextA.setFullYear(nextA.getFullYear() + 1);
+              if (nextA <= e) {
+                completedP++;
+                anniv = nextA;
+              } else {
+                break;
+              }
+            }
+            if (completedP > 0) {
+              const empVacs = (vacations || []).filter(
+                (v) => v.employeeId === selectedEmployee.id && (v.status === 'pago' || v.daysCount >= 20)
+              );
+              initialExpiredVacations = Math.max(0, completedP - empVacs.length);
+            }
+          }
+        }
+        setVacationExpiredPeriods(initialExpiredVacations);
+        setVacationExpiredInput(String(initialExpiredVacations));
 
         // Buscar adiantamentos pendentes em aberto deste colaborador
         const pendingAdvances = advances
@@ -280,19 +348,28 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       setVacationExpiredInput('0');
       setDraftBannerMessage(null);
     }
-  }, [selectedEmployeeId, selectedEmployee, advances, absences, terminations]);
+  }, [selectedEmployeeId, selectedEmployee, advances, absences, terminations, vacations]);
 
-  // Cálculo de datas e proporções
+  // Cálculo de datas e proporções rigorosamente aderente à CLT
   const dateAnalysis = useMemo(() => {
     if (!admissionDate || !terminationDate) {
       return {
         totalDays: 0,
         totalMonths: 0,
         yearsOfService: 0,
+        completedAcquisitionPeriods: 0,
+        unexhaustedExpiredPeriods: 0,
         workedDaysCurrentMonth: 0,
         thirteenthMonths: 0,
+        thirteenthMonthsWorked: 0,
+        thirteenthMonthsProjectedNotice: 0,
         vacationProportionalMonths: 0,
+        vacationMonthsWorked: 0,
+        vacationMonthsProjectedNotice: 0,
         noticeDays: 30,
+        projectedTerminationDate: '',
+        isProjectedNotice: false,
+        contractHasLessThanOneYear: true,
       };
     }
 
@@ -304,74 +381,140 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
         totalDays: 0,
         totalMonths: 0,
         yearsOfService: 0,
+        completedAcquisitionPeriods: 0,
+        unexhaustedExpiredPeriods: 0,
         workedDaysCurrentMonth: 0,
         thirteenthMonths: 0,
+        thirteenthMonthsWorked: 0,
+        thirteenthMonthsProjectedNotice: 0,
         vacationProportionalMonths: 0,
+        vacationMonthsWorked: 0,
+        vacationMonthsProjectedNotice: 0,
         noticeDays: 30,
+        projectedTerminationDate: '',
+        isProjectedNotice: false,
+        contractHasLessThanOneYear: true,
       };
     }
 
-    // Dias trabalhados no mês do desligamento (dia 1 até dia do término, limitado a 30)
-    const endDay = end.getDate();
-    const workedDaysCurrentMonth = Math.min(30, endDay);
+    // Dias exatos de calendário de contrato trabalhado (inclusivo de início e fim)
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const totalMonths = Math.max(1, Math.round(totalDays / 30.4375));
 
-    // Meses trabalhados no ano corrente para 13º salário proporcional
-    const endMonth = end.getMonth(); // 0 a 11
-    let thirteenthMonths = endMonth; // meses completos anteriores no ano
-    if (endDay >= 15) {
-      thirteenthMonths += 1; // 15 dias ou mais contam como 1 mês completo
-    }
-
-    // Se a admissão foi no mesmo ano do término, contar apenas a partir do mês de admissão
-    if (start.getFullYear() === end.getFullYear()) {
-      const startMonth = start.getMonth();
-      const startDay = start.getDate();
-      let startOffset = startMonth;
-      if (startDay > 15) {
-        startOffset += 1; // Se admitido após dia 15, não conta o primeiro mês
-      }
-      thirteenthMonths = Math.max(0, thirteenthMonths - startOffset);
-    }
-    thirteenthMonths = Math.min(12, Math.max(0, thirteenthMonths));
-
-    // Meses para Férias Proporcionais (período aquisitivo incompleto)
-    // Calcula o aniversário de admissão mais recente
+    // Períodos aquisitivos de 12 meses completos (CLT Art. 130)
+    let completedAcquisitionPeriods = 0;
     let lastAnniversary = new Date(start);
     while (true) {
       const nextAnniv = new Date(lastAnniversary);
       nextAnniv.setFullYear(nextAnniv.getFullYear() + 1);
       if (nextAnniv <= end) {
+        completedAcquisitionPeriods++;
         lastAnniversary = nextAnniv;
       } else {
         break;
       }
     }
+    const contractHasLessThanOneYear = completedAcquisitionPeriods === 0;
 
-    // Diferença em meses entre último aniversário e a rescisão
-    let diffMonths = (end.getFullYear() - lastAnniversary.getFullYear()) * 12 + (end.getMonth() - lastAnniversary.getMonth());
-    if (end.getDate() - lastAnniversary.getDate() >= 15) {
-      diffMonths += 1;
-    }
-    const vacationProportionalMonths = Math.min(12, Math.max(0, diffMonths));
+    // Histórico de Férias gozadas no sistema para este colaborador
+    const empVacations = (vacations || []).filter(
+      (v) => v.employeeId === selectedEmployee?.id && (v.status === 'pago' || v.daysCount >= 20)
+    );
+    const enjoyedVacationsCount = empVacations.length;
+    const unexhaustedExpiredPeriods = contractHasLessThanOneYear
+      ? 0
+      : Math.max(0, completedAcquisitionPeriods - enjoyedVacationsCount);
 
-    // Anos completos de serviço (para Lei do Aviso Prévio Proporcional: 3 dias por ano completo, até 90 dias)
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const yearsOfService = Math.floor(totalDays / 365.25);
+    // Anos completos de serviço para a Lei do Aviso Prévio (Lei 12.506/2011: 30 dias + 3 dias/ano completo)
+    const yearsOfService = completedAcquisitionPeriods;
     const noticeDays = Math.min(90, 30 + yearsOfService * 3);
 
-    const totalMonths = Math.max(1, Math.round(totalDays / 30.4375));
+    // Projeção do Aviso Prévio Indenizado (CLT Art. 487, § 1º, Súmula 305 e OJ 82 SDI-1 do TST)
+    const isProjectedNotice = noticeType === 'indenizado' && (reason === 'sem_justa_causa' || reason === 'acordo_mutuo');
+    const projectedEnd = isProjectedNotice
+      ? new Date(end.getTime() + noticeDays * 24 * 60 * 60 * 1000)
+      : end;
+    const projectedTerminationDate = projectedEnd.toISOString().split('T')[0];
+
+    // Dias trabalhados no mês do término físico (dia 1 até dia do término, limitado a 30)
+    const endDay = end.getDate();
+    const workedDaysCurrentMonth = Math.min(30, endDay);
+
+    // 13º Salário Proporcional (Trabalhado e com Projeção)
+    // Regra da CLT: mês conta se houver >= 15 dias trabalhados
+    const calcThirteenthAvos = (cutoff: Date): number => {
+      const targetYear = cutoff.getFullYear();
+      let avos = 0;
+      const startM = (start.getFullYear() === targetYear) ? start.getMonth() : 0;
+      const endM = cutoff.getMonth();
+
+      for (let m = startM; m <= endM; m++) {
+        let days = 0;
+        if (m === startM && start.getFullYear() === targetYear) {
+          const daysInFirst = new Date(targetYear, m + 1, 0).getDate();
+          days = daysInFirst - start.getDate() + 1;
+        } else if (m === endM) {
+          days = cutoff.getDate();
+        } else {
+          days = 30;
+        }
+        if (days >= 15) {
+          avos++;
+        }
+      }
+      return Math.min(12, Math.max(0, avos));
+    };
+
+    const thirteenthMonthsWorked = calcThirteenthAvos(end);
+    const thirteenthMonthsTotal = isProjectedNotice ? calcThirteenthAvos(projectedEnd) : thirteenthMonthsWorked;
+    const thirteenthMonthsProjectedNotice = Math.max(0, thirteenthMonthsTotal - thirteenthMonthsWorked);
+
+    // Férias Proporcionais a partir do último aniversário aquisitivo (ou da admissão se 0 aniversários)
+    const calcVacationAvos = (cutoff: Date): number => {
+      let avos = 0;
+      let curr = new Date(lastAnniversary);
+      while (avos < 12) {
+        const next = new Date(curr);
+        next.setMonth(next.getMonth() + 1);
+        if (next <= cutoff) {
+          avos++;
+          curr = next;
+        } else {
+          const diffMs = cutoff.getTime() - curr.getTime();
+          const rem = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          if (rem >= 15) {
+            avos++;
+          }
+          break;
+        }
+      }
+      return Math.min(12, Math.max(0, avos));
+    };
+
+    const vacationMonthsWorked = calcVacationAvos(end);
+    const vacationMonthsTotal = isProjectedNotice ? calcVacationAvos(projectedEnd) : vacationMonthsWorked;
+    const vacationMonthsProjectedNotice = Math.max(0, vacationMonthsTotal - vacationMonthsWorked);
 
     return {
       totalDays,
       totalMonths,
       yearsOfService,
+      completedAcquisitionPeriods,
+      unexhaustedExpiredPeriods,
       workedDaysCurrentMonth,
-      thirteenthMonths,
-      vacationProportionalMonths,
+      thirteenthMonths: thirteenthMonthsTotal,
+      thirteenthMonthsWorked,
+      thirteenthMonthsProjectedNotice,
+      vacationProportionalMonths: vacationMonthsTotal,
+      vacationMonthsWorked,
+      vacationMonthsProjectedNotice,
       noticeDays,
+      projectedTerminationDate,
+      isProjectedNotice,
+      contractHasLessThanOneYear,
     };
-  }, [admissionDate, terminationDate]);
+  }, [admissionDate, terminationDate, noticeType, reason, vacations, selectedEmployee]);
 
   // Função auxiliar de cálculo do INSS progressivo brasileiro
   const calculateINSS = (base: number): number => {
@@ -467,8 +610,11 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       thirteenthMonths = 0;
     }
 
-    // 4. Férias Vencidas
-    const vacationExpiredAmount = Number((vacationExpiredPeriods * salary).toFixed(2));
+    // 4. Férias Vencidas (Regra Antiduplicação CLT: se contrato tiver menos de 12 meses, é obrigatoriamente 0)
+    const effectiveExpiredCount = dateAnalysis.contractHasLessThanOneYear
+      ? 0
+      : Math.min(dateAnalysis.completedAcquisitionPeriods, Math.max(0, vacationExpiredPeriods));
+    const vacationExpiredAmount = Number((effectiveExpiredCount * salary).toFixed(2));
 
     // 5. Férias Proporcionais
     let vacationPropMonths = dateAnalysis.vacationProportionalMonths;
@@ -479,7 +625,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       vacationPropMonths = 0;
     }
 
-    // 6. 1/3 Constitucional de Férias (sobre vencidas + proporcionais)
+    // 6. 1/3 Constitucional de Férias (sobre vencidas reais + proporcionais reais)
     let vacationOneThirdBonus = 0;
     if (vacationExpiredAmount > 0 || vacationProportionalAmount > 0) {
       vacationOneThirdBonus = Number(((vacationExpiredAmount + vacationProportionalAmount) / 3).toFixed(2));
@@ -949,39 +1095,75 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300">
-                  Férias Vencidas (Períodos / Anos)
+                  Férias Vencidas (Períodos Integrais CLT)
                 </label>
-                <span className="text-[10px] text-slate-500 dark:text-stone-400">
-                  Fração (ex: 1,4 ou 1,5)
-                </span>
+                {dateAnalysis.contractHasLessThanOneYear ? (
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    Trava CLT: R$ 0,00 (&lt; 1 ano)
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-500 dark:text-stone-400">
+                    Máx. legal: {dateAnalysis.completedAcquisitionPeriods} per.
+                  </span>
+                )}
               </div>
               <div className="space-y-1.5">
                 <input
                   type="number"
-                  step="0.1"
+                  step="1"
                   min="0"
-                  max="15"
+                  max={dateAnalysis.completedAcquisitionPeriods}
+                  disabled={dateAnalysis.contractHasLessThanOneYear}
                   value={vacationExpiredInput}
                   onChange={(e) => handleVacationExpiredChange(e.target.value)}
-                  placeholder="0,0"
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="0"
+                  className={`w-full px-2.5 py-1.5 border rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    dateAnalysis.contractHasLessThanOneYear
+                      ? 'bg-slate-100 dark:bg-stone-900 border-slate-200 dark:border-stone-800 text-slate-400 dark:text-stone-500 cursor-not-allowed'
+                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-900 dark:text-white'
+                  }`}
                 />
+                
+                {/* Botões de Período Inteiro Conforme CLT Art. 130 */}
                 <div className="flex items-center gap-1 flex-wrap">
-                  {[0, 1, 1.4, 1.5, 2].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => handleVacationExpiredChange(String(preset))}
-                      className={`px-2 py-0.5 text-[10px] rounded-md font-bold transition border cursor-pointer ${
-                        vacationExpiredPeriods === preset
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                          : 'bg-white dark:bg-stone-800 text-slate-600 dark:text-stone-300 border-slate-200 dark:border-stone-700 hover:bg-slate-100 dark:hover:bg-stone-700'
-                      }`}
-                    >
-                      {preset === 0 ? '0' : `${String(preset).replace('.', ',')} ano${preset > 1 ? 's' : ''}`}
-                    </button>
-                  ))}
+                  {dateAnalysis.contractHasLessThanOneYear ? (
+                    <span className="text-[10px] text-slate-500 dark:text-stone-400 italic">
+                      Tempo trabalhado quitado nas Férias Proporcionais ({dateAnalysis.vacationProportionalMonths}/12)
+                    </span>
+                  ) : (
+                    Array.from({ length: Math.min(4, dateAnalysis.completedAcquisitionPeriods + 1) }, (_, i) => i).map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => handleVacationExpiredChange(String(preset))}
+                        className={`px-2 py-0.5 text-[10px] rounded-md font-bold transition border cursor-pointer ${
+                          vacationExpiredPeriods === preset
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-white dark:bg-stone-800 text-slate-600 dark:text-stone-300 border-slate-200 dark:border-stone-700 hover:bg-slate-100 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        {preset === 0 ? '0 per.' : `${preset} per. (${preset * 12}m)`}
+                      </button>
+                    ))
+                  )}
                 </div>
+
+                {/* Alerta Visual de Parametrização / Trava de Férias */}
+                {vacationAlert && (
+                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 flex items-start justify-between gap-1.5">
+                    <div className="flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span className="whitespace-pre-line leading-tight font-medium">{vacationAlert}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setVacationAlert(null)}
+                      className="text-amber-700 hover:text-amber-900 dark:text-amber-300 cursor-pointer shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

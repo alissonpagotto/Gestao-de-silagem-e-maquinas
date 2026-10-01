@@ -580,6 +580,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {activeTab === 'rescisao' && (
         <RescisaoTab
           employees={sortedEmployees}
+          vacations={vacations}
           companyProfile={companyProfile}
           advances={advances}
           absences={absences}
