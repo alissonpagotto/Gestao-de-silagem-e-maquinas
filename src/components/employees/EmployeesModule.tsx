@@ -30,7 +30,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees } from '../../lib/storage';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
 import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
@@ -336,7 +336,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               });
             }
           } else if (payload.eventType === 'INSERT' && payload.new) {
-            const mapped = mapRowToEmployee(payload.new);
+            const baseMapped = mapRowToEmployee(payload.new);
+            const mapped = {
+              ...baseMapped,
+              paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
+              bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
+              bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
+              bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
+              local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
+              banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
+              agencia: payload.new.agencia || baseMapped.bankAgency,
+              conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
+            };
             setLocalEmployees(prev => {
               const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
               const updated = exists
@@ -347,7 +358,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               return updated;
             });
           } else if (payload.eventType === 'UPDATE' && payload.new) {
-            const mapped = mapRowToEmployee(payload.new);
+            const baseMapped = mapRowToEmployee(payload.new);
+            const mapped = {
+              ...baseMapped,
+              paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
+              bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
+              bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
+              bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
+              local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
+              banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
+              agencia: payload.new.agencia || baseMapped.bankAgency,
+              conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
+            };
             setLocalEmployees(prev => {
               const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
               saveStoredEmployees(updated);
@@ -594,10 +616,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCnhUpgradeDT(Boolean(emp.cnhUpgradeDT));
     setCnhUpgradeCategory(emp.cnhUpgradeCategory || 'A');
 
-    setPaymentLocation((emp.paymentLocation || '').toUpperCase());
-    setBankPixKey((emp.bankPixKey || '').toUpperCase());
-    setBankAgency((emp.bankAgency || '').toUpperCase());
-    setBankAccount((emp.bankAccount || '').toUpperCase());
+    setPaymentLocation(((emp as any).local_recebimento || emp.paymentLocation || '').toUpperCase());
+    setBankPixKey(((emp as any).banco_chave_pix || emp.bankPixKey || '').toUpperCase());
+    setBankAgency(((emp as any).agencia || emp.bankAgency || '').toUpperCase());
+    setBankAccount(((emp as any).conta_corrente || emp.bankAccount || '').toUpperCase());
 
     setAdmissionExamDoc(emp.admissionExamDoc || null);
     setExperienceContractDoc(emp.experienceContractDoc || null);
@@ -892,6 +914,58 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           details: err,
           employeeData
         });
+      }
+
+      // Persistência direta e estrita dos campos comuns de texto de pagamento na tabela public.rh_funcionarios
+      if (isSupabaseConfigured) {
+        try {
+          const targetValidUuid = toValidUUID(finalId);
+          // Payload contendo estritamente os campos de texto comuns da seção de pagamento
+          const paymentPayload: Record<string, string | null> = {
+            local_recebimento: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : null,
+            banco_chave_pix: bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : null,
+            agencia: bankAgency.trim() ? bankAgency.trim().toUpperCase() : null,
+            conta_corrente: bankAccount.trim() ? bankAccount.trim().toUpperCase() : null,
+          };
+
+          // Obter identificador de isolamento do usuário logado / empresa ativa
+          const activeCid = activeCompany?.id || getActiveCompanyId();
+          let loggedInUserId: string | null = null;
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            if (authData?.user?.id) {
+              loggedInUserId = authData.user.id;
+            }
+          } catch (_) {}
+
+          const tenantId = loggedInUserId || activeCid;
+
+          // Executa o update com estrito isolamento por ID do colaborador e identificador do usuário logado
+          let query = supabase
+            .from('rh_funcionarios')
+            .update(paymentPayload)
+            .eq('id', targetValidUuid);
+
+          if (tenantId) {
+            query = query.or(`company_id.eq.${tenantId},user_id.eq.${tenantId}`);
+          }
+
+          const { error: updateErr } = await query;
+          if (updateErr) {
+            // Tenta fallback com ID original caso difira do UUID canônico
+            if (finalId !== targetValidUuid) {
+              await supabase
+                .from('rh_funcionarios')
+                .update(paymentPayload)
+                .eq('id', finalId);
+            }
+            console.warn('[RH Pagamentos] Aviso ao salvar campos de pagamento no Supabase:', updateErr.message);
+          } else {
+            console.info('[RH Pagamentos] Campos de pagamento salvos com sucesso em public.rh_funcionarios');
+          }
+        } catch (paymentErr) {
+          console.warn('[RH Pagamentos] Exceção ao persistir dados de pagamento no Supabase:', paymentErr);
+        }
       }
       setIsModalOpen(false);
     } finally {

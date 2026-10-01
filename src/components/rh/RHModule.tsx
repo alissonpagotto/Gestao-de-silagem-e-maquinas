@@ -30,8 +30,14 @@ import {
   getStoredMedicalCertificates, 
   saveStoredMedicalCertificates, 
   getStoredAbsences, 
-  saveStoredAbsences 
+  saveStoredAbsences,
+  getStoredEmployees,
+  saveStoredEmployees,
+  getActiveCompanyId
 } from '../../lib/storage';
+import { toValidUUID, fetchRhFuncionarios, isSupabaseConfigured, mapRowToEmployee } from '../../lib/supabaseService';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { RHDashboardTab } from './RHDashboardTab';
 import { PayrollTab } from './PayrollTab';
 import { VacationsTab } from './VacationsTab';
@@ -150,12 +156,130 @@ export const RHModule: React.FC<RHModuleProps> = ({
     }
   };
 
+  const { currentUser, companyId: authCompanyId } = useAuth();
+  const currentUserId = currentUser?.id;
+
+  // Isolamento estrito por Usuário Autenticado (RLS auth.uid() = user_id):
+  // Garante que todas as abas do RH exibam ÚNICA E EXCLUSIVAMENTE colaboradores associados à minha conta
+  const tenantEmployees = useMemo(() => {
+    if (!currentUserId) return [];
+
+    return employees.filter(emp => {
+      const empUid = String(emp.userId || (emp as any).user_id || '').trim();
+      if (!empUid) {
+        const empCid = String(emp.companyId || (emp as any).company_id || '').trim();
+        return empCid === currentUserId;
+      }
+      return empUid === currentUserId;
+    });
+  }, [employees, currentUserId]);
+
   // Ordenação automática e permanente de A a Z dos colaboradores para o RH
   const sortedEmployees = useMemo(() => {
-    return [...employees].sort((a, b) => 
+    return [...tenantEmployees].sort((a, b) => 
       (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
     );
-  }, [employees]);
+  }, [tenantEmployees]);
+
+  // 3. Limpeza Imediata da Tela e Sincronização Estrita do RH por Usuário Autenticado (RLS auth.uid() = user_id)
+  React.useEffect(() => {
+    let isMounted = true;
+    let channel: any = null;
+
+    const setupRHAuthSync = async () => {
+      // 1. Obtém o ID do usuário autenticado no sistema (auth.uid)
+      let activeUid = currentUserId;
+      if (!activeUid && isSupabaseConfigured) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          activeUid = authData?.user?.id;
+          if (!activeUid) {
+            const { data: sessData } = await supabase.auth.getSession();
+            activeUid = sessData?.session?.user?.id;
+          }
+        } catch (_) {}
+      }
+
+      // 2. Elimina qualquer tentativa de buscar registros sem essa cláusula de amarração
+      if (!activeUid) return;
+
+      // 3. Limpeza Imediata da Tela:
+      // Ao carregar a página, qualquer dado residual de terceiros preso no estado local é totalmente descartado
+      const stored = getStoredEmployees();
+      const strictlyMine = stored.filter(emp => {
+        const uid = String(emp.userId || (emp as any).user_id || '').trim();
+        if (uid) return uid === activeUid;
+        const cid = String(emp.companyId || (emp as any).company_id || '').trim();
+        return cid === activeUid;
+      });
+
+      if (strictlyMine.length !== stored.length) {
+        saveStoredEmployees(strictlyMine);
+        if (onSaveEmployees) onSaveEmployees(strictlyMine);
+      }
+
+      // Query de listagem inicial (fetch) aplicando estritamente .eq('user_id', activeUid)
+      if (isSupabaseConfigured) {
+        try {
+          const fresh = await fetchRhFuncionarios(undefined, activeUid);
+          if (isMounted && fresh && Array.isArray(fresh)) {
+            const verifiedFresh = fresh.filter(emp => {
+              const uid = String(emp.userId || (emp as any).user_id || '').trim();
+              return uid === activeUid;
+            });
+            saveStoredEmployees(verifiedFresh);
+            if (onSaveEmployees) onSaveEmployees(verifiedFresh);
+          }
+        } catch (err) {
+          console.warn('[RHModule] Erro ao sincronizar funcionários:', err);
+        }
+
+        // Canal de escuta Realtime (.on) com filtro estrito .eq('user_id', activeUid)
+        const channelId = `rh_module_rt_${activeUid}_${Date.now()}`;
+        channel = supabase
+          .channel(channelId)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'rh_funcionarios',
+              filter: `user_id=eq.${activeUid}`,
+            },
+            async (payload: any) => {
+              if (!isMounted) return;
+              console.info('📡 [Realtime RH] Alteração em rh_funcionarios filtrada por user_id:', payload.eventType);
+
+              // Validação de segurança: se vier de outro user_id, ignora
+              if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const row = payload.new;
+                if (row && String(row.user_id || '').trim() !== activeUid) {
+                  return;
+                }
+              }
+
+              // Re-sincroniza com filtro estrito por user_id
+              const fresh = await fetchRhFuncionarios(undefined, activeUid);
+              if (isMounted && fresh && Array.isArray(fresh)) {
+                const strictlyMineFresh = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+                saveStoredEmployees(strictlyMineFresh);
+                if (onSaveEmployees) onSaveEmployees(strictlyMineFresh);
+              }
+            }
+          )
+          .subscribe();
+      }
+    };
+
+    setupRHAuthSync();
+
+    return () => {
+      isMounted = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [currentUserId, onSaveEmployees]);
 
   // Payslip Modal State
   const [viewingPayslip, setViewingPayslip] = useState<PayrollRecord | null>(null);
@@ -387,6 +511,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {activeTab === 'funcionarios' && (
         <EmployeesModule
           employees={sortedEmployees}
+          companyProfile={companyProfile}
           onSaveEmployees={onSaveEmployees}
           onDeleteEmployee={onDeleteEmployee}
           externalNewEmployeeTrigger={externalNewEmployeeTrigger}
