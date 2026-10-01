@@ -1784,7 +1784,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   >
                     <thead className="bg-stone-100/90 dark:bg-stone-800 text-[10px] font-black uppercase text-stone-700 dark:text-stone-300 border-b border-stone-200 dark:border-stone-800">
                       <tr>
-                        <th className="py-1.5 px-3 text-left">Rubrica / Discriminação</th>
+                        <th className="py-1.5 px-3 text-left">DISCRIMINAÇÃO</th>
                         <th className="py-1.5 px-2 text-center w-24">Referência</th>
                         <th className="py-1.5 px-3 text-right w-36 text-emerald-700 dark:text-emerald-400">PROVENTOS (+)</th>
                         <th className="py-1.5 px-3 text-right w-36 text-rose-700 dark:text-rose-400">DESCONTOS (-)</th>
