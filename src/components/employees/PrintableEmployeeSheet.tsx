@@ -272,7 +272,7 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
             </td>
           </tr>
           <tr>
-            <td className="label-cell">Banco / Chave PIX:</td>
+            <td className="label-cell">Conta de Depósito:</td>
             <td className="value-cell" colSpan={3} style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>
               {employee.bankPixKey || 'Não informada'}
             </td>
@@ -280,7 +280,7 @@ export const PrintableEmployeeSheet: React.FC<PrintableEmployeeSheetProps> = ({
           <tr>
             <td className="label-cell">Agência (Ag.):</td>
             <td className="value-cell">{employee.bankAgency || 'Não informada'}</td>
-            <td className="label-cell">Conta Corrente (C.C.):</td>
+            <td className="label-cell">Conta Corrente (C.C.) / Chave Pix:</td>
             <td className="value-cell">{employee.bankAccount || 'Não informada'}</td>
           </tr>
           <tr>

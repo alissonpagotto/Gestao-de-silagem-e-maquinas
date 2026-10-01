@@ -29,10 +29,10 @@ import {
   MapPin,
   Loader2
 } from 'lucide-react';
-import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType } from '../../types';
-import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId } from '../../lib/storage';
+import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
+import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
@@ -99,8 +99,383 @@ const DEFAULT_CONTRACT_TYPES = [
   'Diarista/Informal'
 ];
 
+// 1. Opções padrão para "Local de Recebimento" (Dropdown/Select editável)
+const DEFAULT_PAYMENT_LOCATIONS = [
+  'Conta pessoal',
+  'Conta de terceiro',
+];
+
+// 2. Opções padrão para "Conta de Depósito" ordenadas estritamente em ordem alfabética
+const DEFAULT_DEPOSIT_BANKS = [
+  'B.Brasil',
+  'Bradesco',
+  'Cresol',
+  'Evolua',
+  'Itaú',
+  'Sicoob',
+  'Sicredi',
+];
+
+function normalizeStandardOption(val: string | undefined | null, defaults: string[]): string {
+  if (!val) return '';
+  const trimmed = String(val).trim();
+  if (!trimmed) return '';
+  const matched = defaults.find(opt => opt.toLowerCase() === trimmed.toLowerCase());
+  return matched || trimmed;
+}
+
+/**
+ * Detecta automaticamente se o valor digitado em "Conta Corrente (C.C.) / Chave Pix"
+ * corresponde a um E-mail, CPF, CNPJ, Celular, Chave Aleatória (EVP) ou Conta Corrente.
+ */
+function detectAccountOrPixType(rawValue: string): {
+  type: 'empty' | 'email' | 'cpf' | 'cnpj' | 'phone' | 'evp' | 'account';
+  label: string;
+  canQuickFormat11Digits: boolean;
+} {
+  const val = (rawValue || '').trim();
+  if (!val) return { type: 'empty', label: '', canQuickFormat11Digits: false };
+
+  if (val.includes('@')) {
+    return { type: 'email', label: 'Chave Pix: E-mail', canQuickFormat11Digits: false };
+  }
+  if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val)) {
+    return { type: 'evp', label: 'Chave Pix: Aleatória', canQuickFormat11Digits: false };
+  }
+  if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(val)) {
+    return { type: 'cpf', label: 'Chave Pix: CPF', canQuickFormat11Digits: false };
+  }
+  if (/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(val)) {
+    return { type: 'cnpj', label: 'Chave Pix: CNPJ', canQuickFormat11Digits: false };
+  }
+  if (/^\(\d{2}\)\s?\d{4,5}-\d{4}$/.test(val) || /^\+55\d{10,11}$/.test(val)) {
+    return { type: 'phone', label: 'Chave Pix: Celular', canQuickFormat11Digits: false };
+  }
+
+  const digitsOnly = val.replace(/\D/g, '');
+  const isOnlyDigits = /^\d+$/.test(val);
+  if (isOnlyDigits && digitsOnly.length === 11) {
+    return { type: 'account', label: '11 dígitos (C.C., CPF ou Celular)', canQuickFormat11Digits: true };
+  }
+
+  if (/[a-zA-Z]/.test(val) && val.length >= 20) {
+    return { type: 'evp', label: 'Chave Pix: Aleatória', canQuickFormat11Digits: false };
+  }
+
+  return { type: 'account', label: 'Conta Corrente / Pix', canQuickFormat11Digits: digitsOnly.length === 11 };
+}
+
+export interface EmployeeVacationAlert {
+  level: 'none' | 'warning' | 'expired';
+  badgeText: string;
+  title: string;
+  description: string;
+  monthsAccumulated: number;
+  monthsLabel: string;
+  vestingStart: string;
+  vestingEnd: string;
+  concessiveLimit: string;
+}
+
+/**
+ * 4. FUNÇÃO DE AUTOMAÇÃO DE ALERTA DE FÉRIAS:
+ * Analisa a "Data de Admissão" e o "Período Aquisitivo" do colaborador ativo no Supabase:
+ * - FÉRIAS PRÓXIMAS A VENCER (amarelo/laranja): entre 11 e 12 meses de trabalho acumulados sem gozar férias.
+ * - FÉRIAS VENCIDAS (vermelho crítico): período aquisitivo ultrapassou 12 meses sem registro de gozo de férias.
+ */
+export function evaluateEmployeeVacationAlert(
+  emp: {
+    id?: string;
+    name?: string;
+    admissionDate?: string;
+    terminationDate?: string;
+    active?: boolean;
+    status?: string;
+  },
+  vacations: VacationRecord[]
+): EmployeeVacationAlert {
+  const emptyAlert: EmployeeVacationAlert = {
+    level: 'none',
+    badgeText: '',
+    title: '',
+    description: '',
+    monthsAccumulated: 0,
+    monthsLabel: '',
+    vestingStart: '',
+    vestingEnd: '',
+    concessiveLimit: '',
+  };
+
+  if (!emp) return emptyAlert;
+  const st = String(emp.status || '').toLowerCase();
+  if (emp.active === false || st === 'inativo' || st === 'excluido' || Boolean(emp.terminationDate)) {
+    return emptyAlert;
+  }
+
+  const rawAdmission = formatIsoDateOnly(
+    emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at || ''
+  );
+  if (!rawAdmission) return emptyAlert;
+
+  const admParts = rawAdmission.split('-').map(Number);
+  if (admParts.length !== 3 || isNaN(admParts[0]) || isNaN(admParts[1]) || isNaN(admParts[2])) {
+    return emptyAlert;
+  }
+
+  const admDate = new Date(admParts[0], admParts[1] - 1, admParts[2], 12, 0, 0);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  if (admDate > today) return emptyAlert;
+
+  // Filtra registros de férias pertencentes a este colaborador no Supabase
+  const empUuid = emp.id ? toValidUUID(emp.id) : '';
+  const empNameNorm = (emp.name || '').trim().toUpperCase();
+
+  const empVacations = (vacations || []).filter(v => {
+    if (!v) return false;
+    if (emp.id && (v.employeeId === emp.id || toValidUUID(v.employeeId) === empUuid)) return true;
+    if (empNameNorm && (v.employeeName || '').trim().toUpperCase() === empNameNorm) return true;
+    return false;
+  });
+
+  // Se o colaborador está em gozo de férias neste exato momento, não dispara alerta de falta de gozo
+  const isCurrentlyOnVacation =
+    st === 'ferias' ||
+    empVacations.some(v => {
+      const vst = String(v.status || '').toLowerCase();
+      if (vst === 'em_gozo') return true;
+      const endDt = v.endDate || (v as any).returnDate;
+      if ((vst === 'concluido' || vst === 'gozadas' || vst === 'agendado') && v.startDate && endDt) {
+        const sIso = formatIsoDateOnly(v.startDate);
+        const rIso = formatIsoDateOnly(endDt);
+        const tIso = formatIsoDateOnly(today.toISOString());
+        return Boolean(sIso && rIso && tIso && tIso >= sIso && tIso <= rIso);
+      }
+      return false;
+    });
+
+  if (isCurrentlyOnVacation) return emptyAlert;
+
+  // Determina o início do Período Aquisitivo aberto (sem gozo de férias registrado)
+  const enjoyedVacations = empVacations.filter(v => {
+    const vst = String(v.status || '').toLowerCase();
+    return vst === 'concluido' || vst === 'concluida' || vst === 'gozadas' || vst === 'em_gozo';
+  });
+
+  let cycleStart = new Date(admDate.getTime());
+
+  if (enjoyedVacations.length > 0) {
+    // Avança o ciclo aquisitivo com base na quantidade de períodos já gozados ou no maior acquisitionPeriodEnd gozado
+    const byCountDate = new Date(admDate.getFullYear() + enjoyedVacations.length, admDate.getMonth(), admDate.getDate(), 12, 0, 0);
+    cycleStart = byCountDate;
+
+    for (const v of enjoyedVacations) {
+      const vEndIso = formatIsoDateOnly(v.acquisitionPeriodEnd || (v as any).vestingPeriodEnd || '');
+      if (vEndIso) {
+        const ep = vEndIso.split('-').map(Number);
+        if (ep.length === 3 && !isNaN(ep[0])) {
+          const nextCycle = new Date(ep[0], ep[1] - 1, ep[2] + 1, 12, 0, 0);
+          if (nextCycle > cycleStart && nextCycle <= today) {
+            cycleStart = nextCycle;
+          }
+        }
+      }
+    }
+  } else {
+    // Verifica se há um registro de férias pendente/agendado/vencido com Período Aquisitivo explícito no Supabase
+    const openVacWithVesting = empVacations.find(v => {
+      const vst = String(v.status || '').toLowerCase();
+      const acqStart = v.acquisitionPeriodStart || (v as any).vestingPeriodStart;
+      return (vst === 'agendado' || vst === 'programada' || vst === 'vencida' || vst === 'pendente') && Boolean(acqStart);
+    });
+    const rawAcqStart = openVacWithVesting?.acquisitionPeriodStart || (openVacWithVesting as any)?.vestingPeriodStart;
+    if (rawAcqStart) {
+      const vsIso = formatIsoDateOnly(rawAcqStart);
+      if (vsIso) {
+        const vp = vsIso.split('-').map(Number);
+        if (vp.length === 3 && !isNaN(vp[0])) {
+          const parsedStart = new Date(vp[0], vp[1] - 1, vp[2], 12, 0, 0);
+          if (parsedStart <= today) {
+            cycleStart = parsedStart;
+          }
+        }
+      }
+    }
+  }
+
+  const elevenMonthsDate = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 11, cycleStart.getDate(), 12, 0, 0);
+  const twelveMonthsDate = new Date(cycleStart.getFullYear() + 1, cycleStart.getMonth(), cycleStart.getDate(), 12, 0, 0);
+  const concessiveLimitDate = new Date(cycleStart.getFullYear() + 2, cycleStart.getMonth(), cycleStart.getDate() - 1, 12, 0, 0);
+
+  // Cálculo preciso de meses acumulados de trabalho sem gozar férias
+  let wholeMonths = (today.getFullYear() - cycleStart.getFullYear()) * 12 + (today.getMonth() - cycleStart.getMonth());
+  const anchorMonthDate = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + wholeMonths, cycleStart.getDate(), 12, 0, 0);
+  if (today < anchorMonthDate) {
+    wholeMonths -= 1;
+  }
+  const prevAnchorDate = new Date(cycleStart.getFullYear(), cycleStart.getMonth() + wholeMonths, cycleStart.getDate(), 12, 0, 0);
+  const remainingDays = Math.max(0, Math.round((today.getTime() - prevAnchorDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const monthsAccumulated = Number((wholeMonths + remainingDays / 30).toFixed(1));
+
+  const vestingStartStr = formatIsoDateOnly(cycleStart.toISOString()) || rawAdmission;
+  const vestingEndEndObj = new Date(twelveMonthsDate.getFullYear(), twelveMonthsDate.getMonth(), twelveMonthsDate.getDate() - 1, 12, 0, 0);
+  const vestingEndStr = formatIsoDateOnly(vestingEndEndObj.toISOString()) || '';
+  const concessiveLimitStr = formatIsoDateOnly(concessiveLimitDate.toISOString()) || '';
+
+  const monthsText =
+    remainingDays > 0
+      ? `${wholeMonths} ${wholeMonths === 1 ? 'mês' : 'meses'} e ${remainingDays} ${remainingDays === 1 ? 'dia' : 'dias'}`
+      : `${wholeMonths} ${wholeMonths === 1 ? 'mês' : 'meses'}`;
+
+  const hasExplicitExpiredRecord = empVacations.some(v => String(v.status || '').toLowerCase() === 'vencida');
+
+  // Regra 2: FÉRIAS VENCIDAS (> 12 meses sem registro de gozo de férias)
+  if (today >= twelveMonthsDate || monthsAccumulated > 12 || hasExplicitExpiredRecord) {
+    return {
+      level: 'expired',
+      badgeText: 'FÉRIAS VENCIDAS',
+      title: 'ALERTA CRÍTICO: FÉRIAS VENCIDAS (PERÍODO CONCESSIVO LIMITE)',
+      description: `O período aquisitivo (${formatDateBR(vestingStartStr)} a ${formatDateBR(vestingEndStr)}) ultrapassou 12 meses (${monthsText} acumulados) sem registro de gozo de férias. A empresa entrou no período concessivo limite (data limite: ${formatDateBR(concessiveLimitStr)}).`,
+      monthsAccumulated: Math.max(monthsAccumulated, 12.1),
+      monthsLabel: monthsText,
+      vestingStart: vestingStartStr,
+      vestingEnd: vestingEndStr,
+      concessiveLimit: concessiveLimitStr,
+    };
+  }
+
+  // Regra 1: FÉRIAS PRÓXIMAS A VENCER (entre 11 e 12 meses de trabalho sem gozar férias)
+  if (today >= elevenMonthsDate && today < twelveMonthsDate) {
+    const daysToComplete12Months = Math.max(1, Math.round((twelveMonthsDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    return {
+      level: 'warning',
+      badgeText: 'FÉRIAS PRÓXIMAS A VENCER',
+      title: 'ATENÇÃO RH: FÉRIAS PRÓXIMAS A VENCER (11 A 12 MESES ACUMULADOS)',
+      description: `Colaborador acumulou ${monthsText} de trabalho sem gozar férias (Período Aquisitivo: ${formatDateBR(vestingStartStr)} a ${formatDateBR(vestingEndStr)}). Faltam ${daysToComplete12Months} ${daysToComplete12Months === 1 ? 'dia' : 'dias'} para completar 12 meses.`,
+      monthsAccumulated,
+      monthsLabel: monthsText,
+      vestingStart: vestingStartStr,
+      vestingEnd: vestingEndStr,
+      concessiveLimit: concessiveLimitStr,
+    };
+  }
+
+  return emptyAlert;
+}
+
+interface EditableComboboxFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (newValue: string) => void;
+  options: string[];
+  placeholder?: string;
+}
+
+/**
+ * Componente Combobox Editável (Select + Input livre):
+ * Exibe as opções padrão em um dropdown interativo ao clicar/focar e permite digitar qualquer texto personalizado.
+ */
+const EditableComboboxField: React.FC<EditableComboboxFieldProps> = ({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = 'Selecione ou digite...',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const hasExactMatch = options.some(opt => opt.toLowerCase() === (value || '').trim().toLowerCase());
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label htmlFor={id} className="block text-xs font-bold text-black mb-1">
+        {label}
+      </label>
+      <div className="relative flex items-center">
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
+          placeholder={placeholder}
+          autoComplete="off"
+          className="w-full pl-3 pr-8 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setIsOpen(prev => !prev)}
+          className="absolute right-1.5 p-1 text-stone-500 hover:text-[#0963cb] rounded-md transition cursor-pointer"
+          title="Abrir lista de opções"
+        >
+          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-40 mt-1 w-full bg-white border border-stone-300 rounded-lg shadow-lg max-h-52 overflow-y-auto py-1">
+          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 border-b border-stone-100">
+            Opções Padrão (ou digite no campo)
+          </div>
+          {options.map((option) => {
+            const isSelected = (value || '').trim().toLowerCase() === option.toLowerCase();
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-1.5 text-xs sm:text-sm flex items-center justify-between transition cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#0963cb]/10 text-[#0963cb] font-bold'
+                    : 'text-stone-800 hover:bg-stone-100 font-medium'
+                }`}
+              >
+                <span>{option}</span>
+                {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />}
+              </button>
+            );
+          })}
+          {value && value.trim() !== '' && !hasExactMatch && (
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="w-full text-left px-3 py-1.5 text-xs text-sky-800 bg-sky-50/80 hover:bg-sky-100 border-t border-stone-100 font-semibold flex items-center justify-between cursor-pointer"
+            >
+              <span className="truncate">Manter personalizado: "{value.trim()}"</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-200/70 text-sky-900 font-bold ml-2 shrink-0">
+                Personalizado
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface EmployeesModuleProps {
   employees: Employee[];
+  vacations?: VacationRecord[];
   companyProfile?: CompanyProfile;
   onSaveEmployees: (employees: Employee[]) => void;
   onDeleteEmployee?: (id: string) => Promise<void> | void;
@@ -110,6 +485,7 @@ interface EmployeesModuleProps {
 
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   employees,
+  vacations: propVacations,
   companyProfile,
   onSaveEmployees,
   onDeleteEmployee,
@@ -307,6 +683,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [signedRegistrationDoc, setSignedRegistrationDoc] = useState<EmployeeAttachment | null>(null);
 
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+  const [localVacations, setLocalVacations] = useState<VacationRecord[]>(() =>
+    propVacations && propVacations.length > 0 ? propVacations : getStoredVacations()
+  );
   const { currentUser } = useAuth();
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -316,6 +695,55 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       setLocalEmployees(employees);
     }
   }, [employees]);
+
+  useEffect(() => {
+    if (propVacations) {
+      setLocalVacations(propVacations);
+    }
+  }, [propVacations]);
+
+  // Gatilho de verificação em background para sincronizar férias (rh_ferias) do Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+    const companyId = activeCompany?.id || getActiveCompanyId();
+
+    fetchCloudVacations(companyId)
+      .then((cloudVacations) => {
+        if (isMounted && Array.isArray(cloudVacations) && cloudVacations.length > 0) {
+          setLocalVacations(cloudVacations);
+          saveStoredVacations(cloudVacations);
+        }
+      })
+      .catch(() => {});
+
+    const vacChannel = supabase
+      .channel(`emp_vac_alerts_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_ferias' },
+        (payload: any) => {
+          if (!isMounted) return;
+          if (payload.eventType === 'DELETE' && payload.old?.id) {
+            setLocalVacations(prev => prev.filter(v => v.id !== payload.old.id && toValidUUID(v.id) !== payload.old.id));
+          } else if (payload.new) {
+            const mapped = mapRowToVacationRecord(payload.new);
+            setLocalVacations(prev => {
+              const exists = prev.some(v => v.id === mapped.id || toValidUUID(v.id) === mapped.id);
+              return exists
+                ? prev.map(v => (v.id === mapped.id || toValidUUID(v.id) === mapped.id ? { ...v, ...mapped } : v))
+                : [mapped, ...prev];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(vacChannel);
+    };
+  }, [activeCompany?.id]);
 
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com isolamento estrito
   useEffect(() => {
@@ -535,6 +963,48 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     return listaOrdenada.filter(e => e.active !== false && String(e.status || '').toLowerCase() !== 'inativo' && String(e.status || '').toLowerCase() !== 'excluido').length;
   }, [listaOrdenada]);
 
+  // 4. MAPA DE ALERTAS DE FÉRIAS EM TEMPO REAL (USEMEMO):
+  // Analisa Data de Admissão e Período Aquisitivo de todos os colaboradores ativos
+  const vacationAlertsByEmployeeId = useMemo(() => {
+    const map: Record<string, EmployeeVacationAlert> = {};
+    for (const emp of listaOrdenada) {
+      if (!emp.id) continue;
+      map[emp.id] = evaluateEmployeeVacationAlert(emp, localVacations);
+    }
+    return map;
+  }, [listaOrdenada, localVacations]);
+
+  const vacationAlertsSummary = useMemo(() => {
+    let expiredCount = 0;
+    let warningCount = 0;
+    for (const emp of listaOrdenada) {
+      const alert = vacationAlertsByEmployeeId[emp.id];
+      if (!alert) continue;
+      if (alert.level === 'expired') expiredCount += 1;
+      else if (alert.level === 'warning') warningCount += 1;
+    }
+    return { expiredCount, warningCount, totalAlerts: expiredCount + warningCount };
+  }, [listaOrdenada, vacationAlertsByEmployeeId]);
+
+  // Alerta de Férias dinâmico para o colaborador aberto no modal de edição/cadastro
+  const modalVacationAlert = useMemo(() => {
+    return evaluateEmployeeVacationAlert(
+      {
+        id: editingEmployee?.id,
+        name: name || editingEmployee?.name,
+        admissionDate: admissionDate || editingEmployee?.admissionDate,
+        terminationDate: terminationDate || editingEmployee?.terminationDate,
+        active: isActive,
+        status: isActive ? (editingEmployee?.status || 'ativo') : 'inativo',
+      },
+      localVacations
+    );
+  }, [editingEmployee, name, admissionDate, terminationDate, isActive, localVacations]);
+
+  const detectedAccountOrPix = useMemo(() => {
+    return detectAccountOrPixType(bankAccount);
+  }, [bankAccount]);
+
   const handleOpenNew = () => {
     setEditingEmployee(null);
     setRegistrationType('Funcionário');
@@ -684,10 +1154,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setCnhUpgradeDT(Boolean(emp.cnhUpgradeDT));
     setCnhUpgradeCategory(emp.cnhUpgradeCategory || 'A');
 
-    setPaymentLocation(((emp as any).local_recebimento || emp.paymentLocation || '').toUpperCase());
-    setBankPixKey(((emp as any).banco_chave_pix || emp.bankPixKey || '').toUpperCase());
+    setPaymentLocation(
+      normalizeStandardOption((emp as any).local_recebimento || emp.paymentLocation || '', DEFAULT_PAYMENT_LOCATIONS)
+    );
+    setBankPixKey(
+      normalizeStandardOption((emp as any).banco_chave_pix || emp.bankPixKey || '', DEFAULT_DEPOSIT_BANKS)
+    );
     setBankAgency(((emp as any).agencia || emp.bankAgency || '').toUpperCase());
-    setBankAccount(((emp as any).conta_corrente || emp.bankAccount || '').toUpperCase());
+    setBankAccount(((emp as any).conta_corrente || emp.bankAccount || '').trim());
 
     setAdmissionExamDoc(emp.admissionExamDoc || null);
     const expDoc = emp.experienceContractDoc || (
@@ -781,10 +1255,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       cnhExpiration: cnhExpiration || undefined,
       cnhUpgradeDT,
       cnhUpgradeCategory: cnhUpgradeDT ? cnhUpgradeCategory : undefined,
-      paymentLocation: paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : undefined,
-      bankPixKey: bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : undefined,
+      paymentLocation: paymentLocation.trim() ? normalizeStandardOption(paymentLocation.trim(), DEFAULT_PAYMENT_LOCATIONS) : undefined,
+      bankPixKey: bankPixKey.trim() ? normalizeStandardOption(bankPixKey.trim(), DEFAULT_DEPOSIT_BANKS) : undefined,
       bankAgency: bankAgency.trim() ? bankAgency.trim().toUpperCase() : undefined,
-      bankAccount: bankAccount.trim() ? bankAccount.trim().toUpperCase() : undefined,
+      bankAccount: bankAccount.trim() ? bankAccount.trim() : undefined,
       admissionExamDoc: admissionExamDoc || undefined,
       experienceContractDoc: experienceContractDoc || undefined,
       generalDocs: generalDocs || undefined,
@@ -1011,13 +1485,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         finalContratoUrl = editingEmployee.contrato_experiencia_url;
       }
 
-      // 3. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO ROSA:
+      // 3. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO DE PAGAMENTO:
       // Mapear e incluir no payload de salvamento as 4 caixas de texto da seção 3:
       // 'local_recebimento', 'banco_chave_pix', 'agencia' e 'conta_corrente'.
-      const cleanLocalRecebimento = paymentLocation && paymentLocation.trim() ? paymentLocation.trim().toUpperCase() : null;
-      const cleanBancoChavePix = bankPixKey && bankPixKey.trim() ? bankPixKey.trim().toUpperCase() : null;
+      const cleanLocalRecebimento = paymentLocation && paymentLocation.trim()
+        ? normalizeStandardOption(paymentLocation.trim(), DEFAULT_PAYMENT_LOCATIONS)
+        : null;
+      const cleanBancoChavePix = bankPixKey && bankPixKey.trim()
+        ? normalizeStandardOption(bankPixKey.trim(), DEFAULT_DEPOSIT_BANKS)
+        : null;
       const cleanAgencia = bankAgency && bankAgency.trim() ? bankAgency.trim().toUpperCase() : null;
-      const cleanContaCorrente = bankAccount && bankAccount.trim() ? bankAccount.trim().toUpperCase() : null;
+      const cleanContaCorrente = bankAccount && bankAccount.trim() ? bankAccount.trim() : null;
 
       const activeRoles: string[] = [];
       if (role1.trim()) activeRoles.push(role1.trim());
@@ -1401,8 +1879,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   return (
     <div id="employees-module" className="space-y-3 sm:space-y-3.5 animate-fade-in">
-      {/* CNH Alert & Staff Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+      {/* CNH Alert, Vacation Alert & Staff Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-xs flex items-center justify-between text-black">
           <div>
             <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-rose-700">
@@ -1434,6 +1912,63 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </div>
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold">
             <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+        </div>
+
+        <div
+          className={`bg-white border rounded-xl p-3 sm:p-3.5 shadow-xs flex items-center justify-between text-black ${
+            vacationAlertsSummary.expiredCount > 0
+              ? 'border-rose-300 bg-rose-50/30'
+              : vacationAlertsSummary.warningCount > 0
+                ? 'border-amber-300 bg-amber-50/30'
+                : 'border-slate-200'
+          }`}
+        >
+          <div>
+            <span
+              className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${
+                vacationAlertsSummary.expiredCount > 0
+                  ? 'text-rose-700'
+                  : vacationAlertsSummary.warningCount > 0
+                    ? 'text-amber-700'
+                    : 'text-emerald-700'
+              }`}
+            >
+              Alertas de Férias (RH)
+            </span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span
+                className={`text-xl sm:text-2xl font-black font-['Outfit'] ${
+                  vacationAlertsSummary.expiredCount > 0
+                    ? 'text-rose-700'
+                    : vacationAlertsSummary.warningCount > 0
+                      ? 'text-amber-700'
+                      : 'text-emerald-700'
+                }`}
+              >
+                {vacationAlertsSummary.totalAlerts}
+              </span>
+              <span className="text-[10px] font-bold text-black/75">
+                {vacationAlertsSummary.expiredCount > 0 && `${vacationAlertsSummary.expiredCount} vencida(s)`}
+                {vacationAlertsSummary.expiredCount > 0 && vacationAlertsSummary.warningCount > 0 && ' • '}
+                {vacationAlertsSummary.warningCount > 0 && `${vacationAlertsSummary.warningCount} próx. a vencer`}
+                {vacationAlertsSummary.totalAlerts === 0 && 'Períodos regulares'}
+              </span>
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-black/75 font-medium mt-0.5">
+              Monitoramento automático (11–12+ meses)
+            </p>
+          </div>
+          <div
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl border flex items-center justify-center font-bold ${
+              vacationAlertsSummary.expiredCount > 0
+                ? 'bg-rose-100 border-rose-300 text-rose-700'
+                : vacationAlertsSummary.warningCount > 0
+                  ? 'bg-amber-100 border-amber-300 text-amber-800'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}
+          >
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
@@ -1485,6 +2020,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-200">
               {listaOrdenada.map((emp) => {
+                const vacAlert = vacationAlertsByEmployeeId[emp.id];
                 return (
                   <tr key={emp.id} className="hover:bg-slate-50 transition">
                   <td className="py-3.5 px-4">
@@ -1496,7 +2032,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         className="shrink-0 rounded-xl"
                       />
                       <div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <div className="font-bold text-black uppercase">
                             {emp.name}
                           </div>
@@ -1507,6 +2043,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           ) : (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold">
                               ATIVO
+                            </span>
+                          )}
+                          {vacAlert && vacAlert.level === 'expired' && (
+                            <span
+                              title={vacAlert.description}
+                              className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-rose-600 text-white font-black tracking-wide shadow-2xs animate-pulse"
+                            >
+                              <AlertCircle className="w-3 h-3 shrink-0" />
+                              <span>FÉRIAS VENCIDAS ({vacAlert.monthsLabel})</span>
+                            </span>
+                          )}
+                          {vacAlert && vacAlert.level === 'warning' && (
+                            <span
+                              title={vacAlert.description}
+                              className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-amber-500 text-stone-950 font-black tracking-wide shadow-2xs"
+                            >
+                              <AlertTriangle className="w-3 h-3 shrink-0" />
+                              <span>FÉRIAS PRÓXIMAS A VENCER ({vacAlert.monthsLabel})</span>
                             </span>
                           )}
                         </div>
@@ -1546,6 +2100,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       {emp.contractType || 'Registrado (CLT)'}
                       {emp.admissionDate && ` • Adm: ${formatDateBR(emp.admissionDate)}`}
                     </div>
+                    {vacAlert && vacAlert.level !== 'none' && (
+                      <div
+                        className={`mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${
+                          vacAlert.level === 'expired'
+                            ? 'bg-rose-50 text-rose-800 border-rose-300'
+                            : 'bg-amber-50 text-amber-900 border-amber-300'
+                        }`}
+                      >
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        <span>
+                          Aq.: {formatDateBR(vacAlert.vestingStart)} a {formatDateBR(vacAlert.vestingEnd)}
+                        </span>
+                      </div>
+                    )}
                     {emp.actingRegion && (
                       <div className="flex items-center space-x-1 text-[11px] text-orange-950 font-bold mt-1">
                         <MapPin className="w-3 h-3 text-orange-600 shrink-0" />
@@ -1654,6 +2222,72 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <X className="w-5 h-5 text-white" />
               </button>
             </div>
+
+            {/* Banner Automático de Alerta de Férias no Topo do Modal de Edição */}
+            {modalVacationAlert.level !== 'none' && (
+              <div
+                className={`px-5 py-3 border-b-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0 ${
+                  modalVacationAlert.level === 'expired'
+                    ? 'bg-rose-50 border-rose-400 text-rose-950'
+                    : 'bg-amber-50 border-amber-400 text-amber-950'
+                }`}
+              >
+                <div className="flex items-start space-x-3">
+                  <div
+                    className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                      modalVacationAlert.level === 'expired'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-amber-500 text-stone-950 shadow-xs'
+                    }`}
+                  >
+                    {modalVacationAlert.level === 'expired' ? (
+                      <AlertCircle className="w-5 h-5" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          modalVacationAlert.level === 'expired'
+                            ? 'bg-rose-600 text-white'
+                            : 'bg-amber-500 text-stone-950'
+                        }`}
+                      >
+                        {modalVacationAlert.badgeText}
+                      </span>
+                      <span
+                        className={`text-xs font-black uppercase ${
+                          modalVacationAlert.level === 'expired' ? 'text-rose-900' : 'text-amber-900'
+                        }`}
+                      >
+                        {modalVacationAlert.monthsLabel} sem gozo de férias
+                      </span>
+                    </div>
+                    <p
+                      className={`text-xs font-semibold leading-snug ${
+                        modalVacationAlert.level === 'expired' ? 'text-rose-900' : 'text-amber-900'
+                      }`}
+                    >
+                      {modalVacationAlert.description}
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border shrink-0 self-start sm:self-center ${
+                    modalVacationAlert.level === 'expired'
+                      ? 'bg-rose-100/90 border-rose-300 text-rose-900'
+                      : 'bg-amber-100/90 border-amber-300 text-amber-950'
+                  }`}
+                >
+                  <div>Período Aquisitivo:</div>
+                  <div className="font-mono font-black">
+                    {formatDateBR(modalVacationAlert.vestingStart)} a {formatDateBR(modalVacationAlert.vestingEnd)}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Quick Action Highlight Banner: Imprimir Cadastro */}
             <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
@@ -2312,26 +2946,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-black mb-1">
-                      Local de Recebimento
-                    </label>
-                    <input
-                      type="text"
+                    <EditableComboboxField
+                      id="employee-payment-location"
+                      label="Local de Recebimento"
                       value={paymentLocation}
-                      onChange={(e) => setPaymentLocation(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                      onChange={setPaymentLocation}
+                      options={DEFAULT_PAYMENT_LOCATIONS}
+                      placeholder="Selecione ou digite..."
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-black mb-1">
-                      Banco / Chave PIX
-                    </label>
-                    <input
-                      type="text"
+                    <EditableComboboxField
+                      id="employee-deposit-account-bank"
+                      label="Conta de Depósito"
                       value={bankPixKey}
-                      onChange={(e) => setBankPixKey(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                      onChange={setBankPixKey}
+                      options={DEFAULT_DEPOSIT_BANKS}
+                      placeholder="Selecione o banco ou digite..."
                     />
                   </div>
 
@@ -2343,20 +2975,56 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       type="text"
                       value={bankAgency}
                       onChange={(e) => setBankAgency(e.target.value.toUpperCase())}
+                      placeholder="Ex: 0001-9"
                       className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-black mb-1">
-                      Conta Corrente (C.C.)
-                    </label>
+                    <div className="flex items-center justify-between mb-1 gap-1">
+                      <label className="block text-xs font-bold text-black truncate">
+                        Conta Corrente (C.C.) / Chave Pix
+                      </label>
+                      {detectedAccountOrPix.type !== 'empty' && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 bg-white/80 text-[#0963cb] border border-[#0963cb]/30 rounded shrink-0">
+                          {detectedAccountOrPix.label}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={bankAccount}
-                      onChange={(e) => setBankAccount(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        // Se contiver '@' (e-mail), preserva minúsculas; caso contrário permite números, letras e símbolos de C.C. e Pix
+                        if (raw.includes('@')) {
+                          setBankAccount(raw.trim());
+                        } else {
+                          setBankAccount(raw);
+                        }
+                      }}
+                      placeholder="C.C., CPF, E-mail, Celular ou Chave Aleatória"
+                      className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                     />
+                    {detectedAccountOrPix.canQuickFormat11Digits && (
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        <span className="text-[10px] text-black/70 font-semibold">Formatar como:</span>
+                        <button
+                          type="button"
+                          onClick={() => setBankAccount(formatCpfCnpj(bankAccount.replace(/\D/g, '')))}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-white hover:bg-sky-50 text-[#0963cb] border border-stone-300 font-bold cursor-pointer transition"
+                        >
+                          CPF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBankAccount(formatPhone(bankAccount.replace(/\D/g, '')))}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-white hover:bg-sky-50 text-[#0963cb] border border-stone-300 font-bold cursor-pointer transition"
+                        >
+                          Celular
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

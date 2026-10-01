@@ -194,7 +194,7 @@ export function generateEmployeeSheetHtml(
             <td style="width: 30%; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">
               ${employee.paymentLocation || 'Sede da Empresa / Matriz'}
             </td>
-            <td style="width: 20%; background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Banco / Chave PIX:</td>
+            <td style="width: 20%; background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Conta de Depósito:</td>
             <td style="width: 30%; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: bold; font-family: monospace;">
               ${employee.bankPixKey || 'Não informada'}
             </td>
@@ -204,7 +204,7 @@ export function generateEmployeeSheetHtml(
             <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">
               ${employee.bankAgency || 'Não informada'}
             </td>
-            <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Conta Corrente:</td>
+            <td style="background: #f8fafc; font-weight: bold; color: #475569; padding: 5px 8px; border: 1px solid #cbd5e1;">Conta Corrente (C.C.) / Chave Pix:</td>
             <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">
               ${employee.bankAccount || 'Não informada'}
             </td>
@@ -334,10 +334,10 @@ export function generateEmployeeWhatsAppText(
     if (employee.commissionPerAlqueire) text += `• Comissão/Alqueire: ${formatCurrencyBRL(employee.commissionPerAlqueire)}/alq\n`;
     if (employee.commissionPerHectare) text += `• Comissão/Hectare: ${formatCurrencyBRL(employee.commissionPerHectare)}/ha\n`;
   }
-  if (employee.paymentLocation) text += `• Local: ${employee.paymentLocation}\n`;
-  if (employee.bankPixKey) text += `• Chave PIX/Banco: ${employee.bankPixKey}\n`;
+  if (employee.paymentLocation) text += `• Local de Recebimento: ${employee.paymentLocation}\n`;
+  if (employee.bankPixKey) text += `• Conta de Depósito: ${employee.bankPixKey}\n`;
   if (employee.bankAgency || employee.bankAccount) {
-    text += `• Agência: ${employee.bankAgency || '-'} | Conta: ${employee.bankAccount || '-'}\n`;
+    text += `• Agência: ${employee.bankAgency || '-'} | C.C. / Chave Pix: ${employee.bankAccount || '-'}\n`;
   }
 
   text += `\n_Documento emitido eletronicamente via Sistema Silagem Fácil Pro_`;
