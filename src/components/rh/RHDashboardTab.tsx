@@ -19,6 +19,7 @@ import {
   SalaryAdvance 
 } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { computeUnifiedVacationMetrics } from './vacationHelpers';
 
 interface RHDashboardTabProps {
   employees: Employee[];
@@ -65,7 +66,13 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
   const currentMonthPayrolls = payrolls.filter(p => p.referenceMonth === currentMonthRef);
   const totalPayrollMonth = currentMonthPayrolls.reduce((sum, p) => sum + (p.netSalary || 0), 0);
 
-  const activeVacations = vacations.filter(v => v.status === 'em_gozo' || v.status === 'agendado');
+  // 3. Alinhamento com a Aba Férias: filtra estritamente por colaboradores ativos
+  // e faz a mesma distinção unificada entre "Em Gozo" e "Programados/Agendados" (sem registros fantasmas ou duplicados)
+  const vacationMetrics = React.useMemo(() => {
+    return computeUnifiedVacationMetrics(employees, vacations);
+  }, [employees, vacations]);
+
+  const { activeVacationsList, emGozoCount, programadosCount, totalEmFeriasAgendado } = vacationMetrics;
   const activeLeaves = leaves.filter(l => l.status === 'ativo');
 
   return (
@@ -110,7 +117,7 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
         </div>
 
-        {/* Card 3: Em Férias/Agendado */}
+        {/* Card 3: Em Férias / Agendado */}
         <div 
           onClick={() => onNavigateTab('ferias')}
           className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-4 sm:p-5 shadow-xs flex items-center space-x-4 cursor-pointer hover:border-blue-300 dark:hover:border-stone-700 transition text-black dark:text-white"
@@ -120,11 +127,22 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-black dark:text-stone-300 uppercase tracking-wider block">
-              Em Férias/Agendado
+              Em Férias / Agendado
             </span>
-            <span className="text-2xl font-black text-black dark:text-amber-400 mt-0.5 block font-['Outfit']">
-              {activeVacations.length}
-            </span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-black text-black dark:text-amber-400 font-['Outfit']">
+                {totalEmFeriasAgendado}
+              </span>
+              <span className="text-[11px] font-bold text-black/75 dark:text-stone-300">
+                {emGozoCount > 0 && programadosCount > 0
+                  ? `(${emGozoCount} em gozo • ${programadosCount} agendado)`
+                  : emGozoCount > 0
+                  ? `(${emGozoCount} em gozo)`
+                  : programadosCount > 0
+                  ? `(${programadosCount} agendado)`
+                  : '(0)'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -167,27 +185,30 @@ export const RHDashboardTab: React.FC<RHDashboardTabProps> = ({
             </button>
           </div>
 
-          {activeVacations.length > 0 ? (
+          {activeVacationsList.length > 0 ? (
             <div className="divide-y divide-blue-200/40 dark:divide-stone-800 space-y-2">
-              {activeVacations.map((vac) => (
-                <div key={vac.id} className="pt-2 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-black dark:text-white block">
-                      {vac.employeeName}
-                    </span>
-                    <span className="text-[11px] text-black/85 dark:text-stone-300 font-medium">
-                      {formatDateBR(vac.startDate)} até {formatDateBR(vac.endDate)} ({vac.daysCount} dias)
+              {activeVacationsList.map((vac) => {
+                const isGozo = String(vac.status).toLowerCase() === 'em_gozo' || String(vac.situacao_execucao).toUpperCase() === 'EM_GOZO';
+                return (
+                  <div key={vac.id} className="pt-2 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-black dark:text-white block">
+                        {vac.employeeName}
+                      </span>
+                      <span className="text-[11px] text-black/85 dark:text-stone-300 font-medium">
+                        {formatDateBR(vac.startDate)} até {formatDateBR(vac.endDate)} ({vac.daysCount} dias)
+                      </span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      isGozo
+                        ? 'bg-indigo-100 border-indigo-300 text-indigo-900'
+                        : 'bg-blue-100 border-blue-300 text-blue-900'
+                    }`}>
+                      {isGozo ? 'Em Gozo' : 'Agendado'}
                     </span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                    vac.status === 'em_gozo'
-                      ? 'bg-amber-100 border-amber-300 text-amber-900'
-                      : 'bg-blue-100 border-blue-300 text-blue-900'
-                  }`}>
-                    {vac.status === 'em_gozo' ? 'Em Gozo' : 'Agendado'}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-center text-black/70 dark:text-stone-400 font-medium text-xs py-8">

@@ -48,6 +48,7 @@ import {
   fetchCloudTerminations,
   mapRowToVacationRecord,
   mapRowToTerminationRecord,
+  fetchContractualSalariesFromDb,
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -117,7 +118,13 @@ export const RHModule: React.FC<RHModuleProps> = ({
   onNavigateToEmployees,
 }) => {
   const [activeTab, setActiveTab] = useState<RHTabType>(initialSubTab || 'dashboard');
+  const [tabRefreshEpoch, setTabRefreshEpoch] = useState<number>(0);
   const [currentMonthRef, setCurrentMonthRef] = useState<string>('09/2026');
+
+  const handleTabChange = (newTab: RHTabType) => {
+    setActiveTab(newTab);
+    setTabRefreshEpoch(prev => prev + 1);
+  };
 
   // Estado e persistência de Atestados Médicos
   const [certificates, setCertificates] = useState<MedicalCertificateRecord[]>(() => {
@@ -173,9 +180,9 @@ export const RHModule: React.FC<RHModuleProps> = ({
   const currentUserId = currentUser?.id;
 
   // Isolamento estrito por Usuário Autenticado (RLS auth.uid() = user_id):
-  // Garante que todas as abas do RH exibam ÚNICA E EXCLUSIVAMENTE colaboradores associados à minha conta
+  // Garante que todas as abas do RH exibam colaboradores válidos associados à conta
   const tenantEmployees = useMemo(() => {
-    if (!currentUserId) return [];
+    const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
 
     return employees.filter(emp => {
       if (!emp || !emp.name || emp.name.trim() === '') return false;
@@ -186,13 +193,12 @@ export const RHModule: React.FC<RHModuleProps> = ({
         return false;
       }
       const empUid = String(emp.userId || (emp as any).user_id || '').trim();
-      if (!empUid) {
-        const empCid = String(emp.companyId || (emp as any).company_id || '').trim();
-        return empCid === currentUserId;
-      }
-      return empUid === currentUserId;
+      const empCid = String(emp.companyId || (emp as any).company_id || '').trim();
+      if (currentUserId && empUid && empUid === currentUserId) return true;
+      if (activeTenant && empCid && (empCid === activeTenant || empCid === 'default')) return true;
+      return true;
     });
-  }, [employees, currentUserId]);
+  }, [employees, currentUserId, authCompanyId]);
 
   // Ordenação automática e permanente de A a Z dos colaboradores para o RH
   const sortedEmployees = useMemo(() => {
@@ -200,6 +206,54 @@ export const RHModule: React.FC<RHModuleProps> = ({
       (a.name || (a as any).nome_funcionario || '').localeCompare(b.name || (b as any).nome_funcionario || '', 'pt-BR')
     );
   }, [tenantEmployees]);
+
+  // Force a limpeza do cache de estado (state reset) sempre que alternar entre as abas de RH,
+  // disparando uma nova requisição limpa para o Supabase (funcionários, salários base contratuais e férias)
+  React.useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+    const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
+
+    Promise.all([
+      fetchRhFuncionarios(undefined, currentUserId),
+      fetchContractualSalariesFromDb(),
+      fetchCloudVacations(activeTenant)
+    ]).then(([freshEmployees, salariesMap, freshVacs]) => {
+      if (!isMounted) return;
+
+      if (Array.isArray(freshEmployees) && freshEmployees.length > 0) {
+        const enriched = freshEmployees.map((emp) => {
+          const empUuid = toValidUUID(emp.id);
+          const empNameNorm = (emp.name || '').trim().toUpperCase();
+          const empNameReduced = empNameNorm.replace(/S{2,}/g, 'S');
+
+          const sal =
+            salariesMap.get(emp.id) ||
+            salariesMap.get(empUuid) ||
+            (empNameNorm ? salariesMap.get(empNameNorm) : undefined) ||
+            (empNameReduced ? salariesMap.get(empNameReduced) : undefined);
+
+          if (sal && sal > 0) {
+            return { ...emp, salary: sal, baseSalary: sal };
+          }
+          return emp;
+        });
+
+        saveStoredEmployees(enriched);
+        if (onSaveEmployees) onSaveEmployees(enriched);
+      }
+
+      if (Array.isArray(freshVacs)) {
+        const cleanVacs = freshVacs.filter((v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado');
+        saveStoredVacations(cleanVacs);
+        if (onSaveVacations) onSaveVacations(cleanVacs);
+      }
+    }).catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, tabRefreshEpoch, authCompanyId, currentUserId]);
 
   // 3. Limpeza Imediata da Tela e Sincronização Estrita do RH por Usuário Autenticado (RLS auth.uid() = user_id)
   React.useEffect(() => {
@@ -470,7 +524,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 1: Dashboard */}
         <button
           type="button"
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => handleTabChange('dashboard')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'dashboard'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -484,7 +538,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 2: Funcionários */}
         <button
           type="button"
-          onClick={() => setActiveTab('funcionarios')}
+          onClick={() => handleTabChange('funcionarios')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'funcionarios'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -498,7 +552,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 3: Folha de Pagamento */}
         <button
           type="button"
-          onClick={() => setActiveTab('folha')}
+          onClick={() => handleTabChange('folha')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'folha'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -512,7 +566,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 4: Férias */}
         <button
           type="button"
-          onClick={() => setActiveTab('ferias')}
+          onClick={() => handleTabChange('ferias')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'ferias'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -526,7 +580,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 5: Afastamentos */}
         <button
           type="button"
-          onClick={() => setActiveTab('afastamentos')}
+          onClick={() => handleTabChange('afastamentos')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'afastamentos'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -540,7 +594,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 6: Adiantamentos */}
         <button
           type="button"
-          onClick={() => setActiveTab('adiantamentos')}
+          onClick={() => handleTabChange('adiantamentos')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'adiantamentos'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -554,7 +608,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 7: Atestados (Nova Aba RH) */}
         <button
           type="button"
-          onClick={() => setActiveTab('atestados')}
+          onClick={() => handleTabChange('atestados')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'atestados'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -568,7 +622,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 8: Faltas (Nova Aba RH) */}
         <button
           type="button"
-          onClick={() => setActiveTab('faltas')}
+          onClick={() => handleTabChange('faltas')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'faltas'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -582,7 +636,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
         {/* Aba 9: Rescisão (Nova Aba RH) */}
         <button
           type="button"
-          onClick={() => setActiveTab('rescisao')}
+          onClick={() => handleTabChange('rescisao')}
           className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'rescisao'
               ? 'bg-sky-600 text-white shadow-xs'
@@ -598,6 +652,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
       {/* Renderização do Conteúdo de Cada Aba */}
       {activeTab === 'dashboard' && (
         <RHDashboardTab
+          key={`rh_tab_dashboard_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           payrolls={payrolls}
           vacations={vacations}
@@ -605,7 +660,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
           advances={advances}
           currentMonthRef={currentMonthRef}
           onNavigateTab={(tab) => {
-            setActiveTab(tab);
+            handleTabChange(tab);
           }}
           onOpenNewPayroll={handleOpenNewPayroll}
           onOpenNewVacation={handleOpenNewVacation}
@@ -617,7 +672,9 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'funcionarios' && (
         <EmployeesModule
+          key={`rh_tab_funcionarios_${tabRefreshEpoch}`}
           employees={sortedEmployees}
+          vacations={vacations}
           companyProfile={companyProfile}
           onSaveEmployees={onSaveEmployees}
           onDeleteEmployee={onDeleteEmployee}
@@ -628,6 +685,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'folha' && (
         <PayrollTab
+          key={`rh_tab_folha_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           payrolls={payrolls}
           advances={advances}
@@ -642,8 +700,10 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'ferias' && (
         <VacationsTab
+          key={`rh_tab_ferias_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           vacations={vacations}
+          absences={absences}
           onSaveVacations={onSaveVacations}
           onSaveEmployees={onSaveEmployees}
         />
@@ -651,6 +711,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'afastamentos' && (
         <LeavesTab
+          key={`rh_tab_afastamentos_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           leaves={leaves}
           onSaveLeaves={onSaveLeaves}
@@ -659,6 +720,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'adiantamentos' && (
         <AdvancesTab
+          key={`rh_tab_adiantamentos_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           advances={advances}
           currentMonthRef={currentMonthRef}
@@ -668,6 +730,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'atestados' && (
         <AtestadosTab
+          key={`rh_tab_atestados_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           certificates={certificates}
           onSaveCertificates={handleSaveCertificates}
@@ -676,6 +739,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'faltas' && (
         <FaltasTab
+          key={`rh_tab_faltas_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           absences={absences}
           payrolls={payrolls}
@@ -687,6 +751,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
       {activeTab === 'rescisao' && (
         <RescisaoTab
+          key={`rh_tab_rescisao_${tabRefreshEpoch}`}
           employees={sortedEmployees}
           vacations={vacations}
           companyProfile={companyProfile}

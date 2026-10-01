@@ -424,8 +424,8 @@ export function VacationReceiptModal({
   }, [vacationData, vacation]);
 
   // Hook 3: Estados locais editáveis do modal (.useState) vinculados ao canal Realtime
-  const [valorFerias, setValorFerias] = useState<number>(4000);
-  const [valorUmTerco, setValorUmTerco] = useState<number>(1333.33);
+  const [valorFerias, setValorFerias] = useState<number>(0);
+  const [valorUmTerco, setValorUmTerco] = useState<number>(0);
   const [valorAbono, setValorAbono] = useState<number>(0);
   const [valorDecimo, setValorDecimo] = useState<number>(0);
   const [inssEnabled, setInssEnabled] = useState<boolean>(true);
@@ -436,7 +436,7 @@ export function VacationReceiptModal({
   // Inicializa os estados locais sempre que a programação de férias mudar
   useEffect(() => {
     if (!sourceVacation) return;
-    const baseSal = sourceVacation.baseSalary || 4000;
+    const baseSal = Number(sourceVacation.baseSalary || 0);
     const days = sourceVacation.daysCount || 30;
     const dailyRate = baseSal / 30;
     const initialFerias = sourceVacation.customVacationAmount !== undefined
@@ -652,7 +652,7 @@ export function VacationReceiptModal({
       if (!incoming) return;
       if (sourceVacation && toValidUUID(incoming.id) !== toValidUUID(sourceVacation.id)) return;
 
-      const baseSal = incoming.baseSalary || 4000;
+      const baseSal = Number(incoming.baseSalary || 0);
       const days = incoming.daysCount || 30;
       const dailyRate = baseSal / 30;
 

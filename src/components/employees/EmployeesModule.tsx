@@ -189,6 +189,7 @@ export function evaluateEmployeeVacationAlert(
     name?: string;
     admissionDate?: string;
     terminationDate?: string;
+    acquisitionPeriodStart?: string;
     active?: boolean;
     status?: string;
   },

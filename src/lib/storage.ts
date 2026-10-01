@@ -1686,38 +1686,17 @@ export function saveStoredPayrolls(payrolls: PayrollRecord[]): void {
 }
 
 // RH: Vacations
-export const DEFAULT_INITIAL_VACATIONS: VacationRecord[] = [
-  {
-    id: 'vac_alisson_pag_01',
-    employeeId: 'c2e3656b-f149-4c59-b5f0-eb83b563352c',
-    employeeName: 'ALISSON PAGOTTO DA SILVA',
-    acquisitionPeriodStart: '2025-01-01',
-    acquisitionPeriodEnd: '2025-12-31',
-    startDate: '2026-10-01',
-    endDate: '2026-10-31',
-    daysCount: 30,
-    sellDaysCount: 0,
-    baseSalary: 4000,
-    oneThirdBonus: 1000,
-    pecuniaryAllowance: 0,
-    thirteenthAdvance: false,
-    thirteenthAmount: 0,
-    totalAmount: 5000,
-    status: 'agendado',
-    notes: 'Aviso e Recibo de Férias - Período Regular',
-    createdAt: '2026-09-30T10:00:00.000Z',
-  }
-];
+export const DEFAULT_INITIAL_VACATIONS: VacationRecord[] = [];
 
 export function getStoredVacations(): VacationRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.VACATIONS);
-    if (!raw) return DEFAULT_INITIAL_VACATIONS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_INITIAL_VACATIONS;
-    return parsed;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(v => v && v.id !== 'vac_alisson_pag_01' && v.employeeId !== 'ab80e2fa-5094-43b3-83bf-c34047bf1b42');
   } catch (e) {
-    return DEFAULT_INITIAL_VACATIONS;
+    return [];
   }
 }
 

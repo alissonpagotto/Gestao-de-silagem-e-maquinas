@@ -39,7 +39,7 @@ import {
   BankTransaction,
   PaymentMethod
 } from '../../types';
-import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements } from '../../lib/storage';
+import { formatCurrencyBRL, getLastDayOfMonth, getStoredBankTransactions, saveStoredBankTransactions, getStoredExpenses, saveStoredExpenses, getStoredBrokerSettlements, saveStoredBrokerSettlements } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchContasAPagar, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
 import { BankAccountsTab } from './BankAccountsTab';
@@ -180,13 +180,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
           try {
             const fresh = await fetchContasAPagar(companyProfile?.id);
             if (isMounted && fresh && Array.isArray(fresh)) {
-              const currentStored = getStoredExpenses();
-              const existingMap = new Map(currentStored.map(e => [e.id, e]));
-              const mapped = fresh.map((d: any) => {
+              const currentStored: Expense[] = getStoredExpenses();
+              const existingMap = new Map<string, Expense>(currentStored.map(e => [e.id, e]));
+              const mapped: Expense[] = fresh.map((d: any) => {
                 const existing = existingMap.get(d.id);
-                const baseExp = {
+                const baseExp: Expense = {
                   id: d.id,
-                  title: d.centro_custo || 'Parcela Fornecedor',
                   description: d.centro_custo || 'Parcela Fornecedor',
                   amount: Number(d.valor_parcela) || 0,
                   dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
@@ -198,18 +197,18 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
                   paymentMethod: d.forma_pagamento || 'Boleto',
                   supplier: 'Fornecedor',
                   createdAt: d.created_at || new Date().toISOString()
-                } as unknown as Expense;
+                };
                 return existing
-                  ? ({
+                  ? {
                       ...baseExp,
                       ...existing,
                       amount: baseExp.amount,
                       dueDate: baseExp.dueDate,
                       status: baseExp.status,
-                    } as Expense)
+                    }
                   : baseExp;
               });
-              const mergedMap = new Map(currentStored.map(e => [e.id, e]));
+              const mergedMap = new Map<string, Expense>(currentStored.map(e => [e.id, e]));
               mapped.forEach(m => mergedMap.set(m.id, m));
               const mergedList = Array.from(mergedMap.values());
               setLocalExpenses(mergedList);
@@ -227,13 +226,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
       try {
         const fresh = await fetchContasAPagar(companyProfile?.id);
         if (isMounted && fresh && Array.isArray(fresh)) {
-          const currentStored = getStoredExpenses();
-          const existingMap = new Map(currentStored.map(e => [e.id, e]));
-          const mapped = fresh.map((d: any) => {
+          const currentStored: Expense[] = getStoredExpenses();
+          const existingMap = new Map<string, Expense>(currentStored.map(e => [e.id, e]));
+          const mapped: Expense[] = fresh.map((d: any) => {
             const existing = existingMap.get(d.id);
-            const baseExp = {
+            const baseExp: Expense = {
               id: d.id,
-              title: d.centro_custo || 'Parcela Fornecedor',
               description: d.centro_custo || 'Parcela Fornecedor',
               amount: Number(d.valor_parcela) || 0,
               dueDate: d.data_vencimento || new Date().toISOString().split('T')[0],
@@ -245,18 +243,18 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
               paymentMethod: d.forma_pagamento || 'Boleto',
               supplier: 'Fornecedor',
               createdAt: d.created_at || new Date().toISOString()
-            } as unknown as Expense;
+            };
             return existing
-              ? ({
+              ? {
                   ...baseExp,
                   ...existing,
                   amount: baseExp.amount,
                   dueDate: baseExp.dueDate,
                   status: baseExp.status,
-                } as Expense)
+                }
               : baseExp;
           });
-          const mergedMap = new Map(currentStored.map(e => [e.id, e]));
+          const mergedMap = new Map<string, Expense>(currentStored.map(e => [e.id, e]));
           mapped.forEach(m => mergedMap.set(m.id, m));
           const mergedList = Array.from(mergedMap.values());
           setLocalExpenses(mergedList);

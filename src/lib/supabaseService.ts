@@ -2871,8 +2871,9 @@ export async function fetchRhFuncionarios(
       return [];
     }
 
+    let employeesList: Employee[] = [];
     if (Array.isArray(res.data) && res.data.length > 0) {
-      return res.data
+      employeesList = res.data
         .map(mapRowToEmployee)
         .filter(emp => {
           // Ignora registros sem dados essenciais ou marcados como excluídos/inativos
@@ -2886,11 +2887,144 @@ export async function fetchRhFuncionarios(
           return true;
         });
     }
-    return [];
+
+    // 3. Busca dinâmica na tabela public.funcionarios para capturar o salário base real contratual
+    try {
+      const { data: funcRows, error: funcErr } = await supabase
+        .from('funcionarios')
+        .select('*');
+
+      if (!funcErr && Array.isArray(funcRows) && funcRows.length > 0) {
+        const existingMap = new Map<string, Employee>();
+        employeesList.forEach(e => {
+          existingMap.set(e.id, e);
+          existingMap.set(toValidUUID(e.id), e);
+          if (e.name) existingMap.set(e.name.trim().toUpperCase(), e);
+        });
+
+        funcRows.forEach((r: any) => {
+          const mappedF = mapRowToEmployee(r);
+          const rawSalary = parseFloat(String(r.salary || r.salario || r.salario_base || r.base_salary || 0)) || 0;
+          const idKey = String(r.id || mappedF.id);
+          const uuidKey = toValidUUID(idKey);
+          const nameKey = (r.name || r.nome || mappedF.name || '').trim().toUpperCase();
+
+          const matched = existingMap.get(idKey) || existingMap.get(uuidKey) || (nameKey ? existingMap.get(nameKey) : undefined);
+          if (matched) {
+            if (rawSalary > 0) {
+              matched.salary = rawSalary;
+              matched.baseSalary = rawSalary;
+            }
+          } else if (mappedF && mappedF.name && mappedF.active !== false && String(mappedF.status).toLowerCase() !== 'excluido') {
+            if (rawSalary > 0) {
+              mappedF.salary = rawSalary;
+              mappedF.baseSalary = rawSalary;
+            }
+            employeesList.push(mappedF);
+            existingMap.set(mappedF.id, mappedF);
+          }
+        });
+      }
+    } catch (_) {}
+
+    return employeesList;
   } catch (err) {
     console.warn('Supabase fetchRhFuncionarios err:', err);
     return [];
   }
+}
+
+/**
+ * 1. BUSCA DINÂMICA DE SALÁRIO BASE REAL (public.funcionarios + public.rh_funcionarios):
+ * Busca dinamicamente o salário base real cadastrado na ficha do colaborador em 'public.funcionarios'
+ * e 'public.rh_funcionarios', retornando um mapa resiliente indexado por ID, UUID, CPF e nomes normalizados.
+ */
+export async function fetchContractualSalariesFromDb(): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (!isSupabaseConfigured) return map;
+
+  const extractSalary = (r: any): number => {
+    if (!r) return 0;
+    const candidates = [
+      r.salary,
+      r.salario,
+      r.salario_base,
+      r.base_salary,
+      r.salario_contratual,
+      r.salarioBase,
+      r.baseSalary,
+      r.salary_amount,
+      r.remuneracao,
+      r.payload?.salary,
+      r.payload?.salario,
+      r.payload?.salario_base,
+      r.payload?.base_salary,
+      r.payload?.baseSalary,
+    ];
+    for (const c of candidates) {
+      if (c !== undefined && c !== null && c !== '') {
+        const num = parseFloat(String(c).replace(/[R$\s]/g, '').replace(',', '.'));
+        if (!isNaN(num) && num > 0) return num;
+      }
+    }
+    return 0;
+  };
+
+  const registerInMap = (r: any) => {
+    const sal = extractSalary(r);
+    if (sal > 0) {
+      if (r.id) {
+        const rawId = String(r.id).trim();
+        map.set(rawId, sal);
+        map.set(toValidUUID(rawId), sal);
+      }
+      const rawName = String(r.name || r.nome || r.nome_funcionario || '').trim().toUpperCase();
+      if (rawName) {
+        map.set(rawName, sal);
+        // Normaliza remoção de sequências duplicadas de 'S' (ex: CASSSIANO -> CASSIANO)
+        const reduced = rawName.replace(/S{2,}/g, 'S');
+        map.set(reduced, sal);
+      }
+      if (r.cpf) {
+        const cleanCpf = String(r.cpf).replace(/\D/g, '');
+        if (cleanCpf) map.set(cleanCpf, sal);
+      }
+    }
+  };
+
+  try {
+    // 1. Tabela public.funcionarios (busca transparente com select '*')
+    try {
+      const { data: funcData, error: funcErr } = await supabase
+        .from('funcionarios')
+        .select('*');
+
+      if (!funcErr && Array.isArray(funcData)) {
+        funcData.forEach(registerInMap);
+      } else if (funcErr) {
+        // Fallback para seleção pontual caso RLS restrinja colunas
+        const { data: fallbackData } = await supabase
+          .from('funcionarios')
+          .select('id, name, salary');
+        if (Array.isArray(fallbackData)) {
+          fallbackData.forEach(registerInMap);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Tabela public.rh_funcionarios
+    try {
+      const { data: rhData } = await supabase
+        .from('rh_funcionarios')
+        .select('*');
+
+      if (Array.isArray(rhData)) {
+        rhData.forEach(registerInMap);
+      }
+    } catch (_) {}
+  } catch (_) {}
+
+  return map;
 }
 
 /**
@@ -9165,7 +9299,7 @@ export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?:
 }
 
 /**
- * Remove um registro de férias da tabela public.rh_ferias
+ * Remove um registro de férias da tabela public.rh_ferias e do backup site_settings
  */
 export async function deleteRhFeriasRecord(vacationId: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !vacationId) return false;
@@ -9177,6 +9311,28 @@ export async function deleteRhFeriasRecord(vacationId: string, companyId?: strin
       query = query.eq('company_id', cId);
     }
     const { error } = await query;
+
+    // Remove também do espelho site_settings para impedir que registros excluídos ressuscitem
+    try {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_vacations_${cId}`)
+        .maybeSingle();
+
+      if (data?.hero_title) {
+        const parsed = JSON.parse(data.hero_title);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((v: any) => toValidUUID(v.id) !== canonicalId);
+          await supabase.from('site_settings').upsert({
+            id: `cloud_vacations_${cId}`,
+            hero_title: JSON.stringify(filtered),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        }
+      }
+    } catch (_) {}
+
     return !error;
   } catch {
     return false;
@@ -9190,11 +9346,13 @@ export async function saveCloudVacations(vacations: VacationRecord[], companyId?
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
-    const cleanVacations = (Array.isArray(vacations) ? vacations : []).map((v) => ({
-      ...v,
-      id: toValidUUID(v.id),
-      companyId: cId,
-    }));
+    const cleanVacations = (Array.isArray(vacations) ? vacations : [])
+      .filter((v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado')
+      .map((v) => ({
+        ...v,
+        id: toValidUUID(v.id),
+        companyId: cId,
+      }));
 
     // 1. Upsert estruturado na tabela oficial public.rh_ferias
     try {
@@ -9228,6 +9386,7 @@ export async function fetchCloudVacations(companyId?: string): Promise<VacationR
   try {
     const cId = companyId || getActiveCompanyId();
     const map = new Map<string, VacationRecord>();
+    let foundInRelational = false;
 
     // 1. Busca prioritária na tabela relacional public.rh_ferias
     try {
@@ -9238,34 +9397,39 @@ export async function fetchCloudVacations(companyId?: string): Promise<VacationR
         .order('updated_at', { ascending: false });
 
       if (!relErr && Array.isArray(relRows)) {
+        foundInRelational = true;
         for (const r of relRows) {
           const mapped = mapRowToVacationRecord(r);
-          if (mapped) {
+          if (mapped && mapped.status !== 'cancelado') {
             map.set(mapped.id, mapped);
           }
         }
       }
     } catch {}
 
-    // 2. Complementa com site_settings caso existam registros legados
-    const { data, error } = await supabase
-      .from('site_settings')
-      .select('hero_title')
-      .eq('id', `cloud_vacations_${cId}`)
-      .maybeSingle();
+    // 2. Só recorre a site_settings caso a tabela relacional não esteja acessível ou vazia
+    if (!foundInRelational || map.size === 0) {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_vacations_${cId}`)
+        .maybeSingle();
 
-    if (!error && data?.hero_title) {
-      try {
-        const parsed = JSON.parse(data.hero_title);
-        if (Array.isArray(parsed)) {
-          for (const item of parsed as VacationRecord[]) {
-            const normId = toValidUUID(item.id);
-            if (!map.has(normId)) {
-              map.set(normId, { ...item, id: normId, companyId: cId });
+      if (!error && data?.hero_title) {
+        try {
+          const parsed = JSON.parse(data.hero_title);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed as VacationRecord[]) {
+              if (item && item.status !== 'cancelado') {
+                const normId = toValidUUID(item.id);
+                if (!map.has(normId)) {
+                  map.set(normId, { ...item, id: normId, companyId: cId });
+                }
+              }
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
     }
 
     return map.size > 0 ? Array.from(map.values()) : null;

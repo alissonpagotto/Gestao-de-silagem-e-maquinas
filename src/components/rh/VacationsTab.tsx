@@ -46,6 +46,7 @@ import {
   upsertContaAPagar,
   saveCloudExpenses,
   upsertRhFuncionario,
+  fetchContractualSalariesFromDb,
 } from '../../lib/supabaseService';
 import {
   VacationReceiptModal,
@@ -54,6 +55,7 @@ import {
 } from './VacationReceiptModal';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
 import { evaluateEmployeeVacationAlert } from '../employees/EmployeesModule';
+import { normalizeNameForComparison } from './vacationHelpers';
 
 interface VacationsTabProps {
   employees: Employee[];
@@ -408,7 +410,7 @@ function findEmployeeLinkedMachinery(emp: Employee | null | undefined, machineri
     .join(' ')
     .toLowerCase();
 
-  const activeMachines = machineries.filter((m) => m.status !== 'inativo');
+  const activeMachines = machineries.filter((m) => (m.status as string) !== 'inativo');
   const pool = activeMachines.length > 0 ? activeMachines : machineries;
 
   if (rolesStr.includes('trator')) {
@@ -584,6 +586,52 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const activeAbsences = useMemo(() => {
     return propAbsences && propAbsences.length > 0 ? propAbsences : getStoredAbsences();
   }, [propAbsences]);
+
+  // 1. Busca dinâmica de salário base real em public.funcionarios (e rh_funcionarios)
+  const [contractualSalaries, setContractualSalaries] = useState<Map<string, number>>(new Map());
+
+  const loadContractualSalaries = useCallback(async () => {
+    try {
+      const map = await fetchContractualSalariesFromDb();
+      if (map && map.size > 0) {
+        setContractualSalaries(map);
+      }
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    loadContractualSalaries();
+  }, [loadContractualSalaries]);
+
+  // Função utilitária unificada para capturar dinamicamente o salário base real do colaborador
+  const getEmployeeContractualSalary = useCallback(
+    (empId?: string, empName?: string): number => {
+      if (!empId && !empName) return 0;
+      const uuid = empId ? toValidUUID(empId) : '';
+      const nameUpper = (empName || '').trim().toUpperCase();
+      const nameReduced = normalizeNameForComparison(nameUpper);
+
+      const fromDb =
+        (empId ? contractualSalaries.get(empId) : undefined) ||
+        (uuid ? contractualSalaries.get(uuid) : undefined) ||
+        (nameUpper ? contractualSalaries.get(nameUpper) : undefined) ||
+        (nameReduced ? contractualSalaries.get(nameReduced) : undefined);
+
+      if (fromDb && fromDb > 0) return fromDb;
+
+      const emp = employees.find(
+        (e) =>
+          (empId && (e.id === empId || toValidUUID(e.id) === uuid)) ||
+          (nameUpper && (e.name || '').trim().toUpperCase() === nameUpper) ||
+          (nameReduced && normalizeNameForComparison(e.name) === nameReduced)
+      );
+
+      return Number(
+        emp?.salary || emp?.baseSalary || (emp as any)?.salario || (emp as any)?.salario_base || 0
+      );
+    },
+    [contractualSalaries, employees]
+  );
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVacation, setEditingVacation] = useState<VacationRecord | null>(null);
@@ -821,9 +869,44 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           ? emp.roles.join(', ')
           : emp.role || 'Colaborador';
 
+      // 1. CORREÇÃO DO VALOR DO CASSSIANO GREGO LIN (BUSCA DE SALÁRIO BASE):
+      // Busca dinamicamente o salário base real cadastrado na ficha deste colaborador na tabela 'public.funcionarios'
+      const activeSalary = getEmployeeContractualSalary(emp.id, emp.name);
+
+      // Sempre que carregar a linha de férias, recalcula o valor bruto com base no salário contratual ativo atualizado daquele ID
+      let dynamicVacationRecord = matchingRecord;
+      if (matchingRecord && activeSalary > 0) {
+        const effectiveDays = matchingRecord.daysCount || 30;
+        const dailyRate = activeSalary / 30;
+        const recalcFerias = Math.round(dailyRate * effectiveDays * 100) / 100;
+        const recalcUmTerco = Math.round((recalcFerias / 3) * 100) / 100;
+        const sellDays = matchingRecord.sellDaysCount || 0;
+        const recalcAbono = sellDays > 0 ? Math.round(dailyRate * sellDays * 100) / 100 : 0;
+        const recalcUmTercoAbono = sellDays > 0 ? Math.round((recalcAbono / 3) * 100) / 100 : 0;
+        const recalcDecimo = matchingRecord.thirteenthAdvance ? Math.round((activeSalary / 2) * 100) / 100 : 0;
+        const recalcTotalBruto = Math.round(
+          (recalcFerias + recalcUmTerco + recalcAbono + recalcUmTercoAbono + recalcDecimo) * 100
+        ) / 100;
+
+        dynamicVacationRecord = {
+          ...matchingRecord,
+          baseSalary: activeSalary,
+          customVacationAmount: recalcFerias,
+          oneThirdBonus: recalcUmTerco,
+          pecuniaryAllowance: recalcAbono,
+          thirteenthAmount: recalcDecimo,
+          totalAmount: recalcTotalBruto,
+          valor_ferias: recalcTotalBruto,
+        };
+      }
+
       return {
         rowKey: matchingRecord?.id ? toValidUUID(matchingRecord.id) : empUuid,
-        employee: emp,
+        employee: {
+          ...emp,
+          salary: activeSalary > 0 ? activeSalary : emp.salary,
+          baseSalary: activeSalary > 0 ? activeSalary : emp.baseSalary,
+        },
         roleLabel,
         acquisitionStart: acqStart,
         acquisitionEnd: acqEnd,
@@ -835,13 +918,13 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         isEmGozo,
         isQuitadoRegular,
         monthsLabel: alertInfo.monthsLabel,
-        vacationRecord: matchingRecord,
+        vacationRecord: dynamicVacationRecord,
         linkedMachinery,
       };
     });
 
     return rows;
-  }, [employees, vacations, activeAbsences, machineriesList]);
+  }, [employees, vacations, activeAbsences, machineriesList, contractualSalaries]);
 
   // Filtragem da lista principal por busca e pelas sub-abas unificadas
   const filteredRows = useMemo(() => {
@@ -869,7 +952,53 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const programadosCount = useMemo(() => periodRows.filter(r => r.isProgramado).length, [periodRows]);
   const emGozoCount = useMemo(() => periodRows.filter(r => r.isEmGozo).length, [periodRows]);
   const quitadosCount = useMemo(() => periodRows.filter(r => r.isQuitadoRegular).length, [periodRows]);
-  const totalValorFerias = useMemo(() => vacations.reduce((sum, v) => sum + (v.totalAmount || 0), 0), [vacations]);
+
+  // 2. CORREÇÃO DA SOMA DO CARD "TOTAL FÉRIAS LANÇADAS" (R$ 13.000,00 ERRADO):
+  // Em vez de fazer um 'sum' direto na tabela inteira do Supabase, calcula a soma
+  // baseando-se ESTRITAMENTE na array de objetos filtrados que estão atualmente renderizados na tabela visível da tela
+  const activeVacationsList = useMemo(() => {
+    return filteredRows
+      .filter((row) => {
+        const v = row.vacationRecord;
+        if (!v) return false;
+        const st = String(v.status || '').toLowerCase();
+        const sit = String(v.situacao_execucao || '').toUpperCase();
+        if (
+          st === 'cancelado' ||
+          sit === 'CANCELADO' ||
+          st === 'concluido' ||
+          sit === 'CONCLUIDO' ||
+          sit === 'QUITADO' ||
+          sit === 'REGULAR' ||
+          sit === 'QUITADO/REGULAR'
+        ) {
+          return false;
+        }
+        return (
+          row.isEmGozo ||
+          row.isProgramado ||
+          st === 'em_gozo' ||
+          sit === 'EM_GOZO' ||
+          st === 'agendado' ||
+          st === 'programado' ||
+          sit === 'PROGRAMADO' ||
+          sit === 'AGENDADO'
+        );
+      })
+      .map((row) => {
+        const v = row.vacationRecord!;
+        const val = Number((v as any).valor_ferias || v.totalAmount || v.customVacationAmount || 0);
+        return {
+          ...v,
+          valor_ferias: isNaN(val) ? 0 : val,
+        };
+      });
+  }, [filteredRows]);
+
+  const totalValorFerias = useMemo(() => {
+    const totalInjected = activeVacationsList.reduce((acc, curr) => acc + (curr.valor_ferias || 0), 0);
+    return totalInjected;
+  }, [activeVacationsList]);
 
   // Cálculos financeiros dinâmicos completos da janela modal (recalcula instantaneamente no front-end)
   const financials = useMemo(() => {
@@ -972,17 +1101,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       try {
         const cloudVacations = await fetchCloudVacations(activeTenantId);
         if (!isMounted || !Array.isArray(cloudVacations)) return;
-        if (cloudVacations.length > 0) {
-          const currentList = vacationsRef.current;
-          const map = new Map<string, VacationRecord>();
-          currentList.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
-          cloudVacations.forEach((v) => map.set(toValidUUID(v.id), { ...v, id: toValidUUID(v.id) }));
-          const merged = Array.from(map.values()).sort(
-            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          );
-          saveStoredVacations(merged);
-          onSaveVacations(merged);
-        }
+        const cleanFresh = cloudVacations.filter(
+          (v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado'
+        );
+        saveStoredVacations(cleanFresh);
+        onSaveVacations(cleanFresh);
       } catch (_) {}
     };
 
@@ -1061,7 +1184,13 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         if (normalizedIncoming.sellDaysCount !== undefined) setSellDaysCount(normalizedIncoming.sellDaysCount);
         if (normalizedIncoming.baseSalary !== undefined) setBaseSalary(normalizedIncoming.baseSalary);
         if (normalizedIncoming.thirteenthAdvance !== undefined) setThirteenthAdvance(normalizedIncoming.thirteenthAdvance);
-        if (normalizedIncoming.status) setStatus(normalizedIncoming.status);
+        if (normalizedIncoming.status) {
+          const s = normalizedIncoming.status;
+          if (s === 'em_gozo') setStatus('em_gozo');
+          else if (s === 'concluido' || s === 'quitado' || s === 'regular') setStatus('concluido');
+          else if (s === 'cancelado') setStatus('cancelado');
+          else setStatus('agendado');
+        }
         if (normalizedIncoming.notes !== undefined) setNotes(normalizedIncoming.notes);
         if (normalizedIncoming.customVacationAmount !== undefined) setCustomFeriasGozo(normalizedIncoming.customVacationAmount);
         if (normalizedIncoming.oneThirdBonus !== undefined) setCustomUmTercoGozo(normalizedIncoming.oneThirdBonus);
@@ -1238,7 +1367,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     setSelectedEmployeeId(empId);
     const emp = employees.find(e => e.id === empId);
     if (emp) {
-      const salary = emp.salary || emp.baseSalary || 3500;
+      const salary = getEmployeeContractualSalary(emp.id, emp.name);
       setBaseSalary(salary);
       resetCustomOverrides();
     }
@@ -1285,7 +1414,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     setEditingVacation(null);
     setActiveDraftId(draftId);
     setSelectedEmployeeId(row.employee.id);
-    const salary = row.employee.salary || row.employee.baseSalary || 3000;
+    const salary = getEmployeeContractualSalary(row.employee.id, row.employee.name);
     setBaseSalary(salary);
     setAcquisitionPeriodStart(row.acquisitionStart || '2025-01-01');
     setAcquisitionPeriodEnd(row.acquisitionEnd || '2025-12-31');
@@ -1310,7 +1439,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setPrintingVacation(row.vacationRecord);
       return;
     }
-    const salary = row.employee.salary || row.employee.baseSalary || 3000;
+    const salary = getEmployeeContractualSalary(row.employee.id, row.employee.name);
     const gozoDays = row.rightDays > 0 ? row.rightDays : 30;
     const dailyRate = salary / 30;
     const valorFeriasGozo = Math.round(dailyRate * gozoDays * 100) / 100;
@@ -1369,7 +1498,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setEndDate(vacation.endDate);
       setDaysCount(vacation.daysCount);
       setSellDaysCount(vacation.sellDaysCount || 0);
-      setBaseSalary(vacation.baseSalary);
+
+      // Sempre busca e prioriza o salário base real contratual atualizado daquele ID
+      const dynamicSalary = getEmployeeContractualSalary(vacation.employeeId, vacation.employeeName);
+      setBaseSalary(dynamicSalary > 0 ? dynamicSalary : vacation.baseSalary);
+
       setThirteenthAdvance(vacation.thirteenthAdvance || false);
       const execSit = normalizeSituacaoExecucaoFerias(vacation.situacao_execucao || vacation.status);
       setStatus(mapSituacaoExecucaoToStatus(execSit));
@@ -1389,9 +1522,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setEditingVacation(null);
       setActiveDraftId(draftId);
       const firstActive = employees.find(e => e.status === 'ativo') || employees[0];
-      const salary = firstActive?.salary || firstActive?.baseSalary || 3500;
       if (firstActive) {
         setSelectedEmployeeId(firstActive.id);
+        const salary = getEmployeeContractualSalary(firstActive.id, firstActive.name);
         setBaseSalary(salary);
       } else {
         setSelectedEmployeeId('');
@@ -1654,7 +1787,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         endDate: todayIso,
         daysCount: row.rightDays || 30,
         sellDaysCount: 0,
-        baseSalary: emp.salary || emp.baseSalary || 3000,
+        baseSalary: getEmployeeContractualSalary(emp.id, emp.name),
         oneThirdBonus: 0,
         pecuniaryAllowance: 0,
         thirteenthAdvance: false,
@@ -1727,7 +1860,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       .trim();
 
     let finalStatus: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' = 'agendado';
-    let situacaoExecucao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' = 'PROGRAMADO';
+    let situacaoExecucao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' | string = 'PROGRAMADO';
     let situacaoTravadaUsuario = true;
 
     if (rawDropdownVal === 'em_gozo') {
@@ -2569,7 +2702,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                   <option value="">Trocar Colaborador...</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.role}) - {formatBRL(emp.salary || emp.baseSalary || 3500)}
+                      {emp.name} ({emp.role}) - {formatBRL(getEmployeeContractualSalary(emp.id, emp.name))}
                     </option>
                   ))}
                 </select>
