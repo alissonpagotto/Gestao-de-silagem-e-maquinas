@@ -379,6 +379,8 @@ export interface VacationManagementRow {
   rightDays: number;
   unjustifiedAbsencesCount: number;
   periodStatus: 'vencido' | 'proximo' | 'quitado';
+  isProgramado: boolean;
+  isEmGozo: boolean;
   monthsLabel: string;
   vacationRecord: VacationRecord | null;
 }
@@ -402,7 +404,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   }, [vacations]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'vencido' | 'proximo' | 'quitado'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'vencido' | 'proximo' | 'programados' | 'em_gozo'>('all');
 
   const activeAbsences = useMemo(() => {
     return propAbsences && propAbsences.length > 0 ? propAbsences : getStoredAbsences();
@@ -444,6 +446,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   // Construção reativa da Tabela de Gestão de Períodos Aquisitivos e Concessivos
   const periodRows = useMemo<VacationManagementRow[]>(() => {
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     const seenEmp = new Set<string>();
     const activeEmployees: Employee[] = [];
 
@@ -480,7 +485,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
       const rawAdm =
         formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at || '') ||
-        new Date().toISOString().split('T')[0];
+        todayIso;
 
       // Se houver registro salvo para o período atual (ou último registro salvo quando quitado)
       const latestRecord = empVacations.length > 0 ? empVacations[0] : null;
@@ -529,6 +534,31 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             formatIsoDateOnly(v.acquisitionPeriodEnd || '') === acqEnd
         ) || latestRecord;
 
+      const startIso = matchingRecord ? formatIsoDateOnly(matchingRecord.startDate || '') : '';
+      const endIso = matchingRecord ? formatIsoDateOnly(matchingRecord.endDate || '') : '';
+      const vacStatus = String(matchingRecord?.status || '').toLowerCase();
+
+      // Em Gozo: colaborador atualmente no meio do período de descanso configurado nas datas na data de hoje
+      const isEmGozo = Boolean(
+        matchingRecord &&
+        vacStatus !== 'cancelado' &&
+        startIso &&
+        endIso &&
+        todayIso >= startIso &&
+        todayIso <= endIso
+      );
+
+      // Programados: colaborador com férias agendadas para o futuro salvas no payload
+      const isProgramado = Boolean(
+        matchingRecord &&
+        vacStatus !== 'cancelado' &&
+        !isEmGozo &&
+        (
+          (startIso && startIso > todayIso) ||
+          (vacStatus === 'agendado' && (!endIso || endIso >= todayIso))
+        )
+      );
+
       const roleLabel =
         Array.isArray(emp.roles) && emp.roles.length > 0
           ? emp.roles.join(', ')
@@ -544,6 +574,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         rightDays,
         unjustifiedAbsencesCount,
         periodStatus,
+        isProgramado,
+        isEmGozo,
         monthsLabel: alertInfo.monthsLabel,
         vacationRecord: matchingRecord,
       };
@@ -552,21 +584,26 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return rows;
   }, [employees, vacations, activeAbsences]);
 
-  // Filtragem da lista principal por busca e por status do período
+  // Filtragem da lista principal por busca e pelas 5 sub-abas unificadas
   const filteredRows = useMemo(() => {
     return periodRows.filter((row) => {
       const matchesSearch =
         row.employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.roleLabel.toLowerCase().includes(searchTerm.toLowerCase());
       if (!matchesSearch) return false;
-      if (statusFilter !== 'all' && row.periodStatus !== statusFilter) return false;
+      if (statusFilter === 'vencido') return row.periodStatus === 'vencido';
+      if (statusFilter === 'proximo') return row.periodStatus === 'proximo';
+      if (statusFilter === 'programados') return row.isProgramado;
+      if (statusFilter === 'em_gozo') return row.isEmGozo;
       return true;
     });
   }, [periodRows, searchTerm, statusFilter]);
 
-  // Totais dos KPIs de Gestão de Períodos
+  // Totais dos KPIs de Gestão de Períodos e Execução de Férias
   const vencidosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'vencido').length, [periodRows]);
   const proximosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'proximo').length, [periodRows]);
+  const programadosCount = useMemo(() => periodRows.filter(r => r.isProgramado).length, [periodRows]);
+  const emGozoCount = useMemo(() => periodRows.filter(r => r.isEmGozo).length, [periodRows]);
   const quitadosCount = useMemo(() => periodRows.filter(r => r.periodStatus === 'quitado').length, [periodRows]);
   const totalValorFerias = useMemo(() => vacations.reduce((sum, v) => sum + (v.totalAmount || 0), 0), [vacations]);
 
@@ -930,7 +967,15 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const handleStartDateChange = (newStart: string) => {
     setStartDate(newStart);
     if (newStart && daysCount > 0) {
-      setEndDate(calculateEndDateFromStart(newStart, daysCount));
+      const calcEnd = calculateEndDateFromStart(newStart, daysCount);
+      setEndDate(calcEnd);
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      if (newStart > todayIso) {
+        setStatus('agendado');
+      } else if (newStart <= todayIso && calcEnd >= todayIso) {
+        setStatus('em_gozo');
+      }
     }
   };
 
@@ -978,7 +1023,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     setDaysCount(initialDays);
     setSellDaysCount(0);
     setThirteenthAdvance(false);
-    setStatus('concluido');
+    setStatus('agendado');
     setNotes('');
     setInssEnabled(true);
     setIrrfEnabled(true);
@@ -1263,37 +1308,99 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         </button>
       </div>
 
-      {/* Quick Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="crm-card bg-white dark:bg-stone-900 border border-rose-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-rose-700 dark:text-rose-400 block uppercase">Períodos Vencidos</span>
-          <span className="text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit']">
+      {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
+        <div
+          onClick={() => setStatusFilter('vencido')}
+          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+            statusFilter === 'vencido'
+              ? 'border-rose-500 ring-1 ring-rose-500/40'
+              : 'border-rose-200 dark:border-stone-800 hover:border-rose-300'
+          }`}
+        >
+          <span className="text-[10px] font-black text-rose-700 dark:text-rose-400 block uppercase tracking-wide">
+            Períodos Vencidos
+          </span>
+          <span className="text-base font-black text-rose-700 dark:text-rose-400 font-['Outfit'] mt-1">
             {vencidosCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-white dark:bg-stone-900 border border-amber-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 block uppercase">Próximos a Vencer</span>
-          <span className="text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit']">
+
+        <div
+          onClick={() => setStatusFilter('proximo')}
+          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+            statusFilter === 'proximo'
+              ? 'border-amber-500 ring-1 ring-amber-500/40'
+              : 'border-amber-200 dark:border-stone-800 hover:border-amber-300'
+          }`}
+        >
+          <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 block uppercase tracking-wide">
+            Próximos a Vencer
+          </span>
+          <span className="text-base font-black text-amber-700 dark:text-amber-400 font-['Outfit'] mt-1">
             {proximosCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-white dark:bg-stone-900 border border-emerald-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 block uppercase">Quitados / Regulares</span>
-          <span className="text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit']">
+
+        {/* CARD 1: FÉRIAS PROGRAMADAS (Azul) */}
+        <div
+          onClick={() => setStatusFilter('programados')}
+          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+            statusFilter === 'programados'
+              ? 'border-blue-600 ring-1 ring-blue-600/40'
+              : 'border-blue-300 dark:border-blue-900/70 hover:border-blue-400'
+          }`}
+        >
+          <span className="text-[10px] font-black text-blue-700 dark:text-blue-400 block uppercase tracking-wide">
+            Férias Programadas
+          </span>
+          <span className="text-base font-black text-blue-700 dark:text-blue-400 font-['Outfit'] mt-1">
+            {programadosCount} colaborador(es)
+          </span>
+        </div>
+
+        {/* CARD 2: FÉRIAS EM GOZO AGORA (Roxo / Índigo) */}
+        <div
+          onClick={() => setStatusFilter('em_gozo')}
+          className={`crm-card bg-white dark:bg-stone-900 border rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between ${
+            statusFilter === 'em_gozo'
+              ? 'border-indigo-600 ring-1 ring-indigo-600/40'
+              : 'border-indigo-300 dark:border-indigo-900/70 hover:border-indigo-400'
+          }`}
+        >
+          <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 block uppercase tracking-wide">
+            Férias em Gozo Agora
+          </span>
+          <span className="text-base font-black text-indigo-700 dark:text-indigo-400 font-['Outfit'] mt-1">
+            {emGozoCount} colaborador(es)
+          </span>
+        </div>
+
+        <div
+          onClick={() => setStatusFilter('all')}
+          className="crm-card bg-white dark:bg-stone-900 border border-emerald-200 dark:border-stone-800 hover:border-emerald-300 rounded-xl p-2.5 shadow-xs text-black dark:text-white cursor-pointer transition flex flex-col justify-between"
+        >
+          <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 block uppercase tracking-wide">
+            Quitados / Regulares
+          </span>
+          <span className="text-base font-black text-emerald-700 dark:text-emerald-400 font-['Outfit'] mt-1">
             {quitadosCount} colaborador(es)
           </span>
         </div>
-        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white">
-          <span className="text-[11px] font-black text-slate-700 dark:text-stone-300 block uppercase">Total Férias Lançadas</span>
-          <span className="text-base font-black text-black dark:text-white font-['Outfit']">
+
+        <div className="crm-card bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 shadow-xs text-black dark:text-white flex flex-col justify-between">
+          <span className="text-[10px] font-black text-slate-700 dark:text-stone-300 block uppercase tracking-wide">
+            Total Férias Lançadas
+          </span>
+          <span className="text-base font-black text-black dark:text-white font-['Outfit'] mt-1">
             {formatCurrencyBRL(totalValorFerias)}
           </span>
         </div>
       </div>
 
-      {/* Search Bar & Status Filter Badges */}
-      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-black dark:text-white">
-        <div className="relative w-full sm:w-80">
+      {/* Barra Unificada de Busca e Sub-Abas (Segmented Control) */}
+      <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-black dark:text-white">
+        <div className="relative w-full lg:w-72 shrink-0">
           <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -1304,50 +1411,80 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* Segmented Control: 5 Sub-Abas Sequenciais Unificadas */}
+        <div
+          role="tablist"
+          aria-label="Filtros de Férias"
+          className="inline-flex flex-wrap items-center p-1 rounded-xl bg-slate-100 dark:bg-stone-800 border border-slate-200/90 dark:border-stone-700 gap-1 w-full lg:w-auto"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={statusFilter === 'all'}
             onClick={() => setStatusFilter('all')}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'all'
-                ? 'bg-[#0963cb] text-white border-[#0963cb]'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
+                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Todos ({periodRows.length})
           </button>
+
           <button
             type="button"
+            role="tab"
+            aria-selected={statusFilter === 'vencido'}
             onClick={() => setStatusFilter('vencido')}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'vencido'
-                ? 'bg-rose-600 text-white border-rose-700'
-                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
+                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Vencidos ({vencidosCount})
           </button>
+
           <button
             type="button"
+            role="tab"
+            aria-selected={statusFilter === 'proximo'}
             onClick={() => setStatusFilter('proximo')}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
               statusFilter === 'proximo'
-                ? 'bg-amber-500 text-stone-950 border-amber-600'
-                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
+                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
             Próximos a Vencer ({proximosCount})
           </button>
+
           <button
             type="button"
-            onClick={() => setStatusFilter('quitado')}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
-              statusFilter === 'quitado'
-                ? 'bg-emerald-600 text-white border-emerald-700'
-                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+            role="tab"
+            aria-selected={statusFilter === 'programados'}
+            onClick={() => setStatusFilter('programados')}
+            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
+              statusFilter === 'programados'
+                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
+                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
             }`}
           >
-            Quitados ({quitadosCount})
+            Programados ({programadosCount})
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={statusFilter === 'em_gozo'}
+            onClick={() => setStatusFilter('em_gozo')}
+            className={`px-3 py-1.5 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
+              statusFilter === 'em_gozo'
+                ? 'bg-blue-50 dark:bg-blue-950/70 text-[#0963cb] dark:text-blue-300 font-black border border-blue-200/90 dark:border-blue-800 shadow-2xs'
+                : 'text-slate-600 dark:text-stone-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-stone-700/50 font-semibold border border-transparent'
+            }`}
+          >
+            Em Gozo ({emGozoCount})
           </button>
         </div>
       </div>
@@ -1408,8 +1545,20 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                           </span>
                         </div>
                         {vac && (
-                          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold mt-1">
-                            Gozo programado: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
+                              Gozo programado: {formatDateBR(vac.startDate)} a {formatDateBR(vac.endDate)}
+                            </span>
+                            {row.isProgramado && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                                Programado
+                              </span>
+                            )}
+                            {row.isEmGozo && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                Em Gozo
+                              </span>
+                            )}
                           </div>
                         )}
                       </td>
