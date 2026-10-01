@@ -25,6 +25,8 @@ import {
   upsertRhFeriasRecord,
   deleteRhFeriasRecord,
   mapRowToVacationRecord,
+  normalizeSituacaoExecucaoFerias,
+  mapSituacaoExecucaoToStatus,
   formatIsoDateOnly,
   toValidUUID,
 } from '../../lib/supabaseService';
@@ -426,6 +428,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const [baseSalary, setBaseSalary] = useState<number>(0);
   const [thirteenthAdvance, setThirteenthAdvance] = useState<boolean>(false);
   const [status, setStatus] = useState<'agendado' | 'em_gozo' | 'concluido' | 'cancelado'>('agendado');
+  const statusSelectRef = useRef<HTMLSelectElement | null>(null);
   const [notes, setNotes] = useState('');
 
   // Editable Financial Overrides & Switches
@@ -443,6 +446,53 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const selectedEmp = useMemo(() => {
     return employees.find(e => e.id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
+
+  // Verificação diária em background (rotina): muda de 'PROGRAMADO' para 'EM_GOZO'
+  // APENAS se a Situação original NÃO estiver travada como agendada pelo usuário (situacao_travada_usuario === false)
+  useEffect(() => {
+    if (!Array.isArray(vacations) || vacations.length === 0) return;
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    let hasChanges = false;
+    const updatedList = vacations.map((v) => {
+      if (!v) return v;
+      const sit = normalizeSituacaoExecucaoFerias(v.situacao_execucao || v.status);
+      const isLockedByUser = v.situacao_travada_usuario !== false;
+      const sIso = formatIsoDateOnly(v.startDate || '');
+      const eIso = formatIsoDateOnly(v.endDate || '');
+
+      if (
+        (sit === 'PROGRAMADO' || sit === 'AGENDADO') &&
+        !isLockedByUser &&
+        sIso &&
+        eIso &&
+        todayIso >= sIso &&
+        todayIso <= eIso
+      ) {
+        hasChanges = true;
+        const promoted: VacationRecord = {
+          ...v,
+          status: 'em_gozo',
+          situacao_execucao: 'EM_GOZO',
+          updatedAt: new Date().toISOString(),
+        };
+        if (isSupabaseConfigured) {
+          upsertRhFeriasRecord(promoted, activeTenantId).catch(() => {});
+        }
+        return promoted;
+      }
+      return v;
+    });
+
+    if (hasChanges) {
+      saveStoredVacations(updatedList);
+      onSaveVacations(updatedList);
+      if (isSupabaseConfigured) {
+        saveCloudVacations(updatedList, activeTenantId).catch(() => {});
+      }
+    }
+  }, [vacations, activeTenantId, onSaveVacations]);
 
   // Construção reativa da Tabela de Gestão de Períodos Aquisitivos e Concessivos
   const periodRows = useMemo<VacationManagementRow[]>(() => {
@@ -472,13 +522,21 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       const empUuid = toValidUUID(emp.id);
       const empNameNorm = (emp.name || '').trim().toUpperCase();
 
-      // Busca registros de férias deste colaborador na tabela rh_ferias (estado reativo)
-      const empVacations = (vacations || []).filter((v) => {
-        if (!v || v.status === 'cancelado') return false;
-        if (v.employeeId === emp.id || toValidUUID(v.employeeId) === empUuid) return true;
-        if (empNameNorm && (v.employeeName || '').trim().toUpperCase() === empNameNorm) return true;
-        return false;
-      });
+      // Busca registros de férias deste colaborador na tabela rh_ferias ordenados pelo mais recente
+      const empVacations = (vacations || [])
+        .filter((v) => {
+          if (!v || v.status === 'cancelado' || String(v.situacao_execucao || '').toUpperCase() === 'CANCELADO') {
+            return false;
+          }
+          if (v.employeeId === emp.id || toValidUUID(v.employeeId) === empUuid) return true;
+          if (empNameNorm && (v.employeeName || '').trim().toUpperCase() === empNameNorm) return true;
+          return false;
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt || b.createdAt || 0).getTime() -
+            new Date(a.updatedAt || a.createdAt || 0).getTime()
+        );
 
       // Avalia o alerta automático de férias (mesma função unificada da aba Funcionários)
       const alertInfo = evaluateEmployeeVacationAlert(emp, vacations);
@@ -487,15 +545,20 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at || '') ||
         todayIso;
 
-      // Se houver registro salvo para o período atual (ou último registro salvo quando quitado)
-      const latestRecord = empVacations.length > 0 ? empVacations[0] : null;
+      // Prioriza qualquer registro ativo ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO') salvo para este colaborador
+      const activeExecutionRecord = empVacations.find((v) => {
+        const sit = normalizeSituacaoExecucaoFerias(v.situacao_execucao || v.status);
+        return sit === 'PROGRAMADO' || sit === 'AGENDADO' || sit === 'EM_GOZO';
+      });
+
+      const latestRecord = activeExecutionRecord || (empVacations.length > 0 ? empVacations[0] : null);
 
       let acqStart = alertInfo.vestingStart || latestRecord?.acquisitionPeriodStart || rawAdm;
       let acqEnd = alertInfo.vestingEnd || latestRecord?.acquisitionPeriodEnd || calculateAcquisitionEndIso(acqStart);
 
-      // Se o colaborador já quitou o período anterior e está regular no novo período, mas possui um registro salvo recente,
-      // exibe o período aquisitivo correspondente ao registro salvo ou ao ciclo atual
-      if (alertInfo.level === 'none' && latestRecord?.acquisitionPeriodStart) {
+      // Se houver registro ativo ('PROGRAMADO', 'AGENDADO' ou 'EM_GOZO') ou se o alerta estiver quitado,
+      // exibe o período aquisitivo correspondente ao registro salvo
+      if ((activeExecutionRecord || alertInfo.level === 'none') && latestRecord?.acquisitionPeriodStart) {
         acqStart = formatIsoDateOnly(latestRecord.acquisitionPeriodStart) || acqStart;
         acqEnd =
           formatIsoDateOnly(latestRecord.acquisitionPeriodEnd || '') ||
@@ -526,37 +589,31 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         periodStatus = 'quitado';
       }
 
-      // Vincula o registro de férias correspondente a este período (se existir)
+      // Vincula o registro de férias correspondente a este período (priorizando o registro de execução ativo)
       const matchingRecord =
+        activeExecutionRecord ||
         empVacations.find(
           (v) =>
             formatIsoDateOnly(v.acquisitionPeriodStart || '') === acqStart ||
             formatIsoDateOnly(v.acquisitionPeriodEnd || '') === acqEnd
-        ) || latestRecord;
+        ) ||
+        latestRecord;
 
-      const startIso = matchingRecord ? formatIsoDateOnly(matchingRecord.startDate || '') : '';
-      const endIso = matchingRecord ? formatIsoDateOnly(matchingRecord.endDate || '') : '';
-      const vacStatus = String(matchingRecord?.status || '').toLowerCase();
+      const situacaoExecucao = matchingRecord
+        ? normalizeSituacaoExecucaoFerias(matchingRecord.situacao_execucao || matchingRecord.status)
+        : null;
 
-      // Em Gozo: colaborador atualmente no meio do período de descanso configurado nas datas na data de hoje
-      const isEmGozo = Boolean(
-        matchingRecord &&
-        vacStatus !== 'cancelado' &&
-        startIso &&
-        endIso &&
-        todayIso >= startIso &&
-        todayIso <= endIso
-      );
-
-      // Programados: colaborador com férias agendadas para o futuro salvas no payload
+      // CARD "FÉRIAS PROGRAMADAS": registros onde 'situacao_execucao' seja igual a 'PROGRAMADO' ou 'AGENDADO',
+      // independentemente se a data de início é a data de hoje
       const isProgramado = Boolean(
         matchingRecord &&
-        vacStatus !== 'cancelado' &&
-        !isEmGozo &&
-        (
-          (startIso && startIso > todayIso) ||
-          (vacStatus === 'agendado' && (!endIso || endIso >= todayIso))
-        )
+        (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO')
+      );
+
+      // CARD "FÉRIAS EM GOZO AGORA": APENAS os registros onde a 'situacao_execucao' seja explicitamente 'EM_GOZO'
+      const isEmGozo = Boolean(
+        matchingRecord &&
+        situacaoExecucao === 'EM_GOZO'
       );
 
       const roleLabel =
@@ -860,6 +917,20 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     (overrides?: Partial<VacationRecord>) => {
       const emp = employees.find(e => e.id === selectedEmployeeId);
       const canonicalId = toValidUUID(activeDraftId || editingVacation?.id || 'vac_live_draft');
+      const currentSelectedStatus = (statusSelectRef.current?.value || status || 'agendado') as
+        | 'agendado'
+        | 'em_gozo'
+        | 'concluido'
+        | 'cancelado';
+      const currentSituacaoExecucao =
+        currentSelectedStatus === 'em_gozo'
+          ? 'EM_GOZO'
+          : currentSelectedStatus === 'concluido'
+            ? 'CONCLUIDO'
+            : currentSelectedStatus === 'cancelado'
+              ? 'CANCELADO'
+              : 'PROGRAMADO';
+
       const draftRecord: VacationRecord = {
         id: canonicalId,
         companyId: activeTenantId,
@@ -886,7 +957,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         totalDiscounts: financials.totalDescontos,
         netAmount: financials.valorLiquido,
         totalAmount: financials.totalBruto,
-        status,
+        status: currentSelectedStatus,
+        situacao_execucao: currentSituacaoExecucao,
+        situacao_travada_usuario: currentSelectedStatus === 'agendado',
         notes,
         createdAt: editingVacation?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -969,13 +1042,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     if (newStart && daysCount > 0) {
       const calcEnd = calculateEndDateFromStart(newStart, daysCount);
       setEndDate(calcEnd);
-      const now = new Date();
-      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      if (newStart > todayIso) {
-        setStatus('agendado');
-      } else if (newStart <= todayIso && calcEnd >= todayIso) {
-        setStatus('em_gozo');
-      }
     }
   };
 
@@ -1077,6 +1143,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       netAmount: valorLiquido,
       totalAmount: totalBruto,
       status: 'agendado',
+      situacao_execucao: 'PROGRAMADO',
+      situacao_travada_usuario: true,
       notes: '',
       createdAt: new Date().toISOString(),
     };
@@ -1096,7 +1164,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       setSellDaysCount(vacation.sellDaysCount || 0);
       setBaseSalary(vacation.baseSalary);
       setThirteenthAdvance(vacation.thirteenthAdvance || false);
-      setStatus(vacation.status);
+      const execSit = normalizeSituacaoExecucaoFerias(vacation.situacao_execucao || vacation.status);
+      setStatus(mapSituacaoExecucaoToStatus(execSit));
       setNotes(vacation.notes || '');
 
       setCustomFeriasGozo(vacation.customVacationAmount !== undefined ? vacation.customVacationAmount : null);
@@ -1139,24 +1208,50 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   };
 
   const handleCloseProgrammingModal = () => {
-    if (editingVacation) {
-      broadcastActiveVacationDraft();
-    }
     setIsModalOpen(false);
   };
 
-  const handleSaveModal = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveModal = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
+
+    // Captura o valor exato selecionado no dropdown "Situação" no momento do clique em "Salvar Férias"
+    const rawDropdownVal = String(statusSelectRef.current?.value || status || 'agendado')
+      .toLowerCase()
+      .trim();
+
+    let finalStatus: 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' = 'agendado';
+    let situacaoExecucao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' = 'PROGRAMADO';
+    let situacaoTravadaUsuario = true;
+
+    if (rawDropdownVal === 'em_gozo') {
+      finalStatus = 'em_gozo';
+      situacaoExecucao = 'EM_GOZO';
+      situacaoTravadaUsuario = false;
+    } else if (rawDropdownVal === 'concluido') {
+      finalStatus = 'concluido';
+      situacaoExecucao = 'CONCLUIDO';
+      situacaoTravadaUsuario = false;
+    } else if (rawDropdownVal === 'cancelado') {
+      finalStatus = 'cancelado';
+      situacaoExecucao = 'CANCELADO';
+      situacaoTravadaUsuario = false;
+    } else {
+      // Quando marcado como "Agendado" (ou badge 'AGENDADO'), grava obrigatoriamente como 'PROGRAMADO' / 'agendado'
+      finalStatus = 'agendado';
+      situacaoExecucao = 'PROGRAMADO';
+      situacaoTravadaUsuario = true;
+    }
+
+    setStatus(finalStatus);
 
     // Estratégia de upsert: se já existir registro para o mesmo funcionário e mesmo período, reutiliza o ID
     const existingSamePeriod = !editingVacation
       ? vacations.find(
           (v) =>
             v.employeeId === emp.id &&
-            v.startDate === startDate &&
-            v.acquisitionPeriodStart === acquisitionPeriodStart
+            (v.startDate === startDate || v.acquisitionPeriodStart === acquisitionPeriodStart)
         )
       : null;
 
@@ -1189,7 +1284,9 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       totalDiscounts: financials.totalDescontos,
       netAmount: financials.valorLiquido,
       totalAmount: financials.totalBruto,
-      status,
+      status: finalStatus,
+      situacao_execucao: situacaoExecucao,
+      situacao_travada_usuario: situacaoTravadaUsuario,
       notes,
       createdAt: targetRecord?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1207,6 +1304,15 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     }
     broadcastActiveVacationDraft(recordPayload);
     setIsModalOpen(false);
+
+    // Força a renderização na sub-aba correspondente após o fechamento do modal
+    if (situacaoExecucao === 'PROGRAMADO' || situacaoExecucao === 'AGENDADO') {
+      setStatusFilter('programados');
+    } else if (situacaoExecucao === 'EM_GOZO') {
+      setStatusFilter('em_gozo');
+    } else if (statusFilter === 'programados' || statusFilter === 'em_gozo') {
+      setStatusFilter('all');
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -1233,7 +1339,19 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   const handleToggleStatus = (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'agendado' ? 'em_gozo' : currentStatus === 'em_gozo' ? 'concluido' : 'agendado';
-    const nextList = vacations.map(v => (v.id === id ? { ...v, status: nextStatus as any, updatedAt: new Date().toISOString() } : v));
+    const nextSituacaoExecucao =
+      nextStatus === 'em_gozo' ? 'EM_GOZO' : nextStatus === 'concluido' ? 'CONCLUIDO' : 'PROGRAMADO';
+    const nextList = vacations.map(v =>
+      v.id === id
+        ? {
+            ...v,
+            status: nextStatus as any,
+            situacao_execucao: nextSituacaoExecucao,
+            situacao_travada_usuario: nextStatus === 'agendado',
+            updatedAt: new Date().toISOString(),
+          }
+        : v
+    );
     saveStoredVacations(nextList);
     onSaveVacations(nextList);
     const updatedItem = nextList.find(v => v.id === id);
@@ -1928,6 +2046,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                       Situação
                     </label>
                     <select
+                      ref={statusSelectRef}
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
                       className="w-full px-2 py-1 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-black dark:text-white outline-none focus:ring-1 focus:ring-[#0963cb] cursor-pointer"
@@ -2271,6 +2390,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
                   <button
                     type="submit"
+                    onClick={handleSaveModal}
                     className="px-4 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold text-xs transition shadow-sm cursor-pointer active:scale-95"
                   >
                     Salvar Férias

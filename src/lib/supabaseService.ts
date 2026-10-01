@@ -8984,6 +8984,29 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
   }
 }
 
+export function normalizeSituacaoExecucaoFerias(
+  rawValue?: string | null
+): 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO' {
+  const clean = String(rawValue || 'AGENDADO')
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, '_');
+  if (clean === 'EM_GOZO') return 'EM_GOZO';
+  if (clean === 'CONCLUIDO' || clean === 'CONCLUÍDO') return 'CONCLUIDO';
+  if (clean === 'CANCELADO') return 'CANCELADO';
+  if (clean === 'PROGRAMADO') return 'PROGRAMADO';
+  return 'AGENDADO';
+}
+
+export function mapSituacaoExecucaoToStatus(
+  situacao: 'PROGRAMADO' | 'AGENDADO' | 'EM_GOZO' | 'CONCLUIDO' | 'CANCELADO'
+): 'agendado' | 'em_gozo' | 'concluido' | 'cancelado' {
+  if (situacao === 'EM_GOZO') return 'em_gozo';
+  if (situacao === 'CONCLUIDO') return 'concluido';
+  if (situacao === 'CANCELADO') return 'cancelado';
+  return 'agendado';
+}
+
 /**
  * Monta o objeto estruturado da linha para a tabela public.rh_ferias
  */
@@ -8991,6 +9014,11 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
   const cId = companyId || v.companyId || getActiveCompanyId() || 'default';
   const canonicalId = toValidUUID(v.id);
   const canonicalEmpId = toValidUUID(v.employeeId);
+
+  const situacaoExecucao = normalizeSituacaoExecucaoFerias(
+    v.situacao_execucao || v.status || 'AGENDADO'
+  );
+  const normalizedStatus = mapSituacaoExecucaoToStatus(situacaoExecucao);
 
   const baseSal = v.baseSalary || 0;
   const days = v.daysCount || 30;
@@ -9004,6 +9032,10 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
     companyId: cId,
     employeeId: v.employeeId,
     funcionario_id: canonicalEmpId,
+    status: normalizedStatus,
+    situacao_execucao: situacaoExecucao,
+    situacao_travada_usuario:
+      v.situacao_travada_usuario !== undefined ? Boolean(v.situacao_travada_usuario) : true,
     proventos: {
       valorFerias,
       umTercoConstitucional: v.oneThirdBonus ?? 0,
@@ -9030,7 +9062,7 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
     id: canonicalId,
     company_id: cId,
     funcionario_id: canonicalEmpId,
-    status: v.status || 'agendado',
+    status: normalizedStatus,
     payload: payloadObj,
     updated_at: new Date().toISOString(),
   };
@@ -9061,12 +9093,30 @@ export function mapRowToVacationRecord(row: any): VacationRecord | null {
   const descontos = parsedPayload.descontos || {};
   const toggles = parsedPayload.toggles || {};
 
+  // Prioriza situacao_execucao gravada na coluna ou no payload JSONB da tabela rh_ferias
+  const explicitSituacao = row.situacao_execucao || parsedPayload.situacao_execucao;
+  const fallbackStatus = String(parsedPayload.status || row.status || 'agendado').toLowerCase();
+  const rawSituacao = explicitSituacao
+    ? explicitSituacao
+    : fallbackStatus === 'concluido'
+      ? 'CONCLUIDO'
+      : fallbackStatus === 'cancelado'
+        ? 'CANCELADO'
+        : 'PROGRAMADO';
+  const situacaoExecucao = normalizeSituacaoExecucaoFerias(rawSituacao);
+  const normalizedStatus = mapSituacaoExecucaoToStatus(situacaoExecucao);
+
   return {
     ...parsedPayload,
     id: String(id),
     companyId: row.company_id || parsedPayload.companyId || undefined,
     employeeId: String(employeeId),
-    status: row.status || parsedPayload.status || 'agendado',
+    status: normalizedStatus,
+    situacao_execucao: situacaoExecucao,
+    situacao_travada_usuario:
+      parsedPayload.situacao_travada_usuario !== undefined
+        ? Boolean(parsedPayload.situacao_travada_usuario)
+        : true,
     customVacationAmount:
       parsedPayload.customVacationAmount !== undefined
         ? parsedPayload.customVacationAmount
@@ -9136,6 +9186,14 @@ export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?:
   try {
     const cId = companyId || vacation.companyId || getActiveCompanyId() || 'default';
     const row = buildRhFeriasRow(vacation, cId);
+    // Tenta gravar incluindo situacao_execucao caso a coluna exista fisicamente, com fallback imediato para o payload JSONB
+    const rowWithSituacao: Record<string, any> = {
+      ...row,
+      situacao_execucao: row.payload.situacao_execucao,
+    };
+    const { error: firstErr } = await supabase.from('rh_ferias').upsert(rowWithSituacao, { onConflict: 'id' });
+    if (!firstErr) return true;
+
     const { error } = await supabase.from('rh_ferias').upsert(row, { onConflict: 'id' });
     if (error) {
       console.warn('Aviso em upsertRhFeriasRecord:', error.message);
