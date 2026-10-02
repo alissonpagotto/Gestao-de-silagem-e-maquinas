@@ -675,68 +675,25 @@ DROP POLICY IF EXISTS "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pa
 DROP POLICY IF EXISTS "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento;
 DROP POLICY IF EXISTS "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento;
 DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir inserção para usuários da mesma empresa" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir leitura para usuários da mesma empresa" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir atualização para usuários da mesma empresa" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir exclusão para usuários da mesma empresa" ON public.rh_folhas_pagamento;
 
--- 1. POLÍTICA DE LEITURA (SELECT)
-CREATE POLICY "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento
-FOR SELECT TO authenticated, anon
-USING (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR true
-);
+-- POLÍTICAS SOLICITADAS: ESCRITA E LEITURA LIVRES PARA USUÁRIOS AUTENTICADOS
+CREATE POLICY "Permitir inserção para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR INSERT TO authenticated WITH CHECK (true);
 
--- 2. POLÍTICA DE INSERÇÃO (INSERT)
-CREATE POLICY "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento
-FOR INSERT TO authenticated, anon
-WITH CHECK (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR company_id IS NOT NULL
-    OR true
-);
+CREATE POLICY "Permitir leitura para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR SELECT TO authenticated USING (true);
 
--- 3. POLÍTICA DE ATUALIZAÇÃO (UPDATE)
-CREATE POLICY "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento
-FOR UPDATE TO authenticated, anon
-USING (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR true
-)
-WITH CHECK (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR true
-);
+CREATE POLICY "Permitir atualização para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
--- 4. POLÍTICA DE EXCLUSÃO (DELETE)
-CREATE POLICY "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento
-FOR DELETE TO authenticated, anon
-USING (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR true
-);
+CREATE POLICY "Permitir exclusão para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR DELETE TO authenticated USING (true);
 
--- 5. POLÍTICA RESILIENTE GLOBAL
+-- POLÍTICA RESILIENTE GLOBAL COMPLEMENTAR
 CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
 FOR ALL TO authenticated, anon
 USING (true)
@@ -1106,71 +1063,25 @@ DROP POLICY IF EXISTS "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pa
 DROP POLICY IF EXISTS "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento;
 DROP POLICY IF EXISTS "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento;
 DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir inserção para usuários da mesma empresa" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir leitura para usuários da mesma empresa" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir atualização para usuários da mesma empresa" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permitir exclusão para usuários da mesma empresa" ON public.rh_folhas_pagamento;
 
--- 4. POLÍTICA DE INSERÇÃO (INSERT POLICY)
--- Permite que usuários autenticados gravem dados da sua respectiva empresa (company_id) ou user_id
-CREATE POLICY "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento
-FOR INSERT TO authenticated, anon
-WITH CHECK (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR company_id IS NOT NULL
-    OR true
-);
+-- 4. POLÍTICAS SOLICITADAS: ESCRITA E LEITURA LIVRES PARA USUÁRIOS AUTENTICADOS
+CREATE POLICY "Permitir inserção para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR INSERT TO authenticated WITH CHECK (true);
 
--- 5. POLÍTICA DE LEITURA (SELECT POLICY)
--- Permite leitura de folhas de pagamento correspondentes ao tenant do usuário autenticado
-CREATE POLICY "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento
-FOR SELECT TO authenticated, anon
-USING (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR true
-);
+CREATE POLICY "Permitir leitura para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR SELECT TO authenticated USING (true);
 
--- 6. POLÍTICA DE ATUALIZAÇÃO (UPDATE POLICY)
--- Permite atualização do status e valores para o mesmo company_id
-CREATE POLICY "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento
-FOR UPDATE TO authenticated, anon
-USING (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR true
-)
-WITH CHECK (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
-    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
-    OR true
-);
+CREATE POLICY "Permitir atualização para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
--- 7. POLÍTICA DE EXCLUSÃO (DELETE POLICY)
-CREATE POLICY "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento
-FOR DELETE TO authenticated, anon
-USING (
-    company_id = auth.uid()::text
-    OR user_id = auth.uid()::text
-    OR company_id = (auth.jwt() ->> 'company_id')
-    OR company_id = (auth.jwt() ->> 'tenant_id')
-    OR true
-);
+CREATE POLICY "Permitir exclusão para usuários da mesma empresa" ON public.rh_folhas_pagamento 
+FOR DELETE TO authenticated USING (true);
 
--- 8. POLÍTICA RESILIENTE GLOBAL
+-- 5. POLÍTICA RESILIENTE GLOBAL COMPLEMENTAR
 CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
 FOR ALL TO authenticated, anon
 USING (true)

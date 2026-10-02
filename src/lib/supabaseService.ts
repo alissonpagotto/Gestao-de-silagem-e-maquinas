@@ -10596,6 +10596,11 @@ export function buildRhFolhaPagamentoRow(
       filteredRow[k] = v;
     }
   }
+
+  // OBRIGATÓRIO PARA RLS DO SUPABASE: company_id e user_id devem estar SEMPRE presentes no JSON enviado
+  filteredRow.company_id = cId;
+  filteredRow.user_id = userId;
+
   return filteredRow;
 }
 
@@ -10696,13 +10701,40 @@ export async function upsertRhFolhasPagamento(
         });
 
         // Tentativa alternativa com .insert() direto para casos onde apenas a política de INSERT está configurada
+        // Garante obrigatoriamente a inclusão da propriedade company_id no objeto JSON enviado no método .insert()
+        const insertRows = rows.map(r => ({
+          ...r,
+          company_id: r.company_id || cId,
+          user_id: r.user_id || activeUid
+        }));
         const { error: insertErr } = await supabase
           .from('rh_folhas_pagamento')
-          .insert(rows);
+          .insert(insertRows);
 
         if (!insertErr) {
-          console.info('✅ [Supabase Folha] Linhas persistidas com sucesso via .insert() direto.');
+          console.info('✅ [Supabase Folha] Linhas persistidas com sucesso via .insert() direto com company_id.');
           return true;
+        }
+
+        // Se houver conflito de chave existente (23505), executa .update() individual com company_id
+        if (insertErr && (insertErr.code === '23505' || insertErr.message?.includes('duplicate') || insertErr.message?.includes('already exists'))) {
+          let allUpdated = true;
+          for (const row of insertRows) {
+            const rowId = (row as any).id;
+            if (!rowId) continue;
+            const { error: updateErr } = await supabase
+              .from('rh_folhas_pagamento')
+              .update(row)
+              .eq('id', rowId);
+            if (updateErr) {
+              allUpdated = false;
+              break;
+            }
+          }
+          if (allUpdated) {
+            console.info('✅ [Supabase Folha] Linhas atualizadas com sucesso via .update() com company_id.');
+            return true;
+          }
         }
       }
 
@@ -10755,6 +10787,7 @@ export async function upsertRhFolhasPagamento(
       const fallbackItem: Record<string, any> = {
         id: canonicalId,
         user_id: activeUid,
+        company_id: cId,
         employee_id: canonicalEmpId,
         mes_referencia: formattedCompetencia,
         salario_base: baseSalaryFloat,
@@ -10763,11 +10796,6 @@ export async function upsertRhFolhasPagamento(
         valor_liquido: netFloat,
         status: p.status || 'pendente',
       };
-
-      // Injeta company_id no fallback para atender à política de segurança RLS caso a coluna exista
-      if (schemaCols.has('company_id')) {
-        fallbackItem.company_id = cId;
-      }
 
       return fallbackItem;
     });
@@ -10788,6 +10816,17 @@ export async function upsertRhFolhasPagamento(
       if (!directInsertRes.error) {
         console.info('✅ [Supabase Folha] Fallback persistido com sucesso via .insert() direto.');
         return true;
+      }
+      if (directInsertRes.error && (directInsertRes.error.code === '23505' || directInsertRes.error.message?.includes('duplicate'))) {
+        let allUpdated = true;
+        for (const row of minimalFallback) {
+          const { error: updateErr } = await supabase
+            .from('rh_folhas_pagamento')
+            .update(row)
+            .eq('id', row.id);
+          if (updateErr) { allUpdated = false; break; }
+        }
+        if (allUpdated) return true;
       }
     }
 

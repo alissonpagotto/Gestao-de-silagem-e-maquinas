@@ -886,10 +886,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             uid = authData?.user?.id;
           } catch (_) {}
         }
-        if (uid) {
+        let tenantCompanyId = activeCompanyId || companyProfile?.companyId || companyProfile?.id || getActiveCompanyId() || uid || '';
+        if (!tenantCompanyId && uid) {
           try {
-            const effectiveCompanyId = companyProfile?.id || uid;
-            const success = await upsertRhFolhasPagamento(recordToSave, uid, effectiveCompanyId);
+            const { data: authData } = await supabase.auth.getUser();
+            tenantCompanyId = authData?.user?.user_metadata?.company_id || authData?.user?.app_metadata?.company_id || uid;
+          } catch (_) {}
+        }
+        recordToSave.companyId = tenantCompanyId;
+        recordToSave.userId = uid;
+        if (uid && tenantCompanyId) {
+          try {
+            const success = await upsertRhFolhasPagamento(recordToSave, uid, tenantCompanyId);
             if (!success) {
               console.error('[PayrollTab] Aviso: Falha ao persistir folha no Supabase para:', recordToSave.employeeName);
             } else {
@@ -998,10 +1006,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             uid = authData?.user?.id;
           } catch (_) {}
         }
-        if (uid) {
+        let tenantCompanyId = activeCompanyId || companyProfile?.companyId || companyProfile?.id || getActiveCompanyId() || uid || '';
+        if (!tenantCompanyId && uid) {
           try {
-            const effectiveCompanyId = companyProfile?.id || uid;
-            const success = await upsertRhFolhasPagamento(nextList, uid, effectiveCompanyId);
+            const { data: authData } = await supabase.auth.getUser();
+            tenantCompanyId = authData?.user?.user_metadata?.company_id || authData?.user?.app_metadata?.company_id || uid;
+          } catch (_) {}
+        }
+        if (uid && tenantCompanyId) {
+          try {
+            const payloadList = nextList.map(item => ({
+              ...item,
+              companyId: item.companyId || tenantCompanyId,
+              userId: item.userId || uid,
+            }));
+            const success = await upsertRhFolhasPagamento(payloadList, uid, tenantCompanyId);
             if (!success) {
               console.error('[PayrollTab Batch] Falha ao persistir lote de folhas no Supabase.');
             } else {
@@ -1050,10 +1069,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             uid = authData?.user?.id;
           } catch (_) {}
         }
-        if (uid) {
+        let tenantCompanyId = activeCompanyId || companyProfile?.companyId || companyProfile?.id || getActiveCompanyId() || uid || '';
+        if (!tenantCompanyId && uid) {
           try {
-            const effectiveCompanyId = companyProfile?.id || uid;
-            const success = await upsertRhFolhasPagamento(updatedItem!, uid, effectiveCompanyId);
+            const { data: authData } = await supabase.auth.getUser();
+            tenantCompanyId = authData?.user?.user_metadata?.company_id || authData?.user?.app_metadata?.company_id || uid;
+          } catch (_) {}
+        }
+        if (uid && tenantCompanyId) {
+          try {
+            const success = await upsertRhFolhasPagamento({
+              ...updatedItem!,
+              companyId: tenantCompanyId,
+              userId: uid
+            }, uid, tenantCompanyId);
             if (!success) {
               console.error('[PayrollTab Toggle Status] Falha ao atualizar status da folha no Supabase:', updatedItem?.employeeName);
             } else {
@@ -1263,8 +1292,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             uid = authData?.user?.id;
           } catch (_) {}
         }
-        if (uid) {
-          upsertRhFolhasPagamento(integratedItem, uid, effectiveCompanyId).catch(() => {});
+        let tenantCompanyId = activeCompanyId || companyProfile?.companyId || companyProfile?.id || getActiveCompanyId() || uid || '';
+        if (!tenantCompanyId && uid) {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            tenantCompanyId = authData?.user?.user_metadata?.company_id || authData?.user?.app_metadata?.company_id || uid;
+          } catch (_) {}
+        }
+        if (uid && tenantCompanyId) {
+          upsertRhFolhasPagamento({
+            ...integratedItem,
+            companyId: tenantCompanyId,
+            userId: uid
+          }, uid, tenantCompanyId).catch(() => {});
         }
       }
 

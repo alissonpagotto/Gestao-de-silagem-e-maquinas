@@ -1,8 +1,10 @@
 -- ==============================================================================
--- MIGRAÇÃO SUPABASE: POLÍTICAS DE SEGURANÇA RLS (ROW-LEVEL SECURITY)
--- Tabela: public.rh_folhas_pagamento
+-- MIGRAÇÃO SUPABASE: POLÍTICAS DE ACESSO LIVRE (RLS) PARA RH_FOLHAS_PAGAMENTO
 -- ==============================================================================
--- 1. Garante que todas as colunas estruturais existam na tabela física
+-- Executar no Supabase: Dashboard > SQL Editor > New query > Run
+-- ==============================================================================
+
+-- 1. Garante que as colunas estruturais existam na tabela física
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS funcionario_id TEXT;
@@ -31,13 +33,12 @@ ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payloa
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
--- Índices de performance por tenant e colaborador
 CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_company_id ON public.rh_folhas_pagamento(company_id);
 CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_user_id ON public.rh_folhas_pagamento(user_id);
 CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_employee_id ON public.rh_folhas_pagamento(employee_id);
 CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_mes_ref ON public.rh_folhas_pagamento(mes_referencia);
 
--- 2. Habilitação obrigatória de Row-Level Security
+-- 2. Habilita RLS na tabela
 ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
 
 -- 3. Limpeza de políticas pré-existentes
@@ -64,11 +65,11 @@ FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Permitir exclusão para usuários da mesma empresa" ON public.rh_folhas_pagamento 
 FOR DELETE TO authenticated USING (true);
 
--- 5. POLÍTICA RESILIENTE GLOBAL COMPLEMENTAR (ANON + AUTHENTICATED)
+-- 5. POLÍTICA RESILIENTE GLOBAL COMPLEMENTAR
 CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
 FOR ALL TO authenticated, anon
 USING (true)
 WITH CHECK (true);
 
--- 9. Notificação ao PostgREST para recarregar o schema cache imediatamente
+-- 6. Notificação ao PostgREST para recarregar o schema cache imediatamente
 NOTIFY pgrst, 'reload schema';
