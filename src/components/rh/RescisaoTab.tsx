@@ -2,15 +2,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Calculator, 
   Printer, 
-  Save, 
   Trash2, 
   FileText, 
   UserX, 
-  AlertCircle, 
   CheckCircle2, 
   Calendar, 
   DollarSign, 
-  UserCheck, 
   X, 
   Plus, 
   Clock, 
@@ -19,10 +16,9 @@ import {
   Phone,
   RefreshCw,
   Scale,
-  BookmarkCheck,
-  FileEdit,
   Edit2,
-  Search
+  Search,
+  UserCheck
 } from 'lucide-react';
 import { 
   Employee, 
@@ -54,13 +50,11 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { 
   formatMoneyBRL, 
-  parseMoneyToFloat, 
-  parseRawOrFormattedToFloat,
-  formatNumberBRL,
   formatCPF, 
   formatEmployeeAdmissionDate 
 } from './payrollHelpers';
 import { useConfirm } from '../../context/ConfirmContext';
+import { ResignCalculationModal } from './ResignCalculationModal';
 
 interface RescisaoTabProps {
   employees: Employee[];
@@ -95,39 +89,19 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     terminationsRef.current = terminations;
   }, [terminations]);
 
-  // Estado do Formulário
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
-  const [reason, setReason] = useState<TerminationReason>('sem_justa_causa');
-  const [noticeType, setNoticeType] = useState<NoticeType>('indenizado');
-  const [admissionDate, setAdmissionDate] = useState<string>('');
-  const [terminationDate, setTerminationDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [baseSalary, setBaseSalary] = useState<number>(0);
-  const [baseSalaryDisplay, setBaseSalaryDisplay] = useState<string>('0,00');
-  
-  // Parâmetros de Férias e FGTS
-  const [vacationExpiredPeriods, setVacationExpiredPeriods] = useState<number>(0);
-  const [vacationExpiredInput, setVacationExpiredInput] = useState<string>('0');
-  const [customFgtsBalance, setCustomFgtsBalance] = useState<string>('');
-  const [isManualFgts, setIsManualFgts] = useState<boolean>(false);
-  const [markInactive, setMarkInactive] = useState<boolean>(true);
-  const [notes, setNotes] = useState<string>('');
-
-  // Controles de Inclusão e Cálculo
-  const [includeFgtsFine, setIncludeFgtsFine] = useState<boolean>(false);
-  const [includeInssDiscount, setIncludeInssDiscount] = useState<boolean>(true);
-
-  // Controle de Rascunhos e Persistência
-  const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
-  const [draftBannerMessage, setDraftBannerMessage] = useState<string | null>(null);
-  const [vacationAlert, setVacationAlert] = useState<string | null>(null);
-
   // Controle da Janela Modal de Cálculo e Listagem
+  // OBRIGATÓRIO: Inicia fechado (isOpen: false)
   const [isCalculationModalOpen, setIsCalculationModalOpen] = useState<boolean>(false);
   const [editingTermination, setEditingTermination] = useState<TerminationRecord | null>(null);
+
+  // Filtros da Listagem Histórica
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'homologado' | 'rascunho'>('all');
 
-  // Sincronização inicial e Escuta Ativa (Supabase Realtime) da tabela public.rh_rescisoes
+  // Modal de Impressão / TRCT
+  const [viewingTRCT, setViewingTRCT] = useState<TerminationRecord | null>(null);
+
+  // Sincronização inicial com o Supabase da tabela public.rh_rescisoes
   useEffect(() => {
     fetchCloudTerminations(activeTenantId).then((cloudList) => {
       if (cloudList && Array.isArray(cloudList) && cloudList.length > 0) {
@@ -145,6 +119,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }).catch((err) => console.warn('Aviso ao sincronizar rescisões com o Supabase:', err));
   }, [activeTenantId]);
 
+  // Escuta em Tempo Real (Supabase Realtime)
   useEffect(() => {
     if (!isSupabaseConfigured || !activeTenantId) return;
 
@@ -165,30 +140,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       setViewingTRCT((prev) =>
         prev && toValidUUID(prev.id) === incomingId ? { ...prev, ...normalized } : prev
       );
-
-      // Se o colaborador desta rescisão estiver selecionado na tela, atualiza os campos locais automaticamente
-      if (selectedEmployeeId && normalized.employeeId === selectedEmployeeId) {
-        if (normalized.reason) setReason(normalized.reason);
-        if (normalized.noticeType) setNoticeType(normalized.noticeType);
-        if (normalized.admissionDate) setAdmissionDate(normalized.admissionDate);
-        if (normalized.terminationDate) setTerminationDate(normalized.terminationDate);
-        if (normalized.baseSalary !== undefined) {
-          setBaseSalary(normalized.baseSalary);
-          setBaseSalaryDisplay(formatNumberBRL(normalized.baseSalary));
-        }
-        if (normalized.vacationExpiredPeriods !== undefined) {
-          setVacationExpiredPeriods(normalized.vacationExpiredPeriods);
-          setVacationExpiredInput(String(normalized.vacationExpiredPeriods));
-        }
-        if (normalized.customFgtsBalance !== undefined) setCustomFgtsBalance(normalized.customFgtsBalance);
-        if (normalized.isManualFgts !== undefined) setIsManualFgts(Boolean(normalized.isManualFgts));
-        if (normalized.includeFgtsFine !== undefined) setIncludeFgtsFine(Boolean(normalized.includeFgtsFine));
-        if (normalized.includeInssDiscount !== undefined) setIncludeInssDiscount(Boolean(normalized.includeInssDiscount));
-        if (normalized.customAbsencesDiscount !== undefined) setCustomAbsencesDiscount(normalized.customAbsencesDiscount);
-        if (normalized.customAdvancesDiscount !== undefined) setCustomAdvancesDiscount(normalized.customAdvancesDiscount);
-        if (normalized.otherDeductionsInput !== undefined) setOtherDeductionsInput(normalized.otherDeductionsInput);
-        if (normalized.notes !== undefined) setNotes(normalized.notes);
-      }
     };
 
     const channelTopic = `rh-rescisoes-realtime-${activeTenantId}`;
@@ -244,27 +195,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
             }
           }
         )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'site_settings',
-            filter: `id=eq.cloud_terminations_${activeTenantId}`,
-          },
-          (payload: any) => {
-            const row = payload?.new;
-            if (row?.hero_title) {
-              try {
-                const parsed = JSON.parse(row.hero_title) as TerminationRecord[];
-                if (Array.isArray(parsed)) {
-                  setTerminations(parsed);
-                  saveStoredTerminations(parsed);
-                }
-              } catch (_) {}
-            }
-          }
-        )
         .subscribe();
 
       realtimeChannelRef.current = channel;
@@ -280,778 +210,45 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       }
       realtimeChannelRef.current = null;
     };
-  }, [activeTenantId, selectedEmployeeId]);
+  }, [activeTenantId]);
 
-  // Deduções adicionais ajustáveis
-  const [customAbsencesDiscount, setCustomAbsencesDiscount] = useState<string>('0,00');
-  const [customAdvancesDiscount, setCustomAdvancesDiscount] = useState<string>('0,00');
-  const [otherDeductionsInput, setOtherDeductionsInput] = useState<string>('0,00');
-
-  // Modal de Impressão / TRCT
-  const [viewingTRCT, setViewingTRCT] = useState<TerminationRecord | null>(null);
-
-  // Handlers para formatação monetária segura
-  const handleBaseSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const digits = val.replace(/\D/g, '');
-    if (!digits) {
-      setBaseSalary(0);
-      setBaseSalaryDisplay('0,00');
-      return;
-    }
-    const num = parseInt(digits, 10) / 100;
-    setBaseSalary(num);
-    setBaseSalaryDisplay(formatNumberBRL(num));
+  // Abertura do Modal para "+ Nova Rescisão"
+  const handleOpenNewTermination = () => {
+    setEditingTermination(null);
+    setIsCalculationModalOpen(true);
   };
 
-  const handleBaseSalaryPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').trim();
-    if (!pasted) return;
-    const num = parseRawOrFormattedToFloat(pasted);
-    setBaseSalary(num);
-    setBaseSalaryDisplay(formatNumberBRL(num));
+  // Abertura do Modal para "Visualizar / Editar" rescisão existente
+  const handleOpenEditTermination = (record: TerminationRecord) => {
+    setEditingTermination(record);
+    setIsCalculationModalOpen(true);
   };
 
-  const handleMoneyChange = (setter: (val: string) => void) => {
-    return (e: React.ChangeEvent<HTMLInputElement>) => {
-      const digits = e.target.value.replace(/\D/g, '');
-      if (!digits) {
-        setter('0,00');
-        return;
-      }
-      const num = parseInt(digits, 10) / 100;
-      setter(formatNumberBRL(num));
-    };
-  };
-
-  const handleMoneyPaste = (setter: (val: string) => void) => {
-    return (e: React.ClipboardEvent<HTMLInputElement>) => {
-      e.preventDefault();
-      const pasted = e.clipboardData.getData('text').trim();
-      if (!pasted) return;
-      const num = parseRawOrFormattedToFloat(pasted);
-      setter(formatNumberBRL(num));
-    };
-  };
-
-  // Referência para evitar re-carregamento desnecessário enquanto o usuário edita campos
-  const lastLoadedEmployeeIdRef = useRef<string | null>(null);
-
-  // Manipulador para férias vencidas aceitando apenas períodos inteiros legais (CLT Art. 130)
-  const handleVacationExpiredChange = (valStr: string) => {
-    // 1. Bloqueio automático para contratos menores de 12 meses
-    if (dateAnalysis.contractHasLessThanOneYear) {
-      setVacationExpiredPeriods(0);
-      setVacationExpiredInput('0');
-      setVacationAlert(
-        `Trava de Segurança CLT / Antiduplicação:\nO contrato possui menos de 12 meses (${dateAnalysis.totalDays} dias trabalhados). É proibido lançar férias vencidas (nem frações como 0,5 período), pois não houve aquisição de período integral (Art. 130 CLT). O período trabalhado é pago exclusivamente nas Férias Proporcionais (${dateAnalysis.vacationProportionalMonths}/12 avos).`
-      );
-      return;
-    }
-
-    const normalized = valStr.replace(',', '.').trim();
-    if (!normalized) {
-      setVacationExpiredPeriods(0);
-      setVacationExpiredInput('0');
-      setVacationAlert(null);
-      return;
-    }
-    const num = Math.floor(parseFloat(normalized));
-    if (isNaN(num) || num <= 0) {
-      setVacationExpiredPeriods(0);
-      setVacationExpiredInput('0');
-      setVacationAlert(null);
-      return;
-    }
-
-    // Regra antiduplicação CLT: não pode exceder o número de períodos aquisitivos completos do contrato
-    const maxAllowed = dateAnalysis.completedAcquisitionPeriods;
-    if (num > maxAllowed) {
-      setVacationAlert(
-        `Alerta de Parametrização CLT / Antiduplicação:\nO contrato possui ${maxAllowed} período(s) aquisitivo(s) completo(s) de 12 meses. O valor foi ajustado para ${maxAllowed} para evitar pagamento em duplicidade ou cálculo inflado.`
-      );
-      setVacationExpiredPeriods(maxAllowed);
-      setVacationExpiredInput(String(maxAllowed));
-      return;
-    }
-
-    setVacationAlert(null);
-    setVacationExpiredPeriods(num);
-    setVacationExpiredInput(String(num));
-  };
-
-  // Colaborador Selecionado
-  const selectedEmployee = useMemo(() => {
-    return employees.find((e) => e.id === selectedEmployeeId) || null;
-  }, [employees, selectedEmployeeId]);
-
-  // Ao selecionar funcionário, verifica se há rascunho salvo para restaurar ou preenche com dados cadastrais e cálculo retroativo de férias
-  useEffect(() => {
-    if (selectedEmployee) {
-      // Se este funcionário já foi carregado ativamente, não sobrescreve os campos que o usuário está digitando
-      if (lastLoadedEmployeeIdRef.current === selectedEmployee.id) {
-        return;
-      }
-      lastLoadedEmployeeIdRef.current = selectedEmployee.id;
-
-      // Verifica se já existe um rascunho 'Em Andamento' para este colaborador
-      const existingDraft = terminations.find(
-        (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
-      );
-
-      if (existingDraft) {
-        // Carrega com fidelidade todos os campos salvos no rascunho
-        setReason(existingDraft.reason || 'sem_justa_causa');
-        setNoticeType(existingDraft.noticeType || 'indenizado');
-        const adm = existingDraft.admissionDate || selectedEmployee.admissionDate?.split('T')[0] || '';
-        const term = existingDraft.terminationDate || new Date().toISOString().split('T')[0];
-        setAdmissionDate(adm);
-        setTerminationDate(term);
-
-        const sal = existingDraft.baseSalary ?? (selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0);
-        setBaseSalary(sal);
-        setBaseSalaryDisplay(formatNumberBRL(sal));
-
-        // Aplica a trava antiduplicação mesmo em rascunhos antigos se o contrato tiver < 12 meses
-        const s = adm ? new Date(adm + 'T12:00:00') : null;
-        const e = term ? new Date(term + 'T12:00:00') : null;
-        let isShortContract = true;
-        if (s && e && !isNaN(s.getTime()) && !isNaN(e.getTime())) {
-          const nextYear = new Date(s);
-          nextYear.setFullYear(nextYear.getFullYear() + 1);
-          isShortContract = nextYear > e;
-        }
-
-        const vacCount = isShortContract ? 0 : (existingDraft.vacationExpiredPeriods ?? existingDraft.calculation?.vacationExpiredCount ?? 0);
-        setVacationExpiredPeriods(vacCount);
-        setVacationExpiredInput(vacCount > 0 ? String(vacCount) : '0');
-
-        setCustomFgtsBalance(existingDraft.customFgtsBalance || '');
-        setIsManualFgts(Boolean(existingDraft.isManualFgts || (existingDraft.customFgtsBalance && existingDraft.customFgtsBalance !== '0,00')));
-        setIncludeFgtsFine(Boolean(existingDraft.includeFgtsFine));
-        setIncludeInssDiscount(existingDraft.includeInssDiscount !== undefined ? existingDraft.includeInssDiscount : true);
-        setCustomAbsencesDiscount(existingDraft.customAbsencesDiscount || '0,00');
-        setCustomAdvancesDiscount(existingDraft.customAdvancesDiscount || '0,00');
-        setOtherDeductionsInput(existingDraft.otherDeductionsInput || '0,00');
-        setNotes(existingDraft.notes || '');
-        setDraftBannerMessage(`Rascunho em andamento carregado para ${selectedEmployee.name}. Altere o que precisar e salve ou homologue.`);
-      } else {
-        setDraftBannerMessage(null);
-        const rawSal = selectedEmployee.baseSalary ?? selectedEmployee.salary ?? 0;
-        const sal = typeof rawSal === 'number' ? rawSal : parseRawOrFormattedToFloat(rawSal);
-        setBaseSalary(sal);
-        setBaseSalaryDisplay(formatNumberBRL(sal));
-        
-        const cleanAdm = selectedEmployee.admissionDate ? selectedEmployee.admissionDate.split('T')[0] : '';
-        setAdmissionDate(cleanAdm);
-        const todayIso = new Date().toISOString().split('T')[0];
-        setTerminationDate(todayIso);
-
-        // 1. TRATAMENTO DE HISTÓRICO DE FÉRIAS (DADOS AUSENTES OU ZERADOS):
-        // Se contrato < 12 meses: Férias Vencidas OBRIGATORIAMENTE 0.
-        // Se contrato > 12 meses e NÃO houver férias gozadas: calcula retroativamente quantos períodos vencidos existem.
-        let initialExpiredVacations = 0;
-        if (cleanAdm) {
-          const s = new Date(cleanAdm + 'T12:00:00');
-          const e = new Date(todayIso + 'T12:00:00');
-          if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-            let completedP = 0;
-            let anniv = new Date(s);
-            while (true) {
-              const nextA = new Date(anniv);
-              nextA.setFullYear(nextA.getFullYear() + 1);
-              if (nextA <= e) {
-                completedP++;
-                anniv = nextA;
-              } else {
-                break;
-              }
-            }
-            if (completedP > 0) {
-              const empVacs = (vacations || []).filter(
-                (v) => v.employeeId === selectedEmployee.id && (v.status === 'concluido' || v.status === 'em_gozo' || v.daysCount >= 20)
-              );
-              initialExpiredVacations = Math.max(0, completedP - empVacs.length);
-            }
-          }
-        }
-        setVacationExpiredPeriods(initialExpiredVacations);
-        setVacationExpiredInput(String(initialExpiredVacations));
-
-        // Buscar adiantamentos pendentes em aberto deste colaborador
-        const pendingAdvances = advances
-          .filter((a) => a.employeeId === selectedEmployee.id && a.status === 'pendente')
-          .reduce((sum, a) => sum + (a.amount || 0), 0);
-        setCustomAdvancesDiscount(pendingAdvances > 0 ? formatNumberBRL(pendingAdvances) : '0,00');
-
-        // Buscar faltas injustificadas pendentes de desconto
-        const pendingAbsences = absences
-          .filter((ab) => ab.employeeId === selectedEmployee.id && ab.type === 'injustificada' && ab.status === 'pendente')
-          .reduce((sum, ab) => sum + (ab.discountAmount || (sal > 0 ? (sal / 30) * ab.daysCount : 0)), 0);
-        setCustomAbsencesDiscount(pendingAbsences > 0 ? formatNumberBRL(pendingAbsences) : '0,00');
-
-        setIsManualFgts(false);
-        setCustomFgtsBalance('');
-        setIncludeFgtsFine(false);
-        setIncludeInssDiscount(true);
-        setOtherDeductionsInput('0,00');
-        setNotes('');
-      }
-    } else {
-      lastLoadedEmployeeIdRef.current = null;
-      setBaseSalary(0);
-      setBaseSalaryDisplay('0,00');
-      setAdmissionDate('');
-      setCustomAdvancesDiscount('0,00');
-      setCustomAbsencesDiscount('0,00');
-      setOtherDeductionsInput('0,00');
-      setCustomFgtsBalance('');
-      setVacationExpiredPeriods(0);
-      setVacationExpiredInput('0');
-      setDraftBannerMessage(null);
-    }
-  }, [selectedEmployeeId, selectedEmployee, advances, absences, terminations, vacations]);
-
-  // Cálculo de datas e proporções rigorosamente aderente à CLT
-  const dateAnalysis = useMemo(() => {
-    if (!admissionDate || !terminationDate) {
-      return {
-        totalDays: 0,
-        totalMonths: 0,
-        yearsOfService: 0,
-        completedAcquisitionPeriods: 0,
-        unexhaustedExpiredPeriods: 0,
-        workedDaysCurrentMonth: 0,
-        thirteenthMonths: 0,
-        thirteenthMonthsWorked: 0,
-        thirteenthMonthsProjectedNotice: 0,
-        vacationProportionalMonths: 0,
-        vacationMonthsWorked: 0,
-        vacationMonthsProjectedNotice: 0,
-        noticeDays: 30,
-        projectedTerminationDate: '',
-        isProjectedNotice: false,
-        contractHasLessThanOneYear: true,
-      };
-    }
-
-    const start = new Date(admissionDate + 'T12:00:00');
-    const end = new Date(terminationDate + 'T12:00:00');
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
-      return {
-        totalDays: 0,
-        totalMonths: 0,
-        yearsOfService: 0,
-        completedAcquisitionPeriods: 0,
-        unexhaustedExpiredPeriods: 0,
-        workedDaysCurrentMonth: 0,
-        thirteenthMonths: 0,
-        thirteenthMonthsWorked: 0,
-        thirteenthMonthsProjectedNotice: 0,
-        vacationProportionalMonths: 0,
-        vacationMonthsWorked: 0,
-        vacationMonthsProjectedNotice: 0,
-        noticeDays: 30,
-        projectedTerminationDate: '',
-        isProjectedNotice: false,
-        contractHasLessThanOneYear: true,
-      };
-    }
-
-    // Dias exatos de calendário de contrato trabalhado (inclusivo de início e fim)
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    const totalMonths = Math.max(1, Math.round(totalDays / 30.4375));
-
-    // Períodos aquisitivos de 12 meses completos (CLT Art. 130)
-    let completedAcquisitionPeriods = 0;
-    let lastAnniversary = new Date(start);
-    while (true) {
-      const nextAnniv = new Date(lastAnniversary);
-      nextAnniv.setFullYear(nextAnniv.getFullYear() + 1);
-      if (nextAnniv <= end) {
-        completedAcquisitionPeriods++;
-        lastAnniversary = nextAnniv;
-      } else {
-        break;
-      }
-    }
-    const contractHasLessThanOneYear = completedAcquisitionPeriods === 0;
-
-    // Histórico de Férias gozadas no sistema para este colaborador
-    const empVacations = (vacations || []).filter(
-      (v) => v.employeeId === selectedEmployee?.id && (v.status === 'concluido' || v.status === 'em_gozo' || v.daysCount >= 20)
-    );
-    const enjoyedVacationsCount = empVacations.length;
-    const unexhaustedExpiredPeriods = contractHasLessThanOneYear
-      ? 0
-      : Math.max(0, completedAcquisitionPeriods - enjoyedVacationsCount);
-
-    // Anos completos de serviço para a Lei do Aviso Prévio (Lei 12.506/2011: 30 dias + 3 dias/ano completo)
-    const yearsOfService = completedAcquisitionPeriods;
-    const noticeDays = Math.min(90, 30 + yearsOfService * 3);
-
-    // Projeção do Aviso Prévio Indenizado (CLT Art. 487, § 1º, Súmula 305 e OJ 82 SDI-1 do TST)
-    const isProjectedNotice = noticeType === 'indenizado' && (reason === 'sem_justa_causa' || reason === 'acordo_mutuo');
-    const projectedEnd = isProjectedNotice
-      ? new Date(end.getTime() + noticeDays * 24 * 60 * 60 * 1000)
-      : end;
-    const projectedTerminationDate = projectedEnd.toISOString().split('T')[0];
-
-    // Dias trabalhados no mês do término físico (dia 1 até dia do término, limitado a 30)
-    const endDay = end.getDate();
-    const workedDaysCurrentMonth = Math.min(30, endDay);
-
-    // 13º Salário Proporcional (Trabalhado e com Projeção)
-    // Regra da CLT: mês conta se houver >= 15 dias trabalhados
-    const calcThirteenthAvos = (cutoff: Date): number => {
-      const targetYear = cutoff.getFullYear();
-      let avos = 0;
-      const startM = (start.getFullYear() === targetYear) ? start.getMonth() : 0;
-      const endM = cutoff.getMonth();
-
-      for (let m = startM; m <= endM; m++) {
-        let days = 0;
-        if (m === startM && start.getFullYear() === targetYear) {
-          const daysInFirst = new Date(targetYear, m + 1, 0).getDate();
-          days = daysInFirst - start.getDate() + 1;
-        } else if (m === endM) {
-          days = cutoff.getDate();
-        } else {
-          days = 30;
-        }
-        if (days >= 15) {
-          avos++;
-        }
-      }
-      return Math.min(12, Math.max(0, avos));
-    };
-
-    const thirteenthMonthsWorked = calcThirteenthAvos(end);
-    const thirteenthMonthsTotal = isProjectedNotice ? calcThirteenthAvos(projectedEnd) : thirteenthMonthsWorked;
-    const thirteenthMonthsProjectedNotice = Math.max(0, thirteenthMonthsTotal - thirteenthMonthsWorked);
-
-    // Férias Proporcionais a partir do último aniversário aquisitivo (ou da admissão se 0 aniversários)
-    const calcVacationAvos = (cutoff: Date): number => {
-      let avos = 0;
-      let curr = new Date(lastAnniversary);
-      while (avos < 12) {
-        const next = new Date(curr);
-        next.setMonth(next.getMonth() + 1);
-        if (next <= cutoff) {
-          avos++;
-          curr = next;
-        } else {
-          const diffMs = cutoff.getTime() - curr.getTime();
-          const rem = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          if (rem >= 15) {
-            avos++;
-          }
-          break;
-        }
-      }
-      return Math.min(12, Math.max(0, avos));
-    };
-
-    const vacationMonthsWorked = calcVacationAvos(end);
-    const vacationMonthsTotal = isProjectedNotice ? calcVacationAvos(projectedEnd) : vacationMonthsWorked;
-    const vacationMonthsProjectedNotice = Math.max(0, vacationMonthsTotal - vacationMonthsWorked);
-
-    return {
-      totalDays,
-      totalMonths,
-      yearsOfService,
-      completedAcquisitionPeriods,
-      unexhaustedExpiredPeriods,
-      workedDaysCurrentMonth,
-      thirteenthMonths: thirteenthMonthsTotal,
-      thirteenthMonthsWorked,
-      thirteenthMonthsProjectedNotice,
-      vacationProportionalMonths: vacationMonthsTotal,
-      vacationMonthsWorked,
-      vacationMonthsProjectedNotice,
-      noticeDays,
-      projectedTerminationDate,
-      isProjectedNotice,
-      contractHasLessThanOneYear,
-    };
-  }, [admissionDate, terminationDate, noticeType, reason, vacations, selectedEmployee]);
-
-  // Função auxiliar de cálculo do INSS progressivo brasileiro
-  const calculateINSS = (base: number): number => {
-    if (base <= 0) return 0;
-    // Tabela INSS vigente
-    let inss = 0;
-    const faixas = [
-      { limite: 1412.00, aliq: 0.075 },
-      { limite: 2666.68, aliq: 0.09 },
-      { limite: 4000.03, aliq: 0.12 },
-      { limite: 7786.02, aliq: 0.14 }
-    ];
-
-    let anterior = 0;
-    for (const f of faixas) {
-      if (base > anterior) {
-        const baseFaixa = Math.min(base, f.limite) - anterior;
-        inss += baseFaixa * f.aliq;
-        anterior = f.limite;
-      } else {
-        break;
-      }
-    }
-    return Math.min(inss, 908.86); // Teto
-  };
-
-  // Motor de Cálculo da Rescisão
-  const calculation: TerminationCalculation = useMemo(() => {
-    const salary = typeof baseSalary === 'number' ? baseSalary : parseRawOrFormattedToFloat(baseSalaryDisplay);
-    if (salary <= 0 || !selectedEmployee) {
-      return {
-        workedDaysCurrentMonth: 0,
-        salaryBalance: 0,
-        thirteenthProportionalMonths: 0,
-        thirteenthProportionalAmount: 0,
-        vacationExpiredCount: 0,
-        vacationExpiredAmount: 0,
-        vacationProportionalMonths: 0,
-        vacationProportionalAmount: 0,
-        vacationOneThirdBonus: 0,
-        noticeDays: 30,
-        noticeAmount: 0,
-        fgtsEstimatedBalance: 0,
-        fgtsFineRate: 0,
-        fgtsFineAmount: 0,
-        grossTotal: 0,
-        includeFgtsFine,
-        includeInssDiscount,
-        inssSalaryBalance: 0,
-        inssThirteenth: 0,
-        irrfDiscount: 0,
-        absenceDiscount: 0,
-        advancesDiscount: 0,
-        noticeDeduction: 0,
-        otherDeductions: 0,
-        totalDeductions: 0,
-        netTotal: 0,
-      };
-    }
-
-    const dailyRate = salary / 30;
-    const workedDays = dateAnalysis.workedDaysCurrentMonth;
-
-    // 1. Saldo de Salário
-    const salaryBalance = Number((dailyRate * workedDays).toFixed(2));
-
-    // 2. Aviso Prévio
-    let noticeAmount = 0;
-    let noticeDeduction = 0;
-    if (reason === 'sem_justa_causa') {
-      if (noticeType === 'indenizado') {
-        noticeAmount = Number((dailyRate * dateAnalysis.noticeDays).toFixed(2));
-      }
-    } else if (reason === 'acordo_mutuo') {
-      if (noticeType === 'indenizado') {
-        noticeAmount = Number(((dailyRate * dateAnalysis.noticeDays) / 2).toFixed(2));
-      }
-    } else if (reason === 'pedido_demissao') {
-      if (noticeType === 'dispensado') {
-        noticeDeduction = 0;
-      } else if (noticeType === 'indenizado') {
-        // Empregado não cumpriu e indeniza a empresa (desconto de 30 dias)
-        noticeDeduction = Number((salary).toFixed(2));
-      }
-    }
-
-    // 3. 13º Salário Proporcional
-    let thirteenthMonths = dateAnalysis.thirteenthMonths;
-    let thirteenthProportionalAmount = 0;
-    if (reason !== 'com_justa_causa') {
-      thirteenthProportionalAmount = Number(((salary / 12) * thirteenthMonths).toFixed(2));
-    } else {
-      thirteenthMonths = 0;
-    }
-
-    // 4. Férias Vencidas (Regra Antiduplicação CLT: se contrato tiver menos de 12 meses, é obrigatoriamente 0)
-    const effectiveExpiredCount = dateAnalysis.contractHasLessThanOneYear
-      ? 0
-      : Math.min(dateAnalysis.completedAcquisitionPeriods, Math.max(0, vacationExpiredPeriods));
-    const vacationExpiredAmount = Number((effectiveExpiredCount * salary).toFixed(2));
-
-    // 5. Férias Proporcionais
-    let vacationPropMonths = dateAnalysis.vacationProportionalMonths;
-    let vacationProportionalAmount = 0;
-    if (reason !== 'com_justa_causa') {
-      vacationProportionalAmount = Number(((salary / 12) * vacationPropMonths).toFixed(2));
-    } else {
-      vacationPropMonths = 0;
-    }
-
-    // 6. 1/3 Constitucional de Férias (sobre vencidas reais + proporcionais reais)
-    let vacationOneThirdBonus = 0;
-    if (vacationExpiredAmount > 0 || vacationProportionalAmount > 0) {
-      vacationOneThirdBonus = Number(((vacationExpiredAmount + vacationProportionalAmount) / 3).toFixed(2));
-    }
-
-    // 7. Estimativa do FGTS e Multa Rescisória
-    let fgtsBase = 0;
-    if (isManualFgts && customFgtsBalance !== '') {
-      fgtsBase = parseRawOrFormattedToFloat(customFgtsBalance);
-    } else {
-      // 8% do salário por mês trabalhado
-      fgtsBase = Number((salary * 0.08 * dateAnalysis.totalMonths).toFixed(2));
-    }
-
-    let fgtsFineRate = 0;
-    if (reason === 'sem_justa_causa') {
-      fgtsFineRate = 40;
-    } else if (reason === 'acordo_mutuo') {
-      fgtsFineRate = 20;
-    }
-    const calculatedFgtsFine = Number(((fgtsBase * fgtsFineRate) / 100).toFixed(2));
-    // Se a opção "Calcular Multa do FGTS (40%)" estiver desmarcada, a multa é estritamente ZERADA
-    const fgtsFineAmount = includeFgtsFine ? calculatedFgtsFine : 0;
-
-    // Total Bruto dos Proventos
-    const grossTotal = Number((
-      salaryBalance +
-      noticeAmount +
-      thirteenthProportionalAmount +
-      vacationExpiredAmount +
-      vacationProportionalAmount +
-      vacationOneThirdBonus +
-      fgtsFineAmount
-    ).toFixed(2));
-
-    // Descontos / Deduções
-    const rawInssSalary = Number(calculateINSS(salaryBalance).toFixed(2));
-    const rawInssThirteenth = Number(calculateINSS(thirteenthProportionalAmount).toFixed(2));
-
-    const inssSalaryBalance = includeInssDiscount ? rawInssSalary : 0;
-    const inssThirteenth = includeInssDiscount ? rawInssThirteenth : 0;
-    
-    // IRRF Simplificado (se aplicável após dedução INSS)
-    const irrfBase = Math.max(0, salaryBalance - inssSalaryBalance);
-    let irrfDiscount = 0;
-    if (irrfBase > 2826.65) {
-      irrfDiscount = Number(((irrfBase * 0.075) - 169.44).toFixed(2));
-    }
-
-    const absenceDiscount = parseRawOrFormattedToFloat(customAbsencesDiscount);
-    const advancesDiscount = parseRawOrFormattedToFloat(customAdvancesDiscount);
-    const otherDeductions = parseRawOrFormattedToFloat(otherDeductionsInput);
-
-    const totalDeductions = Number((
-      inssSalaryBalance +
-      inssThirteenth +
-      irrfDiscount +
-      absenceDiscount +
-      advancesDiscount +
-      noticeDeduction +
-      otherDeductions
-    ).toFixed(2));
-
-    const netTotal = Math.max(0, Number((grossTotal - totalDeductions).toFixed(2)));
-
-    return {
-      workedDaysCurrentMonth: workedDays,
-      salaryBalance,
-      thirteenthProportionalMonths: thirteenthMonths,
-      thirteenthProportionalAmount,
-      vacationExpiredCount: vacationExpiredPeriods,
-      vacationExpiredAmount,
-      vacationProportionalMonths: vacationPropMonths,
-      vacationProportionalAmount,
-      vacationOneThirdBonus,
-      noticeDays: dateAnalysis.noticeDays,
-      noticeAmount,
-      fgtsEstimatedBalance: fgtsBase,
-      fgtsFineRate,
-      fgtsFineAmount,
-      grossTotal,
-      includeFgtsFine,
-      includeInssDiscount,
-      inssSalaryBalance,
-      inssThirteenth,
-      irrfDiscount,
-      absenceDiscount,
-      advancesDiscount,
-      noticeDeduction,
-      otherDeductions,
-      totalDeductions,
-      netTotal,
-    };
-  }, [
-    baseSalary,
-    baseSalaryDisplay,
-    selectedEmployee,
-    reason,
-    noticeType,
-    dateAnalysis,
-    vacationExpiredPeriods,
-    isManualFgts,
-    customFgtsBalance,
-    customAbsencesDiscount,
-    customAdvancesDiscount,
-    otherDeductionsInput,
-    includeFgtsFine,
-    includeInssDiscount,
-  ]);
-
-  // Sincroniza automaticamente edições manuais de rascunhos existentes na tabela rh_rescisoes
-  useEffect(() => {
-    if (!selectedEmployee) return;
-    const existingDraft = terminationsRef.current.find(
-      (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
-    );
-    if (!existingDraft) return;
-
-    const timer = setTimeout(() => {
-      const canonicalId = toValidUUID(existingDraft.id);
-      const updatedDraft: TerminationRecord = {
-        ...existingDraft,
-        id: canonicalId,
-        companyId: activeTenantId,
-        employeeId: selectedEmployee.id,
-        employeeName: selectedEmployee.name,
-        employeeRole: selectedEmployee.role || 'Colaborador',
-        employeeCpf: selectedEmployee.cpf,
-        admissionDate: admissionDate || selectedEmployee.admissionDate || '',
-        terminationDate,
-        reason,
-        noticeType,
-        baseSalary,
-        calculation,
-        includeFgtsFine,
-        includeInssDiscount,
-        vacationExpiredPeriods,
-        customFgtsBalance,
-        isManualFgts,
-        customAbsencesDiscount,
-        customAdvancesDiscount,
-        otherDeductionsInput,
-        notes,
-        status: 'rascunho',
-        markEmployeeInactive: false,
-        updatedAt: new Date().toISOString(),
-      };
-
-      const nextList = terminationsRef.current.map((t) =>
-        toValidUUID(t.id) === canonicalId ? updatedDraft : t
-      );
-      setTerminations(nextList);
-      saveStoredTerminations(nextList);
-
-      if (isSupabaseConfigured) {
-        upsertRhRescisaoRecord(updatedDraft, activeTenantId).catch(() => {});
-        try {
-          realtimeChannelRef.current?.send({
-            type: 'broadcast',
-            event: 'termination_mutation',
-            payload: {
-              tenantId: activeTenantId,
-              senderId: clientInstanceIdRef.current,
-              termination: updatedDraft,
-            },
-          });
-        } catch (_) {}
-      }
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [
-    selectedEmployee,
-    activeTenantId,
-    admissionDate,
-    terminationDate,
-    reason,
-    noticeType,
-    baseSalary,
-    calculation,
-    includeFgtsFine,
-    includeInssDiscount,
-    vacationExpiredPeriods,
-    customFgtsBalance,
-    isManualFgts,
-    customAbsencesDiscount,
-    customAdvancesDiscount,
-    otherDeductionsInput,
-    notes,
-  ]);
-
-  // Salvar Rescisão no Histórico
-  const handleSaveTermination = async () => {
-    if (!selectedEmployee) {
-      await confirm({
-        title: 'Selecione um Funcionário',
-        message: 'Por favor, selecione o colaborador para calcular e registrar a rescisão.',
-        confirmLabel: 'Entendido',
-        variant: 'primary',
-      });
-      return;
-    }
-
-    const isConfirmed = await confirm({
-      title: 'Confirmar Homologação da Rescisão',
-      message: `Deseja registrar o desligamento de ${selectedEmployee.name} com valor líquido de ${formatMoneyBRL(calculation.netTotal)}?${
-        markInactive ? ' O status do colaborador será alterado para inativo.' : ''
-      }`,
-      confirmLabel: 'Confirmar e Salvar',
-      cancelLabel: 'Revisar',
-      variant: 'primary',
-    });
-
-    if (!isConfirmed) return;
-
-    // Estratégia de upsert: se já houver rascunho ou registro para o mesmo funcionário, reutiliza o ID
-    const existingForEmployee = terminations.find(
-      (t) =>
-        t.employeeId === selectedEmployee.id &&
-        (t.status === 'rascunho' || t.terminationDate === terminationDate)
-    );
-    const canonicalId = toValidUUID(
-      existingForEmployee?.id || `term_${activeTenantId}_${selectedEmployee.id}_${terminationDate}`
-    );
-
-    const newRecord: TerminationRecord = {
+  // Persistência: Concluir e salvar homologação definitiva
+  const handleSaveTermination = async (record: TerminationRecord, markInactive: boolean) => {
+    const canonicalId = toValidUUID(record.id);
+    const updatedRecord: TerminationRecord = {
+      ...record,
       id: canonicalId,
       companyId: activeTenantId,
-      employeeId: selectedEmployee.id,
-      employeeName: selectedEmployee.name,
-      employeeRole: selectedEmployee.role,
-      employeeCpf: selectedEmployee.cpf,
-      admissionDate: admissionDate || selectedEmployee.admissionDate || '',
-      terminationDate: terminationDate,
-      reason,
-      noticeType,
-      baseSalary,
-      calculation,
-      includeFgtsFine,
-      includeInssDiscount,
-      vacationExpiredPeriods,
-      customFgtsBalance,
-      isManualFgts,
-      customAbsencesDiscount,
-      customAdvancesDiscount,
-      otherDeductionsInput,
-      notes,
       status: 'homologado',
       markEmployeeInactive: markInactive,
-      createdAt: existingForEmployee?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    // Remove eventual rascunho anterior deste funcionário
-    const otherTerminations = terminations.filter(
-      (t) => !(t.employeeId === selectedEmployee.id && t.status === 'rascunho') && toValidUUID(t.id) !== canonicalId
+    // Remove rascunho anterior deste funcionário caso exista e inclui novo
+    const filteredOther = terminations.filter(
+      (t) => !(t.employeeId === record.employeeId && t.status === 'rascunho') && toValidUUID(t.id) !== canonicalId
     );
-    const updated = [newRecord, ...otherTerminations];
-    setTerminations(updated);
-    saveStoredTerminations(updated);
+    const nextList = [updatedRecord, ...filteredOther];
+
+    setTerminations(nextList);
+    saveStoredTerminations(nextList);
+
+    // Gravação na tabela 'rh_rescisoes' do Supabase
     if (isSupabaseConfigured) {
-      upsertRhRescisaoRecord(newRecord, activeTenantId).catch(() => {});
-      saveCloudTerminations(updated, activeTenantId).catch(() => {});
+      await upsertRhRescisaoRecord(updatedRecord, activeTenantId).catch(() => {});
+      await saveCloudTerminations(nextList, activeTenantId).catch(() => {});
       try {
         realtimeChannelRef.current?.send({
           type: 'broadcast',
@@ -1059,22 +256,21 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
           payload: {
             tenantId: activeTenantId,
             senderId: clientInstanceIdRef.current,
-            termination: newRecord,
+            termination: updatedRecord,
           },
         });
       } catch (_) {}
     }
-    setDraftBannerMessage(null);
 
-    // Atualizar status do funcionário se solicitado
+    // Atualização cadastral do colaborador (se solicitado inativar)
     if (markInactive && onSaveEmployees) {
       const updatedEmployees = employees.map((emp) => {
-        if (emp.id === selectedEmployee.id) {
+        if (emp.id === record.employeeId) {
           return {
             ...emp,
             status: 'inativo' as const,
             active: false,
-            terminationDate: terminationDate,
+            terminationDate: record.terminationDate,
           };
         }
         return emp;
@@ -1082,154 +278,47 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       onSaveEmployees(updatedEmployees);
     }
 
-    setIsCalculationModalOpen(false);
-    setViewingTRCT(newRecord);
+    // Abre o TRCT para conferência/impressão imediata
+    setViewingTRCT(updatedRecord);
   };
 
-  // Salvar Rascunho (Em Andamento) sem alterar o status do colaborador para inativo
-  const handleSaveDraft = async () => {
-    if (!selectedEmployee) {
-      await confirm({
-        title: 'Selecione um Funcionário',
-        message: 'Por favor, selecione um colaborador antes de salvar o rascunho da rescisão.',
-        confirmLabel: 'Entendido',
-        cancelLabel: '',
-        variant: 'primary',
-      });
-      return;
-    }
+  // Persistência: Salvar Rascunho (Em Andamento)
+  const handleSaveDraft = async (record: TerminationRecord) => {
+    const canonicalId = toValidUUID(record.id);
+    const draftRecord: TerminationRecord = {
+      ...record,
+      id: canonicalId,
+      companyId: activeTenantId,
+      status: 'rascunho',
+      markEmployeeInactive: false,
+      updatedAt: new Date().toISOString(),
+    };
 
-    setIsSavingDraft(true);
-    try {
-      const existingDraft = terminations.find(
-        (t) => t.employeeId === selectedEmployee.id && t.status === 'rascunho'
-      );
-      const canonicalId = toValidUUID(
-        existingDraft?.id || `draft_${activeTenantId}_${selectedEmployee.id}`
-      );
+    const filteredOther = terminations.filter((t) => toValidUUID(t.id) !== canonicalId);
+    const nextList = [draftRecord, ...filteredOther];
 
-      const draftRecord: TerminationRecord = {
-        id: canonicalId,
-        companyId: activeTenantId,
-        employeeId: selectedEmployee.id,
-        employeeName: selectedEmployee.name,
-        employeeRole: selectedEmployee.role || 'Colaborador',
-        employeeCpf: selectedEmployee.cpf,
-        admissionDate: admissionDate || selectedEmployee.admissionDate || '',
-        terminationDate: terminationDate,
-        reason,
-        noticeType,
-        baseSalary,
-        calculation,
-        includeFgtsFine,
-        includeInssDiscount,
-        vacationExpiredPeriods,
-        customFgtsBalance,
-        isManualFgts,
-        customAbsencesDiscount,
-        customAdvancesDiscount,
-        otherDeductionsInput,
-        notes,
-        status: 'rascunho',
-        markEmployeeInactive: false, // JAMAIS altera status para inativo em rascunho
-        createdAt: existingDraft?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+    setTerminations(nextList);
+    saveStoredTerminations(nextList);
 
-      const otherTerminations = terminations.filter((t) => toValidUUID(t.id) !== canonicalId);
-      const updated = [draftRecord, ...otherTerminations];
-
-      setTerminations(updated);
-      saveStoredTerminations(updated);
-
-      // Persistência na nuvem (Supabase: rh_rescisoes + site_settings)
-      if (isSupabaseConfigured) {
-        await upsertRhRescisaoRecord(draftRecord, activeTenantId);
-        await saveCloudTerminations(updated, activeTenantId);
-        try {
-          realtimeChannelRef.current?.send({
-            type: 'broadcast',
-            event: 'termination_mutation',
-            payload: {
-              tenantId: activeTenantId,
-              senderId: clientInstanceIdRef.current,
-              termination: draftRecord,
-            },
-          });
-        } catch (_) {}
-      }
-
-      setIsCalculationModalOpen(false);
-      setDraftBannerMessage(`Rascunho de "${selectedEmployee.name}" salvo com sucesso! O colaborador continua ATIVO.`);
-    } catch (e) {
-      console.error('Erro ao salvar rascunho no Supabase:', e);
-      setDraftBannerMessage(`Rascunho de "${selectedEmployee.name}" salvo localmente.`);
-    } finally {
-      setIsSavingDraft(false);
+    // Gravação na tabela 'rh_rescisoes' do Supabase
+    if (isSupabaseConfigured) {
+      await upsertRhRescisaoRecord(draftRecord, activeTenantId).catch(() => {});
+      await saveCloudTerminations(nextList, activeTenantId).catch(() => {});
+      try {
+        realtimeChannelRef.current?.send({
+          type: 'broadcast',
+          event: 'termination_mutation',
+          payload: {
+            tenantId: activeTenantId,
+            senderId: clientInstanceIdRef.current,
+            termination: draftRecord,
+          },
+        });
+      } catch (_) {}
     }
   };
 
-  // Abrir Modal para Nova Rescisão (Campos Vazios / Prontos)
-  const handleOpenNewTermination = () => {
-    setEditingTermination(null);
-    lastLoadedEmployeeIdRef.current = null;
-    setSelectedEmployeeId('');
-    setReason('sem_justa_causa');
-    setNoticeType('indenizado');
-    setAdmissionDate('');
-    setTerminationDate(new Date().toISOString().split('T')[0]);
-    setBaseSalary(0);
-    setBaseSalaryDisplay('0,00');
-    setVacationExpiredPeriods(0);
-    setVacationExpiredInput('0');
-    setCustomFgtsBalance('');
-    setIsManualFgts(false);
-    setIncludeFgtsFine(false);
-    setIncludeInssDiscount(true);
-    setCustomAbsencesDiscount('0,00');
-    setCustomAdvancesDiscount('0,00');
-    setOtherDeductionsInput('0,00');
-    setNotes('');
-    setMarkInactive(true);
-    setDraftBannerMessage(null);
-    setIsCalculationModalOpen(true);
-  };
-
-  // Abrir Modal para Visualizar / Editar Rescisão Salva ou Rascunho
-  const handleOpenEditTermination = (t: TerminationRecord) => {
-    setEditingTermination(t);
-    lastLoadedEmployeeIdRef.current = t.employeeId;
-    setSelectedEmployeeId(t.employeeId);
-    setReason(t.reason || 'sem_justa_causa');
-    setNoticeType(t.noticeType || 'indenizado');
-    setAdmissionDate(t.admissionDate || '');
-    setTerminationDate(t.terminationDate || new Date().toISOString().split('T')[0]);
-    setBaseSalary(t.baseSalary || 0);
-    setBaseSalaryDisplay(formatNumberBRL(t.baseSalary || 0));
-
-    const vac = t.vacationExpiredPeriods ?? t.calculation?.vacationExpiredCount ?? 0;
-    setVacationExpiredPeriods(vac);
-    setVacationExpiredInput(vac > 0 ? String(vac) : '0');
-
-    setCustomFgtsBalance(t.customFgtsBalance || '');
-    setIsManualFgts(Boolean(t.isManualFgts || (t.customFgtsBalance && t.customFgtsBalance !== '0,00')));
-    setIncludeFgtsFine(Boolean(t.includeFgtsFine));
-    setIncludeInssDiscount(t.includeInssDiscount !== undefined ? t.includeInssDiscount : true);
-    setCustomAbsencesDiscount(t.customAbsencesDiscount || '0,00');
-    setCustomAdvancesDiscount(t.customAdvancesDiscount || '0,00');
-    setOtherDeductionsInput(t.otherDeductionsInput || '0,00');
-    setNotes(t.notes || '');
-    setMarkInactive(Boolean(t.markEmployeeInactive ?? (t.status === 'homologado')));
-    setDraftBannerMessage(null);
-    setIsCalculationModalOpen(true);
-  };
-
-  // Retoma o preenchimento de um rascunho
-  const handleResumeDraft = (draft: TerminationRecord) => {
-    handleOpenEditTermination(draft);
-  };
-
-  // Excluir registro ou rascunho do histórico
+  // Excluir Rescisão ou Rascunho
   const handleDeleteTermination = async (id: string, empName: string) => {
     const targetItem = terminations.find((t) => t.id === id);
     const isDraft = targetItem?.status === 'rascunho';
@@ -1243,7 +332,8 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     });
 
     if (isConfirmed) {
-      const updated = terminations.filter((t) => t.id !== id);
+      const canonicalId = toValidUUID(id);
+      const updated = terminations.filter((t) => toValidUUID(t.id) !== canonicalId);
       setTerminations(updated);
       saveStoredTerminations(updated);
       if (isSupabaseConfigured) {
@@ -1253,699 +343,303 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }
   };
 
-  // Nome formatado do motivo
+  // Nome amigável do motivo de rescisão
   const getReasonLabel = (r: TerminationReason): string => {
     switch (r) {
       case 'sem_justa_causa':
-        return 'Demissão sem Justa Causa (Empregador)';
+        return 'Demissão sem Justa Causa';
       case 'com_justa_causa':
-        return 'Demissão com Justa Causa (Falta Grave)';
+        return 'Demissão com Justa Causa';
       case 'pedido_demissao':
-        return 'Pedido de Demissão (Iniciativa do Empregado)';
+        return 'Pedido de Demissão';
       case 'acordo_mutuo':
-        return 'Acordo entre as Partes (Art. 484-A CLT)';
+        return 'Acordo Mútuo (Art. 484-A)';
       case 'termino_contrato':
-        return 'Término de Contrato de Experiência / Prazo';
+        return 'Término de Contrato';
       default:
         return r;
     }
   };
 
+  // Indicadores de Resumo (KPIs)
+  const totalCount = terminations.length;
+  const homologadosCount = terminations.filter((t) => t.status !== 'rascunho').length;
+  const rascunhosCount = terminations.filter((t) => t.status === 'rascunho').length;
+  const totalNetLiquido = terminations.reduce((sum, t) => sum + (t.calculation?.netTotal || 0), 0);
+
+  // Filtragem e Busca
+  const filteredTerminations = useMemo(() => {
+    return terminations.filter((item) => {
+      // Filtro de Status
+      if (statusFilter === 'homologado' && item.status === 'rascunho') return false;
+      if (statusFilter === 'rascunho' && item.status !== 'rascunho') return false;
+
+      // Busca por termo
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      const empName = (item.employeeName || '').toLowerCase();
+      const role = (item.employeeRole || '').toLowerCase();
+      const reasonLabel = getReasonLabel(item.reason).toLowerCase();
+      return empName.includes(term) || role.includes(term) || reasonLabel.includes(term);
+    });
+  }, [terminations, statusFilter, searchTerm]);
+
   return (
     <div className="w-full space-y-4 antialiased">
       
-      {/* 1. Grade Superior: Formulário de Cálculo & Resumo de Destaque */}
-      <div className="no-print grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
-        {/* Formulário Principal (8 colunas) */}
-        <div className="lg:col-span-8 bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-          
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-stone-800 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
-                <Calculator className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight">
-                  Simulador & Cálculo Rescisório CLT
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-stone-400">
-                  Preencha os dados do colaborador para apurar verbas, FGTS e deduções
-                </p>
-              </div>
-            </div>
-            
-            {selectedEmployee && (
-              <span className="hidden sm:inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 border border-slate-200 dark:border-stone-700">
-                Cargo: {selectedEmployee.role || 'Geral'}
-              </span>
-            )}
+      {/* 1. TOPO DA PÁGINA: Cabeçalho com Título & Botão de Ação Primário "+ Nova Rescisão" */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-black dark:text-white">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 rounded-xl bg-blue-100/70 dark:bg-stone-800 border border-blue-200/80 dark:border-stone-700 text-black dark:text-white">
+            <Scale className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
           </div>
-
-          {/* Banner de Feedback / Rascunho Recuperado */}
-          {draftBannerMessage && (
-            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/70 rounded-xl text-xs text-amber-900 dark:text-amber-200 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span className="font-semibold">{draftBannerMessage}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDraftBannerMessage(null)}
-                className="text-amber-600 hover:text-amber-900 dark:hover:text-white p-1 cursor-pointer"
-                title="Fechar aviso"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Seção 1: Seleção de Funcionário e Motivo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-black text-slate-800 dark:text-stone-200 mb-1">
-                Selecione o Funcionário <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={selectedEmployeeId}
-                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-              >
-                <option value="">-- Selecione o colaborador --</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name} ({emp.role || 'Colaborador'}) {emp.status === 'inativo' ? '— [Inativo]' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-black text-slate-800 dark:text-stone-200 mb-1">
-                Motivo do Desligamento <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={reason}
-                onChange={(e) => setReason(e.target.value as TerminationReason)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-              >
-                <option value="sem_justa_causa">Demissão sem Justa Causa (Empregador)</option>
-                <option value="pedido_demissao">Pedido de Demissão (Empregado)</option>
-                <option value="com_justa_causa">Demissão com Justa Causa</option>
-                <option value="acordo_mutuo">Acordo entre as Partes (Art. 484-A CLT)</option>
-                <option value="termino_contrato">Término de Contrato de Experiência / Prazo</option>
-              </select>
-            </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-black dark:text-white tracking-tight">
+              Gestão de Rescisões Contratuais CLT
+            </h2>
+            <p className="text-xs text-black/85 dark:text-stone-300 font-medium">
+              Controle de desligamentos, cálculo oficial de verbas rescisórias e emissão de TRCT
+            </p>
           </div>
-
-          {/* Seção 2: Datas, Salário Base e Aviso Prévio */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                Data de Admissão
-              </label>
-              <input
-                type="date"
-                value={admissionDate}
-                onChange={(e) => setAdmissionDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                Data de Desligamento <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={terminationDate}
-                onChange={(e) => setTerminationDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                Salário Base (R$) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={baseSalaryDisplay}
-                onChange={handleBaseSalaryChange}
-                onPaste={handleBaseSalaryPaste}
-                onFocus={(e) => e.target.select()}
-                placeholder="0,00"
-                className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300 mb-1">
-                Aviso Prévio
-              </label>
-              <select
-                value={noticeType}
-                onChange={(e) => setNoticeType(e.target.value as NoticeType)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-              >
-                <option value="indenizado">Indenizado</option>
-                <option value="trabalhado">Trabalhado</option>
-                <option value="dispensado">Dispensado / N/A</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Seção 3: Parâmetros Férias e Saldo FGTS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-stone-800/40 rounded-xl border border-slate-200/80 dark:border-stone-800">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-stone-300">
-                  Férias Vencidas (Períodos Integrais CLT)
-                </label>
-                {dateAnalysis.contractHasLessThanOneYear ? (
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                    Trava CLT: R$ 0,00 (&lt; 1 ano)
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-slate-500 dark:text-stone-400">
-                    Máx. legal: {dateAnalysis.completedAcquisitionPeriods} per.
-                  </span>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  max={dateAnalysis.completedAcquisitionPeriods}
-                  disabled={dateAnalysis.contractHasLessThanOneYear}
-                  value={vacationExpiredInput}
-                  onChange={(e) => handleVacationExpiredChange(e.target.value)}
-                  placeholder="0"
-                  className={`w-full px-2.5 py-1.5 border rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    dateAnalysis.contractHasLessThanOneYear
-                      ? 'bg-slate-100 dark:bg-stone-900 border-slate-200 dark:border-stone-800 text-slate-400 dark:text-stone-500 cursor-not-allowed'
-                      : 'bg-white dark:bg-stone-800 border-slate-300 dark:border-stone-700 text-slate-900 dark:text-white'
-                  }`}
-                />
-                
-                {/* Botões de Período Inteiro Conforme CLT Art. 130 */}
-                <div className="flex items-center gap-1 flex-wrap">
-                  {dateAnalysis.contractHasLessThanOneYear ? (
-                    <span className="text-[10px] text-slate-500 dark:text-stone-400 italic">
-                      Tempo trabalhado quitado nas Férias Proporcionais ({dateAnalysis.vacationProportionalMonths}/12)
-                    </span>
-                  ) : (
-                    Array.from({ length: Math.min(4, dateAnalysis.completedAcquisitionPeriods + 1) }, (_, i) => i).map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => handleVacationExpiredChange(String(preset))}
-                        className={`px-2 py-0.5 text-[10px] rounded-md font-bold transition border cursor-pointer ${
-                          vacationExpiredPeriods === preset
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
-                            : 'bg-white dark:bg-stone-800 text-slate-600 dark:text-stone-300 border-slate-200 dark:border-stone-700 hover:bg-slate-100 dark:hover:bg-stone-700'
-                        }`}
-                      >
-                        {preset === 0 ? '0 per.' : `${preset} per. (${preset * 12}m)`}
-                      </button>
-                    ))
-                  )}
-                </div>
-
-                {/* Alerta Visual de Parametrização / Trava de Férias */}
-                {vacationAlert && (
-                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 flex items-start justify-between gap-1.5">
-                    <div className="flex items-start gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                      <span className="whitespace-pre-line leading-tight font-medium">{vacationAlert}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setVacationAlert(null)}
-                      className="text-amber-700 hover:text-amber-900 dark:text-amber-300 cursor-pointer shrink-0"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="sm:col-span-2 space-y-2">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-bold text-slate-700 dark:text-stone-300">
-                  Saldo FGTS para Multa ({calculation.fgtsFineRate}%)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsManualFgts(!isManualFgts)}
-                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 underline cursor-pointer"
-                >
-                  {isManualFgts ? 'Calcular automaticamente' : 'Informar saldo exato'}
-                </button>
-              </div>
-
-              {isManualFgts ? (
-                <div>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={customFgtsBalance}
-                    onChange={handleMoneyChange(setCustomFgtsBalance)}
-                    onPaste={handleMoneyPaste(setCustomFgtsBalance)}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0,00"
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                  {/* Trava: a base só pode aparecer se o usuário preencher com valor > 0 E a multa for > 0 */}
-                  {parseRawOrFormattedToFloat(customFgtsBalance) > 0 && includeFgtsFine && calculation.fgtsFineAmount > 0 && (
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
-                      (Base informada: {formatMoneyBRL(parseRawOrFormattedToFloat(customFgtsBalance))})
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="px-2.5 py-1.5 bg-slate-200/70 dark:bg-stone-700/60 rounded-lg text-xs text-slate-800 dark:text-stone-200 font-bold flex items-center justify-between">
-                  {/* Trava CLT: Se a multa for R$ 0,00 ou não houver saldo real informado, a base estimada é OBRIGATORIAMENTE OCULTADA */}
-                  {includeFgtsFine && calculation.fgtsFineAmount > 0 ? (
-                    <>
-                      <span className="text-slate-700 dark:text-stone-300 font-medium">Estimativa automática da multa</span>
-                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
-                        (Multa {calculation.fgtsFineRate}%: {formatMoneyBRL(calculation.fgtsFineAmount)})
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-slate-500 dark:text-stone-400 font-normal text-[11px]">
-                      Multa FGTS não inclusa / Sem saldo real informado
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Checkbox Multa FGTS */}
-              <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer pt-0.5">
-                <input
-                  type="checkbox"
-                  checked={includeFgtsFine}
-                  onChange={(e) => setIncludeFgtsFine(e.target.checked)}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-                />
-                <span>Calcular Multa do FGTS ({calculation.fgtsFineRate}%)</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Seção 4: Deduções e Ajustes Financeiros */}
-          <div className="p-3 bg-slate-50 dark:bg-stone-800/40 rounded-xl border border-slate-200/80 dark:border-stone-800 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="block text-xs font-black text-slate-800 dark:text-stone-200">
-                Ajuste de Deduções Rescisórias
-              </span>
-
-              {/* Checkbox Desconto de INSS */}
-              <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer bg-white dark:bg-stone-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-stone-700 shadow-2xs">
-                <input
-                  type="checkbox"
-                  checked={includeInssDiscount}
-                  onChange={(e) => setIncludeInssDiscount(e.target.checked)}
-                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-                />
-                <span>Calcular Desconto de INSS</span>
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
-                  Vales / Adiantamentos em Aberto (R$)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={customAdvancesDiscount}
-                  onChange={handleMoneyChange(setCustomAdvancesDiscount)}
-                  onPaste={handleMoneyPaste(setCustomAdvancesDiscount)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="0,00"
-                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
-                  Faltas e Atrasos Injustificados (R$)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={customAbsencesDiscount}
-                  onChange={handleMoneyChange(setCustomAbsencesDiscount)}
-                  onPaste={handleMoneyPaste(setCustomAbsencesDiscount)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="0,00"
-                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-stone-400 mb-1">
-                  Outras Deduções / Convênios (R$)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={otherDeductionsInput}
-                  onChange={handleMoneyChange(setOtherDeductionsInput)}
-                  onPaste={handleMoneyPaste(setOtherDeductionsInput)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="0,00"
-                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-stone-800 border border-slate-300 dark:border-stone-700 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Opção de Inativar Funcionário e Observações */}
-          <div className="pt-2 border-t border-slate-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <label className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-stone-200 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={markInactive}
-                onChange={(e) => setMarkInactive(e.target.checked)}
-                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-              />
-              <span>Atualizar status do colaborador para "Inativo / Desligado" no sistema</span>
-            </label>
-
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={isSavingDraft || !selectedEmployee}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Salvar rascunho em andamento sem alterar o colaborador para inativo"
-              >
-                {isSavingDraft ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <BookmarkCheck className="w-4 h-4" />
-                )}
-                <span>{isSavingDraft ? 'Salvando Rascunho...' : 'Salvar Rascunho'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveTermination}
-                disabled={!selectedEmployee}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="w-4 h-4" />
-                <span>Homologar Rescisão</span>
-              </button>
-            </div>
-          </div>
-
         </div>
 
-        {/* Resumo em Destaque (4 colunas) */}
-        <div className="lg:col-span-4 space-y-4">
-          
-          {/* Card Principal de Valor Líquido */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl border border-slate-700 shadow-md space-y-3">
-            <div className="flex items-center justify-between text-slate-300 text-xs">
-              <span className="uppercase font-bold tracking-wider">Valor Líquido da Rescisão</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                CLT Oficial
-              </span>
-            </div>
-
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-              {formatMoneyBRL(calculation.netTotal)}
-            </div>
-
-            <div className="pt-3 border-t border-slate-700/80 space-y-1.5 text-xs">
-              <div className="flex items-center justify-between text-slate-300">
-                <span>Total Bruto Proventos:</span>
-                <span className="font-bold text-white">{formatMoneyBRL(calculation.grossTotal)}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span>Total Deduções:</span>
-                <span className="font-bold text-rose-400">- {formatMoneyBRL(calculation.totalDeductions)}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300 pt-1 border-t border-slate-700/50">
-                <span>Multa FGTS ({calculation.fgtsFineRate}%):</span>
-                <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                  {includeFgtsFine ? formatMoneyBRL(calculation.fgtsFineAmount) : 'R$ 0,00'}
-                  {includeFgtsFine ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
-                      Inclusa
-                    </span>
-                  ) : (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-400 font-normal">
-                      Não inclusa
-                    </span>
-                  )}
-                </span>
-              </div>
-            </div>
-
-            {selectedEmployee && (
-              <button
-                type="button"
-                onClick={() => {
-                  setViewingTRCT({
-                    id: 'temp_preview',
-                    employeeId: selectedEmployee.id,
-                    employeeName: selectedEmployee.name,
-                    employeeRole: selectedEmployee.role,
-                    employeeCpf: selectedEmployee.cpf,
-                    admissionDate: admissionDate || selectedEmployee.admissionDate || '',
-                    terminationDate,
-                    reason,
-                    noticeType,
-                    baseSalary,
-                    calculation,
-                    includeFgtsFine,
-                    includeInssDiscount,
-                    customFgtsBalance,
-                    isManualFgts,
-                    status: 'rascunho',
-                    createdAt: new Date().toISOString(),
-                  });
-                }}
-                className="w-full mt-2 inline-flex items-center justify-center space-x-2 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition border border-white/15 cursor-pointer"
-              >
-                <Printer className="w-4 h-4 text-emerald-400" />
-                <span>Imprimir Termo de Rescisão (TRCT)</span>
-              </button>
-            )}
-          </div>
-
-          {/* Discriminação Rápida das Verbas */}
-          <div className="bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 shadow-xs space-y-2 text-xs">
-            <h3 className="font-black text-slate-900 dark:text-white border-b border-slate-200 dark:border-stone-800 pb-2 flex items-center justify-between">
-              <span>Discriminação das Verbas</span>
-              <span className="text-[10px] font-normal text-slate-500">Regras CLT</span>
-            </h3>
-
-            <div className="space-y-1.5 text-slate-600 dark:text-stone-300">
-              <div className="flex justify-between">
-                <span>Saldo Salário ({calculation.workedDaysCurrentMonth}d):</span>
-                <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.salaryBalance)}</span>
-              </div>
-
-              {calculation.noticeAmount > 0 && (
-                <div className="flex justify-between">
-                  <span>Aviso Prévio ({calculation.noticeDays}d):</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.noticeAmount)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between">
-                <span>13º Salário ({calculation.thirteenthProportionalMonths}/12):</span>
-                <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.thirteenthProportionalAmount)}</span>
-              </div>
-
-              {calculation.vacationExpiredAmount > 0 && (
-                <div className="flex justify-between">
-                  <span>Férias Vencidas ({calculation.vacationExpiredCount.toString().replace('.', ',')} per.):</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationExpiredAmount)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between">
-                <span>Férias Prop. ({calculation.vacationProportionalMonths}/12):</span>
-                <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationProportionalAmount)}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span>1/3 Constitucional Férias:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{formatMoneyBRL(calculation.vacationOneThirdBonus)}</span>
-              </div>
-
-              {includeFgtsFine ? (
-                calculation.fgtsFineAmount > 0 && (
-                  <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
-                    <span>Multa Rescisória FGTS ({calculation.fgtsFineRate}%):</span>
-                    <span>{formatMoneyBRL(calculation.fgtsFineAmount)}</span>
-                  </div>
-                )
-              ) : (
-                <div className="flex justify-between text-slate-400 dark:text-stone-500 italic text-[11px]">
-                  <span>Multa Rescisória FGTS ({calculation.fgtsFineRate}%):</span>
-                  <span>R$ 0,00 (Desmarcada)</span>
-                </div>
-              )}
-
-              <div className="pt-2 border-t border-slate-100 dark:border-stone-800 space-y-1 text-rose-600 dark:text-rose-400">
-                {includeInssDiscount ? (
-                  <>
-                    <div className="flex justify-between">
-                      <span>INSS Saldo de Salário:</span>
-                      <span className="font-bold">- {formatMoneyBRL(calculation.inssSalaryBalance)}</span>
-                    </div>
-                    {calculation.inssThirteenth > 0 && (
-                      <div className="flex justify-between">
-                        <span>INSS 13º Salário:</span>
-                        <span className="font-bold">- {formatMoneyBRL(calculation.inssThirteenth)}</span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex justify-between text-slate-400 dark:text-stone-500 italic text-[11px]">
-                    <span>Desconto de INSS:</span>
-                    <span>Não aplicado (Isento)</span>
-                  </div>
-                )}
-                {calculation.advancesDiscount > 0 && (
-                  <div className="flex justify-between">
-                    <span>Vales e Adiantamentos:</span>
-                    <span className="font-bold">- {formatMoneyBRL(calculation.advancesDiscount)}</span>
-                  </div>
-                )}
-                {calculation.absenceDiscount > 0 && (
-                  <div className="flex justify-between">
-                    <span>Faltas e Atrasos:</span>
-                    <span className="font-bold">- {formatMoneyBRL(calculation.absenceDiscount)}</span>
-                  </div>
-                )}
-                {calculation.noticeDeduction > 0 && (
-                  <div className="flex justify-between">
-                    <span>Aviso Prévio Não Cumprido:</span>
-                    <span className="font-bold">- {formatMoneyBRL(calculation.noticeDeduction)}</span>
-                  </div>
-                )}
-                {calculation.otherDeductions > 0 && (
-                  <div className="flex justify-between">
-                    <span>Outras Deduções:</span>
-                    <span className="font-bold">- {formatMoneyBRL(calculation.otherDeductions)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-        </div>
-
+        {/* Botão de Ação Primário Destacado em Verde "+ Nova Rescisão" */}
+        <button
+          type="button"
+          onClick={handleOpenNewTermination}
+          className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs sm:text-sm rounded-xl transition shadow-xs cursor-pointer active:scale-95"
+        >
+          <Plus className="w-4 h-4 stroke-[3]" />
+          <span>+ Nova Rescisão</span>
+        </button>
       </div>
 
-      {/* 2. Histórico de Rescisões Salvas */}
-      <div className="no-print bg-white dark:bg-stone-900 border border-slate-200 dark:border-stone-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-stone-800 pb-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <FileText className="w-4 h-4 text-slate-700 dark:text-stone-300" />
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              Histórico de Rescisões & Rascunhos
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300">
-              {terminations.length} registro(s)
-            </span>
-            {terminations.some((t) => t.status === 'rascunho') && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                {terminations.filter((t) => t.status === 'rascunho').length} em andamento
-              </span>
-            )}
+      {/* 2. KPIs de Resumo Rápido */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase text-black dark:text-stone-300 block">
+            Total de Rescisões
+          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-lg sm:text-xl font-black font-['Outfit']">{totalCount}</span>
+            <span className="text-xs font-bold text-black/70 dark:text-stone-400">registro(s)</span>
           </div>
         </div>
 
-        {terminations.length === 0 ? (
-          <div className="py-8 text-center text-slate-400 dark:text-stone-500 text-xs">
-            Nenhuma rescisão ou rascunho salvo até o momento. Utilize o simulador acima para calcular e salvar.
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase text-emerald-950 dark:text-emerald-400 block">
+            Homologadas
+          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-lg sm:text-xl font-black font-['Outfit'] text-emerald-900 dark:text-emerald-400">
+              {homologadosCount}
+            </span>
+            <span className="text-xs font-bold text-black/70 dark:text-stone-400">concluída(s)</span>
+          </div>
+        </div>
+
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase text-amber-950 dark:text-amber-400 block">
+            Em Andamento
+          </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-lg sm:text-xl font-black font-['Outfit'] text-amber-900 dark:text-amber-400">
+              {rascunhosCount}
+            </span>
+            <span className="text-xs font-bold text-black/70 dark:text-stone-400">rascunho(s)</span>
+          </div>
+        </div>
+
+        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
+          <span className="text-[10px] sm:text-[11px] font-black uppercase text-black dark:text-stone-300 block">
+            Valor Líquido Total
+          </span>
+          <div className="mt-1">
+            <span className="text-base sm:text-lg font-black font-['Outfit'] text-emerald-950 dark:text-emerald-400">
+              {formatMoneyBRL(totalNetLiquido)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Barra de Busca e Filtros de Status */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-black dark:text-white">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-3.5 h-3.5 text-black/60 dark:text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Buscar por colaborador, cargo ou motivo..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-blue-300 dark:border-stone-700 rounded-lg bg-blue-100/50 dark:bg-stone-800 text-black dark:text-white placeholder-black/60 dark:placeholder-stone-400 outline-none focus:ring-1 focus:ring-emerald-600"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              statusFilter === 'all'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-stone-900'
+                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+            }`}
+          >
+            Todos ({totalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('homologado')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              statusFilter === 'homologado'
+                ? 'bg-emerald-700 text-white dark:bg-emerald-600'
+                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+            }`}
+          >
+            Homologados ({homologadosCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('rascunho')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              statusFilter === 'rascunho'
+                ? 'bg-amber-600 text-white dark:bg-amber-500'
+                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+            }`}
+          >
+            Rascunhos ({rascunhosCount})
+          </button>
+        </div>
+      </div>
+
+      {/* 4. TABELA DE HISTÓRICO DE RESCISÕES */}
+      <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl overflow-hidden shadow-xs text-black dark:text-white">
+        {filteredTerminations.length === 0 ? (
+          <div className="py-12 px-4 text-center space-y-3 bg-white/40 dark:bg-stone-900/40">
+            <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 dark:bg-stone-800 flex items-center justify-center text-slate-500 dark:text-stone-400">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-black dark:text-white">
+                Nenhum registro de rescisão encontrado
+              </p>
+              <p className="text-xs text-black/70 dark:text-stone-400 mt-0.5">
+                {searchTerm || statusFilter !== 'all'
+                  ? 'Nenhum resultado corresponde aos filtros selecionados.'
+                  : 'Clique no botão abaixo para simular, calcular e emitir a primeira rescisão.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenNewTermination}
+              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nova Rescisão</span>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-stone-800 text-slate-500 dark:text-stone-400 font-bold">
-                  <th className="py-2.5 px-3">Funcionário</th>
-                  <th className="py-2.5 px-3">Cargo</th>
-                  <th className="py-2.5 px-3">Data Desligamento</th>
-                  <th className="py-2.5 px-3">Motivo</th>
-                  <th className="py-2.5 px-3 text-right">Total Líquido</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-right">Ações</th>
+              <thead className="bg-blue-100/60 dark:bg-stone-800 text-[11px] font-black text-black dark:text-white uppercase tracking-wider border-b border-blue-200/80 dark:border-stone-700">
+                <tr>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Colaborador (Nome e Cargo)</th>
+                  <th className="py-2.5 px-3">Data de Admissão</th>
+                  <th className="py-2.5 px-3">Data de Desligamento</th>
+                  <th className="py-2.5 px-3">Tipo de Rescisão</th>
+                  <th className="py-2.5 px-3 text-right">Valor Líquido Rescisório (R$)</th>
+                  <th className="py-2.5 px-3 text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-stone-800 font-medium text-slate-800 dark:text-stone-200">
-                {terminations.map((t) => (
-                  <tr key={t.id || t.employeeId} className="hover:bg-slate-50 dark:hover:bg-stone-800/50 transition">
-                    <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">
-                      {t.employeeName}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-stone-400">
-                      {t.employeeRole || 'Geral'}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      {formatDateBR(t.terminationDate)}
-                    </td>
-                    <td className="py-2.5 px-3 max-w-[220px] truncate" title={getReasonLabel(t.reason)}>
-                      {getReasonLabel(t.reason)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
-                      {formatMoneyBRL(t.calculation.netTotal)}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
+              <tbody className="divide-y divide-blue-200/60 dark:divide-stone-800 bg-[#87AFE3] dark:bg-stone-900 font-medium">
+                {filteredTerminations.map((t) => (
+                  <tr key={t.id || t.employeeId} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
+                    
+                    {/* Status */}
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       {t.status === 'rascunho' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 inline-flex items-center gap-1">
+                        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 shadow-2xs">
                           <Clock className="w-3 h-3" />
-                          Em Andamento
+                          <span>Em Andamento</span>
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                          Homologado
+                        <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-300 shadow-2xs">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Homologado</span>
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
-                      {t.status === 'rascunho' && (
+
+                    {/* Colaborador (Nome e Cargo) */}
+                    <td className="py-2.5 px-3">
+                      <div className="font-black text-black dark:text-white text-xs">
+                        {t.employeeName}
+                      </div>
+                      <div className="text-[11px] text-black/75 dark:text-stone-300">
+                        {t.employeeRole || 'Colaborador'}
+                      </div>
+                    </td>
+
+                    {/* Data de Admissão */}
+                    <td className="py-2.5 px-3 text-black dark:text-stone-200 whitespace-nowrap">
+                      {formatEmployeeAdmissionDate(t.admissionDate)}
+                    </td>
+
+                    {/* Data de Desligamento */}
+                    <td className="py-2.5 px-3 font-semibold text-black dark:text-white whitespace-nowrap">
+                      {formatDateBR(t.terminationDate)}
+                    </td>
+
+                    {/* Tipo de Rescisão */}
+                    <td className="py-2.5 px-3 max-w-[200px] truncate text-black dark:text-stone-200" title={getReasonLabel(t.reason)}>
+                      {getReasonLabel(t.reason)}
+                    </td>
+
+                    {/* Valor Líquido Rescisório (R$) */}
+                    <td className="py-2.5 px-3 text-right font-black text-emerald-950 dark:text-emerald-400 whitespace-nowrap text-xs font-['Outfit']">
+                      {formatMoneyBRL(t.calculation?.netTotal ?? 0)}
+                    </td>
+
+                    {/* Coluna de Ações: 'Visualizar/Editar' e 'Imprimir TRCT (PDF)' */}
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center space-x-1.5">
+                        
+                        {/* Botão Visualizar/Editar */}
                         <button
                           type="button"
-                          onClick={() => handleResumeDraft(t)}
-                          className="p-1.5 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 rounded-lg transition cursor-pointer"
-                          title="Continuar preenchimento deste rascunho"
+                          onClick={() => handleOpenEditTermination(t)}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-white/70 hover:bg-white dark:bg-stone-800 dark:hover:bg-stone-700 text-slate-800 dark:text-stone-200 border border-slate-300 dark:border-stone-700 rounded-lg text-[11px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Visualizar e Editar Parâmetros da Rescisão"
                         >
-                          <FileEdit className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span className="hidden sm:inline">Visualizar/Editar</span>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setViewingTRCT(t)}
-                        className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-stone-400 dark:hover:text-white bg-slate-100 dark:bg-stone-800 rounded-lg transition cursor-pointer"
-                        title="Visualizar / Imprimir TRCT"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTermination(t.id, t.employeeName)}
-                        className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                        title={t.status === 'rascunho' ? "Excluir rascunho" : "Excluir do histórico"}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+
+                        {/* Botão Imprimir TRCT (PDF) */}
+                        <button
+                          type="button"
+                          onClick={() => setViewingTRCT(t)}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[11px] font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Imprimir Termo de Rescisão do Contrato de Trabalho (PDF)"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-white" />
+                          <span className="hidden sm:inline">Imprimir TRCT</span>
+                        </button>
+
+                        {/* Botão Excluir */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTermination(t.id, t.employeeName)}
+                          className="p-1 text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-100/60 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+                          title="Excluir do Histórico"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                      </div>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -1955,7 +649,29 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL)                 */}
+      {/* 5. MODAL DE CÁLCULO DE RESCISÃO ('ResignCalculationModal')                  */}
+      {/* Inicia obrigatoriamente fechado (isOpen: false) e abre via "+ Nova Rescisão" */}
+      {/* ========================================================================= */}
+      <ResignCalculationModal
+        isOpen={isCalculationModalOpen}
+        onClose={() => {
+          setIsCalculationModalOpen(false);
+          setEditingTermination(null);
+        }}
+        employees={employees}
+        vacations={vacations}
+        companyProfile={companyProfile}
+        advances={advances}
+        absences={absences}
+        initialTermination={editingTermination}
+        activeTenantId={activeTenantId}
+        onSaveTermination={handleSaveTermination}
+        onSaveDraft={handleSaveDraft}
+        onViewTRCT={(rec) => setViewingTRCT(rec)}
+      />
+
+      {/* ========================================================================= */}
+      {/* 6. MODAL DE IMPRESSÃO DO TERMO DE RESCISÃO (TRCT OFICIAL CLT)             */}
       {/* ========================================================================= */}
       {viewingTRCT && (
         <div className="modal-trct trct-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
@@ -2077,7 +793,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Aviso Prévio:</span>
-                    <span className="font-semibold capitalize text-black print:text-[9.5px]">{viewingTRCT.noticeType} ({viewingTRCT.calculation.noticeDays} dias)</span>
+                    <span className="font-semibold capitalize text-black print:text-[9.5px]">{viewingTRCT.noticeType} ({viewingTRCT.calculation?.noticeDays || 30} dias)</span>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold text-slate-600 print:text-black print:text-[9px]">Causa do Afastamento:</span>
@@ -2104,56 +820,56 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     <tr>
                       <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">01</td>
                       <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Saldo de Salário</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.workedDaysCurrentMonth} dias</td>
-                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.salaryBalance)}</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.workedDaysCurrentMonth || 0} dias</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.salaryBalance || 0)}</td>
                     </tr>
-                    {viewingTRCT.calculation.noticeAmount > 0 && (
+                    {(viewingTRCT.calculation?.noticeAmount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">02</td>
                         <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Aviso Prévio Indenizado</td>
-                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.noticeDays} dias</td>
-                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.noticeAmount)}</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.noticeDays || 30} dias</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.noticeAmount || 0)}</td>
                       </tr>
                     )}
                     <tr>
                       <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">03</td>
                       <td className="py-1 px-2 border-r border-black/20 print:py-0.5">13º Salário Proporcional</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.thirteenthProportionalMonths}/12 avos</td>
-                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.thirteenthProportionalAmount)}</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.thirteenthProportionalMonths || 0}/12 avos</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.thirteenthProportionalAmount || 0)}</td>
                     </tr>
-                    {viewingTRCT.calculation.vacationExpiredAmount > 0 && (
+                    {(viewingTRCT.calculation?.vacationExpiredAmount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">04</td>
                         <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Férias Vencidas</td>
-                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.vacationExpiredCount.toString().replace('.', ',')} período(s)</td>
-                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.vacationExpiredAmount)}</td>
+                        <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.vacationExpiredCount || 0} período(s)</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.vacationExpiredAmount || 0)}</td>
                       </tr>
                     )}
                     <tr>
                       <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">05</td>
                       <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Férias Proporcionais</td>
-                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation.vacationProportionalMonths}/12 avos</td>
-                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.vacationProportionalAmount)}</td>
+                      <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">{viewingTRCT.calculation?.vacationProportionalMonths || 0}/12 avos</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.vacationProportionalAmount || 0)}</td>
                     </tr>
                     <tr>
                       <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">06</td>
                       <td className="py-1 px-2 border-r border-black/20 print:py-0.5">1/3 Constitucional sobre Férias</td>
                       <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Art. 7º CF</td>
-                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.vacationOneThirdBonus)}</td>
+                      <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.vacationOneThirdBonus || 0)}</td>
                     </tr>
-                    {viewingTRCT.calculation.includeFgtsFine && viewingTRCT.calculation.fgtsFineAmount > 0 && (
+                    {viewingTRCT.calculation?.includeFgtsFine && (viewingTRCT.calculation?.fgtsFineAmount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">07</td>
-                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%)</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%)</td>
                         <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Art. 18 Lei 8.036</td>
-                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}</td>
+                        <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}</td>
                       </tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 print:bg-white font-black border-t-2 border-black">
                       <td colSpan={3} className="py-1 px-2 text-right text-black print:py-0.5">TOTAL BRUTO DOS PROVENTOS:</td>
-                      <td className="py-1 px-2 text-right text-emerald-800 print:text-black font-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.grossTotal)}</td>
+                      <td className="py-1 px-2 text-right text-emerald-800 print:text-black font-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.grossTotal || 0)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2173,18 +889,18 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/20 text-black">
-                    {viewingTRCT.calculation.includeInssDiscount !== false ? (
+                    {viewingTRCT.calculation?.includeInssDiscount !== false ? (
                       <>
                         <tr>
                           <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">101</td>
                           <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Previdência Social (INSS Saldo de Salário)</td>
-                          <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.inssSalaryBalance)}</td>
+                          <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.inssSalaryBalance || 0)}</td>
                         </tr>
-                        {viewingTRCT.calculation.inssThirteenth > 0 && (
+                        {(viewingTRCT.calculation?.inssThirteenth || 0) > 0 && (
                           <tr>
                             <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">102</td>
                             <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Previdência Social (INSS sobre 13º Salário)</td>
-                            <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.inssThirteenth)}</td>
+                            <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.inssThirteenth || 0)}</td>
                           </tr>
                         )}
                       </>
@@ -2195,39 +911,39 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                         <td className="py-1 px-2 text-right font-bold text-slate-500 print:text-black print:py-0.5">R$ 0,00</td>
                       </tr>
                     )}
-                    {viewingTRCT.calculation.advancesDiscount > 0 && (
+                    {(viewingTRCT.calculation?.advancesDiscount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">103</td>
                         <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Vales e Adiantamentos Salariais em Aberto</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.advancesDiscount)}</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.advancesDiscount || 0)}</td>
                       </tr>
                     )}
-                    {viewingTRCT.calculation.absenceDiscount > 0 && (
+                    {(viewingTRCT.calculation?.absenceDiscount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">104</td>
                         <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Faltas e Atrasos Injustificados</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.absenceDiscount)}</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.absenceDiscount || 0)}</td>
                       </tr>
                     )}
-                    {viewingTRCT.calculation.noticeDeduction > 0 && (
+                    {(viewingTRCT.calculation?.noticeDeduction || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">105</td>
                         <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Aviso Prévio Não Cumprido (Desconto Art. 487 CLT)</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.noticeDeduction)}</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.noticeDeduction || 0)}</td>
                       </tr>
                     )}
-                    {viewingTRCT.calculation.otherDeductions > 0 && (
+                    {(viewingTRCT.calculation?.otherDeductions || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">106</td>
                         <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Outras Deduções Autorizadas</td>
-                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.otherDeductions)}</td>
+                        <td className="py-1 px-2 text-right font-bold text-rose-700 print:text-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.otherDeductions || 0)}</td>
                       </tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 print:bg-white font-black border-t-2 border-black">
                       <td colSpan={2} className="py-1 px-2 text-right text-black print:py-0.5">TOTAL GERAL DAS DEDUÇÕES:</td>
-                      <td className="py-1 px-2 text-right text-rose-800 print:text-black font-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation.totalDeductions)}</td>
+                      <td className="py-1 px-2 text-right text-rose-800 print:text-black font-black print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.totalDeductions || 0)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2236,43 +952,26 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               {/* Quadro Resumo com Líquido e Multa FGTS */}
               <div className="block-rescisao trct-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-2 border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-1.5">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation.fgtsFineRate}%):</span>
+                  <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%):</span>
                   <span className="text-sm font-bold text-black print:text-xs">
-                    {formatMoneyBRL(viewingTRCT.calculation.fgtsFineAmount)}
+                    {formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}
                   </span>
-                  {/* TRAVA DE EXIBIÇÃO: Oculta obrigatoriamente a base se a multa for R$ 0,00 ou não houver saldo real informado > 0 */}
-                  {(() => {
-                    const rawCustomFgts = parseRawOrFormattedToFloat(viewingTRCT.customFgtsBalance || '');
-                    const hasRealFgtsInformed = Boolean(viewingTRCT.isManualFgts && rawCustomFgts > 0);
-                    const shouldShowBase = viewingTRCT.calculation.fgtsFineAmount > 0 && hasRealFgtsInformed;
-
-                    if (!shouldShowBase) return null;
-
-                    return (
-                      <span className="text-[10px] text-slate-500 print:text-black block print:text-[8.5px]">
-                        (Base informada: {formatMoneyBRL(rawCustomFgts)})
-                      </span>
-                    );
-                  })()}
                 </div>
 
                 <div className="text-right">
                   <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase print:text-[9px]">VALOR LÍQUIDO A RECEBER:</span>
                   <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black print:text-lg">
-                    {formatMoneyBRL(viewingTRCT.calculation.netTotal)}
+                    {formatMoneyBRL(viewingTRCT.calculation?.netTotal || 0)}
                   </span>
                 </div>
               </div>
 
-              {/* Container Exclusivo e Indivisível de Quitação e Assinaturas (Sem quebras de página) */}
+              {/* Container de Quitação e Assinaturas */}
               <div className="block-rescisao trct-signature-block trct-avoid-break pt-1.5 space-y-2 print:pt-1 print:space-y-1.5">
-                
-                {/* Termo de Quitação */}
                 <p className="text-[9.5px] text-slate-700 print:text-black text-justify leading-relaxed print:text-[8.5px] print:leading-tight m-0">
                   Foi prestada, sem ônus para o empregado, a assistência e conferência da presente rescisão contratual, tendo o colaborador recebido os valores líquidos discriminados acima, dando plena e geral quitação das parcelas expressamente consignadas neste termo.
                 </p>
 
-                {/* Linhas de Assinatura com textos centralizados e margem correta */}
                 <div className="pt-4 pb-2 grid grid-cols-2 gap-8 text-center text-xs print:pt-3 print:gap-6 print:pb-0">
                   <div className="trct-signature-box border-t-2 border-black pt-1.5 flex flex-col items-center justify-center text-center">
                     <span className="font-bold uppercase text-black block text-[11px] leading-normal print:text-[9.5px] max-w-[90%] truncate">
