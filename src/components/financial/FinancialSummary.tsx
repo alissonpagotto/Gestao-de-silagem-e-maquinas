@@ -105,6 +105,8 @@ interface FinancialSummaryProps {
   onDuplicateExpense?: (exp: Expense) => void;
   onOpenAiParser?: () => void;
   onAddExpenseFromNfe?: (expense: Partial<Expense>) => void;
+  onSaveOrders?: (orders: SilageOrder[]) => void;
+  onSaveServices?: (services: ServiceOrder[]) => void;
 }
 
 export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
@@ -138,6 +140,8 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
   onDuplicateExpense = (_exp: Expense) => {},
   onOpenAiParser,
   onAddExpenseFromNfe = (_expense: Partial<Expense>) => {},
+  onSaveOrders,
+  onSaveServices,
 }) => {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<FinancialTabType>(initialSubTab || 'consolidado');
@@ -1197,6 +1201,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
         <ReceivablesTab
           orders={orders}
           services={services}
+          bankAccounts={bankAccounts}
+          companyProfile={companyProfile}
+          onSaveOrders={onSaveOrders}
+          onSaveServices={onSaveServices}
         />
       )}
 

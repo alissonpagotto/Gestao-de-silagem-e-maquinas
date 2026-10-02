@@ -2912,6 +2912,8 @@ export default function App() {
               onViewReceipt={(exp) => setViewingReceiptExpense(exp)}
               onDuplicateExpense={handleDuplicateExpense}
               onOpenAiParser={() => setIsAiParserOpen(true)}
+              onSaveOrders={setOrders}
+              onSaveServices={setServices}
             />
           )}
 

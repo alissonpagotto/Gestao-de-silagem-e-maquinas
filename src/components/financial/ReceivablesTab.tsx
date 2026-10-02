@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   CheckCircle2, 
   Clock, 
@@ -8,28 +8,73 @@ import {
   User, 
   FileText,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  ArrowDownLeft,
+  Check,
+  CreditCard,
+  Building2,
+  Sparkles
 } from 'lucide-react';
-import { SilageOrder, ServiceOrder } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { 
+  SilageOrder, 
+  ServiceOrder, 
+  BankAccount, 
+  CompanyProfile,
+  PaymentMethod,
+  FinanceiroCheque,
+  BankTransaction 
+} from '../../types';
+import { 
+  formatCurrencyBRL, 
+  formatDateBR, 
+  saveStoredOrders, 
+  saveStoredServices,
+  getStoredBankTransactions,
+  saveStoredBankTransactions
+} from '../../lib/storage';
+import { toValidUUID } from '../../lib/supabaseService';
+import { ReceivePaymentModal, ReceivableItem } from './ReceivePaymentModal';
 
 interface ReceivablesTabProps {
   orders: SilageOrder[];
   services?: ServiceOrder[];
+  bankAccounts?: BankAccount[];
+  companyProfile?: CompanyProfile;
   onToggleOrderStatus?: (orderId: string) => void;
+  onSaveOrders?: (orders: SilageOrder[]) => void;
+  onSaveServices?: (services: ServiceOrder[]) => void;
 }
 
 export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
-  orders,
+  orders = [],
   services = [],
+  bankAccounts = [],
+  companyProfile,
   onToggleOrderStatus,
+  onSaveOrders,
+  onSaveServices,
 }) => {
+  const [localOrders, setLocalOrders] = useState<SilageOrder[]>(orders);
+  const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
+
+  useEffect(() => {
+    setLocalOrders(orders);
+  }, [orders]);
+
+  useEffect(() => {
+    setLocalServices(services);
+  }, [services]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendente' | 'pago'>('all');
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
 
+  // Modal de Baixa de Contas a Receber
+  const [settlingItem, setSettlingItem] = useState<ReceivableItem | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+
   // Month options based on current date: 1 previous, current, 5 next
-  const monthFilterOptions = React.useMemo(() => {
+  const monthFilterOptions = useMemo(() => {
     const monthNames = [
       'Janeiro',
       'Fevereiro',
@@ -64,63 +109,151 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   }, []);
 
   // Combined Receivables Items
-  const receivablesFromOrders = orders.map((o) => ({
-    id: o.id,
-    type: 'Venda de Silagem' as const,
-    clientName: o.clientName,
-    date: o.date || o.deliveryDate || o.createdAt || '',
-    dueDate: o.date || o.deliveryDate || o.createdAt || '', // In silage operations usually settlement on delivery
-    volume: `${o.tons} tons`,
-    totalAmount: o.totalAmount,
-    status: o.paymentStatus === 'pago' ? ('pago' as const) : ('pendente' as const),
-    notes: o.notes || '',
-  }));
+  const receivablesFromOrders: ReceivableItem[] = useMemo(() => {
+    return localOrders.map((o) => ({
+      id: o.id,
+      type: 'Venda de Silagem',
+      clientName: o.clientName,
+      date: o.date || o.deliveryDate || o.createdAt || '',
+      dueDate: o.date || o.deliveryDate || o.createdAt || '',
+      volume: `${o.tons} tons`,
+      totalAmount: o.totalAmount,
+      status: o.paymentStatus === 'pago' ? 'pago' : 'pendente',
+      notes: o.notes || '',
+      clientId: (o as any).clientId || (o as any).client_id,
+    }));
+  }, [localOrders]);
 
-  const receivablesFromServices = services.map((s) => ({
-    id: s.id,
-    type: 'Prestação de Serviço' as const,
-    clientName: s.clientName,
-    date: s.date || s.startDate || (s as any).createdAt || '',
-    dueDate: s.date || s.startDate || (s as any).createdAt || '',
-    volume: `${s.tonsHarvested || 0} tons / ${s.hoursWorked || 0} hrs`,
-    totalAmount: s.totalAmount || 0,
-    status: s.status === 'finalizado' || s.status === 'concluido' ? ('pago' as const) : ('pendente' as const),
-    notes: s.farmLocation || '',
-  }));
+  const receivablesFromServices: ReceivableItem[] = useMemo(() => {
+    return localServices.map((s) => ({
+      id: s.id,
+      type: 'Prestação de Serviço',
+      clientName: s.clientName,
+      date: s.date || s.startDate || (s as any).createdAt || '',
+      dueDate: s.date || s.startDate || (s as any).createdAt || '',
+      volume: `${s.tonsHarvested || 0} tons / ${s.hoursWorked || 0} hrs`,
+      totalAmount: s.totalAmount || 0,
+      status: s.status === 'finalizado' || s.status === 'concluido' ? 'pago' : 'pendente',
+      notes: s.farmLocation || '',
+      clientId: (s as any).clientId || (s as any).client_id,
+    }));
+  }, [localServices]);
 
-  const allReceivables = [...receivablesFromOrders, ...receivablesFromServices];
+  const allReceivables = useMemo(() => {
+    return [...receivablesFromOrders, ...receivablesFromServices];
+  }, [receivablesFromOrders, receivablesFromServices]);
 
-  const pendingList = allReceivables.filter((r) => r.status === 'pendente');
-  const paidList = allReceivables.filter((r) => r.status === 'pago');
+  const pendingList = useMemo(() => allReceivables.filter((r) => r.status === 'pendente'), [allReceivables]);
+  const paidList = useMemo(() => allReceivables.filter((r) => r.status === 'pago'), [allReceivables]);
 
-  const totalPending = pendingList.reduce((acc, r) => acc + r.totalAmount, 0);
-  const totalPaid = paidList.reduce((acc, r) => acc + r.totalAmount, 0);
-  const totalOverall = allReceivables.reduce((acc, r) => acc + r.totalAmount, 0);
+  const totalPending = useMemo(() => pendingList.reduce((acc, r) => acc + r.totalAmount, 0), [pendingList]);
+  const totalPaid = useMemo(() => paidList.reduce((acc, r) => acc + r.totalAmount, 0), [paidList]);
+  const totalOverall = useMemo(() => allReceivables.reduce((acc, r) => acc + r.totalAmount, 0), [allReceivables]);
 
-  const filtered = allReceivables.filter((r) => {
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+  const filtered = useMemo(() => {
+    return allReceivables.filter((r) => {
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
 
-    // Monthly filter based on dueDate (or date as fallback)
-    let matchesMonth = true;
-    if (selectedMonthKey) {
-      const targetDate = r.dueDate || r.date;
-      if (targetDate) {
-        matchesMonth = targetDate.startsWith(selectedMonthKey);
-      } else {
-        matchesMonth = false;
+      // Monthly filter based on dueDate (or date as fallback)
+      let matchesMonth = true;
+      if (selectedMonthKey) {
+        const targetDate = r.dueDate || r.date;
+        if (targetDate) {
+          matchesMonth = targetDate.startsWith(selectedMonthKey);
+        } else {
+          matchesMonth = false;
+        }
       }
+
+      const q = searchTerm.toLowerCase();
+      const matchesSearch =
+        r.clientName.toLowerCase().includes(q) ||
+        r.type.toLowerCase().includes(q) ||
+        (r.notes || '').toLowerCase().includes(q);
+      return matchesStatus && matchesMonth && matchesSearch;
+    });
+  }, [allReceivables, statusFilter, selectedMonthKey, searchTerm]);
+
+  // Executa a baixa com sucesso
+  const handleReceiptSuccess = (details: {
+    itemId: string;
+    itemType: string;
+    paymentMethod: PaymentMethod;
+    paidAmount: number;
+    receiptDate: string;
+    cheque?: FinanceiroCheque;
+    creditoGerado?: number;
+  }) => {
+    // 1. Atualiza ordens de silagem
+    if (details.itemType === 'Venda de Silagem') {
+      const updated = localOrders.map(o => {
+        if (o.id === details.itemId) {
+          return {
+            ...o,
+            paymentStatus: 'pago' as const,
+            paymentMethod: details.paymentMethod,
+            paidAmount: details.paidAmount,
+            paymentDate: details.receiptDate,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return o;
+      });
+      setLocalOrders(updated);
+      saveStoredOrders(updated);
+      if (onSaveOrders) onSaveOrders(updated);
+      if (onToggleOrderStatus) onToggleOrderStatus(details.itemId);
+    } 
+    // 2. Atualiza ordens de serviço
+    else if (details.itemType === 'Prestação de Serviço') {
+      const updated = localServices.map(s => {
+        if (s.id === details.itemId) {
+          return {
+            ...s,
+            status: 'finalizado' as const,
+            paymentStatus: 'pago' as const,
+            paymentMethod: details.paymentMethod,
+            paymentDate: details.receiptDate,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return s;
+      });
+      setLocalServices(updated);
+      saveStoredServices(updated);
+      if (onSaveServices) onSaveServices(updated);
     }
 
-    const q = searchTerm.toLowerCase();
-    const matchesSearch =
-      r.clientName.toLowerCase().includes(q) ||
-      r.type.toLowerCase().includes(q) ||
-      r.notes.toLowerCase().includes(q);
-    return matchesStatus && matchesMonth && matchesSearch;
-  });
+    // 3. Monta mensagem de feedback limpa
+    let msg = `Baixa confirmada com sucesso! Conta recebida via ${details.paymentMethod.toUpperCase()}.`;
+    if (details.creditoGerado && details.creditoGerado > 0) {
+      msg += ` Crédito de ${formatCurrencyBRL(details.creditoGerado)} gerado para o cliente.`;
+    }
+    setSuccessMessage(msg);
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 5000);
+  };
 
   return (
     <div className="space-y-3">
+      {/* Toast de Sucesso da Baixa */}
+      {successMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 font-bold text-xs flex items-center justify-between shadow-xs">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setSuccessMessage('')}
+            className="p-1 hover:bg-emerald-100 rounded-lg transition cursor-pointer"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* KPI Cards (Compact) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between text-black">
@@ -254,12 +387,13 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-[11px] font-black text-black uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-2 px-3">Status</th>
-                <th className="py-2 px-3">Data</th>
-                <th className="py-2 px-3">Cliente / Produtor</th>
-                <th className="py-2 px-3">Origem / Tipo</th>
-                <th className="py-2 px-3">Volume</th>
-                <th className="py-2 px-3 text-right">Valor Total (R$)</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Data</th>
+                <th className="py-2.5 px-3">Cliente / Produtor</th>
+                <th className="py-2.5 px-3">Origem / Tipo</th>
+                <th className="py-2.5 px-3">Volume</th>
+                <th className="py-2.5 px-3 text-right">Valor Total (R$)</th>
+                <th className="py-2.5 px-3 text-right pr-4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -320,11 +454,36 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                     <td className="py-2 px-3 text-right font-black text-black whitespace-nowrap text-xs font-['Outfit']">
                       {formatCurrencyBRL(item.totalAmount)}
                     </td>
+
+                    {/* Coluna Ações com Botão de Baixa / Quitação */}
+                    <td className="py-2 px-3 text-right whitespace-nowrap pr-4">
+                      {item.status === 'pago' ? (
+                        <span 
+                          id={`badge-recebido-${item.id}`}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-2xs"
+                          title="Faturamento liquidado e recebido"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Liquidado</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          id={`btn-baixar-conta-${item.id}`}
+                          onClick={() => setSettlingItem(item)}
+                          className="inline-flex items-center space-x-1.5 text-xs font-black px-3 py-1.5 rounded-lg border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs active:scale-95"
+                          title="Efetivar recebimento / quitação desta conta"
+                        >
+                          <DollarSign className="w-3.5 h-3.5" />
+                          <span>Baixar / Receber</span>
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-black font-medium text-xs">
+                  <td colSpan={7} className="py-6 text-center text-black font-medium text-xs">
                     Nenhum título a receber encontrado para os filtros selecionados.
                   </td>
                 </tr>
@@ -333,6 +492,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Modal de Baixa / Quitação de Contas com Opção em Cheque */}
+      {settlingItem && (
+        <ReceivePaymentModal
+          isOpen={Boolean(settlingItem)}
+          onClose={() => setSettlingItem(null)}
+          item={settlingItem}
+          bankAccounts={bankAccounts}
+          companyProfile={companyProfile}
+          onSuccess={handleReceiptSuccess}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured, logPostgresError } from './supabase';
 export { isSupabaseConfigured, logPostgresError };
+export { getActiveCompanyId } from './storage';
 import {
   Client,
   Supplier,
