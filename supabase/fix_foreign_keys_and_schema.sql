@@ -178,7 +178,33 @@ CREATE TABLE IF NOT EXISTS public.rh_rescisoes (
 CREATE INDEX IF NOT EXISTS idx_rh_rescisoes_company_id ON public.rh_rescisoes(company_id);
 CREATE INDEX IF NOT EXISTS idx_rh_rescisoes_funcionario_id ON public.rh_rescisoes(funcionario_id);
 
--- Tabela para contas bancárias e saldos financeiros
+-- Tabela oficial para contas bancárias e saldos financeiros (financeiro_contas)
+CREATE TABLE IF NOT EXISTS public.financeiro_contas (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    user_id TEXT,
+    name TEXT,
+    account_name TEXT,
+    bank_name TEXT,
+    bank_code TEXT,
+    account_type TEXT DEFAULT 'corrente',
+    agency TEXT,
+    account_number TEXT,
+    account_digit TEXT,
+    balance NUMERIC(15,2) DEFAULT 0,
+    current_balance NUMERIC(15,2) DEFAULT 0,
+    overdraft_limit NUMERIC(15,2) DEFAULT 0,
+    pix_key TEXT,
+    pix_key_type TEXT,
+    color TEXT DEFAULT '#0963cb',
+    corporate_cards JSONB DEFAULT '[]'::jsonb,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_financeiro_contas_company_id ON public.financeiro_contas(company_id);
+
+-- Tabela para contas bancárias e saldos financeiros (legada/compatibilidade)
 CREATE TABLE IF NOT EXISTS public.financeiro_contas_bancarias (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id TEXT,
@@ -198,7 +224,29 @@ CREATE TABLE IF NOT EXISTS public.financeiro_contas_bancarias (
 );
 CREATE INDEX IF NOT EXISTS idx_financeiro_contas_bancarias_company_id ON public.financeiro_contas_bancarias(company_id);
 
--- Tabela para cadastro de fornecedores
+-- Tabela oficial para cadastro de fornecedores (fornecedores)
+CREATE TABLE IF NOT EXISTS public.fornecedores (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    user_id TEXT,
+    cnpj_cpf TEXT,
+    razao_social TEXT,
+    nome_fantasia TEXT,
+    inscricao_estadual TEXT,
+    inscricao_municipal TEXT,
+    telefone_whatsapp TEXT,
+    email TEXT,
+    endereco TEXT,
+    cidade TEXT,
+    uf TEXT,
+    observacoes TEXT,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_fornecedores_company_id ON public.fornecedores(company_id);
+
+-- Tabela para cadastro de fornecedores (compatibilidade)
 CREATE TABLE IF NOT EXISTS public.cadastro_fornecedores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id TEXT,
@@ -263,6 +311,7 @@ ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_ferias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_rescisoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financeiro_contas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financeiro_contas_bancarias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cadastro_fornecedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.frotas_manutencoes ENABLE ROW LEVEL SECURITY;
@@ -270,7 +319,7 @@ ALTER TABLE public.frotas_manutencoes ENABLE ROW LEVEL SECURITY;
 DO $$
 DECLARE
     tbl text;
-    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'rh_folhas_pagamento', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes', 'financeiro_contas_bancarias', 'cadastro_fornecedores', 'frotas_manutencoes'];
+    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'rh_folhas_pagamento', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes', 'financeiro_contas', 'financeiro_contas_bancarias', 'cadastro_fornecedores', 'frotas_manutencoes'];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
         EXECUTE 'DROP POLICY IF EXISTS "policy_all_' || tbl || '" ON public.' || quote_ident(tbl);

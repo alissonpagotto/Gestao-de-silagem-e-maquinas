@@ -123,7 +123,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const maintenanceLogsRef = useRef(maintenanceLogs);
   maintenanceLogsRef.current = maintenanceLogs;
 
-  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela física 'manutencoes'
+  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela física 'frotas_manutencoes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
@@ -139,7 +139,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       }
       if (!activeUid) return;
 
-      const channelId = `manutencoes_rt_sync_${activeUid}_${Date.now()}`;
+      const channelId = `frotas_manutencoes_rt_sync_${activeUid}_${Date.now()}`;
       channel = supabase
         .channel(channelId)
         .on(
@@ -147,7 +147,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           {
             event: 'DELETE',
             schema: 'public',
-            table: 'manutencoes',
+            table: 'frotas_manutencoes',
           },
           (payload: any) => {
             if (!isMounted) return;

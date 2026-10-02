@@ -555,14 +555,14 @@ export default function App() {
           saveStoredMaintenanceLogs(cloudMaint);
         }
 
-        // 3.1 Carrega Contas Bancárias em nuvem (tabela 'financeiro_contas_bancarias')
+        // 3.1 Carrega Contas Bancárias em nuvem (tabela 'financeiro_contas')
         const cloudAccs = await fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid);
         if (Array.isArray(cloudAccs) && cloudAccs.length > 0 && isMounted) {
           setBankAccounts(cloudAccs);
           saveStoredBankAccounts(cloudAccs);
         }
 
-        // 3.2 Carrega Fornecedores em nuvem (tabela 'cadastro_fornecedores')
+        // 3.2 Carrega Fornecedores em nuvem (tabela 'fornecedores')
         const cloudSups = await fetchFornecedores(activeTenantId);
         if (Array.isArray(cloudSups) && cloudSups.length > 0 && isMounted) {
           setSuppliers(cloudSups);
@@ -1194,49 +1194,39 @@ export default function App() {
 
     canalAbastecimentos.subscribe();
 
-    // 2. Realtime para Contas Bancárias (tabela 'financeiro_contas_bancarias')
+    // 2. Realtime para Contas Bancárias (tabela 'financeiro_contas')
     const canalContasBancarias = supabase
       .channel('app_financeiro_contas_rt')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'financeiro_contas_bancarias' },
+        { event: '*', schema: 'public', table: 'financeiro_contas' },
         (_payload) => {
           fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
-            if (fresh && isMounted) {
-              setBankAccounts(fresh);
-              saveStoredBankAccounts(fresh);
-            }
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'contas_bancarias' },
-        (_payload) => {
-          fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
-            if (fresh && isMounted) {
-              setBankAccounts(fresh);
-              saveStoredBankAccounts(fresh);
+            if (isMounted) {
+              const safeAccs = Array.isArray(fresh) ? fresh : [];
+              setBankAccounts(safeAccs);
+              if (safeAccs.length > 0) saveStoredBankAccounts(safeAccs);
             }
           });
         }
       );
     canalContasBancarias.subscribe();
 
-    // 3. Realtime para Fornecedores (tabela 'cadastro_fornecedores')
+    // 3. Realtime para Fornecedores (tabela 'fornecedores')
     const canalFornecedores = supabase
-      .channel('app_cadastro_fornecedores_rt')
+      .channel('app_fornecedores_rt')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'cadastro_fornecedores' },
+        { event: '*', schema: 'public', table: 'fornecedores' },
         (_payload) => {
           fetchFornecedores(activeTenantId).then(fresh => {
-            if (fresh && isMounted) {
-              const ser = JSON.stringify(fresh);
+            if (isMounted) {
+              const safeSups = Array.isArray(fresh) ? fresh : [];
+              const ser = JSON.stringify(safeSups);
               if (ser !== lastSyncedState.current.rel_suppliers) {
                 lastSyncedState.current.rel_suppliers = ser;
-                setSuppliers(fresh);
-                saveStoredSuppliers(fresh);
+                setSuppliers(safeSups);
+                if (safeSups.length > 0) saveStoredSuppliers(safeSups);
               }
             }
           });
@@ -1252,21 +1242,10 @@ export default function App() {
         { event: '*', schema: 'public', table: 'frotas_manutencoes' },
         (_payload) => {
           fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
-            if (fresh && isMounted) {
-              setMaintenanceLogs(fresh);
-              saveStoredMaintenanceLogs(fresh);
-            }
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'manutencoes' },
-        (_payload) => {
-          fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
-            if (fresh && isMounted) {
-              setMaintenanceLogs(fresh);
-              saveStoredMaintenanceLogs(fresh);
+            if (isMounted) {
+              const safeLogs = Array.isArray(fresh) ? fresh : [];
+              setMaintenanceLogs(safeLogs);
+              if (safeLogs.length > 0) saveStoredMaintenanceLogs(safeLogs);
             }
           });
         }

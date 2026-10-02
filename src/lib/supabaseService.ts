@@ -209,20 +209,7 @@ export async function fetchFornecedores(companyId?: string): Promise<Supplier[] 
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) return [];
   try {
-    // 1. Tenta buscar prioritariamente em 'cadastro_fornecedores'
-    try {
-      let { data, error } = await supabase
-        .from('cadastro_fornecedores')
-        .select('*')
-        .eq('company_id', activeCompanyId)
-        .order('razao_social', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        return data.map(mapRowToSupplier);
-      }
-    } catch (_) {}
-
-    // 2. Busca na tabela 'fornecedores'
+    // Busca na tabela padrão oficial 'fornecedores'
     let { data, error } = await supabase
       .from('fornecedores')
       .select('*')
@@ -274,12 +261,7 @@ export async function upsertFornecedor(supplier: Supplier, companyId?: string): 
       updated_at: new Date().toISOString()
     };
 
-    // Grava na tabela 'cadastro_fornecedores'
-    try {
-      await supabase.from('cadastro_fornecedores').upsert(payload, { onConflict: 'id' });
-    } catch (_) {}
-
-    // Grava também na tabela 'fornecedores'
+    // Grava na tabela oficial 'fornecedores'
     let { error } = await supabase
       .from('fornecedores')
       .upsert(payload, { onConflict: 'id' });
@@ -306,18 +288,20 @@ export async function deleteFornecedor(id: string, companyId?: string): Promise<
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
 
-    try {
-      let queryCad = supabase.from('cadastro_fornecedores').delete().eq('id', uuid);
-      if (activeCompanyId) queryCad = queryCad.eq('company_id', activeCompanyId);
-      await queryCad;
-    } catch (_) {}
-
     let query = supabase.from('fornecedores').delete().eq('id', uuid);
     if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
     const { error } = await query;
     if (error && id !== uuid) {
       let retry = supabase.from('fornecedores').delete().eq('id', id);
       if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
+      await retry;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase deleteFornecedor err:', err);
+    return false;
+  }
+}
       await retry;
     }
     return true;
@@ -9742,7 +9726,7 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
 
     return map.size > 0 ? Array.from(map.values()) : [];
   } catch (e) {
-    return null;
+    return [];
   }
 }
 
@@ -9813,7 +9797,7 @@ export async function deleteCloudMaintenanceLog(
 }
 
 // ===========================================================================
-// CONTAS BANCÁRIAS (Tabela: public.financeiro_contas_bancarias)
+// CONTAS BANCÁRIAS (Tabela Oficial: public.financeiro_contas)
 // ===========================================================================
 
 export function mapRowToBankAccount(row: any): BankAccount {
@@ -9844,9 +9828,9 @@ export async function fetchCloudBankAccounts(companyId?: string, userId?: string
     const activeCompanyId = companyId || getActiveCompanyId();
     const map = new Map<string, BankAccount>();
 
-    // 1. Tenta buscar em 'financeiro_contas_bancarias'
+    // 1. Tenta buscar na tabela oficial padronizada 'financeiro_contas'
     try {
-      let query = supabase.from('financeiro_contas_bancarias').select('*');
+      let query = supabase.from('financeiro_contas').select('*');
       if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
       const { data, error } = await query;
       if (!error && Array.isArray(data) && data.length > 0) {
@@ -9893,7 +9877,7 @@ export async function fetchCloudBankAccounts(companyId?: string, userId?: string
     return map.size > 0 ? Array.from(map.values()) : [];
   } catch (err) {
     console.warn('Supabase fetchCloudBankAccounts err:', err);
-    return null;
+    return [];
   }
 }
 
@@ -9910,7 +9894,7 @@ export async function saveCloudBankAccounts(accounts: BankAccount[], companyId?:
     }
     const cleanAccounts = Array.isArray(accounts) ? accounts : [];
 
-    // 1. Tenta gravar em 'financeiro_contas_bancarias'
+    // 1. Tenta gravar em 'financeiro_contas'
     try {
       if (cleanAccounts.length > 0) {
         const rows = cleanAccounts.map(a => ({
@@ -9929,7 +9913,7 @@ export async function saveCloudBankAccounts(accounts: BankAccount[], companyId?:
           payload: { ...a, company_id: activeCompanyId, user_id: currentUserId },
           updated_at: new Date().toISOString()
         }));
-        await supabase.from('financeiro_contas_bancarias').upsert(rows, { onConflict: 'id' });
+        await supabase.from('financeiro_contas').upsert(rows, { onConflict: 'id' });
       }
     } catch (_) {}
 
@@ -9980,7 +9964,7 @@ export async function upsertContaBancaria(account: BankAccount, companyId?: stri
     };
 
     try {
-      await supabase.from('financeiro_contas_bancarias').upsert(payload, { onConflict: 'id' });
+      await supabase.from('financeiro_contas').upsert(payload, { onConflict: 'id' });
     } catch (_) {}
 
     try {
@@ -10001,7 +9985,7 @@ export async function deleteContaBancaria(id: string, companyId?: string): Promi
     const uuid = toValidUUID(id);
 
     try {
-      let query = supabase.from('financeiro_contas_bancarias').delete().eq('id', uuid);
+      let query = supabase.from('financeiro_contas').delete().eq('id', uuid);
       if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
       await query;
     } catch (_) {}

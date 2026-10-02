@@ -726,9 +726,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [cnhFile, setCnhFile] = useState<File | null>(null);
   const [fichaFile, setFichaFile] = useState<File | null>(null);
 
-  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(() => Array.isArray(employees) ? employees : []);
   const [localVacations, setLocalVacations] = useState<VacationRecord[]>(() =>
-    propVacations && propVacations.length > 0 ? propVacations : getStoredVacations()
+    Array.isArray(propVacations) && propVacations.length > 0 ? propVacations : (getStoredVacations() || [])
   );
   const { currentUser } = useAuth();
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
@@ -738,15 +738,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const activeEmployeeId = editingEmployee?.id ? String(editingEmployee.id) : null;
 
   useEffect(() => {
-    if (employees) {
-      setLocalEmployees(employees);
-    }
+    setLocalEmployees(Array.isArray(employees) ? employees : []);
   }, [employees]);
 
   useEffect(() => {
-    if (propVacations) {
-      setLocalVacations(propVacations);
-    }
+    setLocalVacations(Array.isArray(propVacations) ? propVacations : []);
   }, [propVacations]);
 
   // 1. Estancar o Loop do useEffect para Férias/Afastamentos do Funcionário Selecionado no Modal:
@@ -1107,23 +1103,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             // 2. Reconciliação completa com filtro estrito .eq('user_id', activeUid)
             try {
               const fresh = await fetchRhFuncionarios(undefined, activeUid);
-              if (isMounted && fresh && Array.isArray(fresh)) {
-                const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
-                setLocalEmployees(strictlyMine);
-                saveStoredEmployees(strictlyMine);
-                if (onSaveEmployees) onSaveEmployees(strictlyMine);
+              if (isMounted) {
+                if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+                  const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+                  setLocalEmployees(strictlyMine);
+                  saveStoredEmployees(strictlyMine);
+                  if (onSaveEmployees) onSaveEmployees(strictlyMine);
+                } else {
+                  // SAFE ARRAY FALLBACK: se a consulta retornar vazia ou erro (como 404), popula com array vazia []
+                  setLocalEmployees([]);
+                }
               }
             } catch (err) {
-              console.warn('[EmployeesModule] Erro ao sincronizar funcionários em tempo real:', err);
+              console.warn('[EmployeesModule] Erro ao sincronizar funcionários em tempo real, aplicando fallback seguro []:', err);
+              if (isMounted) {
+                setLocalEmployees([]);
+              }
             }
           }
         )
         .subscribe();
     };
 
-    setupRealtime();
-
-    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
+    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto) com fallback seguro []
     const handleFocus = async () => {
       let activeUid = currentUser?.id;
       if (!activeUid) {
@@ -1132,19 +1134,37 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           activeUid = authData?.user?.id;
         } catch (_) {}
       }
-      if (!activeUid) return;
+      if (!activeUid) {
+        if (isMounted) setLocalEmployees([]);
+        return;
+      }
 
       try {
         const fresh = await fetchRhFuncionarios(undefined, activeUid);
-        if (isMounted && fresh && Array.isArray(fresh)) {
-          const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
-          setLocalEmployees(strictlyMine);
-          saveStoredEmployees(strictlyMine);
-          if (onSaveEmployees) onSaveEmployees(strictlyMine);
+        if (isMounted) {
+          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+            const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+            setLocalEmployees(strictlyMine);
+            saveStoredEmployees(strictlyMine);
+            if (onSaveEmployees) onSaveEmployees(strictlyMine);
+          } else {
+            // SAFE ARRAY FALLBACK: se a consulta retornar vazia ou erro (como 404), popula com array vazia []
+            setLocalEmployees([]);
+          }
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn('[EmployeesModule] Erro ao sincronizar funcionários no Supabase, aplicando fallback seguro []:', err);
+        if (isMounted) {
+          setLocalEmployees([]);
+        }
+      }
     };
 
+    setupRealtime();
+    // Dispara sincronização inicial com fallback seguro [] em caso de erro 404
+    handleFocus();
+
+    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 

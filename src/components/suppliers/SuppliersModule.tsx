@@ -31,15 +31,15 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(suppliers);
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => Array.isArray(suppliers) ? suppliers : []);
 
   useEffect(() => {
     if (suppliers) {
-      setLocalSuppliers(suppliers);
+      setLocalSuppliers(Array.isArray(suppliers) ? suppliers : []);
     }
   }, [suppliers]);
 
-  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'cadastro_fornecedores' e 'fornecedores'
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'fornecedores'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
@@ -96,11 +96,6 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       .channel(channelId)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'cadastro_fornecedores' },
-        handlePayload
-      )
-      .on(
-        'postgres_changes',
         { event: '*', schema: 'public', table: 'fornecedores' },
         handlePayload
       )
@@ -109,13 +104,17 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
     const handleFocus = async () => {
       try {
         const fresh = await fetchFornecedores();
-        if (isMounted && fresh && Array.isArray(fresh)) {
-          setLocalSuppliers(fresh);
-          saveStoredSuppliers(fresh);
-          if (onSaveSuppliers) onSaveSuppliers(fresh);
+        if (isMounted) {
+          const safeSups = Array.isArray(fresh) ? fresh : [];
+          setLocalSuppliers(safeSups);
+          if (safeSups.length > 0) saveStoredSuppliers(safeSups);
+          if (onSaveSuppliers) onSaveSuppliers(safeSups);
         }
-      } catch (_) {}
+      } catch (_) {
+        if (isMounted) setLocalSuppliers([]);
+      }
     };
+    handleFocus();
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 

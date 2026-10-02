@@ -94,7 +94,7 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     setLocalMaintenanceLogs(maintenanceLogs);
   }, [maintenanceLogs]);
 
-  // Escuta ativa em tempo real (Supabase Realtime) nas tabelas 'frotas_manutencoes' e 'manutencoes'
+  // Escuta ativa em tempo real (Supabase Realtime) na tabela 'frotas_manutencoes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
@@ -125,11 +125,6 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'frotas_manutencoes' },
-        handlePayload
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'manutencoes' },
         handlePayload
       )
       .subscribe();

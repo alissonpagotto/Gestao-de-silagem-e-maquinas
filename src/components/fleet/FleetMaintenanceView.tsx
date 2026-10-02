@@ -69,7 +69,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
     setLocalLogs(maintenanceLogs);
   }, [maintenanceLogs]);
 
-  // Listener em tempo real (Supabase Realtime) escutando eventos nas tabelas 'frotas_manutencoes' e 'manutencoes'
+  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela 'frotas_manutencoes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
@@ -104,11 +104,6 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'frotas_manutencoes' },
-        handlePayload
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'manutencoes' },
         handlePayload
       )
       .on(
@@ -162,20 +157,24 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
       const cId = companyProfile?.id || getActiveCompanyId();
 
       // 2. Execução do Comando Físico no Supabase com amarração por usuário ativo:
-      // supabase.from('manutencoes').delete().eq('id', ordemId).eq('user_id', currentUserId)
+      // Tenta prioritariamente na tabela oficial 'frotas_manutencoes' com fallback em 'manutencoes'
       if (isSupabaseConfigured) {
-        let query = supabase.from('manutencoes').delete().eq('id', ordemId);
+        let query = supabase.from('frotas_manutencoes').delete().eq('id', ordemId);
         if (currentUserId) {
           query = query.eq('user_id', currentUserId);
         }
         const { error } = await query;
         if (error) {
-          console.warn('[Manutenções] Erro no delete com user_id, tentando por id direto:', error.message);
-          await supabase.from('manutencoes').delete().eq('id', ordemId);
+          console.warn('[Manutenções] Erro no delete de frotas_manutencoes com user_id, tentando por id direto:', error.message);
+          await supabase.from('frotas_manutencoes').delete().eq('id', ordemId);
         } else {
-          // Garante remoção caso a linha no banco estivesse sem user_id
-          await supabase.from('manutencoes').delete().eq('id', ordemId);
+          await supabase.from('frotas_manutencoes').delete().eq('id', ordemId);
         }
+
+        // Fallback complementar na tabela legada manutencoes
+        try {
+          await supabase.from('manutencoes').delete().eq('id', ordemId);
+        } catch (_) {}
 
         // Limpeza de contingência no espelho site_settings para que F5 não ressuscite a OS
         await deleteCloudMaintenanceLog(ordemId, currentUserId, cId);

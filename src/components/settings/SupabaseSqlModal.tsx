@@ -742,7 +742,73 @@ FOR ALL TO authenticated, anon
 USING (true)
 WITH CHECK (true);
 
--- Tabela oficial de Gestão de Manutenções e Ordens de Serviço (manutencoes)
+-- Tabela oficial de Gestão de Manutenções e Ordens de Serviço (frotas_manutencoes e manutencoes)
+CREATE TABLE IF NOT EXISTS public.frotas_manutencoes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    company_id TEXT,
+    machinery_id TEXT,
+    machinery_plate_or_name TEXT,
+    os_number TEXT,
+    date TEXT,
+    type TEXT DEFAULT 'corretiva',
+    service_category TEXT,
+    description TEXT,
+    executor_name TEXT,
+    workshop_or_mechanic TEXT,
+    workshop TEXT,
+    parts_cost NUMERIC DEFAULT 0,
+    labor_cost NUMERIC DEFAULT 0,
+    total_cost NUMERIC DEFAULT 0,
+    status TEXT DEFAULT 'pendente',
+    location TEXT DEFAULT 'oficina_interna',
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.frotas_manutencoes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Total frotas_manutencoes" ON public.frotas_manutencoes;
+CREATE POLICY "Permissao Total frotas_manutencoes" ON public.frotas_manutencoes
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+-- Tabela oficial de Contas Bancárias e Caixas (financeiro_contas)
+CREATE TABLE IF NOT EXISTS public.financeiro_contas (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    user_id TEXT,
+    name TEXT,
+    account_name TEXT,
+    bank_name TEXT,
+    bank_code TEXT,
+    account_type TEXT DEFAULT 'corrente',
+    agency TEXT,
+    account_number TEXT,
+    account_digit TEXT,
+    balance NUMERIC DEFAULT 0,
+    current_balance NUMERIC DEFAULT 0,
+    overdraft_limit NUMERIC DEFAULT 0,
+    pix_key TEXT,
+    pix_key_type TEXT,
+    color TEXT DEFAULT '#0963cb',
+    corporate_cards JSONB DEFAULT '[]'::jsonb,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.financeiro_contas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Total financeiro_contas" ON public.financeiro_contas;
+CREATE POLICY "Permissao Total financeiro_contas" ON public.financeiro_contas
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+-- Tabela de Manutenções legada (manutencoes)
 CREATE TABLE IF NOT EXISTS public.manutencoes (
     id TEXT PRIMARY KEY,
     user_id TEXT,

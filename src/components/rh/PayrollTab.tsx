@@ -325,11 +325,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   }, []);
 
   // Estado das Folhas de Pagamento conectado diretamente à nuvem (Supabase)
-  const [localPayrolls, setLocalPayrolls] = useState<PayrollRecord[]>(() => isSupabaseConfigured ? [] : (payrolls || []));
+  const [localPayrolls, setLocalPayrolls] = useState<PayrollRecord[]>(() => 
+    Array.isArray(payrolls) ? payrolls : []
+  );
 
   useEffect(() => {
-    if (!isSupabaseConfigured && payrolls) {
-      setLocalPayrolls(payrolls);
+    if (payrolls) {
+      setLocalPayrolls(Array.isArray(payrolls) ? payrolls : []);
     }
   }, [payrolls]);
 
@@ -346,25 +348,41 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           uid = authData?.user?.id;
         } catch (_) {}
       }
-      if (!uid) return;
+      if (!uid) {
+        if (isMounted) setLocalPayrolls([]);
+        return;
+      }
 
-      const cloudData = await fetchCloudPayrolls(uid);
-      if (isMounted) {
-        const cleanList = (Array.isArray(cloudData) ? cloudData : []).map(p => {
-          if (!p.employeeName || !p.employeeRole) {
-            const emp = employees.find(e => e.id === p.employeeId || toValidUUID(e.id) === p.employeeId);
-            if (emp) {
-              return {
-                ...p,
-                employeeName: p.employeeName || emp.name,
-                employeeRole: p.employeeRole || emp.role,
-              };
-            }
+      try {
+        const cloudData = await fetchCloudPayrolls(uid);
+        if (isMounted) {
+          if (Array.isArray(cloudData) && cloudData.length > 0) {
+            const safeEmps = Array.isArray(employees) ? employees : [];
+            const cleanList = cloudData.map(p => {
+              if (!p.employeeName || !p.employeeRole) {
+                const emp = safeEmps.find(e => e.id === p.employeeId || toValidUUID(e.id) === p.employeeId);
+                if (emp) {
+                  return {
+                    ...p,
+                    employeeName: p.employeeName || emp.name,
+                    employeeRole: p.employeeRole || emp.role,
+                  };
+                }
+              }
+              return p;
+            });
+            setLocalPayrolls(cleanList);
+            onSavePayrolls(cleanList);
+          } else {
+            // SAFE ARRAY FALLBACK: se a consulta retornar vazia ou der erro 404, popula com array vazia []
+            setLocalPayrolls([]);
           }
-          return p;
-        });
-        setLocalPayrolls(cleanList);
-        onSavePayrolls(cleanList);
+        }
+      } catch (err) {
+        console.warn('[PayrollTab] Erro ao carregar folhas do Supabase, aplicando fallback seguro []:', err);
+        if (isMounted) {
+          setLocalPayrolls([]);
+        }
       }
     };
 
@@ -599,7 +617,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   };
 
   // Filtered Payrolls - Exclusão estrita de Terceirizados (gerenciados pelo Financeiro)
-  const monthPayrolls = localPayrolls.filter(p => {
+  const monthPayrolls = (Array.isArray(localPayrolls) ? localPayrolls : []).filter(p => {
     if (p.referenceMonth !== currentMonthRef) return false;
     const emp = employees.find(e => e.id === p.employeeId);
     if (emp && isThirdPartyDriver(emp)) return false;
@@ -608,8 +626,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   });
 
   const filtered = monthPayrolls.filter(p => 
-    p.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.employeeRole.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.employeeRole || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Totais
