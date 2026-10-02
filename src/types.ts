@@ -292,10 +292,12 @@ export interface Machinery {
   controlBy?: 'horas' | 'km' | string;
   horimetro_ou_km_atual?: number;
   tipo?: string;
+  tipo_modelo?: string; // Concatenação ou tipo/modelo enviado ao Supabase
   nome?: string;
   modelo?: string;
   placa_ou_serie?: string;
   ano?: number;
+  company_id?: string;
   manutencao_status?: string;
   maintenanceStatus?: string;
   imageUrl?: string;

@@ -4587,15 +4587,29 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       ? vehicle.assignedDrivers.join(', ')
       : (vehicle.operatorOrDriver ? String(vehicle.operatorOrDriver).trim() : null);
 
+    const modeloVeiculo = String(vehicle.model || vehicle.modelo || '').trim();
+    const tipoVeiculo = String(vehicle.categoryType || (vehicle as any).vehicleTypeDetailed || vehicle.type || vehicle.tipo || 'Veículo').trim();
+    const rawNome = String(vehicle.name || vehicle.nome || '').trim();
+    // Exigência estrita: nome obrigatório (NOT-NULL), usando modeloVeiculo || tipoVeiculo
+    const nomeCalculado = (modeloVeiculo || tipoVeiculo || rawNome || 'Veículo').trim();
+    const tipoModeloInput = (vehicle as any).tipo_modelo || (tipoVeiculo && modeloVeiculo ? `${tipoVeiculo} - ${modeloVeiculo}` : (modeloVeiculo || tipoVeiculo || 'Veículo'));
+
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
       company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
-      tipo: vehicle.categoryType || vehicle.tipo || 'veiculo',
-      nome: String(vehicle.name || vehicle.nome || 'Veículo').trim(),
-      modelo: vehicle.model || vehicle.modelo || null,
+      nome: nomeCalculado, // NOT-NULL: modeloVeiculo || tipoVeiculo
+      name: nomeCalculado, // Compatibilidade EN
+      tipo_modelo: tipoModeloInput,
+      tipo: tipoVeiculo || 'veiculo',
+      type: tipoVeiculo || 'veiculo',
+      modelo: modeloVeiculo || null,
+      model: modeloVeiculo || null,
       placa_ou_serie: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
+      plate_or_serial: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
       ano: cleanAno,
+      year: cleanAno,
       horimetro_ou_km_atual: currentMeter,
+      hourmeter: currentMeter,
       status: vehicle.status || 'ativo',
       manutencao_status: vehicle.maintenanceStatus || vehicle.manutencao_status || 'ok',
       foto_url: vehicle.imageUrl || vehicle.photoUrl || vehicle.foto_url || null,
@@ -4686,11 +4700,17 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     // Filtra o payload para enviar apenas colunas que realmente existem no schema físico do banco
     if (knownGestaoFrotaCols.size > 0) {
       for (const key of Object.keys(payload)) {
-        if (key === 'id' || key === 'reboque_vinculado_id' || key === 'updated_at') continue;
+        // 'nome' é NOT-NULL no banco; nunca remover nome, name, id, reboque_vinculado_id ou updated_at
+        if (key === 'id' || key === 'nome' || key === 'name' || key === 'reboque_vinculado_id' || key === 'updated_at') continue;
         if (!knownGestaoFrotaCols.has(key)) {
           delete payload[key];
         }
       }
+    }
+
+    // Garante valor final não nulo para nome
+    if (!payload.nome) {
+      payload.nome = nomeCalculado;
     }
 
     let { error } = await supabase
@@ -4699,7 +4719,7 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
 
     if (error) {
       console.warn('Supabase upsertGestaoFrota notice:', error.message);
-      // Se deu erro de coluna inexistente no schema cache (PGRST204) ou restrição, limpa e retenta
+      // Se deu erro de coluna inexistente no schema cache (PGRST204) ou restrição, limpa colunas opcionais mas preserva nome
       delete payload.driver_id;
       delete payload.motorista;
       delete payload.operator_or_driver;
@@ -4707,7 +4727,13 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       delete payload.assigned_drivers;
       delete payload.tank_capacity;
       delete payload.user_id;
+      delete payload.foto_url;
+      delete payload.tipo_modelo;
       delete payload.company_id;
+
+      // Assegura que nome nunca seja nulo no retry
+      payload.nome = payload.nome || nomeCalculado;
+      payload.name = payload.name || nomeCalculado;
 
       const retryRes = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
       if (retryRes.error) {
@@ -9511,6 +9537,12 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
   }
 }
 
+let resolvedManutencoesTableName: 'frotas_manutencoes' | 'manutencoes' = 'frotas_manutencoes';
+
+export function getManutencoesTableName(): 'frotas_manutencoes' | 'manutencoes' {
+  return resolvedManutencoesTableName;
+}
+
 /**
  * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase: tabelas 'frotas_manutencoes' e 'manutencoes' e espelho 'site_settings')
  */
@@ -9549,9 +9581,15 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
           updated_at: new Date().toISOString()
         }));
 
-        try {
-          await supabase.from('frotas_manutencoes').upsert(rows, { onConflict: 'id' });
-        } catch (_) {}
+        const primaryTable = getManutencoesTableName();
+        let res = await supabase.from(primaryTable).upsert(rows, { onConflict: 'id' });
+        if (res.error && (res.error.code === '42P01' || res.error.code === 'PGRST200' || (res.error as any).status === 404)) {
+          const altTable = primaryTable === 'frotas_manutencoes' ? 'manutencoes' : 'frotas_manutencoes';
+          const altRes = await supabase.from(altTable).upsert(rows, { onConflict: 'id' });
+          if (!altRes.error) {
+            resolvedManutencoesTableName = altTable;
+          }
+        }
       }
     } catch (_) {}
 
@@ -9603,9 +9641,15 @@ export async function upsertCloudMaintenanceLog(log: MaintenanceLog, companyId?:
       updated_at: new Date().toISOString()
     };
 
-    try {
-      await supabase.from('frotas_manutencoes').upsert(row, { onConflict: 'id' });
-    } catch (_) {}
+    const primaryTable = getManutencoesTableName();
+    let res = await supabase.from(primaryTable).upsert(row, { onConflict: 'id' });
+    if (res.error && (res.error.code === '42P01' || res.error.code === 'PGRST200' || (res.error as any).status === 404)) {
+      const altTable = primaryTable === 'frotas_manutencoes' ? 'manutencoes' : 'frotas_manutencoes';
+      const altRes = await supabase.from(altTable).upsert(row, { onConflict: 'id' });
+      if (!altRes.error) {
+        resolvedManutencoesTableName = altTable;
+      }
+    }
 
     return true;
   } catch (err) {
@@ -9661,19 +9705,48 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
 
     const map = new Map<string, MaintenanceLog>();
 
-    // 1. Busca prioritária na tabela física 'frotas_manutencoes'
-    try {
-      let query = supabase.from('frotas_manutencoes').select('*');
-      if (cId) query = query.eq('company_id', cId);
-      const { data: relData, error: relErr } = await query;
-      if (!relErr && Array.isArray(relData) && relData.length > 0) {
-        for (const r of relData) {
-          const item = mapRowToMaintenanceLog(r);
-          if (item.id) map.set(item.id, item);
+    // 1. Busca na tabela física correta: 'frotas_manutencoes' com fallback em 'manutencoes'
+    const tableCandidates: ('frotas_manutencoes' | 'manutencoes')[] = 
+      resolvedManutencoesTableName === 'manutencoes'
+        ? ['manutencoes', 'frotas_manutencoes']
+        : ['frotas_manutencoes', 'manutencoes'];
+
+    let foundInTable = false;
+
+    for (const tbl of tableCandidates) {
+      try {
+        let query = supabase.from(tbl).select('*');
+        if (cId) query = query.eq('company_id', cId);
+        const { data: relData, error: relErr } = await query;
+        if (!relErr && Array.isArray(relData)) {
+          resolvedManutencoesTableName = tbl;
+          foundInTable = true;
+          for (const r of relData) {
+            const item = mapRowToMaintenanceLog(r);
+            if (item.id) map.set(item.id, item);
+          }
+          break;
+        } else if (relErr) {
+          // Se falhou apenas o filtro por company_id, tenta select * direto
+          if (relErr.code !== '42P01' && relErr.code !== 'PGRST200' && (relErr as any).status !== 404) {
+            const retryQuery = await supabase.from(tbl).select('*');
+            if (!retryQuery.error && Array.isArray(retryQuery.data)) {
+              resolvedManutencoesTableName = tbl;
+              foundInTable = true;
+              for (const r of retryQuery.data) {
+                const item = mapRowToMaintenanceLog(r);
+                if (item.id) map.set(item.id, item);
+              }
+              break;
+            }
+          }
         }
-        return Array.from(map.values());
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
+
+    if (foundInTable) {
+      return Array.from(map.values());
+    }
 
     // 2. Fallback no espelho de site_settings
     try {
@@ -9719,11 +9792,17 @@ export async function deleteCloudMaintenanceLog(
 
     const uuid = toValidUUID(ordemId);
 
-    // 1. Exclui de frotas_manutencoes
+    // 1. Exclui de frotas_manutencoes e manutencoes
     try {
-      await supabase.from('frotas_manutencoes').delete().eq('id', uuid);
+      const primaryTable = getManutencoesTableName();
+      await supabase.from(primaryTable).delete().eq('id', uuid);
       if (ordemId !== uuid) {
-        await supabase.from('frotas_manutencoes').delete().eq('id', ordemId);
+        await supabase.from(primaryTable).delete().eq('id', ordemId);
+      }
+      const altTable = primaryTable === 'frotas_manutencoes' ? 'manutencoes' : 'frotas_manutencoes';
+      await supabase.from(altTable).delete().eq('id', uuid);
+      if (ordemId !== uuid) {
+        await supabase.from(altTable).delete().eq('id', ordemId);
       }
     } catch (_) {}
 
@@ -9800,6 +9879,16 @@ export async function fetchCloudBankAccounts(companyId?: string, userId?: string
           if (acc.id) map.set(acc.id, acc);
         });
         return Array.from(map.values());
+      } else if (error) {
+        // Fallback: se falhou por restrição de coluna company_id, busca sem o filtro
+        const retry = await supabase.from('financeiro_contas').select('*');
+        if (!retry.error && Array.isArray(retry.data) && retry.data.length > 0) {
+          retry.data.forEach(r => {
+            const acc = mapRowToBankAccount(r);
+            if (acc.id) map.set(acc.id, acc);
+          });
+          return Array.from(map.values());
+        }
       }
     } catch (_) {}
 

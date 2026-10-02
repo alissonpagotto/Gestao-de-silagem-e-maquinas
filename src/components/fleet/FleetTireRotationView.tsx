@@ -57,7 +57,7 @@ import {
   AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R
 } from '../../lib/tireAndAxlePresets';
 import { supabase } from '../../lib/supabaseClient';
-import { isSupabaseConfigured } from '../../lib/supabaseService';
+import { isSupabaseConfigured, isTableUnmigrated, markTableUnmigrated } from '../../lib/supabaseService';
 import { 
   formatDateBR, 
   formatCurrencyBRL,
@@ -450,13 +450,15 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
         // 2. Cruzamento (JOIN / busca secundária) com 'public.tipos_veiculos_config'
         let typeConfigFromDb: any = null;
-        if (isSupabaseConfigured && activeVehicleData) {
+        if (isSupabaseConfigured && activeVehicleData && !isTableUnmigrated('tipos_veiculos_config')) {
           try {
             const { data: tData, error: tErr } = await supabase
               .from('tipos_veiculos_config')
               .select('*');
 
-            if (!tErr && tData && tData.length > 0) {
+            if (tErr && (tErr.code === '42P01' || tErr.code === 'PGRST205' || (tErr as any).status === 404)) {
+              markTableUnmigrated('tipos_veiculos_config');
+            } else if (!tErr && tData && tData.length > 0) {
               const activeAny = activeVehicleData as any;
               const vTipo = String(activeAny.tipo || activeAny.categoryType || '').toLowerCase();
               const vCat = String(activeAny.categoria || '').toLowerCase();
@@ -1722,9 +1724,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
         onSaveVehicleTypes={async (updatedTypes) => {
           onSaveVehicleTypes(updatedTypes);
           try {
-            if (isSupabaseConfigured) {
+            if (isSupabaseConfigured && !isTableUnmigrated('tipos_veiculos_config')) {
               for (const vt of updatedTypes) {
-                await supabase.from('tipos_veiculos_config').upsert({
+                const { error: upsertErr } = await supabase.from('tipos_veiculos_config').upsert({
                   id: vt.id,
                   nome: vt.name,
                   tipo: vt.categoryKey || vt.name,
@@ -1734,6 +1736,10 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                   descricao: vt.description,
                   config_json: vt.defaultAxleConfig,
                 });
+                if (upsertErr && (upsertErr.code === '42P01' || upsertErr.code === 'PGRST205' || (upsertErr as any).status === 404)) {
+                  markTableUnmigrated('tipos_veiculos_config');
+                  break;
+                }
               }
             }
           } catch (err) {

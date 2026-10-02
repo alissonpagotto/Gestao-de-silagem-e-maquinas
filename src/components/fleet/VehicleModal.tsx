@@ -444,11 +444,14 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 results.push({
                   id: r.id,
                   name: r.nome || r.name || r.modelo || 'Reboque',
+                  nome: r.nome || r.name || r.modelo || 'Reboque',
                   model: r.modelo || r.model || '',
+                  modelo: r.modelo || r.model || '',
                   brand: r.marca || r.brand || '',
                   licensePlateOrSerial: r.placa || r.plate || r.placa_ou_serie || '',
                   fleetNumber: r.prefixo || r.fleet_number,
                   type: 'Reboque',
+                  tipo: 'reboque',
                   categoryType: 'reboque',
                   compositionType: 'reboque',
                   trailerType: r.tipo || r.trailer_type || 'Reboque',
@@ -635,16 +638,24 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const numInstallments = parseInt(installmentsCount, 10) || 0;
     const numInstallmentVal = desformatarMoeda(installmentValue);
 
+    const finalCategoryType = categoryType || 'forrageira';
+    const computedNome = (formattedModel || finalCategoryType || formattedName || 'Veículo').trim();
+    const computedTipoModelo = `${finalCategoryType} - ${formattedModel}`;
+
     return {
       id: editingVehicle ? editingVehicle.id : `veh_${Date.now()}`,
       name: formattedName,
+      nome: computedNome,
       model: formattedModel,
+      modelo: formattedModel,
       brand: formattedBrand,
+      categoryType: finalCategoryType,
+      tipo: finalCategoryType,
+      tipo_modelo: computedTipoModelo,
       year: year ? parseInt(year, 10) : undefined,
       renavam: renavam.trim() || undefined,
       color: color.trim() || undefined,
       fleetNumber: fleetNumber.trim() || undefined,
-      categoryType: categoryType || 'forrageira',
       status: status || 'disponivel',
       ownership: ownership || 'proprio',
       compositionType: hasCoupledTrailer ? 'cavalo' : compositionType,

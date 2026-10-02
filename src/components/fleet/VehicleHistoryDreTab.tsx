@@ -127,6 +127,11 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
         { event: '*', schema: 'public', table: 'frotas_manutencoes' },
         handlePayload
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'manutencoes' },
+        handlePayload
+      )
       .subscribe();
 
     const handleLocalMaint = (e: any) => {

@@ -1234,12 +1234,25 @@ export default function App() {
       );
     canalFornecedores.subscribe();
 
-    // 4. Realtime para Manutenções de Frotas (tabela 'frotas_manutencoes')
+    // 4. Realtime para Manutenções de Frotas (tabelas 'frotas_manutencoes' e 'manutencoes')
     const canalManutencoes = supabase
       .channel('app_frotas_manutencoes_rt')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'frotas_manutencoes' },
+        (_payload) => {
+          fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+            if (isMounted) {
+              const safeLogs = Array.isArray(fresh) ? fresh : [];
+              setMaintenanceLogs(safeLogs);
+              if (safeLogs.length > 0) saveStoredMaintenanceLogs(safeLogs);
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'manutencoes' },
         (_payload) => {
           fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
             if (isMounted) {

@@ -344,6 +344,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     if (!isSupabaseConfigured) return;
 
     let isMounted = true;
+
+    // Busca inicial imediata na tabela física gestao_frotas para garantir contadores e listagem sem atraso
+    fetchGestaoFrotas(companyProfile?.id).then(fresh => {
+      if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineries) {
+        onSaveMachineries(fresh);
+      }
+    }).catch(err => console.warn('Erro ao carregar frotas no mount:', err));
+
     const channelId = `fleet_vehicles_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
       .channel(channelId)
