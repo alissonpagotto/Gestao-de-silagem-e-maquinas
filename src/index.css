@@ -1144,6 +1144,62 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
   /* ==========================================================================
      ISOLAMENTO DE IMPRESSÃO DO AVISO E RECIBO DE FÉRIAS (A4 PORTRAIT)
      ========================================================================== */
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+
+  body, html {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .recibo-ferias-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-sizing: border-box !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  body:has(.vacation-modal-container) > #root > *:not(:has(.vacation-modal-container)),
+  body.has-vacation-receipt-open > #root > *:not(:has(.vacation-modal-container)) {
+    display: none !important;
+  }
+
+  .vacation-modal-container {
+    position: static !important;
+    inset: auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .vacation-modal-wrapper {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
   body.has-vacation-receipt-open,
   body.printing-vacation-receipt {
     width: 100% !important;

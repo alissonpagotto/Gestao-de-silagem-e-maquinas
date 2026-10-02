@@ -415,6 +415,16 @@ export function VacationReceiptModal({
 
   const clientInstanceIdRef = useRef<string>(`vac_modal_${Math.random().toString(36).slice(2, 10)}`);
 
+  // Efeito para isolar e otimizar a impressão quando o modal de recibo estiver aberto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('has-vacation-receipt-open');
+      return () => {
+        document.body.classList.remove('has-vacation-receipt-open');
+      };
+    }
+  }, [isOpen]);
+
   // Hook 1: Estado de impressão
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
 
@@ -813,468 +823,9 @@ export function VacationReceiptModal({
     year: 'numeric',
   });
 
+  // Disparo direto da rotina de impressão nativa do navegador (window.print)
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const abonoRowHtml =
-      sellDaysCount > 0 || valorAbono > 0
-        ? `
-          <tr>
-            <td class="cell-left font-semibold">Abono Pecuniário de Férias (${sellDaysCount || 10} dias)</td>
-            <td class="cell-center font-bold">${sellDaysCount || 10} dias</td>
-            <td class="cell-right font-mono font-black text-emerald">${formatBRL(valorAbono)}</td>
-            <td class="cell-right font-mono text-muted">-</td>
-          </tr>
-        `
-        : '';
-
-    const decimoRowHtml =
-      sourceVacation.thirteenthAdvance || valorDecimo > 0
-        ? `
-          <tr>
-            <td class="cell-left font-semibold">Adiantamento da 1ª Parcela do 13º Salário</td>
-            <td class="cell-center font-bold">50,00%</td>
-            <td class="cell-right font-mono font-black text-emerald">${formatBRL(valorDecimo)}</td>
-            <td class="cell-right font-mono text-muted">-</td>
-          </tr>
-        `
-        : '';
-
-    const inssRefText = inssEnabled
-      ? `${inssEffectiveRate.toFixed(2).replace('.', ',')}%`
-      : 'Isento';
-
-    const irrfRefText =
-      irrfEnabled && irrfRate > 0
-        ? `${irrfRate.toFixed(1).replace('.', ',')}%`
-        : 'Isento';
-
-    const content = `
-      <div class="recibo-ferias-container">
-        <!-- CABEÇALHO EMPRESARIAL -->
-        <div class="header-box">
-          <div class="header-left">
-            <h1 class="company-title">${companyName}</h1>
-            <p class="company-sub">
-              CNPJ/MF: ${companyCnpj} ${companyAddress ? `• ${companyAddress}` : ''}
-            </p>
-          </div>
-          <div class="header-badge">
-            <span>AVISO E RECIBO DE FÉRIAS</span>
-          </div>
-        </div>
-
-        <!-- SEÇÃO 1: AVISO PRÉVIO DE FÉRIAS (ART. 135 CLT) -->
-        <div class="section-box">
-          <div class="section-header">
-            <span>1. AVISO PRÉVIO DE FÉRIAS (Art. 135 da CLT)</span>
-            <span class="section-subtitle">Comunicação Formal ao Empregado</span>
-          </div>
-
-          <div class="info-grid">
-            <div class="info-col-wide">
-              <span class="info-label">Colaborador(a):</span>
-              <span class="info-val-strong">${employeeName}</span>
-            </div>
-            <div>
-              <span class="info-label">Cargo / Função:</span>
-              <span class="info-val">${employeeRole}</span>
-            </div>
-            <div>
-              <span class="info-label">CPF:</span>
-              <span class="info-val">${employeeCpf}</span>
-            </div>
-            <div>
-              <span class="info-label">Per. Aquisitivo:</span>
-              <span class="info-val-strong">${periodAcquisitive}</span>
-            </div>
-            <div>
-              <span class="info-label">Gozo (${daysCount}d):</span>
-              <span class="info-val-blue">${periodGozo}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- SEÇÃO 2: DEMONSTRATIVO DE CÁLCULO E QUITAÇÃO (ART. 145 CLT) -->
-        <div class="section-box">
-          <div class="section-header">
-            <span>2. DEMONSTRATIVO DE PROVENTOS E DESCONTOS (Art. 145 da CLT)</span>
-            <span class="section-subtitle">Retorno ao trabalho: ${returnDate}</span>
-          </div>
-
-          <table class="fin-table">
-            <thead>
-              <tr>
-                <th class="cell-left">Rubrica / Discriminação</th>
-                <th class="cell-center" style="width: 96px;">Referência</th>
-                <th class="cell-right text-emerald" style="width: 130px;">PROVENTOS (+)</th>
-                <th class="cell-right text-rose" style="width: 130px;">DESCONTOS (-)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="cell-left font-semibold">Valor das Férias (Remuneração Normal CLT)</td>
-                <td class="cell-center font-bold">${daysCount} dias</td>
-                <td class="cell-right font-mono font-black text-emerald">${formatBRL(valorFerias)}</td>
-                <td class="cell-right font-mono text-muted">-</td>
-              </tr>
-              <tr>
-                <td class="cell-left font-semibold">Adicional de 1/3 Constitucional (Art. 7º, XVII da CF/88)</td>
-                <td class="cell-center font-bold">33,33%</td>
-                <td class="cell-right font-mono font-black text-emerald">${formatBRL(valorUmTerco)}</td>
-                <td class="cell-right font-mono text-muted">-</td>
-              </tr>
-              ${abonoRowHtml}
-              ${decimoRowHtml}
-              <tr>
-                <td class="cell-left font-semibold ${inssEnabled ? '' : 'line-through text-muted'}">
-                  Desconto de INSS sobre Férias (Tabela Progressiva)
-                </td>
-                <td class="cell-center font-bold">${inssRefText}</td>
-                <td class="cell-right font-mono text-muted">-</td>
-                <td class="cell-right font-mono font-black ${inssEnabled ? 'text-rose' : 'text-muted'}">
-                  ${formatBRL(inssDiscount)}
-                </td>
-              </tr>
-              <tr>
-                <td class="cell-left font-semibold ${irrfEnabled ? '' : 'line-through text-muted'}">
-                  Desconto de IRRF sobre Férias (Retenção na Fonte)
-                </td>
-                <td class="cell-center font-bold">${irrfRefText}</td>
-                <td class="cell-right font-mono text-muted">-</td>
-                <td class="cell-right font-mono font-black ${irrfEnabled ? 'text-rose' : 'text-muted'}">
-                  ${formatBRL(irrfDiscount)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="totals-grid">
-            <div class="totals-left">
-              <div class="totals-row">
-                <span class="font-bold uppercase">TOTAL BRUTO (PROVENTOS):</span>
-                <span class="font-black font-mono text-emerald">${formatBRL(totalBruto)}</span>
-              </div>
-              <div class="totals-row">
-                <span class="font-bold uppercase">TOTAL DE DESCONTOS (INSS + IRRF):</span>
-                <span class="font-black font-mono text-rose">${formatBRL(totalDescontos)}</span>
-              </div>
-              <div class="totals-bases">
-                <span>Base Previdenciária: <strong>${formatBRL(baseINSS)}</strong></span>
-                <span>Base IRRF: <strong>${formatBRL(baseIRRF)}</strong></span>
-              </div>
-            </div>
-            <div class="totals-right">
-              <span class="net-label">VALOR LÍQUIDO A PAGAR</span>
-              <span class="net-value">${formatBRL(valorLiquido)}</span>
-            </div>
-          </div>
-
-          <p class="quitacao-text">
-            <strong>RECIBO DE QUITAÇÃO:</strong> Recebi de <strong>${companyName}</strong>, inscrita no CNPJ/MF sob o nº <strong>${companyCnpj}</strong>, a importância líquida supra de <strong>${formatBRL(valorLiquido)}</strong>, correspondente à quitação das férias regulamentares e do respectivo adicional constitucional ora concedidos, das quais dou plena, rasa e irrevogável quitação.
-          </p>
-        </div>
-
-        <!-- SEÇÃO 3: DATA E ASSINATURAS -->
-        <div class="signatures-section">
-          <div class="issue-date">${issueCity}, ${todayFormatted}.</div>
-          <div class="signatures-grid">
-            <div class="sig-col">
-              <div class="sig-line"></div>
-              <span class="sig-name">${companyName}</span>
-              <span class="sig-meta">Empregador • CNPJ: ${companyCnpj}</span>
-            </div>
-            <div class="sig-col">
-              <div class="sig-line"></div>
-              <span class="sig-name">${employeeName}</span>
-              <span class="sig-meta">Empregado(a) • CPF: ${employeeCpf}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const headStyles = `
-      <meta charset="UTF-8" />
-      <title>Aviso e Recibo de Férias - ${employeeName}</title>
-      <style>
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-        }
-        body, html {
-          width: 100%;
-          background: #ffffff;
-          color: #000000;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-          font-size: 12px;
-          line-height: 1.35;
-          padding: 16px;
-        }
-        .recibo-ferias-container {
-          width: 100%;
-          max-width: 210mm;
-          margin: 0 auto;
-          background: #ffffff;
-          color: #000000;
-          border: 1px solid #000000;
-          border-radius: 6px;
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .header-box {
-          border-bottom: 2px solid #000000;
-          padding-bottom: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        .company-title {
-          font-size: 14px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .company-sub {
-          font-size: 10px;
-          font-weight: 700;
-          color: #333333;
-          margin-top: 2px;
-        }
-        .header-badge {
-          border: 2px solid #000000;
-          padding: 3px 10px;
-          background: #f9fafb;
-          font-size: 11px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          white-space: nowrap;
-        }
-        .section-box {
-          border: 1px solid #78716c;
-          border-radius: 3px;
-          padding: 10px;
-          background: #fafaf9;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .section-header {
-          font-size: 10px;
-          font-weight: 900;
-          text-transform: uppercase;
-          border-bottom: 1px solid #d6d3d1;
-          padding-bottom: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .section-subtitle {
-          font-size: 9px;
-          font-weight: 600;
-          color: #57534e;
-        }
-        .info-grid {
-          display: grid;
-          grid-template-columns: 2fr 1.2fr 1fr 1.2fr 1.2fr;
-          gap: 8px;
-          border: 1px solid #d6d3d1;
-          padding: 8px;
-          background: #ffffff;
-        }
-        .info-label {
-          display: block;
-          font-size: 9px;
-          font-weight: 700;
-          color: #57534e;
-          text-transform: uppercase;
-        }
-        .info-val {
-          display: block;
-          font-size: 11px;
-          font-weight: 700;
-          color: #1c1917;
-        }
-        .info-val-strong {
-          display: block;
-          font-size: 11px;
-          font-weight: 900;
-          color: #000000;
-        }
-        .info-val-blue {
-          display: block;
-          font-size: 10px;
-          font-weight: 900;
-          color: #1e3a8a;
-        }
-        .fin-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1px solid #d6d3d1;
-          background: #ffffff;
-          font-size: 13px;
-        }
-        .fin-table th {
-          background: #f5f5f4;
-          border-bottom: 1px solid #d6d3d1;
-          border-right: 1px solid #d6d3d1;
-          padding: 5px 8px;
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-        }
-        .fin-table td {
-          border-bottom: 1px solid #e7e5e4;
-          border-right: 1px solid #d6d3d1;
-          padding: 5px 8px;
-          font-size: 13px;
-        }
-        .cell-left { text-align: left; }
-        .cell-center { text-align: center; }
-        .cell-right { text-align: right; }
-        .font-semibold { font-weight: 600; }
-        .font-bold { font-weight: 700; }
-        .font-black { font-weight: 900; }
-        .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-        .text-emerald { color: #047857; }
-        .text-rose { color: #be123c; }
-        .text-muted { color: #78716c; }
-        .line-through { text-decoration: line-through; }
-        .totals-grid {
-          display: grid;
-          grid-template-columns: 7fr 5fr;
-          border: 1px solid #d6d3d1;
-          background: #ffffff;
-        }
-        .totals-left {
-          padding: 8px 10px;
-          border-right: 1px solid #d6d3d1;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          font-size: 11px;
-        }
-        .totals-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .totals-bases {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 10px;
-          color: #57534e;
-          border-top: 1px solid #e7e5e4;
-          padding-top: 4px;
-          margin-top: 2px;
-        }
-        .totals-right {
-          background: #eff6ff;
-          padding: 8px 12px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          text-align: right;
-        }
-        .net-label {
-          font-size: 10px;
-          font-weight: 900;
-          text-transform: uppercase;
-          color: #0963cb;
-        }
-        .net-value {
-          font-size: 18px;
-          font-weight: 900;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          color: #0963cb;
-          margin-top: 2px;
-        }
-        .quitacao-text {
-          font-size: 10px;
-          text-align: justify;
-          color: #1c1917;
-          border-top: 1px solid #d6d3d1;
-          padding-top: 6px;
-          line-height: 1.4;
-        }
-        .signatures-section {
-          border-top: 1px solid #78716c;
-          padding-top: 6px;
-        }
-        .issue-date {
-          text-align: center;
-          font-size: 10px;
-          color: #44403c;
-          margin-bottom: 24px;
-        }
-        .signatures-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 32px;
-          text-align: center;
-          font-size: 10px;
-        }
-        .sig-col {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-        .sig-line {
-          width: 100%;
-          border-top: 1px solid #000000;
-          margin-bottom: 4px;
-        }
-        .sig-name {
-          font-weight: 900;
-          text-transform: uppercase;
-          color: #000000;
-        }
-        .sig-meta {
-          font-size: 9px;
-          color: #57534e;
-        }
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 1.2cm;
-          }
-          body, html {
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            font-size: 10.5pt !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .recibo-ferias-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 16px !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            box-shadow: none !important;
-            border: 1px solid #000000 !important;
-          }
-        }
-      </style>
-    `;
-
-    printWindow.document.write('<html><head>' + headStyles + '</head><body>' + content + '</body></html>');
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    window.print();
   };
 
   const handleToggleInss = (checked: boolean) => {
@@ -1302,38 +853,28 @@ export function VacationReceiptModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/70 backdrop-blur-xs overflow-y-hidden"
-      style={{ overflowY: 'hidden' }}
+      className="vacation-modal-container fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/70 backdrop-blur-xs overflow-y-auto print:p-0 print:m-0 print:static print:bg-white print:backdrop-filter-none print:overflow-visible"
     >
       {/* Estilos CSS Nativos de Impressão A4 Portrait em 1 Página */}
       <style>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 1.2cm;
+            margin: 1.5cm;
           }
           body, html {
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            font-size: 10.5pt !important;
-          }
-          .no-print, .no-print * {
-            display: none !important;
+            width: 100%;
+            margin: 0;
+            padding: 0;
           }
           .recibo-ferias-container {
             width: 100% !important;
             max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            box-shadow: none !important;
-            border: 1px solid #000000 !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .no-print {
+            display: none !important;
           }
           .recibo-ferias-container input {
             border: none !important;
@@ -1347,8 +888,7 @@ export function VacationReceiptModal({
 
       {/* Janela Modal do Sistema - Compactada sem barra de rolagem vertical (overflow-y: hidden) */}
       <div
-        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto flex flex-col"
-        style={{ overflowY: 'hidden' }}
+        className="vacation-modal-wrapper bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto flex flex-col print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none print:my-0 print:p-0 print:overflow-visible"
       >
         {/* Barra de Ações Superior (no-print) */}
         <div className="no-print flex items-center justify-between px-4 py-2.5 bg-[#0963cb] text-white border-b border-blue-400/30 shrink-0">

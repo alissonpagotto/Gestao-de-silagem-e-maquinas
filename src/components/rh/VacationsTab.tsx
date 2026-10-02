@@ -1498,13 +1498,24 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
   // Abre o modal de Recibo/Impressão diretamente para uma linha da tabela (mesmo que ainda não tenha sido salva)
   const handlePrintReceiptForRow = (row: VacationManagementRow) => {
+    const salary = getEmployeeContractualSalary(row.employee.id, row.employee.name);
+    const gozoDays = row.vacationRecord?.daysCount || (row.rightDays > 0 ? row.rightDays : 30);
+    const dailyRate = salary > 0 ? salary / 30 : 0;
+
     if (row.vacationRecord) {
-      setPrintingVacation(row.vacationRecord);
+      const vr = row.vacationRecord;
+      const mergedRecord: VacationRecord = {
+        ...vr,
+        employeeName: vr.employeeName || row.employee.name,
+        acquisitionPeriodStart: vr.acquisitionPeriodStart || row.acquisitionStart,
+        acquisitionPeriodEnd: vr.acquisitionPeriodEnd || row.acquisitionEnd,
+        daysCount: vr.daysCount || gozoDays,
+        baseSalary: vr.baseSalary || salary,
+      };
+      setPrintingVacation(mergedRecord);
       return;
     }
-    const salary = getEmployeeContractualSalary(row.employee.id, row.employee.name);
-    const gozoDays = row.rightDays > 0 ? row.rightDays : 30;
-    const dailyRate = salary / 30;
+
     const valorFeriasGozo = Math.round(dailyRate * gozoDays * 100) / 100;
     const valorUmTerco = Math.round((valorFeriasGozo / 3) * 100) / 100;
     const totalBruto = Math.round((valorFeriasGozo + valorUmTerco) * 100) / 100;
@@ -2650,7 +2661,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
                             type="button"
                             onClick={() => handlePrintReceiptForRow(row)}
                             className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
-                            title="Imprimir Recibo de Férias"
+                            title="Imprimir Aviso/Recibo de Férias"
+                            aria-label="Imprimir Aviso/Recibo de Férias"
                           >
                             <Printer className="w-3.5 h-3.5 shrink-0" />
                             <span>Imprimir Recibo</span>
