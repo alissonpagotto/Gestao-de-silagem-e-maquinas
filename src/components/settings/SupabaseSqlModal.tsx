@@ -544,6 +544,21 @@ ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hora NUMERI
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_alqueire NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hectare NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS recebe_comissao BOOLEAN DEFAULT false;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS numero_rg TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS rg TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS numero_pis TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS pis TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS regime_contratacao TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS contract_type TEXT;
+
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS numero_rg TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS numero_pis TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS regime_contratacao TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS user_id TEXT;
 
 -- Storage buckets para fotos e documentos de funcionários
 INSERT INTO storage.buckets (id, name, public) 

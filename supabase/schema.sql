@@ -410,6 +410,14 @@ ALTER TABLE public.notas_fiscais ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.estoque ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS numero_rg TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS numero_pis TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS regime_contratacao TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS numero_rg TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS numero_pis TEXT;
+ALTER TABLE IF EXISTS public.funcionarios ADD COLUMN IF NOT EXISTS regime_contratacao TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS tank_capacity NUMERIC DEFAULT 0;
 

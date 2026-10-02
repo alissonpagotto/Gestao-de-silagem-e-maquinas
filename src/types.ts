@@ -374,14 +374,18 @@ export interface Employee {
   roles?: string[]; // Array de múltiplos cargos selecionados (suporte a multi-select)
   cpf?: string;
   rg?: string; // Número do RG
+  numero_rg?: string; // Alias banco Supabase (numero_rg)
   birthDate?: string; // Data de Nascimento
+  data_nascimento?: string; // Alias banco Supabase (data_nascimento)
   pis?: string; // Número do PIS
+  numero_pis?: string; // Alias banco Supabase (numero_pis)
   photoUrl?: string; // Foto de perfil
   foto_url?: string; // Alias banco Supabase (foto_url)
   avatar_url?: string; // Alias banco Supabase (avatar_url)
   phone: string;
   baseSalary?: number; // Salário Base (R$)
   contractType?: 'Registrado (CLT)' | 'Diarista / Safrista' | 'PJ / Prestador de Serviço' | 'Autônomo' | 'Comissionado' | string;
+  regime_contratacao?: string; // Alias banco Supabase (regime_contratacao)
   admissionDate?: string; // Data de Admissão
   terminationDate?: string; // Data de Demissão
   active?: boolean; // Funcionário ativo (toggle)

@@ -667,13 +667,22 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   }, [roleOptions]);
 
   const [cpf, setCpf] = useState<string>('');
-  const [rg, setRg] = useState<string>('');
-  const [birthDate, setBirthDate] = useState<string>('');
-  const [pis, setPis] = useState<string>('');
+  const [rgNumero, setRgNumero] = useState<string>('');
+  const [dataNascimento, setDataNascimento] = useState<string>('');
+  const [pisNumero, setPisNumero] = useState<string>('');
+  const [regimeContratacao, setRegimeContratacao] = useState<string>('Registrado (CLT)');
+  // Aliases de compatibilidade interna para campos legados
+  const rg = rgNumero;
+  const setRg = setRgNumero;
+  const birthDate = dataNascimento;
+  const setBirthDate = setDataNascimento;
+  const pis = pisNumero;
+  const setPis = setPisNumero;
+  const contractType = regimeContratacao;
+  const setContractType = setRegimeContratacao;
   const [photoUrl, setPhotoUrl] = useState<string | undefined>('');
   const [phone, setPhone] = useState<string>('');
   const [baseSalary, setBaseSalary] = useState<string>('0,00');
-  const [contractType, setContractType] = useState<string>('Registrado (CLT)');
   const [admissionDate, setAdmissionDate] = useState<string>('');
   const [terminationDate, setTerminationDate] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
@@ -799,6 +808,74 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           });
         }
       });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isModalOpen, activeEmployeeId]);
+
+  // 3. CARREGAMENTO DOS DADOS REAIS DO BANCO (INITIAL LOAD CONFORME DIRETRIZ):
+  // Ao abrir o modal, assegura que o sistema povoe os estados iniciais com os dados reais
+  // vindos do Supabase para que os campos nunca apareçam vazios.
+  useEffect(() => {
+    if (!isModalOpen || !activeEmployeeId || !isSupabaseConfigured) return;
+    let isMounted = true;
+    const empId = activeEmployeeId;
+    const empUuid = toValidUUID(empId);
+
+    const loadRealEmployeeData = async () => {
+      try {
+        let dbRow: Record<string, any> | null = null;
+
+        // 1. Consulta em public.rh_funcionarios
+        const { data: rhData } = await supabase
+          .from('rh_funcionarios')
+          .select('*')
+          .or(`id.eq.${empId}${empUuid && empUuid !== empId ? `,id.eq.${empUuid}` : ''}`)
+          .maybeSingle();
+
+        if (rhData) {
+          dbRow = { ...rhData };
+        }
+
+        // 2. Consulta em public.funcionarios para enriquecimento complementar
+        const { data: funcData } = await supabase
+          .from('funcionarios')
+          .select('*')
+          .or(`id.eq.${empId}${empUuid && empUuid !== empId ? `,id.eq.${empUuid}` : ''}`)
+          .maybeSingle();
+
+        if (funcData) {
+          dbRow = { ...(dbRow || {}), ...funcData };
+        }
+
+        if (isMounted && dbRow) {
+          const loadedRg = dbRow.numero_rg || dbRow.rg || dbRow.documento_rg;
+          if (loadedRg) {
+            setRgNumero(String(loadedRg).trim().toUpperCase());
+          }
+
+          const loadedBirth = formatIsoDateOnly(dbRow.data_nascimento || dbRow.birth_date || dbRow.nascimento);
+          if (loadedBirth) {
+            setDataNascimento(loadedBirth);
+          }
+
+          const loadedPis = dbRow.numero_pis || dbRow.pis || dbRow.pis_pasep;
+          if (loadedPis) {
+            setPisNumero(String(loadedPis).trim().toUpperCase());
+          }
+
+          const loadedRegime = dbRow.regime_contratacao || dbRow.contract_type || dbRow.regime || dbRow.tipo_contrato;
+          if (loadedRegime) {
+            setRegimeContratacao(String(loadedRegime).trim());
+          }
+        }
+      } catch (err) {
+        console.warn('[RH] Aviso ao sincronizar dados reais do colaborador ao abrir modal:', err);
+      }
+    };
+
+    loadRealEmployeeData();
 
     return () => {
       isMounted = false;
@@ -1180,13 +1257,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setBrokerCommissionValue('5,00');
     setActingRegion('');
     setCpf('');
-    setRg('');
-    setBirthDate('');
-    setPis('');
+    setRgNumero('');
+    setDataNascimento('');
+    setPisNumero('');
     setPhotoUrl('');
     setPhone('');
     setBaseSalary('0,00');
-    setContractType('Registrado (CLT)');
+    setRegimeContratacao('Registrado (CLT)');
     setAdmissionDate(new Date().toISOString().split('T')[0]);
     setTerminationDate('');
     setIsActive(true);
@@ -1263,21 +1340,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     );
     setActingRegion((emp.actingRegion || '').toUpperCase());
     setCpf(emp.cpf || '');
-    setRg((emp.rg || '').toUpperCase());
-    setBirthDate(emp.birthDate || '');
-    setPis((emp.pis || '').toUpperCase());
+    const loadedRg = (emp.numero_rg || emp.rg || (emp as any).documento_rg || '').toUpperCase();
+    const safeBirth = formatIsoDateOnly(emp.data_nascimento || emp.birthDate || (emp as any).birth_date) || '';
+    const loadedPis = (emp.numero_pis || emp.pis || (emp as any).pis_pasep || '').toUpperCase();
+    const loadedRegime = emp.regime_contratacao || emp.contractType || (emp as any).regime || 'Registrado (CLT)';
+
+    setRgNumero(loadedRg);
+    setDataNascimento(safeBirth);
+    setPisNumero(loadedPis);
     setPhotoUrl(emp.photoUrl && !isBrokenAvatarUrl(emp.photoUrl) ? emp.photoUrl : '');
     setPhone(emp.phone || '');
     setBaseSalary(emp.baseSalary !== undefined ? formatCurrencyInputDisplay(emp.baseSalary) : (emp.salary !== undefined ? formatCurrencyInputDisplay(emp.salary) : '0,00'));
-    setContractType(emp.contractType || (emp as any).regime || 'Registrado (CLT)');
+    setRegimeContratacao(loadedRegime);
     
     // Converte datas para YYYY-MM-DD para garantir compatibilidade com input type="date"
     const safeAdm = formatIsoDateOnly(emp.admissionDate || (emp as any).data_admissao || (emp as any).admitted_at) || '';
     setAdmissionDate(safeAdm);
     const safeTerm = formatIsoDateOnly(emp.terminationDate || (emp as any).data_demissao) || '';
     setTerminationDate(safeTerm);
-    const safeBirth = formatIsoDateOnly(emp.birthDate || (emp as any).data_nascimento) || '';
-    setBirthDate(safeBirth);
 
     setIsActive(emp.active !== undefined ? emp.active : (emp.status !== 'inativo'));
     const isEmpBroker = r1.trim().toLowerCase() === 'agenciador' || r2.trim().toLowerCase() === 'agenciador';
@@ -1808,9 +1888,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
         actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
         cpf: cpf.trim() || undefined,
-        rg: rg.trim() ? rg.trim().toUpperCase() : undefined,
+        rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : undefined,
+        numero_rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : undefined,
         birthDate: formattedBirthDate,
-        pis: pis.trim() ? pis.trim().toUpperCase() : undefined,
+        data_nascimento: formattedBirthDate,
+        pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : undefined,
+        numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : undefined,
         photoUrl: finalFotoUrl || undefined,
         foto_url: finalFotoUrl || undefined,
         avatar_url: finalFotoUrl || undefined,
@@ -1822,7 +1905,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         phone: phone.trim(),
         baseSalary: parsedSalary,
         salary: parsedSalary,
-        contractType: contractType.trim() || 'Registrado (CLT)',
+        contractType: regimeContratacao.trim() || 'Registrado (CLT)',
+        regime_contratacao: regimeContratacao.trim() || 'Registrado (CLT)',
         admissionDate: formattedAdmissionDate,
         terminationDate: formattedTerminationDate,
         active: isActive,
@@ -1887,9 +1971,70 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           const activeCompanyId = activeCompany?.id || activeUid;
           const safeCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
 
-          // Payload alinhado estritamente com as colunas físicas da tabela public.rh_funcionarios:
-          // 'local_recebimento', 'banco_chave_pix', 'agencia', 'conta_corrente', 'foto_url',
-          // 'aso_url', 'contrato_experiencia_url', 'cnh_url' e 'ficha_registro_url'
+          // 1. Mutação explícita na tabela public.funcionarios (conforme diretriz oficial)
+          try {
+            const funcionariosPayload: Record<string, any> = {
+              id: targetValidUuid,
+              user_id: activeUid,
+              company_id: safeCompanyUuid || activeCompanyId || activeUid,
+              nome: employeeData.name,
+              name: employeeData.name,
+              cargo: employeeData.role,
+              role: employeeData.role,
+              cpf: employeeData.cpf || null,
+              telefone: employeeData.phone || null,
+              phone: employeeData.phone || null,
+              ativo: employeeData.active,
+              salario: employeeData.salary || 0,
+              salary: employeeData.salary || 0,
+              data_admissao: employeeData.admissionDate || null,
+              admission_date: employeeData.admissionDate || null,
+              numero_rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : null,
+              data_nascimento: formatIsoDateOnly(dataNascimento) || null,
+              numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : null,
+              regime_contratacao: regimeContratacao.trim() || 'Registrado (CLT)',
+              updated_at: new Date().toISOString(),
+            };
+
+            const { id: _fId, ...fPatch } = funcionariosPayload;
+            let fUpdate = await supabase
+              .from('funcionarios')
+              .update(fPatch)
+              .eq('id', targetValidUuid)
+              .select('id');
+
+            if (fUpdate.error) {
+              const errStr = (fUpdate.error.message || '').toLowerCase();
+              if (errStr.includes('column') || errStr.includes('schema cache')) {
+                for (const k of Object.keys(fPatch)) {
+                  if (k !== 'id' && k !== 'nome' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                    delete fPatch[k];
+                  }
+                }
+                fUpdate = await supabase.from('funcionarios').update(fPatch).eq('id', targetValidUuid).select('id');
+              }
+            }
+
+            if (!fUpdate.data || fUpdate.data.length === 0) {
+              let fUpsert = await supabase.from('funcionarios').upsert(funcionariosPayload, { onConflict: 'id' });
+              if (fUpsert.error) {
+                const errStr = (fUpsert.error.message || '').toLowerCase();
+                if (errStr.includes('column') || errStr.includes('schema cache')) {
+                  const cleanedF = { ...funcionariosPayload };
+                  for (const k of Object.keys(cleanedF)) {
+                    if (k !== 'id' && k !== 'nome' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                      delete cleanedF[k];
+                    }
+                  }
+                  await supabase.from('funcionarios').upsert(cleanedF, { onConflict: 'id' });
+                }
+              }
+            }
+          } catch (fErr) {
+            console.warn('[RH Salvar] Aviso ao persistir em public.funcionarios:', fErr);
+          }
+
+          // 2. Payload alinhado estritamente com as colunas físicas da tabela public.rh_funcionarios:
           const directRow: Record<string, any> = {
             id: targetValidUuid,
             user_id: activeUid,
@@ -1904,6 +2049,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             driver_license: employeeData.cnhNumber || null,
             license_category: employeeData.cnhCategory || null,
             license_expiry: employeeData.cnhExpiration || null,
+            // 4 Campos solicitados
+            numero_rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : null,
+            data_nascimento: formatIsoDateOnly(dataNascimento) || null,
+            numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : null,
+            regime_contratacao: regimeContratacao.trim() || 'Registrado (CLT)',
             // 4 Campos da Seção Rosa
             local_recebimento: cleanLocalRecebimento || null,
             banco_chave_pix: cleanBancoChavePix || null,
@@ -1923,22 +2073,54 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             directRow.company_id = safeCompanyUuid;
           }
 
-          // 1. Tenta atualizar com PATCH com isolamento estrito por id e user_id
-          const { id: _ignoredId, ...patchBody } = directRow;
-          const updateRes = await supabase
+          // Atualização / Upsert na tabela public.rh_funcionarios com auto-recuperação
+          let patchBody = { ...directRow };
+          delete patchBody.id;
+
+          let updateRes = await supabase
             .from('rh_funcionarios')
             .update(patchBody)
             .eq('id', targetValidUuid)
             .eq('user_id', activeUid)
             .select('id');
 
+          if (updateRes.error) {
+            const errStr = (updateRes.error.message || '').toLowerCase();
+            if (errStr.includes('column') || errStr.includes('schema cache')) {
+              for (const k of Object.keys(patchBody)) {
+                if (k !== 'id' && k !== 'name' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                  delete patchBody[k];
+                }
+              }
+              updateRes = await supabase
+                .from('rh_funcionarios')
+                .update(patchBody)
+                .eq('id', targetValidUuid)
+                .eq('user_id', activeUid)
+                .select('id');
+            }
+          }
+
           if (!updateRes.error && Array.isArray(updateRes.data) && updateRes.data.length > 0) {
             console.info('✅ [RH Salvar] Registro atualizado (PATCH) em public.rh_funcionarios com user_id:', activeUid);
           } else {
-            // 2. Se o registro ainda não existia ou update retornou 0 linhas, executa UPSERT com user_id
-            const { error: upsertErr } = await supabase
+            let upsertBody = { ...directRow };
+            let { error: upsertErr } = await supabase
               .from('rh_funcionarios')
-              .upsert(directRow, { onConflict: 'id' });
+              .upsert(upsertBody, { onConflict: 'id' });
+
+            if (upsertErr) {
+              const errStr = (upsertErr.message || '').toLowerCase();
+              if (errStr.includes('column') || errStr.includes('schema cache')) {
+                for (const k of Object.keys(upsertBody)) {
+                  if (k !== 'id' && k !== 'name' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                    delete upsertBody[k];
+                  }
+                }
+                const retryUpsert = await supabase.from('rh_funcionarios').upsert(upsertBody, { onConflict: 'id' });
+                upsertErr = retryUpsert.error;
+              }
+            }
 
             if (upsertErr) {
               console.warn('[RH Salvar] Upsert direto falhou, acionando fallback com upsertRhFuncionario:', upsertErr.message);
@@ -2774,8 +2956,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        value={rg}
-                        onChange={(e) => setRg(e.target.value.toUpperCase())}
+                        value={rgNumero}
+                        onChange={(e) => setRgNumero(e.target.value)}
                         className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
@@ -2787,8 +2969,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       </label>
                       <input
                         type="date"
-                        value={birthDate}
-                        onChange={(e) => setBirthDate(e.target.value)}
+                        value={dataNascimento}
+                        onChange={(e) => setDataNascimento(e.target.value)}
                         className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb]"
                       />
                     </div>
@@ -2799,8 +2981,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       </label>
                       <input
                         type="text"
-                        value={pis}
-                        onChange={(e) => setPis(e.target.value.toUpperCase())}
+                        value={pisNumero}
+                        onChange={(e) => setPisNumero(e.target.value)}
                         className="w-full px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] uppercase"
                       />
                     </div>
@@ -3039,8 +3221,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   <div className="sm:col-span-2">
                     <ManageableDropdown
                       label="Regime de Contratação"
-                      value={contractType}
-                      onChange={setContractType}
+                      value={regimeContratacao}
+                      onChange={(e) => setRegimeContratacao(typeof e === 'string' ? e : e?.target?.value)}
                       options={contractTypeOptions}
                       onOptionsChange={handleUpdateContractTypeOptions}
                       placeholder=""

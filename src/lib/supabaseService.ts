@@ -2525,14 +2525,18 @@ export function mapRowToEmployee(row: any): Employee {
     role: roleStr,
     roles: Array.isArray(row.roles) ? row.roles : (roleStr ? [roleStr] : []),
     cpf: row.cpf ? String(row.cpf).trim() : '',
-    rg: row.rg || undefined,
-    birthDate: formatIsoDateOnly(row.birth_date || row.data_nascimento) || undefined,
-    pis: row.pis || undefined,
+    rg: row.numero_rg || row.rg || row.documento_rg || undefined,
+    numero_rg: row.numero_rg || row.rg || undefined,
+    birthDate: formatIsoDateOnly(row.data_nascimento || row.birth_date || row.nascimento) || undefined,
+    data_nascimento: formatIsoDateOnly(row.data_nascimento || row.birth_date || row.nascimento) || undefined,
+    pis: row.numero_pis || row.pis || row.pis_pasep || undefined,
+    numero_pis: row.numero_pis || row.pis || undefined,
     phone: row.phone || row.telefone || '',
     status: (row.status || 'ativo') as any,
     active: row.status !== 'inativo' && row.active !== false,
     registrationType: (row.registration_type || row.tipo_registro || 'Funcionário') as any,
-    contractType: contractType,
+    contractType: row.regime_contratacao || row.contract_type || row.regime || row.tipo_contrato || contractType,
+    regime_contratacao: row.regime_contratacao || row.contract_type || row.regime || undefined,
     salary: salaryNum,
     baseSalary: salaryNum,
     admissionDate: admissionDate,
@@ -2657,6 +2661,10 @@ export function sanitizeRhFuncionarioPayload(
   contrato_experiencia_url: string | null;
   cnh_url?: string | null;
   ficha_registro_url?: string | null;
+  numero_rg?: string | null;
+  data_nascimento?: string | null;
+  numero_pis?: string | null;
+  regime_contratacao?: string | null;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
   const validId = toValidUUID(employee.id);
@@ -2665,6 +2673,11 @@ export function sanitizeRhFuncionarioPayload(
   // Tratamento rigoroso de datas (DATE em PostgreSQL requer 'YYYY-MM-DD' ou null; strings vazias geram erro 22007)
   const admissionDateIso = formatIsoDateOnly(employee.admissionDate || employee.data_admissao);
   const licenseExpiryIso = formatIsoDateOnly(employee.cnhExpiration || employee.license_expiry || employee.cnh_vencimento);
+  const birthDateIso = formatIsoDateOnly(employee.data_nascimento || employee.birthDate || employee.birth_date);
+
+  const rgVal = employee.numero_rg || employee.rg || employee.documento_rg ? String(employee.numero_rg || employee.rg || employee.documento_rg).trim().toUpperCase() : null;
+  const pisVal = employee.numero_pis || employee.pis || employee.pis_pasep ? String(employee.numero_pis || employee.pis || employee.pis_pasep).trim().toUpperCase() : null;
+  const regimeVal = String(employee.regime_contratacao || employee.contractType || employee.contract_type || employee.regime || 'Registrado (CLT)').trim();
 
   // Tratamento numérico de salário (NUMERIC em PostgreSQL)
   const salaryNum = typeof employee.salary === 'number' && !isNaN(employee.salary)
@@ -2726,6 +2739,10 @@ export function sanitizeRhFuncionarioPayload(
     contrato_experiencia_url: contratoUrl ? contratoUrl.trim() : null,
     cnh_url: cnhUrl ? cnhUrl.trim() : null,
     ficha_registro_url: fichaUrl ? fichaUrl.trim() : null,
+    numero_rg: rgVal,
+    data_nascimento: birthDateIso || null,
+    numero_pis: pisVal,
+    regime_contratacao: regimeVal,
   };
 }
 
@@ -3089,6 +3106,25 @@ export async function fetchRhFuncionarios(
             if (rawSalary > 0) {
               matched.salary = rawSalary;
               matched.baseSalary = rawSalary;
+            }
+            if (r.numero_rg || r.rg) {
+              matched.rg = r.numero_rg || r.rg;
+              matched.numero_rg = r.numero_rg || r.rg;
+            }
+            if (r.data_nascimento || r.birth_date) {
+              const safeB = formatIsoDateOnly(r.data_nascimento || r.birth_date);
+              if (safeB) {
+                matched.birthDate = safeB;
+                matched.data_nascimento = safeB;
+              }
+            }
+            if (r.numero_pis || r.pis) {
+              matched.pis = r.numero_pis || r.pis;
+              matched.numero_pis = r.numero_pis || r.pis;
+            }
+            if (r.regime_contratacao || r.contract_type) {
+              matched.contractType = r.regime_contratacao || r.contract_type;
+              matched.regime_contratacao = r.regime_contratacao || r.contract_type;
             }
           } else if (mappedF && mappedF.name && mappedF.active !== false && String(mappedF.status).toLowerCase() !== 'excluido') {
             if (rawSalary > 0) {
