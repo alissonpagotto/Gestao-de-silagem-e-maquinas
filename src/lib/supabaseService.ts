@@ -10512,6 +10512,7 @@ export async function fetchCloudVacations(
 export const RH_FOLHAS_PAGAMENTO_BASE_COLUMNS = [
   'id',
   'user_id',
+  'company_id',
   'employee_id',
   'mes_referencia',
   'salario_base',
@@ -10545,6 +10546,7 @@ export async function ensureRhFolhasPagamentoSchemaColumns(): Promise<Set<string
  * Constrói a linha para a tabela public.rh_folhas_pagamento com rigorosa compatibilidade
  * de tipos numéricos (Float/Numeric) e mapeamento adaptativo para os padrões do banco:
  * - company_id: injeta o ID do assinante/empresa
+ * - user_id: injeta o ID do usuário logado autenticado
  * - funcionario_id: ID canônico do colaborador (com fallback para employee_id)
  * - competencia: string formatada (ex: "09/2026") com fallback para mes_referencia
  * - salario_base, proventos, inss, deducoes / vales_descontos, liquido_a_pagar: convertidos para float
@@ -10556,7 +10558,7 @@ export function buildRhFolhaPagamentoRow(
   companyId?: string,
   schemaCols?: Set<string> | null
 ): Record<string, any> {
-  const cId = companyId || getActiveCompanyId() || userId;
+  const cId = p.companyId || companyId || getActiveCompanyId() || userId;
   const canonicalId = toValidUUID(p.id);
   const canonicalEmpId = toValidUUID(p.employeeId);
 
@@ -10593,6 +10595,7 @@ export function buildRhFolhaPagamentoRow(
   const fullCandidate: Record<string, any> = {
     id: canonicalId,
     user_id: userId,
+    company_id: cId,
     status: p.status || 'pendente',
     created_at: p.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -10746,15 +10749,41 @@ export async function upsertRhFolhasPagamento(
     const schemaCols = await ensureRhFolhasPagamentoSchemaColumns();
     let rows = list.map(p => buildRhFolhaPagamentoRow(p, activeUid!, cId, schemaCols));
 
-    // Executa upsert na tabela rh_folhas_pagamento com loop de auto-recuperação de colunas caso haja erro 400
+    // Executa salvamento na tabela rh_folhas_pagamento com loop de auto-recuperação de colunas caso haja erro 400
     for (let attempt = 0; attempt < 6; attempt++) {
+      // Tenta upsert na tabela rh_folhas_pagamento
       const { data, error } = await supabase
         .from('rh_folhas_pagamento')
-        .upsert(rows, { onConflict: 'id' })
-        .select('id');
+        .upsert(rows, { onConflict: 'id' });
 
       if (!error) {
         return true;
+      }
+
+      // Tratamento cirúrgico de violação de RLS (Código 42501)
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        console.error('[Supabase Folha RLS 42501 Diagnostic] Violação da política de Row-Level Security (RLS) na tabela rh_folhas_pagamento:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          company_id: cId,
+          user_id: activeUid,
+          sentColumns: rows.length > 0 ? Object.keys(rows[0]) : [],
+          rowsCount: rows.length,
+          fullError: error,
+          action: 'Execute o script SQL de políticas RLS no Supabase Dashboard (SQL Editor).'
+        });
+
+        // Tentativa alternativa com .insert() direto para casos onde apenas a política de INSERT está configurada
+        const { error: insertErr } = await supabase
+          .from('rh_folhas_pagamento')
+          .insert(rows);
+
+        if (!insertErr) {
+          console.info('✅ [Supabase Folha] Linhas persistidas com sucesso via .insert() direto.');
+          return true;
+        }
       }
 
       console.error('[Supabase Folha 400 Diagnostic - rh_folhas_pagamento] Resposta exata do erro retornada pelo Supabase:', {
@@ -10803,7 +10832,7 @@ export async function upsertRhFolhasPagamento(
         if (parts.length >= 2 && parts[0].length === 4) formattedCompetencia = `${parts[1]}/${parts[0]}`;
       }
 
-      return {
+      const fallbackItem: Record<string, any> = {
         id: canonicalId,
         user_id: activeUid,
         employee_id: canonicalEmpId,
@@ -10814,22 +10843,42 @@ export async function upsertRhFolhasPagamento(
         valor_liquido: netFloat,
         status: p.status || 'pendente',
       };
+
+      // Injeta company_id no fallback para atender à política de segurança RLS caso a coluna exista
+      if (schemaCols.has('company_id')) {
+        fallbackItem.company_id = cId;
+      }
+
+      return fallbackItem;
     });
 
     const fallbackRes = await supabase
       .from('rh_folhas_pagamento')
       .upsert(minimalFallback, { onConflict: 'id' });
 
-    if (fallbackRes.error) {
-      console.error('[Supabase Folha Minimal Fallback Error] Erro final ao persistir folha:', {
-        code: fallbackRes.error.code,
-        message: fallbackRes.error.message,
-        details: fallbackRes.error.details,
-        hint: fallbackRes.error.hint,
-        fullError: fallbackRes.error,
-      });
-      return false;
+    if (!fallbackRes.error) {
+      return true;
     }
+
+    // Se o upsert falhar por RLS (42501), tenta insert direto
+    if (fallbackRes.error.code === '42501') {
+      const directInsertRes = await supabase
+        .from('rh_folhas_pagamento')
+        .insert(minimalFallback);
+      if (!directInsertRes.error) {
+        console.info('✅ [Supabase Folha] Fallback persistido com sucesso via .insert() direto.');
+        return true;
+      }
+    }
+
+    console.error('[Supabase Folha Minimal Fallback Error] Erro final ao persistir folha:', {
+      code: fallbackRes.error.code,
+      message: fallbackRes.error.message,
+      details: fallbackRes.error.details,
+      hint: fallbackRes.error.hint,
+      fullError: fallbackRes.error,
+    });
+    return false;
 
     return true;
   } catch (err: any) {

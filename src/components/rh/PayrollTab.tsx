@@ -273,9 +273,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   onViewPayslip,
 }) => {
   const { confirm } = useConfirm();
-  const { currentUser } = useAuth();
-  const activeUid = currentUser?.id;
+  const { currentUser, activeCompanyId } = useAuth();
+  const activeUid = currentUser?.id || currentUser?.uid;
   const companyProfile = getStoredCompanyProfile();
+  const effectiveCompanyId = activeCompanyId || companyProfile?.id || getActiveCompanyId() || activeUid || '';
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sincronização em tempo real com ordens de serviço de silagem
@@ -419,7 +420,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             if (payload.new) {
               const rowUid = String(payload.new.user_id || '').trim();
               const rowCid = String(payload.new.company_id || '').trim();
-              if (rowUid && rowUid !== uid && rowCid && rowCid !== uid && rowCid !== companyProfile?.id) {
+              if (rowUid && rowUid !== uid && rowCid && rowCid !== uid && rowCid !== companyProfile?.id && rowCid !== activeCompanyId) {
                 return;
               }
             }
@@ -811,6 +812,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     if (editingPayroll) {
       recordToSave = {
         ...editingPayroll,
+        companyId: effectiveCompanyId,
+        userId: activeUid,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -830,6 +833,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     } else {
       recordToSave = {
         id: `pay_${Date.now()}_${emp.id}`,
+        companyId: effectiveCompanyId,
+        userId: activeUid,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -941,6 +946,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       return {
         id: `pay_${Date.now()}_${emp.id}`,
+        companyId: effectiveCompanyId,
+        userId: activeUid,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -1003,6 +1010,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         const nextStatus = p.status === 'pago' ? 'pendente' : 'pago';
         updatedItem = {
           ...p,
+          companyId: effectiveCompanyId || p.companyId,
+          userId: activeUid || p.userId,
           status: nextStatus,
           paymentDate: nextStatus === 'pago' ? new Date().toISOString().split('T')[0] : undefined,
         };
@@ -1237,7 +1246,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           } catch (_) {}
         }
         if (uid) {
-          upsertRhFolhasPagamento(integratedItem, uid).catch(() => {});
+          upsertRhFolhasPagamento(integratedItem, uid, effectiveCompanyId).catch(() => {});
         }
       }
 

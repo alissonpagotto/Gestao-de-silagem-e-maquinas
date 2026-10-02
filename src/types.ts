@@ -1106,6 +1106,8 @@ export interface BrokerSettlement {
 
 export interface PayrollRecord {
   id: string;
+  companyId?: string;
+  userId?: string;
   employeeId: string;
   employeeName: string;
   employeeRole: string;

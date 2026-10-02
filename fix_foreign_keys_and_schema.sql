@@ -92,11 +92,23 @@ ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS fuel_level N
 ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS accumulated_cost NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE IF EXISTS public.gestao_frotas ADD COLUMN IF NOT EXISTS tank_capacity NUMERIC DEFAULT 0;
 
--- 3. RH Funcionários
+-- 3. RH Funcionários e Folhas
 ALTER TABLE IF EXISTS public.rh_funcionarios ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE IF EXISTS public.rh_funcionarios ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE IF EXISTS public.rh_funcionarios ADD COLUMN IF NOT EXISTS registration_type TEXT DEFAULT 'Funcionário';
 ALTER TABLE IF EXISTS public.rh_funcionarios ADD COLUMN IF NOT EXISTS salary NUMERIC(15,2) DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS funcionario_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS competencia TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS mes_referencia TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS salario_base NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS proventos NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS inss NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS deducoes NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS liquido_a_pagar NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payload JSONB DEFAULT '{}'::jsonb;
 
 -- 4. Contas a Pagar (Financeiro)
 ALTER TABLE IF EXISTS public.contas_a_pagar ADD COLUMN IF NOT EXISTS company_id TEXT;
@@ -249,6 +261,7 @@ ALTER TABLE public.agendamentos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notas_fiscais ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_ferias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_rescisoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financeiro_contas_bancarias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cadastro_fornecedores ENABLE ROW LEVEL SECURITY;
@@ -257,7 +270,7 @@ ALTER TABLE public.frotas_manutencoes ENABLE ROW LEVEL SECURITY;
 DO $$
 DECLARE
     tbl text;
-    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes', 'financeiro_contas_bancarias', 'cadastro_fornecedores', 'frotas_manutencoes'];
+    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'rh_folhas_pagamento', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes', 'financeiro_contas_bancarias', 'cadastro_fornecedores', 'frotas_manutencoes'];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
         EXECUTE 'DROP POLICY IF EXISTS "policy_all_' || tbl || '" ON public.' || quote_ident(tbl);

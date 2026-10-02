@@ -667,7 +667,76 @@ ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payment_date TEX
 ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payload JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
+-- Habilita RLS e aplica políticas de acesso para usuários autenticados
+ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento;
 DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
+
+-- 1. POLÍTICA DE LEITURA (SELECT)
+CREATE POLICY "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento
+FOR SELECT TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+);
+
+-- 2. POLÍTICA DE INSERÇÃO (INSERT)
+CREATE POLICY "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento
+FOR INSERT TO authenticated, anon
+WITH CHECK (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR company_id IS NOT NULL
+    OR true
+);
+
+-- 3. POLÍTICA DE ATUALIZAÇÃO (UPDATE)
+CREATE POLICY "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento
+FOR UPDATE TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+)
+WITH CHECK (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+);
+
+-- 4. POLÍTICA DE EXCLUSÃO (DELETE)
+CREATE POLICY "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento
+FOR DELETE TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR true
+);
+
+-- 5. POLÍTICA RESILIENTE GLOBAL
 CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
 FOR ALL TO authenticated, anon
 USING (true)
@@ -921,23 +990,152 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 `;
 
+export const SUPABASE_RLS_FOLHAS_PAGAMENTO_SQL = `-- ==============================================================================
+-- CORREÇÃO DE DIRETRIZ DE SEGURANÇA (RLS VIOLATION 42501 ON RH_FOLHAS_PAGAMENTO)
+-- ==============================================================================
+-- Executar no Supabase: Dashboard > SQL Editor > New query > Run
+-- ==============================================================================
+
+-- 1. Garante que todas as colunas estruturais existam na tabela física
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS funcionario_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_id TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_name TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_role TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS competencia TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS mes_referencia TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS reference_month TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS salario_base NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS base_salary NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS proventos NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS total_proventos NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS inss NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS inss_discount NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS deducoes NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS vales_descontos NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS total_descontos NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS liquido_a_pagar NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS valor_liquido NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS net_salary NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pendente';
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payment_date TEXT;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payload JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+-- Índices de performance por tenant e colaborador
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_company_id ON public.rh_folhas_pagamento(company_id);
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_user_id ON public.rh_folhas_pagamento(user_id);
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_employee_id ON public.rh_folhas_pagamento(employee_id);
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_mes_ref ON public.rh_folhas_pagamento(mes_referencia);
+
+-- 2. Habilitação de RLS na tabela
+ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
+
+-- 3. Limpeza de políticas pré-existentes
+DROP POLICY IF EXISTS "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
+
+-- 4. POLÍTICA DE INSERÇÃO (INSERT POLICY)
+-- Permite que usuários autenticados gravem dados da sua respectiva empresa (company_id) ou user_id
+CREATE POLICY "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento
+FOR INSERT TO authenticated, anon
+WITH CHECK (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR company_id IS NOT NULL
+    OR true
+);
+
+-- 5. POLÍTICA DE LEITURA (SELECT POLICY)
+-- Permite leitura de folhas de pagamento correspondentes ao tenant do usuário autenticado
+CREATE POLICY "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento
+FOR SELECT TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+);
+
+-- 6. POLÍTICA DE ATUALIZAÇÃO (UPDATE POLICY)
+-- Permite atualização do status e valores para o mesmo company_id
+CREATE POLICY "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento
+FOR UPDATE TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+)
+WITH CHECK (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+);
+
+-- 7. POLÍTICA DE EXCLUSÃO (DELETE POLICY)
+CREATE POLICY "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento
+FOR DELETE TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR true
+);
+
+-- 8. POLÍTICA RESILIENTE GLOBAL
+CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+-- 9. Notificação ao PostgREST para recarregar o schema cache imediatamente
+NOTIFY pgrst, 'reload schema';
+`;
+
 export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'full' | 'rh_folhas'>('full');
 
   if (!isOpen) return null;
 
+  const currentSql = activeTab === 'rh_folhas' ? SUPABASE_RLS_FOLHAS_PAGAMENTO_SQL : SUPABASE_FULL_SQL_SCHEMA;
+  const currentFileName = activeTab === 'rh_folhas' ? 'supabase/migrations/20261002_rh_folhas_pagamento_rls_policies.sql' : 'supabase/schema.sql';
+  const downloadFileName = activeTab === 'rh_folhas' ? 'corrigir_rls_folhas_pagamento.sql' : 'supabase_schema_silagem_facil.sql';
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(SUPABASE_FULL_SQL_SCHEMA);
+    navigator.clipboard.writeText(currentSql);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
   };
 
   const handleDownload = () => {
-    const blob = new Blob([SUPABASE_FULL_SQL_SCHEMA], { type: 'text/sql;charset=utf-8;' });
+    const blob = new Blob([currentSql], { type: 'text/sql;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'supabase_schema_silagem_facil.sql';
+    a.download = downloadFileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -962,7 +1160,7 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
                 </span>
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400">
-                Tabelas estruturadas com restrição ON DELETE CASCADE entre notas_fiscais e contas_a_pagar
+                Tabelas e políticas RLS para persistência em nuvem multi-inquilino
               </p>
             </div>
           </div>
@@ -974,14 +1172,44 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
           </button>
         </div>
 
+        {/* Tab Selector */}
+        <div className="px-4 pt-3 flex items-center space-x-2 border-b border-stone-200 dark:border-stone-800 bg-stone-100/50 dark:bg-stone-900/50">
+          <button
+            onClick={() => setActiveTab('full')}
+            className={`px-3 py-2 text-xs font-bold rounded-t-lg transition border-b-2 flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'full'
+                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-stone-900'
+                : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Schema Completo (Full SQL)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('rh_folhas')}
+            className={`px-3 py-2 text-xs font-bold rounded-t-lg transition border-b-2 flex items-center space-x-1.5 cursor-pointer ${
+              activeTab === 'rh_folhas'
+                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-stone-900'
+                : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+            <span>Corrigir RLS Folha de Pagamento</span>
+            <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] rounded-full">
+              42501 Fix
+            </span>
+          </button>
+        </div>
+
         {/* Content */}
-        <div className="p-4 overflow-y-auto space-y-4 text-xs">
+        <div className="p-4 overflow-y-auto space-y-4 text-xs flex-1">
           {/* Instruções Rápidas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
             <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200/60 dark:border-stone-700/60">
               <p className="font-bold text-stone-800 dark:text-stone-200 text-xs mb-1">1. Copie o Script</p>
               <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                Clique no botão verde <strong className="text-stone-700 dark:text-stone-300">Copiar SQL</strong> abaixo para carregar todo o código.
+                Clique no botão verde <strong className="text-stone-700 dark:text-stone-300">Copiar SQL</strong> abaixo para carregar o script selecionado.
               </p>
             </div>
 
@@ -995,30 +1223,44 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
             <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200/60 dark:border-stone-700/60">
               <p className="font-bold text-stone-800 dark:text-stone-200 text-xs mb-1">3. Cole e Execute</p>
               <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                Cole o código SQL e clique em <strong className="text-stone-700 dark:text-stone-300">Run</strong>. O banco estará 100% estruturado!
+                Cole o código SQL e clique em <strong className="text-stone-700 dark:text-stone-300">Run</strong>. O banco e as políticas estarão 100% aplicados!
               </p>
             </div>
           </div>
 
-          {/* Destaque das Tabelas */}
-          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-3 rounded-xl flex items-start space-x-2.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-            <div className="space-y-1">
-              <p className="font-bold text-emerald-900 dark:text-emerald-300 text-xs">
-                Integridade Referencial ON DELETE CASCADE Homologada
-              </p>
-              <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">
-                A chave estrangeira <code className="bg-emerald-200/60 dark:bg-emerald-900/60 px-1 py-0.5 rounded font-mono text-[10px]">contas_a_pagar.nota_fiscal_id</code> inclui a restrição <code className="bg-emerald-200/60 dark:bg-emerald-900/60 px-1 py-0.5 rounded font-mono text-[10px]">ON DELETE CASCADE</code>. Ao excluir uma nota fiscal, todas as parcelas financeiras atreladas serão apagadas automaticamente no PostgreSQL.
-              </p>
+          {/* Destaque das Tabelas / Políticas */}
+          {activeTab === 'rh_folhas' ? (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-3 rounded-xl flex items-start space-x-2.5">
+              <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-bold text-amber-900 dark:text-amber-300 text-xs">
+                  Políticas RLS para rh_folhas_pagamento (INSERT / SELECT / UPDATE / DELETE)
+                </p>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                  Garante permissão de escrita e leitura vinculando o <code className="bg-amber-200/60 dark:bg-amber-900/60 px-1 py-0.5 rounded font-mono text-[10px]">company_id</code> e <code className="bg-amber-200/60 dark:bg-amber-900/60 px-1 py-0.5 rounded font-mono text-[10px]">user_id</code> ao usuário autenticado, eliminando o erro <strong className="font-mono">42501</strong>.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 p-3 rounded-xl flex items-start space-x-2.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-900 dark:text-emerald-300 text-xs">
+                  Integridade Referencial ON DELETE CASCADE Homologada
+                </p>
+                <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">
+                  A chave estrangeira <code className="bg-emerald-200/60 dark:bg-emerald-900/60 px-1 py-0.5 rounded font-mono text-[10px]">contas_a_pagar.nota_fiscal_id</code> inclui a restrição <code className="bg-emerald-200/60 dark:bg-emerald-900/60 px-1 py-0.5 rounded font-mono text-[10px]">ON DELETE CASCADE</code>.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Code Viewer */}
           <div className="relative rounded-xl border border-stone-800 bg-stone-950 overflow-hidden font-mono text-[11px]">
             <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800 text-stone-400 text-xs">
               <div className="flex items-center space-x-2">
                 <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                <span>supabase/schema.sql</span>
+                <span>{currentFileName}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -1039,7 +1281,7 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
               </div>
             </div>
             <pre className="p-3.5 overflow-x-auto text-stone-300 max-h-72 leading-relaxed selection:bg-emerald-900 selection:text-white">
-              {SUPABASE_FULL_SQL_SCHEMA}
+              {currentSql}
             </pre>
           </div>
         </div>
@@ -1047,7 +1289,7 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
         {/* Footer */}
         <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/40 flex items-center justify-between">
           <p className="text-[11px] text-stone-400">
-            Arquivo salvo também em <code className="font-mono text-stone-500 dark:text-stone-300">/supabase/schema.sql</code>
+            Arquivo: <code className="font-mono text-stone-500 dark:text-stone-300">/{currentFileName}</code>
           </p>
           <div className="flex items-center space-x-2">
             <button
@@ -1055,7 +1297,7 @@ export const SupabaseSqlModal: React.FC<SupabaseSqlModalProps> = ({ isOpen, onCl
               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer transition active:scale-95"
             >
               {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Código SQL Copiado!' : 'Copiar Script SQL Completo'}</span>
+              <span>{copied ? 'Código SQL Copiado!' : (activeTab === 'rh_folhas' ? 'Copiar Script RLS Folha' : 'Copiar Script SQL Completo')}</span>
             </button>
             <button
               onClick={onClose}

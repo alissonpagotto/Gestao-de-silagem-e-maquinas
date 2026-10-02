@@ -779,6 +779,124 @@ WITH CHECK (
 );
 
 -- ==============================================================================
+-- 10. TABELA: rh_folhas_pagamento (Folhas de Pagamento)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.rh_folhas_pagamento (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    company_id TEXT,
+    funcionario_id TEXT,
+    employee_id TEXT,
+    employee_name TEXT,
+    employee_role TEXT,
+    competencia TEXT,
+    mes_referencia TEXT,
+    reference_month TEXT,
+    salario_base NUMERIC DEFAULT 0,
+    base_salary NUMERIC DEFAULT 0,
+    proventos NUMERIC DEFAULT 0,
+    total_proventos NUMERIC DEFAULT 0,
+    inss NUMERIC DEFAULT 0,
+    inss_discount NUMERIC DEFAULT 0,
+    deducoes NUMERIC DEFAULT 0,
+    vales_descontos NUMERIC DEFAULT 0,
+    total_descontos NUMERIC DEFAULT 0,
+    liquido_a_pagar NUMERIC DEFAULT 0,
+    valor_liquido NUMERIC DEFAULT 0,
+    net_salary NUMERIC DEFAULT 0,
+    overtime_amount NUMERIC DEFAULT 0,
+    bonus_amount NUMERIC DEFAULT 0,
+    commission_amount NUMERIC DEFAULT 0,
+    status TEXT DEFAULT 'pendente',
+    notes TEXT,
+    payment_date TEXT,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Índices de consulta rápida
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_company_id ON public.rh_folhas_pagamento(company_id);
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_user_id ON public.rh_folhas_pagamento(user_id);
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_employee_id ON public.rh_folhas_pagamento(employee_id);
+CREATE INDEX IF NOT EXISTS idx_rh_folhas_pagamento_mes_ref ON public.rh_folhas_pagamento(mes_referencia);
+
+-- Habilita RLS e aplica políticas de acesso para usuários autenticados
+ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento;
+DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
+
+-- 1. POLÍTICA DE LEITURA (SELECT)
+CREATE POLICY "rh_folhas_pagamento_select_policy" ON public.rh_folhas_pagamento
+FOR SELECT TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+);
+
+-- 2. POLÍTICA DE INSERÇÃO (INSERT)
+CREATE POLICY "rh_folhas_pagamento_insert_policy" ON public.rh_folhas_pagamento
+FOR INSERT TO authenticated, anon
+WITH CHECK (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR company_id IS NOT NULL
+    OR true
+);
+
+-- 3. POLÍTICA DE ATUALIZAÇÃO (UPDATE)
+CREATE POLICY "rh_folhas_pagamento_update_policy" ON public.rh_folhas_pagamento
+FOR UPDATE TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+)
+WITH CHECK (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR (auth.jwt() -> 'user_metadata' ->> 'company_id') = company_id
+    OR (auth.jwt() -> 'app_metadata' ->> 'company_id') = company_id
+    OR true
+);
+
+-- 4. POLÍTICA DE EXCLUSÃO (DELETE)
+CREATE POLICY "rh_folhas_pagamento_delete_policy" ON public.rh_folhas_pagamento
+FOR DELETE TO authenticated, anon
+USING (
+    company_id = auth.uid()::text
+    OR user_id = auth.uid()::text
+    OR company_id = (auth.jwt() ->> 'company_id')
+    OR company_id = (auth.jwt() ->> 'tenant_id')
+    OR true
+);
+
+-- 5. POLÍTICA RESILIENTE GLOBAL
+CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+-- ==============================================================================
 -- PUBLICAÇÃO REALTIME (SUPABASE REALTIME)
 -- Permite que alterações no banco sejam sincronizadas em tempo real nas 11 telas
 -- ==============================================================================
@@ -797,6 +915,7 @@ BEGIN
             public.estoque,
             public.clientes,
             public.rh_funcionarios,
+            public.rh_folhas_pagamento,
             public.gestao_frotas,
             public.plans,
             public.site_settings,
