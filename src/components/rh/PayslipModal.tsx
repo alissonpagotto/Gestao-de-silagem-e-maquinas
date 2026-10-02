@@ -258,7 +258,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   };
 
   const totalEarnings = payroll.baseSalary + (payroll.overtimeAmount || 0) + (payroll.bonusAmount || 0) + (payroll.commissionAmount || 0);
-  const totalDiscounts = payroll.inssDiscount + payroll.advancesDiscount + payroll.otherDiscounts;
+  const activeSindical = (payroll as any).sindicalEnabled !== false ? ((payroll as any).sindicalDiscount || (payroll as any).taxaSindical || 0) : 0;
+  const totalDiscounts = (payroll.inssDiscount || 0) + (payroll.irrfDiscount || 0) + activeSindical + (payroll.advancesDiscount || 0) + (payroll.otherDiscounts || 0);
 
   // Verifica se há qualquer lançamento detalhado ou observação para exibir a seção de conferência
   const hasDetailedBreakdown = 
@@ -529,6 +530,34 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
                       {formatCurrencyBRL(payroll.inssDiscount)}
+                    </td>
+                  </tr>
+                )}
+
+                {(payroll.irrfDiscount || 0) > 0 && (
+                  <tr>
+                    <td className="py-2 px-3 text-stone-400">102</td>
+                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
+                      Retenção Imposto de Renda (IRRF)
+                    </td>
+                    <td className="py-2 px-3 text-center text-stone-500">Oficial</td>
+                    <td className="py-2 px-3 text-right text-stone-400">-</td>
+                    <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
+                      {formatCurrencyBRL(payroll.irrfDiscount || 0)}
+                    </td>
+                  </tr>
+                )}
+
+                {activeSindical > 0 && (
+                  <tr>
+                    <td className="py-2 px-3 text-stone-400">103</td>
+                    <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
+                      Taxa Assistencial Sindicato
+                    </td>
+                    <td className="py-2 px-3 text-center text-stone-500">Convenção</td>
+                    <td className="py-2 px-3 text-right text-stone-400">-</td>
+                    <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
+                      {formatCurrencyBRL(activeSindical)}
                     </td>
                   </tr>
                 )}

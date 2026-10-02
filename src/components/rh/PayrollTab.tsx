@@ -546,6 +546,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [inssEnabled, setInssEnabled] = useState<boolean>(true);
   const [irrfDiscount, setIrrfDiscount] = useState<number>(0);
   const [irrfEnabled, setIrrfEnabled] = useState<boolean>(false);
+  const [sindicalDiscount, setSindicalDiscount] = useState<number>(25.23);
+  const [sindicalEnabled, setSindicalEnabled] = useState<boolean>(true);
+  const [lastCustomSindical, setLastCustomSindical] = useState<number>(25.23);
   const [admissionInfo, setAdmissionInfo] = useState<AdmissionProportionality | null>(null);
   const [useProportionalSalary, setUseProportionalSalary] = useState<boolean>(false);
   const [advancesDiscount, setAdvancesDiscount] = useState<number>(0);
@@ -644,10 +647,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     }
     const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
     const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
+    const activeSindical = sindicalEnabled ? (sindicalDiscount || 0) : 0;
     const currentGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
     const currentNet = Math.max(
       0,
-      currentGross - (activeInss + activeIrrf + advancesDiscount + otherDiscounts)
+      currentGross - (activeInss + activeIrrf + activeSindical + advancesDiscount + otherDiscounts)
     );
     const draft: PayrollRecord = {
       id: editingPayroll?.id || `pay_draft_${Date.now()}`,
@@ -664,6 +668,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       inssEnabled,
       irrfDiscount: activeIrrf,
       irrfEnabled,
+      sindicalDiscount: activeSindical,
+      sindicalEnabled,
+      taxaSindical: activeSindical,
       advancesDiscount: advancesDiscount,
       otherDiscounts: otherDiscounts,
       netSalary: currentNet,
@@ -697,7 +704,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const totalBase = monthPayrolls.reduce((sum, p) => sum + (p.baseSalary || 0), 0);
   const totalCommissions = monthPayrolls.reduce((sum, p) => sum + (p.commissionAmount || 0), 0);
   const totalOvertimeBonus = monthPayrolls.reduce((sum, p) => sum + (p.overtimeAmount || 0) + (p.bonusAmount || 0) + (p.commissionAmount || 0), 0);
-  const totalDiscounts = monthPayrolls.reduce((sum, p) => sum + (p.inssDiscount || 0) + (p.advancesDiscount || 0) + (p.otherDiscounts || 0), 0);
+  const totalDiscounts = monthPayrolls.reduce(
+    (sum, p) => sum + (p.inssDiscount || 0) + (p.irrfDiscount || 0) + (p.sindicalDiscount || (p as any).taxaSindical || 0) + (p.advancesDiscount || 0) + (p.otherDiscounts || 0),
+    0
+  );
   const totalNet = monthPayrolls.reduce((sum, p) => sum + (p.netSalary || 0), 0);
 
   // Navegação de Mês
@@ -851,7 +861,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     }
 
     setDeductionItems(prev => {
-      const manuals = prev.filter(it => it.isManual);
+      const manuals = prev.filter(
+        it => it.isManual && 
+              !it.description?.toLowerCase().includes('sindicat') && 
+              !it.description?.toLowerCase().includes('taxa assist') &&
+              !it.type?.toLowerCase().includes('sindicat')
+      );
       return [...generatedDeductItems, ...manuals];
     });
 
@@ -886,7 +901,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       return combined;
     });
 
-    // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS e IRRF pela tabela progressiva
+    // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS, IRRF e Taxa Assistencial Sindicato
     const isClt = isCltContract(emp);
     const grossBase = activeSalary + (overtimeAmount || 0) + (bonusAmount || 0) + commData.total;
     if (isClt) {
@@ -898,11 +913,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const progressiveIrrf = calculateOfficialIrrf(grossBase, progressiveInss);
       setIrrfDiscount(progressiveIrrf);
       setIrrfEnabled(progressiveIrrf > 0);
+
+      // Taxa Assistencial Sindicato (Padrão sugerido por convenção coletiva: R$ 25,23)
+      setSindicalEnabled(true);
+      const defaultSindical = lastCustomSindical > 0 ? lastCustomSindical : 25.23;
+      setSindicalDiscount(defaultSindical);
+      setLastCustomSindical(defaultSindical);
     } else {
       setInssEnabled(false);
       setInssDiscount(0);
       setIrrfEnabled(false);
       setIrrfDiscount(0);
+      setSindicalEnabled(false);
+      setSindicalDiscount(0);
     }
   };
 
@@ -954,6 +977,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const irrfVal = payroll.irrfDiscount || 0;
       setIrrfDiscount(irrfVal);
       setIrrfEnabled(payroll.irrfEnabled !== undefined ? Boolean(payroll.irrfEnabled) : (irrfVal > 0));
+
+      // Taxa Assistencial Sindicato
+      const savedSindical = payroll.sindicalDiscount !== undefined 
+        ? payroll.sindicalDiscount 
+        : ((payroll as any).taxaSindical !== undefined ? (payroll as any).taxaSindical : ((payroll as any).desconto_sindical ?? (payroll as any).payload?.sindicalDiscount ?? (payroll as any).payload?.taxaSindical));
+      const savedSindicalEnabled = payroll.sindicalEnabled !== undefined 
+        ? Boolean(payroll.sindicalEnabled) 
+        : ((payroll as any).payload?.sindicalEnabled !== undefined 
+            ? Boolean((payroll as any).payload.sindicalEnabled) 
+            : (savedSindical !== undefined ? Number(savedSindical) > 0 : isClt));
+
+      let finalSindicalAmount = savedSindical !== undefined ? Number(savedSindical) : (isClt ? 25.23 : 0);
+      let finalSindicalEnabled = savedSindicalEnabled;
 
       setAdvancesDiscount(payroll.advancesDiscount || 0);
       setOtherDiscounts(payroll.otherDiscounts || 0);
@@ -1047,6 +1083,28 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           });
         });
       }
+
+      // Se houver desconto sindical na lista de deduções vindo de dados legados, extrai o valor para o campo fixo e purga da lista
+      const legacySindicalItem = loadedDeductItems.find(
+        it => it.description?.toLowerCase().includes('sindicat') || 
+              it.description?.toLowerCase().includes('taxa assist') || 
+              it.type?.toLowerCase().includes('sindicat')
+      );
+      if (legacySindicalItem && (!savedSindical || Number(savedSindical) === 0)) {
+        finalSindicalAmount = Number(legacySindicalItem.amount) || 25.23;
+        finalSindicalEnabled = true;
+      }
+
+      // Limpa estritamente a lista de deduções para que NUNCA exiba itens de taxa sindical
+      loadedDeductItems = loadedDeductItems.filter(
+        it => !it.description?.toLowerCase().includes('sindicat') && 
+              !it.description?.toLowerCase().includes('taxa assist') && 
+              !it.type?.toLowerCase().includes('sindicat')
+      );
+
+      setSindicalEnabled(finalSindicalEnabled);
+      setSindicalDiscount(finalSindicalEnabled ? (finalSindicalAmount > 0 ? finalSindicalAmount : 25.23) : 0);
+      setLastCustomSindical(finalSindicalAmount > 0 ? finalSindicalAmount : 25.23);
       setDeductionItems(loadedDeductItems);
     } else {
       setEditingPayroll(null);
@@ -1067,6 +1125,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         setInssEnabled(true);
         setIrrfDiscount(0);
         setIrrfEnabled(false);
+        setSindicalDiscount(25.23);
+        setSindicalEnabled(true);
+        setLastCustomSindical(25.23);
         setAdvancesDiscount(0);
         setCommissionAmount(0);
         setOtherDiscounts(0);
@@ -1135,6 +1196,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const handleSaveDeductionItem = () => {
     if (!newDeductType || newDeductAmount <= 0) return;
 
+    // Se o usuário tentar incluir taxa sindical manualmente no extrato inferior,
+    // direciona para o campo fixo de Taxa Assistencial Sindicato no topo
+    if (newDeductDesc.toLowerCase().includes('sindicat') || newDeductDesc.toLowerCase().includes('taxa assist') || newDeductType.toLowerCase().includes('sindicat')) {
+      setSindicalEnabled(true);
+      setSindicalDiscount(newDeductAmount);
+      setLastCustomSindical(newDeductAmount);
+      setEditingDeductItemId(null);
+      setNewDeductDesc('');
+      setNewDeductDate('');
+      setNewDeductAmount(0);
+      setIsAddingDeduction(false);
+      return;
+    }
+
     if (editingDeductItemId) {
       setDeductionItems(prev => prev.map(it => {
         if (it.id === editingDeductItemId) {
@@ -1188,18 +1263,24 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const totalCommissions = commissionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
     const activeCommission = commissionItems.length > 0 ? totalCommissions : (commissionAmount || 0);
 
-    const totalDeductionsList = deductionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
-    const totalAdv = deductionItems.length > 0
-      ? deductionItems.filter(it => it.type === 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
+    const cleanDeductionsList = deductionItems.filter(
+      it => !it.description?.toLowerCase().includes('sindicat') && 
+            !it.description?.toLowerCase().includes('taxa assist') && 
+            !it.type?.toLowerCase().includes('sindicat')
+    );
+    const totalDeductionsList = cleanDeductionsList.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+    const totalAdv = cleanDeductionsList.length > 0
+      ? cleanDeductionsList.filter(it => it.type === 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
       : (advancesDiscount || 0);
-    const totalOth = deductionItems.length > 0
-      ? deductionItems.filter(it => it.type !== 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
+    const totalOth = cleanDeductionsList.length > 0
+      ? cleanDeductionsList.filter(it => it.type !== 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
       : (otherDiscounts || 0);
 
     const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
     const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
+    const activeSindical = sindicalEnabled ? (sindicalDiscount || 0) : 0;
     const totalGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + activeCommission;
-    const totalDeductions = activeInss + activeIrrf + (deductionItems.length > 0 ? totalDeductionsList : (totalAdv + totalOth));
+    const totalDeductions = activeInss + activeIrrf + activeSindical + (cleanDeductionsList.length > 0 ? totalDeductionsList : (totalAdv + totalOth));
     const netSalary = Math.max(0, totalGross - totalDeductions);
 
     let recordToSave: PayrollRecord;
@@ -1221,19 +1302,25 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       inssEnabled,
       irrfDiscount: activeIrrf,
       irrfEnabled,
+      sindicalDiscount: activeSindical,
+      sindicalEnabled,
+      taxaSindical: activeSindical,
       daysWorked: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.daysWorked : 30,
       unworkedDays: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.unworkedDays : 0,
       isProportional: useProportionalSalary,
       advancesDiscount: totalAdv,
       otherDiscounts: totalOth,
-      deductionItems,
+      deductionItems: cleanDeductionsList,
       netSalary,
       status: payrollStatus,
       notes,
       payload: {
         ...(editingPayroll?.payload || {}),
         commissionItems,
-        deductionItems,
+        deductionItems: cleanDeductionsList,
+        sindicalDiscount: activeSindical,
+        sindicalEnabled,
+        taxaSindical: activeSindical,
       },
     };
 
@@ -1351,14 +1438,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const commTotal = commData.total;
       const grossBase = salary + commTotal;
 
-      // REGRA: Apenas colaboradores Registrado (CLT) recebem cálculo automático de INSS e IRRF
+      // REGRA: Apenas colaboradores Registrado (CLT) recebem cálculo automático de INSS, IRRF e Taxa Sindical
       const isClt = isCltContract(emp);
       const inss = isClt ? calculateProgressiveInss(grossBase) : 0;
       const irrf = isClt ? calculateOfficialIrrf(grossBase, inss) : 0;
+      const sindical = isClt ? 25.23 : 0;
       
       const empAdvances = advances.filter(a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef);
       const advTotal = empAdvances.reduce((sum, a) => sum + a.amount, 0);
-      const net = Math.max(0, grossBase - inss - irrf - advTotal);
+      const net = Math.max(0, grossBase - inss - irrf - sindical - advTotal);
 
       let initialNote = '';
       if (commTotal > 0) {
@@ -1385,6 +1473,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         inssEnabled: isClt,
         irrfDiscount: irrf,
         irrfEnabled: irrf > 0,
+        sindicalDiscount: sindical,
+        sindicalEnabled: isClt,
+        taxaSindical: sindical,
         daysWorked: admData.isAdmittedInCompetenceMonth ? admData.daysWorked : 30,
         unworkedDays: admData.isAdmittedInCompetenceMonth ? admData.unworkedDays : 0,
         isProportional: admData.isAdmittedInCompetenceMonth,
@@ -1739,9 +1830,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
   const activeInssDiscount = inssEnabled ? (inssDiscount || 0) : 0;
   const activeIrrfDiscount = irrfEnabled ? (irrfDiscount || 0) : 0;
+  const activeSindicalDiscount = sindicalEnabled ? (sindicalDiscount || 0) : 0;
   const totalDeductionsFromItems = deductionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
   const activeListDeductions = deductionItems.length > 0 ? totalDeductionsFromItems : ((advancesDiscount || 0) + (otherDiscounts || 0));
-  const modalDiscountsTotal = activeInssDiscount + activeIrrfDiscount + activeListDeductions;
+  const modalDiscountsTotal = activeInssDiscount + activeIrrfDiscount + activeSindicalDiscount + activeListDeductions;
   const calculatedModalNet = Math.max(0, modalGrossTotal - modalDiscountsTotal);
 
   return (
@@ -1976,7 +2068,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </td>
 
                     <td className="py-2 px-3 text-right font-bold text-rose-900 dark:text-rose-400 text-xs font-['Outfit']">
-                      {formatCurrencyBRL((item.advancesDiscount || 0) + (item.otherDiscounts || 0))}
+                      <div>{formatCurrencyBRL((item.irrfDiscount || 0) + ((item as any).sindicalDiscount || (item as any).taxaSindical || 0) + (item.advancesDiscount || 0) + (item.otherDiscounts || 0))}</div>
+                      {(((item as any).sindicalDiscount || (item as any).taxaSindical || 0) > 0) && (
+                        <div className="text-[10px] text-rose-950 dark:text-rose-300 font-semibold" title="Taxa Assistencial Sindicato">
+                          sindicato: {formatCurrencyBRL((item as any).sindicalDiscount || (item as any).taxaSindical)}
+                        </div>
+                      )}
                     </td>
 
                     <td className="py-2 px-3 text-right font-black text-black dark:text-white whitespace-nowrap text-xs font-['Outfit']">
@@ -2493,8 +2590,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </span>
                   </div>
 
-                  {/* Linha dos Impostos Oficiais (INSS e IRRF) com Toggles */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) com Toggles */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {/* INSS com Toggle Switch */}
                     <BrlCurrencyInput
                       id="inssDiscount"
@@ -2563,6 +2660,51 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           </button>
                           <span className={`text-[9.5px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
                             {irrfEnabled ? 'Ativo' : 'Isento'}
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    {/* Taxa Assistencial Sindicato com Toggle Switch */}
+                    <BrlCurrencyInput
+                      id="sindicalDiscount"
+                      label="Taxa Assistencial Sindicato"
+                      value={sindicalDiscount}
+                      onChange={(val) => {
+                        setSindicalDiscount(val);
+                        if (val > 0) {
+                          setLastCustomSindical(val);
+                        }
+                      }}
+                      disabled={!sindicalEnabled}
+                      headerRight={
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !sindicalEnabled;
+                              setSindicalEnabled(next);
+                              if (next) {
+                                const restoredVal = lastCustomSindical > 0 ? lastCustomSindical : 25.23;
+                                setSindicalDiscount(restoredVal);
+                              } else {
+                                if (sindicalDiscount > 0) {
+                                  setLastCustomSindical(sindicalDiscount);
+                                }
+                                setSindicalDiscount(0);
+                              }
+                            }}
+                            className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                              sindicalEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
+                            }`}
+                            title={sindicalEnabled ? 'Taxa Assistencial Sindicato Ativada. Clique para Isentar' : 'Taxa Assistencial Isenta/Desativada. Clique para Ativar'}
+                          >
+                            <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                              sindicalEnabled ? 'translate-x-3' : 'translate-x-0.5'
+                            }`} />
+                          </button>
+                          <span className={`text-[9.5px] font-bold ${sindicalEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                            {sindicalEnabled ? 'Ativo' : 'Isento'}
                           </span>
                         </div>
                       }

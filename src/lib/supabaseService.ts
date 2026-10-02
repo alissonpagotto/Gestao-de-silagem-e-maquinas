@@ -10591,12 +10591,15 @@ export function buildRhFolhaPagamentoRow(
 
   const inssFloat = parseFloat(String(p.inssDiscount ?? 0)) || 0;
   const irrfFloat = parseFloat(String((p as any).irrfDiscount ?? (p as any).irrf ?? 0)) || 0;
+  const sindicalFloat = parseFloat(String((p as any).sindicalDiscount ?? (p as any).taxaSindical ?? (p as any).desconto_sindical ?? (p as any).sindical ?? 0)) || 0;
+  const sindicalEnabledBool = (p as any).sindicalEnabled !== undefined ? Boolean((p as any).sindicalEnabled) : sindicalFloat > 0;
+  const activeSindicalFloat = sindicalEnabledBool ? sindicalFloat : 0;
   const totalValesFloat = parseFloat(String((p as any).total_vales ?? (p as any).totalVales ?? p.advancesDiscount ?? 0)) || 0;
   const totalFaltasFloat = parseFloat(String((p as any).total_faltas ?? (p as any).totalFaltas ?? p.otherDiscounts ?? 0)) || 0;
   const advancesFloat = totalValesFloat;
   const otherDiscountsFloat = totalFaltasFloat;
   const valesDescontosFloat = totalValesFloat; // Estritamente adiantamentos/vales reais
-  const totalDescontosFloat = inssFloat + irrfFloat + totalValesFloat + totalFaltasFloat;
+  const totalDescontosFloat = inssFloat + irrfFloat + activeSindicalFloat + totalValesFloat + totalFaltasFloat;
 
   const rawNetFloat = parseFloat(String(p.netSalary ?? (proventosFloat - totalDescontosFloat))) || 0;
   const netSalaryFloat = Math.max(0, rawNetFloat);
@@ -10646,6 +10649,13 @@ export function buildRhFolhaPagamentoRow(
   if (activeCols.has('desconto_irrf')) fullCandidate.desconto_irrf = irrfFloat;
   if (activeCols.has('irrf_discount')) fullCandidate.irrf_discount = irrfFloat;
 
+  // 6.2 Sindicato / Taxa Assistencial ('sindical', 'desconto_sindical', 'sindical_discount', 'taxa_sindical', 'sindical_enabled')
+  if (activeCols.has('sindical')) fullCandidate.sindical = activeSindicalFloat;
+  if (activeCols.has('desconto_sindical')) fullCandidate.desconto_sindical = activeSindicalFloat;
+  if (activeCols.has('sindical_discount')) fullCandidate.sindical_discount = activeSindicalFloat;
+  if (activeCols.has('taxa_sindical')) fullCandidate.taxa_sindical = activeSindicalFloat;
+  if (activeCols.has('sindical_enabled')) fullCandidate.sindical_enabled = sindicalEnabledBool;
+
   // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts', 'total_vales', 'total_faltas')
   if (activeCols.has('deducoes')) fullCandidate.deducoes = totalDescontosFloat;
   if (activeCols.has('vales_descontos')) fullCandidate.vales_descontos = totalValesFloat;
@@ -10683,6 +10693,10 @@ export function buildRhFolhaPagamentoRow(
     proventos: proventosFloat,
     inss: inssFloat,
     irrf: irrfFloat,
+    sindicalDiscount: activeSindicalFloat,
+    sindicalEnabled: sindicalEnabledBool,
+    taxaSindical: activeSindicalFloat,
+    desconto_sindical: activeSindicalFloat,
     vales_descontos: totalValesFloat,
     advances_discount: totalValesFloat,
     other_discounts: totalFaltasFloat,
@@ -10720,13 +10734,18 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
   const baseSalary = parseFloat(String(row.salario_base ?? row.base_salary ?? p.baseSalary ?? 0)) || 0;
   const inss = parseFloat(String(row.inss ?? row.desconto_inss ?? row.inss_discount ?? p.inssDiscount ?? 0)) || 0;
   const irrf = parseFloat(String(row.irrf ?? row.desconto_irrf ?? row.irrf_discount ?? p.irrfDiscount ?? 0)) || 0;
+  const sindical = parseFloat(String(row.desconto_sindical ?? row.sindical_discount ?? row.taxa_sindical ?? row.sindical ?? p.sindicalDiscount ?? p.taxaSindical ?? p.desconto_sindical ?? 0)) || 0;
+  const sindicalEnabled = row.sindical_enabled !== undefined
+    ? Boolean(row.sindical_enabled)
+    : (p.sindicalEnabled !== undefined ? Boolean(p.sindicalEnabled) : sindical > 0);
   
   // Total exclusivo de vales e adiantamentos (Rubrica 110)
   const totalVales = parseFloat(String(p.total_vales ?? p.totalVales ?? row.total_vales ?? p.advancesDiscount ?? row.advances_discount ?? row.vales_descontos ?? 0)) || 0;
   // Total exclusivo de faltas e atrasos integrados (Rubrica 201)
   const totalFaltas = parseFloat(String(p.total_faltas ?? p.totalFaltas ?? row.total_faltas ?? p.otherDiscounts ?? row.other_discounts ?? 0)) || 0;
   
-  const rawDeducoes = parseFloat(String(row.deducoes ?? row.total_descontos ?? (inss + irrf + totalVales + totalFaltas))) || (inss + irrf + totalVales + totalFaltas);
+  const activeSindicalVal = sindicalEnabled ? sindical : 0;
+  const rawDeducoes = parseFloat(String(row.deducoes ?? row.total_descontos ?? (inss + irrf + activeSindicalVal + totalVales + totalFaltas))) || (inss + irrf + activeSindicalVal + totalVales + totalFaltas);
   const otherDiscounts = totalFaltas;
   const net = parseFloat(String(row.liquido_a_pagar ?? row.valor_liquido ?? row.net_salary ?? row.salario_liquido ?? p.netSalary ?? 0)) || 0;
 
@@ -10748,6 +10767,9 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     irrfDiscount: irrf,
     inssEnabled: p.inssEnabled !== undefined ? Boolean(p.inssEnabled) : inss > 0,
     irrfEnabled: p.irrfEnabled !== undefined ? Boolean(p.irrfEnabled) : irrf > 0,
+    sindicalDiscount: sindical,
+    sindicalEnabled,
+    taxaSindical: sindical,
     daysWorked: p.daysWorked,
     unworkedDays: p.unworkedDays,
     isProportional: p.isProportional,

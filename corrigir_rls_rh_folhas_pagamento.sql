@@ -23,6 +23,11 @@ ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS inss_d
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS irrf NUMERIC DEFAULT 0;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS desconto_irrf NUMERIC DEFAULT 0;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS irrf_discount NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS sindical NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS desconto_sindical NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS sindical_discount NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS taxa_sindical NUMERIC DEFAULT 0;
+ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS sindical_enabled BOOLEAN DEFAULT true;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS deducoes NUMERIC DEFAULT 0;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS vales_descontos NUMERIC DEFAULT 0;
 ALTER TABLE IF EXISTS public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS total_descontos NUMERIC DEFAULT 0;

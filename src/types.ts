@@ -1142,6 +1142,9 @@ export interface PayrollRecord {
   irrfDiscount?: number;
   inssEnabled?: boolean;
   irrfEnabled?: boolean;
+  sindicalDiscount?: number; // Taxa Assistencial Sindicato
+  sindicalEnabled?: boolean;
+  taxaSindical?: number; // Alias para compatibilidade
   daysWorked?: number;
   unworkedDays?: number;
   isProportional?: boolean;
