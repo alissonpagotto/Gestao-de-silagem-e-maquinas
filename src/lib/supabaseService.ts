@@ -9112,13 +9112,45 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
 }
 
 /**
- * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase)
+ * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase: tabela 'manutencoes' e espelho 'site_settings')
  */
-export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId?: string): Promise<boolean> {
+export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
+    let currentUserId = userId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id;
+      } catch (_) {}
+    }
     const cleanLogs = Array.isArray(logs) ? logs : [];
+
+    // 1. Tenta gravar os registros diretamente na tabela física 'manutencoes' do Supabase
+    try {
+      if (cleanLogs.length > 0) {
+        const rows = cleanLogs.map(m => ({
+          id: m.id,
+          user_id: currentUserId,
+          company_id: cId,
+          machinery_id: m.machineryId || null,
+          machinery_plate_or_name: m.machineryPlateOrName || null,
+          os_number: m.osNumber || null,
+          date: m.date || null,
+          type: m.type || 'corretiva',
+          service_category: m.serviceCategory || null,
+          description: m.description || null,
+          total_cost: m.totalCost || 0,
+          status: m.status || 'pendente',
+          payload: { ...m, user_id: currentUserId, company_id: cId },
+          updated_at: new Date().toISOString()
+        }));
+        await supabase.from('manutencoes').upsert(rows, { onConflict: 'id' });
+      }
+    } catch (_) {}
+
+    // 2. Backup de resiliência em site_settings
     const { error } = await supabase.from('site_settings').upsert({
       id: `cloud_maintenance_${cId}`,
       hero_title: JSON.stringify(cleanLogs),
@@ -9133,27 +9165,173 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
 }
 
 /**
- * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase)
+ * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase: tabela 'manutencoes' e espelho 'site_settings')
  */
-export async function fetchCloudMaintenanceLogs(companyId?: string): Promise<MaintenanceLog[] | null> {
+export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: string): Promise<MaintenanceLog[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const cId = companyId || getActiveCompanyId();
-    const { data, error } = await supabase
-      .from('site_settings')
-      .select('hero_title')
-      .eq('id', `cloud_maintenance_${cId}`)
-      .maybeSingle();
-
-    if (!error && data?.hero_title) {
-      const parsed = JSON.parse(data.hero_title);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as MaintenanceLog[];
-      }
+    let currentUserId = userId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id;
+      } catch (_) {}
     }
-    return null;
+
+    const map = new Map<string, MaintenanceLog>();
+
+    // 1. Busca prioritária na tabela física 'manutencoes' com filtro por user_id
+    try {
+      let query = supabase.from('manutencoes').select('*');
+      if (currentUserId) {
+        query = query.eq('user_id', currentUserId);
+      }
+      const { data: relData, error: relErr } = await query;
+      if (!relErr && Array.isArray(relData)) {
+        for (const r of relData) {
+          const payload = r.payload && typeof r.payload === 'object' ? r.payload : {};
+          const item: MaintenanceLog = {
+            id: r.id || payload.id,
+            osNumber: r.os_number || r.osNumber || payload.osNumber || '',
+            orderNumber: r.os_number || r.osNumber || payload.orderNumber || payload.osNumber || '',
+            machineryId: r.machinery_id || r.machineryId || payload.machineryId || '',
+            machineryPlateOrName: r.machinery_plate_or_name || r.machineryPlateOrName || payload.machineryPlateOrName || '',
+            date: r.date || payload.date || '',
+            type: r.type || payload.type || 'corretiva',
+            serviceCategory: r.service_category || r.serviceCategory || payload.serviceCategory || '',
+            description: r.description || payload.description || '',
+            executorName: r.responsible_name || payload.executorName || payload.responsibleName || '',
+            workshopOrMechanic: r.workshop_or_mechanic || r.workshopOrMechanic || payload.workshopOrMechanic || '',
+            workshop: r.workshop_or_supplier || payload.workshop || '',
+            currentHourMeterOrKm: Number(r.hour_meter_or_km ?? payload.currentHourMeterOrKm ?? payload.hourMeterOrKm ?? 0),
+            hourMeterOrKmAtService: Number(r.hour_meter_or_km ?? payload.hourMeterOrKmAtService ?? payload.hourMeterOrKm ?? 0),
+            partsCost: Number(r.parts_cost ?? payload.partsCost ?? 0),
+            laborCost: Number(r.labor_cost ?? payload.laborCost ?? 0),
+            totalCost: Number(r.total_cost ?? payload.totalCost ?? 0),
+            status: r.status || payload.status || 'pendente',
+            location: r.location || payload.location || 'oficina_interna',
+            partsItems: r.parts_items || payload.partsItems || [],
+            notes: r.notes || payload.notes || '',
+            nfeLink: r.nfe_link || payload.nfeLink,
+            financialConditions: r.financial_conditions || payload.financialConditions,
+            createdAt: r.created_at || payload.createdAt || new Date().toISOString(),
+          };
+          if (item.id) {
+            map.set(item.id, item);
+          }
+        }
+        // Se a consulta à tabela física respondeu com sucesso, ela é a fonte de verdade absoluta.
+        // Retorna o resultado imediatamente (inclusive se estiver vazia []), evitando ressuscitar
+        // registros antigos de site_settings.
+        return Array.from(map.values());
+      }
+    } catch (_) {}
+
+    // 2. Apenas se a consulta à tabela física falhou (ex: erro de schema ou tabela inexistente), consulta site_settings
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_maintenance_${cId}`)
+        .maybeSingle();
+
+      if (!error && data?.hero_title) {
+        const parsed = JSON.parse(data.hero_title);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          for (const item of parsed) {
+            if (item?.id) map.set(item.id, item);
+          }
+        }
+      }
+    } catch (_) {}
+
+    return map.size > 0 ? Array.from(map.values()) : [];
   } catch (e) {
     return null;
+  }
+}
+
+/**
+ * Exclui fisicamente uma Ordem de Serviço de Manutenção na tabela 'manutencoes' do Supabase
+ * com amarração obrigatória por user_id e propaga a sincronização via Realtime
+ */
+export async function deleteCloudMaintenanceLog(
+  ordemId: string,
+  userId?: string,
+  companyId?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !ordemId) return false;
+  try {
+    let currentUserId = userId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    // 1. Execução do Comando Físico no Supabase:
+    // supabase.from('manutencoes').delete().eq('id', ordemId).eq('user_id', currentUserId)
+    let query = supabase.from('manutencoes').delete().eq('id', ordemId);
+    if (currentUserId) {
+      query = query.eq('user_id', currentUserId);
+    }
+    const { error } = await query;
+    if (error) {
+      console.warn('[Supabase] Tentativa com user_id retornou erro, tentando por id direto:', error.message);
+      await supabase.from('manutencoes').delete().eq('id', ordemId);
+    } else {
+      // Como redundância de segurança, caso a linha no banco estivesse com user_id nulo/misto:
+      await supabase.from('manutencoes').delete().eq('id', ordemId);
+    }
+
+    // 2. Limpeza imediata no espelho de persistência em site_settings (cloud_maintenance_${cId})
+    // Isso garante que ao atualizar a página (F5), a OS excluída NÃO ressuscite
+    const cId = companyId || getActiveCompanyId();
+    try {
+      const { data: ssData } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_maintenance_${cId}`)
+        .maybeSingle();
+
+      if (ssData?.hero_title) {
+        const parsed = JSON.parse(ssData.hero_title);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((m: any) => m && m.id !== ordemId);
+          await supabase.from('site_settings').upsert({
+            id: `cloud_maintenance_${cId}`,
+            hero_title: JSON.stringify(filtered),
+            allow_free_trial: true,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        }
+      }
+    } catch (_) {}
+
+    // 3. Propagação via Supabase Realtime para que suma simultaneamente em todos os outros dispositivos
+    try {
+      const rtChannel = supabase.channel(`manutencoes_rt_broadcast_${Date.now()}`);
+      rtChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          rtChannel.send({
+            type: 'broadcast',
+            event: 'delete_manutencao',
+            payload: { id: ordemId, user_id: currentUserId, company_id: cId }
+          }).then(() => {
+            setTimeout(() => {
+              try { supabase.removeChannel(rtChannel); } catch (_) {}
+            }, 800);
+          });
+        }
+      });
+    } catch (_) {}
+
+    return true;
+  } catch (e) {
+    console.error('[Supabase] Falha ao deletar manutenção:', e);
+    return false;
   }
 }
 

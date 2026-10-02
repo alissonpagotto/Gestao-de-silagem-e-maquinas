@@ -618,6 +618,33 @@ CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagament
 FOR ALL TO authenticated, anon
 USING (true)
 WITH CHECK (true);
+
+-- Tabela oficial de Gestão de Manutenções e Ordens de Serviço (manutencoes)
+CREATE TABLE IF NOT EXISTS public.manutencoes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    company_id TEXT,
+    machinery_id TEXT,
+    machinery_plate_or_name TEXT,
+    os_number TEXT,
+    date TEXT,
+    type TEXT DEFAULT 'corretiva',
+    service_category TEXT,
+    description TEXT,
+    total_cost NUMERIC DEFAULT 0,
+    status TEXT DEFAULT 'pendente',
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.manutencoes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Total manutencoes" ON public.manutencoes;
+CREATE POLICY "Permissao Total manutencoes" ON public.manutencoes
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;

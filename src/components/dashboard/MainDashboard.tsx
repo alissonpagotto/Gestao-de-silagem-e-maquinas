@@ -563,7 +563,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         >
           <div className="min-w-0 pr-1.5">
             <span className="text-[9px] font-bold tracking-wider text-green-600 dark:text-green-400 uppercase block">
-              CLIENTES
+              CLIENTES Cadastrados
             </span>
             <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {clientsCount}
@@ -584,8 +584,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           className="crm-card bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase block">
-              FROTAS
+            <span className="text-[9px] font-bold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase block truncate">
+              FROTAS (Motoristas/Operadores)
             </span>
             <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {machineriesCount}

@@ -1080,9 +1080,9 @@ export function saveStoredFuelLogs(logs: FuelLog[]): void {
 export function getStoredMaintenanceLogs(): MaintenanceLog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.MAINTENANCE_LOGS);
-    if (!raw) return INITIAL_MAINTENANCE_LOGS;
+    if (raw === null) return INITIAL_MAINTENANCE_LOGS;
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_MAINTENANCE_LOGS;
+    if (!Array.isArray(parsed)) return INITIAL_MAINTENANCE_LOGS;
     return parsed;
   } catch (e) {
     return INITIAL_MAINTENANCE_LOGS;
@@ -1092,6 +1092,10 @@ export function getStoredMaintenanceLogs(): MaintenanceLog[] {
 export function saveStoredMaintenanceLogs(logs: MaintenanceLog[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(logs));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_maintenance_updated', { detail: logs }));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch (e) {
     console.error('Failed to save maintenance logs', e);
   }

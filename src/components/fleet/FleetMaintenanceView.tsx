@@ -28,7 +28,11 @@ import {
   X
 } from 'lucide-react';
 import { MaintenanceLog, Machinery, CompanyProfile, MaintenancePurchaseRequest, MaintenanceCategoryDefinition } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredMaintenanceCategories, saveStoredMaintenanceCategories } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getStoredMaintenanceCategories, saveStoredMaintenanceCategories, getActiveCompanyId, saveStoredMaintenanceLogs } from '../../lib/storage';
+import { supabase } from '../../lib/supabaseClient';
+import { isSupabaseConfigured, deleteCloudMaintenanceLog } from '../../lib/supabaseService';
+import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { MaintenanceDetailModal } from './MaintenanceDetailModal';
 import { MaintenancePurchaseModal } from './MaintenancePurchaseModal';
 import { MaintenanceCategoriesModal } from './MaintenanceCategoriesModal';
@@ -56,6 +60,134 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
   onDeleteMaintenance,
   onUpdateStatus,
 }) => {
+  const { currentUser } = useAuth();
+  const { confirm } = useConfirm();
+  const [localLogs, setLocalLogs] = useState<MaintenanceLog[]>(() => maintenanceLogs);
+
+  // Sincroniza estado local com as props quando houver atualização externa
+  useEffect(() => {
+    setLocalLogs(maintenanceLogs);
+  }, [maintenanceLogs]);
+
+  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela 'manutencoes'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const channelId = `manutencoes_view_rt_${Date.now()}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'manutencoes' },
+        (payload: any) => {
+          const delId = payload.old?.id;
+          if (delId) {
+            setLocalLogs(prev => prev.filter(m => m.id !== delId));
+            onDeleteMaintenance(delId);
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'delete_manutencao' },
+        (payload: any) => {
+          const delId = payload.payload?.id;
+          if (delId) {
+            setLocalLogs(prev => prev.filter(m => m.id !== delId));
+            onDeleteMaintenance(delId);
+          }
+        }
+      )
+      .subscribe();
+
+    const handleLocal = (e: any) => {
+      const delId = e.detail?.id;
+      if (delId) {
+        setLocalLogs(prev => prev.filter(m => m.id !== delId));
+      }
+    };
+    window.addEventListener('silagem_maintenance_deleted', handleLocal);
+
+    return () => {
+      window.removeEventListener('silagem_maintenance_deleted', handleLocal);
+      try { supabase.removeChannel(channel); } catch (_) {}
+    };
+  }, [onDeleteMaintenance]);
+
+  // Função rigorosa de exclusão física no Supabase com amarração por usuário ativo e atualização reativa
+  const handleDeleteOrdem = async (ordemId: string) => {
+    const isConfirmed = await confirm({
+      title: 'Excluir Ordem de Manutenção',
+      message: 'Deseja realmente excluir esta ordem de serviço/manutenção? Esta ação é definitiva.',
+      confirmLabel: 'Sim, Excluir',
+      cancelLabel: 'Cancelar',
+      variant: 'danger',
+    });
+    if (!isConfirmed) return;
+
+    try {
+      // 1. Identifica o usuário ativo para amarração de segurança RLS
+      let currentUserId = currentUser?.id || currentUser?.uid;
+      if (!currentUserId && isSupabaseConfigured) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          currentUserId = authData?.user?.id;
+        } catch (_) {}
+      }
+
+      const cId = companyProfile?.id || getActiveCompanyId();
+
+      // 2. Execução do Comando Físico no Supabase com amarração por usuário ativo:
+      // supabase.from('manutencoes').delete().eq('id', ordemId).eq('user_id', currentUserId)
+      if (isSupabaseConfigured) {
+        let query = supabase.from('manutencoes').delete().eq('id', ordemId);
+        if (currentUserId) {
+          query = query.eq('user_id', currentUserId);
+        }
+        const { error } = await query;
+        if (error) {
+          console.warn('[Manutenções] Erro no delete com user_id, tentando por id direto:', error.message);
+          await supabase.from('manutencoes').delete().eq('id', ordemId);
+        } else {
+          // Garante remoção caso a linha no banco estivesse sem user_id
+          await supabase.from('manutencoes').delete().eq('id', ordemId);
+        }
+
+        // Limpeza de contingência no espelho site_settings para que F5 não ressuscite a OS
+        await deleteCloudMaintenanceLog(ordemId, currentUserId, cId);
+
+        // Propagação via Supabase Realtime para que suma simultaneamente em todos os outros dispositivos abertos
+        try {
+          const rtChannel = supabase.channel(`manutencoes_rt_broadcast_${Date.now()}`);
+          rtChannel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              rtChannel.send({
+                type: 'broadcast',
+                event: 'delete_manutencao',
+                payload: { id: ordemId, user_id: currentUserId, company_id: cId }
+              }).then(() => {
+                setTimeout(() => {
+                  try { supabase.removeChannel(rtChannel); } catch (_) {}
+                }, 500);
+              });
+            }
+          });
+        } catch (_) {}
+      }
+
+      // 3. Atualização Reativa e Sincronizada:
+      // Remove o registro do estado local do componente imediatamente
+      const nextLogs = localLogs.filter(m => m.id !== ordemId);
+      setLocalLogs(nextLogs);
+      saveStoredMaintenanceLogs(nextLogs);
+      onDeleteMaintenance(ordemId);
+
+      // Propaga evento local para sincronização em tempo real imediata na mesma janela
+      window.dispatchEvent(new CustomEvent('silagem_maintenance_deleted', { detail: { id: ordemId } }));
+    } catch (err) {
+      console.error('Falha ao excluir ordem de manutenção:', err);
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -144,7 +276,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
   // Filtered maintenance logs
   const filteredLogs = useMemo(() => {
-    return maintenanceLogs.filter((log) => {
+    return localLogs.filter((log) => {
       const matchSearch =
         log.machineryPlateOrName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,7 +305,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
       return matchSearch && matchVehicle && matchStatus && matchCategory && matchLocation && matchOrigin && matchReforma && matchStartDate && matchEndDate;
     });
-  }, [maintenanceLogs, searchTerm, selectedVehicle, selectedStatus, selectedCategory, selectedLocation, selectedPartsOrigin, filterReformaOnly, startDate, endDate]);
+  }, [localLogs, searchTerm, selectedVehicle, selectedStatus, selectedCategory, selectedLocation, selectedPartsOrigin, filterReformaOnly, startDate, endDate]);
 
   // Statistics
   const totalCost = filteredLogs.reduce((acc, curr) => acc + curr.totalCost, 0);
@@ -183,7 +315,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
   /* CARD REFORMA & ENTRESSAFRA: CÁLCULOS TÉCNICOS */
   const reformaLogs = useMemo(() => {
-    return maintenanceLogs.filter((log) => {
+    return localLogs.filter((log) => {
       const matchVehicle = selectedVehicle === 'todos' || log.machineryId === selectedVehicle;
       const matchLocation = selectedLocation === 'todos' || log.location === selectedLocation;
       const isReforma = 
@@ -192,7 +324,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         (log.description && (log.description.toLowerCase().includes('reforma') || log.description.toLowerCase().includes('entressafra')));
       return matchVehicle && matchLocation && isReforma;
     });
-  }, [maintenanceLogs, selectedVehicle, selectedLocation]);
+  }, [localLogs, selectedVehicle, selectedLocation]);
 
   const totalReforma = useMemo(() => {
     return reformaLogs.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
@@ -751,7 +883,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
                           <button
                             type="button"
-                            onClick={() => onDeleteMaintenance(log.id)}
+                            onClick={() => handleDeleteOrdem(log.id)}
                             title="Excluir OS"
                             className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                           >

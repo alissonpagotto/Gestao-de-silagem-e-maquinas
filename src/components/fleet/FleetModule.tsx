@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Gauge, 
   Car, 
@@ -32,9 +32,13 @@ import {
   insertContaAPagarAbastecimento,
   upsertEstoqueItem,
   subtrairCombustivelTanque,
-  baixarEstoqueProdutosDefinitivoOS
+  baixarEstoqueProdutosDefinitivoOS,
+  deleteCloudMaintenanceLog,
+  saveCloudMaintenanceLogs
 } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useAuth } from '../../context/AuthContext';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { 
   getStoredVehicleTypes, 
   saveStoredVehicleTypes, 
@@ -47,6 +51,8 @@ import {
   getStoredBankAccounts,
   saveStoredBankAccounts,
   saveStoredMachineries,
+  saveStoredMaintenanceLogs,
+  getActiveCompanyId,
   calculateDefaultDueDate
 } from '../../lib/storage';
 
@@ -109,7 +115,84 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   onSaveBankAccounts,
 }) => {
   const { confirm } = useConfirm();
+  const { currentUser } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<FleetSubTab>(initialSubTab || 'painel');
+
+  // Referência atualizada para callbacks reativos e listeners Realtime
+  const maintenanceLogsRef = useRef(maintenanceLogs);
+  maintenanceLogsRef.current = maintenanceLogs;
+
+  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela física 'manutencoes'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+    let channel: any = null;
+
+    const setupRealtime = async () => {
+      let activeUid = currentUser?.id;
+      if (!activeUid) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          activeUid = authData?.user?.id;
+        } catch (_) {}
+      }
+      if (!activeUid) return;
+
+      const channelId = `manutencoes_rt_sync_${activeUid}_${Date.now()}`;
+      channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'manutencoes',
+          },
+          (payload: any) => {
+            if (!isMounted) return;
+            const delId = payload.old?.id;
+            if (delId) {
+              const nextLogs = maintenanceLogsRef.current.filter(m => m.id !== delId);
+              onSaveMaintenanceLogs(nextLogs);
+              saveStoredMaintenanceLogs(nextLogs);
+            }
+          }
+        )
+        .on(
+          'broadcast',
+          { event: 'delete_manutencao' },
+          (payload: any) => {
+            if (!isMounted || !payload?.payload?.id) return;
+            const delId = payload.payload.id;
+            const nextLogs = maintenanceLogsRef.current.filter(m => m.id !== delId);
+            onSaveMaintenanceLogs(nextLogs);
+            saveStoredMaintenanceLogs(nextLogs);
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    const handleLocalDeleteEvent = (e: any) => {
+      const delId = e?.detail?.id;
+      if (delId && isMounted) {
+        const nextLogs = maintenanceLogsRef.current.filter(m => m.id !== delId);
+        onSaveMaintenanceLogs(nextLogs);
+        saveStoredMaintenanceLogs(nextLogs);
+      }
+    };
+
+    window.addEventListener('silagem_maintenance_deleted', handleLocalDeleteEvent);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('silagem_maintenance_deleted', handleLocalDeleteEvent);
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      }
+    };
+  }, [currentUser?.id]);
 
   // Vehicle Types configuration & Tire Rotation Logs state
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeDefinition[]>(() => getStoredVehicleTypes());
@@ -630,7 +713,20 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveMaintenanceLogs(maintenanceLogs.filter(m => m.id !== id));
+      const activeUid = currentUser?.id;
+      const cId = companyProfile?.id || getActiveCompanyId();
+
+      // 1. Execução do Comando Físico no Supabase com amarração por usuário ativo
+      await deleteCloudMaintenanceLog(id, activeUid, cId);
+
+      // 2. Atualização Reativa e Sincronizada:
+      // Remove o registro do estado local do componente
+      const nextLogs = maintenanceLogs.filter(m => m.id !== id);
+      onSaveMaintenanceLogs(nextLogs);
+      saveStoredMaintenanceLogs(nextLogs);
+
+      // Propaga evento local para sincronização em tempo real imediata
+      window.dispatchEvent(new CustomEvent('silagem_maintenance_deleted', { detail: { id } }));
     }
   };
 

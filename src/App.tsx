@@ -546,16 +546,11 @@ export default function App() {
         }
 
         // 3. Carrega Ordens de Serviço de Manutenção em nuvem (ex: OS de R$ 300,48 do veículo RHX3E15)
-        const cloudMaint = await fetchCloudMaintenanceLogs(activeTenantId);
-        if (Array.isArray(cloudMaint) && cloudMaint.length > 0 && isMounted) {
-          setMaintenanceLogs(prev => {
-            const map = new Map(prev.map(m => [m.id, m]));
-            cloudMaint.forEach(m => map.set(m.id, m));
-            const merged = Array.from(map.values());
-            lastSyncedState.current.maintenanceLogs = JSON.stringify(merged);
-            saveStoredMaintenanceLogs(merged);
-            return merged;
-          });
+        const cloudMaint = await fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid);
+        if (Array.isArray(cloudMaint) && isMounted) {
+          setMaintenanceLogs(cloudMaint);
+          lastSyncedState.current.maintenanceLogs = JSON.stringify(cloudMaint);
+          saveStoredMaintenanceLogs(cloudMaint);
         }
 
         // 4. Carrega Férias da nuvem
@@ -1454,13 +1449,13 @@ export default function App() {
   }, [fuelLogs, activeTenantId]);
 
   useEffect(() => {
-    if (!isInitialLoadDone.current || !activeTenantId || maintenanceLogs.length === 0) return;
+    if (!isInitialLoadDone.current || !activeTenantId) return;
     const currentSerialized = JSON.stringify(maintenanceLogs);
     if (currentSerialized === lastSyncedState.current.maintenanceLogs) return;
 
     const t = setTimeout(() => {
       lastSyncedState.current.maintenanceLogs = currentSerialized;
-      saveCloudMaintenanceLogs(maintenanceLogs, activeTenantId);
+      saveCloudMaintenanceLogs(maintenanceLogs, activeTenantId, currentUser?.uid || currentUser?.id);
     }, 1200);
     return () => clearTimeout(t);
   }, [maintenanceLogs, activeTenantId]);
