@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Fuel, 
   Wrench, 
@@ -47,6 +47,8 @@ import {
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { PrintReportHeader } from '../common/PrintReportHeader';
 import { PrintReportFooter } from '../common/PrintReportFooter';
+import { supabase } from '../../lib/supabaseClient';
+import { mapRowToMaintenanceLog, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 
 interface VehicleHistoryDreTabProps {
   vehicle: Machinery | null;
@@ -85,7 +87,81 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
     return Array.from(map.values());
   });
 
-  // Keep localExpenses in sync if propExpenses changes or silagem_expenses_updated fires
+  // Estado reativo das manutenções para atualização em tempo real do DRE
+  const [localMaintenanceLogs, setLocalMaintenanceLogs] = useState<MaintenanceLog[]>(() => maintenanceLogs);
+
+  useEffect(() => {
+    setLocalMaintenanceLogs(maintenanceLogs);
+  }, [maintenanceLogs]);
+
+  // Escuta ativa em tempo real (Supabase Realtime) nas tabelas 'frotas_manutencoes' e 'manutencoes'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const handlePayload = (payload: any) => {
+      if (payload.eventType === 'DELETE') {
+        const delId = payload.old?.id;
+        if (delId) {
+          setLocalMaintenanceLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
+        }
+      } else if (payload.eventType === 'INSERT' && payload.new) {
+        const item = mapRowToMaintenanceLog(payload.new);
+        setLocalMaintenanceLogs(prev => {
+          const exists = prev.some(m => m.id === item.id || toValidUUID(m.id) === item.id);
+          if (exists) {
+            return prev.map(m => (m.id === item.id || toValidUUID(m.id) === item.id) ? { ...m, ...item } : m);
+          }
+          return [item, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        const item = mapRowToMaintenanceLog(payload.new);
+        setLocalMaintenanceLogs(prev => prev.map(m => (m.id === item.id || toValidUUID(m.id) === item.id) ? { ...m, ...item } : m));
+      }
+    };
+
+    const channelId = `dre_maint_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'frotas_manutencoes' },
+        handlePayload
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'manutencoes' },
+        handlePayload
+      )
+      .subscribe();
+
+    const handleLocalMaint = (e: any) => {
+      const item = e.detail;
+      if (item && item.id) {
+        setLocalMaintenanceLogs(prev => {
+          const exists = prev.some(m => m.id === item.id || toValidUUID(m.id) === item.id);
+          if (exists) {
+            return prev.map(m => (m.id === item.id || toValidUUID(m.id) === item.id) ? { ...m, ...item } : m);
+          }
+          return [item, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
+      }
+    };
+    window.addEventListener('silagem_maintenance_changed', handleLocalMaint);
+
+    const handleLocalMaintDeleted = (e: any) => {
+      const delId = e.detail?.id;
+      if (delId) {
+        setLocalMaintenanceLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
+      }
+    };
+    window.addEventListener('silagem_maintenance_deleted', handleLocalMaintDeleted);
+
+    return () => {
+      window.removeEventListener('silagem_maintenance_changed', handleLocalMaint);
+      window.removeEventListener('silagem_maintenance_deleted', handleLocalMaintDeleted);
+      supabase.removeChannel(channel);
+    };
+  }, []);
   React.useEffect(() => {
     const syncExpenses = () => {
       const stored = getStoredExpenses();
@@ -147,10 +223,10 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
   }, [vehicle.id, fuelLogs]);
 
   const vehicleMaintenanceLogs = useMemo(() => {
-    return maintenanceLogs
+    return localMaintenanceLogs
       .filter((m) => m.machineryId === vehicle.id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [vehicle.id, maintenanceLogs]);
+  }, [vehicle.id, localMaintenanceLogs]);
 
   // --- 2. Calculate Consumption Metrics (KM and Hours) ---
   const consumptionMetrics = useMemo(() => {

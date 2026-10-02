@@ -163,6 +163,8 @@ import {
   saveCloudFuelLogs,
   saveCloudMaintenanceLogs,
   fetchCloudMaintenanceLogs,
+  saveCloudBankAccounts,
+  fetchCloudBankAccounts,
   saveCloudVacations,
   fetchCloudVacations,
   getAbastecimentosTableName,
@@ -551,6 +553,20 @@ export default function App() {
           setMaintenanceLogs(cloudMaint);
           lastSyncedState.current.maintenanceLogs = JSON.stringify(cloudMaint);
           saveStoredMaintenanceLogs(cloudMaint);
+        }
+
+        // 3.1 Carrega Contas Bancárias em nuvem (tabela 'financeiro_contas_bancarias')
+        const cloudAccs = await fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid);
+        if (Array.isArray(cloudAccs) && cloudAccs.length > 0 && isMounted) {
+          setBankAccounts(cloudAccs);
+          saveStoredBankAccounts(cloudAccs);
+        }
+
+        // 3.2 Carrega Fornecedores em nuvem (tabela 'cadastro_fornecedores')
+        const cloudSups = await fetchFornecedores(activeTenantId);
+        if (Array.isArray(cloudSups) && cloudSups.length > 0 && isMounted) {
+          setSuppliers(cloudSups);
+          saveStoredSuppliers(cloudSups);
         }
 
         // 4. Carrega Férias da nuvem
@@ -1178,7 +1194,86 @@ export default function App() {
 
     canalAbastecimentos.subscribe();
 
-    // 3. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
+    // 2. Realtime para Contas Bancárias (tabela 'financeiro_contas_bancarias')
+    const canalContasBancarias = supabase
+      .channel('app_financeiro_contas_rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'financeiro_contas_bancarias' },
+        (_payload) => {
+          fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+            if (fresh && isMounted) {
+              setBankAccounts(fresh);
+              saveStoredBankAccounts(fresh);
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contas_bancarias' },
+        (_payload) => {
+          fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+            if (fresh && isMounted) {
+              setBankAccounts(fresh);
+              saveStoredBankAccounts(fresh);
+            }
+          });
+        }
+      );
+    canalContasBancarias.subscribe();
+
+    // 3. Realtime para Fornecedores (tabela 'cadastro_fornecedores')
+    const canalFornecedores = supabase
+      .channel('app_cadastro_fornecedores_rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cadastro_fornecedores' },
+        (_payload) => {
+          fetchFornecedores(activeTenantId).then(fresh => {
+            if (fresh && isMounted) {
+              const ser = JSON.stringify(fresh);
+              if (ser !== lastSyncedState.current.rel_suppliers) {
+                lastSyncedState.current.rel_suppliers = ser;
+                setSuppliers(fresh);
+                saveStoredSuppliers(fresh);
+              }
+            }
+          });
+        }
+      );
+    canalFornecedores.subscribe();
+
+    // 4. Realtime para Manutenções de Frotas (tabela 'frotas_manutencoes')
+    const canalManutencoes = supabase
+      .channel('app_frotas_manutencoes_rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'frotas_manutencoes' },
+        (_payload) => {
+          fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+            if (fresh && isMounted) {
+              setMaintenanceLogs(fresh);
+              saveStoredMaintenanceLogs(fresh);
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'manutencoes' },
+        (_payload) => {
+          fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+            if (fresh && isMounted) {
+              setMaintenanceLogs(fresh);
+              saveStoredMaintenanceLogs(fresh);
+            }
+          });
+        }
+      );
+    canalManutencoes.subscribe();
+
+    // 5. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
     const pollAbastecimentosInterval = setInterval(() => {
       fetchAbastecimentos(activeTenantId).then(fresh => {
         if (fresh && fresh.length > 0 && isMounted) {
@@ -1229,6 +1324,9 @@ export default function App() {
       unsubDocsEntrada();
       unsubNotasFiscais();
       supabase.removeChannel(canalAbastecimentos);
+      supabase.removeChannel(canalContasBancarias);
+      supabase.removeChannel(canalFornecedores);
+      supabase.removeChannel(canalManutencoes);
       clearInterval(pollAbastecimentosInterval);
       document.removeEventListener('visibilitychange', handleFocusSync);
       window.removeEventListener('focus', handleFocusSync);
@@ -1236,9 +1334,19 @@ export default function App() {
   }, [activeTenantId, currentUser?.uid]);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
-
     setBankAccounts(newAccounts);
     saveStoredBankAccounts(newAccounts);
+    saveCloudBankAccounts(newAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+      console.warn('Supabase saveCloudBankAccounts notice:', err)
+    );
+  };
+
+  const handleSaveMaintenanceLogs = (newLogs: MaintenanceLog[]) => {
+    setMaintenanceLogs(newLogs);
+    saveStoredMaintenanceLogs(newLogs);
+    saveCloudMaintenanceLogs(newLogs, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+      console.warn('Supabase saveCloudMaintenanceLogs notice:', err)
+    );
   };
 
   const handleSaveSettlements = (newSettlements: ThirdPartySettlement[]) => {
@@ -2933,10 +3041,7 @@ export default function App() {
               services={services}
               orders={orders}
               bankAccounts={bankAccounts}
-              onSaveBankAccounts={(updatedAccounts) => {
-                setBankAccounts(updatedAccounts);
-                saveStoredBankAccounts(updatedAccounts);
-              }}
+              onSaveBankAccounts={handleSaveBankAccounts}
               companyProfile={companyProfile}
               initialDraftMaintenanceLog={draftMaintenanceLogFromAlmox}
               onClearInitialDraftMaintenanceLog={() => setDraftMaintenanceLogFromAlmox(null)}
@@ -2952,7 +3057,7 @@ export default function App() {
               onSaveEmployees={handleSaveEmployees}
               onSaveTeams={setFleetTeams}
               onSaveFuelLogs={setFuelLogs}
-              onSaveMaintenanceLogs={setMaintenanceLogs}
+              onSaveMaintenanceLogs={handleSaveMaintenanceLogs}
               onSaveInventory={handleSaveInventory}
               onSaveServices={setServices}
               onSaveOrders={setOrders}

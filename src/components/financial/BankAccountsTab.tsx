@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Plus, 
@@ -17,7 +17,9 @@ import {
   Link2
 } from 'lucide-react';
 import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts } from '../../lib/storage';
+import { supabase } from '../../lib/supabaseClient';
+import { mapRowToBankAccount, upsertContaBancaria, deleteContaBancaria, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BankAccountModal } from './BankAccountModal';
 import { BankLogoIcon } from './BankLogoIcon';
@@ -51,6 +53,65 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
 
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'financeiro_contas_bancarias'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const channelId = `bank_accounts_tab_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'financeiro_contas_bancarias' },
+        (payload: any) => {
+          if (payload.eventType === 'DELETE') {
+            const delId = payload.old?.id;
+            if (delId) {
+              const updated = accounts.filter(a => a.id !== delId && toValidUUID(a.id) !== delId);
+              saveStoredBankAccounts(updated);
+              onSaveAccounts(updated);
+            }
+          } else if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
+            const row = payload.new;
+            const mapped = mapRowToBankAccount(row);
+            const exists = accounts.some(a => a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id));
+            const updated = exists
+              ? accounts.map(a => (a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id)) ? { ...a, ...mapped } : a)
+              : [...accounts, mapped];
+            saveStoredBankAccounts(updated);
+            onSaveAccounts(updated);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contas_bancarias' },
+        (payload: any) => {
+          if (payload.eventType === 'DELETE') {
+            const delId = payload.old?.id;
+            if (delId) {
+              const updated = accounts.filter(a => a.id !== delId && toValidUUID(a.id) !== delId);
+              saveStoredBankAccounts(updated);
+              onSaveAccounts(updated);
+            }
+          } else if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
+            const row = payload.new;
+            const mapped = mapRowToBankAccount(row);
+            const exists = accounts.some(a => a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id));
+            const updated = exists
+              ? accounts.map(a => (a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id)) ? { ...a, ...mapped } : a)
+              : [...accounts, mapped];
+            saveStoredBankAccounts(updated);
+            onSaveAccounts(updated);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [accounts, onSaveAccounts]);
+
   // Extrato Modal State
   const [isStatementOpen, setIsStatementOpen] = useState(false);
   const [statementAccountId, setStatementAccountId] = useState<string>('todas');
@@ -71,17 +132,24 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   };
 
   const handleSaveAccount = (accountData: Omit<BankAccount, 'id'> & { id?: string }) => {
+    const activeCompanyId = getActiveCompanyId();
     if (accountData.id) {
+      const updatedAccount: BankAccount = { ...accountData, id: accountData.id } as BankAccount;
       const updated = accounts.map((a) =>
-        a.id === accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : a
+        a.id === accountData.id ? updatedAccount : a
       );
+      saveStoredBankAccounts(updated);
       onSaveAccounts(updated);
+      upsertContaBancaria(updatedAccount, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria error:', err));
     } else {
       const newAcc: BankAccount = {
         ...accountData,
         id: `bank_${Date.now()}`,
       } as BankAccount;
-      onSaveAccounts([...accounts, newAcc]);
+      const updated = [...accounts, newAcc];
+      saveStoredBankAccounts(updated);
+      onSaveAccounts(updated);
+      upsertContaBancaria(newAcc, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria error:', err));
     }
   };
 
@@ -141,7 +209,11 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveAccounts(accounts.filter((a) => a.id !== id));
+      const activeCompanyId = getActiveCompanyId();
+      const updated = accounts.filter((a) => a.id !== id);
+      saveStoredBankAccounts(updated);
+      onSaveAccounts(updated);
+      deleteContaBancaria(id, activeCompanyId).catch(err => console.warn('Supabase deleteContaBancaria error:', err));
     }
   };
 
@@ -158,18 +230,22 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       onSaveTransactions(updatedTransactions);
     }
 
-    // Se for lançamento manual, atualiza também o saldo da conta
+    // Se for lançamento manual, atualiza também o saldo da conta e propaga no Supabase
     if (newTx.bankAccountId) {
+      const activeCompanyId = getActiveCompanyId();
       const updatedAccounts = accounts.map((acc) => {
         if (acc.id === newTx.bankAccountId) {
           const delta = newTx.type === 'entrada' ? newTx.amount : -newTx.amount;
-          return {
+          const updatedAcc = {
             ...acc,
             balance: acc.balance + delta,
           };
+          upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+          return updatedAcc;
         }
         return acc;
       });
+      saveStoredBankAccounts(updatedAccounts);
       onSaveAccounts(updatedAccounts);
     }
   };
@@ -187,21 +263,25 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       onSaveTransactions(updatedTransactions);
     }
 
-    // Atualiza os saldos das contas impactadas
+    // Atualiza os saldos das contas impactadas e propaga no Supabase
     if (newTxs.length > 0) {
+      const activeCompanyId = getActiveCompanyId();
       const updatedAccounts = accounts.map((acc) => {
         const matchingTxs = newTxs.filter((tx) => tx.bankAccountId === acc.id);
         if (matchingTxs.length > 0) {
           const netDelta = matchingTxs.reduce((sum, tx) => {
             return sum + (tx.type === 'entrada' ? tx.amount : -tx.amount);
           }, 0);
-          return {
+          const updatedAcc = {
             ...acc,
             balance: acc.balance + netDelta,
           };
+          upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+          return updatedAcc;
         }
         return acc;
       });
+      saveStoredBankAccounts(updatedAccounts);
       onSaveAccounts(updatedAccounts);
     }
   };

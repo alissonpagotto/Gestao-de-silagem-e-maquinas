@@ -166,6 +166,64 @@ CREATE TABLE IF NOT EXISTS public.rh_rescisoes (
 CREATE INDEX IF NOT EXISTS idx_rh_rescisoes_company_id ON public.rh_rescisoes(company_id);
 CREATE INDEX IF NOT EXISTS idx_rh_rescisoes_funcionario_id ON public.rh_rescisoes(funcionario_id);
 
+-- Tabela para contas bancárias e saldos financeiros
+CREATE TABLE IF NOT EXISTS public.financeiro_contas_bancarias (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id TEXT,
+    user_id TEXT,
+    name TEXT,
+    bank_name TEXT,
+    account_type TEXT DEFAULT 'corrente',
+    agency TEXT,
+    account_number TEXT,
+    balance NUMERIC(15,2) DEFAULT 0,
+    overdraft_limit NUMERIC(15,2) DEFAULT 0,
+    pix_key TEXT,
+    color TEXT,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_financeiro_contas_bancarias_company_id ON public.financeiro_contas_bancarias(company_id);
+
+-- Tabela para cadastro de fornecedores
+CREATE TABLE IF NOT EXISTS public.cadastro_fornecedores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id TEXT,
+    cnpj_cpf TEXT,
+    razao_social TEXT,
+    nome_fantasia TEXT,
+    inscricao_estadual TEXT,
+    inscricao_municipal TEXT,
+    telefone_whatsapp TEXT,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cadastro_fornecedores_company_id ON public.cadastro_fornecedores(company_id);
+
+-- Tabela para ordens de serviço e gastos de manutenção de frotas
+CREATE TABLE IF NOT EXISTS public.frotas_manutencoes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id TEXT,
+    user_id TEXT,
+    machinery_id UUID,
+    os_number TEXT,
+    date DATE,
+    type TEXT DEFAULT 'corretiva',
+    service_category TEXT,
+    description TEXT,
+    parts_cost NUMERIC(15,2) DEFAULT 0,
+    labor_cost NUMERIC(15,2) DEFAULT 0,
+    total_cost NUMERIC(15,2) DEFAULT 0,
+    status TEXT DEFAULT 'pendente',
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_frotas_manutencoes_company_id ON public.frotas_manutencoes(company_id);
+CREATE INDEX IF NOT EXISTS idx_frotas_manutencoes_machinery_id ON public.frotas_manutencoes(machinery_id);
+
 -- Tabela site_settings para módulos operacionais serializados
 CREATE TABLE IF NOT EXISTS public.site_settings (
     id TEXT PRIMARY KEY,
@@ -192,11 +250,14 @@ ALTER TABLE public.notas_fiscais ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_ferias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rh_rescisoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financeiro_contas_bancarias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cadastro_fornecedores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.frotas_manutencoes ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
     tbl text;
-    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes'];
+    tables text[] := ARRAY['clientes', 'gestao_frotas', 'rh_funcionarios', 'contas_a_pagar', 'fornecedores', 'estoque', 'agendamentos', 'notas_fiscais', 'site_settings', 'rh_ferias', 'rh_rescisoes', 'financeiro_contas_bancarias', 'cadastro_fornecedores', 'frotas_manutencoes'];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
         EXECUTE 'DROP POLICY IF EXISTS "policy_all_' || tbl || '" ON public.' || quote_ident(tbl);

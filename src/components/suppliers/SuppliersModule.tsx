@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchFornecedores, mapRowToSupplier, toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
-import { saveStoredSuppliers } from '../../lib/storage';
+import { fetchFornecedores, mapRowToSupplier, toValidUUID, isSupabaseConfigured, upsertFornecedor, deleteFornecedor } from '../../lib/supabaseService';
+import { saveStoredSuppliers, getActiveCompanyId } from '../../lib/storage';
 import { 
   Plus, 
   Search, 
@@ -39,64 +39,70 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
     }
   }, [suppliers]);
 
-  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'fornecedores'
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'cadastro_fornecedores' e 'fornecedores'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
+
+    const handlePayload = (payload: any) => {
+      console.info('📡 [Realtime Fornecedores] Alteração recebida:', payload.eventType, payload);
+
+      // 1. Atualização imediata sem delay (Zero delay)
+      if (payload.eventType === 'DELETE') {
+        const deletedId = payload.old?.id;
+        if (deletedId) {
+          setLocalSuppliers(prev => {
+            const updated = prev.filter(s => s.id !== deletedId && toValidUUID(s.id) !== deletedId);
+            saveStoredSuppliers(updated);
+            if (onSaveSuppliers) onSaveSuppliers(updated);
+            return updated;
+          });
+        }
+      } else if (payload.eventType === 'INSERT' && payload.new) {
+        const mapped = mapRowToSupplier(payload.new);
+        setLocalSuppliers(prev => {
+          const exists = prev.some(s => s.id === mapped.id || toValidUUID(s.id) === mapped.id);
+          const updated = exists
+            ? prev.map(s => (s.id === mapped.id || toValidUUID(s.id) === mapped.id) ? { ...s, ...mapped } : s)
+            : [mapped, ...prev].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+          saveStoredSuppliers(updated);
+          if (onSaveSuppliers) onSaveSuppliers(updated);
+          return updated;
+        });
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        const mapped = mapRowToSupplier(payload.new);
+        setLocalSuppliers(prev => {
+          const updated = prev.map(s => (s.id === mapped.id || toValidUUID(s.id) === mapped.id) ? { ...s, ...mapped } : s);
+          saveStoredSuppliers(updated);
+          if (onSaveSuppliers) onSaveSuppliers(updated);
+          return updated;
+        });
+      }
+
+      // 2. Reconciliação completa com Supabase
+      fetchFornecedores().then(fresh => {
+        if (isMounted && fresh && Array.isArray(fresh)) {
+          setLocalSuppliers(fresh);
+          saveStoredSuppliers(fresh);
+          if (onSaveSuppliers) onSaveSuppliers(fresh);
+        }
+      }).catch(err => {
+        console.warn('Erro ao sincronizar fornecedores em tempo real:', err);
+      });
+    };
 
     const channelId = `suppliers_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'cadastro_fornecedores' },
+        handlePayload
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'fornecedores' },
-        async (payload: any) => {
-          console.info('📡 [Realtime Fornecedores] Alteração em fornecedores:', payload.eventType, payload);
-
-          // 1. Atualização imediata sem delay (Zero delay)
-          if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old?.id;
-            if (deletedId) {
-              setLocalSuppliers(prev => {
-                const updated = prev.filter(s => s.id !== deletedId && toValidUUID(s.id) !== deletedId);
-                saveStoredSuppliers(updated);
-                if (onSaveSuppliers) onSaveSuppliers(updated);
-                return updated;
-              });
-            }
-          } else if (payload.eventType === 'INSERT' && payload.new) {
-            const mapped = mapRowToSupplier(payload.new);
-            setLocalSuppliers(prev => {
-              const exists = prev.some(s => s.id === mapped.id || toValidUUID(s.id) === mapped.id);
-              const updated = exists
-                ? prev.map(s => (s.id === mapped.id || toValidUUID(s.id) === mapped.id) ? { ...s, ...mapped } : s)
-                : [mapped, ...prev].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-              saveStoredSuppliers(updated);
-              if (onSaveSuppliers) onSaveSuppliers(updated);
-              return updated;
-            });
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            const mapped = mapRowToSupplier(payload.new);
-            setLocalSuppliers(prev => {
-              const updated = prev.map(s => (s.id === mapped.id || toValidUUID(s.id) === mapped.id) ? { ...s, ...mapped } : s);
-              saveStoredSuppliers(updated);
-              if (onSaveSuppliers) onSaveSuppliers(updated);
-              return updated;
-            });
-          }
-
-          // 2. Reconciliação completa com Supabase
-          try {
-            const fresh = await fetchFornecedores();
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalSuppliers(fresh);
-              saveStoredSuppliers(fresh);
-              if (onSaveSuppliers) onSaveSuppliers(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar fornecedores em tempo real:', err);
-          }
-        }
+        handlePayload
       )
       .subscribe();
 
@@ -153,10 +159,12 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
+      const activeCompanyId = getActiveCompanyId();
       const updated = localSuppliers.filter(s => s.id !== id);
       setLocalSuppliers(updated);
       saveStoredSuppliers(updated);
       onSaveSuppliers(updated);
+      deleteFornecedor(id, activeCompanyId).catch(err => console.warn('Supabase deleteFornecedor notice:', err));
     }
   };
 
@@ -357,14 +365,21 @@ export const SuppliersModule: React.FC<SuppliersModuleProps> = ({
           setEditingSupplier(null);
         }}
         onSave={(savedSup) => {
+          const activeCompanyId = getActiveCompanyId();
           const index = suppliers.findIndex(s => s.id === savedSup.id);
           if (index >= 0) {
             const updated = [...suppliers];
             updated[index] = savedSup;
+            setLocalSuppliers(updated);
+            saveStoredSuppliers(updated);
             onSaveSuppliers(updated);
           } else {
-            onSaveSuppliers([...suppliers, savedSup]);
+            const updated = [...suppliers, savedSup];
+            setLocalSuppliers(updated);
+            saveStoredSuppliers(updated);
+            onSaveSuppliers(updated);
           }
+          upsertFornecedor(savedSup, activeCompanyId).catch(err => console.warn('Supabase upsertFornecedor notice:', err));
         }}
       />
 

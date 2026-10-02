@@ -34,7 +34,8 @@ import {
   subtrairCombustivelTanque,
   baixarEstoqueProdutosDefinitivoOS,
   deleteCloudMaintenanceLog,
-  saveCloudMaintenanceLogs
+  saveCloudMaintenanceLogs,
+  upsertCloudMaintenanceLog
 } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
@@ -763,6 +764,12 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       onSaveMaintenanceLogs([log, ...maintenanceLogs]);
     }
     setEditingMaintenanceLog(log);
+
+    // Persiste imediatamente no Supabase (tabela 'public.frotas_manutencoes' e 'manutencoes')
+    const activeCid = companyProfile?.id || getActiveCompanyId();
+    const activeUid = currentUser?.id || currentUser?.uid;
+    upsertCloudMaintenanceLog(log, activeCid, activeUid).catch(err => console.warn('Supabase upsertCloudMaintenanceLog notice:', err));
+    window.dispatchEvent(new CustomEvent('silagem_maintenance_changed', { detail: log }));
 
     // Update vehicle status and maintenance expenses
     const targetVehicle = machineries.find(m => m.id === log.machineryId);

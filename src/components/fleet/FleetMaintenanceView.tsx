@@ -30,7 +30,7 @@ import {
 import { MaintenanceLog, Machinery, CompanyProfile, MaintenancePurchaseRequest, MaintenanceCategoryDefinition } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredMaintenanceCategories, saveStoredMaintenanceCategories, getActiveCompanyId, saveStoredMaintenanceLogs } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
-import { isSupabaseConfigured, deleteCloudMaintenanceLog } from '../../lib/supabaseService';
+import { isSupabaseConfigured, deleteCloudMaintenanceLog, mapRowToMaintenanceLog, toValidUUID } from '../../lib/supabaseService';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { MaintenanceDetailModal } from './MaintenanceDetailModal';
@@ -69,22 +69,47 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
     setLocalLogs(maintenanceLogs);
   }, [maintenanceLogs]);
 
-  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela 'manutencoes'
+  // Listener em tempo real (Supabase Realtime) escutando eventos nas tabelas 'frotas_manutencoes' e 'manutencoes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    const channelId = `manutencoes_view_rt_${Date.now()}`;
+
+    const handlePayload = (payload: any) => {
+      console.info('📡 [Realtime Manutenções] Alteração:', payload.eventType, payload);
+      if (payload.eventType === 'DELETE') {
+        const delId = payload.old?.id;
+        if (delId) {
+          setLocalLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
+          onDeleteMaintenance(delId);
+        }
+      } else if (payload.eventType === 'INSERT' && payload.new) {
+        const item = mapRowToMaintenanceLog(payload.new);
+        setLocalLogs(prev => {
+          const exists = prev.some(m => m.id === item.id || toValidUUID(m.id) === item.id);
+          if (exists) {
+            return prev.map(m => (m.id === item.id || toValidUUID(m.id) === item.id) ? { ...m, ...item } : m);
+          }
+          return [item, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
+        window.dispatchEvent(new CustomEvent('silagem_maintenance_changed', { detail: item }));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        const item = mapRowToMaintenanceLog(payload.new);
+        setLocalLogs(prev => prev.map(m => (m.id === item.id || toValidUUID(m.id) === item.id) ? { ...m, ...item } : m));
+        window.dispatchEvent(new CustomEvent('silagem_maintenance_changed', { detail: item }));
+      }
+    };
+
+    const channelId = `frotas_manutencoes_view_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'manutencoes' },
-        (payload: any) => {
-          const delId = payload.old?.id;
-          if (delId) {
-            setLocalLogs(prev => prev.filter(m => m.id !== delId));
-            onDeleteMaintenance(delId);
-          }
-        }
+        { event: '*', schema: 'public', table: 'frotas_manutencoes' },
+        handlePayload
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'manutencoes' },
+        handlePayload
       )
       .on(
         'broadcast',
@@ -92,7 +117,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         (payload: any) => {
           const delId = payload.payload?.id;
           if (delId) {
-            setLocalLogs(prev => prev.filter(m => m.id !== delId));
+            setLocalLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
             onDeleteMaintenance(delId);
           }
         }
@@ -102,7 +127,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
     const handleLocal = (e: any) => {
       const delId = e.detail?.id;
       if (delId) {
-        setLocalLogs(prev => prev.filter(m => m.id !== delId));
+        setLocalLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
       }
     };
     window.addEventListener('silagem_maintenance_deleted', handleLocal);

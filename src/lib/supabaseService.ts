@@ -23,7 +23,8 @@ import {
   CaixaFerramentaVeiculoRecord,
   MaintenanceLog,
   VacationRecord,
-  PayrollRecord
+  PayrollRecord,
+  BankAccount
 } from '../types';
 export type {
   CompanyProfile,
@@ -195,6 +196,20 @@ export async function fetchFornecedores(companyId?: string): Promise<Supplier[] 
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) return [];
   try {
+    // 1. Tenta buscar prioritariamente em 'cadastro_fornecedores'
+    try {
+      let { data, error } = await supabase
+        .from('cadastro_fornecedores')
+        .select('*')
+        .eq('company_id', activeCompanyId)
+        .order('razao_social', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        return data.map(mapRowToSupplier);
+      }
+    } catch (_) {}
+
+    // 2. Busca na tabela 'fornecedores'
     let { data, error } = await supabase
       .from('fornecedores')
       .select('*')
@@ -242,9 +257,16 @@ export async function upsertFornecedor(supplier: Supplier, companyId?: string): 
       inscricao_estadual: supplier.stateRegistration || '',
       inscricao_municipal: supplier.municipalRegistration || '',
       telefone_whatsapp: supplier.phone || '',
+      payload: { ...supplier, company_id: activeCompanyId },
       updated_at: new Date().toISOString()
     };
 
+    // Grava na tabela 'cadastro_fornecedores'
+    try {
+      await supabase.from('cadastro_fornecedores').upsert(payload, { onConflict: 'id' });
+    } catch (_) {}
+
+    // Grava também na tabela 'fornecedores'
     let { error } = await supabase
       .from('fornecedores')
       .upsert(payload, { onConflict: 'id' });
@@ -270,6 +292,13 @@ export async function deleteFornecedor(id: string, companyId?: string): Promise<
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
+
+    try {
+      let queryCad = supabase.from('cadastro_fornecedores').delete().eq('id', uuid);
+      if (activeCompanyId) queryCad = queryCad.eq('company_id', activeCompanyId);
+      await queryCad;
+    } catch (_) {}
+
     let query = supabase.from('fornecedores').delete().eq('id', uuid);
     if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
     const { error } = await query;
@@ -9112,7 +9141,7 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
 }
 
 /**
- * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase: tabela 'manutencoes' e espelho 'site_settings')
+ * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase: tabelas 'frotas_manutencoes' e 'manutencoes' e espelho 'site_settings')
  */
 export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
@@ -9127,26 +9156,35 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
     }
     const cleanLogs = Array.isArray(logs) ? logs : [];
 
-    // 1. Tenta gravar os registros diretamente na tabela física 'manutencoes' do Supabase
+    // 1. Tenta gravar os registros diretamente nas tabelas físicas 'frotas_manutencoes' e 'manutencoes' do Supabase
     try {
       if (cleanLogs.length > 0) {
         const rows = cleanLogs.map(m => ({
-          id: m.id,
+          id: toValidUUID(m.id),
           user_id: currentUserId,
           company_id: cId,
-          machinery_id: m.machineryId || null,
+          machinery_id: m.machineryId ? toValidUUID(m.machineryId) : null,
           machinery_plate_or_name: m.machineryPlateOrName || null,
           os_number: m.osNumber || null,
           date: m.date || null,
           type: m.type || 'corretiva',
           service_category: m.serviceCategory || null,
           description: m.description || null,
-          total_cost: m.totalCost || 0,
+          parts_cost: Number(m.partsCost || 0),
+          labor_cost: Number(m.laborCost || 0),
+          total_cost: Number(m.totalCost || 0),
           status: m.status || 'pendente',
           payload: { ...m, user_id: currentUserId, company_id: cId },
           updated_at: new Date().toISOString()
         }));
-        await supabase.from('manutencoes').upsert(rows, { onConflict: 'id' });
+
+        try {
+          await supabase.from('frotas_manutencoes').upsert(rows, { onConflict: 'id' });
+        } catch (_) {}
+
+        try {
+          await supabase.from('manutencoes').upsert(rows, { onConflict: 'id' });
+        } catch (_) {}
       }
     } catch (_) {}
 
@@ -9165,7 +9203,86 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
 }
 
 /**
- * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase: tabela 'manutencoes' e espelho 'site_settings')
+ * Salva uma única ordem de manutenção instantaneamente no Supabase
+ */
+export async function upsertCloudMaintenanceLog(log: MaintenanceLog, companyId?: string, userId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !log) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    let currentUserId = userId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const row = {
+      id: toValidUUID(log.id),
+      user_id: currentUserId,
+      company_id: cId,
+      machinery_id: log.machineryId ? toValidUUID(log.machineryId) : null,
+      machinery_plate_or_name: log.machineryPlateOrName || null,
+      os_number: log.osNumber || null,
+      date: log.date || null,
+      type: log.type || 'corretiva',
+      service_category: log.serviceCategory || null,
+      description: log.description || null,
+      parts_cost: Number(log.partsCost || 0),
+      labor_cost: Number(log.laborCost || 0),
+      total_cost: Number(log.totalCost || 0),
+      status: log.status || 'pendente',
+      payload: { ...log, user_id: currentUserId, company_id: cId },
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      await supabase.from('frotas_manutencoes').upsert(row, { onConflict: 'id' });
+    } catch (_) {}
+
+    try {
+      await supabase.from('manutencoes').upsert(row, { onConflict: 'id' });
+    } catch (_) {}
+
+    return true;
+  } catch (err) {
+    console.warn('Erro ao upsert manutenção:', err);
+    return false;
+  }
+}
+
+export function mapRowToMaintenanceLog(r: any): MaintenanceLog {
+  const payload = r.payload && typeof r.payload === 'object' ? r.payload : {};
+  return {
+    id: r.id || payload.id,
+    osNumber: r.os_number || r.osNumber || payload.osNumber || '',
+    orderNumber: r.os_number || r.osNumber || payload.orderNumber || payload.osNumber || '',
+    machineryId: r.machinery_id || r.machineryId || payload.machineryId || '',
+    machineryPlateOrName: r.machinery_plate_or_name || r.machineryPlateOrName || payload.machineryPlateOrName || '',
+    date: r.date || payload.date || '',
+    type: r.type || payload.type || 'corretiva',
+    serviceCategory: r.service_category || r.serviceCategory || payload.serviceCategory || '',
+    description: r.description || payload.description || '',
+    executorName: r.responsible_name || payload.executorName || payload.responsibleName || '',
+    workshopOrMechanic: r.workshop_or_mechanic || r.workshopOrMechanic || payload.workshopOrMechanic || '',
+    workshop: r.workshop_or_supplier || payload.workshop || '',
+    currentHourMeterOrKm: Number(r.hour_meter_or_km ?? payload.currentHourMeterOrKm ?? payload.hourMeterOrKm ?? 0),
+    hourMeterOrKmAtService: Number(r.hour_meter_or_km ?? payload.hourMeterOrKmAtService ?? payload.hourMeterOrKm ?? 0),
+    partsCost: Number(r.parts_cost ?? payload.partsCost ?? 0),
+    laborCost: Number(r.labor_cost ?? payload.laborCost ?? 0),
+    totalCost: Number(r.total_cost ?? payload.totalCost ?? 0),
+    status: r.status || payload.status || 'pendente',
+    location: r.location || payload.location || 'oficina_interna',
+    partsItems: r.parts_items || payload.partsItems || [],
+    notes: r.notes || payload.notes || '',
+    nfeLink: r.nfe_link || payload.nfeLink,
+    financialConditions: r.financial_conditions || payload.financialConditions,
+    createdAt: r.created_at || payload.createdAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase: tabela 'frotas_manutencoes' e 'manutencoes')
  */
 export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: string): Promise<MaintenanceLog[] | null> {
   if (!isSupabaseConfigured) return null;
@@ -9181,54 +9298,37 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
 
     const map = new Map<string, MaintenanceLog>();
 
-    // 1. Busca prioritária na tabela física 'manutencoes' com filtro por user_id
+    // 1. Busca prioritária na tabela física 'frotas_manutencoes'
+    try {
+      let query = supabase.from('frotas_manutencoes').select('*');
+      if (cId) query = query.eq('company_id', cId);
+      const { data: relData, error: relErr } = await query;
+      if (!relErr && Array.isArray(relData) && relData.length > 0) {
+        for (const r of relData) {
+          const item = mapRowToMaintenanceLog(r);
+          if (item.id) map.set(item.id, item);
+        }
+        return Array.from(map.values());
+      }
+    } catch (_) {}
+
+    // 2. Fallback na tabela física 'manutencoes' com filtro por user_id
     try {
       let query = supabase.from('manutencoes').select('*');
       if (currentUserId) {
         query = query.eq('user_id', currentUserId);
       }
       const { data: relData, error: relErr } = await query;
-      if (!relErr && Array.isArray(relData)) {
+      if (!relErr && Array.isArray(relData) && relData.length > 0) {
         for (const r of relData) {
-          const payload = r.payload && typeof r.payload === 'object' ? r.payload : {};
-          const item: MaintenanceLog = {
-            id: r.id || payload.id,
-            osNumber: r.os_number || r.osNumber || payload.osNumber || '',
-            orderNumber: r.os_number || r.osNumber || payload.orderNumber || payload.osNumber || '',
-            machineryId: r.machinery_id || r.machineryId || payload.machineryId || '',
-            machineryPlateOrName: r.machinery_plate_or_name || r.machineryPlateOrName || payload.machineryPlateOrName || '',
-            date: r.date || payload.date || '',
-            type: r.type || payload.type || 'corretiva',
-            serviceCategory: r.service_category || r.serviceCategory || payload.serviceCategory || '',
-            description: r.description || payload.description || '',
-            executorName: r.responsible_name || payload.executorName || payload.responsibleName || '',
-            workshopOrMechanic: r.workshop_or_mechanic || r.workshopOrMechanic || payload.workshopOrMechanic || '',
-            workshop: r.workshop_or_supplier || payload.workshop || '',
-            currentHourMeterOrKm: Number(r.hour_meter_or_km ?? payload.currentHourMeterOrKm ?? payload.hourMeterOrKm ?? 0),
-            hourMeterOrKmAtService: Number(r.hour_meter_or_km ?? payload.hourMeterOrKmAtService ?? payload.hourMeterOrKm ?? 0),
-            partsCost: Number(r.parts_cost ?? payload.partsCost ?? 0),
-            laborCost: Number(r.labor_cost ?? payload.laborCost ?? 0),
-            totalCost: Number(r.total_cost ?? payload.totalCost ?? 0),
-            status: r.status || payload.status || 'pendente',
-            location: r.location || payload.location || 'oficina_interna',
-            partsItems: r.parts_items || payload.partsItems || [],
-            notes: r.notes || payload.notes || '',
-            nfeLink: r.nfe_link || payload.nfeLink,
-            financialConditions: r.financial_conditions || payload.financialConditions,
-            createdAt: r.created_at || payload.createdAt || new Date().toISOString(),
-          };
-          if (item.id) {
-            map.set(item.id, item);
-          }
+          const item = mapRowToMaintenanceLog(r);
+          if (item.id) map.set(item.id, item);
         }
-        // Se a consulta à tabela física respondeu com sucesso, ela é a fonte de verdade absoluta.
-        // Retorna o resultado imediatamente (inclusive se estiver vazia []), evitando ressuscitar
-        // registros antigos de site_settings.
         return Array.from(map.values());
       }
     } catch (_) {}
 
-    // 2. Apenas se a consulta à tabela física falhou (ex: erro de schema ou tabela inexistente), consulta site_settings
+    // 3. Fallback no espelho de site_settings
     try {
       const { data, error } = await supabase
         .from('site_settings')
@@ -9253,8 +9353,7 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
 }
 
 /**
- * Exclui fisicamente uma Ordem de Serviço de Manutenção na tabela 'manutencoes' do Supabase
- * com amarração obrigatória por user_id e propaga a sincronização via Realtime
+ * Exclui fisicamente uma Ordem de Serviço de Manutenção nas tabelas do Supabase
  */
 export async function deleteCloudMaintenanceLog(
   ordemId: string,
@@ -9271,23 +9370,25 @@ export async function deleteCloudMaintenanceLog(
       } catch (_) {}
     }
 
-    // 1. Execução do Comando Físico no Supabase:
-    // supabase.from('manutencoes').delete().eq('id', ordemId).eq('user_id', currentUserId)
-    let query = supabase.from('manutencoes').delete().eq('id', ordemId);
-    if (currentUserId) {
-      query = query.eq('user_id', currentUserId);
-    }
-    const { error } = await query;
-    if (error) {
-      console.warn('[Supabase] Tentativa com user_id retornou erro, tentando por id direto:', error.message);
-      await supabase.from('manutencoes').delete().eq('id', ordemId);
-    } else {
-      // Como redundância de segurança, caso a linha no banco estivesse com user_id nulo/misto:
-      await supabase.from('manutencoes').delete().eq('id', ordemId);
-    }
+    const uuid = toValidUUID(ordemId);
 
-    // 2. Limpeza imediata no espelho de persistência em site_settings (cloud_maintenance_${cId})
-    // Isso garante que ao atualizar a página (F5), a OS excluída NÃO ressuscite
+    // 1. Exclui de frotas_manutencoes
+    try {
+      await supabase.from('frotas_manutencoes').delete().eq('id', uuid);
+      if (ordemId !== uuid) {
+        await supabase.from('frotas_manutencoes').delete().eq('id', ordemId);
+      }
+    } catch (_) {}
+
+    // 2. Exclui de manutencoes
+    try {
+      await supabase.from('manutencoes').delete().eq('id', uuid);
+      if (ordemId !== uuid) {
+        await supabase.from('manutencoes').delete().eq('id', ordemId);
+      }
+    } catch (_) {}
+
+    // 3. Limpeza imediata no espelho de persistência em site_settings (cloud_maintenance_${cId})
     const cId = companyId || getActiveCompanyId();
     try {
       const { data: ssData } = await supabase
@@ -9299,7 +9400,7 @@ export async function deleteCloudMaintenanceLog(
       if (ssData?.hero_title) {
         const parsed = JSON.parse(ssData.hero_title);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter((m: any) => m && m.id !== ordemId);
+          const filtered = parsed.filter((m: any) => m && m.id !== ordemId && m.id !== uuid);
           await supabase.from('site_settings').upsert({
             id: `cloud_maintenance_${cId}`,
             hero_title: JSON.stringify(filtered),
@@ -9310,27 +9411,216 @@ export async function deleteCloudMaintenanceLog(
       }
     } catch (_) {}
 
-    // 3. Propagação via Supabase Realtime para que suma simultaneamente em todos os outros dispositivos
-    try {
-      const rtChannel = supabase.channel(`manutencoes_rt_broadcast_${Date.now()}`);
-      rtChannel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          rtChannel.send({
-            type: 'broadcast',
-            event: 'delete_manutencao',
-            payload: { id: ordemId, user_id: currentUserId, company_id: cId }
-          }).then(() => {
-            setTimeout(() => {
-              try { supabase.removeChannel(rtChannel); } catch (_) {}
-            }, 800);
-          });
-        }
-      });
-    } catch (_) {}
-
     return true;
   } catch (e) {
     console.error('[Supabase] Falha ao deletar manutenção:', e);
+    return false;
+  }
+}
+
+// ===========================================================================
+// CONTAS BANCÁRIAS (Tabela: public.financeiro_contas_bancarias)
+// ===========================================================================
+
+export function mapRowToBankAccount(row: any): BankAccount {
+  const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  return {
+    id: row.id || payload.id,
+    name: row.name || row.account_name || payload.name || payload.accountName || 'Conta Bancária',
+    accountName: row.account_name || row.name || payload.accountName || payload.name || 'Conta Bancária',
+    bankName: row.bank_name || payload.bankName || 'Banco',
+    bankCode: row.bank_code || payload.bankCode,
+    accountType: row.account_type || payload.accountType || 'corrente',
+    agency: row.agency || payload.agency,
+    accountNumber: row.account_number || payload.accountNumber,
+    accountDigit: row.account_digit || payload.accountDigit,
+    balance: Number(row.balance ?? row.current_balance ?? payload.balance ?? payload.currentBalance ?? 0),
+    currentBalance: Number(row.balance ?? row.current_balance ?? payload.balance ?? payload.currentBalance ?? 0),
+    overdraftLimit: Number(row.overdraft_limit ?? payload.overdraftLimit ?? 0),
+    pixKey: row.pix_key || payload.pixKey,
+    pixKeyType: row.pix_key_type || payload.pixKeyType,
+    color: row.color || payload.color || '#0963cb',
+    corporateCards: row.corporate_cards || payload.corporateCards || [],
+  };
+}
+
+export async function fetchCloudBankAccounts(companyId?: string, userId?: string): Promise<BankAccount[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const map = new Map<string, BankAccount>();
+
+    // 1. Tenta buscar em 'financeiro_contas_bancarias'
+    try {
+      let query = supabase.from('financeiro_contas_bancarias').select('*');
+      if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+      const { data, error } = await query;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        data.forEach(r => {
+          const acc = mapRowToBankAccount(r);
+          if (acc.id) map.set(acc.id, acc);
+        });
+        return Array.from(map.values());
+      }
+    } catch (_) {}
+
+    // 2. Fallback na tabela legada 'contas_bancarias'
+    try {
+      let query = supabase.from('contas_bancarias').select('*');
+      if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+      const { data, error } = await query;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        data.forEach(r => {
+          const acc = mapRowToBankAccount(r);
+          if (acc.id) map.set(acc.id, acc);
+        });
+        return Array.from(map.values());
+      }
+    } catch (_) {}
+
+    // 3. Fallback no espelho de site_settings
+    try {
+      const { data: ssData } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_bank_accounts_${activeCompanyId}`)
+        .maybeSingle();
+
+      if (ssData?.hero_title) {
+        const parsed = JSON.parse(ssData.hero_title);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach((item: any) => {
+            if (item?.id) map.set(item.id, item);
+          });
+        }
+      }
+    } catch (_) {}
+
+    return map.size > 0 ? Array.from(map.values()) : [];
+  } catch (err) {
+    console.warn('Supabase fetchCloudBankAccounts err:', err);
+    return null;
+  }
+}
+
+export async function saveCloudBankAccounts(accounts: BankAccount[], companyId?: string, userId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    let currentUserId = userId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id;
+      } catch (_) {}
+    }
+    const cleanAccounts = Array.isArray(accounts) ? accounts : [];
+
+    // 1. Tenta gravar em 'financeiro_contas_bancarias'
+    try {
+      if (cleanAccounts.length > 0) {
+        const rows = cleanAccounts.map(a => ({
+          id: toValidUUID(a.id),
+          company_id: activeCompanyId,
+          user_id: currentUserId,
+          name: a.name || a.accountName || 'Conta Bancária',
+          bank_name: a.bankName || 'Banco',
+          account_type: a.accountType || 'corrente',
+          agency: a.agency || null,
+          account_number: a.accountNumber || null,
+          balance: Number(a.balance ?? a.currentBalance ?? 0),
+          overdraft_limit: Number(a.overdraftLimit ?? 0),
+          pix_key: a.pixKey || null,
+          color: a.color || '#0963cb',
+          payload: { ...a, company_id: activeCompanyId, user_id: currentUserId },
+          updated_at: new Date().toISOString()
+        }));
+        await supabase.from('financeiro_contas_bancarias').upsert(rows, { onConflict: 'id' });
+      }
+    } catch (_) {}
+
+    // 2. Grava espelho em site_settings
+    try {
+      await supabase.from('site_settings').upsert({
+        id: `cloud_bank_accounts_${activeCompanyId}`,
+        hero_title: JSON.stringify(cleanAccounts),
+        allow_free_trial: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (_) {}
+
+    return true;
+  } catch (err) {
+    console.error('Falha ao persistir contas bancárias no Supabase:', err);
+    return false;
+  }
+}
+
+export async function upsertContaBancaria(account: BankAccount, companyId?: string, userId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !account) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    let currentUserId = userId;
+    if (!currentUserId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const payload = {
+      id: toValidUUID(account.id),
+      company_id: activeCompanyId,
+      user_id: currentUserId,
+      name: account.name || account.accountName || 'Conta Bancária',
+      bank_name: account.bankName || 'Banco',
+      account_type: account.accountType || 'corrente',
+      agency: account.agency || null,
+      account_number: account.accountNumber || null,
+      balance: Number(account.balance ?? account.currentBalance ?? 0),
+      overdraft_limit: Number(account.overdraftLimit ?? 0),
+      pix_key: account.pixKey || null,
+      color: account.color || '#0963cb',
+      payload: { ...account, company_id: activeCompanyId, user_id: currentUserId },
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      await supabase.from('financeiro_contas_bancarias').upsert(payload, { onConflict: 'id' });
+    } catch (_) {}
+
+    try {
+      await supabase.from('contas_bancarias').upsert(payload, { onConflict: 'id' });
+    } catch (_) {}
+
+    return true;
+  } catch (err) {
+    console.warn('Erro ao salvar conta bancária no Supabase:', err);
+    return false;
+  }
+}
+
+export async function deleteContaBancaria(id: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !id) return false;
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const uuid = toValidUUID(id);
+
+    try {
+      let query = supabase.from('financeiro_contas_bancarias').delete().eq('id', uuid);
+      if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+      await query;
+    } catch (_) {}
+
+    try {
+      let query = supabase.from('contas_bancarias').delete().eq('id', uuid);
+      if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+      await query;
+    } catch (_) {}
+
+    return true;
+  } catch (err) {
+    console.warn('Erro ao excluir conta bancária:', err);
     return false;
   }
 }
@@ -9354,6 +9644,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       `cloud_terminations_${cId}`,
       `cloud_maintenance_${cId}`,
       `cloud_vacations_${cId}`,
+      `cloud_bank_accounts_${cId}`,
     ];
 
     const { data, error } = await supabase
@@ -9395,6 +9686,7 @@ export async function fetchAllClientModulesFromSupabase(companyId?: string) {
       terminations: parseJson(`cloud_terminations_${cId}`) as TerminationRecord[] | null,
       maintenanceLogs: parseJson(`cloud_maintenance_${cId}`) as MaintenanceLog[] | null,
       vacations: parseJson(`cloud_vacations_${cId}`) as VacationRecord[] | null,
+      bankAccounts: parseJson(`cloud_bank_accounts_${cId}`) as BankAccount[] | null,
     };
   } catch (err) {
     console.warn('Erro ao carregar módulos do cliente do Supabase:', err);
