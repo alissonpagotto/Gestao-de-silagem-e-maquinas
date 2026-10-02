@@ -1306,7 +1306,10 @@ export interface TerminationRecord {
   notes?: string;
   includeFgtsFine?: boolean;
   includeInssDiscount?: boolean;
-  status: 'rascunho' | 'homologado' | 'pago' | 'cancelado';
+  status: 'rascunho' | 'homologado' | 'pago' | 'cancelado' | 'integrado';
+  isIntegrated?: boolean;
+  integratedAt?: string;
+  financePayableId?: string;
   markEmployeeInactive?: boolean;
   vacationExpiredPeriods?: number;
   customFgtsBalance?: string;

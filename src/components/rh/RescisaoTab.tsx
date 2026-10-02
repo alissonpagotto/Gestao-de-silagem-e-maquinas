@@ -18,7 +18,8 @@ import {
   Scale,
   Edit2,
   Search,
-  UserCheck
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
 import { 
   Employee, 
@@ -29,14 +30,18 @@ import {
   TerminationReason, 
   NoticeType,
   TerminationCalculation,
-  VacationRecord
+  VacationRecord,
+  Expense
 } from '../../types';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
   getActiveCompanyId,
   getStoredTerminations, 
-  saveStoredTerminations 
+  saveStoredTerminations,
+  getStoredExpenses,
+  saveStoredExpenses,
+  getStoredMachineries
 } from '../../lib/storage';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
@@ -46,12 +51,15 @@ import {
   deleteRhRescisaoRecord,
   mapRowToTerminationRecord,
   toValidUUID,
+  insertFinanceiroContasAPagar,
+  saveCloudExpenses
 } from '../../lib/supabaseService';
 import { useAuth } from '../../context/AuthContext';
 import { 
   formatMoneyBRL, 
   formatCPF, 
-  formatEmployeeAdmissionDate 
+  formatEmployeeAdmissionDate,
+  findEmployeeLinkedMachinery
 } from './payrollHelpers';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ResignCalculationModal } from './ResignCalculationModal';
@@ -96,7 +104,15 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
   // Filtros da Listagem Histórica
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'homologado' | 'rascunho'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'homologado' | 'integrado' | 'rascunho'>('all');
+
+  // Estado de Integração Financeira em Andamento & Banner de Feedback
+  const [integratingId, setIntegratingId] = useState<string | null>(null);
+  const [integrationBanner, setIntegrationBanner] = useState<{
+    type: 'success' | 'error';
+    title: string;
+    details: string;
+  } | null>(null);
 
   // Modal de Impressão / TRCT
   const [viewingTRCT, setViewingTRCT] = useState<TerminationRecord | null>(null);
@@ -224,7 +240,234 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     setIsCalculationModalOpen(true);
   };
 
-  // Persistência: Concluir e salvar homologação definitiva
+  // Nome amigável do motivo de rescisão
+  const getReasonLabel = (r: TerminationReason): string => {
+    switch (r) {
+      case 'sem_justa_causa':
+        return 'Demissão sem Justa Causa';
+      case 'com_justa_causa':
+        return 'Demissão com Justa Causa';
+      case 'pedido_demissao':
+        return 'Pedido de Demissão';
+      case 'acordo_mutuo':
+        return 'Acordo Mútuo (Art. 484-A)';
+      case 'termino_contrato':
+        return 'Término de Contrato';
+      default:
+        return r;
+    }
+  };
+
+  // Cálculo da data de vencimento legal (10 dias a contar da data de desligamento)
+  const calculateTerminationDueDate = (termDateStr: string): string => {
+    if (!termDateStr) {
+      const d = new Date();
+      d.setDate(d.getDate() + 10);
+      return d.toISOString().split('T')[0];
+    }
+    const cleanDate = termDateStr.split('T')[0];
+    const parts = cleanDate.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + 10);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + 10);
+    return d.toISOString().split('T')[0];
+  };
+
+  /**
+   * PROJETO DE INTEGRAÇÃO FINANCEIRA (BOTÃO INTEGRAR RESCISÃO AO CONTAS A PAGAR E DRE):
+   * 1. Lê a linha correspondente da rescisão (t).
+   * 2. Lança registro de débito na tabela 'public.financeiro_contas_a_pagar' do Supabase:
+   *    * Valor do Título: exatamente o valor da coluna "VALOR LÍQUIDO RESCISÓRIO (R$)".
+   *    * Descrição/Histórico: "Acerto Rescisório - [Nome] | Tipo: [Tipo de Rescisão]".
+   *    * Categoria Financeira: "Despesas com Pessoal / Rescisões Contratuais".
+   *    * Data de Vencimento: prazo legal de 10 dias a contar da Data de Desligamento.
+   * 3. Lança despesa no DRE do Veículo/Máquina vinculado (Custo Total Bruto)
+   *    ou no DRE Geral da empresa sob a categoria "Custos Administrativos / Pessoal".
+   * 4. Muda status da linha para "Integrado", salva no Supabase e desabilita o botão para impedir duplicidade.
+   */
+  const handleIntegrarRescisaoFinanceiro = async (t: TerminationRecord) => {
+    if (t.status === 'integrado' || Boolean(t.isIntegrated) || integratingId === t.id) {
+      return;
+    }
+
+    setIntegratingId(t.id);
+    try {
+      const canonicalId = toValidUUID(t.id);
+      const payableId = toValidUUID(`cap_rescisao_${canonicalId}`);
+
+      // 1. Data de Vencimento: 10 dias a contar da data de desligamento
+      const dueDateIso = calculateTerminationDueDate(t.terminationDate);
+
+      // 2. Colaborador e verificação de veículo / maquinário fixo vinculado
+      const emp = employees.find(
+        (e) => e.id === t.employeeId || e.name.trim().toLowerCase() === t.employeeName.trim().toLowerCase()
+      );
+      const machineriesList = getStoredMachineries();
+      const linkedMachinery = findEmployeeLinkedMachinery(emp, machineriesList);
+      const vehicleLabel = linkedMachinery
+        ? `${linkedMachinery.name || linkedMachinery.model || 'Veículo'}${
+            linkedMachinery.licensePlateOrSerial ? ` (${linkedMachinery.licensePlateOrSerial})` : ''
+          }`
+        : undefined;
+
+      // 3. Valores da Rescisão:
+      // Valor Líquido Rescisório (R$) = Valor do Título
+      const netVal = Math.max(0, Math.round(Number(t.calculation?.netTotal ?? 0) * 100) / 100);
+      // Custo Total Bruto da Rescisão para o DRE
+      const grossVal = Math.max(0, Math.round(Number(t.calculation?.grossTotal ?? netVal) * 100) / 100);
+      const custoDRE = grossVal > 0 ? grossVal : netVal;
+
+      let compMonthIso = new Date().toISOString().slice(0, 7);
+      if (t.terminationDate) {
+        compMonthIso = t.terminationDate.slice(0, 7);
+      }
+
+      const reasonLabel = getReasonLabel(t.reason);
+      const descricaoTitulo = `Acerto Rescisório - ${t.employeeName} | Tipo: ${reasonLabel}`;
+
+      // 4. REGRA DE NEGÓCIO 1: Lançamento no Contas a Pagar (tabela 'public.financeiro_contas_a_pagar' do Supabase)
+      await insertFinanceiroContasAPagar({
+        id: payableId,
+        valor: netVal,
+        descricao: descricaoTitulo,
+        historico: descricaoTitulo,
+        categoria: 'Despesas com Pessoal / Rescisões Contratuais',
+        categoria_financeira: 'Despesas com Pessoal / Rescisões Contratuais',
+        centro_custo: linkedMachinery
+          ? `DRE Veículo: ${vehicleLabel}`
+          : 'Custos Administrativos / Pessoal',
+        data_vencimento: dueDateIso,
+        forma_pagamento: 'PIX',
+        employee_id: t.employeeId,
+        colaborador_id: t.employeeId,
+        colaborador_nome: t.employeeName,
+        competencia: compMonthIso,
+        veiculo_id: linkedMachinery?.id,
+        placa: linkedMachinery?.licensePlateOrSerial,
+        veiculo_nome: vehicleLabel,
+        custo_dre: custoDRE,
+      }, activeTenantId);
+
+      // 5. REGRA DE NEGÓCIO 2: Lançamento no DRE do Veículo / DRE Geral da Empresa
+      const expenseEntry: Expense = {
+        id: payableId,
+        companyId: activeTenantId,
+        description: linkedMachinery
+          ? `Acerto Rescisório - ${t.employeeName} | Tipo: ${reasonLabel} | DRE Veículo: ${vehicleLabel}`
+          : `Acerto Rescisório - ${t.employeeName} | Tipo: ${reasonLabel} | Custos Administrativos / Pessoal`,
+        amount: netVal,
+        dreGrossAmount: custoDRE,
+        dreCategory: linkedMachinery
+          ? 'Despesa Operacional de Mão de Obra/Pessoal'
+          : 'Custos Administrativos / Pessoal',
+        competenceMonth: compMonthIso,
+        categoryId: linkedMachinery ? 'cat_mao_de_obra' : 'cat_administrativo',
+        categoryName: linkedMachinery
+          ? 'Despesas com Pessoal / Rescisões Contratuais'
+          : 'Custos Administrativos / Pessoal',
+        categoryColor: linkedMachinery ? '#0284c7' : '#64748b',
+        dueDate: dueDateIso,
+        date: t.terminationDate || `${compMonthIso}-01`,
+        status: 'pendente',
+        paymentMethod: 'pix',
+        supplier: t.employeeName,
+        employeeId: t.employeeId,
+        employeeName: t.employeeName,
+        machineryId: linkedMachinery?.id,
+        machineryName: vehicleLabel,
+        costCenterName: linkedMachinery
+          ? `DRE Veículo: ${vehicleLabel}`
+          : 'Custos Administrativos / Pessoal',
+        notes: linkedMachinery
+          ? `Contas a Pagar: ${formatCurrencyBRL(netVal)} (Venc. ${formatDateBR(dueDateIso)}) • DRE Veículo: ${vehicleLabel} [${formatCurrencyBRL(custoDRE)} Bruto]`
+          : `Contas a Pagar: ${formatCurrencyBRL(netVal)} (Venc. ${formatDateBR(dueDateIso)}) • DRE Geral Pessoal [${formatCurrencyBRL(custoDRE)} Bruto]`,
+        createdAt: new Date().toISOString(),
+      };
+
+      const storedExpenses = getStoredExpenses();
+      const existingExpIdx = storedExpenses.findIndex(
+        (e) => e.id === payableId || toValidUUID(e.id) === payableId
+      );
+      let updatedExpenses: Expense[];
+      if (existingExpIdx >= 0) {
+        updatedExpenses = storedExpenses.map((e, idx) =>
+          idx === existingExpIdx ? { ...e, ...expenseEntry } : e
+        );
+      } else {
+        updatedExpenses = [expenseEntry, ...storedExpenses];
+      }
+      saveStoredExpenses(updatedExpenses);
+      if (isSupabaseConfigured) {
+        saveCloudExpenses(updatedExpenses, activeTenantId).catch(() => {});
+      }
+      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: updatedExpenses }));
+
+      // 6. FEEDBACK VISUAL E TRAVA DE SEGURANÇA:
+      // Status da linha muda para "Integrado" e botão fica disabled para impedir duplicidade
+      const updatedTerminations = terminations.map((item) => {
+        if (toValidUUID(item.id) === canonicalId || item.id === t.id) {
+          return {
+            ...item,
+            status: 'integrado' as const,
+            isIntegrated: true,
+            integratedAt: new Date().toISOString(),
+            financePayableId: payableId,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return item;
+      });
+
+      setTerminations(updatedTerminations);
+      saveStoredTerminations(updatedTerminations);
+
+      if (isSupabaseConfigured) {
+        const updatedItem = updatedTerminations.find(item => toValidUUID(item.id) === canonicalId);
+        if (updatedItem) {
+          await upsertRhRescisaoRecord(updatedItem, activeTenantId).catch(() => {});
+          await saveCloudTerminations(updatedTerminations, activeTenantId).catch(() => {});
+          try {
+            realtimeChannelRef.current?.send({
+              type: 'broadcast',
+              event: 'termination_mutation',
+              payload: {
+                tenantId: activeTenantId,
+                senderId: clientInstanceIdRef.current,
+                termination: updatedItem,
+              },
+            });
+          } catch (_) {}
+        }
+      }
+
+      // 7. Feedback visual de sucesso
+      setIntegrationBanner({
+        type: 'success',
+        title: `Rescisão Integrada ao Financeiro: ${t.employeeName}`,
+        details: linkedMachinery
+          ? `Título de ${formatCurrencyBRL(netVal)} lançado no Contas a Pagar (vencimento em ${formatDateBR(dueDateIso)}) • Custo Bruto de ${formatCurrencyBRL(custoDRE)} lançado no DRE do Veículo [${vehicleLabel}].`
+          : `Título de ${formatCurrencyBRL(netVal)} lançado no Contas a Pagar (vencimento em ${formatDateBR(dueDateIso)}) • Custo Bruto de ${formatCurrencyBRL(custoDRE)} lançado no DRE Geral sob Custos Administrativos / Pessoal.`,
+      });
+    } catch (err) {
+      console.error('Erro na integração financeira da rescisão:', err);
+      setIntegrationBanner({
+        type: 'error',
+        title: 'Erro na Integração Financeira',
+        details: 'Não foi possível concluir o lançamento no Contas a Pagar do Supabase. Verifique a conexão e tente novamente.',
+      });
+    } finally {
+      setIntegratingId(null);
+    }
+  };
+
+  // Persistência: Concluir e salvar homologação definitiva via modal
   const handleSaveTermination = async (record: TerminationRecord, markInactive: boolean) => {
     const canonicalId = toValidUUID(record.id);
     const updatedRecord: TerminationRecord = {
@@ -236,7 +479,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    // Remove rascunho anterior deste funcionário caso exista e inclui novo
     const filteredOther = terminations.filter(
       (t) => !(t.employeeId === record.employeeId && t.status === 'rascunho') && toValidUUID(t.id) !== canonicalId
     );
@@ -245,7 +487,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     setTerminations(nextList);
     saveStoredTerminations(nextList);
 
-    // Gravação na tabela 'rh_rescisoes' do Supabase
     if (isSupabaseConfigured) {
       await upsertRhRescisaoRecord(updatedRecord, activeTenantId).catch(() => {});
       await saveCloudTerminations(nextList, activeTenantId).catch(() => {});
@@ -262,7 +503,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       } catch (_) {}
     }
 
-    // Atualização cadastral do colaborador (se solicitado inativar)
     if (markInactive && onSaveEmployees) {
       const updatedEmployees = employees.map((emp) => {
         if (emp.id === record.employeeId) {
@@ -278,7 +518,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
       onSaveEmployees(updatedEmployees);
     }
 
-    // Abre o TRCT para conferência/impressão imediata
     setViewingTRCT(updatedRecord);
   };
 
@@ -300,7 +539,6 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     setTerminations(nextList);
     saveStoredTerminations(nextList);
 
-    // Gravação na tabela 'rh_rescisoes' do Supabase
     if (isSupabaseConfigured) {
       await upsertRhRescisaoRecord(draftRecord, activeTenantId).catch(() => {});
       await saveCloudTerminations(nextList, activeTenantId).catch(() => {});
@@ -343,27 +581,10 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
     }
   };
 
-  // Nome amigável do motivo de rescisão
-  const getReasonLabel = (r: TerminationReason): string => {
-    switch (r) {
-      case 'sem_justa_causa':
-        return 'Demissão sem Justa Causa';
-      case 'com_justa_causa':
-        return 'Demissão com Justa Causa';
-      case 'pedido_demissao':
-        return 'Pedido de Demissão';
-      case 'acordo_mutuo':
-        return 'Acordo Mútuo (Art. 484-A)';
-      case 'termino_contrato':
-        return 'Término de Contrato';
-      default:
-        return r;
-    }
-  };
-
   // Indicadores de Resumo (KPIs)
   const totalCount = terminations.length;
-  const homologadosCount = terminations.filter((t) => t.status !== 'rascunho').length;
+  const homologadosCount = terminations.filter((t) => t.status === 'homologado').length;
+  const integradosCount = terminations.filter((t) => t.status === 'integrado' || Boolean(t.isIntegrated)).length;
   const rascunhosCount = terminations.filter((t) => t.status === 'rascunho').length;
   const totalNetLiquido = terminations.reduce((sum, t) => sum + (t.calculation?.netTotal || 0), 0);
 
@@ -371,8 +592,13 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   const filteredTerminations = useMemo(() => {
     return terminations.filter((item) => {
       // Filtro de Status
-      if (statusFilter === 'homologado' && item.status === 'rascunho') return false;
-      if (statusFilter === 'rascunho' && item.status !== 'rascunho') return false;
+      if (statusFilter === 'homologado') {
+        if (item.status === 'rascunho') return false;
+      } else if (statusFilter === 'integrado') {
+        if (item.status !== 'integrado' && !item.isIntegrated) return false;
+      } else if (statusFilter === 'rascunho') {
+        if (item.status !== 'rascunho') return false;
+      }
 
       // Busca por termo
       if (!searchTerm.trim()) return true;
@@ -387,6 +613,37 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
   return (
     <div className="w-full space-y-4 antialiased">
       
+      {/* Banner de Feedback da Integração Financeira */}
+      {integrationBanner && (
+        <div
+          className={`p-3 rounded-xl border flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-200 ${
+            integrationBanner.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+          }`}
+        >
+          <div className="flex items-start gap-2.5">
+            {integrationBanner.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            )}
+            <div className="text-xs">
+              <span className="font-bold block">{integrationBanner.title}</span>
+              <span className="text-[11px] opacity-90 block mt-0.5">{integrationBanner.details}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIntegrationBanner(null)}
+            className="p-1 hover:opacity-75 transition cursor-pointer"
+            title="Fechar aviso"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* 1. TOPO DA PÁGINA: Cabeçalho com Título & Botão de Ação Primário "+ Nova Rescisão" */}
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-black dark:text-white">
         <div className="flex items-center space-x-3">
@@ -398,7 +655,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               Gestão de Rescisões Contratuais CLT
             </h2>
             <p className="text-xs text-black/85 dark:text-stone-300 font-medium">
-              Controle de desligamentos, cálculo oficial de verbas rescisórias e emissão de TRCT
+              Controle de desligamentos, cálculo oficial de verbas rescisórias, integração financeira e emissão de TRCT
             </p>
           </div>
         </div>
@@ -428,13 +685,15 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
         <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 border border-blue-200/80 dark:border-stone-800 rounded-xl p-3 shadow-xs text-black dark:text-white">
           <span className="text-[10px] sm:text-[11px] font-black uppercase text-emerald-950 dark:text-emerald-400 block">
-            Homologadas
+            Homologadas / Integradas
           </span>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-lg sm:text-xl font-black font-['Outfit'] text-emerald-900 dark:text-emerald-400">
-              {homologadosCount}
+              {homologadosCount + integradosCount}
             </span>
-            <span className="text-xs font-bold text-black/70 dark:text-stone-400">concluída(s)</span>
+            <span className="text-xs font-bold text-black/70 dark:text-stone-400">
+              {integradosCount > 0 ? `(${integradosCount} integradas)` : 'concluída(s)'}
+            </span>
           </div>
         </div>
 
@@ -496,7 +755,18 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
             }`}
           >
-            Homologados ({homologadosCount})
+            Homologados ({homologadosCount + integradosCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('integrado')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              statusFilter === 'integrado'
+                ? 'bg-blue-700 text-white dark:bg-blue-600'
+                : 'bg-blue-100/60 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-200/60'
+            }`}
+          >
+            Integrados ({integradosCount})
           </button>
           <button
             type="button"
@@ -556,9 +826,17 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 {filteredTerminations.map((t) => (
                   <tr key={t.id || t.employeeId} className="hover:bg-blue-200/40 dark:hover:bg-stone-800/60 transition">
                     
-                    {/* Status */}
+                    {/* Status: Integrado / Em Andamento / Homologado */}
                     <td className="py-2.5 px-3 whitespace-nowrap">
-                      {t.status === 'rascunho' ? (
+                      {t.isIntegrated || t.status === 'integrado' ? (
+                        <span
+                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-300 shadow-2xs"
+                          title="Lançado e integrado ao Contas a Pagar e DRE"
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                          <span>Integrado</span>
+                        </span>
+                      ) : t.status === 'rascunho' ? (
                         <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-300 shadow-2xs">
                           <Clock className="w-3 h-3" />
                           <span>Em Andamento</span>
@@ -601,11 +879,56 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                       {formatMoneyBRL(t.calculation?.netTotal ?? 0)}
                     </td>
 
-                    {/* Coluna de Ações: 'Visualizar/Editar' e 'Imprimir TRCT (PDF)' */}
+                    {/* Coluna de Ações:
+                        1. Botão Fechamento Financeiro (ao lado do Visualizar/Editar e antes de Imprimir TRCT)
+                        2. Botão Visualizar/Editar
+                        3. Botão Imprimir TRCT (PDF)
+                        4. Botão Excluir
+                    */}
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center space-x-1.5">
                         
-                        {/* Botão Visualizar/Editar */}
+                        {/* 1. Botão de Integração Financeira (ao lado de Visualizar/Editar e antes de Imprimir TRCT) */}
+                        <button
+                          type="button"
+                          onClick={() => handleIntegrarRescisaoFinanceiro(t)}
+                          disabled={t.isIntegrated || t.status === 'integrado' || integratingId === t.id}
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs ${
+                            t.isIntegrated || t.status === 'integrado'
+                              ? 'bg-blue-100/60 dark:bg-blue-950/40 text-blue-400 dark:text-blue-500 border border-blue-200 dark:border-blue-900 opacity-60 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white cursor-pointer active:scale-95'
+                          }`}
+                          title={
+                            t.isIntegrated || t.status === 'integrado'
+                              ? 'Rescisão já integrada ao Contas a Pagar e DRE do Veículo'
+                              : 'Enviar para Contas a Pagar e DRE do Veículo'
+                          }
+                        >
+                          {integratingId === t.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : t.isIntegrated || t.status === 'integrado' ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                          ) : (
+                            <svg
+                              className="w-3.5 h-3.5 shrink-0"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                              <polyline points="16 6 12 2 8 6" />
+                              <line x1="12" y1="2" x2="12" y2="15" />
+                            </svg>
+                          )}
+                          <span className="hidden sm:inline">
+                            {t.isIntegrated || t.status === 'integrado' ? 'Integrado' : 'Integrar'}
+                          </span>
+                        </button>
+
+                        {/* 2. Botão Visualizar/Editar */}
                         <button
                           type="button"
                           onClick={() => handleOpenEditTermination(t)}
@@ -616,7 +939,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                           <span className="hidden sm:inline">Visualizar/Editar</span>
                         </button>
 
-                        {/* Botão Imprimir TRCT (PDF) */}
+                        {/* 3. Botão Imprimir TRCT (PDF) */}
                         <button
                           type="button"
                           onClick={() => setViewingTRCT(t)}
@@ -627,7 +950,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                           <span className="hidden sm:inline">Imprimir TRCT</span>
                         </button>
 
-                        {/* Botão Excluir */}
+                        {/* 4. Botão Excluir */}
                         <button
                           type="button"
                           onClick={() => handleDeleteTermination(t.id, t.employeeName)}
@@ -860,7 +1183,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                     {viewingTRCT.calculation?.includeFgtsFine && (viewingTRCT.calculation?.fgtsFineAmount || 0) > 0 && (
                       <tr>
                         <td className="py-1 px-2 font-mono border-r border-black/20 print:py-0.5">07</td>
-                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%)</td>
+                        <td className="py-1 px-2 border-r border-black/20 print:py-0.5">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%):</td>
                         <td className="py-1 px-2 text-center border-r border-black/20 print:py-0.5">Art. 18 Lei 8.036</td>
                         <td className="py-1 px-2 text-right font-bold print:py-0.5">{formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}</td>
                       </tr>
