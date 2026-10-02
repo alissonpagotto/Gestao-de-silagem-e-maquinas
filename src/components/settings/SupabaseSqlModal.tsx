@@ -609,6 +609,47 @@ FOR ALL TO authenticated, anon
 USING (true)
 WITH CHECK (true);
 
+-- Tabela oficial de Faltas e Ocorrências (rh_faltas)
+CREATE TABLE IF NOT EXISTS public.rh_faltas (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    company_id TEXT,
+    funcionario_id TEXT,
+    employee_id TEXT,
+    employee_name TEXT,
+    employee_role TEXT,
+    data DATE,
+    date DATE,
+    data_fim DATE,
+    end_date DATE,
+    dias NUMERIC DEFAULT 1,
+    days_count NUMERIC DEFAULT 1,
+    tipo TEXT DEFAULT 'injustificada',
+    type TEXT DEFAULT 'injustificada',
+    descontar_folha BOOLEAN DEFAULT true,
+    discount_payroll BOOLEAN DEFAULT true,
+    valor_desconto NUMERIC DEFAULT 0,
+    discount_amount NUMERIC DEFAULT 0,
+    competencia TEXT,
+    reference_month TEXT,
+    motivo TEXT,
+    reason TEXT,
+    status TEXT DEFAULT 'pendente',
+    observacoes TEXT,
+    notes TEXT,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.rh_faltas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Total rh_faltas" ON public.rh_faltas;
+CREATE POLICY "Permissao Total rh_faltas" ON public.rh_faltas
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
 -- Tabela oficial de Folhas de Pagamento (rh_folhas_pagamento)
 CREATE TABLE IF NOT EXISTS public.rh_folhas_pagamento (
     id TEXT PRIMARY KEY,

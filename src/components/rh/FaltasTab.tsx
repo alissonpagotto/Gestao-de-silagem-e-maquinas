@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -18,8 +18,18 @@ import {
   Check
 } from 'lucide-react';
 import { Employee, AbsenceRecord, PayrollRecord } from '../../types';
-import { formatDateBR, formatCurrencyBRL } from '../../lib/storage';
+import { formatDateBR, formatCurrencyBRL, getActiveCompanyId, saveStoredAbsences } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
+import { supabase } from '../../lib/supabase';
+import { 
+  isSupabaseConfigured, 
+  fetchCloudAbsences, 
+  upsertRhFalta, 
+  deleteRhFalta, 
+  toValidUUID, 
+  mapRowToAbsenceRecord 
+} from '../../lib/supabaseService';
+import { useAuth } from '../../context/AuthContext';
 
 interface FaltasTabProps {
   employees: Employee[];
@@ -39,6 +49,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   onApplyDiscountToPayroll,
 }) => {
   const { confirm } = useConfirm();
+  const { currentUser, companyId: authCompanyId } = useAuth();
+  const currentUserId = currentUser?.id;
+  const effectiveCompanyId = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthRef);
   const [typeFilter, setTypeFilter] = useState<string>('todos');
@@ -60,6 +74,69 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [status, setStatus] = useState<AbsenceRecord['status']>('pendente');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
+
+  const absencesRef = useRef<AbsenceRecord[]>(absences);
+  absencesRef.current = absences;
+
+  // Sincronização em Tempo Real via Realtime Channel apontando estritamente para 'rh_faltas'
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const loadInitialFromSupabase = async () => {
+      try {
+        const fresh = await fetchCloudAbsences(effectiveCompanyId, undefined, currentUserId);
+        if (!isMounted) return;
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          saveStoredAbsences(fresh);
+          onSaveAbsences(fresh);
+        }
+      } catch (err) {
+        console.warn('[FaltasTab] Aviso ao carregar rh_faltas do Supabase:', err);
+      }
+    };
+
+    loadInitialFromSupabase();
+
+    // Assinatura Realtime Channel estritamente na tabela public.rh_faltas
+    const faltasRtChannel = supabase
+      .channel(`rh_faltas_realtime_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_faltas' },
+        (payload: any) => {
+          if (!isMounted) return;
+          console.info('📡 [FaltasTab Realtime rh_faltas] Evento recebido:', payload.eventType);
+
+          if (payload.eventType === 'DELETE' && payload.old?.id) {
+            const deletedId = toValidUUID(payload.old.id);
+            const currentList = absencesRef.current;
+            const nextList = currentList.filter(a => toValidUUID(a.id) !== deletedId);
+            saveStoredAbsences(nextList);
+            onSaveAbsences(nextList);
+            return;
+          }
+
+          if (payload.new) {
+            const mapped = mapRowToAbsenceRecord(payload.new);
+            const mappedId = toValidUUID(mapped.id);
+            const currentList = absencesRef.current;
+            const exists = currentList.some(a => toValidUUID(a.id) === mappedId);
+            const nextList = exists
+              ? currentList.map(a => toValidUUID(a.id) === mappedId ? { ...a, ...mapped, id: mappedId } : a)
+              : [{ ...mapped, id: mappedId }, ...currentList];
+            saveStoredAbsences(nextList);
+            onSaveAbsences(nextList);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(faltasRtChannel);
+    };
+  }, [effectiveCompanyId, currentUserId]);
 
   // Calculate estimated daily discount
   const recalculateDiscount = (empId: string, days: number, isDiscount: boolean) => {
@@ -170,9 +247,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
+    let recordToSave: AbsenceRecord;
+    let nextList: AbsenceRecord[];
+
     if (editingAbsence) {
-      const updated = absences.map(a => a.id === editingAbsence.id ? {
-        ...a,
+      recordToSave = {
+        ...editingAbsence,
+        companyId: effectiveCompanyId,
+        userId: currentUserId,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -186,11 +268,14 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         status,
         reason: reason || undefined,
         notes: notes || undefined,
-      } : a);
-      onSaveAbsences(updated);
+        updatedAt: new Date().toISOString(),
+      };
+      nextList = absences.map(a => a.id === editingAbsence.id ? recordToSave : a);
     } else {
-      const newAbsence: AbsenceRecord = {
-        id: `abs_${Date.now()}`,
+      recordToSave = {
+        id: toValidUUID(`abs_${Date.now()}_${emp.id}`),
+        companyId: effectiveCompanyId,
+        userId: currentUserId,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -206,10 +291,19 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         notes: notes || undefined,
         createdAt: new Date().toISOString(),
       };
-      onSaveAbsences([newAbsence, ...absences]);
+      nextList = [recordToSave, ...absences];
     }
 
+    onSaveAbsences(nextList);
+    saveStoredAbsences(nextList);
     setIsModalOpen(false);
+
+    // Gravação e sincronização imediata na tabela public.rh_faltas do Supabase
+    if (isSupabaseConfigured) {
+      upsertRhFalta(recordToSave, currentUserId, effectiveCompanyId).catch(err => {
+        console.error('[FaltasTab] Erro ao salvar ocorrência em rh_faltas:', err);
+      });
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -221,16 +315,35 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       variant: 'danger',
     });
     if (isOk) {
-      onSaveAbsences(absences.filter(a => a.id !== id));
+      const nextList = absences.filter(a => a.id !== id);
+      onSaveAbsences(nextList);
+      saveStoredAbsences(nextList);
+
+      // Exclusão imediata na tabela public.rh_faltas do Supabase
+      if (isSupabaseConfigured) {
+        deleteRhFalta(id, currentUserId).catch(err => {
+          console.error('[FaltasTab] Erro ao excluir falta em rh_faltas:', err);
+        });
+      }
     }
   };
 
   const handleMarkAsDiscounted = (item: AbsenceRecord) => {
-    const updated = absences.map(a => a.id === item.id ? {
-      ...a,
-      status: 'descontada' as const
-    } : a);
+    const updatedItem: AbsenceRecord = {
+      ...item,
+      status: 'descontada' as const,
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = absences.map(a => a.id === item.id ? updatedItem : a);
     onSaveAbsences(updated);
+    saveStoredAbsences(updated);
+
+    if (isSupabaseConfigured) {
+      upsertRhFalta(updatedItem, currentUserId, effectiveCompanyId).catch(err => {
+        console.error('[FaltasTab] Erro ao atualizar status em rh_faltas:', err);
+      });
+    }
+
     if (onApplyDiscountToPayroll) {
       onApplyDiscountToPayroll(item);
     }

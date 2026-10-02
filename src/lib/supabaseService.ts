@@ -25,6 +25,7 @@ import {
   MaintenanceLog,
   VacationRecord,
   PayrollRecord,
+  AbsenceRecord,
   BankAccount,
   FinanceiroCheque,
   ClienteCredito,
@@ -10638,6 +10639,7 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     overtimeAmount: parseFloat(String(row.overtime_amount ?? p.overtimeAmount ?? 0)) || 0,
     bonusAmount: parseFloat(String(row.bonus_amount ?? p.bonusAmount ?? 0)) || 0,
     commissionAmount: parseFloat(String(row.commission_amount ?? p.commissionAmount ?? 0)) || 0,
+    commissionItems: Array.isArray(p.commissionItems) ? p.commissionItems : [],
     inssDiscount: inss,
     irrfDiscount: irrf,
     inssEnabled: p.inssEnabled !== undefined ? Boolean(p.inssEnabled) : inss > 0,
@@ -10647,6 +10649,7 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     isProportional: p.isProportional,
     advancesDiscount: vales,
     otherDiscounts,
+    deductionItems: Array.isArray(p.deductionItems) ? p.deductionItems : [],
     netSalary: net,
     status: row.status || p.status || 'pendente',
     paymentDate: row.payment_date || p.paymentDate,
@@ -10921,6 +10924,438 @@ export async function deleteRhFolhaPagamento(id: string, userId?: string): Promi
     const { error } = await query;
     return !error;
   } catch {
+    return false;
+  }
+}
+
+// ========================================================
+// OPERAÇÕES OFICIAIS NA TABELA PUBLIC.RH_FALTAS (SUPABASE)
+// ========================================================
+
+export const RH_FALTAS_BASE_COLUMNS = [
+  'id',
+  'user_id',
+  'company_id',
+  'funcionario_id',
+  'employee_id',
+  'employee_name',
+  'employee_role',
+  'data',
+  'date',
+  'data_fim',
+  'end_date',
+  'dias',
+  'days_count',
+  'tipo',
+  'type',
+  'descontar_folha',
+  'discount_payroll',
+  'valor_desconto',
+  'discount_amount',
+  'competencia',
+  'reference_month',
+  'motivo',
+  'reason',
+  'status',
+  'observacoes',
+  'notes',
+  'payload',
+  'dados',
+  'created_at',
+  'updated_at',
+] as const;
+
+let detectedRhFaltasColumns: Set<string> | null = null;
+
+export async function ensureRhFaltasSchemaColumns(): Promise<Set<string>> {
+  if (detectedRhFaltasColumns && detectedRhFaltasColumns.size > 0) {
+    return detectedRhFaltasColumns;
+  }
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.from('rh_faltas').select('*').limit(1);
+      if (!error && Array.isArray(data) && data.length > 0 && data[0]) {
+        detectedRhFaltasColumns = new Set(Object.keys(data[0]));
+        return detectedRhFaltasColumns;
+      }
+    } catch (_) {}
+  }
+  detectedRhFaltasColumns = new Set<string>(RH_FALTAS_BASE_COLUMNS);
+  return detectedRhFaltasColumns;
+}
+
+/**
+ * Constrói a linha para a tabela public.rh_faltas garantindo compatibilidade estrita
+ * com UUID, company_id, user_id e empacotamento completo em JSONB (payload/dados).
+ */
+export function buildRhFaltaRow(
+  item: AbsenceRecord,
+  userId?: string,
+  companyId?: string,
+  schemaCols?: Set<string> | null
+): Record<string, any> {
+  const cId = item.companyId || companyId || getActiveCompanyId() || userId || 'default';
+  const canonicalId = toValidUUID(item.id);
+  const canonicalEmpId = toValidUUID(item.employeeId);
+  const effectiveUid = userId || item.userId || cId;
+
+  const daysCountVal = Number(item.daysCount) || 1;
+  const discountAmountVal = parseFloat(String(item.discountAmount ?? 0)) || 0;
+  const isDiscount = item.discountPayroll !== undefined ? Boolean(item.discountPayroll) : true;
+
+  const activeCols = schemaCols && schemaCols.size > 0
+    ? schemaCols
+    : new Set<string>(RH_FALTAS_BASE_COLUMNS);
+
+  const unifiedPayload = {
+    ...item,
+    id: canonicalId,
+    user_id: effectiveUid,
+    company_id: cId,
+    funcionario_id: canonicalEmpId,
+    employee_id: canonicalEmpId,
+    employee_name: item.employeeName,
+    employee_role: item.employeeRole,
+    data: item.date,
+    date: item.date,
+    data_fim: item.endDate || null,
+    end_date: item.endDate || null,
+    dias: daysCountVal,
+    days_count: daysCountVal,
+    tipo: item.type || 'injustificada',
+    type: item.type || 'injustificada',
+    descontar_folha: isDiscount,
+    discount_payroll: isDiscount,
+    valor_desconto: discountAmountVal,
+    discount_amount: discountAmountVal,
+    competencia: item.referenceMonth,
+    reference_month: item.referenceMonth,
+    motivo: item.reason || '',
+    reason: item.reason || '',
+    status: item.status || 'pendente',
+    observacoes: item.notes || '',
+    notes: item.notes || '',
+    created_at: item.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const fullCandidate: Record<string, any> = {
+    id: canonicalId,
+    user_id: effectiveUid,
+    company_id: cId,
+  };
+
+  if (activeCols.has('funcionario_id')) fullCandidate.funcionario_id = canonicalEmpId;
+  if (activeCols.has('employee_id')) fullCandidate.employee_id = canonicalEmpId;
+  if (activeCols.has('employee_name')) fullCandidate.employee_name = item.employeeName || null;
+  if (activeCols.has('employee_role')) fullCandidate.employee_role = item.employeeRole || null;
+  if (activeCols.has('data')) fullCandidate.data = item.date || null;
+  if (activeCols.has('date')) fullCandidate.date = item.date || null;
+  if (activeCols.has('data_fim')) fullCandidate.data_fim = item.endDate || null;
+  if (activeCols.has('end_date')) fullCandidate.end_date = item.endDate || null;
+  if (activeCols.has('dias')) fullCandidate.dias = daysCountVal;
+  if (activeCols.has('days_count')) fullCandidate.days_count = daysCountVal;
+  if (activeCols.has('tipo')) fullCandidate.tipo = item.type || 'injustificada';
+  if (activeCols.has('type')) fullCandidate.type = item.type || 'injustificada';
+  if (activeCols.has('descontar_folha')) fullCandidate.descontar_folha = isDiscount;
+  if (activeCols.has('discount_payroll')) fullCandidate.discount_payroll = isDiscount;
+  if (activeCols.has('valor_desconto')) fullCandidate.valor_desconto = discountAmountVal;
+  if (activeCols.has('discount_amount')) fullCandidate.discount_amount = discountAmountVal;
+  if (activeCols.has('competencia')) fullCandidate.competencia = item.referenceMonth || null;
+  if (activeCols.has('reference_month')) fullCandidate.reference_month = item.referenceMonth || null;
+  if (activeCols.has('motivo')) fullCandidate.motivo = item.reason || null;
+  if (activeCols.has('reason')) fullCandidate.reason = item.reason || null;
+  if (activeCols.has('status')) fullCandidate.status = item.status || 'pendente';
+  if (activeCols.has('observacoes')) fullCandidate.observacoes = item.notes || null;
+  if (activeCols.has('notes')) fullCandidate.notes = item.notes || null;
+  if (activeCols.has('created_at')) fullCandidate.created_at = item.createdAt || new Date().toISOString();
+  if (activeCols.has('updated_at')) fullCandidate.updated_at = new Date().toISOString();
+  if (activeCols.has('payload')) fullCandidate.payload = unifiedPayload;
+  if (activeCols.has('dados')) fullCandidate.dados = unifiedPayload;
+
+  const filteredRow: Record<string, any> = {};
+  for (const [k, v] of Object.entries(fullCandidate)) {
+    if (activeCols.has(k) && v !== undefined) {
+      filteredRow[k] = v;
+    }
+  }
+
+  filteredRow.company_id = cId;
+  filteredRow.user_id = effectiveUid;
+  return filteredRow;
+}
+
+/**
+ * Converte uma linha retornada da tabela public.rh_faltas em AbsenceRecord
+ */
+export function mapRowToAbsenceRecord(row: any): AbsenceRecord {
+  const p = row.payload && typeof row.payload === 'object' ? row.payload : (row.dados && typeof row.dados === 'object' ? row.dados : {});
+  const empId = row.funcionario_id || row.employee_id || row.colaborador_id || p.employeeId || p.funcionario_id || '';
+  const empName = row.employee_name || row.nome_funcionario || row.nome || p.employeeName || '';
+  const empRole = row.employee_role || row.cargo || row.funcao || p.employeeRole || '';
+  const dt = row.data || row.date || p.date || '';
+  const endDt = row.data_fim || row.end_date || p.endDate || undefined;
+  const days = Number(row.dias ?? row.days_count ?? p.daysCount ?? 1) || 1;
+  const tp = (row.tipo || row.type || p.type || 'injustificada') as AbsenceRecord['type'];
+  const discPayroll = row.descontar_folha !== undefined
+    ? Boolean(row.descontar_folha)
+    : (row.discount_payroll !== undefined ? Boolean(row.discount_payroll) : (p.discountPayroll !== undefined ? Boolean(p.discountPayroll) : true));
+  const discAmount = parseFloat(String(row.valor_desconto ?? row.discount_amount ?? p.discountAmount ?? 0)) || 0;
+  const comp = row.competencia || row.reference_month || p.referenceMonth || '';
+  const rsn = row.motivo || row.reason || p.reason || undefined;
+  const st = (row.status || row.situacao || p.status || 'pendente') as AbsenceRecord['status'];
+  const nts = row.observacoes || row.notes || p.notes || undefined;
+
+  return {
+    id: row.id || p.id || '',
+    companyId: row.company_id || p.companyId,
+    userId: row.user_id || p.userId,
+    employeeId: empId,
+    employeeName: empName,
+    employeeRole: empRole,
+    date: dt,
+    endDate: endDt,
+    daysCount: days,
+    type: tp,
+    discountPayroll: discPayroll,
+    discountAmount: discAmount,
+    referenceMonth: comp,
+    reason: rsn,
+    status: st,
+    notes: nts,
+    payload: p,
+    createdAt: row.created_at || p.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || p.updatedAt,
+  };
+}
+
+/**
+ * Salva ou atualiza um registro na tabela public.rh_faltas do Supabase
+ */
+export async function upsertRhFalta(
+  item: AbsenceRecord,
+  userId?: string,
+  companyId?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    let activeUid = userId || item.userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+    const cId = companyId || item.companyId || getActiveCompanyId() || activeUid || 'default';
+    const schemaCols = await ensureRhFaltasSchemaColumns();
+    const row = buildRhFaltaRow(item, activeUid, cId, schemaCols);
+
+    const { error } = await supabase.from('rh_faltas').upsert(row, { onConflict: 'id' });
+    if (error) {
+      console.warn('[upsertRhFalta] Tentativa 1 com colunas completas falhou:', error.message);
+      // Fallback resiliente com colunas mínimas + payload JSONB
+      const minimalRow: Record<string, any> = {
+        id: row.id,
+        user_id: activeUid,
+        company_id: cId,
+        funcionario_id: row.funcionario_id || row.employee_id,
+        employee_id: row.employee_id || row.funcionario_id,
+        data: item.date,
+        tipo: item.type,
+        status: item.status,
+        payload: {
+          ...item,
+          id: row.id,
+          user_id: activeUid,
+          company_id: cId,
+        },
+      };
+      const { error: retryErr } = await supabase.from('rh_faltas').upsert(minimalRow, { onConflict: 'id' });
+      if (retryErr) {
+        console.error('[upsertRhFalta] Falha no retry para rh_faltas:', retryErr.message);
+        return false;
+      }
+    }
+
+    return true;
+  } catch (err: any) {
+    console.error('[upsertRhFalta] Erro inesperado ao gravar em rh_faltas:', err);
+    return false;
+  }
+}
+
+/**
+ * Exclui um registro da tabela public.rh_faltas do Supabase
+ */
+export async function deleteRhFalta(id: string, userId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !id) return false;
+  try {
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+    const canonicalId = toValidUUID(id);
+    let query = supabase.from('rh_faltas').delete().eq('id', canonicalId);
+    if (activeUid) {
+      query = query.eq('user_id', activeUid);
+    }
+    const { error } = await query;
+    if (error) {
+      const { error: retryErr } = await supabase.from('rh_faltas').delete().eq('id', canonicalId);
+      return !retryErr;
+    }
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Busca todas as faltas e ocorrências na tabela public.rh_faltas do Supabase
+ */
+export async function fetchCloudAbsences(
+  companyId?: string,
+  employeeId?: string,
+  userId?: string
+): Promise<AbsenceRecord[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const cId = companyId || getActiveCompanyId();
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const map = new Map<string, AbsenceRecord>();
+    let foundInRelational = false;
+
+    // 1. Busca prioritária na tabela relacional public.rh_faltas
+    try {
+      let query = supabase.from('rh_faltas').select('*');
+      if (activeUid) {
+        query = query.eq('user_id', activeUid);
+      }
+      const { data: relRows, error: relErr } = await query;
+
+      if (!relErr && Array.isArray(relRows)) {
+        foundInRelational = true;
+        for (const r of relRows) {
+          if (employeeId) {
+            const rowEmpId = r.funcionario_id || r.employee_id || r.colaborador_id || r.payload?.employeeId || r.payload?.funcionario_id;
+            const targetEmpUuid = toValidUUID(employeeId);
+            if (rowEmpId !== employeeId && toValidUUID(rowEmpId) !== targetEmpUuid) {
+              continue;
+            }
+          }
+          const mapped = mapRowToAbsenceRecord(r);
+          if (mapped && mapped.id) {
+            map.set(toValidUUID(mapped.id), mapped);
+          }
+        }
+      } else if (relErr && activeUid) {
+        const { data: unFiltered, error: unErr } = await supabase.from('rh_faltas').select('*');
+        if (!unErr && Array.isArray(unFiltered)) {
+          foundInRelational = true;
+          for (const r of unFiltered) {
+            const mapped = mapRowToAbsenceRecord(r);
+            if (mapped && mapped.id) {
+              map.set(toValidUUID(mapped.id), mapped);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Se a tabela estava vazia ou inacessível, fallback suave para site_settings
+    if (!foundInRelational || map.size === 0) {
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('hero_title')
+          .eq('id', `cloud_absences_${cId}`)
+          .maybeSingle();
+
+        if (!error && data?.hero_title) {
+          try {
+            const parsed = JSON.parse(data.hero_title);
+            if (Array.isArray(parsed)) {
+              for (const item of parsed) {
+                const normId = toValidUUID(item.id);
+                if (employeeId) {
+                  const normEmpId = toValidUUID(employeeId);
+                  if (toValidUUID(item.employeeId) !== normEmpId && item.employeeId !== employeeId) {
+                    continue;
+                  }
+                }
+                if (!map.has(normId)) {
+                  map.set(normId, { ...item, id: normId, companyId: cId });
+                }
+              }
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    return map.size > 0 ? Array.from(map.values()) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Salva e sincroniza faltas em lote no Supabase (rh_faltas + site_settings)
+ */
+export async function saveCloudAbsences(
+  absences: AbsenceRecord[],
+  companyId?: string,
+  userId?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const cleanAbsences = (Array.isArray(absences) ? absences : []).map(a => ({
+      ...a,
+      id: toValidUUID(a.id),
+      companyId: cId,
+    }));
+
+    // 1. Upsert estruturado na tabela oficial public.rh_faltas
+    try {
+      const schemaCols = await ensureRhFaltasSchemaColumns();
+      const rows = cleanAbsences.map(a => buildRhFaltaRow(a, activeUid, cId, schemaCols));
+      if (rows.length > 0) {
+        await supabase.from('rh_faltas').upsert(rows, { onConflict: 'id' });
+      }
+    } catch (_) {}
+
+    // 2. Mantém espelhamento em site_settings para resiliência
+    try {
+      await supabase.from('site_settings').upsert({
+        id: `cloud_absences_${cId}`,
+        hero_title: JSON.stringify(cleanAbsences),
+        allow_free_trial: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (_) {}
+
+    return true;
+  } catch (e) {
+    console.error('Falha ao persistir faltas no Supabase:', e);
     return false;
   }
 }

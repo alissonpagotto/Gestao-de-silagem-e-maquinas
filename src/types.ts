@@ -1104,6 +1104,24 @@ export interface BrokerSettlement {
   createdAt: string;
 }
 
+export interface PayrollCommissionItem {
+  id: string;
+  description: string;
+  referenceDate?: string;
+  amount: number;
+  isManual?: boolean;
+}
+
+export interface PayrollDeductionItem {
+  id: string;
+  type: string; // 'Vale / Adiantamento' | 'Falta / Atraso' | 'Peças / Oficina' | 'Combustível' | 'Outro Desconto' | string
+  description?: string;
+  date?: string;
+  amount: number;
+  isManual?: boolean;
+  sourceId?: string;
+}
+
 export interface PayrollRecord {
   id: string;
   companyId?: string;
@@ -1117,6 +1135,7 @@ export interface PayrollRecord {
   overtimeAmount: number; // Horas extras / diárias de safra
   bonusAmount: number; // Insalubridade, bônus safra, etc.
   commissionAmount?: number; // Comissões variáveis apuradas no mês (silagem, colheita, horas trabalhadas ou produção)
+  commissionItems?: PayrollCommissionItem[];
   inssDiscount: number;
   irrfDiscount?: number;
   inssEnabled?: boolean;
@@ -1126,6 +1145,7 @@ export interface PayrollRecord {
   isProportional?: boolean;
   advancesDiscount: number; // Vales e adiantamentos descontados
   otherDiscounts: number; // Faltas, atrasos, convênios
+  deductionItems?: PayrollDeductionItem[];
   netSalary: number;
   status: 'pendente' | 'pago' | 'integrado' | 'lancado' | string;
   paymentDate?: string;
@@ -1133,6 +1153,7 @@ export interface PayrollRecord {
   integratedAt?: string;
   financePayableId?: string;
   notes?: string;
+  payload?: any;
   createdAt: string;
 }
 
@@ -1248,6 +1269,8 @@ export interface MedicalCertificateRecord {
 
 export interface AbsenceRecord {
   id: string;
+  companyId?: string;
+  userId?: string;
   employeeId: string;
   employeeName: string;
   employeeRole: string;
@@ -1261,7 +1284,9 @@ export interface AbsenceRecord {
   reason?: string;
   status: 'pendente' | 'justificada' | 'descontada' | 'abonada';
   notes?: string;
+  payload?: Record<string, any>;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // RH: Rescisão Contratual e Termo de Rescisão (TRCT)

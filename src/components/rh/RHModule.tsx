@@ -49,6 +49,8 @@ import {
   mapRowToVacationRecord,
   mapRowToTerminationRecord,
   fetchContractualSalariesFromDb,
+  fetchCloudAbsences,
+  saveCloudAbsences,
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -150,6 +152,12 @@ export const RHModule: React.FC<RHModuleProps> = ({
     if (onSaveAbsences) {
       onSaveAbsences(updated);
     }
+    if (isSupabaseConfigured) {
+      const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
+      saveCloudAbsences(updated, activeTenant, currentUserId).catch(err => {
+        console.warn('[RHModule] Aviso ao persistir faltas em rh_faltas:', err);
+      });
+    }
   };
 
   // Aplicar desconto de falta na folha de pagamento
@@ -217,8 +225,9 @@ export const RHModule: React.FC<RHModuleProps> = ({
     Promise.all([
       fetchRhFuncionarios(undefined, currentUserId),
       fetchContractualSalariesFromDb(),
-      fetchCloudVacations(activeTenant, undefined, currentUserId)
-    ]).then(([freshEmployees, salariesMap, freshVacs]) => {
+      fetchCloudVacations(activeTenant, undefined, currentUserId),
+      fetchCloudAbsences(activeTenant, undefined, currentUserId),
+    ]).then(([freshEmployees, salariesMap, freshVacs, freshAbsences]) => {
       if (!isMounted) return;
 
       if (Array.isArray(freshEmployees) && freshEmployees.length > 0) {
@@ -256,6 +265,12 @@ export const RHModule: React.FC<RHModuleProps> = ({
         const cleanVacs = freshVacs.filter((v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado');
         saveStoredVacations(cleanVacs);
         if (onSaveVacations) onSaveVacations(cleanVacs);
+      }
+
+      if (Array.isArray(freshAbsences) && freshAbsences.length > 0) {
+        setAbsences(freshAbsences);
+        saveStoredAbsences(freshAbsences);
+        if (onSaveAbsences) onSaveAbsences(freshAbsences);
       }
     }).catch(() => {});
 

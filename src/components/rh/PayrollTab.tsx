@@ -29,7 +29,7 @@ import {
   Send,
   Share2
 } from 'lucide-react';
-import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord, Expense } from '../../types';
+import { Employee, PayrollRecord, SalaryAdvance, ServiceOrder, AbsenceRecord, Expense, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -49,7 +49,8 @@ import {
   upsertRhFolhasPagamento,
   fetchCloudPayrolls,
   deleteRhFolhaPagamento,
-  mapRowToPayrollRecord
+  mapRowToPayrollRecord,
+  fetchCloudAbsences,
 } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -330,11 +331,32 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     window.addEventListener('silagem_absences_updated', handleAbsencesUpdate);
     window.addEventListener('storage', handleServicesUpdate);
     window.addEventListener('storage', handleAbsencesUpdate);
+
+    // Assinatura Realtime Channel estritamente na tabela public.rh_faltas para manter folha atualizada
+    const faltasChannel = isSupabaseConfigured ? supabase
+      .channel(`rh_faltas_payroll_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_faltas' },
+        async () => {
+          try {
+            const fresh = await fetchCloudAbsences();
+            if (Array.isArray(fresh) && fresh.length > 0) {
+              setInternalAbsences(fresh);
+            }
+          } catch (_) {}
+        }
+      )
+      .subscribe() : null;
+
     return () => {
       window.removeEventListener('silagem_services_updated', handleServicesUpdate);
       window.removeEventListener('silagem_absences_updated', handleAbsencesUpdate);
       window.removeEventListener('storage', handleServicesUpdate);
       window.removeEventListener('storage', handleAbsencesUpdate);
+      if (faltasChannel) {
+        supabase.removeChannel(faltasChannel);
+      }
     };
   }, []);
 
@@ -543,6 +565,25 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [showAdvancesBreakdown, setShowAdvancesBreakdown] = useState(true);
   const [showAbsencesBreakdown, setShowAbsencesBreakdown] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Listas de Detalhamento de Comissões e Deduções
+  const [commissionItems, setCommissionItems] = useState<PayrollCommissionItem[]>([]);
+  const [deductionItems, setDeductionItems] = useState<PayrollDeductionItem[]>([]);
+
+  // Mini-form para inclusão / edição de comissão manual
+  const [isAddingCommission, setIsAddingCommission] = useState(false);
+  const [editingCommItemId, setEditingCommItemId] = useState<string | null>(null);
+  const [newCommDesc, setNewCommDesc] = useState('');
+  const [newCommRef, setNewCommRef] = useState('');
+  const [newCommAmount, setNewCommAmount] = useState<number>(0);
+
+  // Mini-form para inclusão / edição de desconto manual
+  const [isAddingDeduction, setIsAddingDeduction] = useState(false);
+  const [editingDeductItemId, setEditingDeductItemId] = useState<string | null>(null);
+  const [newDeductType, setNewDeductType] = useState('Vale / Adiantamento');
+  const [newDeductDesc, setNewDeductDesc] = useState('');
+  const [newDeductDate, setNewDeductDate] = useState('');
+  const [newDeductAmount, setNewDeductAmount] = useState<number>(0);
 
   // Ação de Impressão Isolada do Recibo Branco (Holerite Oficial) com injeção de estilos do projeto
   const handlePrintIsolated = () => {
@@ -764,6 +805,56 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setShowAdvancesBreakdown(true);
     }
 
+    // 3.1 Constrói lista estruturada de Deduções (Vales, Faltas, Pré-admissão) preservando itens manuais
+    const generatedDeductItems: PayrollDeductionItem[] = [];
+
+    empAdvances.forEach((adv, idx) => {
+      const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
+        ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
+        : '';
+      const reason = adv.reason ? `: ${adv.reason}` : '';
+      generatedDeductItems.push({
+        id: `ded_adv_${adv.id || idx}`,
+        type: 'Vale / Adiantamento',
+        description: `${parcelLabel}Vale Adiantamento${reason}`,
+        date: formatDateBR(adv.date),
+        amount: Number(adv.amount) || 0,
+        isManual: false,
+        sourceId: adv.id,
+      });
+    });
+
+    empAbsences.forEach((abs, idx) => {
+      const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
+        ? Number(abs.discountAmount)
+        : Math.round((((activeSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
+      generatedDeductItems.push({
+        id: `ded_abs_${abs.id || idx}`,
+        type: 'Falta / Atraso',
+        description: abs.reason || `Falta (${abs.daysCount || 1}d)`,
+        date: formatDateBR(abs.date),
+        amount: itemDiscount,
+        isManual: false,
+        sourceId: abs.id,
+      });
+    });
+
+    if (forceContractualSalary && admData.isAdmittedInCompetenceMonth) {
+      generatedDeductItems.push({
+        id: `ded_pre_adm_${Date.now()}`,
+        type: 'Falta / Atraso',
+        description: `Dias anteriores à admissão (${admData.unworkedDays} dias)`,
+        date: formatEmployeeAdmissionDate(admData.admissionDate),
+        amount: admData.unworkedDeductionAmount,
+        isManual: false,
+      });
+    }
+
+    setDeductionItems(prev => {
+      const manuals = prev.filter(it => it.isManual);
+      return [...generatedDeductItems, ...manuals];
+    });
+
     // 4. INTEGRAÇÃO DE VALORES: Apuração ativa de comissões de silagem e produção no mês
     const commData = getEmployeeMonthCommissions(empId, currentMonthRef, internalServices, employees);
     setCommissionAmount(commData.total);
@@ -771,6 +862,29 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     if (commData.count > 0) {
       setShowCommissionBreakdown(true);
     }
+
+    // 4.1 Constrói lista estruturada de Comissões preservando itens manuais
+    const generatedCommItems: PayrollCommissionItem[] = commData.breakdown.map((b, idx) => {
+      let desc = (b.formattedLine || b.description || 'Comissão de Silagem / Produção').replace(/\s*\(\s*cla?ss\s*\)/gi, '');
+      if (b.clientName && !desc.toLowerCase().includes(b.clientName.toLowerCase())) {
+        desc = `Ensilagem - Produtor ${b.clientName}`;
+      }
+      return {
+        id: `comm_sync_${idx}_${b.serviceId || Date.now()}`,
+        description: desc,
+        referenceDate: b.date ? formatDateBR(b.date) : (b.orderNumber ? `OS #${b.orderNumber}` : currentMonthRef),
+        amount: Number(b.amount) || 0,
+        isManual: false,
+      };
+    });
+
+    setCommissionItems(prev => {
+      const manuals = prev.filter(it => it.isManual);
+      const combined = [...generatedCommItems, ...manuals];
+      const sum = combined.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+      setCommissionAmount(sum);
+      return combined;
+    });
 
     // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS e IRRF pela tabela progressiva
     const isClt = isCltContract(emp);
@@ -872,12 +986,76 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       });
       setSyncedAbsences(empAbsences);
       setShowAbsencesBreakdown(empAbsences.length > 0);
+      // Carregar itens de comissão existentes ou gerar da apuração
+      let loadedCommItems: PayrollCommissionItem[] = [];
+      if (Array.isArray(payroll.commissionItems) && payroll.commissionItems.length > 0) {
+        loadedCommItems = payroll.commissionItems;
+      } else if (Array.isArray(payroll.payload?.commissionItems) && payroll.payload.commissionItems.length > 0) {
+        loadedCommItems = payroll.payload.commissionItems;
+      } else {
+        loadedCommItems = commData.breakdown.map((b, idx) => {
+          let desc = (b.formattedLine || b.description || 'Comissão de Produção / Silagem').replace(/\s*\(\s*cla?ss\s*\)/gi, '');
+          if (b.clientName && !desc.toLowerCase().includes(b.clientName.toLowerCase())) {
+            desc = `Ensilagem - Produtor ${b.clientName}`;
+          }
+          return {
+            id: `comm_${idx}_${Date.now()}`,
+            description: desc,
+            referenceDate: b.date ? formatDateBR(b.date) : (b.orderNumber ? `OS #${b.orderNumber}` : currentMonthRef),
+            amount: Number(b.amount) || 0,
+            isManual: false,
+          };
+        });
+      }
+      setCommissionItems(loadedCommItems);
+
+      // Carregar itens de deduções existentes ou gerar dos vales e faltas
+      let loadedDeductItems: PayrollDeductionItem[] = [];
+      if (Array.isArray(payroll.deductionItems) && payroll.deductionItems.length > 0) {
+        loadedDeductItems = payroll.deductionItems;
+      } else if (Array.isArray(payroll.payload?.deductionItems) && payroll.payload.deductionItems.length > 0) {
+        loadedDeductItems = payroll.payload.deductionItems;
+      } else {
+        empAdvances.forEach((adv, idx) => {
+          const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
+            ? `[${adv.installmentNumber}/${adv.totalInstallments}] `
+            : '';
+          const reason = adv.reason ? `: ${adv.reason}` : '';
+          loadedDeductItems.push({
+            id: `ded_adv_${adv.id || idx}`,
+            type: 'Vale / Adiantamento',
+            description: `${parcelLabel}Vale Adiantamento${reason}`,
+            date: formatDateBR(adv.date),
+            amount: Number(adv.amount) || 0,
+            isManual: false,
+            sourceId: adv.id,
+          });
+        });
+
+        empAbsences.forEach((abs, idx) => {
+          const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
+            ? Number(abs.discountAmount)
+            : Math.round((((payroll.baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
+          loadedDeductItems.push({
+            id: `ded_abs_${abs.id || idx}`,
+            type: 'Falta / Atraso',
+            description: abs.reason || `Falta (${abs.daysCount || 1}d)`,
+            date: formatDateBR(abs.date),
+            amount: itemDiscount,
+            isManual: false,
+            sourceId: abs.id,
+          });
+        });
+      }
+      setDeductionItems(loadedDeductItems);
     } else {
       setEditingPayroll(null);
       setCommissionsInfo(null);
       setShowCommissionBreakdown(false);
       setSyncedAdvances([]);
       setSyncedAbsences([]);
+      setCommissionItems([]);
+      setDeductionItems([]);
       // Selecionar primeiro funcionário ativo NÃO terceirizado
       const firstActive = employees.find(e => e.status === 'ativo' && !isThirdPartyDriver(e) && !isBrokerEmployee(e));
       if (firstActive) {
@@ -900,7 +1078,106 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setPayrollStatus('pendente');
       setNotes('');
     }
+    setIsAddingCommission(false);
+    setIsAddingDeduction(false);
+    setEditingCommItemId(null);
+    setEditingDeductItemId(null);
     setIsModalOpen(true);
+  };
+
+  // Inclusão / Edição de Comissão Manual
+  const handleSaveCommissionItem = () => {
+    if (!newCommDesc.trim() || newCommAmount <= 0) return;
+    
+    if (editingCommItemId) {
+      setCommissionItems(prev => prev.map(it => {
+        if (it.id === editingCommItemId) {
+          return {
+            ...it,
+            description: newCommDesc.trim(),
+            referenceDate: newCommRef.trim() || currentMonthRef,
+            amount: newCommAmount,
+          };
+        }
+        return it;
+      }));
+    } else {
+      const newItem: PayrollCommissionItem = {
+        id: `comm_man_${Date.now()}`,
+        description: newCommDesc.trim(),
+        referenceDate: newCommRef.trim() || currentMonthRef,
+        amount: newCommAmount,
+        isManual: true,
+      };
+      setCommissionItems(prev => [...prev, newItem]);
+    }
+
+    setEditingCommItemId(null);
+    setNewCommDesc('');
+    setNewCommRef('');
+    setNewCommAmount(0);
+    setIsAddingCommission(false);
+  };
+
+  const handleStartEditCommission = (item: PayrollCommissionItem) => {
+    setEditingCommItemId(item.id);
+    setNewCommDesc(item.description);
+    setNewCommRef(item.referenceDate || '');
+    setNewCommAmount(item.amount);
+    setIsAddingCommission(true);
+  };
+
+  const handleDeleteCommissionItem = (id: string) => {
+    setCommissionItems(prev => prev.filter(it => it.id !== id));
+  };
+
+  // Inclusão / Edição de Desconto Manual
+  const handleSaveDeductionItem = () => {
+    if (!newDeductType || newDeductAmount <= 0) return;
+
+    if (editingDeductItemId) {
+      setDeductionItems(prev => prev.map(it => {
+        if (it.id === editingDeductItemId) {
+          return {
+            ...it,
+            type: newDeductType,
+            description: newDeductDesc.trim() || newDeductType,
+            date: newDeductDate.trim() || formatDateBR(new Date().toISOString().split('T')[0]),
+            amount: newDeductAmount,
+          };
+        }
+        return it;
+      }));
+    } else {
+      const newItem: PayrollDeductionItem = {
+        id: `ded_man_${Date.now()}`,
+        type: newDeductType,
+        description: newDeductDesc.trim() || newDeductType,
+        date: newDeductDate.trim() || formatDateBR(new Date().toISOString().split('T')[0]),
+        amount: newDeductAmount,
+        isManual: true,
+      };
+      setDeductionItems(prev => [...prev, newItem]);
+    }
+
+    setEditingDeductItemId(null);
+    setNewDeductDesc('');
+    setNewDeductDate('');
+    setNewDeductAmount(0);
+    setIsAddingDeduction(false);
+  };
+
+  const handleStartEditDeduction = (item: PayrollDeductionItem) => {
+    setEditingDeductItemId(item.id);
+    setNewDeductType(item.type || 'Vale / Adiantamento');
+    setNewDeductDesc(item.description || '');
+    setNewDeductDate(item.date || '');
+    setNewDeductAmount(item.amount);
+    setIsAddingDeduction(true);
+  };
+
+  const handleDeleteDeductionItem = (id: string) => {
+    setDeductionItems(prev => prev.filter(it => it.id !== id));
   };
 
   const handleSaveModal = (e: React.FormEvent) => {
@@ -908,10 +1185,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
+    const totalCommissions = commissionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+    const activeCommission = commissionItems.length > 0 ? totalCommissions : (commissionAmount || 0);
+
+    const totalDeductionsList = deductionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+    const totalAdv = deductionItems.length > 0
+      ? deductionItems.filter(it => it.type === 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
+      : (advancesDiscount || 0);
+    const totalOth = deductionItems.length > 0
+      ? deductionItems.filter(it => it.type !== 'Vale / Adiantamento').reduce((acc, it) => acc + (Number(it.amount) || 0), 0)
+      : (otherDiscounts || 0);
+
     const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
     const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
-    const totalGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
-    const totalDeductions = activeInss + activeIrrf + (advancesDiscount || 0) + (otherDiscounts || 0);
+    const totalGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + activeCommission;
+    const totalDeductions = activeInss + activeIrrf + (deductionItems.length > 0 ? totalDeductionsList : (totalAdv + totalOth));
     const netSalary = Math.max(0, totalGross - totalDeductions);
 
     let recordToSave: PayrollRecord;
@@ -927,7 +1215,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       baseSalary,
       overtimeAmount,
       bonusAmount,
-      commissionAmount,
+      commissionAmount: activeCommission,
+      commissionItems,
       inssDiscount: activeInss,
       inssEnabled,
       irrfDiscount: activeIrrf,
@@ -935,11 +1224,17 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       daysWorked: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.daysWorked : 30,
       unworkedDays: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.unworkedDays : 0,
       isProportional: useProportionalSalary,
-      advancesDiscount,
-      otherDiscounts,
+      advancesDiscount: totalAdv,
+      otherDiscounts: totalOth,
+      deductionItems,
       netSalary,
       status: payrollStatus,
       notes,
+      payload: {
+        ...(editingPayroll?.payload || {}),
+        commissionItems,
+        deductionItems,
+      },
     };
 
     if (editingPayroll) {
@@ -1438,10 +1733,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     }
   };
 
-  const modalGrossTotal = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
+  const totalCommissionsFromItems = commissionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+  const activeCommissionTotal = commissionItems.length > 0 ? totalCommissionsFromItems : (commissionAmount || 0);
+  const modalGrossTotal = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + activeCommissionTotal;
+
   const activeInssDiscount = inssEnabled ? (inssDiscount || 0) : 0;
   const activeIrrfDiscount = irrfEnabled ? (irrfDiscount || 0) : 0;
-  const modalDiscountsTotal = activeInssDiscount + activeIrrfDiscount + (advancesDiscount || 0) + (otherDiscounts || 0);
+  const totalDeductionsFromItems = deductionItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
+  const activeListDeductions = deductionItems.length > 0 ? totalDeductionsFromItems : ((advancesDiscount || 0) + (otherDiscounts || 0));
+  const modalDiscountsTotal = activeInssDiscount + activeIrrfDiscount + activeListDeductions;
   const calculatedModalNet = Math.max(0, modalGrossTotal - modalDiscountsTotal);
 
   return (
@@ -1767,7 +2067,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           id="payroll-edit-modal-overlay" 
           className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-xs overflow-y-auto print:hidden"
         >
-          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-11/12 max-w-6xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[96vh] flex flex-col print:hidden">
+          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-[90%] max-w-5xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[95vh] flex flex-col print:hidden">
             
             {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
             <div className="flex items-center justify-between px-3.5 sm:px-4 py-2 bg-[#0963cb] text-white shrink-0">
@@ -1788,7 +2088,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               </div>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-2 sm:p-2.5 space-y-1.5 text-xs bg-[#b0d2ed] flex-1 flex flex-col justify-between overflow-y-auto lg:overflow-y-hidden">
+            <form onSubmit={handleSaveModal} className="p-2 sm:p-2.5 space-y-2 text-xs bg-[#b0d2ed] flex-1 flex flex-col justify-between overflow-y-auto">
               
               {/* Colaborador & Informações de Enquadramento */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-1.5 items-end shrink-0">
@@ -1989,64 +2289,211 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   />
                   <BrlCurrencyInput
                     id="commissionAmount"
-                    label="Comissões Silagem"
-                    value={commissionAmount}
-                    onChange={setCommissionAmount}
-                    inputClassName="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 focus:ring-emerald-600"
+                    label={commissionItems.length > 0 ? `Comissões Silagem (${commissionItems.length})` : "Comissões Silagem"}
+                    value={activeCommissionTotal}
+                    onChange={(val) => {
+                      setCommissionAmount(val);
+                    }}
+                    inputClassName="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 focus:ring-emerald-600 font-bold"
                     headerRight={
-                      commissionsInfo && commissionsInfo.breakdown.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowCommissionBreakdown(!showCommissionBreakdown)}
-                          className="text-[9.5px] font-bold text-[#0963cb] flex items-center space-x-0.5 cursor-pointer hover:underline"
-                        >
-                          <span>{commissionsInfo.count} OS</span>
-                          {showCommissionBreakdown ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                        </button>
-                      ) : null
+                      <span className="text-[9.5px] font-bold text-emerald-700 font-['Outfit']">
+                        {commissionItems.length} item(ns)
+                      </span>
                     }
-                    title="Comissões apuradas automaticamente no fechamento de cortes e ordens de silagem"
+                    title="Valor total apurado ou lançado nas comissões de silagem"
                   />
                 </div>
 
-                {/* Detalhamento das comissões apuradas no mês com altura contida para evitar rolagem */}
-                {commissionsInfo && commissionsInfo.breakdown.length > 0 && showCommissionBreakdown && (
-                  <div className="p-1.5 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-lg space-y-1 text-xs shadow-2xs">
-                    <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-200 border-b border-blue-100 dark:border-stone-700 pb-0.5">
-                      <span className="flex items-center space-x-1.5">
-                        <FileText className="w-3 h-3 text-[#0963cb]" />
-                        <span className="text-[10px] sm:text-[11px]">Ordens de Serviço Integradas ({commissionsInfo.referenceMonth})</span>
+                {/* 2. Mini-tabela de Detalhamento de Proventos (Comissões) */}
+                <div className="p-2 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between pb-1 border-b border-blue-100 dark:border-stone-700">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
+                      <span className="text-[11px] font-black uppercase text-blue-950 dark:text-blue-200 tracking-wider">
+                        Extrato de Comissões & Serviços Lançados
                       </span>
-                      <span className="font-extrabold text-[#0963cb] dark:text-sky-400 font-['Outfit'] text-[10px] sm:text-[11px]">
-                        Total: {formatCurrencyBRL(commissionsInfo.total)}
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[10px] font-['Outfit']">
+                        {commissionItems.length} item(ns) • + {formatCurrencyBRL(activeCommissionTotal)}
                       </span>
                     </div>
-                    <div className="max-h-[90px] overflow-y-auto space-y-0.5 pr-1">
-                      {commissionsInfo.breakdown.map((b, idx) => (
-                        <div 
-                          key={idx} 
-                          className="p-1 bg-blue-50/50 dark:bg-stone-900/60 rounded border border-blue-100/90 dark:border-stone-700 text-[10.5px] text-stone-900 dark:text-stone-100 font-medium leading-tight"
-                        >
-                          {(b.formattedLine || b.description || '').replace(/\s*\(\s*cla?ss\s*\)/gi, '')}
-                        </div>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCommission(!isAddingCommission);
+                        setEditingCommItemId(null);
+                        setNewCommDesc('');
+                        setNewCommRef(currentMonthRef);
+                        setNewCommAmount(0);
+                      }}
+                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[10.5px] transition cursor-pointer shadow-2xs"
+                    >
+                      <Plus className="w-3 h-3 text-[#0963cb]" />
+                      <span>+ Incluir Comissão Manual</span>
+                    </button>
                   </div>
-                )}
+
+                  {/* Formulário de inclusão / edição manual de comissão */}
+                  {isAddingCommission && (
+                    <div className="p-2 bg-blue-50/90 border border-blue-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-blue-950 tracking-wider">
+                          {editingCommItemId ? 'Editar Comissão / Prêmio' : 'Nova Comissão ou Prêmio Manual'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingCommission(false);
+                            setEditingCommItemId(null);
+                          }}
+                          className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                        >
+                          ✕ Fechar
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
+                        <div className="sm:col-span-6">
+                          <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
+                            Descrição / Serviço <span className="text-rose-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={newCommDesc}
+                            onChange={(e) => setNewCommDesc(e.target.value)}
+                            placeholder="Ex: Ensilagem - Produtor João, Bônus Produtividade..."
+                            className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
+                            Referência / Data
+                          </label>
+                          <input
+                            type="text"
+                            value={newCommRef}
+                            onChange={(e) => setNewCommRef(e.target.value)}
+                            placeholder="Ex: 15/09 ou OS #1042"
+                            className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <BrlCurrencyInput
+                            id="newCommAmount"
+                            label="Valor (+)"
+                            value={newCommAmount}
+                            onChange={setNewCommAmount}
+                            inputClassName="border-emerald-300 bg-white text-emerald-800 font-bold"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end space-x-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingCommission(false);
+                            setEditingCommItemId(null);
+                          }}
+                          className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveCommissionItem}
+                          disabled={!newCommDesc.trim() || newCommAmount <= 0}
+                          className="px-2.5 py-0.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
+                        >
+                          {editingCommItemId ? 'Atualizar Item' : 'Adicionar ao Extrato'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tabela de Itens de Comissão */}
+                  <div className="max-h-28 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
+                    <table className="w-full text-left border-collapse text-[10.5px]">
+                      <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[9px] sticky top-0 border-b border-stone-200 z-10">
+                        <tr>
+                          <th className="py-1 px-2">Descrição / Serviço</th>
+                          <th className="py-1 px-2 w-28">Referência / Data</th>
+                          <th className="py-1 px-2 text-right w-28">Valor (+)</th>
+                          <th className="py-1 px-2 text-center w-16">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200/70 bg-white">
+                        {commissionItems.length > 0 ? (
+                          commissionItems.map((item) => (
+                            <tr key={item.id} className="hover:bg-blue-50/40 transition">
+                              <td className="py-1 px-2 font-medium text-stone-900">
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="truncate">{item.description}</span>
+                                  {item.isManual ? (
+                                    <span className="px-1 py-0.2 rounded bg-amber-100 text-amber-800 text-[8.5px] font-bold shrink-0">
+                                      Manual
+                                    </span>
+                                  ) : (
+                                    <span className="px-1 py-0.2 rounded bg-blue-100 text-blue-800 text-[8.5px] font-bold shrink-0">
+                                      OS Silagem
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-1 px-2 text-stone-600 font-medium whitespace-nowrap">
+                                {item.referenceDate || currentMonthRef}
+                              </td>
+                              <td className="py-1 px-2 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap">
+                                + {formatCurrencyBRL(item.amount)}
+                              </td>
+                              <td className="py-1 px-2 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center space-x-1">
+                                  {item.isManual && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEditCommission(item)}
+                                      className="p-0.5 text-stone-500 hover:text-[#0963cb] rounded hover:bg-stone-100 transition cursor-pointer"
+                                      title="Editar comissão manual"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteCommissionItem(item.id)}
+                                    className="p-0.5 text-stone-400 hover:text-rose-600 rounded hover:bg-rose-50 transition cursor-pointer"
+                                    title="Excluir item da comissão"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="py-2.5 text-center text-stone-500 text-[10px]">
+                              Nenhuma comissão ou serviço lançado nesta competência. Clique em "Sincronizar" ou "+ Incluir Comissão Manual".
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
               {/* Grid 2 Colunas: Deduções (Esquerda) + Situação & Resumo Financeiro com Cores Contrastantes (Direita) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start shrink-0">
-                {/* Deduções com Inputs Numéricos Editáveis e Toggles Oficiais */}
+                {/* 3. Deduções com Impostos Oficiais + Tabela de Detalhamento de Descontos (Vales, Faltas, Peças, Combustível) */}
                 <div className="lg:col-span-7 p-2 sm:p-2.5 bg-white border border-stone-300 rounded-xl space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pb-0.5">
                     <span className="text-[11px] font-black uppercase text-stone-900 tracking-wider block">
                       Deduções (Descontos & Impostos)
                     </span>
                     <span className="text-[10px] font-bold text-rose-700 font-['Outfit']">
-                      Total: - {formatMoneyBRL(modalDiscountsTotal)}
+                      Total Deduções: - {formatMoneyBRL(modalDiscountsTotal)}
                     </span>
                   </div>
+
+                  {/* Linha dos Impostos Oficiais (INSS e IRRF) com Toggles */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {/* INSS com Toggle Switch */}
                     <BrlCurrencyInput
@@ -2063,8 +2510,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               const next = !inssEnabled;
                               setInssEnabled(next);
                               if (next) {
-                                const gross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
-                                setInssDiscount(calculateProgressiveInss(gross));
+                                setInssDiscount(calculateProgressiveInss(modalGrossTotal));
                               } else {
                                 setInssDiscount(0);
                               }
@@ -2100,9 +2546,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               const next = !irrfEnabled;
                               setIrrfEnabled(next);
                               if (next) {
-                                const gross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
                                 const inssVal = inssEnabled ? inssDiscount : 0;
-                                setIrrfDiscount(calculateOfficialIrrf(gross, inssVal));
+                                setIrrfDiscount(calculateOfficialIrrf(modalGrossTotal, inssVal));
                               } else {
                                 setIrrfDiscount(0);
                               }
@@ -2122,145 +2567,206 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         </div>
                       }
                     />
-
-                    {/* Vales / Adiantamentos */}
-                    <BrlCurrencyInput
-                      id="advancesDiscount"
-                      label="Vales / Adiantamentos"
-                      value={advancesDiscount}
-                      onChange={setAdvancesDiscount}
-                      headerRight={
-                        syncedAdvances.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowAdvancesBreakdown(!showAdvancesBreakdown)}
-                            className="text-[9.5px] font-bold text-rose-700 hover:text-rose-800 flex items-center space-x-0.5 cursor-pointer hover:underline"
-                            title="Alternar detalhamento de vales"
-                          >
-                            <span>{syncedAdvances.length} Vale(s)</span>
-                            {showAdvancesBreakdown ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                          </button>
-                        ) : null
-                      }
-                    />
-
-                    {/* Faltas / Dias de Atraso */}
-                    <BrlCurrencyInput
-                      id="otherDiscounts"
-                      label="Faltas / Atrasos / Outros"
-                      value={otherDiscounts}
-                      onChange={setOtherDiscounts}
-                      headerRight={
-                        <div className="flex items-center space-x-1">
-                          {admissionInfo?.isAdmittedInCompetenceMonth && !useProportionalSalary && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOtherDiscounts(prev => Number((prev + admissionInfo.unworkedDeductionAmount).toFixed(2)));
-                              }}
-                              className="text-[9px] font-bold text-amber-800 hover:underline cursor-pointer"
-                              title="Adiciona desconto dos dias anteriores à admissão"
-                            >
-                              +{admissionInfo.unworkedDays}d pré
-                            </button>
-                          )}
-                          {syncedAbsences.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setShowAbsencesBreakdown(!showAbsencesBreakdown)}
-                              className="text-[9.5px] font-bold text-amber-800 hover:text-amber-900 flex items-center space-x-0.5 cursor-pointer hover:underline"
-                              title="Alternar detalhamento de faltas"
-                            >
-                              <span>{syncedAbsences.length} Falta(s)</span>
-                              {showAbsencesBreakdown ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                            </button>
-                          )}
-                        </div>
-                      }
-                    />
                   </div>
 
-                  {/* Lista Detalhada de Vales / Adiantamentos Sincronizados */}
-                  {syncedAdvances.length > 0 && showAdvancesBreakdown && (
-                    <div className="p-1.5 bg-rose-50/40 border border-rose-200 rounded-lg space-y-1 text-xs shadow-2xs">
-                      <div className="flex items-center justify-between font-bold text-rose-950 border-b border-rose-100 pb-0.5">
-                        <span className="flex items-center space-x-1.5">
-                          <CreditCard className="w-3 h-3 text-rose-600" />
-                          <span className="text-[10px] font-bold">Vales / Adiantamentos Integrados ({syncedAdvances.length})</span>
+                  {/* Tabela de Detalhamento de Deduções (Vales, Faltas, Peças, Combustível) */}
+                  <div className="pt-1 space-y-1.5">
+                    <div className="flex items-center justify-between pb-1 border-b border-stone-200">
+                      <div className="flex items-center space-x-2">
+                        <CreditCard className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span className="text-[11px] font-black uppercase text-stone-900 tracking-wider">
+                          Extrato de Descontos Ocorridos no Mês
                         </span>
-                        <span className="font-extrabold text-rose-700 font-['Outfit'] text-[10px]">
-                          Total: {formatCurrencyBRL(advancesDiscount)}
+                        <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-900 font-extrabold text-[10px] font-['Outfit']">
+                          {deductionItems.length} item(ns) • - {formatCurrencyBRL(activeListDeductions)}
                         </span>
                       </div>
-                      <div className="max-h-[85px] overflow-y-auto space-y-0.5 pr-1">
-                        {syncedAdvances.map((adv, idx) => {
-                          const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
-                            ? `[${adv.installmentNumber}/${adv.totalInstallments}]`
-                            : '[1/1]';
-                          const dateStr = formatDateBR(adv.date);
-                          return (
-                            <div 
-                              key={adv.id || idx}
-                              className="p-1 bg-white rounded border border-rose-100 text-[10px] flex items-center justify-between leading-tight"
-                            >
-                              <div className="truncate mr-2">
-                                <span className="font-bold text-stone-900">
-                                  {parcelLabel} {dateStr} — <span className="text-stone-700">{adv.responsibleUser || 'ADMIN'}</span>
-                                </span>
-                                {adv.reason && (
-                                  <span className="text-stone-500 text-[9px] block truncate">
-                                    {adv.reason}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-extrabold text-rose-700 font-['Outfit'] shrink-0">
-                                - {formatCurrencyBRL(adv.amount)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingDeduction(!isAddingDeduction);
+                          setEditingDeductItemId(null);
+                          setNewDeductType('Vale / Adiantamento');
+                          setNewDeductDesc('');
+                          setNewDeductDate(formatDateBR(new Date().toISOString().split('T')[0]));
+                          setNewDeductAmount(0);
+                        }}
+                        className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[10.5px] transition cursor-pointer shadow-2xs"
+                      >
+                        <Plus className="w-3 h-3 text-rose-600" />
+                        <span>+ Incluir Desconto Manual</span>
+                      </button>
                     </div>
-                  )}
 
-                  {/* Lista Detalhada de Faltas e Ocorrências Sincronizadas */}
-                  {syncedAbsences.length > 0 && showAbsencesBreakdown && (
-                    <div className="p-1.5 bg-amber-50/40 border border-amber-200 rounded-lg space-y-1 text-xs shadow-2xs">
-                      <div className="flex items-center justify-between font-bold text-amber-950 border-b border-amber-100 pb-0.5">
-                        <span className="flex items-center space-x-1.5">
-                          <CalendarX className="w-3 h-3 text-amber-600" />
-                          <span className="text-[10px] font-bold">Faltas Integradas do RH ({syncedAbsences.length})</span>
-                        </span>
-                        <span className="font-extrabold text-amber-800 font-['Outfit'] text-[10px]">
-                          Total: {formatCurrencyBRL(otherDiscounts)}
-                        </span>
-                      </div>
-                      <div className="max-h-[85px] overflow-y-auto space-y-0.5 pr-1">
-                        {syncedAbsences.map((abs, idx) => {
-                          const dateStr = formatDateBR(abs.date);
-                          const reasonStr = abs.reason || `Falta (${abs.daysCount || 1}d)`;
-                          const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
-                            ? abs.discountAmount
-                            : Math.round((((baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
-                          return (
-                            <div 
-                              key={abs.id || idx}
-                              className="p-1 bg-white rounded border border-amber-100 text-[10px] flex items-center justify-between leading-tight"
+                    {/* Formulário de inclusão / edição manual de desconto */}
+                    {isAddingDeduction && (
+                      <div className="p-2 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-rose-950 tracking-wider">
+                            {editingDeductItemId ? 'Editar Desconto / Vale' : 'Novo Desconto Manual (Peças, Combustível, Vales)'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingDeduction(false);
+                              setEditingDeductItemId(null);
+                            }}
+                            className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                          >
+                            ✕ Fechar
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
+                          <div className="sm:col-span-3">
+                            <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
+                              Tipo de Lançamento
+                            </label>
+                            <select
+                              value={newDeductType}
+                              onChange={(e) => setNewDeductType(e.target.value)}
+                              className="w-full px-1.5 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-semibold outline-none focus:ring-1 focus:ring-rose-600"
                             >
-                              <div className="truncate mr-2">
-                                <span className="font-bold text-stone-900">
-                                  {dateStr} — <span className="text-stone-700">{reasonStr}</span>
-                                </span>
-                              </div>
-                              <span className="font-extrabold text-amber-800 font-['Outfit'] shrink-0">
-                                - {formatCurrencyBRL(itemDiscount)}
-                              </span>
-                            </div>
-                          );
-                        })}
+                              <option value="Vale / Adiantamento">Vale / Adiantamento</option>
+                              <option value="Peças / Oficina">Peças / Oficina</option>
+                              <option value="Combustível">Combustível</option>
+                              <option value="Falta / Atraso">Falta / Atraso</option>
+                              <option value="Outro Desconto">Outro Desconto</option>
+                            </select>
+                          </div>
+                          <div className="sm:col-span-4">
+                            <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
+                              Descrição / Motivo
+                            </label>
+                            <input
+                              type="text"
+                              value={newDeductDesc}
+                              onChange={(e) => setNewDeductDesc(e.target.value)}
+                              placeholder="Ex: Peças Trator, Posto Ipiranga..."
+                              className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
+                              Data
+                            </label>
+                            <input
+                              type="text"
+                              value={newDeductDate}
+                              onChange={(e) => setNewDeductDate(e.target.value)}
+                              placeholder="Ex: 15/09/2026"
+                              className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
+                            />
+                          </div>
+                          <div className="sm:col-span-3">
+                            <BrlCurrencyInput
+                              id="newDeductAmount"
+                              label="Valor (-)"
+                              value={newDeductAmount}
+                              onChange={setNewDeductAmount}
+                              inputClassName="border-rose-300 bg-white text-rose-800 font-bold"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end space-x-1.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingDeduction(false);
+                              setEditingDeductItemId(null);
+                            }}
+                            className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveDeductionItem}
+                            disabled={!newDeductType || newDeductAmount <= 0}
+                            className="px-2.5 py-0.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
+                          >
+                            {editingDeductItemId ? 'Atualizar Desconto' : 'Adicionar Desconto'}
+                          </button>
+                        </div>
                       </div>
+                    )}
+
+                    {/* Tabela de Lançamentos de Deduções */}
+                    <div className="max-h-36 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
+                      <table className="w-full text-left border-collapse text-[10.5px]">
+                        <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[9px] sticky top-0 border-b border-stone-200 z-10">
+                          <tr>
+                            <th className="py-1 px-2">Tipo de Lançamento</th>
+                            <th className="py-1 px-2 w-24">Data</th>
+                            <th className="py-1 px-2 text-right w-28">Valor (-)</th>
+                            <th className="py-1 px-2 text-center w-16">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-200/70 bg-white">
+                          {deductionItems.length > 0 ? (
+                            deductionItems.map((item) => (
+                              <tr key={item.id} className="hover:bg-rose-50/40 transition">
+                                <td className="py-1 px-2 font-medium text-stone-900">
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className={`px-1 py-0.2 rounded text-[8.5px] font-bold shrink-0 ${
+                                      item.type === 'Vale / Adiantamento'
+                                        ? 'bg-rose-100 text-rose-800'
+                                        : item.type === 'Falta / Atraso'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-purple-100 text-purple-800'
+                                    }`}>
+                                      {item.type}
+                                    </span>
+                                    <span className="truncate text-stone-800 font-semibold" title={item.description}>
+                                      {item.description || item.type}
+                                    </span>
+                                    {item.isManual && (
+                                      <span className="px-1 py-0.2 rounded bg-stone-100 text-stone-600 text-[8px] font-bold shrink-0">
+                                        Manual
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-1 px-2 text-stone-600 font-medium whitespace-nowrap">
+                                  {item.date || '-'}
+                                </td>
+                                <td className="py-1 px-2 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap">
+                                  - {formatCurrencyBRL(item.amount)}
+                                </td>
+                                <td className="py-1 px-2 text-center whitespace-nowrap">
+                                  <div className="flex items-center justify-center space-x-1">
+                                    {item.isManual && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditDeduction(item)}
+                                        className="p-0.5 text-stone-500 hover:text-rose-700 rounded hover:bg-stone-100 transition cursor-pointer"
+                                        title="Editar desconto manual"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDeductionItem(item.id)}
+                                      className="p-0.5 text-stone-400 hover:text-rose-600 rounded hover:bg-rose-50 transition cursor-pointer"
+                                      title="Excluir desconto da folha"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className="py-2.5 text-center text-stone-500 text-[10px]">
+                                Nenhum vale ou falta adicionado nesta competência. Clique em "Sincronizar" ou "+ Incluir Desconto Manual".
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Situação do Pagamento & Resumo Financeiro com Cores Contrastantes */}
