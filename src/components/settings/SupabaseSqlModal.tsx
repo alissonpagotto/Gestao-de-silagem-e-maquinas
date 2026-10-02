@@ -534,7 +534,10 @@ ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS banco_chave_pix TEXT
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS agencia TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS conta_corrente TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS foto_url TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS aso_url TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS contrato_experiencia_url TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS cnh_url TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS ficha_registro_url TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hora NUMERIC(15,2) DEFAULT 0;
@@ -542,7 +545,7 @@ ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_alqueire NU
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS comissao_hectare NUMERIC(15,2) DEFAULT 0;
 ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS recebe_comissao BOOLEAN DEFAULT false;
 
--- Storage buckets para fotos e avatares de funcionários
+-- Storage buckets para fotos e documentos de funcionários
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('avatars', 'avatars', true) 
 ON CONFLICT (id) DO UPDATE SET public = true;
@@ -551,11 +554,15 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('rh_fotos', 'rh_fotos', true) 
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Políticas de acesso público para o bucket de fotos/avatares
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('documentos', 'documentos', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Políticas de acesso público para o bucket de fotos e documentos
 DROP POLICY IF EXISTS "Public Access Avatars" ON storage.objects;
 CREATE POLICY "Public Access Avatars" ON storage.objects 
-FOR ALL USING (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios')) 
-WITH CHECK (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios'));
+FOR ALL USING (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios', 'documentos')) 
+WITH CHECK (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios', 'documentos'));
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;

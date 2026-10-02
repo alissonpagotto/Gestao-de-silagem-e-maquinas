@@ -292,10 +292,14 @@ export function useEmployeesRealtime(
             bankAgency: local.bankAgency || cloudEmp.bankAgency,
             bankAccount: local.bankAccount || cloudEmp.bankAccount,
             paymentLocation: local.paymentLocation || cloudEmp.paymentLocation,
-            admissionExamDoc: local.admissionExamDoc || cloudEmp.admissionExamDoc,
-            experienceContractDoc: local.experienceContractDoc || cloudEmp.experienceContractDoc,
-            generalDocs: local.generalDocs || cloudEmp.generalDocs,
-            signedRegistrationDoc: local.signedRegistrationDoc || cloudEmp.signedRegistrationDoc,
+            aso_url: (cloudEmp as any).aso_url || local.aso_url,
+            contrato_experiencia_url: (cloudEmp as any).contrato_experiencia_url || local.contrato_experiencia_url,
+            cnh_url: (cloudEmp as any).cnh_url || local.cnh_url,
+            ficha_registro_url: (cloudEmp as any).ficha_registro_url || local.ficha_registro_url,
+            admissionExamDoc: cloudEmp.admissionExamDoc || local.admissionExamDoc,
+            experienceContractDoc: cloudEmp.experienceContractDoc || local.experienceContractDoc,
+            generalDocs: cloudEmp.generalDocs || local.generalDocs,
+            signedRegistrationDoc: cloudEmp.signedRegistrationDoc || local.signedRegistrationDoc,
           };
         });
         const serialized = JSON.stringify(merged);

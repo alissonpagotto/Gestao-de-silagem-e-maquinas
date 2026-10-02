@@ -710,6 +710,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [generalDocs, setGeneralDocs] = useState<EmployeeAttachment | null>(null);
   const [signedRegistrationDoc, setSignedRegistrationDoc] = useState<EmployeeAttachment | null>(null);
 
+  // Estados independentes para os 4 arquivos (Upload para bucket 'documentos')
+  const [asoFile, setAsoFile] = useState<File | null>(null);
+  const [contratoFile, setContratoFile] = useState<File | null>(null);
+  const [cnhFile, setCnhFile] = useState<File | null>(null);
+  const [fichaFile, setFichaFile] = useState<File | null>(null);
+
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
   const [localVacations, setLocalVacations] = useState<VacationRecord[]>(() =>
     propVacations && propVacations.length > 0 ? propVacations : getStoredVacations()
@@ -858,7 +864,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
                 photoUrl: payload.new.foto_url || baseMapped.photoUrl,
                 foto_url: payload.new.foto_url || baseMapped.foto_url,
+                aso_url: payload.new.aso_url || baseMapped.aso_url,
                 contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
+                cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
+                ficha_registro_url: payload.new.ficha_registro_url || baseMapped.ficha_registro_url,
+                admissionExamDoc: baseMapped.admissionExamDoc,
+                experienceContractDoc: baseMapped.experienceContractDoc,
+                generalDocs: baseMapped.generalDocs,
+                signedRegistrationDoc: baseMapped.signedRegistrationDoc,
               };
               setLocalEmployees(prev => {
                 const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
@@ -885,7 +898,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
                 photoUrl: payload.new.foto_url || baseMapped.photoUrl,
                 foto_url: payload.new.foto_url || baseMapped.foto_url,
+                aso_url: payload.new.aso_url || baseMapped.aso_url,
                 contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
+                cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
+                ficha_registro_url: payload.new.ficha_registro_url || baseMapped.ficha_registro_url,
+                admissionExamDoc: baseMapped.admissionExamDoc,
+                experienceContractDoc: baseMapped.experienceContractDoc,
+                generalDocs: baseMapped.generalDocs,
+                signedRegistrationDoc: baseMapped.signedRegistrationDoc,
               };
               setLocalEmployees(prev => {
                 const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
@@ -1092,6 +1112,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setBankPixKey('');
     setBankAgency('');
     setBankAccount('');
+    setAsoFile(null);
+    setContratoFile(null);
+    setCnhFile(null);
+    setFichaFile(null);
     setAdmissionExamDoc(null);
     setExperienceContractDoc(null);
     setGeneralDocs(null);
@@ -1217,17 +1241,42 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setBankAgency(((emp as any).agencia || emp.bankAgency || '').toUpperCase());
     setBankAccount(((emp as any).conta_corrente || emp.bankAccount || '').trim());
 
-    setAdmissionExamDoc(emp.admissionExamDoc || null);
-    const expDoc = emp.experienceContractDoc || (
-      (emp.contrato_experiencia_url || (emp as any).contrato_experiencia_url) ? {
-        name: 'Contrato de Experiência',
-        fileData: (emp.contrato_experiencia_url || (emp as any).contrato_experiencia_url),
-        uploadedAt: new Date().toISOString(),
-      } : null
-    );
+    setAsoFile(null);
+    setContratoFile(null);
+    setCnhFile(null);
+    setFichaFile(null);
+
+    const asoUrl = emp.aso_url || (emp as any).aso_url;
+    const asoDoc = emp.admissionExamDoc || (asoUrl ? {
+      name: 'Exame Admissional (ASO)',
+      fileData: asoUrl,
+      uploadedAt: new Date().toISOString(),
+    } : null);
+    setAdmissionExamDoc(asoDoc);
+
+    const expUrl = emp.contrato_experiencia_url || (emp as any).contrato_experiencia_url || (emp as any).contrato_url;
+    const expDoc = emp.experienceContractDoc || (expUrl ? {
+      name: 'Contrato de Experiência',
+      fileData: expUrl,
+      uploadedAt: new Date().toISOString(),
+    } : null);
     setExperienceContractDoc(expDoc);
-    setGeneralDocs(emp.generalDocs || null);
-    setSignedRegistrationDoc(emp.signedRegistrationDoc || null);
+
+    const cnhDocUrl = emp.cnh_url || (emp as any).cnh_url;
+    const cnhDoc = emp.generalDocs || (cnhDocUrl ? {
+      name: 'Documentos Gerais (RE + CNH)',
+      fileData: cnhDocUrl,
+      uploadedAt: new Date().toISOString(),
+    } : null);
+    setGeneralDocs(cnhDoc);
+
+    const fichaUrl = emp.ficha_registro_url || (emp as any).ficha_registro_url;
+    const fichaDoc = emp.signedRegistrationDoc || (fichaUrl ? {
+      name: 'Ficha Cadastral Assinada',
+      fileData: fichaUrl,
+      uploadedAt: new Date().toISOString(),
+    } : null);
+    setSignedRegistrationDoc(fichaDoc);
 
     setShowCnhFields(Boolean(emp.cnhNumber || emp.cnhExpiration || emp.cnhUpgradeDT));
     setIsModalOpen(true);
@@ -1364,7 +1413,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     }
   };
 
-  // Document Upload Handler
+  // Document Upload Handler - Gerenciamento de múltiplos estados de arquivos separados e independentes
   const handleFileUpload = (
     field: 'admissionExamDoc' | 'experienceContractDoc' | 'generalDocs' | 'signedRegistrationDoc',
     e: React.ChangeEvent<HTMLInputElement>
@@ -1374,7 +1423,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     if (file.size > 15 * 1024 * 1024) {
       alert('O arquivo deve ter no máximo 15MB.');
+      e.target.value = '';
       return;
+    }
+
+    // 1. Atualiza o estado independente do arquivo File bruto selecionado para upload em lote
+    if (field === 'admissionExamDoc') {
+      setAsoFile(file);
+    } else if (field === 'experienceContractDoc') {
+      setContratoFile(file);
+    } else if (field === 'generalDocs') {
+      setCnhFile(file);
+    } else if (field === 'signedRegistrationDoc') {
+      setFichaFile(file);
     }
 
     const reader = new FileReader();
@@ -1387,18 +1448,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       };
 
       if (field === 'admissionExamDoc') setAdmissionExamDoc(attachment);
-      if (field === 'experienceContractDoc') setExperienceContractDoc(attachment);
-      if (field === 'generalDocs') setGeneralDocs(attachment);
-      if (field === 'signedRegistrationDoc') setSignedRegistrationDoc(attachment);
+      else if (field === 'experienceContractDoc') setExperienceContractDoc(attachment);
+      else if (field === 'generalDocs') setGeneralDocs(attachment);
+      else if (field === 'signedRegistrationDoc') setSignedRegistrationDoc(attachment);
     };
     reader.readAsDataURL(file);
+    // Limpa valor do elemento input para permitir upload consecutivo do mesmo arquivo se necessário
+    e.target.value = '';
   };
 
   const handleRemoveFile = (field: 'admissionExamDoc' | 'experienceContractDoc' | 'generalDocs' | 'signedRegistrationDoc') => {
-    if (field === 'admissionExamDoc') setAdmissionExamDoc(null);
-    if (field === 'experienceContractDoc') setExperienceContractDoc(null);
-    if (field === 'generalDocs') setGeneralDocs(null);
-    if (field === 'signedRegistrationDoc') setSignedRegistrationDoc(null);
+    if (field === 'admissionExamDoc') {
+      setAsoFile(null);
+      setAdmissionExamDoc(null);
+    } else if (field === 'experienceContractDoc') {
+      setContratoFile(null);
+      setExperienceContractDoc(null);
+    } else if (field === 'generalDocs') {
+      setCnhFile(null);
+      setGeneralDocs(null);
+    } else if (field === 'signedRegistrationDoc') {
+      setFichaFile(null);
+      setSignedRegistrationDoc(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -1501,43 +1573,95 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         finalFotoUrl = editingEmployee.photoUrl;
       }
 
-      // 2. UPLOAD RESILIENTE DO CONTRATO DE EXPERIÊNCIA (bucket 'documentos'):
-      // Captura o link de retorno textual do Storage e descarta qualquer payload binário pesado.
-      // Se falhar por qualquer motivo de RLS ou rede, exibe aviso e NÃO interrompe a gravação das informações.
-      let finalContratoUrl: string | null = null;
-      if (experienceContractDoc) {
-        const rawDoc: any = experienceContractDoc;
-        if (typeof rawDoc === 'string' && (rawDoc.startsWith('http://') || rawDoc.startsWith('https://'))) {
-          finalContratoUrl = rawDoc.trim();
-        } else if (typeof rawDoc === 'object' && rawDoc.fileData) {
-          const fData = String(rawDoc.fileData || '');
-          if (fData.startsWith('http://') || fData.startsWith('https://')) {
-            finalContratoUrl = fData.trim();
-          } else if (fData.startsWith('data:') || fData.startsWith('blob:')) {
-            try {
-              const uploadedDoc = await uploadEmployeeDocumentToStorage(
-                fData,
-                finalId,
-                'contrato_experiencia',
-                activeCompany?.id || activeUid,
-                rawDoc.name
-              );
-              if (uploadedDoc && (uploadedDoc.startsWith('http://') || uploadedDoc.startsWith('https://'))) {
-                finalContratoUrl = uploadedDoc;
-              } else {
-                console.warn('[RH Contrato] Aviso: O upload do contrato não retornou URL pública válida. O salvamento prosseguirá normalmente.');
+      // 2. ROTINA DE UPLOAD SEQUENCIAL/EM LOTE PARA O BUCKET 'documentos':
+      // Envia ao bucket 'documentos' todos os arquivos novos selecionados pelo usuário,
+      // capturando a URL pública com o método .getPublicUrl().data.publicUrl
+      const uploadDocToStorage = async (
+        file: File | null,
+        docState: EmployeeAttachment | null,
+        docType: 'aso' | 'contrato_experiencia' | 'cnh' | 'ficha_registro',
+        existingDbUrl?: string | null
+      ): Promise<string | null> => {
+        // Se usuário removeu o anexo da interface
+        if (!file && !docState) {
+          return null;
+        }
+
+        // Caso 1: Novo arquivo File selecionado pelo usuário no formulário
+        if (file && isSupabaseConfigured) {
+          try {
+            const validUuid = toValidUUID(finalId) || finalId;
+            const cleanCompanyId = activeCompany?.id ? (toValidUUID(activeCompany.id) || activeCompany.id) : (activeUid || 'geral');
+            const fileExt = file.name.includes('.') ? '.' + file.name.split('.').pop()?.toLowerCase() : '.pdf';
+            const safeDocName = file.name
+              .replace(/[^a-zA-Z0-9._-]/g, '_')
+              .replace(/\.[^/.]+$/, '');
+            const fileName = `${validUuid}_${docType}_${Date.now()}_${safeDocName}${fileExt}`;
+            const filePath = `${cleanCompanyId}/${fileName}`;
+
+            const { data, error } = await supabase.storage
+              .from('documentos')
+              .upload(filePath, file, {
+                contentType: file.type || 'application/pdf',
+                cacheControl: '3600',
+                upsert: true,
+              });
+
+            if (!error && data?.path) {
+              const { data: publicData } = supabase.storage
+                .from('documentos')
+                .getPublicUrl(data.path);
+              const returnedUrl = publicData?.publicUrl?.trim();
+              if (returnedUrl && (returnedUrl.startsWith('http://') || returnedUrl.startsWith('https://'))) {
+                console.info(`✅ [Supabase Storage] Documento (${docType}) enviado com sucesso no bucket 'documentos':`, returnedUrl);
+                return returnedUrl;
               }
-            } catch (docErr: any) {
-              console.warn('[RH Contrato] Aviso no upload do contrato (Storage/RLS). Prosseguindo com o salvamento das informações cadastrais e bancárias:', docErr?.message || docErr);
+            } else if (error) {
+              console.warn(`[Supabase Storage] Erro ao enviar anexo (${docType}) para 'documentos':`, error.message);
             }
+          } catch (uploadErr) {
+            console.warn(`[Supabase Storage] Exceção ao gravar anexo em 'documentos' (${docType}):`, uploadErr);
           }
         }
-      }
 
-      // Preserva o contrato de experiência existente se for uma URL HTTP válida prévia
-      if (!finalContratoUrl && editingEmployee?.contrato_experiencia_url && (editingEmployee.contrato_experiencia_url.startsWith('http://') || editingEmployee.contrato_experiencia_url.startsWith('https://'))) {
-        finalContratoUrl = editingEmployee.contrato_experiencia_url;
-      }
+        // Caso 2: base64 (data: ou blob:) que necessite upload
+        if (docState?.fileData && (docState.fileData.startsWith('data:') || docState.fileData.startsWith('blob:'))) {
+          try {
+            const uploaded = await uploadEmployeeDocumentToStorage(
+              docState.fileData,
+              finalId,
+              docType,
+              activeCompany?.id || activeUid,
+              docState.name
+            );
+            if (uploaded && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) {
+              return uploaded;
+            }
+          } catch (err: any) {
+            console.warn(`[Supabase Storage] Falha ao enviar base64 (${docType}):`, err?.message || err);
+          }
+        }
+
+        // Caso 3: Preserva link HTTP público prévio do docState
+        if (docState?.fileData && (docState.fileData.startsWith('http://') || docState.fileData.startsWith('https://'))) {
+          return docState.fileData.trim();
+        }
+
+        // Caso 4: Preserva link HTTP anterior salvo no banco
+        if (existingDbUrl && (existingDbUrl.startsWith('http://') || existingDbUrl.startsWith('https://'))) {
+          return existingDbUrl.trim();
+        }
+
+        return null;
+      };
+
+      // Executa o envio sequencial / em lote de todos os 4 anexos de retorno
+      const [finalAsoUrl, finalContratoUrl, finalCnhUrl, finalFichaUrl] = await Promise.all([
+        uploadDocToStorage(asoFile, admissionExamDoc, 'aso', editingEmployee?.aso_url),
+        uploadDocToStorage(contratoFile, experienceContractDoc, 'contrato_experiencia', editingEmployee?.contrato_experiencia_url),
+        uploadDocToStorage(cnhFile, generalDocs, 'cnh', editingEmployee?.cnh_url),
+        uploadDocToStorage(fichaFile, signedRegistrationDoc, 'ficha_registro', editingEmployee?.ficha_registro_url),
+      ]);
 
       // 3. SALVAR OS CAMPOS DE TEXTO DA SEÇÃO DE PAGAMENTO:
       // Mapear e incluir no payload de salvamento as 4 caixas de texto da seção 3:
@@ -1599,7 +1723,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         photoUrl: finalFotoUrl || undefined,
         foto_url: finalFotoUrl || undefined,
         avatar_url: finalFotoUrl || undefined,
+        // Colunas físicas dos anexos da Seção 4 (bucket documentos):
+        aso_url: finalAsoUrl || undefined,
         contrato_experiencia_url: finalContratoUrl || undefined,
+        cnh_url: finalCnhUrl || undefined,
+        ficha_registro_url: finalFichaUrl || undefined,
         phone: phone.trim(),
         baseSalary: parsedSalary,
         salary: parsedSalary,
@@ -1632,14 +1760,34 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         conta_corrente: cleanContaCorrente || undefined,
         bankAccount: cleanContaCorrente || undefined,
 
-        admissionExamDoc: admissionExamDoc || undefined,
+        // 3. Documentos e anexos da Seção 4 (preservação e preview)
+        admissionExamDoc: finalAsoUrl ? {
+          name: asoFile?.name || admissionExamDoc?.name || 'Exame Admissional (ASO)',
+          fileData: finalAsoUrl,
+          uploadedAt: new Date().toISOString(),
+          size: asoFile?.size || admissionExamDoc?.size,
+        } : (admissionExamDoc && typeof admissionExamDoc.fileData === 'string' && admissionExamDoc.fileData.startsWith('http') ? admissionExamDoc : undefined),
+
         experienceContractDoc: finalContratoUrl ? {
-          name: experienceContractDoc?.name || 'Contrato de Experiência',
+          name: contratoFile?.name || experienceContractDoc?.name || 'Contrato de Experiência',
           fileData: finalContratoUrl,
           uploadedAt: new Date().toISOString(),
+          size: contratoFile?.size || experienceContractDoc?.size,
         } : (experienceContractDoc && typeof experienceContractDoc.fileData === 'string' && experienceContractDoc.fileData.startsWith('http') ? experienceContractDoc : undefined),
-        generalDocs: generalDocs || undefined,
-        signedRegistrationDoc: signedRegistrationDoc || undefined,
+
+        generalDocs: finalCnhUrl ? {
+          name: cnhFile?.name || generalDocs?.name || 'Documentos Gerais (RE + CNH)',
+          fileData: finalCnhUrl,
+          uploadedAt: new Date().toISOString(),
+          size: cnhFile?.size || generalDocs?.size,
+        } : (generalDocs && typeof generalDocs.fileData === 'string' && generalDocs.fileData.startsWith('http') ? generalDocs : undefined),
+
+        signedRegistrationDoc: finalFichaUrl ? {
+          name: fichaFile?.name || signedRegistrationDoc?.name || 'Ficha Cadastral Assinada',
+          fileData: finalFichaUrl,
+          uploadedAt: new Date().toISOString(),
+          size: fichaFile?.size || signedRegistrationDoc?.size,
+        } : (signedRegistrationDoc && typeof signedRegistrationDoc.fileData === 'string' && signedRegistrationDoc.fileData.startsWith('http') ? signedRegistrationDoc : undefined),
       };
 
       // Dispara persistência com carimbo obrigatório do assinante no Supabase
@@ -1649,7 +1797,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           const safeCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
 
           // Payload alinhado estritamente com as colunas físicas da tabela public.rh_funcionarios:
-          // 'local_recebimento', 'banco_chave_pix', 'agencia', 'conta_corrente', 'foto_url' e 'contrato_experiencia_url'
+          // 'local_recebimento', 'banco_chave_pix', 'agencia', 'conta_corrente', 'foto_url',
+          // 'aso_url', 'contrato_experiencia_url', 'cnh_url' e 'ficha_registro_url'
           const directRow: Record<string, any> = {
             id: targetValidUuid,
             user_id: activeUid,
@@ -1671,8 +1820,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             conta_corrente: cleanContaCorrente || null,
             // Foto de Perfil (link de texto do bucket avatars)
             foto_url: finalFotoUrl || null,
-            // Contrato de Experiência
+            // 4 Anexos da Seção 4 (bucket documentos)
+            aso_url: finalAsoUrl || null,
             contrato_experiencia_url: finalContratoUrl || null,
+            cnh_url: finalCnhUrl || null,
+            ficha_registro_url: finalFichaUrl || null,
             updated_at: new Date().toISOString(),
           };
 
@@ -1732,10 +1884,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         }
       }
 
+      setAsoFile(null);
+      setContratoFile(null);
+      setCnhFile(null);
+      setFichaFile(null);
+      setEditingEmployee(null);
       setIsModalOpen(false);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setAsoFile(null);
+    setContratoFile(null);
+    setCnhFile(null);
+    setFichaFile(null);
+    setAdmissionExamDoc(null);
+    setExperienceContractDoc(null);
+    setGeneralDocs(null);
+    setSignedRegistrationDoc(null);
+    setEditingEmployee(null);
+    setIsModalOpen(false);
   };
 
   const getCnhBadge = (emp: Employee) => {
@@ -2322,7 +2492,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={handleCloseModal}
                 className="p-1 rounded-lg text-white hover:bg-white/20 transition cursor-pointer"
               >
                 <X className="w-5 h-5 text-white" />
@@ -3170,6 +3340,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <div className="flex items-center space-x-2 shrink-0">
                           <a 
                             href={admissionExamDoc.fileData} 
+                            target="_blank"
+                            rel="noopener noreferrer"
                             download={admissionExamDoc.name} 
                             className="text-[#0963cb] hover:underline flex items-center text-[11px]"
                           >
@@ -3223,6 +3395,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <div className="flex items-center space-x-2 shrink-0">
                           <a 
                             href={experienceContractDoc.fileData} 
+                            target="_blank"
+                            rel="noopener noreferrer"
                             download={experienceContractDoc.name} 
                             className="text-[#0963cb] hover:underline flex items-center text-[11px]"
                           >
@@ -3276,6 +3450,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <div className="flex items-center space-x-2 shrink-0">
                           <a 
                             href={generalDocs.fileData} 
+                            target="_blank"
+                            rel="noopener noreferrer"
                             download={generalDocs.name} 
                             className="text-[#0963cb] hover:underline flex items-center text-[11px]"
                           >
@@ -3329,6 +3505,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <div className="flex items-center space-x-2 shrink-0">
                           <a 
                             href={signedRegistrationDoc.fileData} 
+                            target="_blank"
+                            rel="noopener noreferrer"
                             download={signedRegistrationDoc.name} 
                             className="text-[#0963cb] hover:underline flex items-center text-[11px]"
                           >
@@ -3375,7 +3553,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
                   <button
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={handleCloseModal}
                     className="px-5 py-2 rounded-lg border border-stone-300 text-stone-700 bg-white hover:bg-stone-50 text-xs sm:text-sm font-semibold transition cursor-pointer"
                   >
                     Cancelar

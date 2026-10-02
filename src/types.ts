@@ -424,10 +424,13 @@ export interface Employee {
 
   // Anexos de Retorno e Documentos
   admissionExamDoc?: EmployeeAttachment; // Exame Admissional
+  aso_url?: string; // Coluna banco Supabase: aso_url
   experienceContractDoc?: EmployeeAttachment; // Contrato de Experiência
   contrato_experiencia_url?: string; // Coluna banco Supabase: contrato_experiencia_url
   generalDocs?: EmployeeAttachment; // Documentos Gerais (RE + CNH)
+  cnh_url?: string; // Coluna banco Supabase: cnh_url
   signedRegistrationDoc?: EmployeeAttachment; // Cadastro Assinado (Ficha com assinatura)
+  ficha_registro_url?: string; // Coluna banco Supabase: ficha_registro_url
 }
 
 export interface FleetTeam {

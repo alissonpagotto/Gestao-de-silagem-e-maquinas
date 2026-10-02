@@ -2538,10 +2538,28 @@ export function mapRowToEmployee(row: any): Employee {
       const raw = row.avatar_url || row.avatarUrl || row.foto_url || row.fotoUrl || row.photo_url || row.photoUrl || row.image_url || row.imageUrl;
       return (raw && typeof raw === 'string' && !raw.includes('wix_mp.com') && !raw.includes('wix_mp') && !raw.includes('static.wixstatic.com')) ? raw.trim() : undefined;
     })(),
+    aso_url: row.aso_url || undefined,
+    admissionExamDoc: row.aso_url ? {
+      name: 'Exame Admissional (ASO)',
+      fileData: row.aso_url,
+      uploadedAt: row.updated_at || new Date().toISOString(),
+    } : undefined,
     contrato_experiencia_url: row.contrato_experiencia_url || row.contrato_url || undefined,
     experienceContractDoc: (row.contrato_experiencia_url || row.contrato_url) ? {
       name: 'Contrato de Experiência',
       fileData: row.contrato_experiencia_url || row.contrato_url,
+      uploadedAt: row.updated_at || new Date().toISOString(),
+    } : undefined,
+    cnh_url: row.cnh_url || undefined,
+    generalDocs: row.cnh_url ? {
+      name: 'Documentos Gerais (RE + CNH)',
+      fileData: row.cnh_url,
+      uploadedAt: row.updated_at || new Date().toISOString(),
+    } : undefined,
+    ficha_registro_url: row.ficha_registro_url || undefined,
+    signedRegistrationDoc: row.ficha_registro_url ? {
+      name: 'Ficha Cadastral Assinada',
+      fileData: row.ficha_registro_url,
       uploadedAt: row.updated_at || new Date().toISOString(),
     } : undefined,
     userId: row.user_id || row.userId || undefined,
@@ -2592,7 +2610,10 @@ export function sanitizeRhFuncionarioPayload(
   agencia: string | null;
   conta_corrente: string | null;
   foto_url: string | null;
+  aso_url?: string | null;
   contrato_experiencia_url: string | null;
+  cnh_url?: string | null;
+  ficha_registro_url?: string | null;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
   const validId = toValidUUID(employee.id);
@@ -2628,7 +2649,10 @@ export function sanitizeRhFuncionarioPayload(
     return null;
   };
 
+  const asoUrl = extractCleanUrl(employee.aso_url || employee.admissionExamDoc);
   const contratoUrl = extractCleanUrl(employee.contrato_experiencia_url || employee.contrato_url || employee.experienceContractDoc);
+  const cnhUrl = extractCleanUrl(employee.cnh_url || employee.generalDocs);
+  const fichaUrl = extractCleanUrl(employee.ficha_registro_url || employee.signedRegistrationDoc);
   const photoUrl = extractCleanUrl(employee.foto_url || employee.photoUrl || (employee as any).avatar_url);
 
   // Validação segura de company_id como UUID válido (evita erro 22P02 caso venha 'company_default' ou string inválida)
@@ -2655,7 +2679,10 @@ export function sanitizeRhFuncionarioPayload(
     agencia: agencia ? agencia.toUpperCase() : null,
     conta_corrente: contaCorrente ? contaCorrente.toUpperCase() : null,
     foto_url: photoUrl ? photoUrl.trim() : null,
+    aso_url: asoUrl ? asoUrl.trim() : null,
     contrato_experiencia_url: contratoUrl ? contratoUrl.trim() : null,
+    cnh_url: cnhUrl ? cnhUrl.trim() : null,
+    ficha_registro_url: fichaUrl ? fichaUrl.trim() : null,
   };
 }
 
