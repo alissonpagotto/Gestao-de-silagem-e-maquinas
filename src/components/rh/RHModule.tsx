@@ -222,6 +222,11 @@ export const RHModule: React.FC<RHModuleProps> = ({
     let isMounted = true;
     const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
 
+    // Limpeza de cache de estado (State Reset) ao alternar para a aba de Faltas
+    if (activeTab === 'faltas') {
+      setAbsences([]);
+    }
+
     Promise.all([
       fetchRhFuncionarios(undefined, currentUserId),
       fetchContractualSalariesFromDb(),

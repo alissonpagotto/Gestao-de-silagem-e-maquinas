@@ -58,6 +58,12 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [discountFilter, setDiscountFilter] = useState<string>('todos');
 
+  // 2. LIMPEZA DE CACHE DO ESTADO (STATE RESET):
+  // Inicializa com array local vazia (.useState([])) antes de disparar a nova busca reativa,
+  // impedindo que dados residuais ou erro 400 travem a renderização da tela.
+  const [localAbsences, setLocalAbsences] = useState<AbsenceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAbsence, setEditingAbsence] = useState<AbsenceRecord | null>(null);
@@ -75,31 +81,47 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
 
-  const absencesRef = useRef<AbsenceRecord[]>(absences);
-  absencesRef.current = absences;
+  const absencesRef = useRef<AbsenceRecord[]>(localAbsences);
+  absencesRef.current = localAbsences;
 
   // Sincronização em Tempo Real via Realtime Channel apontando estritamente para 'rh_faltas'
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    // 2. LIMPEZA DE CACHE DO ESTADO (STATE RESET):
+    // Limpa imediatamente o array local antes de disparar a nova busca reativa no Supabase
+    setLocalAbsences([]);
+    setIsLoading(true);
     let isMounted = true;
 
     const loadInitialFromSupabase = async () => {
       try {
-        const fresh = await fetchCloudAbsences(effectiveCompanyId, undefined, currentUserId);
+        const fresh = await fetchCloudAbsences(effectiveCompanyId);
         if (!isMounted) return;
-        if (Array.isArray(fresh) && fresh.length > 0) {
+        if (Array.isArray(fresh)) {
+          setLocalAbsences(fresh);
           saveStoredAbsences(fresh);
           onSaveAbsences(fresh);
         }
       } catch (err) {
         console.warn('[FaltasTab] Aviso ao carregar rh_faltas do Supabase:', err);
+        if (isMounted) {
+          setLocalAbsences([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadInitialFromSupabase();
+    if (isSupabaseConfigured) {
+      loadInitialFromSupabase();
+    } else {
+      setLocalAbsences(Array.isArray(absences) ? absences : []);
+      setIsLoading(false);
+    }
 
     // Assinatura Realtime Channel estritamente na tabela public.rh_faltas
-    const faltasRtChannel = supabase
+    const faltasRtChannel = isSupabaseConfigured ? supabase
       .channel(`rh_faltas_realtime_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
       .on(
         'postgres_changes',
@@ -110,33 +132,39 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
           if (payload.eventType === 'DELETE' && payload.old?.id) {
             const deletedId = toValidUUID(payload.old.id);
-            const currentList = absencesRef.current;
-            const nextList = currentList.filter(a => toValidUUID(a.id) !== deletedId);
-            saveStoredAbsences(nextList);
-            onSaveAbsences(nextList);
+            setLocalAbsences(prev => {
+              const nextList = prev.filter(a => toValidUUID(a.id) !== deletedId);
+              saveStoredAbsences(nextList);
+              onSaveAbsences(nextList);
+              return nextList;
+            });
             return;
           }
 
           if (payload.new) {
             const mapped = mapRowToAbsenceRecord(payload.new);
             const mappedId = toValidUUID(mapped.id);
-            const currentList = absencesRef.current;
-            const exists = currentList.some(a => toValidUUID(a.id) === mappedId);
-            const nextList = exists
-              ? currentList.map(a => toValidUUID(a.id) === mappedId ? { ...a, ...mapped, id: mappedId } : a)
-              : [{ ...mapped, id: mappedId }, ...currentList];
-            saveStoredAbsences(nextList);
-            onSaveAbsences(nextList);
+            setLocalAbsences(prev => {
+              const exists = prev.some(a => toValidUUID(a.id) === mappedId);
+              const nextList = exists
+                ? prev.map(a => toValidUUID(a.id) === mappedId ? { ...a, ...mapped, id: mappedId } : a)
+                : [{ ...mapped, id: mappedId }, ...prev];
+              saveStoredAbsences(nextList);
+              onSaveAbsences(nextList);
+              return nextList;
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe() : null;
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(faltasRtChannel);
+      if (faltasRtChannel) {
+        supabase.removeChannel(faltasRtChannel);
+      }
     };
-  }, [effectiveCompanyId, currentUserId]);
+  }, [effectiveCompanyId]);
 
   // Calculate estimated daily discount
   const recalculateDiscount = (empId: string, days: number, isDiscount: boolean) => {
@@ -173,8 +201,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     recalculateDiscount(selectedEmployeeId, daysCount, checked);
   };
 
-  // Filtered List
-  const filtered = absences.filter(a => {
+  // Filtered List usando a array local reativa com state reset
+  const activeAbsences = localAbsences;
+  const filtered = activeAbsences.filter(a => {
     const matchesSearch = 
       a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (a.reason && a.reason.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -192,7 +221,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   });
 
   // KPIs for the selected month or total
-  const monthAbsences = selectedMonth ? absences.filter(a => a.referenceMonth === selectedMonth) : absences;
+  const monthAbsences = selectedMonth ? activeAbsences.filter(a => a.referenceMonth === selectedMonth) : activeAbsences;
   const totalOccurrences = monthAbsences.length;
   const unjustifiedCount = monthAbsences.filter(a => a.type === 'injustificada' || a.type === 'suspensao').length;
   const justifiedCount = monthAbsences.filter(a => a.type === 'justificada').length;
@@ -270,7 +299,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         notes: notes || undefined,
         updatedAt: new Date().toISOString(),
       };
-      nextList = absences.map(a => a.id === editingAbsence.id ? recordToSave : a);
+      nextList = localAbsences.map(a => a.id === editingAbsence.id ? recordToSave : a);
     } else {
       recordToSave = {
         id: toValidUUID(`abs_${Date.now()}_${emp.id}`),
@@ -291,9 +320,10 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         notes: notes || undefined,
         createdAt: new Date().toISOString(),
       };
-      nextList = [recordToSave, ...absences];
+      nextList = [recordToSave, ...localAbsences];
     }
 
+    setLocalAbsences(nextList);
     onSaveAbsences(nextList);
     saveStoredAbsences(nextList);
     setIsModalOpen(false);
@@ -315,7 +345,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       variant: 'danger',
     });
     if (isOk) {
-      const nextList = absences.filter(a => a.id !== id);
+      const nextList = localAbsences.filter(a => a.id !== id);
+      setLocalAbsences(nextList);
       onSaveAbsences(nextList);
       saveStoredAbsences(nextList);
 
@@ -334,7 +365,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       status: 'descontada' as const,
       updatedAt: new Date().toISOString(),
     };
-    const updated = absences.map(a => a.id === item.id ? updatedItem : a);
+    const updated = localAbsences.map(a => a.id === item.id ? updatedItem : a);
+    setLocalAbsences(updated);
     onSaveAbsences(updated);
     saveStoredAbsences(updated);
 
