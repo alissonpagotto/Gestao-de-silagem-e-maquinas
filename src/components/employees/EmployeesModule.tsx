@@ -112,6 +112,7 @@ const DEFAULT_DEPOSIT_BANKS = [
   'Cresol',
   'Evolua',
   'Itaú',
+  'Nubank',
   'Sicoob',
   'Sicredi',
 ];
