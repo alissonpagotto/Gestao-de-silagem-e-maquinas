@@ -1277,6 +1277,11 @@ export interface AbsenceRecord {
   date: string; // YYYY-MM-DD
   endDate?: string;
   daysCount: number;
+  absenceUnit?: 'dias' | 'horas'; // [ Dia Todo ] ou [ Horas ]
+  absenceHours?: number; // Quantidade de Horas fracionadas (ex: 2.5)
+  calculationMemory?: string; // Memória descritiva do cálculo
+  isProportionalAdmission?: boolean;
+  proportionalBaseSalary?: number;
   type: 'injustificada' | 'justificada' | 'atraso' | 'suspensao';
   discountPayroll: boolean;
   discountAmount?: number;

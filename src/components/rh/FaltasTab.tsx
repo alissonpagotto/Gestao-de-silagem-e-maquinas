@@ -18,6 +18,11 @@ import {
   Check
 } from 'lucide-react';
 import { Employee, AbsenceRecord, PayrollRecord } from '../../types';
+import { 
+  formatMoneyBRL, 
+  formatEmployeeAdmissionDate,
+  getAdmissionProportionality 
+} from './payrollHelpers';
 import { formatDateBR, formatCurrencyBRL, getActiveCompanyId, saveStoredAbsences } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { supabase } from '../../lib/supabase';
@@ -73,6 +78,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const [date, setDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [daysCount, setDaysCount] = useState<number>(1);
+  const [absenceUnit, setAbsenceUnit] = useState<'dias' | 'horas'>('dias');
+  const [absenceHours, setAbsenceHours] = useState<number>(2.5);
+  const [calculationMemory, setCalculationMemory] = useState<string>('');
   const [type, setType] = useState<AbsenceRecord['type']>('injustificada');
   const [discountPayroll, setDiscountPayroll] = useState<boolean>(true);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
@@ -166,39 +174,151 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     };
   }, [effectiveCompanyId]);
 
-  // Calculate estimated daily discount
-  const recalculateDiscount = (empId: string, days: number, isDiscount: boolean) => {
-    if (!isDiscount) {
-      setDiscountAmount(0);
-      return;
-    }
+  // 2. AJUSTE DO VALOR DO DIA & 3. HORAS FRACIONADAS (CLT / PROPORCIONALIDADE):
+  const calculateAbsenceDiscount = (
+    empId: string,
+    unit: 'dias' | 'horas',
+    days: number,
+    hours: number,
+    isDiscount: boolean,
+    monthRef: string
+  ) => {
     const emp = employees.find(e => e.id === empId);
-    if (emp) {
-      const salary = emp.salary || emp.baseSalary || 0;
-      const dailyRate = salary > 0 ? salary / 30 : 0;
-      const calculated = Math.round(dailyRate * days * 100) / 100;
-      setDiscountAmount(calculated);
+    const contractualSalary = Number(emp?.salary || emp?.baseSalary) || 3500;
+
+    if (!isDiscount || !emp) {
+      return {
+        discountAmount: 0,
+        calculationMemory: 'Desconto não aplicável em folha de pagamento.',
+        isProportional: false,
+        proportionalSalary: contractualSalary,
+        contractualSalary,
+        dailyRate: Math.round((contractualSalary / 30) * 100) / 100,
+        hourlyRate: Math.round((contractualSalary / 220) * 100) / 100,
+        daysWorkedMonth: 30,
+        admissionDateFormatted: emp?.admissionDate ? formatEmployeeAdmissionDate(emp.admissionDate) : '',
+      };
     }
+
+    // Regra de Proporcionalidade de Admissão:
+    // Se o funcionário foi admitido no mês da competência (ex: Admissão em 03/09/2026 para a folha 09/2026),
+    // o valor do dia para desconto deve ser calculado dividindo o 'Salário Proporcional do Mês'
+    // (R$ 3.733,33 pelos 28 dias trabalhados) por 28, e NÃO o salário contratual cheio (R$ 4.000,00) por 30.
+    const admInfo = getAdmissionProportionality(emp.admissionDate, monthRef, contractualSalary);
+    const isProportional = admInfo.isAdmittedInCompetenceMonth;
+    const baseSalaryToUse = isProportional ? admInfo.proportionalSalary : contractualSalary;
+    const daysWorkedInMonth = isProportional ? admInfo.daysWorked : 30;
+
+    const dailyRate = isProportional
+      ? (daysWorkedInMonth > 0 ? (baseSalaryToUse / daysWorkedInMonth) : (baseSalaryToUse / 30))
+      : (contractualSalary / 30);
+
+    // Regra de Cálculo para Horas: Jornada padrão de 220 horas mensais:
+    // Valor da Hora = (Salário Base ou Proporcional / 220).
+    // Valor do Desconto = (Valor da Hora * Quantidade de Horas informadas, ex: 2,5).
+    const hourlyRate = baseSalaryToUse / 220;
+
+    let calculatedDiscount = 0;
+    let memoryText = '';
+
+    const baseLabel = isProportional
+      ? `Salário Proporcional Admissão (${formatMoneyBRL(baseSalaryToUse)})`
+      : `Salário Base (${formatMoneyBRL(contractualSalary)})`;
+
+    if (unit === 'horas') {
+      const validHours = Math.max(0, Number(hours) || 0);
+      calculatedDiscount = Math.round((hourlyRate * validHours) * 100) / 100;
+      const hoursFormatted = validHours.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      memoryText = `Base de cálculo: ${baseLabel} | Valor da Hora: ${formatMoneyBRL(hourlyRate)} | Desconto aplicado para ${hoursFormatted} horas.`;
+    } else {
+      const validDays = Math.max(0, Number(days) || 0);
+      calculatedDiscount = Math.round((dailyRate * validDays) * 100) / 100;
+      const daysDesc = isProportional && daysWorkedInMonth < 30
+        ? `Salário Proporcional Admissão (${formatMoneyBRL(baseSalaryToUse)} pelos ${daysWorkedInMonth} dias trabalhados)`
+        : baseLabel;
+      memoryText = `Base de cálculo: ${daysDesc} | Valor do Dia: ${formatMoneyBRL(dailyRate)} | Desconto aplicado para ${validDays} dia(s).`;
+    }
+
+    return {
+      discountAmount: calculatedDiscount,
+      calculationMemory: memoryText,
+      isProportional,
+      proportionalSalary: baseSalaryToUse,
+      contractualSalary,
+      dailyRate: Math.round(dailyRate * 100) / 100,
+      hourlyRate: Math.round(hourlyRate * 100) / 100,
+      daysWorkedMonth: daysWorkedInMonth,
+      admissionDateFormatted: admInfo.admissionDate ? formatEmployeeAdmissionDate(admInfo.admissionDate) : '',
+    };
   };
+
+  const proportionalCalc = calculateAbsenceDiscount(
+    selectedEmployeeId,
+    absenceUnit,
+    daysCount,
+    absenceHours,
+    discountPayroll,
+    referenceMonth
+  );
 
   const handleEmployeeChange = (empId: string) => {
     setSelectedEmployeeId(empId);
-    recalculateDiscount(empId, daysCount, discountPayroll);
+    const res = calculateAbsenceDiscount(empId, absenceUnit, daysCount, absenceHours, discountPayroll, referenceMonth);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
+  };
+
+  const handleUnitChange = (newUnit: 'dias' | 'horas') => {
+    setAbsenceUnit(newUnit);
+    const res = calculateAbsenceDiscount(selectedEmployeeId, newUnit, daysCount, absenceHours, discountPayroll, referenceMonth);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
+  };
+
+  const handleHoursChange = (hrs: number) => {
+    setAbsenceHours(hrs);
+    const res = calculateAbsenceDiscount(selectedEmployeeId, 'horas', daysCount, hrs, discountPayroll, referenceMonth);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
   };
 
   const handleDaysChange = (days: number) => {
     setDaysCount(days);
-    recalculateDiscount(selectedEmployeeId, days, discountPayroll);
     if (date && days > 0) {
       const d1 = new Date(date + 'T00:00:00');
       const endD = new Date(d1.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
       setEndDate(endD.toISOString().split('T')[0]);
     }
+    const res = calculateAbsenceDiscount(selectedEmployeeId, 'dias', days, absenceHours, discountPayroll, referenceMonth);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
+  };
+
+  const handleDateChange = (newDate: string) => {
+    setDate(newDate);
+    if (daysCount === 1 || !endDate) {
+      setEndDate(newDate);
+    }
+  };
+
+  const handleMonthRefChange = (mRef: string) => {
+    setReferenceMonth(mRef);
+    const res = calculateAbsenceDiscount(selectedEmployeeId, absenceUnit, daysCount, absenceHours, discountPayroll, mRef);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
   };
 
   const handleToggleDiscount = (checked: boolean) => {
     setDiscountPayroll(checked);
-    recalculateDiscount(selectedEmployeeId, daysCount, checked);
+    const res = calculateAbsenceDiscount(selectedEmployeeId, absenceUnit, daysCount, absenceHours, checked, referenceMonth);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
+  };
+
+  const handleResetToCalculated = () => {
+    const res = calculateAbsenceDiscount(selectedEmployeeId, absenceUnit, daysCount, absenceHours, discountPayroll, referenceMonth);
+    setDiscountAmount(res.discountAmount);
+    setCalculationMemory(res.calculationMemory);
   };
 
   // Filtered List usando a array local reativa com state reset
@@ -236,13 +356,27 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setDate(item.date);
       setEndDate(item.endDate || '');
       setDaysCount(item.daysCount || 1);
+      const unit = item.absenceUnit || ((item.absenceHours && item.absenceHours > 0) ? 'horas' : 'dias');
+      setAbsenceUnit(unit);
+      setAbsenceHours(item.absenceHours !== undefined ? Number(item.absenceHours) : 2.5);
       setType(item.type);
       setDiscountPayroll(item.discountPayroll);
-      setDiscountAmount(item.discountAmount || 0);
-      setReferenceMonth(item.referenceMonth || currentMonthRef);
+      const mRef = item.referenceMonth || currentMonthRef;
+      setReferenceMonth(mRef);
       setStatus(item.status);
       setReason(item.reason || '');
       setNotes(item.notes || '');
+
+      const res = calculateAbsenceDiscount(
+        item.employeeId,
+        unit,
+        item.daysCount || 1,
+        item.absenceHours || 2.5,
+        item.discountPayroll,
+        mRef
+      );
+      setDiscountAmount(item.discountAmount !== undefined ? item.discountAmount : res.discountAmount);
+      setCalculationMemory(item.calculationMemory || res.calculationMemory);
     } else {
       setEditingAbsence(null);
       const activeEmps = employees.filter(e => e.status !== 'inativo');
@@ -252,6 +386,8 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setDate(today);
       setEndDate(today);
       setDaysCount(1);
+      setAbsenceUnit('dias');
+      setAbsenceHours(2.5);
       setType('injustificada');
       setDiscountPayroll(true);
       setReferenceMonth(currentMonthRef);
@@ -259,13 +395,13 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setReason('');
       setNotes('');
 
-      // Auto estimate
       if (firstId) {
-        const emp = employees.find(e => e.id === firstId);
-        const salary = emp?.salary || emp?.baseSalary || 0;
-        setDiscountAmount(salary > 0 ? Math.round((salary / 30) * 100) / 100 : 0);
+        const res = calculateAbsenceDiscount(firstId, 'dias', 1, 2.5, true, currentMonthRef);
+        setDiscountAmount(res.discountAmount);
+        setCalculationMemory(res.calculationMemory);
       } else {
         setDiscountAmount(0);
+        setCalculationMemory('');
       }
     }
     setIsModalOpen(true);
@@ -276,8 +412,20 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
+    const calc = calculateAbsenceDiscount(
+      selectedEmployeeId,
+      absenceUnit,
+      daysCount,
+      absenceHours,
+      discountPayroll,
+      referenceMonth
+    );
+
     let recordToSave: AbsenceRecord;
     let nextList: AbsenceRecord[];
+
+    const finalMemory = discountPayroll ? (calculationMemory || calc.calculationMemory) : undefined;
+    const finalHours = absenceUnit === 'horas' ? Number(absenceHours) : undefined;
 
     if (editingAbsence) {
       recordToSave = {
@@ -289,7 +437,12 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         employeeRole: emp.role,
         date,
         endDate: endDate || undefined,
-        daysCount,
+        daysCount: absenceUnit === 'horas' ? 1 : daysCount,
+        absenceUnit,
+        absenceHours: finalHours,
+        calculationMemory: finalMemory,
+        isProportionalAdmission: calc.isProportional,
+        proportionalBaseSalary: calc.isProportional ? calc.proportionalSalary : undefined,
         type,
         discountPayroll,
         discountAmount: discountPayroll ? discountAmount : 0,
@@ -310,7 +463,12 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         employeeRole: emp.role,
         date,
         endDate: endDate || undefined,
-        daysCount,
+        daysCount: absenceUnit === 'horas' ? 1 : daysCount,
+        absenceUnit,
+        absenceHours: finalHours,
+        calculationMemory: finalMemory,
+        isProportionalAdmission: calc.isProportional,
+        proportionalBaseSalary: calc.isProportional ? calc.proportionalSalary : undefined,
         type,
         discountPayroll,
         discountAmount: discountPayroll ? discountAmount : 0,
@@ -594,8 +752,15 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
                     <td className="py-2 px-3 text-center">
                       <span className="font-bold text-black dark:text-white">
-                        {item.daysCount} dia(s)
+                        {item.absenceUnit === 'horas'
+                          ? `${Number(item.absenceHours || item.daysCount).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} hora(s)`
+                          : `${item.daysCount} dia(s)`}
                       </span>
+                      {item.absenceUnit === 'horas' && (
+                        <span className="block text-[9.5px] text-blue-900 dark:text-blue-300 font-semibold">
+                          (Horas fracionadas)
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-2 px-3 max-w-xs">
@@ -611,9 +776,19 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
                     <td className="py-2 px-3 text-right">
                       {item.discountPayroll && item.discountAmount ? (
-                        <span className="font-bold text-rose-900 dark:text-rose-400 font-['Outfit']">
-                          - {formatCurrencyBRL(item.discountAmount)}
-                        </span>
+                        <div>
+                          <span className="font-bold text-rose-900 dark:text-rose-400 font-['Outfit']">
+                            - {formatMoneyBRL(item.discountAmount)}
+                          </span>
+                          {item.calculationMemory && (
+                            <span 
+                              className="block text-[9px] text-stone-600 dark:text-stone-400 truncate max-w-[170px] ml-auto cursor-help"
+                              title={item.calculationMemory}
+                            >
+                              {item.calculationMemory}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-stone-500 font-medium text-[11px]">
                           Isento (R$ 0,00)
@@ -665,225 +840,438 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         </div>
       </div>
 
-      {/* Modal: Cadastro / Edição de Falta */}
+      {/* 1. Modal: Cadastro / Edição de Falta (Ampliado em max-w-5xl / ERP Corporativo) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="crm-card bg-[#87AFE3] border border-blue-200/80 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="crm-card bg-[#87AFE3] border border-blue-200/80 rounded-2xl w-[92%] max-w-5xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
             
-            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0963cb] text-white">
-              <div className="flex items-center space-x-2">
-                <CalendarX2 className="w-4 h-4 text-pink-300" />
-                <h3 className="font-bold text-sm">
-                  {editingAbsence ? 'Editar Falta / Ocorrência' : 'Registrar Falta / Ocorrência'}
-                </h3>
+            {/* Header Corporativo ERP */}
+            <div className="flex items-center justify-between px-6 py-4 bg-[#0963cb] text-white">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <CalendarX2 className="w-5 h-5 text-pink-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">
+                    {editingAbsence ? 'Editar Falta / Ocorrência' : 'Registrar Falta / Ocorrência'}
+                  </h3>
+                  <p className="text-xs text-blue-100 font-medium">
+                    Lançamento corporativo com cálculo de horas fracionadas, proporcionalidade de admissão e reflexos na folha
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-5 space-y-4 text-xs bg-[#b0d2ed]">
+            <form onSubmit={handleSaveModal} className="p-5 sm:p-6 space-y-4 text-xs bg-[#b0d2ed] max-h-[85vh] overflow-y-auto">
               
-              {/* Colaborador */}
-              <div>
-                <label className="block font-bold text-black mb-1">
-                  Colaborador / Funcionário <span className="text-rose-600">*</span>
-                </label>
-                <select
-                  value={selectedEmployeeId}
-                  onChange={(e) => handleEmployeeChange(e.target.value)}
-                  className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-medium"
-                  required
-                >
-                  <option value="">Selecione um funcionário...</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.role}) - Salário Base: {formatCurrencyBRL(emp.salary || emp.baseSalary || 3500)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Grid: Tipo & Situação */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Tipo da Ocorrência <span className="text-rose-600">*</span>
-                  </label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as any)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-medium"
-                    required
-                  >
-                    <option value="injustificada">Falta Injustificada</option>
-                    <option value="justificada">Falta Justificada (Sem desconto ou abonada)</option>
-                    <option value="atraso">Atraso Expressivo / Saída Antecipada</option>
-                    <option value="suspensao">Suspensão Disciplinar</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Situação / Status
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
-                  >
-                    <option value="pendente">Pendente de Aplicação</option>
-                    <option value="descontada">Já Descontada na Folha</option>
-                    <option value="justificada">Justificada pela Diretoria</option>
-                    <option value="abonada">Abonada (Sem Prejuízo)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Card de Datas e Duração */}
-              <div className="p-3.5 bg-white border border-stone-300 rounded-xl space-y-3 shadow-xs">
-                <span className="text-[11px] font-black uppercase text-black block tracking-wider">
-                  Período da Ocorrência
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      Data da Falta <span className="text-rose-600">*</span>
+              {/* CARD 1: DADOS DO COLABORADOR, COMPETÊNCIA E SITUAÇÃO */}
+              <div className="bg-white border border-stone-300 rounded-xl p-4 shadow-xs">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
+                  
+                  {/* Colaborador */}
+                  <div className="md:col-span-6">
+                    <label className="block font-bold text-black mb-1">
+                      Colaborador / Funcionário <span className="text-rose-600">*</span>
                     </label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => {
-                        setDate(e.target.value);
-                        if (daysCount === 1) setEndDate(e.target.value);
-                      }}
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(e) => handleEmployeeChange(e.target.value)}
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs"
                       required
-                    />
+                    >
+                      <option value="">Selecione um funcionário...</option>
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.role}) - Salário Base: {formatMoneyBRL(emp.salary || emp.baseSalary || 3500)}
+                          {emp.admissionDate ? ` • Adm: ${formatDateBR(emp.admissionDate)}` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      Dias de Ausência <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={daysCount || ''}
-                      onChange={(e) => handleDaysChange(parseInt(e.target.value) || 1)}
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-black mb-1">
-                      Competência da Folha
+                  {/* Competência da Folha */}
+                  <div className="md:col-span-3">
+                    <label className="block font-bold text-black mb-1">
+                      Competência da Folha <span className="text-rose-600">*</span>
                     </label>
                     <input
                       type="text"
                       value={referenceMonth}
-                      onChange={(e) => setReferenceMonth(e.target.value)}
-                      placeholder="MM/YYYY (ex: 09/2026)"
-                      className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      onChange={(e) => handleMonthRefChange(e.target.value)}
+                      placeholder="MM/AAAA (ex: 09/2026)"
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
                       required
                     />
                   </div>
-                </div>
-              </div>
 
-              {/* Card de Desconto em Folha */}
-              <div className="p-3.5 bg-white border border-stone-300 rounded-xl space-y-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase text-black tracking-wider">
-                    Reflexo Financeiro na Folha
-                  </span>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={discountPayroll}
-                      onChange={(e) => handleToggleDiscount(e.target.checked)}
-                      className="rounded text-pink-600 focus:ring-pink-500 w-4 h-4 cursor-pointer"
-                    />
-                    <span className="font-bold text-xs text-black">
-                      Aplicar Desconto em Folha
-                    </span>
-                  </label>
+                  {/* Situação / Status */}
+                  <div className="md:col-span-3">
+                    <label className="block font-bold text-black mb-1">
+                      Situação / Status
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs"
+                    >
+                      <option value="pendente">Pendente de Aplicação</option>
+                      <option value="descontada">Já Descontada na Folha</option>
+                      <option value="justificada">Justificada pela Diretoria</option>
+                      <option value="abonada">Abonada (Sem Prejuízo)</option>
+                    </select>
+                  </div>
+
                 </div>
 
-                {discountPayroll && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-bold text-black mb-1">
-                        Valor Total do Desconto (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={discountAmount || ''}
-                        onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-rose-700 font-bold outline-none focus:ring-1 focus:ring-pink-600"
-                        required
-                      />
-                    </div>
-                    <div className="flex items-center text-[11px] text-stone-600 pt-3">
-                      <span>
-                        Calculado automaticamente: <strong>(Salário Base / 30) × {daysCount} dia(s)</strong>. Editável se houver desconto parcial.
-                      </span>
+                {/* ALERTA DE PROPORCIONALIDADE DE ADMISSÃO */}
+                {proportionalCalc.isProportional && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start space-x-2.5">
+                    <AlertCircle className="w-4 h-4 text-[#0963cb] shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-blue-900 leading-relaxed">
+                      <span className="font-bold">Regra de Proporcionalidade de Admissão:</span> Colaborador admitido no mês em{' '}
+                      <strong>{proportionalCalc.admissionDateFormatted}</strong>. Salário Proporcional da competência:{' '}
+                      <strong className="text-blue-950">{formatMoneyBRL(proportionalCalc.proportionalSalary)}</strong>{' '}
+                      ({proportionalCalc.daysWorkedMonth} dias trabalhados de 30). O valor do dia é calculado por{' '}
+                      <strong>{proportionalCalc.daysWorkedMonth}</strong> e a hora pela jornada padrão de <strong>220h</strong>.
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Motivo & Observações */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Motivo Apresentado / Relato da Falta
-                  </label>
-                  <input
-                    type="text"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="Ex: Não compareceu ao corte de silagem sem aviso prévio"
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium"
-                  />
+              {/* GRID PARALELO DE 2 COLUNAS (PADRÃO CORPORATIVO ERP) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                {/* COLUNA ESQUERDA: ENQUADRAMENTO DA OCORRÊNCIA E MEDIÇÃO */}
+                <div className="bg-white border border-stone-300 rounded-xl p-4 shadow-xs space-y-3.5">
+                  <div className="flex items-center space-x-2 border-b border-stone-200 pb-2">
+                    <Calendar className="w-4 h-4 text-[#0963cb]" />
+                    <span className="font-black text-black uppercase tracking-wider text-[11px]">
+                      Enquadramento & Medição da Ausência
+                    </span>
+                  </div>
+
+                  {/* Tipo da Ocorrência */}
+                  <div>
+                    <label className="block font-bold text-black mb-1">
+                      Tipo da Ocorrência <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      value={type}
+                      onChange={(e) => setType(e.target.value as any)}
+                      className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs"
+                      required
+                    >
+                      <option value="injustificada">Falta Injustificada</option>
+                      <option value="justificada">Falta Justificada (Sem desconto ou abonada)</option>
+                      <option value="atraso">Atraso Expressivo / Saída Antecipada</option>
+                      <option value="suspensao">Suspensão Disciplinar</option>
+                    </select>
+                  </div>
+
+                  {/* Datas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-black mb-1">
+                        Data Inicial da Ausência <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => handleDateChange(e.target.value)}
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-black mb-1">
+                        Data Final
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. UNIDADE DE MEDIDA: SELETOR TOGGLE [ Dia Todo ] ou [ Horas ] */}
+                  <div>
+                    <label className="block font-bold text-black mb-1.5">
+                      Tipo de Ausência (Unidade de Medida) <span className="text-rose-600">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-stone-100 border border-stone-300 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => handleUnitChange('dias')}
+                        className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer ${
+                          absenceUnit === 'dias'
+                            ? 'bg-[#0963cb] text-white shadow-xs'
+                            : 'text-stone-700 hover:text-black hover:bg-stone-200/60'
+                        }`}
+                      >
+                        <span>📅 Dia Todo</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUnitChange('horas')}
+                        className={`py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer ${
+                          absenceUnit === 'horas'
+                            ? 'bg-[#0963cb] text-white shadow-xs'
+                            : 'text-stone-700 hover:text-black hover:bg-stone-200/60'
+                        }`}
+                      >
+                        <span>⏱️ Horas</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* QUANTIDADE CONFORME UNIDADE */}
+                  {absenceUnit === 'dias' ? (
+                    <div>
+                      <label className="block font-bold text-black mb-1">
+                        Dias de Ausência (Números Inteiros) <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={daysCount || ''}
+                        onChange={(e) => handleDaysChange(parseInt(e.target.value) || 1)}
+                        className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-sm"
+                        required
+                      />
+                      <span className="text-[10px] text-stone-500 mt-1 block">
+                        Cálculo diário proporcional aos dias trabalhados do mês.
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block font-bold text-black mb-1">
+                        Quantidade de Horas (Horas Fracionadas) <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={absenceHours !== undefined ? absenceHours : ''}
+                        onChange={(e) => handleHoursChange(parseFloat(e.target.value) || 0)}
+                        placeholder="Ex: 2.5 (duas horas e meia), 4.0..."
+                        className="w-full p-2.5 border border-stone-300 rounded-lg bg-white text-black font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-sm"
+                        required
+                      />
+                      <span className="text-[10px] text-stone-500 mt-1 block">
+                        Aceita frações decimais (ex: 2.5 horas, 4 horas). Jornada padrão: 220 horas mensais.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Motivo e Observações */}
+                  <div className="space-y-2.5 pt-1">
+                    <div>
+                      <label className="block font-bold text-black mb-1">
+                        Motivo Apresentado / Relato da Falta
+                      </label>
+                      <input
+                        type="text"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder="Ex: Não compareceu ao corte de silagem / Atraso no início do turno..."
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-black mb-1">
+                        Observações Internas (RH / Supervisão de Campo)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] resize-none text-xs"
+                        placeholder="Registro sobre contato, advertência aplicada, compensação de jornada..."
+                      />
+                    </div>
+                  </div>
+
                 </div>
 
-                <div>
-                  <label className="block font-bold text-black mb-1">
-                    Observações Internas (RH / Supervisão de Campo)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] resize-none text-xs"
-                    placeholder="Registro sobre advertência aplicada, contato com o colaborador..."
-                  />
+                {/* COLUNA DIREITA: REFLEXO FINANCEIRO & MEMÓRIA DE CÁLCULO TRANSPARENTE */}
+                <div className="bg-white border border-stone-300 rounded-xl p-4 shadow-xs flex flex-col justify-between space-y-3.5">
+                  <div className="space-y-3.5">
+                    <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+                      <div className="flex items-center space-x-2">
+                        <DollarSign className="w-4 h-4 text-emerald-700" />
+                        <span className="font-black text-black uppercase tracking-wider text-[11px]">
+                          Reflexo Financeiro na Folha de Pagamento
+                        </span>
+                      </div>
+                      <label className="flex items-center space-x-2 cursor-pointer bg-stone-50 px-2.5 py-1 rounded-lg border border-stone-300 hover:bg-stone-100 transition">
+                        <input
+                          type="checkbox"
+                          checked={discountPayroll}
+                          onChange={(e) => handleToggleDiscount(e.target.checked)}
+                          className="rounded text-pink-600 focus:ring-pink-500 w-4 h-4 cursor-pointer"
+                        />
+                        <span className="font-bold text-xs text-black">
+                          Aplicar Desconto
+                        </span>
+                      </label>
+                    </div>
+
+                    {discountPayroll ? (
+                      <div className="space-y-3">
+                        
+                        {/* Tabela de bases apuradas */}
+                        <div className="grid grid-cols-2 gap-2.5 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                          <div>
+                            <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">
+                              Salário Contratual Cheio
+                            </span>
+                            <span className="text-xs font-bold text-black">
+                              {formatMoneyBRL(proportionalCalc.contractualSalary)}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">
+                              Base Utilizada no Cálculo
+                            </span>
+                            <span className="text-xs font-bold text-blue-900">
+                              {formatMoneyBRL(proportionalCalc.proportionalSalary)}
+                              {proportionalCalc.isProportional && (
+                                <span className="text-[10px] text-blue-700 block font-normal">
+                                  (Proporcional Admissão)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">
+                              Valor do Dia de Trabalho
+                            </span>
+                            <span className="text-xs font-bold text-stone-800">
+                              {formatMoneyBRL(proportionalCalc.dailyRate)} / dia
+                              {proportionalCalc.isProportional ? (
+                                <span className="text-[10px] text-stone-500 block font-normal">
+                                  (÷ {proportionalCalc.daysWorkedMonth} dias trab.)
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-stone-500 block font-normal">
+                                  (÷ 30 dias padrão)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-stone-500 font-bold block uppercase tracking-wider">
+                              Valor da Hora de Trabalho
+                            </span>
+                            <span className="text-xs font-bold text-stone-800">
+                              {formatMoneyBRL(proportionalCalc.hourlyRate)} / hora
+                              <span className="text-[10px] text-stone-500 block font-normal">
+                                (÷ 220 horas jornada)
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Input do Valor Total do Desconto */}
+                        <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-black uppercase tracking-wider text-rose-950">
+                              Valor Total do Desconto em Folha
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleResetToCalculated()}
+                              className="text-[10px] text-[#0963cb] hover:underline font-bold cursor-pointer"
+                              title="Recalcular valor exato pela fórmula"
+                            >
+                              ↺ Recalcular Padrão
+                            </button>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-800 font-bold text-base">
+                              R$
+                            </span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={discountAmount !== undefined ? discountAmount : ''}
+                              onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
+                              className="w-full pl-10 pr-3 py-2 border border-rose-300 rounded-lg bg-white text-rose-800 font-black text-lg outline-none focus:ring-2 focus:ring-rose-500 shadow-inner"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        {/* 4. DETALHAMENTO DO REFLEXO FINANCEIRO (MEMÓRIA DE CÁLCULO TRANSPARENTE) */}
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                          <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-[11px]">
+                            <Clock className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Memória de Cálculo do Desconto:</span>
+                          </div>
+                          <p className="text-[11px] text-amber-950 leading-relaxed font-mono bg-white/80 p-2.5 rounded-lg border border-amber-200/80 break-words">
+                            {calculationMemory || proportionalCalc.calculationMemory}
+                          </p>
+                          <span className="text-[10px] text-stone-500 block italic">
+                            Exibição transparente para controle da folha de pagamento e auditoria de RH.
+                          </span>
+                        </div>
+
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center bg-stone-50 border border-dashed border-stone-300 rounded-xl text-stone-500">
+                        <Check className="w-6 h-6 mx-auto mb-1 text-emerald-600" />
+                        <p className="font-bold text-xs text-stone-700">Ocorrência sem impacto financeiro</p>
+                        <p className="text-[11px] text-stone-500 max-w-xs mx-auto mt-1">
+                          O colaborador terá a justificativa registrada no histórico, sem dedução no contracheque.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Resumo Rodapé da Coluna Direita */}
+                  <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px] text-stone-600">
+                    <span>Unidade ativa: <strong>{absenceUnit === 'horas' ? 'Horas Fracionadas' : 'Dias Inteiros'}</strong></span>
+                    <span>Status: <strong className="uppercase text-black">{status}</strong></span>
+                  </div>
                 </div>
+
               </div>
 
-              {/* Botões de Ação */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-black/15">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold transition shadow-xs cursor-pointer"
-                >
-                  Salvar Falta
-                </button>
+              {/* BOTÕES DE AÇÃO */}
+              <div className="flex items-center justify-between pt-3 border-t border-black/15">
+                <div className="text-[11px] text-blue-950 font-medium hidden sm:block">
+                  Sincronizado automaticamente via Supabase Realtime (tabela <code className="bg-white/60 px-1 py-0.5 rounded text-[#0963cb] font-bold">public.rh_faltas</code>)
+                </div>
+                <div className="flex items-center space-x-2.5 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition shadow-xs"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-bold transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Salvar Falta / Ocorrência</span>
+                  </button>
+                </div>
               </div>
 
             </form>

@@ -10951,6 +10951,23 @@ export function buildRhFaltaRow(
 
   const daysCountVal = Number(item.daysCount) || 1;
   const discountAmountVal = parseFloat(String(item.discountAmount ?? 0)) || 0;
+  const absenceHoursVal = item.absenceHours !== undefined ? Number(item.absenceHours) : 0;
+  const unit = item.absenceUnit || (absenceHoursVal > 0 ? 'horas' : 'dias');
+  const baseReason = item.reason || item.notes || '';
+
+  // Empacotamento de resiliência: se o banco só possui colunas físicas básicas,
+  // preservamos unidade, horas fracionadas e memória de cálculo de forma transparente
+  let motivoWithMeta = baseReason;
+  if (unit === 'horas' || item.calculationMemory || item.isProportionalAdmission) {
+    const meta = {
+      unit,
+      hours: absenceHoursVal,
+      calcMem: item.calculationMemory || '',
+      isProp: !!item.isProportionalAdmission,
+      propSal: item.proportionalBaseSalary,
+    };
+    motivoWithMeta = `${baseReason} [META:${JSON.stringify(meta)}]`.trim();
+  }
 
   return {
     id: canonicalId,
@@ -10958,10 +10975,44 @@ export function buildRhFaltaRow(
     funcionario_id: canonicalEmpId,
     tipo_falta: item.type || 'injustificada',
     data_periodo: item.date || new Date().toISOString().split('T')[0],
-    qtd_dias: daysCountVal,
-    motivo_justificativa: item.reason || item.notes || '',
+    qtd_dias: Math.max(1, Math.round(daysCountVal)),
+    motivo_justificativa: motivoWithMeta,
     desconto_estimado: discountAmountVal,
     status: item.status || 'pendente',
+  };
+}
+
+/**
+ * Constrói o objeto enriquecido com payload JSONB para preservação de unidade de medida e horas
+ */
+export function buildRhFaltaRowWithPayload(
+  item: AbsenceRecord,
+  companyId?: string
+): Record<string, any> {
+  const base = buildRhFaltaRow(item, companyId);
+  const absenceHoursVal = item.absenceHours !== undefined ? Number(item.absenceHours) : 0;
+  const unit = item.absenceUnit || (absenceHoursVal > 0 ? 'horas' : 'dias');
+
+  const unifiedPayload = {
+    ...item,
+    id: base.id,
+    company_id: base.company_id,
+    funcionario_id: base.funcionario_id,
+    unidade_medida: unit,
+    horas_ausencia: absenceHoursVal,
+    absenceUnit: unit,
+    absenceHours: absenceHoursVal,
+    calculationMemory: item.calculationMemory || '',
+    isProportionalAdmission: Boolean(item.isProportionalAdmission),
+    proportionalBaseSalary: item.proportionalBaseSalary,
+  };
+
+  return {
+    ...base,
+    payload: unifiedPayload,
+    dados: unifiedPayload,
+    unidade_medida: unit,
+    horas_ausencia: absenceHoursVal,
   };
 }
 
@@ -10994,6 +11045,34 @@ export function mapRowToAbsenceRecord(row: any): AbsenceRecord {
   const discAmount = parseFloat(String(row.desconto_estimado ?? row.valor_desconto ?? p.discountAmount ?? 0)) || 0;
   const discPayroll = discAmount > 0;
 
+  // Extrai metadata de resiliência caso presente em motivo_justificativa
+  let rawReason = row.motivo_justificativa || row.motivo || p.reason || p.notes || '';
+  let metaExt: any = null;
+  if (typeof rawReason === 'string' && rawReason.includes('[META:')) {
+    const startIdx = rawReason.indexOf('[META:');
+    const endIdx = rawReason.lastIndexOf(']');
+    if (endIdx > startIdx) {
+      try {
+        const jsonStr = rawReason.slice(startIdx + 6, endIdx);
+        metaExt = JSON.parse(jsonStr);
+        rawReason = rawReason.slice(0, startIdx).trim();
+      } catch (_) {}
+    }
+  }
+
+  // Unidade de Medida e Horas Fracionadas
+  const rawUnit = p.absenceUnit || p.unidade_medida || row.unidade_medida || metaExt?.unit;
+  const rawHours = p.absenceHours || p.horas_ausencia || row.horas_ausencia || metaExt?.hours;
+  const absenceUnit = rawUnit === 'horas' ? 'horas' : (Number(rawHours) > 0 ? 'horas' : 'dias');
+  const absenceHours = Number(rawHours) || (absenceUnit === 'horas' ? days : undefined);
+  const calculationMemory = p.calculationMemory || metaExt?.calcMem || undefined;
+  const isProportionalAdmission = p.isProportionalAdmission !== undefined 
+    ? Boolean(p.isProportionalAdmission) 
+    : (metaExt?.isProp !== undefined ? Boolean(metaExt.isProp) : undefined);
+  const proportionalBaseSalary = p.proportionalBaseSalary !== undefined 
+    ? Number(p.proportionalBaseSalary) 
+    : (metaExt?.propSal !== undefined ? Number(metaExt.propSal) : undefined);
+
   // Extrai competência MM/AAAA da data_periodo (ex: "2026-09-15" -> "09/2026")
   let comp = p.referenceMonth || row.competencia || '';
   if (!comp && dt) {
@@ -11010,7 +11089,7 @@ export function mapRowToAbsenceRecord(row: any): AbsenceRecord {
     }
   }
 
-  const reason = row.motivo_justificativa || row.motivo || p.reason || p.notes || undefined;
+  const reason = rawReason || undefined;
   const st = (row.status || p.status || 'pendente') as AbsenceRecord['status'];
 
   // Busca funcionário no localStorage caso não venha no payload
@@ -11035,6 +11114,11 @@ export function mapRowToAbsenceRecord(row: any): AbsenceRecord {
     employeeRole: empRole || 'Operador',
     date: dt,
     daysCount: days,
+    absenceUnit,
+    absenceHours,
+    calculationMemory,
+    isProportionalAdmission,
+    proportionalBaseSalary,
     type: tp,
     discountPayroll: discPayroll,
     discountAmount: discAmount,
@@ -11058,14 +11142,23 @@ export async function upsertRhFalta(
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || item.companyId || getActiveCompanyId() || 'default';
-    const row = buildRhFaltaRow(item, cId);
-
-    const { error } = await supabase
+    
+    // 1. Tenta gravar com payload enriquecido
+    const richRow = buildRhFaltaRowWithPayload(item, cId);
+    const { error: richErr } = await supabase
       .from('rh_faltas')
-      .upsert(row, { onConflict: 'id' });
+      .upsert(richRow, { onConflict: 'id' });
 
-    if (error) {
-      console.warn('[upsertRhFalta] Falha ao persistir em rh_faltas:', error.message);
+    if (!richErr) return true;
+
+    // 2. Fallback resiliente estritamente para as colunas físicas básicas da tabela
+    const basicRow = buildRhFaltaRow(item, cId);
+    const { error: basicErr } = await supabase
+      .from('rh_faltas')
+      .upsert(basicRow, { onConflict: 'id' });
+
+    if (basicErr) {
+      console.warn('[upsertRhFalta] Falha ao persistir em rh_faltas:', basicErr.message);
       return false;
     }
 
