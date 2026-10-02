@@ -32,7 +32,7 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta, ensureRhFuncionariosSchemaColumns, ensureFuncionariosSchemaColumns, applyTraditionalColumnCompatibility, recordRhFuncionariosColumns, recordFuncionariosColumns } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
@@ -826,10 +826,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     // Popula imediatamente a partir do registro em edição (incluindo metadados sincronizados)
     if (editingEmployee) {
       const initialMeta = parseRhFuncionarioMeta((editingEmployee as any).email);
-      const initRg = editingEmployee.numero_rg || editingEmployee.rg || (editingEmployee as any).documento_rg || initialMeta.numero_rg || '';
-      const initBirth = formatIsoDateOnly(editingEmployee.data_nascimento || editingEmployee.birthDate || (editingEmployee as any).birth_date || initialMeta.data_nascimento) || '';
-      const initPis = editingEmployee.numero_pis || editingEmployee.pis || (editingEmployee as any).pis_pasep || initialMeta.numero_pis || '';
-      const rawInitRegime = editingEmployee.regime_contratacao || editingEmployee.contractType || (editingEmployee as any).regime || initialMeta.regime_contratacao || 'Registrado (CLT)';
+      const initRg = editingEmployee.numero_rg || (editingEmployee as any).rg_numero || editingEmployee.rg || (editingEmployee as any).documento_rg || initialMeta.numero_rg || initialMeta.rg_numero || initialMeta.rg || '';
+      const initBirth = formatIsoDateOnly(editingEmployee.data_nascimento || (editingEmployee as any).nascimento || editingEmployee.birthDate || (editingEmployee as any).birth_date || initialMeta.data_nascimento || initialMeta.nascimento) || '';
+      const initPis = editingEmployee.numero_pis || (editingEmployee as any).pis_pasep || editingEmployee.pis || initialMeta.numero_pis || initialMeta.pis_pasep || initialMeta.pis || '';
+      const rawInitRegime = editingEmployee.regime_contratacao || (editingEmployee as any).tipo_contrato || (editingEmployee as any).regime || editingEmployee.contractType || initialMeta.regime_contratacao || initialMeta.tipo_contrato || initialMeta.regime || 'Registrado (CLT)';
       const initRegime = rawInitRegime === 'Funcionário' ? 'Registrado (CLT)' : rawInitRegime;
 
       if (initRg) setRgNumero(String(initRg).trim().toUpperCase());
@@ -852,6 +852,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           .maybeSingle();
 
         if (rhData) {
+          recordRhFuncionariosColumns(rhData);
           dbRow = { ...rhData };
         }
 
@@ -863,28 +864,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           .maybeSingle();
 
         if (funcData) {
+          recordFuncionariosColumns(funcData);
           dbRow = { ...(dbRow || {}), ...funcData };
         }
 
         if (isMounted && dbRow) {
           const meta = parseRhFuncionarioMeta(dbRow.email);
 
-          const loadedRg = dbRow.numero_rg || dbRow.rg || dbRow.documento_rg || meta.numero_rg;
+          const loadedRg = dbRow.numero_rg || dbRow.rg_numero || dbRow.rg || dbRow.documento_rg || meta.numero_rg || meta.rg_numero || meta.rg;
           if (loadedRg) {
             setRgNumero(String(loadedRg).trim().toUpperCase());
           }
 
-          const loadedBirth = formatIsoDateOnly(dbRow.data_nascimento || dbRow.birth_date || dbRow.nascimento || meta.data_nascimento);
+          const loadedBirth = formatIsoDateOnly(dbRow.data_nascimento || dbRow.nascimento || dbRow.birth_date || meta.data_nascimento || meta.nascimento);
           if (loadedBirth) {
             setDataNascimento(loadedBirth);
           }
 
-          const loadedPis = dbRow.numero_pis || dbRow.pis || dbRow.pis_pasep || meta.numero_pis;
+          const loadedPis = dbRow.numero_pis || dbRow.pis_pasep || dbRow.pis || meta.numero_pis || meta.pis_pasep || meta.pis;
           if (loadedPis) {
             setPisNumero(String(loadedPis).trim().toUpperCase());
           }
 
-          const loadedRegime = dbRow.regime_contratacao || dbRow.contract_type || dbRow.regime || dbRow.tipo_contrato || meta.regime_contratacao;
+          const loadedRegime = dbRow.regime_contratacao || dbRow.tipo_contrato || dbRow.regime || dbRow.contract_type || meta.regime_contratacao || meta.tipo_contrato || meta.regime;
           if (loadedRegime && String(loadedRegime).trim() !== 'Funcionário') {
             setRegimeContratacao(String(loadedRegime).trim());
           }
@@ -2024,26 +2026,38 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             termination_date: formattedTerminationDate || null,
           });
 
-          // 1. Mutação explícita na tabela public.funcionarios (conforme diretriz oficial)
+          const [rhSchemaCols, funcSchemaCols] = await Promise.all([
+            ensureRhFuncionariosSchemaColumns(),
+            ensureFuncionariosSchemaColumns(),
+          ]);
+
+          // 1. Mutação em public.funcionarios com compatibilidade estrutural de colunas tradicionais
           try {
-            const funcionariosPayload: Record<string, any> = {
+            const baseFuncRow: Record<string, any> = {
               id: targetValidUuid,
               nome: employeeData.name,
               cargo: employeeData.role,
               ativo: employeeData.active,
               cnh_categoria: employeeData.cnhCategory || null,
               cnh_validade: employeeData.cnhExpiration || null,
-              numero_rg: cleanRgVal,
-              data_nascimento: cleanBirthVal,
-              numero_pis: cleanPisVal,
-              regime_contratacao: cleanRegimeVal,
             };
+
+            const funcionariosPayload = applyTraditionalColumnCompatibility(
+              baseFuncRow,
+              {
+                birthDate: cleanBirthVal,
+                rg: cleanRgVal,
+                pis: cleanPisVal,
+                regime: cleanRegimeVal,
+              },
+              funcSchemaCols
+            );
 
             const fPatch: Record<string, any> = { ...funcionariosPayload };
             delete fPatch.id;
 
             let fUpdate: any = null;
-            for (let attempt = 0; attempt < 8; attempt++) {
+            for (let attempt = 0; attempt < 6; attempt++) {
               fUpdate = await supabase
                 .from('funcionarios')
                 .update(fPatch)
@@ -2051,12 +2065,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 .select('id');
 
               if (!fUpdate.error) break;
+              console.error('[RH Salvar 400 Diagnostic - public.funcionarios UPDATE] Resposta exata do erro retornada pelo Supabase:', {
+                code: fUpdate.error.code,
+                message: fUpdate.error.message,
+                details: fUpdate.error.details,
+                hint: fUpdate.error.hint,
+                sentColumns: Object.keys(fPatch),
+                fullError: fUpdate.error,
+              });
               const errStr = `${fUpdate.error.message || ''} ${fUpdate.error.details || ''}`.toLowerCase();
               let removed = false;
               if (fUpdate.error.code === 'PGRST204' || fUpdate.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                 for (const k of Object.keys(fPatch)) {
                   if (k !== 'nome' && errStr.includes(k.toLowerCase())) {
                     delete fPatch[k];
+                    funcSchemaCols.delete(k);
                     removed = true;
                   }
                 }
@@ -2066,7 +2089,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
             if (!fUpdate?.data || fUpdate.data.length === 0) {
               const cleanedF: Record<string, any> = { ...funcionariosPayload };
-              for (let attempt = 0; attempt < 8; attempt++) {
+              for (let attempt = 0; attempt < 6; attempt++) {
                 const fUpsert = await supabase.from('funcionarios').upsert(cleanedF, { onConflict: 'id' });
                 if (!fUpsert.error) break;
                 const errStr = `${fUpsert.error.message || ''} ${fUpsert.error.details || ''}`.toLowerCase();
@@ -2075,6 +2098,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   for (const k of Object.keys(cleanedF)) {
                     if (k !== 'id' && k !== 'nome' && errStr.includes(k.toLowerCase())) {
                       delete cleanedF[k];
+                      funcSchemaCols.delete(k);
                       removed = true;
                     }
                   }
@@ -2082,12 +2106,23 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 if (!removed) break;
               }
             }
-          } catch (fErr) {
-            console.warn('[RH Salvar] Aviso ao persistir em public.funcionarios:', fErr);
+          } catch (fErr: any) {
+            console.error('[RH Salvar Catch - public.funcionarios] Erro detalhado:', {
+              message: fErr?.message,
+              details: fErr?.details,
+              hint: fErr?.hint,
+              code: fErr?.code,
+              rawError: fErr,
+            });
           }
 
-          // 2. Payload alinhado com as colunas da tabela public.rh_funcionarios + envelope de metadados em email:
-          const directRow: Record<string, any> = {
+          // 2. Payload alinhado com as colunas tradicionais da tabela public.rh_funcionarios + envelope de metadados em email:
+          // Verifica automaticamente:
+          // - Data de Nascimento: 'data_nascimento' ou 'nascimento'
+          // - RG: 'numero_rg', 'rg_numero' ou 'rg'
+          // - PIS: 'numero_pis', 'pis_pasep' ou 'pis'
+          // - Regime: 'regime_contratacao', 'tipo_contrato' ou 'regime'
+          const baseDirectRow: Record<string, any> = {
             id: targetValidUuid,
             user_id: activeUid,
             name: employeeData.name,
@@ -2106,11 +2141,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             comissao_alqueire: numPerAlq,
             comissao_hectare: numPerHa,
             recebe_comissao: finalReceivesCommission,
-            // 4 Campos solicitados
-            numero_rg: cleanRgVal,
-            data_nascimento: cleanBirthVal,
-            numero_pis: cleanPisVal,
-            regime_contratacao: cleanRegimeVal,
             // 4 Campos da Seção Rosa
             local_recebimento: cleanLocalRecebimento || null,
             banco_chave_pix: cleanBancoChavePix || null,
@@ -2127,15 +2157,26 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           };
 
           if (safeCompanyUuid) {
-            directRow.company_id = safeCompanyUuid;
+            baseDirectRow.company_id = safeCompanyUuid;
           }
 
-          // Atualização / Upsert na tabela public.rh_funcionarios com loop de auto-recuperação
+          const directRow = applyTraditionalColumnCompatibility(
+            baseDirectRow,
+            {
+              birthDate: cleanBirthVal,
+              rg: cleanRgVal,
+              pis: cleanPisVal,
+              regime: cleanRegimeVal,
+            },
+            rhSchemaCols
+          );
+
+          // Atualização / Upsert na tabela public.rh_funcionarios com verificação de colunas e log detalhado de erro 400
           let patchBody = { ...directRow };
           delete patchBody.id;
 
           let updateRes: any = null;
-          for (let attempt = 0; attempt < 10; attempt++) {
+          for (let attempt = 0; attempt < 8; attempt++) {
             updateRes = await supabase
               .from('rh_funcionarios')
               .update(patchBody)
@@ -2144,12 +2185,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               .select('id');
 
             if (!updateRes.error) break;
+            console.error('[RH Salvar 400 Diagnostic - public.rh_funcionarios PATCH] Resposta exata do erro retornada pelo Supabase:', {
+              code: updateRes.error.code,
+              message: updateRes.error.message,
+              details: updateRes.error.details,
+              hint: updateRes.error.hint,
+              sentColumns: Object.keys(patchBody),
+              fullError: updateRes.error,
+            });
             const errStr = `${updateRes.error.message || ''} ${updateRes.error.details || ''}`.toLowerCase();
             let removed = false;
             if (updateRes.error.code === 'PGRST204' || updateRes.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
               for (const k of Object.keys(patchBody)) {
                 if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(k.toLowerCase())) {
                   delete patchBody[k];
+                  rhSchemaCols.delete(k);
                   removed = true;
                 }
               }
@@ -2162,18 +2212,27 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           } else {
             let upsertBody = { ...directRow };
             let upsertErr: any = null;
-            for (let attempt = 0; attempt < 10; attempt++) {
+            for (let attempt = 0; attempt < 8; attempt++) {
               const resUpsert = await supabase
                 .from('rh_funcionarios')
                 .upsert(upsertBody, { onConflict: 'id' });
               upsertErr = resUpsert.error;
               if (!upsertErr) break;
+              console.error('[RH Salvar 400 Diagnostic - public.rh_funcionarios UPSERT] Resposta exata do erro retornada pelo Supabase:', {
+                code: upsertErr.code,
+                message: upsertErr.message,
+                details: upsertErr.details,
+                hint: upsertErr.hint,
+                sentColumns: Object.keys(upsertBody),
+                fullError: upsertErr,
+              });
               const errStr = `${upsertErr.message || ''} ${upsertErr.details || ''}`.toLowerCase();
               let removed = false;
               if (upsertErr.code === 'PGRST204' || upsertErr.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                 for (const k of Object.keys(upsertBody)) {
                   if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(k.toLowerCase())) {
                     delete upsertBody[k];
+                    rhSchemaCols.delete(k);
                     removed = true;
                   }
                 }
@@ -2182,14 +2241,26 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             }
 
             if (upsertErr) {
-              console.warn('[RH Salvar] Upsert direto falhou, acionando fallback com upsertRhFuncionario:', upsertErr.message);
+              console.error('[RH Salvar Fallback] Upsert direto falhou em public.rh_funcionarios, resposta exata do Supabase:', {
+                code: upsertErr.code,
+                message: upsertErr.message,
+                details: upsertErr.details,
+                hint: upsertErr.hint,
+                fullError: upsertErr,
+              });
               await upsertRhFuncionario(employeeData, activeCompany?.id, activeUid);
             } else {
               console.info('✅ [RH Salvar] Registro gravado com sucesso em public.rh_funcionarios (UPSERT) com user_id:', activeUid);
             }
           }
-        } catch (dbErr) {
-          console.warn('[RH Salvar] Exceção ao gravar no Supabase:', dbErr);
+        } catch (dbErr: any) {
+          console.error('[RH Salvar Catch - Supabase Error] Resposta exata do erro retornada pelo Supabase:', {
+            message: dbErr?.message,
+            details: dbErr?.details,
+            hint: dbErr?.hint,
+            code: dbErr?.code,
+            fullError: dbErr,
+          });
           await upsertRhFuncionario(employeeData, activeCompany?.id, activeUid);
         }
       }

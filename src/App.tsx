@@ -1856,15 +1856,35 @@ export default function App() {
       }
     }
 
+    // Identifica apenas colaboradores novos ou efetivamente alterados para evitar PATCH em lote desnecessário
+    const serializeComparableEmployee = (e: Employee) => {
+      const { updated_at: _u, ...rest } = (e || {}) as any;
+      return JSON.stringify(rest);
+    };
+    const prevEmployeeMap = new Map<string, string>();
+    for (const prevEmp of employees) {
+      if (prevEmp?.id) {
+        const ser = serializeComparableEmployee(prevEmp);
+        prevEmployeeMap.set(prevEmp.id, ser);
+        prevEmployeeMap.set(toValidUUID(prevEmp.id), ser);
+      }
+    }
+
+    const changedEmployees = deduplicatedEmployees.filter(emp => {
+      const prevSer = prevEmployeeMap.get(emp.id) || prevEmployeeMap.get(toValidUUID(emp.id));
+      return !prevSer || prevSer !== serializeComparableEmployee(emp);
+    });
+
     // 2. Atualização otimista imediata na UI e armazenamento local
     setEmployees(deduplicatedEmployees);
     saveStoredEmployees(deduplicatedEmployees);
 
-    const oldIds = new Set(employees.map(e => e.id));
-    const newIds = new Set(deduplicatedEmployees.map(e => e.id));
+    if (changedEmployees.length === 0) {
+      return;
+    }
 
     try {
-      // 3. Salva ou atualiza colaboradores com injeção obrigatória do user_id autenticado para RLS
+      // 3. Salva ou atualiza apenas os colaboradores alterados com injeção obrigatória do user_id autenticado para RLS
       let currentAuthUid = currentUser?.id;
       if (!currentAuthUid && isSupabaseConfigured) {
         try {
@@ -1872,7 +1892,7 @@ export default function App() {
           currentAuthUid = u?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
         } catch (_) {}
       }
-      const upsertPromises = deduplicatedEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId, currentAuthUid));
+      const upsertPromises = changedEmployees.map(emp => upsertRhFuncionario(emp, activeTenantId, currentAuthUid));
       await Promise.allSettled(upsertPromises);
 
       // 5. Re-busca no banco para sincronizar colunas com filtro estrito .eq('user_id', currentAuthUid)
@@ -1905,10 +1925,24 @@ export default function App() {
                 : (f.commissionPerHectare || 0))
             : 0;
 
+          const resolvedRg = local.numero_rg || local.rg || f.numero_rg || f.rg;
+          const resolvedBirth = local.data_nascimento || local.birthDate || f.data_nascimento || f.birthDate;
+          const resolvedPis = local.numero_pis || local.pis || f.numero_pis || f.pis;
+          const rawRegime = local.regime_contratacao || local.contractType || f.regime_contratacao || f.contractType || 'Registrado (CLT)';
+          const resolvedRegime = rawRegime === 'Funcionário' ? 'Registrado (CLT)' : rawRegime;
+
           return {
             ...f,
             ...local,
             id: local.id || f.id,
+            rg: resolvedRg,
+            numero_rg: resolvedRg,
+            birthDate: resolvedBirth,
+            data_nascimento: resolvedBirth,
+            pis: resolvedPis,
+            numero_pis: resolvedPis,
+            contractType: resolvedRegime,
+            regime_contratacao: resolvedRegime,
             photoUrl: local.photoUrl || f.photoUrl || (f as any).foto_url || (f as any).avatar_url,
             foto_url: local.foto_url || f.foto_url || local.photoUrl || f.photoUrl || (f as any).avatar_url,
             avatar_url: (local as any).avatar_url || (f as any).avatar_url || local.foto_url || f.foto_url || local.photoUrl || f.photoUrl,
@@ -1958,8 +1992,14 @@ export default function App() {
         setEmployees(strictMerged);
         saveStoredEmployees(strictMerged);
       }
-    } catch (err) {
-      console.warn('Supabase handleSaveEmployees sync notice:', err);
+    } catch (err: any) {
+      console.error('[Supabase handleSaveEmployees Catch] Erro detalhado ao salvar funcionários:', {
+        message: err?.message,
+        details: err?.details,
+        hint: err?.hint,
+        code: err?.code,
+        fullError: err,
+      });
     }
   };
 

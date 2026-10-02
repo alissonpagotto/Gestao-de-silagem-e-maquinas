@@ -2429,10 +2429,183 @@ export function formatIsoDateOnly(dateValue?: any): string | null {
   return null;
 }
 
+export const RH_FUNCIONARIOS_BASE_COLUMNS = [
+  'id',
+  'name',
+  'role',
+  'cpf',
+  'phone',
+  'email',
+  'status',
+  'registration_type',
+  'salary',
+  'admission_date',
+  'driver_license',
+  'license_category',
+  'license_expiry',
+  'company_id',
+  'created_at',
+  'updated_at',
+  'user_id',
+  'comissao_hora',
+  'comissao_alqueire',
+  'comissao_hectare',
+  'recebe_comissao',
+  'local_recebimento',
+  'banco_chave_pix',
+  'agencia',
+  'conta_corrente',
+  'foto_url',
+  'contrato_experiencia_url',
+  'aso_url',
+  'cnh_url',
+  'ficha_registro_url',
+] as const;
+
+export const FUNCIONARIOS_BASE_COLUMNS = [
+  'id',
+  'nome',
+  'cargo',
+  'cnh_categoria',
+  'cnh_validade',
+  'ativo',
+] as const;
+
+let detectedRhFuncionariosColumns: Set<string> | null = null;
+let detectedFuncionariosColumns: Set<string> | null = null;
+
+export function recordRhFuncionariosColumns(rowOrRows: any): void {
+  const sample = Array.isArray(rowOrRows) ? rowOrRows[0] : rowOrRows;
+  if (sample && typeof sample === 'object') {
+    const keys = Object.keys(sample);
+    if (keys.length > 0) {
+      detectedRhFuncionariosColumns = new Set(keys);
+    }
+  }
+}
+
+export function recordFuncionariosColumns(rowOrRows: any): void {
+  const sample = Array.isArray(rowOrRows) ? rowOrRows[0] : rowOrRows;
+  if (sample && typeof sample === 'object') {
+    const keys = Object.keys(sample);
+    if (keys.length > 0) {
+      detectedFuncionariosColumns = new Set(keys);
+    }
+  }
+}
+
+export async function ensureRhFuncionariosSchemaColumns(): Promise<Set<string>> {
+  if (detectedRhFuncionariosColumns && detectedRhFuncionariosColumns.size > 0) {
+    return detectedRhFuncionariosColumns;
+  }
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.from('rh_funcionarios').select('*').limit(1);
+      if (!error && Array.isArray(data) && data.length > 0 && data[0]) {
+        detectedRhFuncionariosColumns = new Set(Object.keys(data[0]));
+        return detectedRhFuncionariosColumns;
+      }
+    } catch (_) {}
+  }
+  detectedRhFuncionariosColumns = new Set<string>(RH_FUNCIONARIOS_BASE_COLUMNS);
+  return detectedRhFuncionariosColumns;
+}
+
+export async function ensureFuncionariosSchemaColumns(): Promise<Set<string>> {
+  if (detectedFuncionariosColumns && detectedFuncionariosColumns.size > 0) {
+    return detectedFuncionariosColumns;
+  }
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.from('funcionarios').select('*').limit(1);
+      if (!error && Array.isArray(data) && data.length > 0 && data[0]) {
+        detectedFuncionariosColumns = new Set(Object.keys(data[0]));
+        return detectedFuncionariosColumns;
+      }
+    } catch (_) {}
+  }
+  detectedFuncionariosColumns = new Set<string>(FUNCIONARIOS_BASE_COLUMNS);
+  return detectedFuncionariosColumns;
+}
+
 /**
- * Serializa metadados complementares do colaborador (numero_rg, data_nascimento, numero_pis, regime_contratacao, etc.)
- * em envelope JSON para persistência garantida na coluna 'email' de public.rh_funcionarios mesmo quando as colunas
- * dedicadas ainda não existirem no cache do PostgREST.
+ * Aplica compatibilidade estrutural para as variações tradicionais de colunas do banco:
+ * - Data de Nascimento: 'data_nascimento' ou 'nascimento'
+ * - RG: 'numero_rg', 'rg_numero' ou 'rg'
+ * - PIS: 'numero_pis', 'pis_pasep' ou 'pis'
+ * - Regime: 'regime_contratacao', 'tipo_contrato' ou 'regime'
+ * Filtra o payload final pelas colunas reais existentes na tabela para evitar erro 400 (Bad Request).
+ */
+export function applyTraditionalColumnCompatibility(
+  basePayload: Record<string, any>,
+  fields: {
+    birthDate?: string | null;
+    rg?: string | null;
+    pis?: string | null;
+    regime?: string | null;
+  },
+  schemaCols?: Set<string> | null
+): Record<string, any> {
+  const candidate: Record<string, any> = { ...basePayload };
+  const activeCols = schemaCols && schemaCols.size > 0
+    ? schemaCols
+    : new Set<string>(RH_FUNCIONARIOS_BASE_COLUMNS);
+
+  const birthVal = formatIsoDateOnly(fields.birthDate) || null;
+  const rgVal = fields.rg && String(fields.rg).trim() ? String(fields.rg).trim().toUpperCase() : null;
+  const pisVal = fields.pis && String(fields.pis).trim() ? String(fields.pis).trim().toUpperCase() : null;
+  const rawRegime = fields.regime && String(fields.regime).trim() ? String(fields.regime).trim() : 'Registrado (CLT)';
+  const regimeVal = rawRegime === 'Funcionário' ? 'Registrado (CLT)' : rawRegime;
+
+  // 1. Data de Nascimento ('data_nascimento' | 'nascimento' | 'birth_date')
+  for (const col of ['data_nascimento', 'nascimento', 'birth_date']) {
+    if (activeCols.has(col)) {
+      candidate[col] = birthVal;
+    } else {
+      delete candidate[col];
+    }
+  }
+
+  // 2. RG ('numero_rg' | 'rg_numero' | 'rg')
+  for (const col of ['numero_rg', 'rg_numero', 'rg']) {
+    if (activeCols.has(col)) {
+      candidate[col] = rgVal;
+    } else {
+      delete candidate[col];
+    }
+  }
+
+  // 3. PIS ('numero_pis' | 'pis_pasep' | 'pis')
+  for (const col of ['numero_pis', 'pis_pasep', 'pis']) {
+    if (activeCols.has(col)) {
+      candidate[col] = pisVal;
+    } else {
+      delete candidate[col];
+    }
+  }
+
+  // 4. Regime de Contratação ('regime_contratacao' | 'tipo_contrato' | 'regime')
+  for (const col of ['regime_contratacao', 'tipo_contrato', 'regime', 'contract_type']) {
+    if (activeCols.has(col)) {
+      candidate[col] = regimeVal;
+    } else {
+      delete candidate[col];
+    }
+  }
+
+  // Filtra estritamente pelas colunas físicas existentes no schema da tabela
+  const filtered: Record<string, any> = {};
+  for (const [k, v] of Object.entries(candidate)) {
+    if (activeCols.has(k) && v !== undefined) {
+      filtered[k] = v;
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Serializa metadados complementares do colaborador (incluindo todas as variações tradicionais de colunas)
+ * em envelope JSON para persistência garantida na coluna 'email' de public.rh_funcionarios.
  */
 export function encodeRhFuncionarioMeta(meta: {
   numero_rg?: string | null;
@@ -2447,12 +2620,28 @@ export function encodeRhFuncionarioMeta(meta: {
   cnh_upgrade_category?: string | null;
   termination_date?: string | null;
 }): string {
+  const cleanRg = meta.numero_rg ? String(meta.numero_rg).trim().toUpperCase() : null;
+  const cleanBirth = formatIsoDateOnly(meta.data_nascimento) || null;
+  const cleanPis = meta.numero_pis ? String(meta.numero_pis).trim().toUpperCase() : null;
+  const cleanRegime = meta.regime_contratacao ? String(meta.regime_contratacao).trim() : 'Registrado (CLT)';
+
   return JSON.stringify({
     __rh_meta: 1,
-    numero_rg: meta.numero_rg ? String(meta.numero_rg).trim().toUpperCase() : null,
-    data_nascimento: formatIsoDateOnly(meta.data_nascimento) || null,
-    numero_pis: meta.numero_pis ? String(meta.numero_pis).trim().toUpperCase() : null,
-    regime_contratacao: meta.regime_contratacao ? String(meta.regime_contratacao).trim() : 'Registrado (CLT)',
+    // Variações tradicionais de RG
+    numero_rg: cleanRg,
+    rg_numero: cleanRg,
+    rg: cleanRg,
+    // Variações tradicionais de Data de Nascimento
+    data_nascimento: cleanBirth,
+    nascimento: cleanBirth,
+    // Variações tradicionais de PIS
+    numero_pis: cleanPis,
+    pis_pasep: cleanPis,
+    pis: cleanPis,
+    // Variações tradicionais de Regime
+    regime_contratacao: cleanRegime,
+    tipo_contrato: cleanRegime,
+    regime: cleanRegime,
     roles: Array.isArray(meta.roles) && meta.roles.length > 0 ? meta.roles : undefined,
     broker_commission_type: meta.broker_commission_type || undefined,
     broker_commission_value: meta.broker_commission_value ?? undefined,
@@ -2526,10 +2715,12 @@ export function mapRowToEmployee(row: any): Employee {
 
   const rawRegimeCandidate =
     row.regime_contratacao ||
-    row.contract_type ||
-    row.regime ||
     row.tipo_contrato ||
+    row.regime ||
+    row.contract_type ||
     meta.regime_contratacao ||
+    meta.tipo_contrato ||
+    meta.regime ||
     (localEmp?.regime_contratacao && localEmp.regime_contratacao !== 'Funcionário' ? localEmp.regime_contratacao : undefined) ||
     (localEmp?.contractType && localEmp.contractType !== 'Funcionário' ? localEmp.contractType : undefined) ||
     'Registrado (CLT)';
@@ -2540,27 +2731,33 @@ export function mapRowToEmployee(row: any): Employee {
 
   const resolvedRg =
     row.numero_rg ||
+    row.rg_numero ||
     row.rg ||
     row.documento_rg ||
     meta.numero_rg ||
+    meta.rg_numero ||
+    meta.rg ||
     localEmp?.numero_rg ||
     localEmp?.rg ||
     undefined;
 
   const resolvedBirthDate = formatIsoDateOnly(
     row.data_nascimento ||
-      row.birth_date ||
       row.nascimento ||
+      row.birth_date ||
       meta.data_nascimento ||
+      meta.nascimento ||
       localEmp?.data_nascimento ||
       localEmp?.birthDate
   ) || undefined;
 
   const resolvedPis =
     row.numero_pis ||
-    row.pis ||
     row.pis_pasep ||
+    row.pis ||
     meta.numero_pis ||
+    meta.pis_pasep ||
+    meta.pis ||
     localEmp?.numero_pis ||
     localEmp?.pis ||
     undefined;
@@ -3171,6 +3368,7 @@ export async function fetchRhFuncionarios(
 
     let employeesList: Employee[] = [];
     if (Array.isArray(res.data) && res.data.length > 0) {
+      recordRhFuncionariosColumns(res.data);
       employeesList = res.data
         .map(mapRowToEmployee)
         .filter(emp => {
@@ -3193,6 +3391,7 @@ export async function fetchRhFuncionarios(
         .select('*');
 
       if (!funcErr && Array.isArray(funcRows) && funcRows.length > 0) {
+        recordFuncionariosColumns(funcRows);
         const existingMap = new Map<string, Employee>();
         employeesList.forEach(e => {
           existingMap.set(e.id, e);
@@ -3556,6 +3755,7 @@ export async function upsertRhFuncionario(
     const cleanPayload = sanitizeRhFuncionarioPayload(employee, activeCompanyId, effectiveUserId);
     const validId = cleanPayload.id;
     const commPayload = getRhFuncionarioCommissionPayload(employee);
+    const schemaCols = await ensureRhFuncionariosSchemaColumns();
 
     // Identifica foto do colaborador
     let photoUrl = employee.photoUrl || employee.foto_url || (employee as any).avatar_url;
@@ -3576,17 +3776,29 @@ export async function upsertRhFuncionario(
       ? photoUrl.trim()
       : null;
 
-    let payloadToSend: Record<string, any> = { ...cleanPayload };
+    let payloadToSend: Record<string, any> = {
+      ...cleanPayload,
+      ...commPayload,
+    };
     if (effectiveUserId) {
       payloadToSend.user_id = String(effectiveUserId).trim();
     }
-    if (hasRhCommissionColumns === true) {
-      payloadToSend = { ...payloadToSend, ...commPayload };
-    }
-    // Salva na coluna 'foto_url' estritamente se for link HTTP público válido e coluna não tiver sido descartada
     if (hasRhFotoUrlColumn !== false && cleanPhoto && (cleanPhoto.startsWith('http://') || cleanPhoto.startsWith('https://'))) {
       payloadToSend.foto_url = cleanPhoto;
     }
+
+    // Aplica compatibilidade de colunas tradicionais (data_nascimento/nascimento, numero_rg/rg_numero/rg, numero_pis/pis_pasep/pis, regime_contratacao/tipo_contrato/regime)
+    // e filtra estritamente pelas colunas físicas existentes em public.rh_funcionarios para evitar erros 400 (Bad Request)
+    payloadToSend = applyTraditionalColumnCompatibility(
+      payloadToSend,
+      {
+        birthDate: cleanPayload.data_nascimento || employee.data_nascimento || employee.birthDate || (employee as any).nascimento,
+        rg: cleanPayload.numero_rg || employee.numero_rg || employee.rg || (employee as any).rg_numero,
+        pis: cleanPayload.numero_pis || employee.numero_pis || employee.pis || (employee as any).pis_pasep,
+        regime: cleanPayload.regime_contratacao || employee.regime_contratacao || employee.contractType || (employee as any).tipo_contrato || (employee as any).regime,
+      },
+      schemaCols
+    );
 
     // Remove qualquer objeto binário (File ou Blob cru) de dentro do payload final para evitar o erro 400
     const cleanPayloadOfNonPrimitives = (obj: Record<string, any>): Record<string, any> => {
@@ -3615,10 +3827,18 @@ export async function upsertRhFuncionario(
 
     payloadToSend = cleanPayloadOfNonPrimitives(payloadToSend);
 
-    // Função auxiliar para remover colunas que o banco não suporta dinamicamente
+    // Função auxiliar para remover colunas que o banco não suporta dinamicamente e logar detalhadamente o erro 400
     // PRESERVA ESTRITAMENTE user_id para não violar as regras de RLS do PostgreSQL
     const stripUnsupportedColumns = (err: any): boolean => {
       if (!err) return false;
+      console.error('[Supabase RH 400 Diagnostic - upsertRhFuncionario] Resposta exata do erro retornada pelo Supabase:', {
+        code: err.code,
+        message: err.message,
+        details: err.details,
+        hint: err.hint,
+        fullError: err,
+        sentColumns: Object.keys(payloadToSend),
+      });
       const msg = (err.message || '').toLowerCase();
       const details = (err.details || '').toLowerCase();
       const errStr = `${msg} ${details}`;
@@ -3628,18 +3848,22 @@ export async function upsertRhFuncionario(
         if (errStr.includes('foto_url')) {
           hasRhFotoUrlColumn = false;
           delete payloadToSend.foto_url;
+          detectedRhFuncionariosColumns?.delete('foto_url');
           changed = true;
         }
         if (errStr.includes('tenant_id')) {
           delete payloadToSend.tenant_id;
+          detectedRhFuncionariosColumns?.delete('tenant_id');
           changed = true;
         }
         if (errStr.includes('avatar_url')) {
           delete payloadToSend.avatar_url;
+          detectedRhFuncionariosColumns?.delete('avatar_url');
           changed = true;
         }
         if (errStr.includes('photo_url')) {
           delete payloadToSend.photo_url;
+          detectedRhFuncionariosColumns?.delete('photo_url');
           changed = true;
         }
         if (errStr.includes('comissao') || errStr.includes('recebe_comissao')) {
@@ -3648,12 +3872,17 @@ export async function upsertRhFuncionario(
           delete payloadToSend.comissao_alqueire;
           delete payloadToSend.comissao_hectare;
           delete payloadToSend.recebe_comissao;
+          detectedRhFuncionariosColumns?.delete('comissao_hora');
+          detectedRhFuncionariosColumns?.delete('comissao_alqueire');
+          detectedRhFuncionariosColumns?.delete('comissao_hectare');
+          detectedRhFuncionariosColumns?.delete('recebe_comissao');
           changed = true;
         }
         // Varredura genérica protegendo estritamente id, name, user_id e email
         for (const key of Object.keys(payloadToSend)) {
           if (key !== 'id' && key !== 'name' && key !== 'user_id' && key !== 'email' && errStr.includes(key.toLowerCase())) {
             delete payloadToSend[key];
+            detectedRhFuncionariosColumns?.delete(key);
             changed = true;
           }
         }
@@ -3786,10 +4015,20 @@ export async function upsertRhFuncionario(
       if (!funcRes.error) return true;
     }
 
-    console.warn('[Supabase RH Funcionario] Aviso ao persistir funcionário:', updateRes.error || upsertRes.error);
+    console.error('[Supabase RH Funcionario] Erro ao persistir funcionário (Resposta exata do Supabase):', {
+      updateError: updateRes?.error,
+      upsertError: upsertRes?.error,
+      sentColumns: Object.keys(payloadToSend),
+    });
     return false;
-  } catch (err) {
-    console.warn('Supabase upsertRhFuncionario err:', err);
+  } catch (err: any) {
+    console.error('[Supabase upsertRhFuncionario Catch] Exceção detalhada no salvamento do funcionário:', {
+      message: err?.message,
+      details: err?.details,
+      hint: err?.hint,
+      code: err?.code,
+      rawError: err,
+    });
     return false;
   }
 }
