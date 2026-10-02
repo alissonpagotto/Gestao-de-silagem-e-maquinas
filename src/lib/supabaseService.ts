@@ -10500,10 +10500,11 @@ export function buildRhFolhaPagamentoRow(
   const proventosFloat = baseSalaryFloat + overtimeFloat + bonusFloat + commissionFloat;
 
   const inssFloat = parseFloat(String(p.inssDiscount ?? 0)) || 0;
+  const irrfFloat = parseFloat(String((p as any).irrfDiscount ?? (p as any).irrf ?? 0)) || 0;
   const advancesFloat = parseFloat(String(p.advancesDiscount ?? 0)) || 0;
   const otherDiscountsFloat = parseFloat(String(p.otherDiscounts ?? 0)) || 0;
   const valesDescontosFloat = advancesFloat + otherDiscountsFloat;
-  const totalDescontosFloat = inssFloat + valesDescontosFloat;
+  const totalDescontosFloat = inssFloat + irrfFloat + valesDescontosFloat;
 
   const rawNetFloat = parseFloat(String(p.netSalary ?? (proventosFloat - totalDescontosFloat))) || 0;
   const netSalaryFloat = Math.max(0, rawNetFloat);
@@ -10547,6 +10548,11 @@ export function buildRhFolhaPagamentoRow(
   if (activeCols.has('inss')) fullCandidate.inss = inssFloat;
   if (activeCols.has('desconto_inss')) fullCandidate.desconto_inss = inssFloat;
   if (activeCols.has('inss_discount')) fullCandidate.inss_discount = inssFloat;
+
+  // 6.1 IRRF ('irrf', 'desconto_irrf', 'irrf_discount')
+  if (activeCols.has('irrf')) fullCandidate.irrf = irrfFloat;
+  if (activeCols.has('desconto_irrf')) fullCandidate.desconto_irrf = irrfFloat;
+  if (activeCols.has('irrf_discount')) fullCandidate.irrf_discount = irrfFloat;
 
   // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts')
   if (activeCols.has('deducoes')) fullCandidate.deducoes = totalDescontosFloat;
@@ -10611,12 +10617,18 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
   const p = row.payload && typeof row.payload === 'object' ? row.payload : (row.dados && typeof row.dados === 'object' ? row.dados : {});
   const baseSalary = parseFloat(String(row.salario_base ?? row.base_salary ?? p.baseSalary ?? 0)) || 0;
   const inss = parseFloat(String(row.inss ?? row.desconto_inss ?? row.inss_discount ?? p.inssDiscount ?? 0)) || 0;
+  const irrf = parseFloat(String(row.irrf ?? row.desconto_irrf ?? row.irrf_discount ?? p.irrfDiscount ?? 0)) || 0;
   const vales = parseFloat(String(row.vales_descontos ?? row.advances_discount ?? p.advancesDiscount ?? 0)) || 0;
-  const otherDiscounts = parseFloat(String(row.deducoes ?? row.total_descontos ?? row.other_discounts ?? p.otherDiscounts ?? (inss + vales))) || 0;
+  const rawDeducoes = parseFloat(String(row.deducoes ?? row.total_descontos ?? row.other_discounts ?? p.otherDiscounts ?? (inss + irrf + vales))) || 0;
+  const otherDiscounts = row.other_discounts !== undefined 
+    ? parseFloat(String(row.other_discounts)) || 0 
+    : Math.max(0, rawDeducoes - inss - irrf - vales);
   const net = parseFloat(String(row.liquido_a_pagar ?? row.valor_liquido ?? row.net_salary ?? row.salario_liquido ?? p.netSalary ?? 0)) || 0;
 
   return {
     id: row.id || p.id || '',
+    companyId: row.company_id || p.companyId,
+    userId: row.user_id || p.userId,
     employeeId: row.funcionario_id || row.employee_id || row.colaborador_id || p.employeeId || p.funcionario_id || '',
     employeeName: row.employee_name || row.nome_funcionario || row.nome || p.employeeName || '',
     employeeRole: row.employee_role || row.cargo || row.funcao || p.employeeRole || '',
@@ -10627,8 +10639,14 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     bonusAmount: parseFloat(String(row.bonus_amount ?? p.bonusAmount ?? 0)) || 0,
     commissionAmount: parseFloat(String(row.commission_amount ?? p.commissionAmount ?? 0)) || 0,
     inssDiscount: inss,
+    irrfDiscount: irrf,
+    inssEnabled: p.inssEnabled !== undefined ? Boolean(p.inssEnabled) : inss > 0,
+    irrfEnabled: p.irrfEnabled !== undefined ? Boolean(p.irrfEnabled) : irrf > 0,
+    daysWorked: p.daysWorked,
+    unworkedDays: p.unworkedDays,
+    isProportional: p.isProportional,
     advancesDiscount: vales,
-    otherDiscounts: Math.max(0, otherDiscounts - inss - vales),
+    otherDiscounts,
     netSalary: net,
     status: row.status || p.status || 'pendente',
     paymentDate: row.payment_date || p.paymentDate,

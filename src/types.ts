@@ -1118,6 +1118,12 @@ export interface PayrollRecord {
   bonusAmount: number; // Insalubridade, bônus safra, etc.
   commissionAmount?: number; // Comissões variáveis apuradas no mês (silagem, colheita, horas trabalhadas ou produção)
   inssDiscount: number;
+  irrfDiscount?: number;
+  inssEnabled?: boolean;
+  irrfEnabled?: boolean;
+  daysWorked?: number;
+  unworkedDays?: number;
+  isProportional?: boolean;
   advancesDiscount: number; // Vales e adiantamentos descontados
   otherDiscounts: number; // Faltas, atrasos, convênios
   netSalary: number;

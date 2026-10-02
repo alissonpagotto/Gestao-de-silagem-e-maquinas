@@ -63,7 +63,11 @@ import {
   formatEmployeeAdmissionDate,
   formatEmployeeBankDeposit,
   getFifthBusinessDayOfSubsequentMonth,
-  findEmployeeLinkedMachinery
+  findEmployeeLinkedMachinery,
+  calculateProgressiveInss,
+  calculateOfficialIrrf,
+  getAdmissionProportionality,
+  AdmissionProportionality
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 
@@ -78,9 +82,11 @@ interface BrlCurrencyInputProps {
   className?: string;
   inputClassName?: string;
   readOnly?: boolean;
+  disabled?: boolean;
   required?: boolean;
   title?: string;
   headerRight?: React.ReactNode;
+  subtitle?: React.ReactNode;
 }
 
 const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
@@ -91,20 +97,22 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
   className = '',
   inputClassName = '',
   readOnly = false,
+  disabled = false,
   required = false,
   title,
   headerRight,
+  subtitle,
 }) => {
   const displayVal = formatMoneyBRL(value);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (readOnly) return;
+    if (readOnly || disabled) return;
     const num = parseMoneyToFloat(e.target.value);
     onChange(num);
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    if (readOnly) return;
+    if (readOnly || disabled) return;
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').trim();
     if (!pasted) return;
@@ -130,12 +138,13 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between mb-1">
-        <label htmlFor={id} className="block text-[11px] font-bold text-black dark:text-stone-200 truncate">
+      <div className="flex items-center justify-between mb-0.5">
+        <label htmlFor={id} className="block text-[10.5px] sm:text-[11px] font-bold text-stone-900 dark:text-stone-200 truncate">
           {label}
         </label>
         {headerRight}
       </div>
+      {subtitle && <div className="text-[9.5px] text-stone-500 mb-0.5">{subtitle}</div>}
       <div className="relative">
         <input
           id={id}
@@ -146,9 +155,12 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
           onPaste={handlePaste}
           onFocus={(e) => e.target.select()}
           readOnly={readOnly}
+          disabled={disabled}
           required={required}
           title={title}
-          className={`w-full p-2.5 border border-stone-300 rounded-lg bg-white dark:bg-stone-800 text-black dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs sm:text-sm ${inputClassName}`}
+          className={`w-full px-2 py-1.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs transition ${
+            disabled ? 'opacity-50 bg-stone-100 dark:bg-stone-900/60 cursor-not-allowed' : ''
+          } ${inputClassName}`}
         />
       </div>
     </div>
@@ -509,6 +521,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [commissionsInfo, setCommissionsInfo] = useState<EmployeeMonthCommissions | null>(null);
   const [showCommissionBreakdown, setShowCommissionBreakdown] = useState(false);
   const [inssDiscount, setInssDiscount] = useState<number>(0);
+  const [inssEnabled, setInssEnabled] = useState<boolean>(true);
+  const [irrfDiscount, setIrrfDiscount] = useState<number>(0);
+  const [irrfEnabled, setIrrfEnabled] = useState<boolean>(false);
+  const [admissionInfo, setAdmissionInfo] = useState<AdmissionProportionality | null>(null);
+  const [useProportionalSalary, setUseProportionalSalary] = useState<boolean>(false);
   const [advancesDiscount, setAdvancesDiscount] = useState<number>(0);
   const [otherDiscounts, setOtherDiscounts] = useState<number>(0);
   const [payrollStatus, setPayrollStatus] = useState<'pendente' | 'pago' | 'integrado' | 'lancado' | string>('pendente');
@@ -584,10 +601,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       alert('Por favor, selecione um colaborador primeiro.');
       return;
     }
+    const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
+    const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
+    const currentGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
     const currentNet = Math.max(
       0,
-      (baseSalary + overtimeAmount + bonusAmount + commissionAmount) -
-        (inssDiscount + advancesDiscount + otherDiscounts)
+      currentGross - (activeInss + activeIrrf + advancesDiscount + otherDiscounts)
     );
     const draft: PayrollRecord = {
       id: editingPayroll?.id || `pay_draft_${Date.now()}`,
@@ -600,7 +619,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       overtimeAmount: overtimeAmount,
       bonusAmount: bonusAmount,
       commissionAmount: commissionAmount,
-      inssDiscount: inssDiscount,
+      inssDiscount: activeInss,
+      inssEnabled,
+      irrfDiscount: activeIrrf,
+      irrfEnabled,
       advancesDiscount: advancesDiscount,
       otherDiscounts: otherDiscounts,
       netSalary: currentNet,
@@ -661,17 +683,34 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   };
 
   // Sincronização centralizada de Comissões, Vales e Faltas para o Colaborador
-  const syncEmployeeData = (empId: string, customSalary?: number) => {
+  const syncEmployeeData = (
+    empId: string, 
+    customSalary?: number,
+    forceContractualSalary?: boolean
+  ) => {
     if (!empId) return;
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    const salary = customSalary !== undefined ? customSalary : (emp.baseSalary || emp.salary || 3500);
-    setBaseSalary(salary);
+    const fullContractual = emp.salary || emp.baseSalary || 3500;
     
-    // 1. REGRA DE NEGÓCIO: Desconto automático de INSS APENAS para regime Registrado (CLT)
-    const estimatedInss = calculateAutomaticInss(emp, salary);
-    setInssDiscount(estimatedInss);
+    // Regra da Data de Admissão no mês:
+    const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
+    setAdmissionInfo(admData);
+
+    let activeSalary = fullContractual;
+    if (customSalary !== undefined) {
+      activeSalary = customSalary;
+      setUseProportionalSalary(admData.isAdmittedInCompetenceMonth && Math.abs(customSalary - admData.proportionalSalary) < 0.05);
+    } else if (admData.isAdmittedInCompetenceMonth && !forceContractualSalary) {
+      // Como a competência é 09/2026 e a admissão foi em 03/09/2026, calcula e exibe o Salário Proporcional (28 dias de 30)
+      activeSalary = admData.proportionalSalary;
+      setUseProportionalSalary(true);
+    } else {
+      activeSalary = fullContractual;
+      setUseProportionalSalary(false);
+    }
+    setBaseSalary(activeSalary);
 
     // 2. Vales / Adiantamentos ativos do colaborador na competência
     const empAdvances = (advances || []).filter(
@@ -705,20 +744,24 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       return false;
     });
 
-    const totalFaltasDesconto = empAbsences.reduce((sum, a) => {
+    let totalFaltasDesconto = empAbsences.reduce((sum, a) => {
       if (a.discountAmount !== undefined && a.discountAmount > 0) {
         return sum + Number(a.discountAmount);
       }
-      // Cálculo da diária padrão CLT (Salário / 30 dias) * dias de falta
-      const daily = (salary || 3500) / 30;
+      const daily = (activeSalary || 3500) / 30;
       const days = a.daysCount || 1;
       return sum + Math.round((daily * days) * 100) / 100;
     }, 0);
 
+    // Se o usuário preferir usar o salário integral cheio e a admissão foi no mês, pode descontar os dias anteriores como falta
+    if (forceContractualSalary && admData.isAdmittedInCompetenceMonth) {
+      totalFaltasDesconto += admData.unworkedDeductionAmount;
+    }
+
     setOtherDiscounts(totalFaltasDesconto);
     setSyncedAbsences(empAbsences);
     if (empAbsences.length > 0) {
-      setShowAbsencesBreakdown(true);
+      setShowAdvancesBreakdown(true);
     }
 
     // 4. INTEGRAÇÃO DE VALORES: Apuração ativa de comissões de silagem e produção no mês
@@ -727,6 +770,25 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     setCommissionsInfo(commData);
     if (commData.count > 0) {
       setShowCommissionBreakdown(true);
+    }
+
+    // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS e IRRF pela tabela progressiva
+    const isClt = isCltContract(emp);
+    const grossBase = activeSalary + (overtimeAmount || 0) + (bonusAmount || 0) + commData.total;
+    if (isClt) {
+      setInssEnabled(true);
+      const progressiveInss = calculateProgressiveInss(grossBase);
+      setInssDiscount(progressiveInss);
+
+      // IRRF com alíquota progressiva oficial da Receita Federal
+      const progressiveIrrf = calculateOfficialIrrf(grossBase, progressiveInss);
+      setIrrfDiscount(progressiveIrrf);
+      setIrrfEnabled(progressiveIrrf > 0);
+    } else {
+      setInssEnabled(false);
+      setInssDiscount(0);
+      setIrrfEnabled(false);
+      setIrrfDiscount(0);
     }
   };
 
@@ -753,13 +815,32 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setBaseSalary(payroll.baseSalary);
       setOvertimeAmount(payroll.overtimeAmount || 0);
       setBonusAmount(payroll.bonusAmount || 0);
-      
+
+      const emp = employees.find(e => e.id === payroll.employeeId);
+      const fullSal = emp?.salary || emp?.baseSalary || payroll.baseSalary || 3500;
+      const admData = getAdmissionProportionality(emp?.admissionDate, currentMonthRef, fullSal);
+      setAdmissionInfo(admData);
+      setUseProportionalSalary(
+        payroll.isProportional !== undefined 
+          ? Boolean(payroll.isProportional) 
+          : (admData.isAdmittedInCompetenceMonth && Math.abs(payroll.baseSalary - admData.proportionalSalary) < 0.5)
+      );
+
       // Apuração ativa das comissões do mês
       const commData = getEmployeeMonthCommissions(payroll.employeeId, currentMonthRef, internalServices, employees);
       setCommissionsInfo(commData);
       setCommissionAmount(payroll.commissionAmount !== undefined ? payroll.commissionAmount : commData.total);
 
+      // INSS
+      const isClt = isCltContract(emp);
       setInssDiscount(payroll.inssDiscount || 0);
+      setInssEnabled(payroll.inssEnabled !== undefined ? Boolean(payroll.inssEnabled) : (payroll.inssDiscount > 0 || isClt));
+
+      // IRRF
+      const irrfVal = payroll.irrfDiscount || 0;
+      setIrrfDiscount(irrfVal);
+      setIrrfEnabled(payroll.irrfEnabled !== undefined ? Boolean(payroll.irrfEnabled) : (irrfVal > 0));
+
       setAdvancesDiscount(payroll.advancesDiscount || 0);
       setOtherDiscounts(payroll.otherDiscounts || 0);
       setPayrollStatus(payroll.status);
@@ -805,9 +886,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         setSelectedEmployeeId('');
         setBaseSalary(0);
         setInssDiscount(0);
+        setInssEnabled(true);
+        setIrrfDiscount(0);
+        setIrrfEnabled(false);
         setAdvancesDiscount(0);
         setCommissionAmount(0);
         setOtherDiscounts(0);
+        setAdmissionInfo(null);
+        setUseProportionalSalary(false);
       }
       setOvertimeAmount(0);
       setBonusAmount(0);
@@ -822,51 +908,50 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (!emp) return;
 
-    const netSalary = Math.max(0, (baseSalary + overtimeAmount + bonusAmount + commissionAmount) - (inssDiscount + advancesDiscount + otherDiscounts));
+    const activeInss = inssEnabled ? (inssDiscount || 0) : 0;
+    const activeIrrf = irrfEnabled ? (irrfDiscount || 0) : 0;
+    const totalGross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
+    const totalDeductions = activeInss + activeIrrf + (advancesDiscount || 0) + (otherDiscounts || 0);
+    const netSalary = Math.max(0, totalGross - totalDeductions);
 
     let recordToSave: PayrollRecord;
     let nextList: PayrollRecord[];
 
+    const baseRecordData = {
+      companyId: effectiveCompanyId,
+      userId: activeUid,
+      employeeId: emp.id,
+      employeeName: emp.name,
+      employeeRole: emp.role,
+      referenceMonth: currentMonthRef,
+      baseSalary,
+      overtimeAmount,
+      bonusAmount,
+      commissionAmount,
+      inssDiscount: activeInss,
+      inssEnabled,
+      irrfDiscount: activeIrrf,
+      irrfEnabled,
+      daysWorked: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.daysWorked : 30,
+      unworkedDays: admissionInfo?.isAdmittedInCompetenceMonth ? admissionInfo.unworkedDays : 0,
+      isProportional: useProportionalSalary,
+      advancesDiscount,
+      otherDiscounts,
+      netSalary,
+      status: payrollStatus,
+      notes,
+    };
+
     if (editingPayroll) {
       recordToSave = {
         ...editingPayroll,
-        companyId: effectiveCompanyId,
-        userId: activeUid,
-        employeeId: emp.id,
-        employeeName: emp.name,
-        employeeRole: emp.role,
-        referenceMonth: currentMonthRef,
-        baseSalary,
-        overtimeAmount,
-        bonusAmount,
-        commissionAmount,
-        inssDiscount,
-        advancesDiscount,
-        otherDiscounts,
-        netSalary,
-        status: payrollStatus,
-        notes,
+        ...baseRecordData,
       };
       nextList = localPayrolls.map(p => p.id === editingPayroll.id ? recordToSave : p);
     } else {
       recordToSave = {
+        ...baseRecordData,
         id: `pay_${Date.now()}_${emp.id}`,
-        companyId: effectiveCompanyId,
-        userId: activeUid,
-        employeeId: emp.id,
-        employeeName: emp.name,
-        employeeRole: emp.role,
-        referenceMonth: currentMonthRef,
-        baseSalary,
-        overtimeAmount,
-        bonusAmount,
-        commissionAmount,
-        inssDiscount,
-        advancesDiscount,
-        otherDiscounts,
-        netSalary,
-        status: payrollStatus,
-        notes,
         createdAt: new Date().toISOString(),
       };
       nextList = [recordToSave, ...localPayrolls];
@@ -902,6 +987,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               console.error('[PayrollTab] Aviso: Falha ao persistir folha no Supabase para:', recordToSave.employeeName);
             } else {
               console.info('✅ [PayrollTab] Folha persistida com sucesso no Supabase:', recordToSave.employeeName);
+              // Dispara evento broadcast imediato para os demais clientes
+              try {
+                const rtChan = supabase.channel(`rh_folhas_pagamento_rt_${uid}`);
+                await rtChan.send({
+                  type: 'broadcast',
+                  event: 'payroll_updated',
+                  payload: recordToSave
+                });
+              } catch (_) {}
             }
           } catch (err: any) {
             console.error('[PayrollTab Catch - Erro ao salvar folha de pagamento]:', {
@@ -953,22 +1047,32 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     const missing = activeEmployees.filter(e => !existingEmpIds.has(e.id));
     const newRecords: PayrollRecord[] = missing.map(emp => {
-      const salary = emp.salary || emp.baseSalary || 3500;
+      const fullContractual = emp.salary || emp.baseSalary || 3500;
+      const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
+      const salary = admData.isAdmittedInCompetenceMonth ? admData.proportionalSalary : fullContractual;
       
-      // REGRA: Apenas colaboradores Registrado (CLT) recebem cálculo automático de INSS
-      const inss = calculateAutomaticInss(emp, salary);
-      
-      const empAdvances = advances.filter(a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef);
-      const advTotal = empAdvances.reduce((sum, a) => sum + a.amount, 0);
-
       // INTEGRAÇÃO DE VALORES: Apuração ativa de comissões apuradas no mês
       const commData = getEmployeeMonthCommissions(emp.id, currentMonthRef, internalServices, employees);
       const commTotal = commData.total;
-      const net = Math.max(0, (salary + commTotal) - inss - advTotal);
+      const grossBase = salary + commTotal;
 
-      const initialNote = commTotal > 0 
-        ? `Comissões apuradas: ${formatCurrencyBRL(commTotal)} (${commData.count} OS de silagem)` 
-        : '';
+      // REGRA: Apenas colaboradores Registrado (CLT) recebem cálculo automático de INSS e IRRF
+      const isClt = isCltContract(emp);
+      const inss = isClt ? calculateProgressiveInss(grossBase) : 0;
+      const irrf = isClt ? calculateOfficialIrrf(grossBase, inss) : 0;
+      
+      const empAdvances = advances.filter(a => a.employeeId === emp.id && a.referenceMonth === currentMonthRef);
+      const advTotal = empAdvances.reduce((sum, a) => sum + a.amount, 0);
+      const net = Math.max(0, grossBase - inss - irrf - advTotal);
+
+      let initialNote = '';
+      if (commTotal > 0) {
+        initialNote = `Comissões apuradas: ${formatCurrencyBRL(commTotal)} (${commData.count} OS de silagem)`;
+      }
+      if (admData.isAdmittedInCompetenceMonth) {
+        const admNote = `Admissão em ${formatEmployeeAdmissionDate(admData.admissionDate)}: Proporcional a ${admData.daysWorked}/30 dias`;
+        initialNote = initialNote ? `${initialNote} • ${admNote}` : admNote;
+      }
 
       return {
         id: `pay_${Date.now()}_${emp.id}`,
@@ -983,6 +1087,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         bonusAmount: 0,
         commissionAmount: commTotal,
         inssDiscount: inss,
+        inssEnabled: isClt,
+        irrfDiscount: irrf,
+        irrfEnabled: irrf > 0,
+        daysWorked: admData.isAdmittedInCompetenceMonth ? admData.daysWorked : 30,
+        unworkedDays: admData.isAdmittedInCompetenceMonth ? admData.unworkedDays : 0,
+        isProportional: admData.isAdmittedInCompetenceMonth,
         advancesDiscount: advTotal,
         otherDiscounts: 0,
         netSalary: net,
@@ -1328,7 +1438,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     }
   };
 
-  const calculatedModalNet = Math.max(0, (baseSalary + overtimeAmount + bonusAmount + commissionAmount) - (inssDiscount + advancesDiscount + otherDiscounts));
+  const modalGrossTotal = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
+  const activeInssDiscount = inssEnabled ? (inssDiscount || 0) : 0;
+  const activeIrrfDiscount = irrfEnabled ? (irrfDiscount || 0) : 0;
+  const modalDiscountsTotal = activeInssDiscount + activeIrrfDiscount + (advancesDiscount || 0) + (otherDiscounts || 0);
+  const calculatedModalNet = Math.max(0, modalGrossTotal - modalDiscountsTotal);
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -1656,10 +1770,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-11/12 max-w-6xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[96vh] flex flex-col print:hidden">
             
             {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-[#0963cb] text-white shrink-0">
+            <div className="flex items-center justify-between px-3.5 sm:px-4 py-2 bg-[#0963cb] text-white shrink-0">
               <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-white" />
-                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">
                   {editingPayroll ? 'Editar Folha de Pagamento' : 'Lançar Folha de Pagamento'} ({currentMonthRef})
                 </h3>
               </div>
@@ -1669,28 +1783,28 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   onClick={() => setIsModalOpen(false)}
                   className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
                 >
-                  <X className="w-5 h-5 text-white" />
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-3 sm:p-3.5 space-y-2 text-xs bg-[#b0d2ed] overflow-y-auto flex-1">
+            <form onSubmit={handleSaveModal} className="p-2 sm:p-2.5 space-y-1.5 text-xs bg-[#b0d2ed] flex-1 flex flex-col justify-between overflow-y-auto lg:overflow-y-hidden">
               
               {/* Colaborador & Informações de Enquadramento */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-end">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-1.5 items-end shrink-0">
                 <div className="lg:col-span-8">
                   <div className="flex items-center justify-between mb-0.5">
-                    <label className="block font-bold text-black text-xs">
+                    <label className="block font-bold text-stone-900 text-[11px]">
                       Colaborador / Funcionário <span className="text-rose-600">*</span>
                     </label>
-                    <span className="text-[10px] text-stone-700 font-medium">
+                    <span className="text-[9.5px] text-stone-700 font-medium">
                       (Motoristas Terceirizados são geridos no Financeiro)
                     </span>
                   </div>
                   <select
                     value={selectedEmployeeId}
                     onChange={(e) => handleSelectEmployee(e.target.value)}
-                    className="w-full p-2 border border-stone-300 rounded-lg bg-white text-black outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs"
+                    className="w-full px-2 py-1.5 border border-stone-300 rounded-lg bg-white text-stone-900 outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs shadow-2xs"
                     required
                   >
                     <option value="">Selecione um funcionário...</option>
@@ -1708,12 +1822,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     const emp = employees.find(e => e.id === selectedEmployeeId);
                     const isClt = isCltContract(emp);
                     return (
-                      <div className="p-2 bg-white border border-stone-300 rounded-lg flex items-center justify-between shadow-2xs">
+                      <div className="px-2 py-1.5 bg-white border border-stone-300 rounded-lg flex items-center justify-between shadow-2xs">
                         <div className="truncate mr-2">
-                          <span className="text-[9px] text-stone-500 font-bold uppercase block tracking-wider leading-none">Regime / Vínculo</span>
+                          <span className="text-[8.5px] text-stone-500 font-bold uppercase block tracking-wider leading-none">Regime / Vínculo</span>
                           <span className="text-xs font-bold text-stone-900 truncate block mt-0.5">{emp?.role || 'Operador'} ({emp?.contractType || 'CLT'})</span>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${
+                        <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded shrink-0 ${
                           isClt ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                         }`}>
                           {isClt ? 'CLT: INSS Automático' : 'Isento de INSS'}
@@ -1721,7 +1835,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </div>
                     );
                   })() : (
-                    <div className="p-2 bg-white/70 border border-stone-300 rounded-lg text-stone-500 text-xs text-center font-medium">
+                    <div className="px-2 py-1.5 bg-white/70 border border-stone-300 rounded-lg text-stone-500 text-xs text-center font-medium">
                       Selecione um colaborador para carregar dados
                     </div>
                   )}
@@ -1733,24 +1847,29 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
                 if (!selectedEmployee) return null;
                 return (
-                  <div className="p-2 bg-white border border-stone-300 rounded-xl shadow-2xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      <div className="flex items-center space-x-2 p-1.5 bg-stone-50 rounded-lg border border-stone-200">
+                  <div className="p-1.5 bg-white border border-stone-300 rounded-xl shadow-2xs shrink-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
+                      <div className="flex items-center space-x-1.5 p-1 bg-stone-50 rounded-lg border border-stone-200">
                         <Calendar className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
                         <div className="truncate">
-                          <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                             Data de Admissão:
                           </span>
                           <span className="font-bold text-stone-900 text-xs block mt-0.5">
                             {formatEmployeeAdmissionDate(selectedEmployee.admissionDate)}
+                            {admissionInfo?.isAdmittedInCompetenceMonth && (
+                              <span className="ml-1 text-[9.5px] text-amber-700 font-extrabold">
+                                ({admissionInfo.daysWorked}/30 dias)
+                              </span>
+                            )}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2 p-1.5 bg-stone-50 rounded-lg border border-stone-200">
+                      <div className="flex items-center space-x-1.5 p-1 bg-stone-50 rounded-lg border border-stone-200">
                         <CreditCard className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
                         <div className="truncate">
-                          <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                             CPF:
                           </span>
                           <span className="font-bold text-stone-900 text-xs block mt-0.5">
@@ -1759,10 +1878,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2 p-1.5 bg-stone-50 rounded-lg border border-stone-200">
+                      <div className="flex items-center space-x-1.5 p-1 bg-stone-50 rounded-lg border border-stone-200">
                         <Landmark className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
                         <div className="truncate">
-                          <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                             Banco para Depósito:
                           </span>
                           <span className="font-bold text-stone-900 text-xs truncate block mt-0.5" title={formatEmployeeBankDeposit(selectedEmployee)}>
@@ -1776,30 +1895,84 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               })()}
 
               {/* Grid de Proventos com botão de sincronização em alto destaque */}
-              <div className="p-2.5 sm:p-3 bg-blue-50/80 dark:bg-stone-900/90 border border-blue-200 dark:border-stone-700 rounded-xl space-y-2 shadow-xs">
+              <div className="p-2 sm:p-2.5 bg-blue-50/90 dark:bg-stone-900/90 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs shrink-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
-                    Proventos (Vencimentos)
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-black uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
+                      Proventos (Vencimentos)
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-blue-200/60 text-blue-900 font-bold text-[10px] font-['Outfit']">
+                      Bruto: {formatMoneyBRL(modalGrossTotal)}
+                    </span>
+                  </div>
                   {selectedEmployeeId && (
                     <button
                       type="button"
                       onClick={handleSyncButton}
-                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#0963cb] dark:text-sky-400 border border-blue-300 dark:border-blue-600 font-bold text-xs shadow-xs hover:shadow-sm active:scale-98 transition cursor-pointer"
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#0963cb] dark:text-sky-400 border border-blue-300 dark:border-blue-600 font-bold text-[11px] shadow-2xs hover:shadow-xs active:scale-98 transition cursor-pointer"
                       title="Sincronizar comissões de OS, adiantamentos e faltas ativas cadastradas no mês"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 text-[#0963cb] dark:text-sky-400 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-                      <span className="font-bold">Sincronizar Comissões / Vales / Faltas</span>
+                      <RefreshCw className={`w-3 h-3 text-[#0963cb] dark:text-sky-400 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+                      <span>Sincronizar Comissões / Vales / Faltas</span>
                     </button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {/* Destaque Inteligente: Regra de Proporcionalidade da Data de Admissão */}
+                {admissionInfo?.isAdmittedInCompetenceMonth && (
+                  <div className="p-1.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[10.5px]">
+                    <div className="flex items-center space-x-1.5 text-amber-950 dark:text-amber-200 font-semibold">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>
+                        Admissão em <strong>{formatEmployeeAdmissionDate(admissionInfo.admissionDate)}</strong>: Proporcional a <strong>{admissionInfo.daysWorked} de 30 dias</strong> ({formatMoneyBRL(admissionInfo.proportionalSalary)})
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBaseSalary(admissionInfo.proportionalSalary);
+                          setUseProportionalSalary(true);
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                          useProportionalSalary 
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs' 
+                            : 'bg-white hover:bg-amber-100 text-amber-900 border-amber-300'
+                        }`}
+                        title="Aplicar cálculo automático proporcional aos dias trabalhados na competência"
+                      >
+                        ✓ Usar Proporcional ({admissionInfo.daysWorked}d)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBaseSalary(admissionInfo.fullContractualSalary);
+                          setUseProportionalSalary(false);
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                          !useProportionalSalary 
+                            ? 'bg-stone-700 text-white border-stone-800 shadow-2xs' 
+                            : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300'
+                        }`}
+                        title="Forçar o valor cheio contratual integral (30 dias)"
+                      >
+                        Forçar Integral (30d)
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   <BrlCurrencyInput
                     id="baseSalary"
-                    label="Salário Base"
+                    label={admissionInfo?.isAdmittedInCompetenceMonth && useProportionalSalary ? "Salário Base (Proporcional)" : "Salário Base"}
                     value={baseSalary}
-                    onChange={setBaseSalary}
+                    onChange={(val) => {
+                      setBaseSalary(val);
+                      if (admissionInfo?.isAdmittedInCompetenceMonth) {
+                        setUseProportionalSalary(Math.abs(val - admissionInfo.proportionalSalary) < 0.05);
+                      }
+                    }}
                     required
                   />
                   <BrlCurrencyInput
@@ -1825,10 +1998,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowCommissionBreakdown(!showCommissionBreakdown)}
-                          className="text-[10px] font-bold text-[#0963cb] flex items-center space-x-0.5 cursor-pointer hover:underline"
+                          className="text-[9.5px] font-bold text-[#0963cb] flex items-center space-x-0.5 cursor-pointer hover:underline"
                         >
                           <span>{commissionsInfo.count} OS</span>
-                          {showCommissionBreakdown ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {showCommissionBreakdown ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
                         </button>
                       ) : null
                     }
@@ -1836,23 +2009,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   />
                 </div>
 
-                {/* Detalhamento das comissões apuradas no mês com altura contida para evitar rolagem da página */}
+                {/* Detalhamento das comissões apuradas no mês com altura contida para evitar rolagem */}
                 {commissionsInfo && commissionsInfo.breakdown.length > 0 && showCommissionBreakdown && (
-                  <div className="mt-1.5 p-2 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-lg space-y-1 text-xs shadow-2xs">
-                    <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-200 border-b border-blue-100 dark:border-stone-700 pb-1">
+                  <div className="p-1.5 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-lg space-y-1 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-200 border-b border-blue-100 dark:border-stone-700 pb-0.5">
                       <span className="flex items-center space-x-1.5">
-                        <FileText className="w-3.5 h-3.5 text-[#0963cb]" />
-                        <span className="text-[11px] sm:text-xs">Ordens de Serviço Integradas ({commissionsInfo.referenceMonth})</span>
+                        <FileText className="w-3 h-3 text-[#0963cb]" />
+                        <span className="text-[10px] sm:text-[11px]">Ordens de Serviço Integradas ({commissionsInfo.referenceMonth})</span>
                       </span>
-                      <span className="font-extrabold text-[#0963cb] dark:text-sky-400 font-['Outfit'] text-[11px] sm:text-xs">
+                      <span className="font-extrabold text-[#0963cb] dark:text-sky-400 font-['Outfit'] text-[10px] sm:text-[11px]">
                         Total: {formatCurrencyBRL(commissionsInfo.total)}
                       </span>
                     </div>
-                    <div className="max-h-[140px] overflow-y-auto space-y-1 pr-1">
+                    <div className="max-h-[90px] overflow-y-auto space-y-0.5 pr-1">
                       {commissionsInfo.breakdown.map((b, idx) => (
                         <div 
                           key={idx} 
-                          className="p-1.5 bg-blue-50/50 dark:bg-stone-900/60 rounded border border-blue-100/90 dark:border-stone-700 text-[11px] text-stone-900 dark:text-stone-100 font-medium leading-normal"
+                          className="p-1 bg-blue-50/50 dark:bg-stone-900/60 rounded border border-blue-100/90 dark:border-stone-700 text-[10.5px] text-stone-900 dark:text-stone-100 font-medium leading-tight"
                         >
                           {(b.formattedLine || b.description || '').replace(/\s*\(\s*cla?ss\s*\)/gi, '')}
                         </div>
@@ -1862,20 +2035,95 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 )}
               </div>
 
-              {/* Grid 2 Colunas: Deduções (Esquerda) + Situação & Salário Líquido (Direita) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
-                {/* Deduções com Máscara BRL e Listas Detalhadas de Vales e Faltas */}
-                <div className="lg:col-span-7 p-2.5 sm:p-3 bg-white border border-stone-300 rounded-xl space-y-2 shadow-xs">
-                  <span className="text-xs font-black uppercase text-black tracking-wider block">
-                    Deduções (Descontos & Vales)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {/* Grid 2 Colunas: Deduções (Esquerda) + Situação & Resumo Financeiro com Cores Contrastantes (Direita) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start shrink-0">
+                {/* Deduções com Inputs Numéricos Editáveis e Toggles Oficiais */}
+                <div className="lg:col-span-7 p-2 sm:p-2.5 bg-white border border-stone-300 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase text-stone-900 tracking-wider block">
+                      Deduções (Descontos & Impostos)
+                    </span>
+                    <span className="text-[10px] font-bold text-rose-700 font-['Outfit']">
+                      Total: - {formatMoneyBRL(modalDiscountsTotal)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* INSS com Toggle Switch */}
                     <BrlCurrencyInput
                       id="inssDiscount"
                       label="INSS"
                       value={inssDiscount}
                       onChange={setInssDiscount}
+                      disabled={!inssEnabled}
+                      headerRight={
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !inssEnabled;
+                              setInssEnabled(next);
+                              if (next) {
+                                const gross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
+                                setInssDiscount(calculateProgressiveInss(gross));
+                              } else {
+                                setInssDiscount(0);
+                              }
+                            }}
+                            className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                              inssEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
+                            }`}
+                            title={inssEnabled ? 'INSS Ativado (Tabela Progressiva). Clique para Isentar' : 'INSS Desativado/Isento. Clique para Ativar'}
+                          >
+                            <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                              inssEnabled ? 'translate-x-3' : 'translate-x-0.5'
+                            }`} />
+                          </button>
+                          <span className={`text-[9.5px] font-bold ${inssEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                            {inssEnabled ? 'Ativo' : 'Isento'}
+                          </span>
+                        </div>
+                      }
                     />
+
+                    {/* IRRF com Toggle Switch */}
+                    <BrlCurrencyInput
+                      id="irrfDiscount"
+                      label="IRRF Retenção"
+                      value={irrfDiscount}
+                      onChange={setIrrfDiscount}
+                      disabled={!irrfEnabled}
+                      headerRight={
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !irrfEnabled;
+                              setIrrfEnabled(next);
+                              if (next) {
+                                const gross = (baseSalary || 0) + (overtimeAmount || 0) + (bonusAmount || 0) + (commissionAmount || 0);
+                                const inssVal = inssEnabled ? inssDiscount : 0;
+                                setIrrfDiscount(calculateOfficialIrrf(gross, inssVal));
+                              } else {
+                                setIrrfDiscount(0);
+                              }
+                            }}
+                            className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                              irrfEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
+                            }`}
+                            title={irrfEnabled ? 'IRRF Ativado. Clique para Isentar' : 'IRRF Desativado/Isento. Clique para Ativar'}
+                          >
+                            <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                              irrfEnabled ? 'translate-x-3' : 'translate-x-0.5'
+                            }`} />
+                          </button>
+                          <span className={`text-[9.5px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                            {irrfEnabled ? 'Ativo' : 'Isento'}
+                          </span>
+                        </div>
+                      }
+                    />
+
+                    {/* Vales / Adiantamentos */}
                     <BrlCurrencyInput
                       id="advancesDiscount"
                       label="Vales / Adiantamentos"
@@ -1886,67 +2134,82 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                           <button
                             type="button"
                             onClick={() => setShowAdvancesBreakdown(!showAdvancesBreakdown)}
-                            className="text-[10px] font-bold text-rose-700 hover:text-rose-800 flex items-center space-x-0.5 cursor-pointer hover:underline"
+                            className="text-[9.5px] font-bold text-rose-700 hover:text-rose-800 flex items-center space-x-0.5 cursor-pointer hover:underline"
                             title="Alternar detalhamento de vales"
                           >
                             <span>{syncedAdvances.length} Vale(s)</span>
-                            {showAdvancesBreakdown ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {showAdvancesBreakdown ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
                           </button>
                         ) : null
                       }
                     />
+
+                    {/* Faltas / Dias de Atraso */}
                     <BrlCurrencyInput
                       id="otherDiscounts"
-                      label="Outros Descontos / Faltas"
+                      label="Faltas / Atrasos / Outros"
                       value={otherDiscounts}
                       onChange={setOtherDiscounts}
                       headerRight={
-                        syncedAbsences.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowAbsencesBreakdown(!showAbsencesBreakdown)}
-                            className="text-[10px] font-bold text-amber-800 hover:text-amber-900 flex items-center space-x-0.5 cursor-pointer hover:underline"
-                            title="Alternar detalhamento de faltas"
-                          >
-                            <span>{syncedAbsences.length} Falta(s)</span>
-                            {showAbsencesBreakdown ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
-                        ) : null
+                        <div className="flex items-center space-x-1">
+                          {admissionInfo?.isAdmittedInCompetenceMonth && !useProportionalSalary && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOtherDiscounts(prev => Number((prev + admissionInfo.unworkedDeductionAmount).toFixed(2)));
+                              }}
+                              className="text-[9px] font-bold text-amber-800 hover:underline cursor-pointer"
+                              title="Adiciona desconto dos dias anteriores à admissão"
+                            >
+                              +{admissionInfo.unworkedDays}d pré
+                            </button>
+                          )}
+                          {syncedAbsences.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAbsencesBreakdown(!showAbsencesBreakdown)}
+                              className="text-[9.5px] font-bold text-amber-800 hover:text-amber-900 flex items-center space-x-0.5 cursor-pointer hover:underline"
+                              title="Alternar detalhamento de faltas"
+                            >
+                              <span>{syncedAbsences.length} Falta(s)</span>
+                              {showAbsencesBreakdown ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                            </button>
+                          )}
+                        </div>
                       }
                     />
                   </div>
 
                   {/* Lista Detalhada de Vales / Adiantamentos Sincronizados */}
                   {syncedAdvances.length > 0 && showAdvancesBreakdown && (
-                    <div className="p-2 bg-rose-50/40 border border-rose-200 rounded-lg space-y-1 text-xs shadow-2xs">
-                      <div className="flex items-center justify-between font-bold text-rose-950 border-b border-rose-100 pb-1">
+                    <div className="p-1.5 bg-rose-50/40 border border-rose-200 rounded-lg space-y-1 text-xs shadow-2xs">
+                      <div className="flex items-center justify-between font-bold text-rose-950 border-b border-rose-100 pb-0.5">
                         <span className="flex items-center space-x-1.5">
-                          <CreditCard className="w-3.5 h-3.5 text-rose-600" />
-                          <span className="text-[11px] font-bold">Vales / Adiantamentos Integrados ({syncedAdvances.length})</span>
+                          <CreditCard className="w-3 h-3 text-rose-600" />
+                          <span className="text-[10px] font-bold">Vales / Adiantamentos Integrados ({syncedAdvances.length})</span>
                         </span>
-                        <span className="font-extrabold text-rose-700 font-['Outfit'] text-[11px]">
+                        <span className="font-extrabold text-rose-700 font-['Outfit'] text-[10px]">
                           Total: {formatCurrencyBRL(advancesDiscount)}
                         </span>
                       </div>
-                      <div className="max-h-[110px] overflow-y-auto space-y-1 pr-1">
+                      <div className="max-h-[85px] overflow-y-auto space-y-0.5 pr-1">
                         {syncedAdvances.map((adv, idx) => {
                           const parcelLabel = adv.discountType === 'Parcelado' && adv.installmentNumber && adv.totalInstallments
-                            ? `Parcela [${adv.installmentNumber}/${adv.totalInstallments}]`
-                            : 'Parcela [1/1] (Cota Única)';
+                            ? `[${adv.installmentNumber}/${adv.totalInstallments}]`
+                            : '[1/1]';
                           const dateStr = formatDateBR(adv.date);
-                          const resp = adv.responsibleUser || 'ADMINISTRADOR SISTEMA';
                           return (
                             <div 
                               key={adv.id || idx}
-                              className="p-1.5 bg-white rounded border border-rose-100 text-[11px] flex items-center justify-between leading-normal"
+                              className="p-1 bg-white rounded border border-rose-100 text-[10px] flex items-center justify-between leading-tight"
                             >
                               <div className="truncate mr-2">
                                 <span className="font-bold text-stone-900">
-                                  {parcelLabel} — Data: {dateStr} — Responsável: <span className="text-stone-700 font-semibold">{resp}</span>
+                                  {parcelLabel} {dateStr} — <span className="text-stone-700">{adv.responsibleUser || 'ADMIN'}</span>
                                 </span>
                                 {adv.reason && (
-                                  <span className="text-stone-500 text-[10px] block truncate">
-                                    Motivo: {adv.reason}
+                                  <span className="text-stone-500 text-[9px] block truncate">
+                                    {adv.reason}
                                   </span>
                                 )}
                               </div>
@@ -1962,37 +2225,32 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
                   {/* Lista Detalhada de Faltas e Ocorrências Sincronizadas */}
                   {syncedAbsences.length > 0 && showAbsencesBreakdown && (
-                    <div className="p-2 bg-amber-50/40 border border-amber-200 rounded-lg space-y-1 text-xs shadow-2xs">
-                      <div className="flex items-center justify-between font-bold text-amber-950 border-b border-amber-100 pb-1">
+                    <div className="p-1.5 bg-amber-50/40 border border-amber-200 rounded-lg space-y-1 text-xs shadow-2xs">
+                      <div className="flex items-center justify-between font-bold text-amber-950 border-b border-amber-100 pb-0.5">
                         <span className="flex items-center space-x-1.5">
-                          <CalendarX className="w-3.5 h-3.5 text-amber-600" />
-                          <span className="text-[11px] font-bold">Faltas Integradas do RH ({syncedAbsences.length})</span>
+                          <CalendarX className="w-3 h-3 text-amber-600" />
+                          <span className="text-[10px] font-bold">Faltas Integradas do RH ({syncedAbsences.length})</span>
                         </span>
-                        <span className="font-extrabold text-amber-800 font-['Outfit'] text-[11px]">
+                        <span className="font-extrabold text-amber-800 font-['Outfit'] text-[10px]">
                           Total: {formatCurrencyBRL(otherDiscounts)}
                         </span>
                       </div>
-                      <div className="max-h-[110px] overflow-y-auto space-y-1 pr-1">
+                      <div className="max-h-[85px] overflow-y-auto space-y-0.5 pr-1">
                         {syncedAbsences.map((abs, idx) => {
                           const dateStr = formatDateBR(abs.date);
-                          const reasonStr = abs.reason || `Falta ${abs.type || 'injustificada'} (${abs.daysCount || 1} dia${(abs.daysCount || 1) > 1 ? 's' : ''})`;
+                          const reasonStr = abs.reason || `Falta (${abs.daysCount || 1}d)`;
                           const itemDiscount = (abs.discountAmount && abs.discountAmount > 0)
                             ? abs.discountAmount
                             : Math.round((((baseSalary || 3500) / 30) * (abs.daysCount || 1)) * 100) / 100;
                           return (
                             <div 
                               key={abs.id || idx}
-                              className="p-1.5 bg-white rounded border border-amber-100 text-[11px] flex items-center justify-between leading-normal"
+                              className="p-1 bg-white rounded border border-amber-100 text-[10px] flex items-center justify-between leading-tight"
                             >
                               <div className="truncate mr-2">
                                 <span className="font-bold text-stone-900">
-                                  Data: {dateStr} — Motivo: <span className="text-stone-700 font-semibold">{reasonStr}</span>
+                                  {dateStr} — <span className="text-stone-700">{reasonStr}</span>
                                 </span>
-                                {abs.notes && (
-                                  <span className="text-stone-500 text-[10px] block truncate">
-                                    Obs: {abs.notes}
-                                  </span>
-                                )}
                               </div>
                               <span className="font-extrabold text-amber-800 font-['Outfit'] shrink-0">
                                 - {formatCurrencyBRL(itemDiscount)}
@@ -2005,13 +2263,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   )}
                 </div>
 
-                {/* Situação do Pagamento & Salário Líquido */}
-                <div className="lg:col-span-5 p-2.5 sm:p-3 bg-white border border-stone-300 rounded-xl shadow-xs flex flex-col justify-between space-y-2">
+                {/* Situação do Pagamento & Resumo Financeiro com Cores Contrastantes */}
+                <div className="lg:col-span-5 p-2 sm:p-2.5 bg-white border border-stone-300 rounded-xl shadow-2xs flex flex-col justify-between space-y-2">
                   <div>
-                    <span className="text-xs font-black uppercase text-black tracking-wider block mb-1.5">
+                    <span className="text-[10.5px] font-black uppercase text-stone-900 tracking-wider block mb-1">
                       Situação do Pagamento:
                     </span>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 bg-stone-50 p-1.5 rounded-lg border border-stone-200">
                       <label className="flex items-center space-x-1.5 cursor-pointer">
                         <input
                           type="radio"
@@ -2035,23 +2293,51 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-1.5 border-t border-stone-200 flex items-center justify-between">
-                    <div>
-                      <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">Total a Pagar</span>
-                      <span className="text-xs font-bold text-stone-800">Salário Líquido</span>
+                  {/* Card de Resumo Financeiro com 2 Cores Contrastantes */}
+                  <div className="rounded-xl overflow-hidden border border-stone-300/80 shadow-2xs">
+                    {/* Bloco 1: Contrastante Claro / Neutro com Totais Bruto e Descontos */}
+                    <div className="bg-slate-100 p-2 border-b border-stone-200 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          Total Bruto (+)
+                        </span>
+                        <span className="font-black text-emerald-800 text-xs sm:text-[13px] font-['Outfit'] block mt-0.5">
+                          {formatMoneyBRL(modalGrossTotal)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          Total Descontos (-)
+                        </span>
+                        <span className="font-black text-rose-700 text-xs sm:text-[13px] font-['Outfit'] block mt-0.5">
+                          - {formatMoneyBRL(modalDiscountsTotal)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-xl sm:text-2xl font-black text-[#0963cb] font-['Outfit']">
-                      {formatMoneyBRL(calculatedModalNet)}
-                    </span>
+
+                    {/* Bloco 2: Contrastante Escuro / Azul Corporativo #0963cb com Valor Líquido em Grande Destaque */}
+                    <div className="bg-[#0963cb] text-white p-2.5 flex items-center justify-between">
+                      <div>
+                        <span className="text-[9.5px] font-extrabold uppercase text-blue-100 tracking-wider block leading-none">
+                          Líquido a Pagar
+                        </span>
+                        <span className="text-xs font-bold text-white block mt-0.5">
+                          Salário Líquido
+                        </span>
+                      </div>
+                      <span className="text-xl sm:text-2xl font-black text-white font-['Outfit'] tracking-tight">
+                        {formatMoneyBRL(calculatedModalNet)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Observações Internas e Ações do Rodapé */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-black/15 shrink-0">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1.5 border-t border-black/15 shrink-0">
                 {/* Campo de Observações Internas */}
-                <div className="flex-1 min-w-0 p-1.5 bg-white border border-stone-300 rounded-lg shadow-2xs flex items-center gap-2">
-                  <label className="font-bold text-black text-xs shrink-0">
+                <div className="flex-1 min-w-0 px-2 py-1 bg-white border border-stone-300 rounded-lg shadow-2xs flex items-center gap-1.5">
+                  <label className="font-bold text-stone-900 text-xs shrink-0">
                     Observações:
                   </label>
                   <input
@@ -2059,17 +2345,17 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Ex: Pagamento agendado, observações..."
-                    className="w-full p-1 bg-transparent text-black outline-none text-xs font-medium"
+                    className="w-full py-0.5 bg-transparent text-stone-900 outline-none text-xs font-medium"
                   />
                 </div>
 
                 {/* Botões de Ação com Botão Único 'Imprimir Folha' entre Observações e Cancelar */}
-                <div className="flex items-center space-x-2 shrink-0 justify-end">
+                <div className="flex items-center space-x-1.5 shrink-0 justify-end">
                   <button
                     type="button"
                     onClick={handlePrintCurrentModalPayroll}
                     disabled={!selectedEmployeeId}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold transition shadow-2xs cursor-pointer text-xs disabled:opacity-40"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold transition shadow-2xs cursor-pointer text-xs disabled:opacity-40"
                     title="Imprimir Holerite Oficial (Recibo Limpo em PDF)"
                   >
                     <Printer className="w-3.5 h-3.5 text-stone-600" />
@@ -2078,13 +2364,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-1.5 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition text-xs shadow-2xs"
+                    className="px-3.5 py-1.5 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition text-xs shadow-2xs"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold transition shadow-xs cursor-pointer text-xs"
+                    className="px-4.5 py-1.5 rounded-lg bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold transition shadow-xs cursor-pointer text-xs"
                   >
                     Salvar Folha de Pagamento
                   </button>

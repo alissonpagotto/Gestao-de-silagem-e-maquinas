@@ -882,4 +882,149 @@ export const findEmployeeLinkedMachinery = (
   return null;
 };
 
+// ==========================================
+// CÁLCULO DE PROVIMENTOS & TRIBUTAÇÃO OFICIAL
+// ==========================================
+
+export interface AdmissionProportionality {
+  isAdmittedInCompetenceMonth: boolean;
+  admissionDate: string;
+  admissionDay: number;
+  daysWorked: number;
+  unworkedDays: number;
+  totalDaysInMonth: number;
+  fullContractualSalary: number;
+  proportionalSalary: number;
+  unworkedDeductionAmount: number;
+}
+
+/**
+ * Calcula a proporcionalidade da admissão para o mês de competência (Padrão 30 dias - CLT Art. 64).
+ * Ex: Competência 09/2026 e Admissão em 03/09/2026:
+ * Dias trabalhados = 30 - 3 + 1 = 28 dias
+ * Dias anteriores não trabalhados = 2 dias
+ * Salário Proporcional = (Salário Base / 30) * 28 dias
+ */
+export const getAdmissionProportionality = (
+  admissionDateStr?: string | null,
+  competenceRef?: string,
+  contractualSalary: number = 3500
+): AdmissionProportionality => {
+  const defaultRes: AdmissionProportionality = {
+    isAdmittedInCompetenceMonth: false,
+    admissionDate: admissionDateStr || '',
+    admissionDay: 1,
+    daysWorked: 30,
+    unworkedDays: 0,
+    totalDaysInMonth: 30,
+    fullContractualSalary: contractualSalary,
+    proportionalSalary: contractualSalary,
+    unworkedDeductionAmount: 0,
+  };
+
+  if (!admissionDateStr || !competenceRef) return defaultRes;
+
+  let compMonth = 0;
+  let compYear = 0;
+  if (competenceRef.includes('/')) {
+    const [m, y] = competenceRef.split('/');
+    compMonth = parseInt(m, 10);
+    compYear = parseInt(y, 10);
+  } else if (competenceRef.includes('-')) {
+    const [y, m] = competenceRef.split('-');
+    compMonth = parseInt(m, 10);
+    compYear = parseInt(y, 10);
+  }
+  if (!compMonth || !compYear) return defaultRes;
+
+  let admDay = 0;
+  let admMonth = 0;
+  let admYear = 0;
+
+  const cleanDate = admissionDateStr.split('T')[0].trim();
+  if (cleanDate.includes('-')) {
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      admYear = parseInt(parts[0], 10);
+      admMonth = parseInt(parts[1], 10);
+      admDay = parseInt(parts[2], 10);
+    }
+  } else if (cleanDate.includes('/')) {
+    const parts = cleanDate.split('/');
+    if (parts.length === 3) {
+      admDay = parseInt(parts[0], 10);
+      admMonth = parseInt(parts[1], 10);
+      admYear = parseInt(parts[2], 10);
+    }
+  }
+
+  if (admYear === compYear && admMonth === compMonth && admDay > 1) {
+    const daysWorked = Math.max(1, 30 - admDay + 1);
+    const unworkedDays = admDay - 1;
+    const dailyRate = contractualSalary / 30;
+    const proportionalSalary = Math.round((dailyRate * daysWorked) * 100) / 100;
+    const unworkedDeductionAmount = Math.round((dailyRate * unworkedDays) * 100) / 100;
+
+    return {
+      isAdmittedInCompetenceMonth: true,
+      admissionDate: cleanDate,
+      admissionDay: admDay,
+      daysWorked,
+      unworkedDays,
+      totalDaysInMonth: 30,
+      fullContractualSalary: contractualSalary,
+      proportionalSalary,
+      unworkedDeductionAmount,
+    };
+  }
+
+  return defaultRes;
+};
+
+/**
+ * Calcula o INSS pela tabela progressiva oficial sobre a base total de proventos.
+ * Teto de recolhimento: R$ 908,86.
+ */
+export const calculateProgressiveInss = (grossBase: number): number => {
+  if (grossBase <= 0) return 0;
+  let inss = 0;
+  if (grossBase <= 1412.00) {
+    inss = grossBase * 0.075;
+  } else if (grossBase <= 2666.68) {
+    inss = (grossBase * 0.09) - 21.18;
+  } else if (grossBase <= 4000.03) {
+    inss = (grossBase * 0.12) - 101.18;
+  } else if (grossBase <= 7786.02) {
+    inss = (grossBase * 0.14) - 181.18;
+  } else {
+    inss = 908.86;
+  }
+  return Math.max(0, Math.round(inss * 100) / 100);
+};
+
+/**
+ * Calcula a retenção de IRRF (Imposto de Renda Retido na Fonte) pela tabela oficial da Receita Federal.
+ * Base = Total Proventos - Desconto INSS - (Dependentes * R$ 189,59).
+ */
+export const calculateOfficialIrrf = (
+  grossBase: number,
+  inssDiscount: number,
+  dependentsCount: number = 0
+): number => {
+  const base = Math.max(0, grossBase - inssDiscount - (dependentsCount * 189.59));
+  if (base <= 2259.20) return 0;
+  let irrf = 0;
+  if (base <= 2826.65) {
+    irrf = (base * 0.075) - 169.44;
+  } else if (base <= 3751.05) {
+    irrf = (base * 0.15) - 381.44;
+  } else if (base <= 4664.68) {
+    irrf = (base * 0.225) - 662.77;
+  } else {
+    irrf = (base * 0.275) - 896.00;
+  }
+  return Math.max(0, Math.round(irrf * 100) / 100);
+};
+
+
 
