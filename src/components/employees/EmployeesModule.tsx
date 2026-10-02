@@ -3352,7 +3352,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <ManageableDropdown
                       label="Regime de Contratação"
                       value={regimeContratacao}
-                      onChange={(e) => setRegimeContratacao(typeof e === 'string' ? e : e?.target?.value)}
+                      onChange={(e: any) => setRegimeContratacao(typeof e === 'string' ? e : (e?.target?.value || String(e || '')))}
                       options={contractTypeOptions}
                       onOptionsChange={handleUpdateContractTypeOptions}
                       placeholder=""

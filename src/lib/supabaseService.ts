@@ -10509,67 +10509,199 @@ export async function fetchCloudVacations(
   }
 }
 
+export const RH_FOLHAS_PAGAMENTO_BASE_COLUMNS = [
+  'id',
+  'user_id',
+  'employee_id',
+  'mes_referencia',
+  'salario_base',
+  'total_proventos',
+  'total_descontos',
+  'valor_liquido',
+  'status',
+  'created_at',
+] as const;
+
+let detectedRhFolhasPagamentoColumns: Set<string> | null = null;
+
+export async function ensureRhFolhasPagamentoSchemaColumns(): Promise<Set<string>> {
+  if (detectedRhFolhasPagamentoColumns && detectedRhFolhasPagamentoColumns.size > 0) {
+    return detectedRhFolhasPagamentoColumns;
+  }
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.from('rh_folhas_pagamento').select('*').limit(1);
+      if (!error && Array.isArray(data) && data.length > 0 && data[0]) {
+        detectedRhFolhasPagamentoColumns = new Set(Object.keys(data[0]));
+        return detectedRhFolhasPagamentoColumns;
+      }
+    } catch (_) {}
+  }
+  detectedRhFolhasPagamentoColumns = new Set<string>(RH_FOLHAS_PAGAMENTO_BASE_COLUMNS);
+  return detectedRhFolhasPagamentoColumns;
+}
+
 /**
- * Constrói a linha para a tabela public.rh_folhas_pagamento
+ * Constrói a linha para a tabela public.rh_folhas_pagamento com rigorosa compatibilidade
+ * de tipos numéricos (Float/Numeric) e mapeamento adaptativo para os padrões do banco:
+ * - company_id: injeta o ID do assinante/empresa
+ * - funcionario_id: ID canônico do colaborador (com fallback para employee_id)
+ * - competencia: string formatada (ex: "09/2026") com fallback para mes_referencia
+ * - salario_base, proventos, inss, deducoes / vales_descontos, liquido_a_pagar: convertidos para float
+ * - payload: empacota todas as rubricas e metadados em JSONB
  */
-export function buildRhFolhaPagamentoRow(p: PayrollRecord, userId: string, companyId?: string) {
-  const cId = companyId || getActiveCompanyId() || 'default';
+export function buildRhFolhaPagamentoRow(
+  p: PayrollRecord,
+  userId: string,
+  companyId?: string,
+  schemaCols?: Set<string> | null
+): Record<string, any> {
+  const cId = companyId || getActiveCompanyId() || userId;
   const canonicalId = toValidUUID(p.id);
   const canonicalEmpId = toValidUUID(p.employeeId);
 
-  return {
+  // Formatação estrita da competência (ex: "09/2026")
+  let formattedCompetencia = String(p.referenceMonth || '').trim();
+  if (formattedCompetencia.includes('-')) {
+    const parts = formattedCompetencia.split('-');
+    if (parts.length >= 2 && parts[0].length === 4) {
+      // "2026-09" -> "09/2026"
+      formattedCompetencia = `${parts[1]}/${parts[0]}`;
+    }
+  }
+
+  // Conversão rigorosa de valores numéricos para Float
+  const baseSalaryFloat = parseFloat(String(p.baseSalary ?? 0)) || 0;
+  const overtimeFloat = parseFloat(String(p.overtimeAmount ?? 0)) || 0;
+  const bonusFloat = parseFloat(String(p.bonusAmount ?? 0)) || 0;
+  const commissionFloat = parseFloat(String(p.commissionAmount ?? 0)) || 0;
+  const proventosFloat = baseSalaryFloat + overtimeFloat + bonusFloat + commissionFloat;
+
+  const inssFloat = parseFloat(String(p.inssDiscount ?? 0)) || 0;
+  const advancesFloat = parseFloat(String(p.advancesDiscount ?? 0)) || 0;
+  const otherDiscountsFloat = parseFloat(String(p.otherDiscounts ?? 0)) || 0;
+  const valesDescontosFloat = advancesFloat + otherDiscountsFloat;
+  const totalDescontosFloat = inssFloat + valesDescontosFloat;
+
+  const rawNetFloat = parseFloat(String(p.netSalary ?? (proventosFloat - totalDescontosFloat))) || 0;
+  const netSalaryFloat = Math.max(0, rawNetFloat);
+
+  const activeCols = schemaCols && schemaCols.size > 0
+    ? schemaCols
+    : new Set<string>(RH_FOLHAS_PAGAMENTO_BASE_COLUMNS);
+
+  const fullCandidate: Record<string, any> = {
     id: canonicalId,
     user_id: userId,
-    company_id: cId,
-    employee_id: canonicalEmpId,
-    funcionario_id: canonicalEmpId,
-    employee_name: p.employeeName,
-    employee_role: p.employeeRole,
-    reference_month: p.referenceMonth,
-    base_salary: p.baseSalary || 0,
-    overtime_amount: p.overtimeAmount || 0,
-    bonus_amount: p.bonusAmount || 0,
-    commission_amount: p.commissionAmount || 0,
-    inss_discount: p.inssDiscount || 0,
-    advances_discount: p.advancesDiscount || 0,
-    other_discounts: p.otherDiscounts || 0,
-    net_salary: p.netSalary || 0,
     status: p.status || 'pendente',
-    notes: p.notes || null,
-    payment_date: p.paymentDate || null,
-    payload: {
-      ...p,
-      id: canonicalId,
-      user_id: userId,
-      companyId: cId,
-      employeeId: p.employeeId,
-      funcionario_id: canonicalEmpId,
-    },
     created_at: p.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
+
+  // 1. Injeção de Empresa/Assinante ('company_id' ou 'tenant_id')
+  if (activeCols.has('company_id')) fullCandidate.company_id = cId;
+  if (activeCols.has('tenant_id')) fullCandidate.tenant_id = cId;
+
+  // 2. Injeção de Funcionário ('funcionario_id' ou 'employee_id')
+  if (activeCols.has('funcionario_id')) fullCandidate.funcionario_id = canonicalEmpId;
+  if (activeCols.has('employee_id')) fullCandidate.employee_id = canonicalEmpId;
+
+  // 3. Injeção de Competência ('competencia', 'mes_referencia', 'reference_month')
+  if (activeCols.has('competencia')) fullCandidate.competencia = formattedCompetencia;
+  if (activeCols.has('mes_referencia')) fullCandidate.mes_referencia = formattedCompetencia;
+  if (activeCols.has('reference_month')) fullCandidate.reference_month = formattedCompetencia;
+
+  // 4. Salário Base ('salario_base', 'base_salary')
+  if (activeCols.has('salario_base')) fullCandidate.salario_base = baseSalaryFloat;
+  if (activeCols.has('base_salary')) fullCandidate.base_salary = baseSalaryFloat;
+
+  // 5. Proventos ('proventos', 'total_proventos', 'gross_salary')
+  if (activeCols.has('proventos')) fullCandidate.proventos = proventosFloat;
+  if (activeCols.has('total_proventos')) fullCandidate.total_proventos = proventosFloat;
+  if (activeCols.has('gross_salary')) fullCandidate.gross_salary = proventosFloat;
+
+  // 6. INSS ('inss', 'desconto_inss', 'inss_discount')
+  if (activeCols.has('inss')) fullCandidate.inss = inssFloat;
+  if (activeCols.has('desconto_inss')) fullCandidate.desconto_inss = inssFloat;
+  if (activeCols.has('inss_discount')) fullCandidate.inss_discount = inssFloat;
+
+  // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts')
+  if (activeCols.has('deducoes')) fullCandidate.deducoes = totalDescontosFloat;
+  if (activeCols.has('vales_descontos')) fullCandidate.vales_descontos = valesDescontosFloat;
+  if (activeCols.has('total_descontos')) fullCandidate.total_descontos = totalDescontosFloat;
+  if (activeCols.has('advances_discount')) fullCandidate.advances_discount = advancesFloat;
+  if (activeCols.has('other_discounts')) fullCandidate.other_discounts = otherDiscountsFloat;
+
+  // 8. Líquido a Pagar ('liquido_a_pagar', 'valor_liquido', 'net_salary', 'salario_liquido')
+  if (activeCols.has('liquido_a_pagar')) fullCandidate.liquido_a_pagar = netSalaryFloat;
+  if (activeCols.has('valor_liquido')) fullCandidate.valor_liquido = netSalaryFloat;
+  if (activeCols.has('net_salary')) fullCandidate.net_salary = netSalaryFloat;
+  if (activeCols.has('salario_liquido')) fullCandidate.salario_liquido = netSalaryFloat;
+
+  // 9. Colunas auxiliares textuais
+  if (activeCols.has('employee_name')) fullCandidate.employee_name = p.employeeName || null;
+  if (activeCols.has('employee_role')) fullCandidate.employee_role = p.employeeRole || null;
+  if (activeCols.has('notes')) fullCandidate.notes = p.notes || null;
+  if (activeCols.has('payment_date')) fullCandidate.payment_date = p.paymentDate || null;
+  if (activeCols.has('overtime_amount')) fullCandidate.overtime_amount = overtimeFloat;
+  if (activeCols.has('bonus_amount')) fullCandidate.bonus_amount = bonusFloat;
+  if (activeCols.has('commission_amount')) fullCandidate.commission_amount = commissionFloat;
+
+  // 10. Empacotamento unificado em JSONB ('payload', 'dados')
+  const unifiedPayload = {
+    ...p,
+    id: canonicalId,
+    user_id: userId,
+    company_id: cId,
+    funcionario_id: canonicalEmpId,
+    employee_id: canonicalEmpId,
+    competencia: formattedCompetencia,
+    salario_base: baseSalaryFloat,
+    proventos: proventosFloat,
+    inss: inssFloat,
+    vales_descontos: valesDescontosFloat,
+    deducoes: totalDescontosFloat,
+    liquido_a_pagar: netSalaryFloat,
+  };
+  if (activeCols.has('payload')) fullCandidate.payload = unifiedPayload;
+  if (activeCols.has('dados')) fullCandidate.dados = unifiedPayload;
+
+  // Filtra estritamente pelas colunas existentes no schema para evitar 400 (Bad Request)
+  const filteredRow: Record<string, any> = {};
+  for (const [k, v] of Object.entries(fullCandidate)) {
+    if (activeCols.has(k) && v !== undefined) {
+      filteredRow[k] = v;
+    }
+  }
+  return filteredRow;
 }
 
 /**
  * Mapeia uma linha da tabela public.rh_folhas_pagamento para PayrollRecord
  */
 export function mapRowToPayrollRecord(row: any): PayrollRecord {
-  const p = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  const p = row.payload && typeof row.payload === 'object' ? row.payload : (row.dados && typeof row.dados === 'object' ? row.dados : {});
+  const baseSalary = parseFloat(String(row.salario_base ?? row.base_salary ?? p.baseSalary ?? 0)) || 0;
+  const inss = parseFloat(String(row.inss ?? row.desconto_inss ?? row.inss_discount ?? p.inssDiscount ?? 0)) || 0;
+  const vales = parseFloat(String(row.vales_descontos ?? row.advances_discount ?? p.advancesDiscount ?? 0)) || 0;
+  const otherDiscounts = parseFloat(String(row.deducoes ?? row.total_descontos ?? row.other_discounts ?? p.otherDiscounts ?? (inss + vales))) || 0;
+  const net = parseFloat(String(row.liquido_a_pagar ?? row.valor_liquido ?? row.net_salary ?? row.salario_liquido ?? p.netSalary ?? 0)) || 0;
+
   return {
     id: row.id || p.id || '',
-    employeeId: row.employee_id || row.funcionario_id || p.employeeId || '',
-    employeeName: row.employee_name || p.employeeName || '',
-    employeeRole: row.employee_role || p.employeeRole || '',
-    referenceMonth: row.reference_month || p.referenceMonth || '',
-    baseSalary: Number(row.base_salary ?? p.baseSalary ?? 0),
+    employeeId: row.funcionario_id || row.employee_id || row.colaborador_id || p.employeeId || p.funcionario_id || '',
+    employeeName: row.employee_name || row.nome_funcionario || row.nome || p.employeeName || '',
+    employeeRole: row.employee_role || row.cargo || row.funcao || p.employeeRole || '',
+    referenceMonth: row.competencia || row.mes_referencia || row.reference_month || p.referenceMonth || p.competencia || '',
+    baseSalary,
     overtimeHours: p.overtimeHours,
-    overtimeAmount: Number(row.overtime_amount ?? p.overtimeAmount ?? 0),
-    bonusAmount: Number(row.bonus_amount ?? p.bonusAmount ?? 0),
-    commissionAmount: Number(row.commission_amount ?? p.commissionAmount ?? 0),
-    inssDiscount: Number(row.inss_discount ?? p.inssDiscount ?? 0),
-    advancesDiscount: Number(row.advances_discount ?? p.advancesDiscount ?? 0),
-    otherDiscounts: Number(row.other_discounts ?? p.otherDiscounts ?? 0),
-    netSalary: Number(row.net_salary ?? p.netSalary ?? 0),
+    overtimeAmount: parseFloat(String(row.overtime_amount ?? p.overtimeAmount ?? 0)) || 0,
+    bonusAmount: parseFloat(String(row.bonus_amount ?? p.bonusAmount ?? 0)) || 0,
+    commissionAmount: parseFloat(String(row.commission_amount ?? p.commissionAmount ?? 0)) || 0,
+    inssDiscount: inss,
+    advancesDiscount: vales,
+    otherDiscounts: Math.max(0, otherDiscounts - inss - vales),
+    netSalary: net,
     status: row.status || p.status || 'pendente',
     paymentDate: row.payment_date || p.paymentDate,
     isIntegrated: Boolean(p.isIntegrated),
@@ -10582,6 +10714,7 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
 
 /**
  * Salva e sincroniza folhas de pagamento diretamente no Supabase (public.rh_folhas_pagamento)
+ * com tratamento robusto de erros 400 (Bad Request) e adaptação dinâmica de colunas.
  */
 export async function upsertRhFolhasPagamento(
   records: PayrollRecord | PayrollRecord[],
@@ -10595,30 +10728,118 @@ export async function upsertRhFolhasPagamento(
       try {
         const { data: authData } = await supabase.auth.getUser();
         activeUid = authData?.user?.id;
+        if (!activeUid) {
+          const { data: sessData } = await supabase.auth.getSession();
+          activeUid = sessData?.session?.user?.id;
+        }
       } catch (_) {}
     }
-    if (!activeUid) return false;
+    if (!activeUid) {
+      console.warn('[Supabase Folha] Impossível salvar: nenhum user_id autenticado disponível para o RLS.');
+      return false;
+    }
 
     const list = Array.isArray(records) ? records : [records];
     if (list.length === 0) return true;
 
-    const cId = companyId || getActiveCompanyId();
-    const rows = list.map(p => buildRhFolhaPagamentoRow(p, activeUid!, cId));
+    const cId = companyId || getActiveCompanyId() || activeUid;
+    const schemaCols = await ensureRhFolhasPagamentoSchemaColumns();
+    let rows = list.map(p => buildRhFolhaPagamentoRow(p, activeUid!, cId, schemaCols));
 
-    const { error } = await supabase.from('rh_folhas_pagamento').upsert(rows, { onConflict: 'id' });
-    if (error) {
-      // Fallback estruturado com id, user_id e payload caso colunas específicas divirjam
-      const fallbackRows = rows.map(r => ({
-        id: r.id,
-        user_id: r.user_id,
-        status: r.status,
-        payload: r.payload,
-        updated_at: r.updated_at,
-      }));
-      await supabase.from('rh_folhas_pagamento').upsert(fallbackRows, { onConflict: 'id' });
+    // Executa upsert na tabela rh_folhas_pagamento com loop de auto-recuperação de colunas caso haja erro 400
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const { data, error } = await supabase
+        .from('rh_folhas_pagamento')
+        .upsert(rows, { onConflict: 'id' })
+        .select('id');
+
+      if (!error) {
+        return true;
+      }
+
+      console.error('[Supabase Folha 400 Diagnostic - rh_folhas_pagamento] Resposta exata do erro retornada pelo Supabase:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        sentColumns: rows.length > 0 ? Object.keys(rows[0]) : [],
+        fullError: error,
+      });
+
+      const errStr = `${error.message || ''} ${error.details || ''}`.toLowerCase();
+      let removedAny = false;
+
+      if (error.code === 'PGRST204' || error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
+        for (const col of Object.keys(rows[0] || {})) {
+          if (col !== 'id' && col !== 'user_id' && errStr.includes(col.toLowerCase())) {
+            detectedRhFolhasPagamentoColumns?.delete(col);
+            schemaCols.delete(col);
+            removedAny = true;
+          }
+        }
+      }
+
+      if (removedAny) {
+        rows = list.map(p => buildRhFolhaPagamentoRow(p, activeUid!, cId, schemaCols));
+        continue;
+      }
+      break;
     }
+
+    // Fallback estruturado com o mínimo garantido de colunas da tabela física
+    const minimalFallback = list.map(p => {
+      const canonicalId = toValidUUID(p.id);
+      const canonicalEmpId = toValidUUID(p.employeeId);
+      const baseSalaryFloat = parseFloat(String(p.baseSalary ?? 0)) || 0;
+      const inssFloat = parseFloat(String(p.inssDiscount ?? 0)) || 0;
+      const valesFloat = parseFloat(String(p.advancesDiscount ?? 0)) + parseFloat(String(p.otherDiscounts ?? 0));
+      const proventosFloat = baseSalaryFloat + parseFloat(String(p.overtimeAmount ?? 0)) + parseFloat(String(p.bonusAmount ?? 0)) + parseFloat(String(p.commissionAmount ?? 0));
+      const totalDescFloat = inssFloat + valesFloat;
+      const netFloat = Math.max(0, parseFloat(String(p.netSalary ?? (proventosFloat - totalDescFloat))) || 0);
+
+      let formattedCompetencia = String(p.referenceMonth || '').trim();
+      if (formattedCompetencia.includes('-')) {
+        const parts = formattedCompetencia.split('-');
+        if (parts.length >= 2 && parts[0].length === 4) formattedCompetencia = `${parts[1]}/${parts[0]}`;
+      }
+
+      return {
+        id: canonicalId,
+        user_id: activeUid,
+        employee_id: canonicalEmpId,
+        mes_referencia: formattedCompetencia,
+        salario_base: baseSalaryFloat,
+        total_proventos: proventosFloat,
+        total_descontos: totalDescFloat,
+        valor_liquido: netFloat,
+        status: p.status || 'pendente',
+      };
+    });
+
+    const fallbackRes = await supabase
+      .from('rh_folhas_pagamento')
+      .upsert(minimalFallback, { onConflict: 'id' });
+
+    if (fallbackRes.error) {
+      console.error('[Supabase Folha Minimal Fallback Error] Erro final ao persistir folha:', {
+        code: fallbackRes.error.code,
+        message: fallbackRes.error.message,
+        details: fallbackRes.error.details,
+        hint: fallbackRes.error.hint,
+        fullError: fallbackRes.error,
+      });
+      return false;
+    }
+
     return true;
-  } catch (e) {
+  } catch (err: any) {
+    console.error('[Supabase upsertRhFolhasPagamento Catch] Exceção detalhada no salvamento da folha:', {
+      message: err?.message,
+      details: err?.details,
+      hint: err?.hint,
+      code: err?.code,
+      rawError: err,
+    });
     return false;
   }
 }

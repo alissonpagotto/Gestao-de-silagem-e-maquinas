@@ -637,6 +637,36 @@ CREATE TABLE IF NOT EXISTS public.rh_folhas_pagamento (
 
 ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS funcionario_id TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_id TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_name TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS employee_role TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS competencia TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS mes_referencia TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS reference_month TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS salario_base NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS base_salary NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS proventos NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS total_proventos NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS inss NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS inss_discount NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS deducoes NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS vales_descontos NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS total_descontos NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS liquido_a_pagar NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS valor_liquido NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS net_salary NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS overtime_amount NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS bonus_amount NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS commission_amount NUMERIC DEFAULT 0;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pendente';
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payment_date TEXT;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS payload JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.rh_folhas_pagamento ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
 DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
 CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
 FOR ALL TO authenticated, anon

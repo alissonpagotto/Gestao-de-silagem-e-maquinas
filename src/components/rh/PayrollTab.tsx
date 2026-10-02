@@ -275,6 +275,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
   const activeUid = currentUser?.id;
+  const companyProfile = getStoredCompanyProfile();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sincronização em tempo real com ordens de serviço de silagem
@@ -348,7 +349,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       const cloudData = await fetchCloudPayrolls(uid);
       if (isMounted) {
-        const cleanList = Array.isArray(cloudData) ? cloudData : [];
+        const cleanList = (Array.isArray(cloudData) ? cloudData : []).map(p => {
+          if (!p.employeeName || !p.employeeRole) {
+            const emp = employees.find(e => e.id === p.employeeId || toValidUUID(e.id) === p.employeeId);
+            if (emp) {
+              return {
+                ...p,
+                employeeName: p.employeeName || emp.name,
+                employeeRole: p.employeeRole || emp.role,
+              };
+            }
+          }
+          return p;
+        });
         setLocalPayrolls(cleanList);
         onSavePayrolls(cleanList);
       }
@@ -356,12 +369,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     loadCloudPayrolls();
 
+    // Revalidação em retorno de foco para manter todos os dispositivos do assinante alinhados
+    const handleFocus = () => {
+      loadCloudPayrolls();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
     };
-  }, [activeUid]);
+  }, [activeUid, employees]);
 
-  // Listener em tempo real (Supabase Realtime) escutando 'rh_folhas_pagamento' com filtro 'user_id=eq.' + activeUid
+  // Listener em tempo real (Supabase Realtime) escutando 'rh_folhas_pagamento'
+  // Atualiza imediatamente o status visual (ex: badge amarelo 'A Pagar' -> badge verde 'Pago')
+  // simultaneamente em todos os dispositivos conectados do mesmo assinante.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
@@ -386,27 +410,54 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
             event: '*',
             schema: 'public',
             table: 'rh_folhas_pagamento',
-            filter: `user_id=eq.${uid}`,
           },
           (payload: any) => {
             if (!isMounted) return;
-            console.info('📡 [Realtime Folhas] Evento recebido em rh_folhas_pagamento:', payload.eventType);
+            console.info('📡 [Realtime Folhas] Evento recebido em rh_folhas_pagamento:', payload.eventType, payload);
+
+            // Validação de segurança por assinante
+            if (payload.new) {
+              const rowUid = String(payload.new.user_id || '').trim();
+              const rowCid = String(payload.new.company_id || '').trim();
+              if (rowUid && rowUid !== uid && rowCid && rowCid !== uid && rowCid !== companyProfile?.id) {
+                return;
+              }
+            }
 
             if (payload.eventType === 'DELETE' && payload.old?.id) {
               const delId = toValidUUID(payload.old.id);
               setLocalPayrolls(prev => {
-                const next = prev.filter(p => toValidUUID(p.id) !== delId && p.id !== delId);
+                const next = prev.filter(p => toValidUUID(p.id) !== delId && p.id !== delId && p.id !== payload.old.id);
                 onSavePayrolls(next);
                 return next;
               });
             } else if (payload.new) {
               const mapped = mapRowToPayrollRecord(payload.new);
               const mappedId = toValidUUID(mapped.id);
+
+              // Enriquece nome e cargo do colaborador a partir da lista local caso o banco não retorne tais colunas
+              const emp = employees.find(e => e.id === mapped.employeeId || toValidUUID(e.id) === mapped.employeeId);
+              if (emp) {
+                if (!mapped.employeeName) mapped.employeeName = emp.name;
+                if (!mapped.employeeRole) mapped.employeeRole = emp.role;
+              }
+
               setLocalPayrolls(prev => {
-                const exists = prev.some(p => toValidUUID(p.id) === mappedId || p.id === mappedId);
+                // Identifica o mesmo registro por ID ou pela combinação colaborador + competência
+                const isMatch = (p: PayrollRecord) => {
+                  if (mappedId && (toValidUUID(p.id) === mappedId || p.id === mappedId || p.id === payload.new.id)) return true;
+                  if (p.employeeId && mapped.employeeId && (p.employeeId === mapped.employeeId || toValidUUID(p.employeeId) === toValidUUID(mapped.employeeId))) {
+                    if (p.referenceMonth && mapped.referenceMonth && p.referenceMonth === mapped.referenceMonth) return true;
+                  }
+                  return false;
+                };
+
+                const exists = prev.some(isMatch);
                 const next = exists
-                  ? prev.map(p => (toValidUUID(p.id) === mappedId || p.id === mappedId ? { ...p, ...mapped, id: mappedId } : p))
+                  ? prev.map(p => isMatch(p) ? { ...p, ...mapped, id: mappedId || p.id } : p)
                   : [mapped, ...prev];
+
+                console.info(`🔄 [Realtime Folhas] Status visual atualizado na tela para colaborador: ${mapped.employeeName} -> Status: ${mapped.status}`);
                 onSavePayrolls(next);
                 return next;
               });
@@ -424,12 +475,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         supabase.removeChannel(channel);
       }
     };
-  }, [activeUid]);
+  }, [activeUid, employees, companyProfile?.id]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
   const [modalPayslipPayroll, setModalPayslipPayroll] = useState<PayrollRecord | null>(null);
-  const companyProfile = getStoredCompanyProfile();
 
   // Form State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -814,7 +864,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           } catch (_) {}
         }
         if (uid) {
-          await upsertRhFolhasPagamento(recordToSave, uid);
+          try {
+            const effectiveCompanyId = companyProfile?.id || uid;
+            const success = await upsertRhFolhasPagamento(recordToSave, uid, effectiveCompanyId);
+            if (!success) {
+              console.error('[PayrollTab] Aviso: Falha ao persistir folha no Supabase para:', recordToSave.employeeName);
+            } else {
+              console.info('✅ [PayrollTab] Folha persistida com sucesso no Supabase:', recordToSave.employeeName);
+            }
+          } catch (err: any) {
+            console.error('[PayrollTab Catch - Erro ao salvar folha de pagamento]:', {
+              message: err?.message,
+              details: err?.details,
+              hint: err?.hint,
+              code: err?.code,
+              rawError: err,
+            });
+          }
         }
       })();
     }
@@ -908,7 +974,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           } catch (_) {}
         }
         if (uid) {
-          await upsertRhFolhasPagamento(nextList, uid);
+          try {
+            const effectiveCompanyId = companyProfile?.id || uid;
+            const success = await upsertRhFolhasPagamento(nextList, uid, effectiveCompanyId);
+            if (!success) {
+              console.error('[PayrollTab Batch] Falha ao persistir lote de folhas no Supabase.');
+            } else {
+              console.info(`✅ [PayrollTab Batch] ${nextList.length} folhas sincronizadas com sucesso no Supabase.`);
+            }
+          } catch (err: any) {
+            console.error('[PayrollTab Batch Catch - Erro ao salvar folhas em lote]:', {
+              message: err?.message,
+              details: err?.details,
+              hint: err?.hint,
+              code: err?.code,
+              rawError: err,
+            });
+          }
         }
       })();
     }
@@ -942,7 +1024,23 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           } catch (_) {}
         }
         if (uid) {
-          await upsertRhFolhasPagamento(updatedItem!, uid);
+          try {
+            const effectiveCompanyId = companyProfile?.id || uid;
+            const success = await upsertRhFolhasPagamento(updatedItem!, uid, effectiveCompanyId);
+            if (!success) {
+              console.error('[PayrollTab Toggle Status] Falha ao atualizar status da folha no Supabase:', updatedItem?.employeeName);
+            } else {
+              console.info(`✅ [PayrollTab Toggle Status] Status atualizado no Supabase: ${updatedItem?.employeeName} -> ${updatedItem?.status}`);
+            }
+          } catch (err: any) {
+            console.error('[PayrollTab Toggle Status Catch - Erro ao atualizar status no Supabase]:', {
+              message: err?.message,
+              details: err?.details,
+              hint: err?.hint,
+              code: err?.code,
+              rawError: err,
+            });
+          }
         }
       })();
     }
