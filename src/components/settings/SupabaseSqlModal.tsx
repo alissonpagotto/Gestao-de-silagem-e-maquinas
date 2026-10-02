@@ -160,9 +160,18 @@ CREATE TABLE IF NOT EXISTS public.rh_funcionarios (
     comissao_alqueire NUMERIC(15,2) DEFAULT 0,
     comissao_hectare NUMERIC(15,2) DEFAULT 0,
     recebe_comissao BOOLEAN DEFAULT false,
+    numero_rg TEXT,
+    data_nascimento DATE,
+    numero_pis TEXT,
+    regime_contratacao TEXT DEFAULT 'Registrado (CLT)',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS numero_rg TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS data_nascimento DATE;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS numero_pis TEXT;
+ALTER TABLE public.rh_funcionarios ADD COLUMN IF NOT EXISTS regime_contratacao TEXT DEFAULT 'Registrado (CLT)';
 
 CREATE TABLE IF NOT EXISTS public.gestao_frotas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

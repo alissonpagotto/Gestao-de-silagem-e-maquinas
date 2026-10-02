@@ -2430,16 +2430,69 @@ export function formatIsoDateOnly(dateValue?: any): string | null {
 }
 
 /**
+ * Serializa metadados complementares do colaborador (numero_rg, data_nascimento, numero_pis, regime_contratacao, etc.)
+ * em envelope JSON para persistência garantida na coluna 'email' de public.rh_funcionarios mesmo quando as colunas
+ * dedicadas ainda não existirem no cache do PostgREST.
+ */
+export function encodeRhFuncionarioMeta(meta: {
+  numero_rg?: string | null;
+  data_nascimento?: string | null;
+  numero_pis?: string | null;
+  regime_contratacao?: string | null;
+  roles?: string[];
+  broker_commission_type?: string | null;
+  broker_commission_value?: number | null;
+  acting_region?: string | null;
+  cnh_upgrade_dt?: boolean;
+  cnh_upgrade_category?: string | null;
+  termination_date?: string | null;
+}): string {
+  return JSON.stringify({
+    __rh_meta: 1,
+    numero_rg: meta.numero_rg ? String(meta.numero_rg).trim().toUpperCase() : null,
+    data_nascimento: formatIsoDateOnly(meta.data_nascimento) || null,
+    numero_pis: meta.numero_pis ? String(meta.numero_pis).trim().toUpperCase() : null,
+    regime_contratacao: meta.regime_contratacao ? String(meta.regime_contratacao).trim() : 'Registrado (CLT)',
+    roles: Array.isArray(meta.roles) && meta.roles.length > 0 ? meta.roles : undefined,
+    broker_commission_type: meta.broker_commission_type || undefined,
+    broker_commission_value: meta.broker_commission_value ?? undefined,
+    acting_region: meta.acting_region || undefined,
+    cnh_upgrade_dt: meta.cnh_upgrade_dt || undefined,
+    cnh_upgrade_category: meta.cnh_upgrade_category || undefined,
+    termination_date: formatIsoDateOnly(meta.termination_date) || undefined,
+  });
+}
+
+export function parseRhFuncionarioMeta(rawEmail?: any): Record<string, any> {
+  if (!rawEmail || typeof rawEmail !== 'string') return {};
+  const trimmed = rawEmail.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return {};
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (_) {}
+  return {};
+}
+
+/**
  * Converte linhas vindas do Supabase (seja com colunas em português ou inglês)
  * para a interface padronizada Employee da aplicação.
  */
 export function mapRowToEmployee(row: any): Employee {
+  const meta = parseRhFuncionarioMeta(row.email);
+  const rowId = String(row.id || `emp_${Date.now()}`);
+  const localEmp = getStoredEmployees().find(
+    (e) => e.id === rowId || toValidUUID(e.id) === toValidUUID(rowId)
+  );
+
   const admissionDate = formatIsoDateOnly(
     row.admission_date || row.data_admissao || row.admitted_at || row.dataAdmissao
   ) || '';
 
   const terminationDate = formatIsoDateOnly(
-    row.termination_date || row.data_demissao || row.dataDemissao
+    row.termination_date || row.data_demissao || row.dataDemissao || meta.termination_date || localEmp?.terminationDate
   ) || '';
 
   const cnhExpiration = formatIsoDateOnly(
@@ -2471,20 +2524,52 @@ export function mapRowToEmployee(row: any): Employee {
     (commVal > 0 || commPerHour > 0 || commPerAlq > 0 || commPerHa > 0)
   );
 
+  const rawRegimeCandidate =
+    row.regime_contratacao ||
+    row.contract_type ||
+    row.regime ||
+    row.tipo_contrato ||
+    meta.regime_contratacao ||
+    (localEmp?.regime_contratacao && localEmp.regime_contratacao !== 'Funcionário' ? localEmp.regime_contratacao : undefined) ||
+    (localEmp?.contractType && localEmp.contractType !== 'Funcionário' ? localEmp.contractType : undefined) ||
+    'Registrado (CLT)';
+
   const contractType = String(
-    row.contract_type || row.regime || row.tipo_contrato || row.registration_type || 'Registrado (CLT)'
-  );
+    rawRegimeCandidate === 'Funcionário' ? 'Registrado (CLT)' : rawRegimeCandidate
+  ).trim() || 'Registrado (CLT)';
+
+  const resolvedRg =
+    row.numero_rg ||
+    row.rg ||
+    row.documento_rg ||
+    meta.numero_rg ||
+    localEmp?.numero_rg ||
+    localEmp?.rg ||
+    undefined;
+
+  const resolvedBirthDate = formatIsoDateOnly(
+    row.data_nascimento ||
+      row.birth_date ||
+      row.nascimento ||
+      meta.data_nascimento ||
+      localEmp?.data_nascimento ||
+      localEmp?.birthDate
+  ) || undefined;
+
+  const resolvedPis =
+    row.numero_pis ||
+    row.pis ||
+    row.pis_pasep ||
+    meta.numero_pis ||
+    localEmp?.numero_pis ||
+    localEmp?.pis ||
+    undefined;
 
   const roleStr = String(row.role || row.cargo || row.funcao || 'Operador de Forrageira');
 
   const finalPerHour = receivesCommission ? (commPerHour || (commVal > 0 ? commVal : 0)) : 0;
   const finalPerAlq = receivesCommission ? commPerAlq : 0;
   const finalPerHa = receivesCommission ? commPerHa : 0;
-
-  const rowId = String(row.id || `emp_${Date.now()}`);
-  const localEmp = getStoredEmployees().find(
-    (e) => e.id === rowId || toValidUUID(e.id) === toValidUUID(rowId)
-  );
 
   const acqStart = formatIsoDateOnly(
     row.periodo_aquisitivo_inicio ||
@@ -2523,20 +2608,24 @@ export function mapRowToEmployee(row: any): Employee {
     companyId: row.company_id || undefined,
     name: String(row.name || row.nome || row.nome_funcionario || '').trim(),
     role: roleStr,
-    roles: Array.isArray(row.roles) ? row.roles : (roleStr ? [roleStr] : []),
+    roles: Array.isArray(row.roles)
+      ? row.roles
+      : Array.isArray(meta.roles)
+        ? meta.roles
+        : (roleStr ? roleStr.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
     cpf: row.cpf ? String(row.cpf).trim() : '',
-    rg: row.numero_rg || row.rg || row.documento_rg || undefined,
-    numero_rg: row.numero_rg || row.rg || undefined,
-    birthDate: formatIsoDateOnly(row.data_nascimento || row.birth_date || row.nascimento) || undefined,
-    data_nascimento: formatIsoDateOnly(row.data_nascimento || row.birth_date || row.nascimento) || undefined,
-    pis: row.numero_pis || row.pis || row.pis_pasep || undefined,
-    numero_pis: row.numero_pis || row.pis || undefined,
+    rg: resolvedRg ? String(resolvedRg).trim().toUpperCase() : undefined,
+    numero_rg: resolvedRg ? String(resolvedRg).trim().toUpperCase() : undefined,
+    birthDate: resolvedBirthDate,
+    data_nascimento: resolvedBirthDate,
+    pis: resolvedPis ? String(resolvedPis).trim().toUpperCase() : undefined,
+    numero_pis: resolvedPis ? String(resolvedPis).trim().toUpperCase() : undefined,
     phone: row.phone || row.telefone || '',
     status: (row.status || 'ativo') as any,
     active: row.status !== 'inativo' && row.active !== false,
     registrationType: (row.registration_type || row.tipo_registro || 'Funcionário') as any,
-    contractType: row.regime_contratacao || row.contract_type || row.regime || row.tipo_contrato || contractType,
-    regime_contratacao: row.regime_contratacao || row.contract_type || row.regime || undefined,
+    contractType: contractType,
+    regime_contratacao: contractType,
     salary: salaryNum,
     baseSalary: salaryNum,
     admissionDate: admissionDate,
@@ -2557,14 +2646,14 @@ export function mapRowToEmployee(row: any): Employee {
     comissao_alqueire: finalPerAlq,
     comissao_hectare: finalPerHa,
     recebe_comissao: receivesCommission,
-    brokerCommissionValue: parseFloat(String(row.broker_commission_value || row.comissao_agenciador || 0)) || 0,
-    brokerCommissionType: row.broker_commission_type || row.tipo_comissao_agenciador || undefined,
-    actingRegion: row.acting_region || row.regiao_atuacao || undefined,
+    brokerCommissionValue: parseFloat(String(row.broker_commission_value || row.comissao_agenciador || meta.broker_commission_value || 0)) || 0,
+    brokerCommissionType: row.broker_commission_type || row.tipo_comissao_agenciador || meta.broker_commission_type || undefined,
+    actingRegion: row.acting_region || row.regiao_atuacao || meta.acting_region || undefined,
     cnhNumber: row.driver_license || row.cnh_numero || row.cnh_number || '',
     cnhCategory: row.license_category || row.cnh_categoria || row.cnh_category || 'B',
     cnhExpiration: cnhExpiration,
-    cnhUpgradeDT: Boolean(row.cnh_upgrade_dt || row.cnhUpgradeDT),
-    cnhUpgradeCategory: row.cnh_upgrade_category || row.cnhUpgradeCategory || undefined,
+    cnhUpgradeDT: Boolean(row.cnh_upgrade_dt ?? row.cnhUpgradeDT ?? meta.cnh_upgrade_dt),
+    cnhUpgradeCategory: row.cnh_upgrade_category || row.cnhUpgradeCategory || meta.cnh_upgrade_category || undefined,
     paymentLocation: row.local_recebimento || row.payment_location || row.local_pagamento || undefined,
     local_recebimento: row.local_recebimento || row.payment_location || row.local_pagamento || undefined,
     bankPixKey: row.banco_chave_pix || row.bank_pix_key || row.chave_pix || undefined,
@@ -2665,6 +2754,7 @@ export function sanitizeRhFuncionarioPayload(
   data_nascimento?: string | null;
   numero_pis?: string | null;
   regime_contratacao?: string | null;
+  email?: string | null;
 } {
   const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
   const validId = toValidUUID(employee.id);
@@ -2677,7 +2767,22 @@ export function sanitizeRhFuncionarioPayload(
 
   const rgVal = employee.numero_rg || employee.rg || employee.documento_rg ? String(employee.numero_rg || employee.rg || employee.documento_rg).trim().toUpperCase() : null;
   const pisVal = employee.numero_pis || employee.pis || employee.pis_pasep ? String(employee.numero_pis || employee.pis || employee.pis_pasep).trim().toUpperCase() : null;
-  const regimeVal = String(employee.regime_contratacao || employee.contractType || employee.contract_type || employee.regime || 'Registrado (CLT)').trim();
+  const rawRegimeVal = String(employee.regime_contratacao || employee.contractType || employee.contract_type || employee.regime || 'Registrado (CLT)').trim();
+  const regimeVal = rawRegimeVal === 'Funcionário' ? 'Registrado (CLT)' : (rawRegimeVal || 'Registrado (CLT)');
+
+  const metaEmail = encodeRhFuncionarioMeta({
+    numero_rg: rgVal,
+    data_nascimento: birthDateIso || null,
+    numero_pis: pisVal,
+    regime_contratacao: regimeVal,
+    roles: Array.isArray(employee.roles) ? employee.roles : undefined,
+    broker_commission_type: employee.brokerCommissionType || null,
+    broker_commission_value: employee.brokerCommissionValue ?? null,
+    acting_region: employee.actingRegion || null,
+    cnh_upgrade_dt: employee.cnhUpgradeDT,
+    cnh_upgrade_category: employee.cnhUpgradeCategory || null,
+    termination_date: formatIsoDateOnly(employee.terminationDate) || null,
+  });
 
   // Tratamento numérico de salário (NUMERIC em PostgreSQL)
   const salaryNum = typeof employee.salary === 'number' && !isNaN(employee.salary)
@@ -2743,6 +2848,7 @@ export function sanitizeRhFuncionarioPayload(
     data_nascimento: birthDateIso || null,
     numero_pis: pisVal,
     regime_contratacao: regimeVal,
+    email: metaEmail,
   };
 }
 
@@ -3544,9 +3650,9 @@ export async function upsertRhFuncionario(
           delete payloadToSend.recebe_comissao;
           changed = true;
         }
-        // Varredura genérica protegendo estritamente id e user_id
+        // Varredura genérica protegendo estritamente id, name, user_id e email
         for (const key of Object.keys(payloadToSend)) {
-          if (key !== 'id' && key !== 'name' && key !== 'user_id' && errStr.includes(key.toLowerCase())) {
+          if (key !== 'id' && key !== 'name' && key !== 'user_id' && key !== 'email' && errStr.includes(key.toLowerCase())) {
             delete payloadToSend[key];
             changed = true;
           }
@@ -3558,7 +3664,7 @@ export async function upsertRhFuncionario(
     // 1. Tenta atualizar com PATCH com loop de auto-recuperação de schema
     let updateRes: any = null;
     let patchAttempts = 0;
-    while (patchAttempts < 4) {
+    while (patchAttempts < 10) {
       patchAttempts++;
       const { id: _ignoredId, ...patchBody } = payloadToSend;
       if (effectiveUserId) {
@@ -3628,7 +3734,7 @@ export async function upsertRhFuncionario(
     // 2. Se não atualizou nenhuma linha (registro novo), executa o upsert/insert com id
     let upsertRes: any = null;
     let upsertAttempts = 0;
-    while (upsertAttempts < 4) {
+    while (upsertAttempts < 10) {
       upsertAttempts++;
       if (effectiveUserId) {
         payloadToSend.user_id = String(effectiveUserId).trim();

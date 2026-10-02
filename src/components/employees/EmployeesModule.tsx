@@ -32,7 +32,7 @@ import {
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
 import { formatPhone, formatCpfCnpj, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
-import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord } from '../../lib/supabaseService';
+import { formatIsoDateOnly, deleteRhFuncionario, fetchRhFuncionarios, mapRowToEmployee, toValidUUID, isSupabaseConfigured, uploadEmployeePhotoToStorage, uploadEmployeeDocumentToStorage, upsertRhFuncionario, fetchCloudVacations, mapRowToVacationRecord, encodeRhFuncionarioMeta, parseRhFuncionarioMeta } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
@@ -818,20 +818,37 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // Ao abrir o modal, assegura que o sistema povoe os estados iniciais com os dados reais
   // vindos do Supabase para que os campos nunca apareçam vazios.
   useEffect(() => {
-    if (!isModalOpen || !activeEmployeeId || !isSupabaseConfigured) return;
+    if (!isModalOpen || !activeEmployeeId) return;
     let isMounted = true;
     const empId = activeEmployeeId;
     const empUuid = toValidUUID(empId);
+
+    // Popula imediatamente a partir do registro em edição (incluindo metadados sincronizados)
+    if (editingEmployee) {
+      const initialMeta = parseRhFuncionarioMeta((editingEmployee as any).email);
+      const initRg = editingEmployee.numero_rg || editingEmployee.rg || (editingEmployee as any).documento_rg || initialMeta.numero_rg || '';
+      const initBirth = formatIsoDateOnly(editingEmployee.data_nascimento || editingEmployee.birthDate || (editingEmployee as any).birth_date || initialMeta.data_nascimento) || '';
+      const initPis = editingEmployee.numero_pis || editingEmployee.pis || (editingEmployee as any).pis_pasep || initialMeta.numero_pis || '';
+      const rawInitRegime = editingEmployee.regime_contratacao || editingEmployee.contractType || (editingEmployee as any).regime || initialMeta.regime_contratacao || 'Registrado (CLT)';
+      const initRegime = rawInitRegime === 'Funcionário' ? 'Registrado (CLT)' : rawInitRegime;
+
+      if (initRg) setRgNumero(String(initRg).trim().toUpperCase());
+      if (initBirth) setDataNascimento(initBirth);
+      if (initPis) setPisNumero(String(initPis).trim().toUpperCase());
+      if (initRegime) setRegimeContratacao(String(initRegime).trim());
+    }
+
+    if (!isSupabaseConfigured) return;
 
     const loadRealEmployeeData = async () => {
       try {
         let dbRow: Record<string, any> | null = null;
 
-        // 1. Consulta em public.rh_funcionarios
+        // 1. Consulta em public.rh_funcionarios usando UUID canônico
         const { data: rhData } = await supabase
           .from('rh_funcionarios')
           .select('*')
-          .or(`id.eq.${empId}${empUuid && empUuid !== empId ? `,id.eq.${empUuid}` : ''}`)
+          .eq('id', empUuid)
           .maybeSingle();
 
         if (rhData) {
@@ -842,7 +859,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         const { data: funcData } = await supabase
           .from('funcionarios')
           .select('*')
-          .or(`id.eq.${empId}${empUuid && empUuid !== empId ? `,id.eq.${empUuid}` : ''}`)
+          .eq('id', empUuid)
           .maybeSingle();
 
         if (funcData) {
@@ -850,23 +867,25 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         }
 
         if (isMounted && dbRow) {
-          const loadedRg = dbRow.numero_rg || dbRow.rg || dbRow.documento_rg;
+          const meta = parseRhFuncionarioMeta(dbRow.email);
+
+          const loadedRg = dbRow.numero_rg || dbRow.rg || dbRow.documento_rg || meta.numero_rg;
           if (loadedRg) {
             setRgNumero(String(loadedRg).trim().toUpperCase());
           }
 
-          const loadedBirth = formatIsoDateOnly(dbRow.data_nascimento || dbRow.birth_date || dbRow.nascimento);
+          const loadedBirth = formatIsoDateOnly(dbRow.data_nascimento || dbRow.birth_date || dbRow.nascimento || meta.data_nascimento);
           if (loadedBirth) {
             setDataNascimento(loadedBirth);
           }
 
-          const loadedPis = dbRow.numero_pis || dbRow.pis || dbRow.pis_pasep;
+          const loadedPis = dbRow.numero_pis || dbRow.pis || dbRow.pis_pasep || meta.numero_pis;
           if (loadedPis) {
             setPisNumero(String(loadedPis).trim().toUpperCase());
           }
 
-          const loadedRegime = dbRow.regime_contratacao || dbRow.contract_type || dbRow.regime || dbRow.tipo_contrato;
-          if (loadedRegime) {
+          const loadedRegime = dbRow.regime_contratacao || dbRow.contract_type || dbRow.regime || dbRow.tipo_contrato || meta.regime_contratacao;
+          if (loadedRegime && String(loadedRegime).trim() !== 'Funcionário') {
             setRegimeContratacao(String(loadedRegime).trim());
           }
         }
@@ -1340,10 +1359,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     );
     setActingRegion((emp.actingRegion || '').toUpperCase());
     setCpf(emp.cpf || '');
-    const loadedRg = (emp.numero_rg || emp.rg || (emp as any).documento_rg || '').toUpperCase();
-    const safeBirth = formatIsoDateOnly(emp.data_nascimento || emp.birthDate || (emp as any).birth_date) || '';
-    const loadedPis = (emp.numero_pis || emp.pis || (emp as any).pis_pasep || '').toUpperCase();
-    const loadedRegime = emp.regime_contratacao || emp.contractType || (emp as any).regime || 'Registrado (CLT)';
+    const empMeta = parseRhFuncionarioMeta((emp as any).email);
+    const loadedRg = (emp.numero_rg || emp.rg || (emp as any).documento_rg || empMeta.numero_rg || '').toUpperCase();
+    const safeBirth = formatIsoDateOnly(emp.data_nascimento || emp.birthDate || (emp as any).birth_date || empMeta.data_nascimento) || '';
+    const loadedPis = (emp.numero_pis || emp.pis || (emp as any).pis_pasep || empMeta.numero_pis || '').toUpperCase();
+    const rawLoadedRegime = emp.regime_contratacao || emp.contractType || (emp as any).regime || empMeta.regime_contratacao || 'Registrado (CLT)';
+    const loadedRegime = rawLoadedRegime === 'Funcionário' ? 'Registrado (CLT)' : rawLoadedRegime;
 
     setRgNumero(loadedRg);
     setDataNascimento(safeBirth);
@@ -1965,76 +1986,107 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         } : (signedRegistrationDoc && typeof signedRegistrationDoc.fileData === 'string' && signedRegistrationDoc.fileData.startsWith('http') ? signedRegistrationDoc : undefined),
       };
 
+      // Atualiza estado local e storage imediatamente antes da chamada de rede para que qualquer evento Realtime veja os dados novos
+      let prelimUpdatedList: Employee[] = [];
+      if (editingEmployee) {
+        prelimUpdatedList = localEmployees.map(emp =>
+          emp.id === editingEmployee.id ? employeeData : emp
+        );
+      } else {
+        prelimUpdatedList = [...localEmployees, employeeData];
+      }
+      setLocalEmployees(prelimUpdatedList);
+      saveStoredEmployees(prelimUpdatedList);
+
       // Dispara persistência com carimbo obrigatório do assinante no Supabase
       if (isSupabaseConfigured && activeUid) {
         try {
           const activeCompanyId = activeCompany?.id || activeUid;
           const safeCompanyUuid = activeCompanyId && toValidUUID(activeCompanyId) === activeCompanyId ? activeCompanyId : null;
+          const cleanRgVal = rgNumero.trim() ? rgNumero.trim().toUpperCase() : null;
+          const cleanBirthVal = formatIsoDateOnly(dataNascimento) || null;
+          const cleanPisVal = pisNumero.trim() ? pisNumero.trim().toUpperCase() : null;
+          const cleanRegimeVal = (regimeContratacao.trim() && regimeContratacao.trim() !== 'Funcionário')
+            ? regimeContratacao.trim()
+            : 'Registrado (CLT)';
+
+          const metaEmailEnvelope = encodeRhFuncionarioMeta({
+            numero_rg: cleanRgVal,
+            data_nascimento: cleanBirthVal,
+            numero_pis: cleanPisVal,
+            regime_contratacao: cleanRegimeVal,
+            roles: finalRoles,
+            broker_commission_type: isBroker ? brokerCommissionType : null,
+            broker_commission_value: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : null,
+            acting_region: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : null,
+            cnh_upgrade_dt: cnhUpgradeDT,
+            cnh_upgrade_category: cnhUpgradeDT ? cnhUpgradeCategory : null,
+            termination_date: formattedTerminationDate || null,
+          });
 
           // 1. Mutação explícita na tabela public.funcionarios (conforme diretriz oficial)
           try {
             const funcionariosPayload: Record<string, any> = {
               id: targetValidUuid,
-              user_id: activeUid,
-              company_id: safeCompanyUuid || activeCompanyId || activeUid,
               nome: employeeData.name,
-              name: employeeData.name,
               cargo: employeeData.role,
-              role: employeeData.role,
-              cpf: employeeData.cpf || null,
-              telefone: employeeData.phone || null,
-              phone: employeeData.phone || null,
               ativo: employeeData.active,
-              salario: employeeData.salary || 0,
-              salary: employeeData.salary || 0,
-              data_admissao: employeeData.admissionDate || null,
-              admission_date: employeeData.admissionDate || null,
-              numero_rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : null,
-              data_nascimento: formatIsoDateOnly(dataNascimento) || null,
-              numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : null,
-              regime_contratacao: regimeContratacao.trim() || 'Registrado (CLT)',
-              updated_at: new Date().toISOString(),
+              cnh_categoria: employeeData.cnhCategory || null,
+              cnh_validade: employeeData.cnhExpiration || null,
+              numero_rg: cleanRgVal,
+              data_nascimento: cleanBirthVal,
+              numero_pis: cleanPisVal,
+              regime_contratacao: cleanRegimeVal,
             };
 
-            const { id: _fId, ...fPatch } = funcionariosPayload;
-            let fUpdate = await supabase
-              .from('funcionarios')
-              .update(fPatch)
-              .eq('id', targetValidUuid)
-              .select('id');
+            const fPatch: Record<string, any> = { ...funcionariosPayload };
+            delete fPatch.id;
 
-            if (fUpdate.error) {
-              const errStr = (fUpdate.error.message || '').toLowerCase();
-              if (errStr.includes('column') || errStr.includes('schema cache')) {
+            let fUpdate: any = null;
+            for (let attempt = 0; attempt < 8; attempt++) {
+              fUpdate = await supabase
+                .from('funcionarios')
+                .update(fPatch)
+                .eq('id', targetValidUuid)
+                .select('id');
+
+              if (!fUpdate.error) break;
+              const errStr = `${fUpdate.error.message || ''} ${fUpdate.error.details || ''}`.toLowerCase();
+              let removed = false;
+              if (fUpdate.error.code === 'PGRST204' || fUpdate.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                 for (const k of Object.keys(fPatch)) {
-                  if (k !== 'id' && k !== 'nome' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                  if (k !== 'nome' && errStr.includes(k.toLowerCase())) {
                     delete fPatch[k];
+                    removed = true;
                   }
                 }
-                fUpdate = await supabase.from('funcionarios').update(fPatch).eq('id', targetValidUuid).select('id');
               }
+              if (!removed) break;
             }
 
-            if (!fUpdate.data || fUpdate.data.length === 0) {
-              let fUpsert = await supabase.from('funcionarios').upsert(funcionariosPayload, { onConflict: 'id' });
-              if (fUpsert.error) {
-                const errStr = (fUpsert.error.message || '').toLowerCase();
-                if (errStr.includes('column') || errStr.includes('schema cache')) {
-                  const cleanedF = { ...funcionariosPayload };
+            if (!fUpdate?.data || fUpdate.data.length === 0) {
+              const cleanedF: Record<string, any> = { ...funcionariosPayload };
+              for (let attempt = 0; attempt < 8; attempt++) {
+                const fUpsert = await supabase.from('funcionarios').upsert(cleanedF, { onConflict: 'id' });
+                if (!fUpsert.error) break;
+                const errStr = `${fUpsert.error.message || ''} ${fUpsert.error.details || ''}`.toLowerCase();
+                let removed = false;
+                if (fUpsert.error.code === 'PGRST204' || fUpsert.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                   for (const k of Object.keys(cleanedF)) {
-                    if (k !== 'id' && k !== 'nome' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                    if (k !== 'id' && k !== 'nome' && errStr.includes(k.toLowerCase())) {
                       delete cleanedF[k];
+                      removed = true;
                     }
                   }
-                  await supabase.from('funcionarios').upsert(cleanedF, { onConflict: 'id' });
                 }
+                if (!removed) break;
               }
             }
           } catch (fErr) {
             console.warn('[RH Salvar] Aviso ao persistir em public.funcionarios:', fErr);
           }
 
-          // 2. Payload alinhado estritamente com as colunas físicas da tabela public.rh_funcionarios:
+          // 2. Payload alinhado com as colunas da tabela public.rh_funcionarios + envelope de metadados em email:
           const directRow: Record<string, any> = {
             id: targetValidUuid,
             user_id: activeUid,
@@ -2042,6 +2094,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             role: employeeData.role,
             cpf: employeeData.cpf || null,
             phone: employeeData.phone || null,
+            email: metaEmailEnvelope,
             status: employeeData.status || 'ativo',
             registration_type: employeeData.registrationType || 'Funcionário',
             salary: employeeData.salary || 0,
@@ -2049,11 +2102,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             driver_license: employeeData.cnhNumber || null,
             license_category: employeeData.cnhCategory || null,
             license_expiry: employeeData.cnhExpiration || null,
+            comissao_hora: numPerHour,
+            comissao_alqueire: numPerAlq,
+            comissao_hectare: numPerHa,
+            recebe_comissao: finalReceivesCommission,
             // 4 Campos solicitados
-            numero_rg: rgNumero.trim() ? rgNumero.trim().toUpperCase() : null,
-            data_nascimento: formatIsoDateOnly(dataNascimento) || null,
-            numero_pis: pisNumero.trim() ? pisNumero.trim().toUpperCase() : null,
-            regime_contratacao: regimeContratacao.trim() || 'Registrado (CLT)',
+            numero_rg: cleanRgVal,
+            data_nascimento: cleanBirthVal,
+            numero_pis: cleanPisVal,
+            regime_contratacao: cleanRegimeVal,
             // 4 Campos da Seção Rosa
             local_recebimento: cleanLocalRecebimento || null,
             banco_chave_pix: cleanBancoChavePix || null,
@@ -2073,53 +2130,55 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             directRow.company_id = safeCompanyUuid;
           }
 
-          // Atualização / Upsert na tabela public.rh_funcionarios com auto-recuperação
+          // Atualização / Upsert na tabela public.rh_funcionarios com loop de auto-recuperação
           let patchBody = { ...directRow };
           delete patchBody.id;
 
-          let updateRes = await supabase
-            .from('rh_funcionarios')
-            .update(patchBody)
-            .eq('id', targetValidUuid)
-            .eq('user_id', activeUid)
-            .select('id');
+          let updateRes: any = null;
+          for (let attempt = 0; attempt < 10; attempt++) {
+            updateRes = await supabase
+              .from('rh_funcionarios')
+              .update(patchBody)
+              .eq('id', targetValidUuid)
+              .eq('user_id', activeUid)
+              .select('id');
 
-          if (updateRes.error) {
-            const errStr = (updateRes.error.message || '').toLowerCase();
-            if (errStr.includes('column') || errStr.includes('schema cache')) {
+            if (!updateRes.error) break;
+            const errStr = `${updateRes.error.message || ''} ${updateRes.error.details || ''}`.toLowerCase();
+            let removed = false;
+            if (updateRes.error.code === 'PGRST204' || updateRes.error.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
               for (const k of Object.keys(patchBody)) {
-                if (k !== 'id' && k !== 'name' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(k.toLowerCase())) {
                   delete patchBody[k];
+                  removed = true;
                 }
               }
-              updateRes = await supabase
-                .from('rh_funcionarios')
-                .update(patchBody)
-                .eq('id', targetValidUuid)
-                .eq('user_id', activeUid)
-                .select('id');
             }
+            if (!removed) break;
           }
 
-          if (!updateRes.error && Array.isArray(updateRes.data) && updateRes.data.length > 0) {
+          if (!updateRes?.error && Array.isArray(updateRes?.data) && updateRes.data.length > 0) {
             console.info('✅ [RH Salvar] Registro atualizado (PATCH) em public.rh_funcionarios com user_id:', activeUid);
           } else {
             let upsertBody = { ...directRow };
-            let { error: upsertErr } = await supabase
-              .from('rh_funcionarios')
-              .upsert(upsertBody, { onConflict: 'id' });
-
-            if (upsertErr) {
-              const errStr = (upsertErr.message || '').toLowerCase();
-              if (errStr.includes('column') || errStr.includes('schema cache')) {
+            let upsertErr: any = null;
+            for (let attempt = 0; attempt < 10; attempt++) {
+              const resUpsert = await supabase
+                .from('rh_funcionarios')
+                .upsert(upsertBody, { onConflict: 'id' });
+              upsertErr = resUpsert.error;
+              if (!upsertErr) break;
+              const errStr = `${upsertErr.message || ''} ${upsertErr.details || ''}`.toLowerCase();
+              let removed = false;
+              if (upsertErr.code === 'PGRST204' || upsertErr.code === '42703' || errStr.includes('column') || errStr.includes('schema cache')) {
                 for (const k of Object.keys(upsertBody)) {
-                  if (k !== 'id' && k !== 'name' && k !== 'user_id' && errStr.includes(k.toLowerCase())) {
+                  if (k !== 'id' && k !== 'name' && k !== 'user_id' && k !== 'email' && errStr.includes(k.toLowerCase())) {
                     delete upsertBody[k];
+                    removed = true;
                   }
                 }
-                const retryUpsert = await supabase.from('rh_funcionarios').upsert(upsertBody, { onConflict: 'id' });
-                upsertErr = retryUpsert.error;
               }
+              if (!removed) break;
             }
 
             if (upsertErr) {
