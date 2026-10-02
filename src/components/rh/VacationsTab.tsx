@@ -18,13 +18,15 @@ import {
   Truck,
   DollarSign
 } from 'lucide-react';
-import { Employee, VacationRecord, AbsenceRecord, Machinery, Expense } from '../../types';
+import { Employee, VacationRecord, AbsenceRecord, Machinery, Expense, LeaveRecord, CompanyProfile } from '../../types';
 import {
   formatCurrencyBRL,
   formatDateBR,
   getActiveCompanyId,
   saveStoredVacations,
   getStoredAbsences,
+  getStoredLeaves,
+  getStoredCompanyProfile,
   getStoredMachineries,
   getStoredExpenses,
   saveStoredExpenses,
@@ -56,11 +58,14 @@ import {
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
 import { evaluateEmployeeVacationAlert } from '../employees/EmployeesModule';
 import { normalizeNameForComparison } from './vacationHelpers';
+import { openVacationScheduleReport } from './vacationScheduleReport';
 
 interface VacationsTabProps {
   employees: Employee[];
   vacations: VacationRecord[];
   absences?: AbsenceRecord[];
+  leaves?: LeaveRecord[];
+  companyProfile?: CompanyProfile;
   onSaveVacations: (vacations: VacationRecord[]) => void;
   onSaveEmployees?: (employees: Employee[]) => void;
 }
@@ -556,6 +561,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   employees,
   vacations,
   absences: propAbsences,
+  leaves: propLeaves,
+  companyProfile: propCompanyProfile,
   onSaveVacations,
   onSaveEmployees,
 }) => {
@@ -586,6 +593,19 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   const activeAbsences = useMemo(() => {
     return propAbsences && propAbsences.length > 0 ? propAbsences : getStoredAbsences();
   }, [propAbsences]);
+
+  // Disparo do Relatório Contábil Consolidado de Programação de Férias
+  const handleOpenVacationScheduleReport = useCallback(() => {
+    const compProf = propCompanyProfile || getStoredCompanyProfile();
+    const activeLeaves = propLeaves && propLeaves.length > 0 ? propLeaves : getStoredLeaves();
+    openVacationScheduleReport({
+      employees,
+      vacations,
+      absences: activeAbsences,
+      leaves: activeLeaves,
+      companyProfile: compProf,
+    });
+  }, [employees, vacations, activeAbsences, propLeaves, propCompanyProfile]);
 
   // 1. Busca dinâmica de salário base real em public.funcionarios (e rh_funcionarios)
   const [contractualSalaries, setContractualSalaries] = useState<Map<string, number>>(new Map());
@@ -2170,14 +2190,26 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => handleOpenModal()}
-          className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Programar Férias</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handleOpenVacationScheduleReport}
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-[#1e293b] hover:bg-[#0f172a] text-white dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-100 border border-slate-700/80 font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+            title="Relatório de Programação de Férias (Padrão Contábil Oficial)"
+          >
+            <Printer className="w-3.5 h-3.5 text-blue-300" />
+            <span>Relatório de Programação</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenModal()}
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Programar Férias</span>
+          </button>
+        </div>
       </div>
 
       {/* Quick Summary KPIs (6 Cards Simétricos e Proporcionais com Backgrounds Pastéis) */}
