@@ -9535,8 +9535,12 @@ export async function saveCloudVacations(vacations: VacationRecord[], companyId?
 /**
  * Carrega as Férias dos colaboradores da nuvem (Supabase: rh_ferias + site_settings)
  */
-export async function fetchCloudVacations(companyId?: string): Promise<VacationRecord[] | null> {
-  if (!isSupabaseConfigured) return null;
+export async function fetchCloudVacations(
+  companyId?: string,
+  employeeId?: string,
+  userId?: string
+): Promise<VacationRecord[] | null> {
+  if (!isSupabaseConfigured) return [];
   try {
     const cId = companyId || getActiveCompanyId();
     const map = new Map<string, VacationRecord>();
@@ -9544,71 +9548,78 @@ export async function fetchCloudVacations(companyId?: string): Promise<VacationR
 
     // 1. Busca prioritária na tabela relacional public.rh_ferias
     try {
-      const { data: relRows, error: relErr } = await supabase
-        .from('rh_ferias')
-        .select('*')
-        .eq('company_id', cId)
-        .order('updated_at', { ascending: false });
+      const validCompanyUuid = toValidUUID(cId);
+      const validEmpUuid = employeeId ? toValidUUID(employeeId) : null;
+      let query = supabase.from('rh_ferias').select('*');
+
+      // Filtragem por funcionário ativo se fornecido
+      if (validEmpUuid) {
+        query = query.or(`funcionario_id.eq.${validEmpUuid},employee_id.eq.${validEmpUuid}`);
+      } else if (validCompanyUuid && validCompanyUuid === cId) {
+        query = query.eq('company_id', validCompanyUuid);
+      }
+
+      // Isolamento por usuário autenticado se fornecido
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      // Executa sem forçar ordenações que causem 400 se updated_at não existir
+      const { data: relRows, error: relErr } = await query;
 
       if (!relErr && Array.isArray(relRows)) {
         foundInRelational = true;
         for (const r of relRows) {
           const mapped = mapRowToVacationRecord(r);
-          // 3. LIMPEZA DE REGISTROS DE FÉRIAS ÓRFÃOS OU DUPLICADOS:
-          // Ignora registros de funcionários inexistentes ou incompletos (como o antigo 'Alisson Pag' sem CPF)
           if (
             mapped &&
             mapped.status !== 'cancelado' &&
-            mapped.id !== 'vac_alisson_pag_01' &&
-            mapped.employeeId !== 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' &&
-            (mapped.employeeName || '').trim().toUpperCase() !== 'ALISSON PAG'
+            mapped.id !== 'vac_alisson_pag_01'
           ) {
             map.set(mapped.id, mapped);
           }
         }
       }
-
-      // Limpeza assíncrona garantida no Supabase de registros fantasmas/órfãos conhecidos
-      try {
-        supabase.from('rh_ferias').delete().in('id', ['vac_alisson_pag_01', 'ab80e2fa-5094-43b3-83bf-c34047bf1b42']).then(() => {});
-        supabase.from('rh_ferias').delete().eq('employee_id', 'ab80e2fa-5094-43b3-83bf-c34047bf1b42').then(() => {});
-      } catch (_) {}
-    } catch {}
+    } catch {
+      // Falha silenciosa para não poluir o console
+    }
 
     // 2. Só recorre a site_settings caso a tabela relacional não esteja acessível ou vazia
     if (!foundInRelational || map.size === 0) {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('hero_title')
-        .eq('id', `cloud_vacations_${cId}`)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('hero_title')
+          .eq('id', `cloud_vacations_${cId}`)
+          .maybeSingle();
 
-      if (!error && data?.hero_title) {
-        try {
-          const parsed = JSON.parse(data.hero_title);
-          if (Array.isArray(parsed)) {
-            for (const item of parsed as VacationRecord[]) {
-              if (
-                item &&
-                item.status !== 'cancelado' &&
-                item.id !== 'vac_alisson_pag_01' &&
-                item.employeeId !== 'ab80e2fa-5094-43b3-83bf-c34047bf1b42' &&
-                (item.employeeName || '').trim().toUpperCase() !== 'ALISSON PAG'
-              ) {
-                const normId = toValidUUID(item.id);
-                if (!map.has(normId)) {
-                  map.set(normId, { ...item, id: normId, companyId: cId });
+        if (!error && data?.hero_title) {
+          try {
+            const parsed = JSON.parse(data.hero_title);
+            if (Array.isArray(parsed)) {
+              for (const item of parsed as VacationRecord[]) {
+                if (item && item.status !== 'cancelado' && item.id !== 'vac_alisson_pag_01') {
+                  const normId = toValidUUID(item.id);
+                  if (employeeId) {
+                    const normEmpId = toValidUUID(employeeId);
+                    if (toValidUUID(item.employeeId) !== normEmpId && item.employeeId !== employeeId) {
+                      continue;
+                    }
+                  }
+                  if (!map.has(normId)) {
+                    map.set(normId, { ...item, id: normId, companyId: cId });
+                  }
                 }
               }
             }
-          }
-        } catch {}
-      }
+          } catch {}
+        }
+      } catch {}
     }
 
-    return map.size > 0 ? Array.from(map.values()) : null;
+    return map.size > 0 ? Array.from(map.values()) : [];
   } catch (e) {
-    return null;
+    return [];
   }
 }
 

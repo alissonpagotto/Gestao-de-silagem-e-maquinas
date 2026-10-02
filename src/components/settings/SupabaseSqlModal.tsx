@@ -563,6 +563,27 @@ DROP POLICY IF EXISTS "Public Access Avatars" ON storage.objects;
 CREATE POLICY "Public Access Avatars" ON storage.objects 
 FOR ALL USING (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios', 'documentos')) 
 WITH CHECK (bucket_id IN ('avatars', 'rh_fotos', 'fotos', 'funcionarios', 'documentos'));
+
+-- Tabela oficial de Férias e Afastamentos (rh_ferias)
+CREATE TABLE IF NOT EXISTS public.rh_ferias (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    company_id TEXT,
+    funcionario_id TEXT,
+    employee_id TEXT,
+    status TEXT DEFAULT 'agendado',
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.rh_ferias ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Total rh_ferias" ON public.rh_ferias;
+CREATE POLICY "Permissao Total rh_ferias" ON public.rh_ferias
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;

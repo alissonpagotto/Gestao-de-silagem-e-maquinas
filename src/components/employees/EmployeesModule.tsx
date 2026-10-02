@@ -724,6 +724,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
+  // Identificador do funcionário ativo selecionado para edição (primitivo estável para controle de loops)
+  const activeEmployeeId = editingEmployee?.id ? String(editingEmployee.id) : null;
+
   useEffect(() => {
     if (employees) {
       setLocalEmployees(employees);
@@ -736,42 +739,128 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     }
   }, [propVacations]);
 
-  // Gatilho de verificação em background para sincronizar férias (rh_ferias) do Supabase
+  // 1. Estancar o Loop do useEffect para Férias/Afastamentos do Funcionário Selecionado no Modal:
+  // Hook controlado com dependência direta no ID do funcionário ativo (activeEmployeeId) e no estado do modal (isModalOpen).
+  // Limpa ouvintes e impede loop infinito de requisições ao Supabase enquanto o modal estiver aberto.
+  const lastFetchedEmployeeVacIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Se o modal estiver fechado ou não houver funcionário selecionado, reseta o ref de controle e encerra
+    if (!isModalOpen || !activeEmployeeId || !isSupabaseConfigured) {
+      if (!isModalOpen) {
+        lastFetchedEmployeeVacIdRef.current = null;
+      }
+      return;
+    }
+
+    // Se já carregou para o mesmo funcionário ativo enquanto o modal está aberto, estanca o loop
+    if (lastFetchedEmployeeVacIdRef.current === activeEmployeeId) {
+      return;
+    }
+
+    let isMounted = true;
+    lastFetchedEmployeeVacIdRef.current = activeEmployeeId;
+    const companyId = activeCompany?.id || getActiveCompanyId();
+    const activeUid = currentUser?.id;
+
+    // Busca específica das informações de férias/afastamento do funcionário selecionado
+    fetchCloudVacations(companyId, activeEmployeeId, activeUid)
+      .then((cloudVacations) => {
+        if (!isMounted) return;
+        // 2. Validação de Resposta do Banco:
+        // Se a consulta retornar vazia ou der erro, trata o estado local como um array vazio [] de forma silenciosa
+        if (Array.isArray(cloudVacations) && cloudVacations.length > 0) {
+          setLocalVacations(prev => {
+            const currentList = Array.isArray(prev) ? prev : [];
+            const otherEmployeesVacs = currentList.filter(
+              v => v.employeeId !== activeEmployeeId && toValidUUID(v.employeeId) !== toValidUUID(activeEmployeeId)
+            );
+            const merged = [...otherEmployeesVacs, ...cloudVacations];
+            saveStoredVacations(merged);
+            return merged;
+          });
+        } else {
+          // Trata silenciosamente como array vazio [] para o funcionário ativo
+          setLocalVacations(prev => {
+            const currentList = Array.isArray(prev) ? prev : [];
+            return currentList.filter(
+              v => v.employeeId !== activeEmployeeId && toValidUUID(v.employeeId) !== toValidUUID(activeEmployeeId)
+            );
+          });
+        }
+      })
+      .catch(() => {
+        // Falha tratada de forma silenciosa para não poluir o console
+        if (isMounted) {
+          setLocalVacations(prev => {
+            const currentList = Array.isArray(prev) ? prev : [];
+            return currentList.filter(
+              v => v.employeeId !== activeEmployeeId && toValidUUID(v.employeeId) !== toValidUUID(activeEmployeeId)
+            );
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isModalOpen, activeEmployeeId, activeCompany?.id, currentUser?.id]);
+
+  // Gatilho de verificação em background para sincronizar férias (rh_ferias) do Supabase (uma única vez)
+  const hasInitialVacSyncRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
     const companyId = activeCompany?.id || getActiveCompanyId();
+    const activeUid = currentUser?.id;
 
-    fetchCloudVacations(companyId)
-      .then((cloudVacations) => {
-        if (isMounted && Array.isArray(cloudVacations) && cloudVacations.length > 0) {
-          setLocalVacations(cloudVacations);
-          saveStoredVacations(cloudVacations);
-        }
-      })
-      .catch(() => {});
-
-    const vacChannel = supabase
-      .channel(`emp_vac_alerts_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rh_ferias' },
-        (payload: any) => {
+    if (!hasInitialVacSyncRef.current) {
+      hasInitialVacSyncRef.current = true;
+      fetchCloudVacations(companyId, undefined, activeUid)
+        .then((cloudVacations) => {
           if (!isMounted) return;
-          if (payload.eventType === 'DELETE' && payload.old?.id) {
-            setLocalVacations(prev => prev.filter(v => v.id !== payload.old.id && toValidUUID(v.id) !== payload.old.id));
-          } else if (payload.new) {
-            const mapped = mapRowToVacationRecord(payload.new);
-            setLocalVacations(prev => {
-              const exists = prev.some(v => v.id === mapped.id || toValidUUID(v.id) === mapped.id);
-              return exists
-                ? prev.map(v => (v.id === mapped.id || toValidUUID(v.id) === mapped.id ? { ...v, ...mapped } : v))
-                : [mapped, ...prev];
-            });
+          // 2. Validação de Resposta do Banco:
+          // Se a consulta retornar vazia ou der erro, trata o estado local como um array vazio [] de forma silenciosa
+          if (Array.isArray(cloudVacations) && cloudVacations.length > 0) {
+            setLocalVacations(cloudVacations);
+            saveStoredVacations(cloudVacations);
+          } else {
+            setLocalVacations([]);
           }
-        }
-      )
-      .subscribe();
+        })
+        .catch(() => {
+          if (isMounted) {
+            setLocalVacations([]);
+          }
+        });
+    }
+
+    let vacChannel: any = null;
+    try {
+      const channelId = `emp_vac_alerts_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      vacChannel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rh_ferias' },
+          (payload: any) => {
+            if (!isMounted) return;
+            if (payload.eventType === 'DELETE' && payload.old?.id) {
+              setLocalVacations(prev => prev.filter(v => v.id !== payload.old.id && toValidUUID(v.id) !== payload.old.id));
+            } else if (payload.new) {
+              const mapped = mapRowToVacationRecord(payload.new);
+              setLocalVacations(prev => {
+                const exists = prev.some(v => v.id === mapped.id || toValidUUID(v.id) === mapped.id);
+                return exists
+                  ? prev.map(v => (v.id === mapped.id || toValidUUID(v.id) === mapped.id ? { ...v, ...mapped } : v))
+                  : [mapped, ...prev];
+              });
+            }
+          }
+        )
+        .subscribe();
+    } catch (_) {}
 
     const handleLocalVacationMutation = (e: any) => {
       const incoming = e?.detail?.vacation as VacationRecord | undefined;
@@ -790,9 +879,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     return () => {
       isMounted = false;
       window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
-      supabase.removeChannel(vacChannel);
+      if (vacChannel) {
+        try {
+          supabase.removeChannel(vacChannel);
+        } catch (_) {}
+      }
     };
-  }, [activeCompany?.id]);
+  }, [activeCompany?.id, currentUser?.id]);
 
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com isolamento estrito
   useEffect(() => {
