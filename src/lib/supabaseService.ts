@@ -10502,10 +10502,12 @@ export function buildRhFolhaPagamentoRow(
 
   const inssFloat = parseFloat(String(p.inssDiscount ?? 0)) || 0;
   const irrfFloat = parseFloat(String((p as any).irrfDiscount ?? (p as any).irrf ?? 0)) || 0;
-  const advancesFloat = parseFloat(String(p.advancesDiscount ?? 0)) || 0;
-  const otherDiscountsFloat = parseFloat(String(p.otherDiscounts ?? 0)) || 0;
-  const valesDescontosFloat = advancesFloat + otherDiscountsFloat;
-  const totalDescontosFloat = inssFloat + irrfFloat + valesDescontosFloat;
+  const totalValesFloat = parseFloat(String((p as any).total_vales ?? (p as any).totalVales ?? p.advancesDiscount ?? 0)) || 0;
+  const totalFaltasFloat = parseFloat(String((p as any).total_faltas ?? (p as any).totalFaltas ?? p.otherDiscounts ?? 0)) || 0;
+  const advancesFloat = totalValesFloat;
+  const otherDiscountsFloat = totalFaltasFloat;
+  const valesDescontosFloat = totalValesFloat; // Estritamente adiantamentos/vales reais
+  const totalDescontosFloat = inssFloat + irrfFloat + totalValesFloat + totalFaltasFloat;
 
   const rawNetFloat = parseFloat(String(p.netSalary ?? (proventosFloat - totalDescontosFloat))) || 0;
   const netSalaryFloat = Math.max(0, rawNetFloat);
@@ -10555,12 +10557,14 @@ export function buildRhFolhaPagamentoRow(
   if (activeCols.has('desconto_irrf')) fullCandidate.desconto_irrf = irrfFloat;
   if (activeCols.has('irrf_discount')) fullCandidate.irrf_discount = irrfFloat;
 
-  // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts')
+  // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts', 'total_vales', 'total_faltas')
   if (activeCols.has('deducoes')) fullCandidate.deducoes = totalDescontosFloat;
-  if (activeCols.has('vales_descontos')) fullCandidate.vales_descontos = valesDescontosFloat;
+  if (activeCols.has('vales_descontos')) fullCandidate.vales_descontos = totalValesFloat;
   if (activeCols.has('total_descontos')) fullCandidate.total_descontos = totalDescontosFloat;
-  if (activeCols.has('advances_discount')) fullCandidate.advances_discount = advancesFloat;
-  if (activeCols.has('other_discounts')) fullCandidate.other_discounts = otherDiscountsFloat;
+  if (activeCols.has('advances_discount')) fullCandidate.advances_discount = totalValesFloat;
+  if (activeCols.has('other_discounts')) fullCandidate.other_discounts = totalFaltasFloat;
+  if (activeCols.has('total_vales')) fullCandidate.total_vales = totalValesFloat;
+  if (activeCols.has('total_faltas')) fullCandidate.total_faltas = totalFaltasFloat;
 
   // 8. Líquido a Pagar ('liquido_a_pagar', 'valor_liquido', 'net_salary', 'salario_liquido')
   if (activeCols.has('liquido_a_pagar')) fullCandidate.liquido_a_pagar = netSalaryFloat;
@@ -10589,7 +10593,15 @@ export function buildRhFolhaPagamentoRow(
     salario_base: baseSalaryFloat,
     proventos: proventosFloat,
     inss: inssFloat,
-    vales_descontos: valesDescontosFloat,
+    irrf: irrfFloat,
+    vales_descontos: totalValesFloat,
+    advances_discount: totalValesFloat,
+    other_discounts: totalFaltasFloat,
+    total_vales: totalValesFloat,
+    total_faltas: totalFaltasFloat,
+    totalVales: totalValesFloat,
+    totalFaltas: totalFaltasFloat,
+    totalFaltasRef: p.totalFaltasRef || (p.payload && p.payload.totalFaltasRef) || (p.payload && p.payload.total_faltas_ref) || undefined,
     deducoes: totalDescontosFloat,
     liquido_a_pagar: netSalaryFloat,
   };
@@ -10619,11 +10631,14 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
   const baseSalary = parseFloat(String(row.salario_base ?? row.base_salary ?? p.baseSalary ?? 0)) || 0;
   const inss = parseFloat(String(row.inss ?? row.desconto_inss ?? row.inss_discount ?? p.inssDiscount ?? 0)) || 0;
   const irrf = parseFloat(String(row.irrf ?? row.desconto_irrf ?? row.irrf_discount ?? p.irrfDiscount ?? 0)) || 0;
-  const vales = parseFloat(String(row.vales_descontos ?? row.advances_discount ?? p.advancesDiscount ?? 0)) || 0;
-  const rawDeducoes = parseFloat(String(row.deducoes ?? row.total_descontos ?? row.other_discounts ?? p.otherDiscounts ?? (inss + irrf + vales))) || 0;
-  const otherDiscounts = row.other_discounts !== undefined 
-    ? parseFloat(String(row.other_discounts)) || 0 
-    : Math.max(0, rawDeducoes - inss - irrf - vales);
+  
+  // Total exclusivo de vales e adiantamentos (Rubrica 110)
+  const totalVales = parseFloat(String(p.total_vales ?? p.totalVales ?? row.total_vales ?? p.advancesDiscount ?? row.advances_discount ?? row.vales_descontos ?? 0)) || 0;
+  // Total exclusivo de faltas e atrasos integrados (Rubrica 201)
+  const totalFaltas = parseFloat(String(p.total_faltas ?? p.totalFaltas ?? row.total_faltas ?? p.otherDiscounts ?? row.other_discounts ?? 0)) || 0;
+  
+  const rawDeducoes = parseFloat(String(row.deducoes ?? row.total_descontos ?? (inss + irrf + totalVales + totalFaltas))) || (inss + irrf + totalVales + totalFaltas);
+  const otherDiscounts = totalFaltas;
   const net = parseFloat(String(row.liquido_a_pagar ?? row.valor_liquido ?? row.net_salary ?? row.salario_liquido ?? p.netSalary ?? 0)) || 0;
 
   return {
@@ -10647,8 +10662,10 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     daysWorked: p.daysWorked,
     unworkedDays: p.unworkedDays,
     isProportional: p.isProportional,
-    advancesDiscount: vales,
+    advancesDiscount: totalVales,
     otherDiscounts,
+    totalVales,
+    totalFaltas,
     deductionItems: Array.isArray(p.deductionItems) ? p.deductionItems : [],
     netSalary: net,
     status: row.status || p.status || 'pendente',

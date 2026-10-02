@@ -1145,6 +1145,9 @@ export interface PayrollRecord {
   isProportional?: boolean;
   advancesDiscount: number; // Vales e adiantamentos descontados
   otherDiscounts: number; // Faltas, atrasos, convênios
+  totalVales?: number; // Total isolado exclusivo de adiantamentos salariais e vales (Rubrica 110)
+  totalFaltas?: number; // Total isolado exclusivo de faltas e atrasos integrados (Rubrica 201)
+  totalFaltasRef?: string; // Quantidade acumulada de faltas (ex: '3d' ou '24h') (Rubrica 201)
   deductionItems?: PayrollDeductionItem[];
   netSalary: number;
   status: 'pendente' | 'pago' | 'integrado' | 'lancado' | string;
