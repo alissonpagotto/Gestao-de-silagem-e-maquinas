@@ -1178,14 +1178,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     };
   }, [currentUser?.id, onSaveEmployees]);
 
-  const cnhReport = checkCnhStatus(localEmployees);
+  const cnhReport = checkCnhStatus(Array.isArray(localEmployees) ? localEmployees : []);
 
   // Lista de colaboradores deduplicada por id e ordenada de A a Z pelo nome
   const filteredEmployees = useMemo(() => {
     // 1. Deduplicação para garantir integridade caso venham registros duplicados
     const seen = new Set<string>();
     const deduplicated: Employee[] = [];
-    for (const emp of localEmployees) {
+    const safeList = Array.isArray(localEmployees) ? localEmployees : [];
+    for (const emp of safeList) {
       if (!emp || !emp.name || emp.name.trim() === '') continue;
       const st = String(emp.status || '').toLowerCase();
       if (st === 'excluido' || st === 'inativo' || emp.active === false) continue;

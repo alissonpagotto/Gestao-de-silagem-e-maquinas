@@ -302,14 +302,6 @@ export async function deleteFornecedor(id: string, companyId?: string): Promise<
     return false;
   }
 }
-      await retry;
-    }
-    return true;
-  } catch (err) {
-    console.warn('Supabase deleteFornecedor err:', err);
-    return false;
-  }
-}
 
 // ===========================================================================
 // 2. Notas Fiscais (Tabela: public.notas_fiscais)
@@ -9559,10 +9551,6 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
         try {
           await supabase.from('frotas_manutencoes').upsert(rows, { onConflict: 'id' });
         } catch (_) {}
-
-        try {
-          await supabase.from('manutencoes').upsert(rows, { onConflict: 'id' });
-        } catch (_) {}
       }
     } catch (_) {}
 
@@ -9616,10 +9604,6 @@ export async function upsertCloudMaintenanceLog(log: MaintenanceLog, companyId?:
 
     try {
       await supabase.from('frotas_manutencoes').upsert(row, { onConflict: 'id' });
-    } catch (_) {}
-
-    try {
-      await supabase.from('manutencoes').upsert(row, { onConflict: 'id' });
     } catch (_) {}
 
     return true;
@@ -9690,23 +9674,7 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
       }
     } catch (_) {}
 
-    // 2. Fallback na tabela física 'manutencoes' com filtro por user_id
-    try {
-      let query = supabase.from('manutencoes').select('*');
-      if (currentUserId) {
-        query = query.eq('user_id', currentUserId);
-      }
-      const { data: relData, error: relErr } = await query;
-      if (!relErr && Array.isArray(relData) && relData.length > 0) {
-        for (const r of relData) {
-          const item = mapRowToMaintenanceLog(r);
-          if (item.id) map.set(item.id, item);
-        }
-        return Array.from(map.values());
-      }
-    } catch (_) {}
-
-    // 3. Fallback no espelho de site_settings
+    // 2. Fallback no espelho de site_settings
     try {
       const { data, error } = await supabase
         .from('site_settings')
@@ -9758,15 +9726,7 @@ export async function deleteCloudMaintenanceLog(
       }
     } catch (_) {}
 
-    // 2. Exclui de manutencoes
-    try {
-      await supabase.from('manutencoes').delete().eq('id', uuid);
-      if (ordemId !== uuid) {
-        await supabase.from('manutencoes').delete().eq('id', ordemId);
-      }
-    } catch (_) {}
-
-    // 3. Limpeza imediata no espelho de persistência em site_settings (cloud_maintenance_${cId})
+    // 2. Limpeza imediata no espelho de persistência em site_settings (cloud_maintenance_${cId})
     const cId = companyId || getActiveCompanyId();
     try {
       const { data: ssData } = await supabase
@@ -9842,21 +9802,7 @@ export async function fetchCloudBankAccounts(companyId?: string, userId?: string
       }
     } catch (_) {}
 
-    // 2. Fallback na tabela legada 'contas_bancarias'
-    try {
-      let query = supabase.from('contas_bancarias').select('*');
-      if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-      const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
-        data.forEach(r => {
-          const acc = mapRowToBankAccount(r);
-          if (acc.id) map.set(acc.id, acc);
-        });
-        return Array.from(map.values());
-      }
-    } catch (_) {}
-
-    // 3. Fallback no espelho de site_settings
+    // 2. Fallback no espelho de site_settings
     try {
       const { data: ssData } = await supabase
         .from('site_settings')
@@ -9967,10 +9913,6 @@ export async function upsertContaBancaria(account: BankAccount, companyId?: stri
       await supabase.from('financeiro_contas').upsert(payload, { onConflict: 'id' });
     } catch (_) {}
 
-    try {
-      await supabase.from('contas_bancarias').upsert(payload, { onConflict: 'id' });
-    } catch (_) {}
-
     return true;
   } catch (err) {
     console.warn('Erro ao salvar conta bancária no Supabase:', err);
@@ -9986,12 +9928,6 @@ export async function deleteContaBancaria(id: string, companyId?: string): Promi
 
     try {
       let query = supabase.from('financeiro_contas').delete().eq('id', uuid);
-      if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-      await query;
-    } catch (_) {}
-
-    try {
-      let query = supabase.from('contas_bancarias').delete().eq('id', uuid);
       if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
       await query;
     } catch (_) {}

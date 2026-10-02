@@ -171,11 +171,6 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           await supabase.from('frotas_manutencoes').delete().eq('id', ordemId);
         }
 
-        // Fallback complementar na tabela legada manutencoes
-        try {
-          await supabase.from('manutencoes').delete().eq('id', ordemId);
-        } catch (_) {}
-
         // Limpeza de contingência no espelho site_settings para que F5 não ressuscite a OS
         await deleteCloudMaintenanceLog(ordemId, currentUserId, cId);
 

@@ -280,21 +280,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sincronização em tempo real com ordens de serviço de silagem
-  const [internalServices, setInternalServices] = useState<ServiceOrder[]>(() => services || getStoredServices());
+  const [internalServices, setInternalServices] = useState<ServiceOrder[]>(() => 
+    Array.isArray(services) ? services : (Array.isArray(getStoredServices()) ? getStoredServices() : [])
+  );
 
   useEffect(() => {
-    if (services) {
-      setInternalServices(services);
-    }
+    setInternalServices(Array.isArray(services) ? services : (Array.isArray(getStoredServices()) ? getStoredServices() : []));
   }, [services]);
 
   // Sincronização em tempo real com registros de faltas
-  const [internalAbsences, setInternalAbsences] = useState<AbsenceRecord[]>(() => absences || getStoredAbsences());
+  const [internalAbsences, setInternalAbsences] = useState<AbsenceRecord[]>(() => 
+    Array.isArray(absences) ? absences : (Array.isArray(getStoredAbsences()) ? getStoredAbsences() : [])
+  );
 
   useEffect(() => {
-    if (absences) {
-      setInternalAbsences(absences);
-    }
+    setInternalAbsences(Array.isArray(absences) ? absences : (Array.isArray(getStoredAbsences()) ? getStoredAbsences() : []));
   }, [absences]);
 
   useEffect(() => {
@@ -302,14 +302,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       if (e?.detail && Array.isArray(e.detail)) {
         setInternalServices(e.detail);
       } else {
-        setInternalServices(getStoredServices());
+        const stored = getStoredServices();
+        setInternalServices(Array.isArray(stored) ? stored : []);
       }
     };
     const handleAbsencesUpdate = (e: any) => {
       if (e?.detail && Array.isArray(e.detail)) {
         setInternalAbsences(e.detail);
       } else {
-        setInternalAbsences(getStoredAbsences());
+        const stored = getStoredAbsences();
+        setInternalAbsences(Array.isArray(stored) ? stored : []);
       }
     };
     window.addEventListener('silagem_services_updated', handleServicesUpdate);
@@ -330,9 +332,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   );
 
   useEffect(() => {
-    if (payrolls) {
-      setLocalPayrolls(Array.isArray(payrolls) ? payrolls : []);
-    }
+    setLocalPayrolls(Array.isArray(payrolls) ? payrolls : []);
   }, [payrolls]);
 
   // Carga inicial das folhas de pagamento diretamente da nuvem (tabela public.rh_folhas_pagamento)
