@@ -511,90 +511,90 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         id="top-summary-cards-row" 
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 w-full"
       >
-        {/* Card 1: DESPESAS DO MÊS */}
+        {/* Card 1: DESPESAS DO MÊS (1. Despesas - Vermelho Pastel) */}
         <div 
           id="stat-card-despesas-mes"
           onClick={() => onNavigate('despesas')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
+          className="crm-card bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-red-300 dark:hover:border-red-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-red-600 dark:text-red-400 uppercase block">
               DESPESAS DO MÊS
             </span>
             <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {formatCurrencyBRL(currentMonthTotal)}
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate">
               {currentMonthCount} lançamentos
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-red-200/80 dark:border-red-900/50 flex items-center justify-center text-zinc-700 dark:text-stone-200 group-hover:text-red-600 dark:group-hover:text-red-400 shadow-2xs group-hover:scale-105 transition shrink-0">
             <ArrowDownRight className="w-4 h-4 stroke-[2.5]" />
           </div>
         </div>
 
-        {/* Card 2: TOTAL DESPESAS */}
+        {/* Card 2: TOTAL DESPESAS (1. Despesas - Vermelho Pastel) */}
         <div 
           id="stat-card-total-despesas"
           onClick={() => onNavigate('despesas')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
+          className="crm-card bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-red-300 dark:hover:border-red-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-red-600 dark:text-red-400 uppercase block">
               TOTAL DESPESAS
             </span>
             <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {formatCurrencyBRL(totalExpensesAmount)}
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate">
               {totalExpensesCount} registros
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-red-200/80 dark:border-red-900/50 flex items-center justify-center text-zinc-700 dark:text-stone-200 group-hover:text-red-600 dark:group-hover:text-red-400 shadow-2xs group-hover:scale-105 transition shrink-0">
             <DollarSign className="w-4 h-4 stroke-[2.5]" />
           </div>
         </div>
 
-        {/* Card 3: CLIENTES */}
+        {/* Card 3: CLIENTES (3. Clientes - Verde Pastel) */}
         <div 
           id="stat-card-clientes"
           onClick={() => onNavigate('clientes')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
+          className="crm-card bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-green-300 dark:hover:border-green-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-green-600 dark:text-green-400 uppercase block">
               CLIENTES
             </span>
             <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {clientsCount}
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate">
               {clientsCount} cadastrados
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-green-200/80 dark:border-green-900/50 flex items-center justify-center text-zinc-700 dark:text-stone-200 group-hover:text-green-600 dark:group-hover:text-green-400 shadow-2xs group-hover:scale-105 transition shrink-0">
             <Users className="w-4 h-4 stroke-[2.2]" />
           </div>
         </div>
 
-        {/* Card 4: FROTAS */}
+        {/* Card 4: FROTAS (4. Frotas - Índigo/Roxo Pastel) */}
         <div 
           id="stat-card-frotas"
           onClick={() => onNavigate('frotas')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
+          className="crm-card bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase block">
               FROTAS
             </span>
             <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-white font-['Outfit'] leading-tight truncate">
               {machineriesCount}
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate">
               {operatorsCount} motoristas/operadores
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 flex items-center justify-center text-zinc-700 dark:text-stone-300 shadow-2xs group-hover:scale-105 transition shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-indigo-200/80 dark:border-indigo-900/50 flex items-center justify-center text-zinc-700 dark:text-stone-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 shadow-2xs group-hover:scale-105 transition shrink-0">
             <Tractor className="w-4 h-4 stroke-[2.2]" />
           </div>
         </div>
@@ -606,90 +606,90 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 w-full"
       >
         
-        {/* Card 1: Despesas / Lançamentos */}
+        {/* Card 1: Despesas / Lançamentos (1. Despesas - Vermelho Pastel) */}
         <button 
           id="shortcut-card-despesas"
           onClick={() => onNavigate('despesas')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
+          className="crm-card bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-red-300 dark:hover:border-red-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-red-600 dark:text-red-400 uppercase block">
               Despesas
             </span>
             <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Lançamentos
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate mt-0.5">
               {formatCurrencyBRL(currentMonthTotal)} ({currentMonthCount})
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-red-200/80 dark:border-red-900/50 text-zinc-700 dark:text-stone-200 group-hover:text-red-600 dark:group-hover:text-red-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <Receipt className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
 
-        {/* Card 2: Serviços / Ensilagem */}
+        {/* Card 2: Serviços / Ensilagem (2. Operação & Serviços - Azul Pastel) */}
         <button 
           id="shortcut-card-servicos"
           onClick={() => onNavigate('servicos')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
+          className="crm-card bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-blue-300 dark:hover:border-blue-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-blue-600 dark:text-blue-400 uppercase block">
               Serviços
             </span>
             <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Ensilagem
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate mt-0.5">
               {services.length} ordens de corte
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-blue-200/80 dark:border-blue-900/50 text-zinc-700 dark:text-stone-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <Tractor className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
 
-        {/* Card 3: Estoque / Insumos */}
+        {/* Card 3: Estoque / Insumos (5. Estoque - Laranja/Âmbar Pastel) */}
         <button 
           id="shortcut-card-estoque"
           onClick={() => onNavigate('estoque')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
+          className="crm-card bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-amber-300 dark:hover:border-amber-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-amber-600 dark:text-amber-400 uppercase block">
               Estoque
             </span>
             <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Insumos
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate mt-0.5">
               {inventory.length} itens controlados
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-amber-200/80 dark:border-amber-900/50 text-zinc-700 dark:text-stone-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
 
-        {/* Card 4: Clientes / Produtores */}
+        {/* Card 4: Clientes / Produtores (3. Clientes - Verde Pastel) */}
         <button 
           id="shortcut-card-clientes"
           onClick={() => onNavigate('clientes')}
-          className="crm-card bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-zinc-300 dark:hover:border-stone-700 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
+          className="crm-card bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/40 rounded-xl p-2 sm:p-2.5 shadow-xs hover:border-green-300 dark:hover:border-green-800 hover:shadow-sm transition flex items-center justify-between cursor-pointer group text-zinc-900 dark:text-white text-left w-full"
         >
           <div className="min-w-0 pr-1.5">
-            <span className="text-[9px] font-bold tracking-wider text-zinc-500 dark:text-stone-400 uppercase block">
+            <span className="text-[9px] font-bold tracking-wider text-green-600 dark:text-green-400 uppercase block">
               Clientes
             </span>
             <div className="text-xs sm:text-sm font-black text-zinc-900 dark:text-white font-['Outfit'] truncate leading-tight">
               Produtores
             </div>
-            <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400 block truncate mt-0.5">
+            <span className="text-[10px] font-semibold text-zinc-600 dark:text-stone-300 block truncate mt-0.5">
               {clientsCount} cadastrados
             </span>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-stone-800 border border-zinc-200/80 dark:border-stone-700 text-zinc-700 dark:text-stone-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/80 dark:bg-stone-800/90 border border-green-200/80 dark:border-green-900/50 text-zinc-700 dark:text-stone-200 group-hover:text-green-600 dark:group-hover:text-green-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition shadow-2xs">
             <Users className="w-4 h-4 stroke-[2.2]" />
           </div>
         </button>
