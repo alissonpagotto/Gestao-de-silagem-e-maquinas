@@ -775,9 +775,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             const otherEmployeesVacs = currentList.filter(
               v => v.employeeId !== activeEmployeeId && toValidUUID(v.employeeId) !== toValidUUID(activeEmployeeId)
             );
-            const merged = [...otherEmployeesVacs, ...cloudVacations];
-            saveStoredVacations(merged);
-            return merged;
+            return [...otherEmployeesVacs, ...cloudVacations];
           });
         } else {
           // Trata silenciosamente como array vazio [] para o funcionário ativo
@@ -804,7 +802,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isModalOpen, activeEmployeeId, activeCompany?.id, currentUser?.id]);
+  }, [isModalOpen, activeEmployeeId]);
 
   // Gatilho de verificação em background para sincronizar férias (rh_ferias) do Supabase (uma única vez)
   const hasInitialVacSyncRef = useRef<boolean>(false);
@@ -824,7 +822,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           // Se a consulta retornar vazia ou der erro, trata o estado local como um array vazio [] de forma silenciosa
           if (Array.isArray(cloudVacations) && cloudVacations.length > 0) {
             setLocalVacations(cloudVacations);
-            saveStoredVacations(cloudVacations);
           } else {
             setLocalVacations([]);
           }
@@ -885,7 +882,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         } catch (_) {}
       }
     };
-  }, [activeCompany?.id, currentUser?.id]);
+  }, []);
 
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com isolamento estrito
   useEffect(() => {

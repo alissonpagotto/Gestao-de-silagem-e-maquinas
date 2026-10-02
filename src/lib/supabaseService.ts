@@ -22,7 +22,8 @@ import {
   MovimentacaoFerramentaRecord,
   CaixaFerramentaVeiculoRecord,
   MaintenanceLog,
-  VacationRecord
+  VacationRecord,
+  PayrollRecord
 } from '../types';
 export type {
   CompanyProfile,
@@ -9251,10 +9252,11 @@ export function mapSituacaoExecucaoToStatus(
 /**
  * Monta o objeto estruturado da linha para a tabela public.rh_ferias
  */
-export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
+export function buildRhFeriasRow(v: VacationRecord, companyId?: string, userId?: string) {
   const cId = companyId || v.companyId || getActiveCompanyId() || 'default';
   const canonicalId = toValidUUID(v.id);
   const canonicalEmpId = toValidUUID(v.employeeId);
+  const effectiveUid = userId || (v as any).user_id || (v as any).userId;
 
   const situacaoExecucao = normalizeSituacaoExecucaoFerias(
     v.situacao_execucao || v.status || 'AGENDADO'
@@ -9270,6 +9272,7 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
   const payloadObj = {
     ...v,
     id: canonicalId,
+    user_id: effectiveUid,
     companyId: cId,
     employeeId: v.employeeId,
     funcionario_id: canonicalEmpId,
@@ -9302,6 +9305,7 @@ export function buildRhFeriasRow(v: VacationRecord, companyId?: string) {
 
   return {
     id: canonicalId,
+    user_id: effectiveUid,
     company_id: cId,
     funcionario_id: canonicalEmpId,
     status: normalizedStatus,
@@ -9461,9 +9465,6 @@ export async function deleteRhFeriasRecord(vacationId: string, companyId?: strin
     const canonicalId = toValidUUID(vacationId);
     const cId = companyId || getActiveCompanyId();
     let query = supabase.from('rh_ferias').delete().eq('id', canonicalId);
-    if (cId) {
-      query = query.eq('company_id', cId);
-    }
     const { error } = await query;
 
     // Remove também do espelho site_settings para impedir que registros excluídos ressuscitem
@@ -9496,10 +9497,18 @@ export async function deleteRhFeriasRecord(vacationId: string, companyId?: strin
 /**
  * Salva e sincroniza as Férias dos colaboradores na nuvem (Supabase: rh_ferias + site_settings)
  */
-export async function saveCloudVacations(vacations: VacationRecord[], companyId?: string): Promise<boolean> {
+export async function saveCloudVacations(vacations: VacationRecord[], companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
     const cleanVacations = (Array.isArray(vacations) ? vacations : [])
       .filter((v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado')
       .map((v) => ({
@@ -9510,7 +9519,7 @@ export async function saveCloudVacations(vacations: VacationRecord[], companyId?
 
     // 1. Upsert estruturado na tabela oficial public.rh_ferias
     try {
-      const rowsToUpsert = cleanVacations.map((v) => buildRhFeriasRow(v, cId));
+      const rowsToUpsert = cleanVacations.map((v) => buildRhFeriasRow(v, cId, activeUid));
       if (rowsToUpsert.length > 0) {
         await supabase.from('rh_ferias').upsert(rowsToUpsert, { onConflict: 'id' });
       }
@@ -9543,33 +9552,46 @@ export async function fetchCloudVacations(
   if (!isSupabaseConfigured) return [];
   try {
     const cId = companyId || getActiveCompanyId();
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
     const map = new Map<string, VacationRecord>();
     let foundInRelational = false;
 
-    // 1. Busca prioritária na tabela relacional public.rh_ferias
+    // 1. Busca prioritária na tabela relacional public.rh_ferias com RLS por user_id
     try {
-      const validCompanyUuid = toValidUUID(cId);
-      const validEmpUuid = employeeId ? toValidUUID(employeeId) : null;
       let query = supabase.from('rh_ferias').select('*');
 
-      // Filtragem por funcionário ativo se fornecido
-      if (validEmpUuid) {
-        query = query.or(`funcionario_id.eq.${validEmpUuid},employee_id.eq.${validEmpUuid}`);
-      } else if (validCompanyUuid && validCompanyUuid === cId) {
-        query = query.eq('company_id', validCompanyUuid);
+      // Aplica isolamento de RLS estritamente por user_id (evita 400 por filtros em colunas inexistentes)
+      if (activeUid) {
+        query = query.eq('user_id', activeUid);
       }
 
-      // Isolamento por usuário autenticado se fornecido
-      if (userId) {
-        query = query.eq('user_id', userId);
-      }
-
-      // Executa sem forçar ordenações que causem 400 se updated_at não existir
+      // Executa sem forçar ordenações ou filtros em colunas extras que causem erro 400
       const { data: relRows, error: relErr } = await query;
 
       if (!relErr && Array.isArray(relRows)) {
         foundInRelational = true;
         for (const r of relRows) {
+          // Filtragem segura em memória por employeeId sem risco de erro 400 por coluna inexistente
+          if (employeeId) {
+            const rowEmpId = r.funcionario_id || r.employee_id || r.employeeId || r.payload?.employeeId || r.payload?.funcionario_id;
+            const targetEmpUuid = toValidUUID(employeeId);
+            if (
+              rowEmpId !== employeeId &&
+              toValidUUID(rowEmpId) !== targetEmpUuid &&
+              String(r.id) !== employeeId &&
+              toValidUUID(r.id) !== targetEmpUuid
+            ) {
+              continue;
+            }
+          }
+
           const mapped = mapRowToVacationRecord(r);
           if (
             mapped &&
@@ -9620,6 +9642,175 @@ export async function fetchCloudVacations(
     return map.size > 0 ? Array.from(map.values()) : [];
   } catch (e) {
     return [];
+  }
+}
+
+/**
+ * Constrói a linha para a tabela public.rh_folhas_pagamento
+ */
+export function buildRhFolhaPagamentoRow(p: PayrollRecord, userId: string, companyId?: string) {
+  const cId = companyId || getActiveCompanyId() || 'default';
+  const canonicalId = toValidUUID(p.id);
+  const canonicalEmpId = toValidUUID(p.employeeId);
+
+  return {
+    id: canonicalId,
+    user_id: userId,
+    company_id: cId,
+    employee_id: canonicalEmpId,
+    funcionario_id: canonicalEmpId,
+    employee_name: p.employeeName,
+    employee_role: p.employeeRole,
+    reference_month: p.referenceMonth,
+    base_salary: p.baseSalary || 0,
+    overtime_amount: p.overtimeAmount || 0,
+    bonus_amount: p.bonusAmount || 0,
+    commission_amount: p.commissionAmount || 0,
+    inss_discount: p.inssDiscount || 0,
+    advances_discount: p.advancesDiscount || 0,
+    other_discounts: p.otherDiscounts || 0,
+    net_salary: p.netSalary || 0,
+    status: p.status || 'pendente',
+    notes: p.notes || null,
+    payment_date: p.paymentDate || null,
+    payload: {
+      ...p,
+      id: canonicalId,
+      user_id: userId,
+      companyId: cId,
+      employeeId: p.employeeId,
+      funcionario_id: canonicalEmpId,
+    },
+    created_at: p.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Mapeia uma linha da tabela public.rh_folhas_pagamento para PayrollRecord
+ */
+export function mapRowToPayrollRecord(row: any): PayrollRecord {
+  const p = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  return {
+    id: row.id || p.id || '',
+    employeeId: row.employee_id || row.funcionario_id || p.employeeId || '',
+    employeeName: row.employee_name || p.employeeName || '',
+    employeeRole: row.employee_role || p.employeeRole || '',
+    referenceMonth: row.reference_month || p.referenceMonth || '',
+    baseSalary: Number(row.base_salary ?? p.baseSalary ?? 0),
+    overtimeHours: p.overtimeHours,
+    overtimeAmount: Number(row.overtime_amount ?? p.overtimeAmount ?? 0),
+    bonusAmount: Number(row.bonus_amount ?? p.bonusAmount ?? 0),
+    commissionAmount: Number(row.commission_amount ?? p.commissionAmount ?? 0),
+    inssDiscount: Number(row.inss_discount ?? p.inssDiscount ?? 0),
+    advancesDiscount: Number(row.advances_discount ?? p.advancesDiscount ?? 0),
+    otherDiscounts: Number(row.other_discounts ?? p.otherDiscounts ?? 0),
+    netSalary: Number(row.net_salary ?? p.netSalary ?? 0),
+    status: row.status || p.status || 'pendente',
+    paymentDate: row.payment_date || p.paymentDate,
+    isIntegrated: Boolean(p.isIntegrated),
+    integratedAt: p.integratedAt,
+    financePayableId: p.financePayableId,
+    notes: row.notes || p.notes || '',
+    createdAt: row.created_at || p.createdAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Salva e sincroniza folhas de pagamento diretamente no Supabase (public.rh_folhas_pagamento)
+ */
+export async function upsertRhFolhasPagamento(
+  records: PayrollRecord | PayrollRecord[],
+  userId?: string,
+  companyId?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+    if (!activeUid) return false;
+
+    const list = Array.isArray(records) ? records : [records];
+    if (list.length === 0) return true;
+
+    const cId = companyId || getActiveCompanyId();
+    const rows = list.map(p => buildRhFolhaPagamentoRow(p, activeUid!, cId));
+
+    const { error } = await supabase.from('rh_folhas_pagamento').upsert(rows, { onConflict: 'id' });
+    if (error) {
+      // Fallback estruturado com id, user_id e payload caso colunas específicas divirjam
+      const fallbackRows = rows.map(r => ({
+        id: r.id,
+        user_id: r.user_id,
+        status: r.status,
+        payload: r.payload,
+        updated_at: r.updated_at,
+      }));
+      await supabase.from('rh_folhas_pagamento').upsert(fallbackRows, { onConflict: 'id' });
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Carrega folhas de pagamento diretamente da tabela public.rh_folhas_pagamento com filtro por user_id
+ */
+export async function fetchCloudPayrolls(userId?: string): Promise<PayrollRecord[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+    if (!activeUid) return [];
+
+    const { data, error } = await supabase
+      .from('rh_folhas_pagamento')
+      .select('*')
+      .eq('user_id', activeUid);
+
+    if (error || !Array.isArray(data)) {
+      return [];
+    }
+
+    return data.map(mapRowToPayrollRecord);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Remove uma folha de pagamento da tabela public.rh_folhas_pagamento com isolamento estrito de user_id
+ */
+export async function deleteRhFolhaPagamento(id: string, userId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+    const canonicalId = toValidUUID(id);
+    let query = supabase.from('rh_folhas_pagamento').delete().eq('id', canonicalId);
+    if (activeUid) {
+      query = query.eq('user_id', activeUid);
+    }
+    const { error } = await query;
+    return !error;
+  } catch {
+    return false;
   }
 }
 

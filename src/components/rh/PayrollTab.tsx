@@ -39,15 +39,20 @@ import {
   getStoredMachineries,
   getStoredExpenses,
   saveStoredExpenses,
-  saveStoredPayrolls,
   getActiveCompanyId
 } from '../../lib/storage';
 import { 
   insertFinanceiroContasAPagar, 
   saveCloudExpenses, 
   isSupabaseConfigured, 
-  toValidUUID 
+  toValidUUID,
+  upsertRhFolhasPagamento,
+  fetchCloudPayrolls,
+  deleteRhFolhaPagamento,
+  mapRowToPayrollRecord
 } from '../../lib/supabaseService';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { 
   getEmployeeMonthCommissions, 
@@ -268,6 +273,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   onViewPayslip,
 }) => {
   const { confirm } = useConfirm();
+  const { currentUser } = useAuth();
+  const activeUid = currentUser?.id;
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sincronização em tempo real com ordens de serviço de silagem
@@ -314,6 +321,110 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       window.removeEventListener('storage', handleAbsencesUpdate);
     };
   }, []);
+
+  // Estado das Folhas de Pagamento conectado diretamente à nuvem (Supabase)
+  const [localPayrolls, setLocalPayrolls] = useState<PayrollRecord[]>(() => isSupabaseConfigured ? [] : (payrolls || []));
+
+  useEffect(() => {
+    if (!isSupabaseConfigured && payrolls) {
+      setLocalPayrolls(payrolls);
+    }
+  }, [payrolls]);
+
+  // Carga inicial das folhas de pagamento diretamente da nuvem (tabela public.rh_folhas_pagamento)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+
+    const loadCloudPayrolls = async () => {
+      let uid = activeUid;
+      if (!uid) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          uid = authData?.user?.id;
+        } catch (_) {}
+      }
+      if (!uid) return;
+
+      const cloudData = await fetchCloudPayrolls(uid);
+      if (isMounted) {
+        const cleanList = Array.isArray(cloudData) ? cloudData : [];
+        setLocalPayrolls(cleanList);
+        onSavePayrolls(cleanList);
+      }
+    };
+
+    loadCloudPayrolls();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeUid]);
+
+  // Listener em tempo real (Supabase Realtime) escutando 'rh_folhas_pagamento' com filtro 'user_id=eq.' + activeUid
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let isMounted = true;
+    let channel: any = null;
+
+    const setupRealtime = async () => {
+      let uid = activeUid;
+      if (!uid) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          uid = authData?.user?.id;
+        } catch (_) {}
+      }
+      if (!uid) return;
+
+      const channelId = `rh_folhas_pagamento_rt_${uid}_${Date.now()}`;
+      channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'rh_folhas_pagamento',
+            filter: `user_id=eq.${uid}`,
+          },
+          (payload: any) => {
+            if (!isMounted) return;
+            console.info('📡 [Realtime Folhas] Evento recebido em rh_folhas_pagamento:', payload.eventType);
+
+            if (payload.eventType === 'DELETE' && payload.old?.id) {
+              const delId = toValidUUID(payload.old.id);
+              setLocalPayrolls(prev => {
+                const next = prev.filter(p => toValidUUID(p.id) !== delId && p.id !== delId);
+                onSavePayrolls(next);
+                return next;
+              });
+            } else if (payload.new) {
+              const mapped = mapRowToPayrollRecord(payload.new);
+              const mappedId = toValidUUID(mapped.id);
+              setLocalPayrolls(prev => {
+                const exists = prev.some(p => toValidUUID(p.id) === mappedId || p.id === mappedId);
+                const next = exists
+                  ? prev.map(p => (toValidUUID(p.id) === mappedId || p.id === mappedId ? { ...p, ...mapped, id: mappedId } : p))
+                  : [mapped, ...prev];
+                onSavePayrolls(next);
+                return next;
+              });
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      isMounted = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [activeUid]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
@@ -437,7 +548,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   };
 
   // Filtered Payrolls - Exclusão estrita de Terceirizados (gerenciados pelo Financeiro)
-  const monthPayrolls = payrolls.filter(p => {
+  const monthPayrolls = localPayrolls.filter(p => {
     if (p.referenceMonth !== currentMonthRef) return false;
     const emp = employees.find(e => e.id === p.employeeId);
     if (emp && isThirdPartyDriver(emp)) return false;
@@ -644,9 +755,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     const netSalary = Math.max(0, (baseSalary + overtimeAmount + bonusAmount + commissionAmount) - (inssDiscount + advancesDiscount + otherDiscounts));
 
+    let recordToSave: PayrollRecord;
+    let nextList: PayrollRecord[];
+
     if (editingPayroll) {
-      const updated = payrolls.map(p => p.id === editingPayroll.id ? {
-        ...p,
+      recordToSave = {
+        ...editingPayroll,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -661,11 +775,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         netSalary,
         status: payrollStatus,
         notes,
-      } : p);
-      onSavePayrolls(updated);
+      };
+      nextList = localPayrolls.map(p => p.id === editingPayroll.id ? recordToSave : p);
     } else {
-      const newPayroll: PayrollRecord = {
-        id: `pay_${Date.now()}`,
+      recordToSave = {
+        id: `pay_${Date.now()}_${emp.id}`,
         employeeId: emp.id,
         employeeName: emp.name,
         employeeRole: emp.role,
@@ -682,9 +796,28 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         notes,
         createdAt: new Date().toISOString(),
       };
-      onSavePayrolls([newPayroll, ...payrolls]);
+      nextList = [recordToSave, ...localPayrolls];
     }
+
+    setLocalPayrolls(nextList);
+    onSavePayrolls(nextList);
     setIsModalOpen(false);
+
+    // Gravação direta na tabela public.rh_folhas_pagamento do Supabase (abandonando localStorage)
+    if (isSupabaseConfigured) {
+      (async () => {
+        let uid = activeUid;
+        if (!uid) {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            uid = authData?.user?.id;
+          } catch (_) {}
+        }
+        if (uid) {
+          await upsertRhFolhasPagamento(recordToSave, uid);
+        }
+      })();
+    }
   };
 
   // Gerar folha em lote para todos os ativos que ainda não têm folha neste mês
@@ -698,7 +831,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const existingEmpIds = new Set(monthPayrolls.map(p => p.employeeId));
 
     // Atualiza folhas pendentes do mês com eventuais novas comissões apuradas nas ordens de serviço
-    const updatedPayrolls = payrolls.map(p => {
+    const updatedPayrolls = localPayrolls.map(p => {
       if (p.referenceMonth !== currentMonthRef || p.status !== 'pendente') return p;
       const emp = employees.find(e => e.id === p.employeeId);
       if (!emp || isThirdPartyDriver(emp) || isBrokerEmployee(emp)) return p;
@@ -760,29 +893,63 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       };
     });
 
-    if (newRecords.length > 0) {
-      onSavePayrolls([...newRecords, ...updatedPayrolls]);
-    } else {
-      onSavePayrolls(updatedPayrolls);
+    const nextList = newRecords.length > 0 ? [...newRecords, ...updatedPayrolls] : updatedPayrolls;
+    setLocalPayrolls(nextList);
+    onSavePayrolls(nextList);
+
+    // Gravação direta das folhas geradas no Supabase (abandonando localStorage)
+    if (isSupabaseConfigured) {
+      (async () => {
+        let uid = activeUid;
+        if (!uid) {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            uid = authData?.user?.id;
+          } catch (_) {}
+        }
+        if (uid) {
+          await upsertRhFolhasPagamento(nextList, uid);
+        }
+      })();
     }
   };
 
   const handleToggleStatus = (id: string) => {
-    onSavePayrolls(payrolls.map(p => {
+    let updatedItem: PayrollRecord | null = null;
+    const nextList = localPayrolls.map(p => {
       if (p.id === id) {
         const nextStatus = p.status === 'pago' ? 'pendente' : 'pago';
-        return {
+        updatedItem = {
           ...p,
           status: nextStatus,
           paymentDate: nextStatus === 'pago' ? new Date().toISOString().split('T')[0] : undefined,
         };
+        return updatedItem;
       }
       return p;
-    }));
+    });
+
+    setLocalPayrolls(nextList);
+    onSavePayrolls(nextList);
+
+    if (updatedItem && isSupabaseConfigured) {
+      (async () => {
+        let uid = activeUid;
+        if (!uid) {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            uid = authData?.user?.id;
+          } catch (_) {}
+        }
+        if (uid) {
+          await upsertRhFolhasPagamento(updatedItem!, uid);
+        }
+      })();
+    }
   };
 
   const handleDelete = async (id: string) => {
-    const item = payrolls.find(p => p.id === id);
+    const item = localPayrolls.find(p => p.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Holerite / Folha',
       message: item?.employeeName
@@ -793,7 +960,24 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSavePayrolls(payrolls.filter(p => p.id !== id));
+      const nextList = localPayrolls.filter(p => p.id !== id);
+      setLocalPayrolls(nextList);
+      onSavePayrolls(nextList);
+
+      if (isSupabaseConfigured) {
+        (async () => {
+          let uid = activeUid;
+          if (!uid) {
+            try {
+              const { data: authData } = await supabase.auth.getUser();
+              uid = authData?.user?.id;
+            } catch (_) {}
+          }
+          if (uid) {
+            await deleteRhFolhaPagamento(id, uid);
+          }
+        })();
+      }
     }
   };
 
@@ -929,20 +1113,35 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
       // 6. FEEDBACK VISUAL E TRAVA DE SEGURANÇA:
       // Status da linha muda para "Integrado" e botão fica disabled
-      const updatedPayrolls = payrolls.map((p) => {
+      let integratedItem: PayrollRecord | null = null;
+      const updatedPayrolls = localPayrolls.map((p) => {
         if (p.id === item.id) {
-          return {
+          integratedItem = {
             ...p,
             status: 'integrado' as const,
             isIntegrated: true,
             integratedAt: new Date().toISOString(),
             financePayableId: payableId,
           };
+          return integratedItem;
         }
         return p;
       });
+      setLocalPayrolls(updatedPayrolls);
       onSavePayrolls(updatedPayrolls);
-      saveStoredPayrolls(updatedPayrolls);
+
+      if (integratedItem && isSupabaseConfigured) {
+        let uid = activeUid;
+        if (!uid) {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            uid = authData?.user?.id;
+          } catch (_) {}
+        }
+        if (uid) {
+          upsertRhFolhasPagamento(integratedItem, uid).catch(() => {});
+        }
+      }
 
       // 7. Feedback visual de sucesso
       setIntegrationBanner({

@@ -584,6 +584,40 @@ CREATE POLICY "Permissao Total rh_ferias" ON public.rh_ferias
 FOR ALL TO authenticated, anon
 USING (true)
 WITH CHECK (true);
+
+-- Tabela oficial de Folhas de Pagamento (rh_folhas_pagamento)
+CREATE TABLE IF NOT EXISTS public.rh_folhas_pagamento (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    company_id TEXT,
+    funcionario_id TEXT,
+    employee_id TEXT,
+    employee_name TEXT,
+    employee_role TEXT,
+    reference_month TEXT,
+    base_salary NUMERIC DEFAULT 0,
+    overtime_amount NUMERIC DEFAULT 0,
+    bonus_amount NUMERIC DEFAULT 0,
+    commission_amount NUMERIC DEFAULT 0,
+    inss_discount NUMERIC DEFAULT 0,
+    advances_discount NUMERIC DEFAULT 0,
+    other_discounts NUMERIC DEFAULT 0,
+    net_salary NUMERIC DEFAULT 0,
+    status TEXT DEFAULT 'pendente',
+    notes TEXT,
+    payment_date TEXT,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.rh_folhas_pagamento ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento;
+CREATE POLICY "Permissao Total rh_folhas_pagamento" ON public.rh_folhas_pagamento
+FOR ALL TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.agendamentos ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE public.frentes_colheita ADD COLUMN IF NOT EXISTS company_id TEXT;

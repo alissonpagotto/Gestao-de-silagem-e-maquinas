@@ -1253,7 +1253,9 @@ export default function App() {
 
   const handleSavePayrolls = (newPayrolls: PayrollRecord[]) => {
     setPayrolls(newPayrolls);
-    saveStoredPayrolls(newPayrolls);
+    if (!isSupabaseConfigured) {
+      saveStoredPayrolls(newPayrolls);
+    }
   };
 
   const handleSaveVacations = (newVacations: VacationRecord[]) => {

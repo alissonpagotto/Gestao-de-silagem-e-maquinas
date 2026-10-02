@@ -217,7 +217,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
     Promise.all([
       fetchRhFuncionarios(undefined, currentUserId),
       fetchContractualSalariesFromDb(),
-      fetchCloudVacations(activeTenant)
+      fetchCloudVacations(activeTenant, undefined, currentUserId)
     ]).then(([freshEmployees, salariesMap, freshVacs]) => {
       if (!isMounted) return;
 
@@ -319,7 +319,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
 
         // Sincroniza férias e rescisões iniciais do locatário
         const activeTenant = authCompanyId || activeUid || getActiveCompanyId() || 'default';
-        fetchCloudVacations(activeTenant)
+        fetchCloudVacations(activeTenant, undefined, activeUid)
           .then((cloudVacs) => {
             if (isMounted && cloudVacs && Array.isArray(cloudVacs) && cloudVacs.length > 0) {
               saveStoredVacations(cloudVacs);
