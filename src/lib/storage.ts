@@ -33,7 +33,9 @@ import {
   ServiceAppointment,
   DocumentoEntradaRecord,
   DocumentoEntradaItem,
-  TanqueCombustivel
+  TanqueCombustivel,
+  FinanceiroCheque,
+  ClienteCredito
 } from '../types';
 import { 
   INITIAL_VEHICLE_TYPES, 
@@ -110,6 +112,8 @@ const STORAGE_KEYS = {
   APPOINTMENTS: 'silagem_facil_clean_v1_service_appointments',
   MANUAL_ENTRY_DOCUMENT_TYPES: 'silagem_facil_clean_v1_manual_entry_doc_types',
   TANQUES_COMBUSTIVEL: 'silagem_facil_clean_v1_tanques_combustivel',
+  FINANCEIRO_CHEQUES: 'silagem_facil_clean_v1_financeiro_cheques',
+  CLIENTE_CREDITOS: 'silagem_facil_clean_v1_cliente_creditos',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -2216,5 +2220,51 @@ export function calculateDefaultDueDate(dateStr?: string, days = 30): string {
     return `${y}-${m}-${dayStr}`;
   }
 }
+
+// ==============================================================================
+// GESTÃO LOCAL DE CHEQUES E CRÉDITOS DE CLIENTES
+// ==============================================================================
+export function getStoredFinanceiroCheques(): FinanceiroCheque[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.FINANCEIRO_CHEQUES);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Erro ao ler cheques do storage local:', e);
+    return [];
+  }
+}
+
+export function saveStoredFinanceiroCheques(cheques: FinanceiroCheque[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.FINANCEIRO_CHEQUES, JSON.stringify(cheques));
+    window.dispatchEvent(new Event('storage'));
+  } catch (e) {
+    console.error('Erro ao salvar cheques no storage local:', e);
+  }
+}
+
+export function getStoredClienteCreditos(): ClienteCredito[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CLIENTE_CREDITOS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Erro ao ler créditos do cliente no storage local:', e);
+    return [];
+  }
+}
+
+export function saveStoredClienteCreditos(creditos: ClienteCredito[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CLIENTE_CREDITOS, JSON.stringify(creditos));
+    window.dispatchEvent(new Event('storage'));
+  } catch (e) {
+    console.error('Erro ao salvar créditos do cliente no storage local:', e);
+  }
+}
+
 
 

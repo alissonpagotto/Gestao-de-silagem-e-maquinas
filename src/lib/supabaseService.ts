@@ -24,7 +24,11 @@ import {
   MaintenanceLog,
   VacationRecord,
   PayrollRecord,
-  BankAccount
+  BankAccount,
+  FinanceiroCheque,
+  ClienteCredito,
+  ChequeStatus,
+  CreditoStatus
 } from '../types';
 export type {
   CompanyProfile,
@@ -33,7 +37,11 @@ export type {
   TanqueCombustivel,
   RetiradaPecaRecord,
   MovimentacaoFerramentaRecord,
-  CaixaFerramentaVeiculoRecord
+  CaixaFerramentaVeiculoRecord,
+  FinanceiroCheque,
+  ClienteCredito,
+  ChequeStatus,
+  CreditoStatus
 };
 import {
   SiteConfig,
@@ -66,7 +74,11 @@ import {
   ensureDieselProductsInInventory,
   getStoredMachineries,
   saveStoredMachineries,
-  getStoredEmployees
+  getStoredEmployees,
+  getStoredFinanceiroCheques,
+  saveStoredFinanceiroCheques,
+  getStoredClienteCreditos,
+  saveStoredClienteCreditos
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -11857,6 +11869,450 @@ export async function baixarEstoqueProdutosDefinitivoOS(
 
   return { success: true, deductions };
 }
+
+// ==============================================================================
+// MÓDULO DE CHEQUES E CRÉDITOS DE CLIENTES (INFRAESTRUTURA SUPABASE)
+// ==============================================================================
+
+/**
+ * Realiza upload da imagem física do cheque para o bucket 'cheques-imagens'
+ * Retorna a URL pública gerada no Supabase Storage.
+ */
+export async function uploadChequeImagem(
+  file: File | Blob,
+  companyId?: string,
+  fileNameHint?: string
+): Promise<{ publicUrl: string; path: string } | null> {
+  const activeCompanyId = toValidUUID(companyId || getActiveCompanyId());
+  const timestamp = Date.now();
+  const rawName = fileNameHint || (file instanceof File ? file.name : 'cheque.jpg');
+  const sanitizedName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = `${activeCompanyId}/${timestamp}_${sanitizedName}`;
+
+  if (!isSupabaseConfigured) {
+    console.warn('[uploadChequeImagem] Supabase não configurado. Gerando dataUrl local.');
+    if (file instanceof File || file instanceof Blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({ publicUrl: reader.result as string, path: filePath });
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+    }
+    return null;
+  }
+
+  try {
+    const mimeType = (file as any).type || 'image/jpeg';
+    const { data, error } = await supabase.storage
+      .from('cheques-imagens')
+      .upload(filePath, file, {
+        contentType: mimeType,
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (error) {
+      console.warn('[uploadChequeImagem] Erro no upload primário:', error.message);
+      // Fallback para caminho na raiz caso a pasta falhe por RLS
+      const fallbackPath = `${timestamp}_${sanitizedName}`;
+      const retry = await supabase.storage
+        .from('cheques-imagens')
+        .upload(fallbackPath, file, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (!retry.error && retry.data) {
+        const { data: pubData } = supabase.storage
+          .from('cheques-imagens')
+          .getPublicUrl(retry.data.path);
+        return { publicUrl: pubData.publicUrl, path: retry.data.path };
+      }
+      return null;
+    }
+
+    if (data && data.path) {
+      const { data: pubData } = supabase.storage
+        .from('cheques-imagens')
+        .getPublicUrl(data.path);
+      return { publicUrl: pubData.publicUrl, path: data.path };
+    }
+    return null;
+  } catch (err) {
+    console.error('[uploadChequeImagem] Exceção no upload do cheque:', err);
+    return null;
+  }
+}
+
+/**
+ * Busca todos os cheques registrados vinculados à empresa ativa
+ */
+export async function fetchFinanceiroCheques(companyId?: string): Promise<FinanceiroCheque[]> {
+  const activeCompanyId = toValidUUID(companyId || getActiveCompanyId());
+  const localCheques = getStoredFinanceiroCheques();
+
+  if (!isSupabaseConfigured) {
+    return localCheques;
+  }
+
+  try {
+    let query = supabase
+      .from('financeiro_cheques')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (activeCompanyId) {
+      query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.warn('[fetchFinanceiroCheques] Aviso ao consultar financeiro_cheques:', error.message);
+      return localCheques;
+    }
+
+    if (data && Array.isArray(data)) {
+      const mapped: FinanceiroCheque[] = data.map((d: any) => ({
+        id: d.id,
+        company_id: d.company_id,
+        companyId: d.company_id,
+        cliente_id: d.cliente_id,
+        clienteId: d.cliente_id,
+        cliente_nome: d.cliente_nome,
+        clienteNome: d.cliente_nome,
+        banco: d.banco,
+        numero_cheque: d.numero_cheque,
+        numeroCheque: d.numero_cheque,
+        emitente_nome: d.emitente_nome,
+        emitenteNome: d.emitente_nome,
+        emitente_documento: d.emitente_documento,
+        emitenteDocumento: d.emitente_documento,
+        data_vencimento: d.data_vencimento,
+        dataVencimento: d.data_vencimento,
+        valor: Number(d.valor) || 0,
+        imagem_url: d.imagem_url,
+        imagemUrl: d.imagem_url,
+        status: (d.status as ChequeStatus) || 'EM_NOSSO_PODER',
+        created_at: d.created_at,
+        updated_at: d.updated_at
+      }));
+
+      saveStoredFinanceiroCheques(mapped);
+      return mapped;
+    }
+
+    return localCheques;
+  } catch (err) {
+    console.warn('[fetchFinanceiroCheques] Erro:', err);
+    return localCheques;
+  }
+}
+
+/**
+ * Salva ou atualiza um registro na tabela public.financeiro_cheques
+ */
+export async function saveFinanceiroCheque(
+  chequeData: Partial<FinanceiroCheque>
+): Promise<{ success: boolean; data?: FinanceiroCheque; error?: string }> {
+  const activeCompanyId = toValidUUID(chequeData.company_id || chequeData.companyId || getActiveCompanyId());
+  const id = chequeData.id || toValidUUID();
+
+  const record: FinanceiroCheque = {
+    id,
+    company_id: activeCompanyId,
+    companyId: activeCompanyId,
+    cliente_id: chequeData.cliente_id || chequeData.clienteId || null,
+    clienteId: chequeData.cliente_id || chequeData.clienteId || null,
+    cliente_nome: chequeData.cliente_nome || chequeData.clienteNome || '',
+    clienteNome: chequeData.cliente_nome || chequeData.clienteNome || '',
+    banco: chequeData.banco || '',
+    numero_cheque: chequeData.numero_cheque || chequeData.numeroCheque || '',
+    numeroCheque: chequeData.numero_cheque || chequeData.numeroCheque || '',
+    emitente_nome: chequeData.emitente_nome || chequeData.emitenteNome || '',
+    emitenteNome: chequeData.emitente_nome || chequeData.emitenteNome || '',
+    emitente_documento: chequeData.emitente_documento || chequeData.emitenteDocumento || '',
+    emitenteDocumento: chequeData.emitente_documento || chequeData.emitenteDocumento || '',
+    data_vencimento: chequeData.data_vencimento || chequeData.dataVencimento || new Date().toISOString().split('T')[0],
+    dataVencimento: chequeData.data_vencimento || chequeData.dataVencimento || new Date().toISOString().split('T')[0],
+    valor: Number(chequeData.valor) || 0,
+    imagem_url: chequeData.imagem_url || chequeData.imagemUrl || '',
+    imagemUrl: chequeData.imagem_url || chequeData.imagemUrl || '',
+    status: (chequeData.status as ChequeStatus) || 'EM_NOSSO_PODER',
+    created_at: chequeData.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Atualização imediata no storage local
+  const currentCheques = getStoredFinanceiroCheques();
+  const existingIdx = currentCheques.findIndex(c => c.id === id);
+  let updatedCheques: FinanceiroCheque[];
+  if (existingIdx >= 0) {
+    updatedCheques = [...currentCheques];
+    updatedCheques[existingIdx] = record;
+  } else {
+    updatedCheques = [record, ...currentCheques];
+  }
+  saveStoredFinanceiroCheques(updatedCheques);
+
+  // 2. Persistência no Supabase
+  if (isSupabaseConfigured) {
+    try {
+      const payload: Record<string, any> = {
+        id: record.id,
+        company_id: record.company_id,
+        cliente_id: record.cliente_id,
+        banco: record.banco,
+        numero_cheque: record.numero_cheque,
+        emitente_nome: record.emitente_nome,
+        emitente_documento: record.emitente_documento,
+        data_vencimento: record.data_vencimento,
+        valor: record.valor,
+        imagem_url: record.imagem_url,
+        status: record.status,
+        updated_at: record.updated_at
+      };
+
+      const { data, error } = await supabase
+        .from('financeiro_cheques')
+        .upsert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('[saveFinanceiroCheque] Aviso ao salvar no Supabase:', error.message);
+        return { success: true, data: record };
+      }
+
+      if (data) {
+        return { success: true, data: record };
+      }
+    } catch (err: any) {
+      console.warn('[saveFinanceiroCheque] Erro de rede ao salvar:', err);
+    }
+  }
+
+  return { success: true, data: record };
+}
+
+/**
+ * Atualiza o status de um cheque ('EM_NOSSO_PODER', 'COMPENSADO', 'DEVOLVIDO')
+ */
+export async function updateFinanceiroChequeStatus(
+  chequeId: string,
+  status: ChequeStatus,
+  companyId?: string
+): Promise<boolean> {
+  const currentCheques = getStoredFinanceiroCheques();
+  const target = currentCheques.find(c => c.id === chequeId);
+  if (target) {
+    target.status = status;
+    target.updated_at = new Date().toISOString();
+    saveStoredFinanceiroCheques([...currentCheques]);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const { error } = await supabase
+        .from('financeiro_cheques')
+        .update({
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', chequeId);
+
+      if (error) {
+        console.warn('[updateFinanceiroChequeStatus] Aviso:', error.message);
+      }
+    } catch (err) {
+      console.warn('[updateFinanceiroChequeStatus] Erro:', err);
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Busca créditos disponíveis ou todos os créditos de um cliente / empresa
+ */
+export async function fetchClienteCreditos(
+  clienteId?: string,
+  companyId?: string
+): Promise<ClienteCredito[]> {
+  const activeCompanyId = toValidUUID(companyId || getActiveCompanyId());
+  const localCreditos = getStoredClienteCreditos();
+
+  let filtered = localCreditos;
+  if (clienteId) {
+    filtered = filtered.filter(c => c.cliente_id === clienteId || c.clienteId === clienteId);
+  }
+
+  if (!isSupabaseConfigured) {
+    return filtered;
+  }
+
+  try {
+    let query = supabase
+      .from('cliente_creditos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (activeCompanyId) {
+      query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+    }
+
+    if (clienteId) {
+      query = query.eq('cliente_id', clienteId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.warn('[fetchClienteCreditos] Aviso:', error.message);
+      return filtered;
+    }
+
+    if (data && Array.isArray(data)) {
+      const mapped: ClienteCredito[] = data.map((d: any) => ({
+        id: d.id,
+        company_id: d.company_id,
+        companyId: d.company_id,
+        cliente_id: d.cliente_id,
+        clienteId: d.cliente_id,
+        cliente_nome: d.cliente_nome,
+        clienteNome: d.cliente_nome,
+        cheque_origem_id: d.cheque_origem_id,
+        chequeOrigemId: d.cheque_origem_id,
+        valor_credito: Number(d.valor_credito) || 0,
+        valorCredito: Number(d.valor_credito) || 0,
+        status: (d.status as CreditoStatus) || 'DISPONIVEL',
+        created_at: d.created_at,
+        updated_at: d.updated_at
+      }));
+
+      saveStoredClienteCreditos(mapped);
+      return clienteId ? mapped.filter(c => c.cliente_id === clienteId) : mapped;
+    }
+
+    return filtered;
+  } catch (err) {
+    console.warn('[fetchClienteCreditos] Erro:', err);
+    return filtered;
+  }
+}
+
+/**
+ * Salva um novo crédito para o cliente gerado por troco de cheque
+ */
+export async function saveClienteCredito(
+  creditoData: Partial<ClienteCredito>
+): Promise<{ success: boolean; data?: ClienteCredito; error?: string }> {
+  const activeCompanyId = toValidUUID(creditoData.company_id || creditoData.companyId || getActiveCompanyId());
+  const id = creditoData.id || toValidUUID();
+
+  const record: ClienteCredito = {
+    id,
+    company_id: activeCompanyId,
+    companyId: activeCompanyId,
+    cliente_id: creditoData.cliente_id || creditoData.clienteId || '',
+    clienteId: creditoData.cliente_id || creditoData.clienteId || '',
+    cliente_nome: creditoData.cliente_nome || creditoData.clienteNome || '',
+    clienteNome: creditoData.cliente_nome || creditoData.clienteNome || '',
+    cheque_origem_id: creditoData.cheque_origem_id || creditoData.chequeOrigemId || null,
+    chequeOrigemId: creditoData.cheque_origem_id || creditoData.chequeOrigemId || null,
+    valor_credito: Number(creditoData.valor_credito ?? creditoData.valorCredito) || 0,
+    valorCredito: Number(creditoData.valor_credito ?? creditoData.valorCredito) || 0,
+    status: (creditoData.status as CreditoStatus) || 'DISPONIVEL',
+    created_at: creditoData.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Atualização imediata no storage local
+  const currentCreditos = getStoredClienteCreditos();
+  const existingIdx = currentCreditos.findIndex(c => c.id === id);
+  let updatedCreditos: ClienteCredito[];
+  if (existingIdx >= 0) {
+    updatedCreditos = [...currentCreditos];
+    updatedCreditos[existingIdx] = record;
+  } else {
+    updatedCreditos = [record, ...currentCreditos];
+  }
+  saveStoredClienteCreditos(updatedCreditos);
+
+  // 2. Persistência no Supabase
+  if (isSupabaseConfigured) {
+    try {
+      const payload: Record<string, any> = {
+        id: record.id,
+        company_id: record.company_id,
+        cliente_id: record.cliente_id,
+        cheque_origem_id: record.cheque_origem_id,
+        valor_credito: record.valor_credito,
+        status: record.status,
+        updated_at: record.updated_at
+      };
+
+      const { data, error } = await supabase
+        .from('cliente_creditos')
+        .upsert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('[saveClienteCredito] Aviso ao salvar no Supabase:', error.message);
+        return { success: true, data: record };
+      }
+
+      if (data) {
+        return { success: true, data: record };
+      }
+    } catch (err: any) {
+      console.warn('[saveClienteCredito] Erro:', err);
+    }
+  }
+
+  return { success: true, data: record };
+}
+
+/**
+ * Atualiza o status de um crédito ('DISPONIVEL', 'UTILIZADO', 'CANCELADO')
+ */
+export async function updateClienteCreditoStatus(
+  creditoId: string,
+  status: CreditoStatus,
+  companyId?: string
+): Promise<boolean> {
+  const currentCreditos = getStoredClienteCreditos();
+  const target = currentCreditos.find(c => c.id === creditoId);
+  if (target) {
+    target.status = status;
+    target.updated_at = new Date().toISOString();
+    saveStoredClienteCreditos([...currentCreditos]);
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const { error } = await supabase
+        .from('cliente_creditos')
+        .update({
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', creditoId);
+
+      if (error) {
+        console.warn('[updateClienteCreditoStatus] Aviso:', error.message);
+      }
+    } catch (err) {
+      console.warn('[updateClienteCreditoStatus] Erro:', err);
+    }
+  }
+
+  return true;
+}
+
 
 
 

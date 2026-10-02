@@ -39,6 +39,7 @@ export type PaymentMethod =
   | 'cartao_debito' 
   | 'transferencia' 
   | 'dinheiro' 
+  | 'cheque'
   | 'safra_prazo';
 
 export interface ExpenseCategory {
@@ -1622,5 +1623,54 @@ export interface CaixaFerramentaVeiculoRecord {
   veiculo_nome?: string;
   veiculo_placa?: string;
 }
+
+// ==============================================================================
+// MÓDULO DE CHEQUES E CRÉDITOS DE CLIENTES
+// ==============================================================================
+export type ChequeStatus = 'EM_NOSSO_PODER' | 'COMPENSADO' | 'DEVOLVIDO';
+export type CreditoStatus = 'DISPONIVEL' | 'UTILIZADO' | 'CANCELADO';
+
+export interface FinanceiroCheque {
+  id: string;
+  company_id?: string;
+  companyId?: string;
+  cliente_id?: string | null;
+  clienteId?: string | null;
+  cliente_nome?: string;
+  clienteNome?: string;
+  banco: string;
+  numero_cheque: string;
+  numeroCheque?: string;
+  emitente_nome: string;
+  emitenteNome?: string;
+  emitente_documento?: string;
+  emitenteDocumento?: string;
+  data_vencimento: string; // YYYY-MM-DD
+  dataVencimento?: string;
+  valor: number;
+  imagem_url?: string;
+  imagemUrl?: string;
+  status: ChequeStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ClienteCredito {
+  id: string;
+  company_id?: string;
+  companyId?: string;
+  cliente_id: string;
+  clienteId?: string;
+  cliente_nome?: string;
+  clienteNome?: string;
+  cheque_origem_id?: string | null;
+  chequeOrigemId?: string | null;
+  valor_credito: number;
+  valorCredito?: number;
+  status: CreditoStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
 
 

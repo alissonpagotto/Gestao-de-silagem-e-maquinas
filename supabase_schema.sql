@@ -547,6 +547,145 @@ BEGIN
 END $$;
 
 -- ==============================================================================
+-- 9. MÓDULO DE CHEQUES E CRÉDITOS DE CLIENTES (RECEBIMENTO E CARTEIRA)
+-- ==============================================================================
+-- 9.1. Storage Bucket para Imagens de Cheques
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'cheques-imagens',
+    'cheques-imagens',
+    true,
+    52428800,
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET 
+    public = true,
+    file_size_limit = 52428800,
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'application/pdf'];
+
+DROP POLICY IF EXISTS "Permissao Leitura Cheques Imagens" ON storage.objects;
+DROP POLICY IF EXISTS "Permissao Upload Cheques Imagens" ON storage.objects;
+DROP POLICY IF EXISTS "Permissao Update Cheques Imagens" ON storage.objects;
+DROP POLICY IF EXISTS "Permissao Delete Cheques Imagens" ON storage.objects;
+
+CREATE POLICY "Permissao Leitura Cheques Imagens" ON storage.objects FOR SELECT TO public, anon, authenticated USING (bucket_id = 'cheques-imagens');
+CREATE POLICY "Permissao Upload Cheques Imagens" ON storage.objects FOR INSERT TO authenticated, anon WITH CHECK (bucket_id = 'cheques-imagens');
+CREATE POLICY "Permissao Update Cheques Imagens" ON storage.objects FOR UPDATE TO authenticated, anon USING (bucket_id = 'cheques-imagens') WITH CHECK (bucket_id = 'cheques-imagens');
+CREATE POLICY "Permissao Delete Cheques Imagens" ON storage.objects FOR DELETE TO authenticated, anon USING (bucket_id = 'cheques-imagens');
+
+-- 9.2. Tabela: public.financeiro_cheques
+CREATE TABLE IF NOT EXISTS public.financeiro_cheques (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID,
+    cliente_id UUID,
+    banco TEXT NOT NULL,
+    numero_cheque TEXT NOT NULL,
+    emitente_nome TEXT NOT NULL,
+    emitente_documento TEXT,
+    data_vencimento DATE NOT NULL,
+    valor NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    imagem_url TEXT,
+    status TEXT NOT NULL DEFAULT 'EM_NOSSO_PODER',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_financeiro_cheques_status CHECK (status IN ('EM_NOSSO_PODER', 'COMPENSADO', 'DEVOLVIDO'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_financeiro_cheques_company ON public.financeiro_cheques(company_id);
+CREATE INDEX IF NOT EXISTS idx_financeiro_cheques_cliente ON public.financeiro_cheques(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_financeiro_cheques_status ON public.financeiro_cheques(status);
+CREATE INDEX IF NOT EXISTS idx_financeiro_cheques_vencimento ON public.financeiro_cheques(data_vencimento);
+CREATE INDEX IF NOT EXISTS idx_financeiro_cheques_numero ON public.financeiro_cheques(numero_cheque);
+
+-- 9.3. Tabela: public.cliente_creditos
+CREATE TABLE IF NOT EXISTS public.cliente_creditos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID,
+    cliente_id UUID,
+    cheque_origem_id UUID REFERENCES public.financeiro_cheques(id) ON DELETE SET NULL,
+    valor_credito NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    status TEXT NOT NULL DEFAULT 'DISPONIVEL',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_cliente_creditos_status CHECK (status IN ('DISPONIVEL', 'UTILIZADO', 'CANCELADO'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cliente_creditos_company ON public.cliente_creditos(company_id);
+CREATE INDEX IF NOT EXISTS idx_cliente_creditos_cliente ON public.cliente_creditos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_cliente_creditos_cheque_origem ON public.cliente_creditos(cheque_origem_id);
+CREATE INDEX IF NOT EXISTS idx_cliente_creditos_status ON public.cliente_creditos(status);
+
+-- Foreign Keys opcionais e condicionais
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'assinantes' AND column_name = 'id' AND data_type = 'uuid') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_financeiro_cheques_company' AND table_name = 'financeiro_cheques') THEN
+            ALTER TABLE public.financeiro_cheques ADD CONSTRAINT fk_financeiro_cheques_company FOREIGN KEY (company_id) REFERENCES public.assinantes(id) ON DELETE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_cliente_creditos_company' AND table_name = 'cliente_creditos') THEN
+            ALTER TABLE public.cliente_creditos ADD CONSTRAINT fk_cliente_creditos_company FOREIGN KEY (company_id) REFERENCES public.assinantes(id) ON DELETE CASCADE;
+        END IF;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'clientes' AND column_name = 'id' AND data_type = 'uuid') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_financeiro_cheques_cliente' AND table_name = 'financeiro_cheques') THEN
+            ALTER TABLE public.financeiro_cheques ADD CONSTRAINT fk_financeiro_cheques_cliente FOREIGN KEY (cliente_id) REFERENCES public.clientes(id) ON DELETE SET NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_cliente_creditos_cliente' AND table_name = 'cliente_creditos') THEN
+            ALTER TABLE public.cliente_creditos ADD CONSTRAINT fk_cliente_creditos_cliente FOREIGN KEY (cliente_id) REFERENCES public.clientes(id) ON DELETE SET NULL;
+        END IF;
+    END IF;
+END $$;
+
+-- 9.4. RLS para Cheques e Créditos (Isolamento por company_id)
+ALTER TABLE public.financeiro_cheques ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cliente_creditos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permissao Isolamento Company financeiro_cheques" ON public.financeiro_cheques;
+CREATE POLICY "Permissao Isolamento Company financeiro_cheques" ON public.financeiro_cheques
+FOR ALL TO authenticated, anon
+USING (
+    company_id IS NULL OR
+    company_id::text = auth.uid()::text OR
+    company_id::text = (auth.jwt() ->> 'company_id') OR
+    company_id::text = (auth.jwt() -> 'user_metadata' ->> 'company_id') OR
+    company_id IN (SELECT a.id FROM public.assinantes a WHERE a.email = auth.jwt() ->> 'email') OR
+    company_id IN (SELECT s.id FROM public.subscribers s WHERE s.email = auth.jwt() ->> 'email') OR
+    auth.jwt() IS NULL
+)
+WITH CHECK (
+    company_id IS NULL OR
+    company_id::text = auth.uid()::text OR
+    company_id::text = (auth.jwt() ->> 'company_id') OR
+    company_id::text = (auth.jwt() -> 'user_metadata' ->> 'company_id') OR
+    company_id IN (SELECT a.id FROM public.assinantes a WHERE a.email = auth.jwt() ->> 'email') OR
+    company_id IN (SELECT s.id FROM public.subscribers s WHERE s.email = auth.jwt() ->> 'email') OR
+    auth.jwt() IS NULL
+);
+
+DROP POLICY IF EXISTS "Permissao Isolamento Company cliente_creditos" ON public.cliente_creditos;
+CREATE POLICY "Permissao Isolamento Company cliente_creditos" ON public.cliente_creditos
+FOR ALL TO authenticated, anon
+USING (
+    company_id IS NULL OR
+    company_id::text = auth.uid()::text OR
+    company_id::text = (auth.jwt() ->> 'company_id') OR
+    company_id::text = (auth.jwt() -> 'user_metadata' ->> 'company_id') OR
+    company_id IN (SELECT a.id FROM public.assinantes a WHERE a.email = auth.jwt() ->> 'email') OR
+    company_id IN (SELECT s.id FROM public.subscribers s WHERE s.email = auth.jwt() ->> 'email') OR
+    auth.jwt() IS NULL
+)
+WITH CHECK (
+    company_id IS NULL OR
+    company_id::text = auth.uid()::text OR
+    company_id::text = (auth.jwt() ->> 'company_id') OR
+    company_id::text = (auth.jwt() -> 'user_metadata' ->> 'company_id') OR
+    company_id IN (SELECT a.id FROM public.assinantes a WHERE a.email = auth.jwt() ->> 'email') OR
+    company_id IN (SELECT s.id FROM public.subscribers s WHERE s.email = auth.jwt() ->> 'email') OR
+    auth.jwt() IS NULL
+);
+
+-- ==============================================================================
 -- PUBLICAÇÃO REALTIME (SUPABASE REALTIME)
 -- Permite que alterações no banco sejam sincronizadas em tempo real nas 11 telas
 -- ==============================================================================
@@ -556,7 +695,9 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE 
             public.fornecedores, 
             public.notas_fiscais, 
-            public.contas_a_pagar, 
+            public.contas_a_pagar,
+            public.financeiro_cheques,
+            public.cliente_creditos,
             public.estoque,
             public.clientes,
             public.rh_funcionarios,
