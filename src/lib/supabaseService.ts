@@ -4570,6 +4570,25 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
  * Limpa rigorosamente o payload enviado para que use apenas as colunas numéricas válidas
  * da tabela física oficial 'veiculos_maquinas' (horimetro_ou_km_atual), evitando o envio de strings vazias, nulas ou NaN.
  */
+/**
+ * Converte de forma segura valores para inteiro BIGINT do PostgreSQL.
+ * Remove pontuações (pontos, traços, barras), trata vazios e NaN como null,
+ * e limita a 15 dígitos para garantir compatibilidade com o tipo BIGINT assinado.
+ */
+export function toSafeBigInt(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') {
+    if (isNaN(val) || !isFinite(val)) return null;
+    return Math.trunc(val);
+  }
+  const str = String(val).trim();
+  if (!str) return null;
+  const digits = str.replace(/\D/g, '');
+  if (!digits) return null;
+  const parsed = parseInt(digits.slice(-15), 10);
+  return isNaN(parsed) ? null : parsed;
+}
+
 export async function patchGestaoFrotaMeter(
   vehicleId: string,
   meterValue: number | string | null | undefined,
@@ -4586,31 +4605,32 @@ export async function patchGestaoFrotaMeter(
       cleanVal = isNaN(parsed) ? 0 : Math.max(0, parsed);
     }
 
-    // Payload estritamente limpo: usa apenas colunas físicas válidas
-    const payload = {
+    // 1. Tenta atualizar na tabela unificada 'veiculos_maquinas' SOMENTE se vehicleId possuir formato numérico BIGINT válido.
+    // 'veiculos_maquinas' possui coluna 'km_atual' e 'id' tipo BIGINT.
+    // Evita erro 400 / 404 'invalid input syntax for type bigint' na rota /rest/v1/veiculos_maquinas?id=eq...
+    const numericBigIntId = toSafeBigInt(vehicleId);
+    if (numericBigIntId !== null) {
+      try {
+        await supabase
+          .from('veiculos_maquinas')
+          .update({ km_atual: Math.round(cleanVal) })
+          .eq('id', numericBigIntId);
+      } catch (err) {
+        console.warn('Supabase patch km_atual (veiculos_maquinas) notice:', err);
+      }
+    }
+
+    // 2. Atualiza na tabela 'gestao_frotas' com horimetro_ou_km_atual usando o identificador UUID
+    const gfPayload = {
       horimetro_ou_km_atual: cleanVal,
       updated_at: new Date().toISOString()
     };
-
-    // 1. Tenta atualizar na tabela oficial 'veiculos_maquinas'
-    let { error, data } = await supabase
-      .from('veiculos_maquinas')
-      .update(payload)
-      .eq('id', validId)
-      .select('id');
-
-    if (error || !data || data.length === 0) {
-      // Fallback em 'gestao_frotas'
-      const fallback = await supabase
+    try {
+      await supabase
         .from('gestao_frotas')
-        .update(payload)
-        .eq('id', validId)
-        .select('id');
-      if (fallback.error && vehicleId !== validId) {
-        await supabase.from('veiculos_maquinas').update(payload).eq('id', vehicleId);
-        await supabase.from('gestao_frotas').update(payload).eq('id', vehicleId);
-      }
-    }
+        .update(gfPayload)
+        .eq('id', validId);
+    } catch (_) {}
 
     return true;
   } catch (err) {
@@ -4625,7 +4645,40 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
   try {
     const activeCompanyId = vehicle.companyId || companyId || getActiveCompanyId();
 
-    // Tratamento estrito de valores numéricos para evitar envio de strings vazias ou nulas
+    // 1. TRATAMENTO E SANITIZAÇÃO DE INPUTS NUMÉRICOS (BIGINT COMPATIBILITY):
+    // - CPF/CNPJ do Proprietário: Limpeza de pontuação e conversão segura para inteiro / null
+    const rawCpfCnpj = String(
+      (vehicle as any).ownerDocument || 
+      (vehicle as any).cpf_cnpj || 
+      (vehicle as any).cnpj || 
+      (vehicle as any).cpf || 
+      ''
+    ).replace(/\D/g, '');
+    const cleanCpfCnpjInt = rawCpfCnpj ? parseInt(rawCpfCnpj, 10) : null;
+    const cleanCpfCnpjStr = rawCpfCnpj || null;
+
+    // - Código RENAVAM: Limpeza de caracteres não numéricos e conversão segura para inteiro / null
+    const rawRenavam = String((vehicle as any).renavam || (vehicle as any).codigo_renavam || '').replace(/\D/g, '');
+    const cleanRenavamInt = rawRenavam ? parseInt(rawRenavam, 10) : null;
+    const cleanRenavamStr = rawRenavam || null;
+
+    // - Número da Frota: Force a conversão segura para inteiro (parseInt(numeroFrota, 10)) ou trate como null se vazio ("EX: 10")
+    const rawFleet = String(vehicle.fleetNumber || (vehicle as any).numero_frota || (vehicle as any).fleet_number || '').replace(/\D/g, '');
+    const cleanFleetNumberInt = rawFleet ? parseInt(rawFleet, 10) : null;
+    const cleanFleetNumberStr = cleanFleetNumberInt !== null ? String(cleanFleetNumberInt) : null;
+
+    // - Ano: Conversão para inteiro limpo
+    let cleanAno: number | null = null;
+    if (vehicle.year !== undefined && vehicle.year !== null) {
+      const rawAno = String(vehicle.year).replace(/\D/g, '');
+      const parsedAno = parseInt(rawAno, 10);
+      cleanAno = isNaN(parsedAno) ? null : parsedAno;
+    }
+
+    // - ID compatível com BIGINT para 'veiculos_maquinas':
+    const cleanBigIntId = toSafeBigInt(vehicle.id);
+
+    // Tratamento estrito de valores numéricos de tanque e horímetro/km
     let tankCapacityNumber = 0;
     const rawTank: any = vehicle.tank_capacity ?? vehicle.tankCapacity ?? vehicle.fuelCapacityLiters;
     if (typeof rawTank === 'number' && !isNaN(rawTank)) {
@@ -4642,12 +4695,6 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     } else if (typeof rawMeter === 'string' && rawMeter.trim() !== '') {
       const p = parseFloat(rawMeter.trim().replace(',', '.'));
       currentMeter = isNaN(p) ? 0 : Math.max(0, p);
-    }
-
-    let cleanAno: number | null = null;
-    if (vehicle.year !== undefined && vehicle.year !== null) {
-      const parsedAno = parseInt(String(vehicle.year), 10);
-      cleanAno = isNaN(parsedAno) ? null : parsedAno;
     }
 
     // Identificação do motorista: primeiro ID de motorista e nome compilado
@@ -4686,7 +4733,8 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       modelo: vehicle.model || vehicle.modelo || null,
       marca: vehicle.brand || (vehicle as any).marca || null,
       placa_ou_serie: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
-      fleet_number: vehicle.fleetNumber || (vehicle as any).fleet_number || null,
+      fleet_number: cleanFleetNumberStr,
+      numero_frota: cleanFleetNumberInt,
       ano: cleanAno,
       horimetro_ou_km_atual: currentMeter,
       status: vehicle.status || 'ativo',
@@ -4697,8 +4745,6 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       driver_id: firstDriverId,
       motorista: driverString,
       operator_or_driver: driverString,
-      assigned_driver_ids: vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0 ? vehicle.assignedDriverIds : null,
-      assigned_drivers: vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0 ? vehicle.assignedDrivers : null,
       numero_eixos: cleanNumEixos,
       quantidade_pneus: cleanQtdPneus,
       reboque_vinculado_id: finalReboqueId,
@@ -4708,45 +4754,63 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       coupled_trailer_type: vehicle.coupledTrailerType || null,
       trailer_plate: vehicle.trailerPlate || null,
       trailer_model: vehicle.trailerModel || null,
-      composition_type: vehicle.compositionType || (hasTrailerSwitchOn ? 'cavalo' : 'veiculo_simples'),
       controla_por: (vehicle as any).controlBy || (vehicle as any).controla_por || ((vehicle as any).currentKm ? 'km' : 'horas'),
       propriedade: vehicle.ownership || (vehicle as any).propriedade || 'proprio',
-      renavam: (vehicle as any).renavam || null,
+      renavam: cleanRenavamStr,
+      cpf_cnpj: cleanCpfCnpjStr,
       cor: (vehicle as any).color || (vehicle as any).cor || null,
       updated_at: new Date().toISOString()
     };
 
-    // 1. Tenta salvar na tabela oficial física 'veiculos_maquinas'
-    // Sanitização rigorosa: veiculos_maquinas possui estritamente id, modelo, marca, placa, ano, status, company_id, km_atual, tipo
-    const safeVmColsSet = new Set([
-      'id', 'modelo', 'marca', 'placa', 'ano', 'status', 'company_id', 'km_atual', 'tipo'
-    ]);
-    const payloadVeiculos: Record<string, any> = {};
-    for (const [k, v] of Object.entries(payload)) {
-      if (safeVmColsSet.has(k)) {
-        payloadVeiculos[k] = v;
+    // 1. Tenta salvar na tabela unificada oficial física 'veiculos_maquinas'
+    // Sanitização rigorosa: veiculos_maquinas possui colunas modelo, marca, placa, ano, status, company_id, km_atual, tipo
+    // Status deve respeitar o enum status_veiculo ('disponivel' | 'inativo')
+    const vStatus = String(vehicle.status || '').toLowerCase();
+    const vmStatus = (vStatus === 'inativo' || vStatus === 'baixado') ? 'inativo' : 'disponivel';
+    const vmPlate = (vehicle.licensePlateOrSerial || vehicle.serialNumber || (vehicle as any).placa || (vehicle as any).placa_ou_serie || '').toUpperCase() || null;
+    const vmKmAtual = typeof currentMeter === 'number' && !isNaN(currentMeter) ? Math.round(currentMeter) : null;
+
+    const payloadVeiculos: Record<string, any> = {
+      modelo: vehicle.model || vehicle.modelo || vehicle.name || 'Veículo',
+      marca: vehicle.brand || (vehicle as any).marca || null,
+      placa: vmPlate,
+      ano: cleanAno,
+      status: vmStatus,
+      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
+      km_atual: vmKmAtual,
+      tipo: vehicle.categoryType || vehicle.tipo || 'veiculo'
+    };
+
+    // Só inclui 'id' em veiculos_maquinas se for um BIGINT numérico válido, impedindo erro de sintaxe inválida
+    let vmError = null;
+    try {
+      if (cleanBigIntId !== null) {
+        payloadVeiculos.id = cleanBigIntId;
+        const res = await supabase
+          .from('veiculos_maquinas')
+          .upsert(payloadVeiculos, { onConflict: 'id' });
+        vmError = res.error;
+      } else {
+        // Sem id numérico puro: faz insert para permitir auto-incremento (BIGSERIAL / IDENTITY)
+        const res = await supabase
+          .from('veiculos_maquinas')
+          .insert(payloadVeiculos);
+        vmError = res.error;
       }
-    }
-    if (!payloadVeiculos.placa && payload.placa_ou_serie) {
-      payloadVeiculos.placa = payload.placa_ou_serie;
-    }
-    if (!payloadVeiculos.km_atual && payload.horimetro_ou_km_atual) {
-      payloadVeiculos.km_atual = payload.horimetro_ou_km_atual;
+    } catch (e: any) {
+      vmError = e;
     }
 
-    let { error } = await supabase
-      .from('veiculos_maquinas')
-      .upsert(payloadVeiculos, { onConflict: 'id' });
-
-    if (error) {
-      console.warn('Supabase upsertVeiculoMaquina (veiculos_maquinas) notice:', error.message);
-      // Tenta fallback em gestao_frotas removendo composition_type, assigned_driver_ids e colunas não existentes para evitar erro 400 (PGRST204 / schema cache)
+    if (vmError) {
+      console.warn('Supabase upsertVeiculoMaquina (veiculos_maquinas) notice:', vmError.message || vmError);
+      // Fallback em gestao_frotas removendo composition_type, assigned_driver_ids e colunas não existentes para evitar erro 400 (PGRST204 / schema cache)
       const payloadGf = { ...payload };
       delete (payloadGf as any).composition_type;
       delete (payloadGf as any).compositionType;
       delete (payloadGf as any).propriedade;
       delete (payloadGf as any).marca;
       delete (payloadGf as any).fleet_number;
+      delete (payloadGf as any).numero_frota;
       delete (payloadGf as any).reboque_id;
       delete (payloadGf as any).has_coupled_trailer;
       delete (payloadGf as any).coupled_trailer_name;
@@ -4755,6 +4819,7 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       delete (payloadGf as any).trailer_model;
       delete (payloadGf as any).controla_por;
       delete (payloadGf as any).renavam;
+      delete (payloadGf as any).cpf_cnpj;
       delete (payloadGf as any).cor;
       delete (payloadGf as any).assigned_driver_ids;
       delete (payloadGf as any).assigned_drivers;
@@ -4770,8 +4835,27 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     try {
       const stored = getStoredMachineries();
       const updatedList = stored.some(m => m.id === vehicle.id)
-        ? stored.map(m => m.id === vehicle.id ? { ...m, ...vehicle, operatorOrDriver: driverString || m.operatorOrDriver, assignedDrivers: vehicle.assignedDrivers || m.assignedDrivers, assignedDriverIds: vehicle.assignedDriverIds || m.assignedDriverIds } : m)
-        : [{ ...vehicle, operatorOrDriver: driverString || '', assignedDrivers: vehicle.assignedDrivers || [], assignedDriverIds: vehicle.assignedDriverIds || [] }, ...stored];
+        ? stored.map(m => m.id === vehicle.id ? { 
+            ...m, 
+            ...vehicle, 
+            fleetNumber: cleanFleetNumberStr || m.fleetNumber,
+            numero_frota: cleanFleetNumberInt ?? (m as any).numero_frota,
+            renavam: cleanRenavamStr || m.renavam,
+            ownerDocument: cleanCpfCnpjStr || m.ownerDocument,
+            operatorOrDriver: driverString || m.operatorOrDriver, 
+            assignedDrivers: vehicle.assignedDrivers || m.assignedDrivers, 
+            assignedDriverIds: vehicle.assignedDriverIds || m.assignedDriverIds 
+          } : m)
+        : [{ 
+            ...vehicle, 
+            fleetNumber: cleanFleetNumberStr || vehicle.fleetNumber,
+            numero_frota: cleanFleetNumberInt,
+            renavam: cleanRenavamStr || vehicle.renavam,
+            ownerDocument: cleanCpfCnpjStr || vehicle.ownerDocument,
+            operatorOrDriver: driverString || '', 
+            assignedDrivers: vehicle.assignedDrivers || [], 
+            assignedDriverIds: vehicle.assignedDriverIds || [] 
+          }, ...stored];
       saveStoredMachineries(updatedList);
       saveCloudMachineries(updatedList, activeCompanyId).catch(() => {});
     } catch (_) {}
@@ -4794,23 +4878,38 @@ export async function deleteGestaoFrota(id: string, companyId?: string): Promise
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
+    const numericBigIntId = toSafeBigInt(id);
 
-    // 1. Exclui prioritariamente da tabela oficial 'veiculos_maquinas'
-    let query = supabase.from('veiculos_maquinas').delete().eq('id', uuid);
-    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-    const { error } = await query;
-
-    if (error && id !== uuid) {
-      let retry = supabase.from('veiculos_maquinas').delete().eq('id', id);
-      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
-      await retry;
+    // 1. Exclui da tabela unificada oficial 'veiculos_maquinas' SOMENTE se o ID for numérico BIGINT válido.
+    // Evita erro 400 / 404 'invalid input syntax for type bigint' na rota /rest/v1/veiculos_maquinas?id=eq...
+    if (numericBigIntId !== null) {
+      try {
+        let query = supabase.from('veiculos_maquinas').delete().eq('id', numericBigIntId);
+        if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
+        await query;
+      } catch (err) {
+        console.warn('veiculos_maquinas delete notice:', err);
+      }
     }
 
-    // 2. Exclusão também em 'gestao_frotas' para consistência
+    // 2. Exclusão também em 'gestao_frotas' para consistência usando o ID UUID
     try {
       let gfQuery = supabase.from('gestao_frotas').delete().eq('id', uuid);
       if (activeCompanyId) gfQuery = gfQuery.eq('company_id', activeCompanyId);
-      await gfQuery;
+      const gfRes = await gfQuery;
+      if (gfRes.error && id !== uuid) {
+        let retryGf = supabase.from('gestao_frotas').delete().eq('id', id);
+        if (activeCompanyId) retryGf = retryGf.eq('company_id', activeCompanyId);
+        await retryGf;
+      }
+    } catch (_) {}
+
+    // 3. Persistência espelhada: atualiza a lista completa em localStorage e site_settings
+    try {
+      const stored = getStoredMachineries();
+      const filtered = stored.filter(m => m.id !== id && toValidUUID(m.id) !== uuid && toSafeBigInt(m.id) !== numericBigIntId);
+      saveStoredMachineries(filtered);
+      saveCloudMachineries(filtered, activeCompanyId).catch(() => {});
     } catch (_) {}
 
     return true;

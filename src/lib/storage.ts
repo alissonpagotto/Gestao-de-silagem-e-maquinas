@@ -423,6 +423,7 @@ export function getStoredMachineries(): Machinery[] {
 }
 
 export function saveStoredMachineries(machines: Machinery[]): void {
+  if (typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(machines));
   } catch (e) {

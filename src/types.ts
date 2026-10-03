@@ -284,6 +284,13 @@ export interface Machinery {
   // Supabase gestao_frotas compatibility fields
   reboque_vinculado_id?: string | null; // ID do reboque físico gravado em public.gestao_frotas
   reboque_id?: string | null; // Alias compatível de reboque_vinculado_id
+  numero_frota?: number | null; // Número da frota como inteiro (compatibilidade BigInt)
+  fleet_number?: number | string | null; // Número da frota formatado ou numérico
+  renavam_int?: number | null; // Código RENAVAM como inteiro
+  cpf_cnpj?: string | null; // CPF/CNPJ limpo (apenas dígitos)
+  cpf_cnpj_num?: number | null; // CPF/CNPJ como inteiro BigInt
+  owner_document_num?: number | null; // Documento do titular como inteiro BigInt
+  secondary_owner_document_num?: number | null; // Documento do segundo titular como inteiro BigInt
   numero_eixos?: number; // Número de Eixos
   quantidade_pneus?: number; // Quantidade de Pneus
   numeroEixos?: number;

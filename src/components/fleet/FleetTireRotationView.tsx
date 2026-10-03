@@ -539,7 +539,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
             let q = supabase
               .from('veiculos_maquinas')
               .select('*')
-              .or('tipo.ilike.%caminh%,tipo.ilike.%cavalo%,tipo.ilike.%tração%,tipo.ilike.%tracao%,tipo.ilike.%truck%,tipo.ilike.%toco%,tipo.ilike.%bitruck%,nome.ilike.%axor%,modelo.ilike.%axor%');
+              .or('tipo.ilike.%caminh%,tipo.ilike.%cavalo%,tipo.ilike.%tração%,tipo.ilike.%tracao%,tipo.ilike.%truck%,tipo.ilike.%toco%,tipo.ilike.%bitruck%,modelo.ilike.%axor%');
 
             let res = await q;
             if (res.error || !res.data || res.data.length === 0) {
@@ -574,7 +574,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
             let q = supabase
               .from('veiculos_maquinas')
               .select('*')
-              .or('tipo.ilike.%ensilad%,tipo.ilike.%forrageir%,tipo.ilike.%colhedora%,tipo.ilike.%jaguar%,nome.ilike.%claas%,nome.ilike.%jaguar%');
+              .or('tipo.ilike.%ensilad%,tipo.ilike.%forrageir%,tipo.ilike.%colhedora%,tipo.ilike.%jaguar%,modelo.ilike.%claas%,modelo.ilike.%jaguar%');
 
             let res = await q;
             if (res.error || !res.data || res.data.length === 0) {
@@ -617,7 +617,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           let res = await supabase
             .from('veiculos_maquinas')
             .select('*')
-            .order('nome', { ascending: true });
+            .order('modelo', { ascending: true });
 
           if (res.error || !res.data || res.data.length === 0) {
             res = await supabase

@@ -340,7 +340,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   const [revisionStatus, setRevisionStatus] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Carregamento reativo de reboques do Supabase (gestao_frotas e reboques) ao abrir o modal
+  // Carregamento reativo de reboques do Supabase via tabela unificada 'veiculos_maquinas' (e fallback 'gestao_frotas') ao abrir o modal
+  // NOTA: NUNCA chama endpoint inexistente 'reboques2'
   const [supabaseTrailers, setSupabaseTrailers] = useState<Machinery[]>([]);
   const [isLoadingTrailers, setIsLoadingTrailers] = useState(false);
 
@@ -353,86 +354,38 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       setIsLoadingTrailers(true);
       try {
         const results: Machinery[] = [];
-
-        // 1. Busca na tabela física veiculos_maquinas trazendo APENAS registros cujo campo 'categoria' ou 'tipo_veiculo' / 'tipo' seja estritamente igual a 'Reboque' ou 'Implemento'
         const activeCompanyId = getActiveCompanyId();
 
-        // Detecta colunas reais disponíveis em veiculos_maquinas para evitar erro 400 (PGRST204)
-        const cols = new Set<string>();
-        try {
-          const { data: sampleCols } = await supabase.from('veiculos_maquinas').select('*').limit(1);
-          if (sampleCols && Array.isArray(sampleCols) && sampleCols.length > 0 && sampleCols[0]) {
-            Object.keys(sampleCols[0]).forEach(k => cols.add(k));
-          } else {
-            const { data: gfCols } = await supabase.from('gestao_frotas').select('*').limit(1);
-            if (gfCols && Array.isArray(gfCols) && gfCols.length > 0 && gfCols[0]) {
-              Object.keys(gfCols[0]).forEach(k => cols.add(k));
-            }
-          }
-        } catch (_) {}
-
-        // Monta os filtros da query do Supabase para trazer APENAS Reboque ou Implemento (excluindo composition_type para evitar erro 400)
-        const filterClauses: string[] = [];
-        if (cols.has('categoria')) {
-          filterClauses.push('categoria.ilike.reboque', 'categoria.ilike.implemento');
-        }
-        if (cols.has('tipo_veiculo')) {
-          filterClauses.push('tipo_veiculo.ilike.reboque', 'tipo_veiculo.ilike.implemento');
-        }
-        if (cols.has('tipo')) {
-          filterClauses.push('tipo.ilike.reboque', 'tipo.ilike.implemento');
-        }
-        if (cols.has('type')) {
-          filterClauses.push('type.ilike.reboque', 'type.ilike.implemento');
-        }
-
+        // 1. Busca prioritariamente na tabela unificada física 'veiculos_maquinas'
+        // Consulta apenas as colunas oficiais existentes para evitar erro 400 (PGRST204)
         let frotasData: any[] | null = null;
-        if (filterClauses.length > 0) {
-          try {
-            let filteredQuery = supabase.from('veiculos_maquinas').select('*');
-            if (activeCompanyId && (cols.size === 0 || cols.has('company_id'))) {
-              filteredQuery = filteredQuery.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
-            }
-            const { data: qData, error: qErr } = await filteredQuery.or(filterClauses.join(','));
-            if (!qErr && Array.isArray(qData) && qData.length > 0) {
-              frotasData = qData;
-            }
-          } catch (_) {}
-
-          // Fallback em gestao_frotas sem cláusulas de coluna desconhecida
-          if (!frotasData || frotasData.length === 0) {
-            try {
-              let gfQuery = supabase.from('gestao_frotas').select('*');
-              if (activeCompanyId) {
-                gfQuery = gfQuery.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
-              }
-              const gfRes = await gfQuery;
-              if (!gfRes.error && Array.isArray(gfRes.data) && gfRes.data.length > 0) {
-                frotasData = gfRes.data;
-              }
-            } catch (_) {}
-          }
-        }
-
-        // Se cols ainda não tinha sido carregado ou a query com filtros não retornou, faz a query base
-        if (!frotasData || frotasData.length === 0) {
-          let query = supabase.from('veiculos_maquinas').select('*');
+        try {
+          let query = supabase
+            .from('veiculos_maquinas')
+            .select('id, modelo, marca, placa, ano, status, company_id, km_atual, tipo');
           if (activeCompanyId) {
             query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
           }
           const { data, error } = await query;
           if (!error && Array.isArray(data) && data.length > 0) {
             frotasData = data;
-          } else {
-            let fallbackQ = supabase.from('gestao_frotas').select('*');
-            if (activeCompanyId) {
-              fallbackQ = fallbackQ.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
-            }
-            const fallbackRes = await fallbackQ;
-            if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
-              frotasData = fallbackRes.data;
-            }
           }
+        } catch (_) {}
+
+        // 2. Fallback na tabela 'gestao_frotas' se veiculos_maquinas estiver vazia ou sem retorno
+        if (!frotasData || frotasData.length === 0) {
+          try {
+            let gfQuery = supabase
+              .from('gestao_frotas')
+              .select('id, nome, modelo, placa_ou_serie, ano, horimetro_ou_km_atual, status, company_id, user_id, motorista, operator_or_driver, numero_eixos, quantidade_pneus, reboque_vinculado_id');
+            if (activeCompanyId) {
+              gfQuery = gfQuery.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+            }
+            const gfRes = await gfQuery;
+            if (!gfRes.error && Array.isArray(gfRes.data)) {
+              frotasData = gfRes.data;
+            }
+          } catch (_) {}
         }
 
         if (Array.isArray(frotasData)) {
@@ -461,35 +414,6 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             }
           }
         }
-
-        // 2. Tenta também na tabela dedicada 'reboques' caso exista no banco
-        try {
-          const { data: rebData, error: rebErr } = await supabase.from('reboques').select('*');
-          if (!rebErr && Array.isArray(rebData)) {
-            for (const r of rebData) {
-              if (!results.some(existing => existing.id === r.id || toValidUUID(existing.id) === toValidUUID(r.id))) {
-                results.push({
-                  id: r.id,
-                  name: r.nome || r.name || r.modelo || 'Reboque',
-                  nome: r.nome || r.name || r.modelo || 'Reboque',
-                  model: r.modelo || r.model || '',
-                  modelo: r.modelo || r.model || '',
-                  brand: r.marca || r.brand || '',
-                  licensePlateOrSerial: r.placa || r.plate || r.placa_ou_serie || '',
-                  fleetNumber: r.prefixo || r.fleet_number,
-                  type: 'Reboque',
-                  tipo: 'reboque',
-                  categoryType: 'reboque',
-                  compositionType: 'reboque',
-                  trailerType: r.tipo || r.trailer_type || 'Reboque',
-                  capacityLoadKg: r.capacidade_carga_kg !== undefined ? Number(r.capacidade_carga_kg) : (r.capacidade !== undefined ? Number(r.capacidade) : undefined),
-                  capacityM3: r.capacidade_m3 !== undefined ? Number(r.capacidade_m3) : undefined,
-                  status: 'operacional',
-                } as Machinery);
-              }
-            }
-          }
-        } catch (_) {}
 
         if (isMounted && results.length > 0) {
           setSupabaseTrailers(results);
@@ -1386,15 +1310,42 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       !editingVehicle?.installmentsGenerated
     );
 
+    // 1. TRATAMENTO E SANITIZAÇÃO DE INPUTS NUMÉRICOS (BIGINT COMPATIBILITY):
+    // - CPF/CNPJ do Proprietário: Limpeza de pontuação e conversão segura para inteiro / null
+    const rawOwnerDocDigits = (ownerDocument || '').replace(/\D/g, '');
+    const cleanOwnerDocInt = rawOwnerDocDigits ? parseInt(rawOwnerDocDigits, 10) : null;
+    const cleanOwnerDocStr = rawOwnerDocDigits || undefined;
+
+    const rawSecondaryOwnerDocDigits = (secondaryOwnerDocument || '').replace(/\D/g, '');
+    const cleanSecondaryOwnerDocInt = rawSecondaryOwnerDocDigits ? parseInt(rawSecondaryOwnerDocDigits, 10) : null;
+    const cleanSecondaryOwnerDocStr = rawSecondaryOwnerDocDigits || undefined;
+
+    // - Código RENAVAM: Limpeza de pontuação e conversão segura para inteiro / null
+    const rawRenavamDigits = (renavam || '').replace(/\D/g, '');
+    const cleanRenavamInt = rawRenavamDigits ? parseInt(rawRenavamDigits, 10) : null;
+    const cleanRenavamStr = rawRenavamDigits || undefined;
+
+    // - Número da Frota: Limpeza e conversão forçada segura para inteiro (parseInt(numeroFrota, 10)) ou null se vazio ("EX: 10")
+    const rawFleetDigits = (fleetNumber || '').replace(/\D/g, '');
+    const cleanFleetNumberInt = rawFleetDigits ? parseInt(rawFleetDigits, 10) : null;
+    const cleanFleetNumberStr = cleanFleetNumberInt !== null ? String(cleanFleetNumberInt) : undefined;
+
+    // - Ano: Conversão segura para inteiro
+    const rawYearDigits = String(year || '').replace(/\D/g, '');
+    const cleanYearInt = rawYearDigits ? parseInt(rawYearDigits, 10) : undefined;
+
     const vehicleData: Machinery = {
       id: editingVehicle ? editingVehicle.id : `veh_${Date.now()}`,
       name: formattedName,
       model: formattedModel,
       brand: formattedBrand,
-      year: year ? parseInt(year, 10) : undefined,
-      renavam: renavam.trim() || undefined,
+      year: cleanYearInt,
+      renavam: cleanRenavamStr,
+      renavam_int: cleanRenavamInt,
       color: color.trim() || undefined,
-      fleetNumber: fleetNumber.trim() || undefined,
+      fleetNumber: cleanFleetNumberStr,
+      numero_frota: cleanFleetNumberInt,
+      fleet_number: cleanFleetNumberInt,
       categoryType: categoryType || 'forrageira',
       status: status || 'disponivel',
       ownership: ownership || 'proprio',
@@ -1432,9 +1383,13 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
       // Ownership ("No nome de quem")
       ownerName: ownerName.trim() || undefined,
-      ownerDocument: ownerDocument.trim() || undefined,
+      ownerDocument: cleanOwnerDocStr,
+      owner_document_num: cleanOwnerDocInt,
+      cpf_cnpj: cleanOwnerDocStr,
+      cpf_cnpj_num: cleanOwnerDocInt,
       secondaryOwnerName: secondaryOwnerName.trim() || undefined,
-      secondaryOwnerDocument: secondaryOwnerDocument.trim() || undefined,
+      secondaryOwnerDocument: cleanSecondaryOwnerDocStr,
+      secondary_owner_document_num: cleanSecondaryOwnerDocInt,
 
       // Purchase & Financing
       purchaseValue: purchaseValue ? desformatarMoeda(purchaseValue) : undefined,
