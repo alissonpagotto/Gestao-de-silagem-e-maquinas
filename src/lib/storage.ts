@@ -2267,5 +2267,122 @@ export function saveStoredClienteCreditos(creditos: ClienteCredito[]): void {
   }
 }
 
+// ==============================================================================
+// MODO OFFLINE / CONTINGÊNCIA 100% LOCAL (LOCALSTORAGE RESILIENTE POR EMPRESA)
+// Chaves estritas no padrão: 'colaca_silagem_<tabela>' e 'colaca_silagem_<tabela>_<companyId>'
+// ==============================================================================
+
+export function getCompanyStorageKey(entity: string, companyId?: string): string {
+  const cId = (companyId || getActiveCompanyId() || 'default').trim();
+  return `colaca_silagem_${entity}_${cId}`;
+}
+
+export function saveCompanyData<T>(entity: string, data: T[], companyId?: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const cId = (companyId || getActiveCompanyId() || 'default').trim();
+    const json = JSON.stringify(data);
+    localStorage.setItem(`colaca_silagem_${entity}_${cId}`, json);
+    localStorage.setItem(`colaca_silagem_${entity}`, json);
+    window.dispatchEvent(new CustomEvent('silagem_local_offline_sync', { detail: { entity, companyId: cId } }));
+    window.dispatchEvent(new Event('storage'));
+  } catch (e) {
+    console.error(`Erro ao gravar dados locais em colaca_silagem_${entity}:`, e);
+  }
+}
+
+export function getCompanyData<T>(entity: string, fallbackGetter?: () => T[], companyId?: string): T[] {
+  if (typeof window === 'undefined' || !window.localStorage) return fallbackGetter ? fallbackGetter() : [];
+  try {
+    const cId = (companyId || getActiveCompanyId() || 'default').trim();
+    const rawScoped = localStorage.getItem(`colaca_silagem_${entity}_${cId}`);
+    if (rawScoped) {
+      const parsed = JSON.parse(rawScoped);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    const rawGlobal = localStorage.getItem(`colaca_silagem_${entity}`);
+    if (rawGlobal) {
+      const parsed = JSON.parse(rawGlobal);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    return fallbackGetter ? fallbackGetter() : [];
+  } catch (e) {
+    return fallbackGetter ? fallbackGetter() : [];
+  }
+}
+
+// Entidades específicas com vinculação imediata à memória local do PC:
+export const saveCompanyFrotas = (frotas: Machinery[], companyId?: string): void => {
+  saveCompanyData('frotas', frotas, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.MACHINERIES, JSON.stringify(frotas)); } catch {}
+};
+export const getCompanyFrotas = (companyId?: string): Machinery[] => getCompanyData<Machinery>('frotas', getStoredMachineries, companyId);
+
+export const saveCompanyFuncionarios = (funcionarios: Employee[], companyId?: string): void => {
+  saveCompanyData('funcionarios', funcionarios, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(funcionarios)); } catch {}
+};
+export const getCompanyFuncionarios = (companyId?: string): Employee[] => getCompanyData<Employee>('funcionarios', getStoredEmployees, companyId);
+
+export const saveCompanyRhFolhas = (folhas: PayrollRecord[], companyId?: string): void => {
+  saveCompanyData('rh_folhas', folhas, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.PAYROLLS, JSON.stringify(folhas)); } catch {}
+};
+export const getCompanyRhFolhas = (companyId?: string): PayrollRecord[] => getCompanyData<PayrollRecord>('rh_folhas', getStoredPayrolls, companyId);
+
+export const saveCompanyRhFaltas = (faltas: AbsenceRecord[], companyId?: string): void => {
+  saveCompanyData('rh_faltas', faltas, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.ABSENCES, JSON.stringify(faltas)); } catch {}
+};
+export const getCompanyRhFaltas = (companyId?: string): AbsenceRecord[] => getCompanyData<AbsenceRecord>('rh_faltas', getStoredAbsences, companyId);
+
+export const saveCompanyRhFerias = (ferias: VacationRecord[], companyId?: string): void => {
+  saveCompanyData('rh_ferias', ferias, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(ferias)); } catch {}
+};
+export const getCompanyRhFerias = (companyId?: string): VacationRecord[] => getCompanyData<VacationRecord>('rh_ferias', getStoredVacations, companyId);
+
+export const saveCompanyFornecedores = (fornecedores: Supplier[], companyId?: string): void => {
+  saveCompanyData('fornecedores', fornecedores, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(fornecedores)); } catch {}
+};
+export const getCompanyFornecedores = (companyId?: string): Supplier[] => getCompanyData<Supplier>('fornecedores', getStoredSuppliers, companyId);
+
+export const saveCompanyClientes = (clientes: Client[], companyId?: string): void => {
+  saveCompanyData('clientes', clientes, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clientes)); } catch {}
+};
+export const getCompanyClientes = (companyId?: string): Client[] => getCompanyData<Client>('clientes', getStoredClients, companyId);
+
+export const saveCompanyDespesas = (despesas: Expense[], companyId?: string): void => {
+  saveCompanyData('despesas', despesas, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(despesas)); } catch {}
+};
+export const getCompanyDespesas = (companyId?: string): Expense[] => getCompanyData<Expense>('despesas', getStoredExpenses, companyId);
+
+export const saveCompanyServicos = (servicos: ServiceOrder[], companyId?: string): void => {
+  saveCompanyData('servicos', servicos, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(servicos)); } catch {}
+};
+export const getCompanyServicos = (companyId?: string): ServiceOrder[] => getCompanyData<ServiceOrder>('servicos', getStoredServices, companyId);
+
+export const saveCompanyEstoque = (itens: InventoryItem[], companyId?: string): void => {
+  saveCompanyData('estoque', itens, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(itens)); } catch {}
+};
+export const getCompanyEstoque = (companyId?: string): InventoryItem[] => getCompanyData<InventoryItem>('estoque', getStoredInventory, companyId);
+
+export const saveCompanyAbastecimentos = (logs: FuelLog[], companyId?: string): void => {
+  saveCompanyData('abastecimentos', logs, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.FUEL_LOGS, JSON.stringify(logs)); } catch {}
+};
+export const getCompanyAbastecimentos = (companyId?: string): FuelLog[] => getCompanyData<FuelLog>('abastecimentos', getStoredFuelLogs, companyId);
+
+export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?: string): void => {
+  saveCompanyData('manutencoes', manutencoes, companyId);
+  try { localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(manutencoes)); } catch {}
+};
+export const getCompanyManutencoes = (companyId?: string): MaintenanceLog[] => getCompanyData<MaintenanceLog>('manutencoes', getStoredMaintenanceLogs, companyId);
+
 
 

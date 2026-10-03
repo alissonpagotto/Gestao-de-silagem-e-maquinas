@@ -71,7 +71,17 @@ import {
   saveStoredSalaryAdvances,
   saveStoredTerminations,
   formatCurrencyBRL,
-  getActiveCompanyId
+  getActiveCompanyId,
+  saveCompanyRhFolhas,
+  saveCompanyRhFerias,
+  saveCompanyFrotas,
+  saveCompanyFuncionarios,
+  saveCompanyFornecedores,
+  saveCompanyClientes,
+  saveCompanyDespesas,
+  saveCompanyServicos,
+  saveCompanyEstoque,
+  saveCompanyAbastecimentos
 } from './lib/storage';
 import { useConfirm } from './context/ConfirmContext';
 
@@ -1365,14 +1375,14 @@ export default function App() {
 
   const handleSavePayrolls = (newPayrolls: PayrollRecord[]) => {
     setPayrolls(newPayrolls);
-    if (!isSupabaseConfigured) {
-      saveStoredPayrolls(newPayrolls);
-    }
+    saveStoredPayrolls(newPayrolls);
+    saveCompanyRhFolhas(newPayrolls, activeTenantId);
   };
 
   const handleSaveVacations = (newVacations: VacationRecord[]) => {
     setVacations(newVacations);
     saveStoredVacations(newVacations);
+    saveCompanyRhFerias(newVacations, activeTenantId);
   };
 
   const handleSaveLeaves = (newLeaves: LeaveRecord[]) => {
@@ -1825,6 +1835,7 @@ export default function App() {
     }
     saveCloudMachineries(newMachineries, activeTenantId).catch(err => console.warn('Supabase saveCloudMachineries notice:', err));
     saveStoredMachineries(newMachineries);
+    saveCompanyFrotas(newMachineries, activeTenantId);
 
     setMachineries(newMachineries);
   };
@@ -1837,6 +1848,7 @@ export default function App() {
     setEmployees(prev => prev.filter(e => e.id !== id && e.id !== targetUuid && toValidUUID(e.id) !== targetUuid));
     const currentStored = getStoredEmployees().filter(e => e.id !== id && e.id !== targetUuid && toValidUUID(e.id) !== targetUuid);
     saveStoredEmployees(currentStored);
+    saveCompanyFuncionarios(currentStored, activeTenantId);
     lastSyncedState.current.rel_employees = JSON.stringify(currentStored);
 
     // 2. Chama explicitamente o método .delete().eq('id', id) do Supabase SEM qualquer insert ou upsert
@@ -1887,6 +1899,7 @@ export default function App() {
     // 2. Atualização otimista imediata na UI e armazenamento local
     setEmployees(deduplicatedEmployees);
     saveStoredEmployees(deduplicatedEmployees);
+    saveCompanyFuncionarios(deduplicatedEmployees, activeTenantId);
 
     if (changedEmployees.length === 0) {
       return;

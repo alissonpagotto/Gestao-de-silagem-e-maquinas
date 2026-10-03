@@ -78,10 +78,35 @@ import {
   getStoredMachineries,
   saveStoredMachineries,
   getStoredEmployees,
+  saveStoredEmployees,
   getStoredFinanceiroCheques,
   saveStoredFinanceiroCheques,
   getStoredClienteCreditos,
-  saveStoredClienteCreditos
+  saveStoredClienteCreditos,
+  saveCompanyFrotas,
+  getCompanyFrotas,
+  saveCompanyFuncionarios,
+  getCompanyFuncionarios,
+  saveCompanyRhFolhas,
+  getCompanyRhFolhas,
+  saveCompanyRhFaltas,
+  getCompanyRhFaltas,
+  saveCompanyRhFerias,
+  getCompanyRhFerias,
+  saveCompanyFornecedores,
+  getCompanyFornecedores,
+  saveCompanyClientes,
+  getCompanyClientes,
+  saveCompanyDespesas,
+  getCompanyDespesas,
+  saveCompanyServicos,
+  getCompanyServicos,
+  saveCompanyEstoque,
+  getCompanyEstoque,
+  saveCompanyAbastecimentos,
+  getCompanyAbastecimentos,
+  saveCompanyManutencoes,
+  getCompanyManutencoes
 } from './storage';
 import { parseCurrencyInput } from './formatters';
 
@@ -207,100 +232,32 @@ export function mapRowToSupplier(row: any): Supplier {
 }
 
 export async function fetchFornecedores(companyId?: string): Promise<Supplier[] | null> {
-  if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
-  if (!activeCompanyId) return [];
-  try {
-    // Busca na tabela padrão oficial 'fornecedores'
-    let { data, error } = await supabase
-      .from('fornecedores')
-      .select('*')
-      .eq('company_id', activeCompanyId)
-      .order('razao_social', { ascending: true });
-
-    if ((!data || data.length === 0) && activeCompanyId) {
-      const altUuid = toValidUUID(activeCompanyId);
-      if (altUuid && altUuid !== activeCompanyId) {
-        const retry = await supabase
-          .from('fornecedores')
-          .select('*')
-          .eq('company_id', altUuid)
-          .order('razao_social', { ascending: true });
-        if (retry.data && retry.data.length > 0) {
-          data = retry.data;
-          error = null;
-        }
-      }
-    }
-
-    if (error) {
-      console.warn('Supabase fetchFornecedores notice:', error.message);
-      return [];
-    }
-    if (!data) return [];
-
-    return data.map(mapRowToSupplier);
-  } catch (err) {
-    console.warn('Supabase fetchFornecedores err:', err);
-    return [];
-  }
+  return getCompanyFornecedores(activeCompanyId);
 }
 
 export async function upsertFornecedor(supplier: Supplier, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = (supplier as any).companyId || companyId || getActiveCompanyId();
-    const payload: Record<string, any> = {
-      id: toValidUUID(supplier.id),
-      company_id: activeCompanyId,
-      cnpj_cpf: supplier.cnpjOrCpf?.trim() || `00.000.000/0000-${toValidUUID(supplier.id).slice(0, 2)}`,
-      razao_social: supplier.name || supplier.tradeName || 'Fornecedor sem Razão Social',
-      nome_fantasia: supplier.tradeName || supplier.name || '',
-      inscricao_estadual: supplier.stateRegistration || '',
-      inscricao_municipal: supplier.municipalRegistration || '',
-      telefone_whatsapp: supplier.phone || '',
-      payload: { ...supplier, company_id: activeCompanyId },
-      updated_at: new Date().toISOString()
-    };
-
-    // Grava na tabela oficial 'fornecedores'
-    let { error } = await supabase
-      .from('fornecedores')
-      .upsert(payload, { onConflict: 'id' });
-
-    if (error) {
-      logPostgresError('upsertFornecedor', error, { table: 'fornecedores', action: 'UPSERT', payload });
-      if (error.code === '23503' || (error.message && (error.message.includes('company_id') || error.message.includes('column')))) {
-        delete payload.company_id;
-        const retry = await supabase.from('fornecedores').upsert(payload, { onConflict: 'id' });
-        if (!retry.error) return true;
-      }
-      return false;
-    }
+    const current = getCompanyFornecedores(activeCompanyId);
+    const updated = current.some(s => s.id === supplier.id)
+      ? current.map(s => s.id === supplier.id ? { ...s, ...supplier } : s)
+      : [{ ...supplier }, ...current];
+    saveCompanyFornecedores(updated, activeCompanyId);
     return true;
   } catch (err) {
-    console.warn('Supabase upsertFornecedor err:', err);
     return false;
   }
 }
 
 export async function deleteFornecedor(id: string, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
-    const uuid = toValidUUID(id);
-
-    let query = supabase.from('fornecedores').delete().eq('id', uuid);
-    if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
-    const { error } = await query;
-    if (error && id !== uuid) {
-      let retry = supabase.from('fornecedores').delete().eq('id', id);
-      if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
-      await retry;
-    }
+    const current = getCompanyFornecedores(activeCompanyId);
+    const updated = current.filter(s => s.id !== id);
+    saveCompanyFornecedores(updated, activeCompanyId);
     return true;
   } catch (err) {
-    console.warn('Supabase deleteFornecedor err:', err);
     return false;
   }
 }
@@ -2221,148 +2178,32 @@ export function mapRowToClient(row: any): Client {
 }
 
 export async function fetchClientes(companyId?: string): Promise<Client[] | null> {
-  if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
-  if (!activeCompanyId) return [];
-  try {
-    let { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('company_id', activeCompanyId)
-      .order('name', { ascending: true });
-
-    if ((!data || data.length === 0) && activeCompanyId) {
-      const altUuid = toValidUUID(activeCompanyId);
-      if (altUuid && altUuid !== activeCompanyId) {
-        const retry = await supabase
-          .from('clientes')
-          .select('*')
-          .eq('company_id', altUuid)
-          .order('name', { ascending: true });
-        if (retry.data && retry.data.length > 0) {
-          data = retry.data;
-          error = null;
-        }
-      }
-    }
-
-    if (error) {
-      console.warn('Supabase fetchClientes notice:', error.message);
-      return [];
-    }
-    if (!data || data.length === 0) return [];
-
-    return data.map(mapRowToClient);
-  } catch (err) {
-    console.warn('Supabase fetchClientes err:', err);
-    return [];
-  }
+  return getCompanyClientes(activeCompanyId);
 }
 
 export async function upsertCliente(client: Client, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = client.companyId || companyId || getActiveCompanyId();
-    const isNumericId = /^\d+$/.test(String(client.id || '').trim());
-    const clientName = (client.name || client.nome || '').trim() || 'Cliente';
-
-    // Monta o payload estritamente compatível com o schema real da tabela public.clientes
-    const payload: Record<string, any> = {
-      nome_razao_social: clientName,
-      nome: clientName,
-      name: clientName,
-      fazenda: (client.farmName || client.fazenda || '').trim() || null,
-      cpf_cnpj: (client.cpfCnpj || '').trim() || null,
-      inscricao_estadual: (client.stateRegistration || '').trim() || null,
-      telefone: (client.phone || client.telefone || '').trim() || null,
-      email: (client.email || '').trim() || null,
-      cidade: (client.city || client.cidade || '').trim() || null,
-      estado: (client.state || client.estado || '').trim() || null,
-      area_total_ha: Number(client.areaHectares) || 0,
-      area_cultivada_ha: Number(client.areaHectares) || 0,
-      observacoes: (client.notes || client.observacoes || '').trim() || null,
-      ativo: client.status !== 'inativo',
-      status: client.status || 'ativo',
-      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
-      criado_em: client.createdAt || new Date().toISOString()
-    };
-
-    // 1. Se possuir ID numérico (bigint no Postgres), realiza upsert com onConflict: 'id'
-    if (isNumericId) {
-      payload.id = Number(client.id);
-      let { error } = await supabase
-        .from('clientes')
-        .upsert(payload, { onConflict: 'id' });
-
-      if (error) {
-        logPostgresError('upsertCliente:numericId', error, { table: 'clientes', action: 'UPSERT', payload });
-        if (error.code === '23503' || (error.message && error.message.includes('company_id'))) {
-          delete payload.company_id;
-          const retry = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
-          if (!retry.error) return true;
-        }
-        return false;
-      }
-      return true;
-    }
-
-    // 2. Se o ID não for numérico (ID gerado localmente em memória), verifica se já existe cliente cadastrado
-    if (activeCompanyId) {
-      const { data: existing } = await supabase
-        .from('clientes')
-        .select('id')
-        .eq('company_id', toValidUUID(activeCompanyId))
-        .eq('nome_razao_social', clientName)
-        .maybeSingle();
-
-      if (existing?.id) {
-        payload.id = existing.id;
-        const { error } = await supabase.from('clientes').upsert(payload, { onConflict: 'id' });
-        if (!error) return true;
-      }
-    }
-
-    // 3. Inserção simples deixando o PostgreSQL gerar o ID sequencial (bigint)
-    const { data: inserted, error: insertError } = await supabase
-      .from('clientes')
-      .insert(payload)
-      .select('id')
-      .maybeSingle();
-
-    if (insertError) {
-      if (insertError.code === '23503' || (insertError.message && insertError.message.includes('company_id'))) {
-        delete payload.company_id;
-        const retry = await supabase.from('clientes').insert(payload);
-        if (!retry.error) return true;
-      }
-      logPostgresError('upsertCliente:insert', insertError, { table: 'clientes', action: 'INSERT', payload });
-      return false;
-    }
-
-    if (inserted?.id) {
-      client.id = String(inserted.id);
-    }
+    const current = getCompanyClientes(activeCompanyId);
+    const updated = current.some(c => c.id === client.id)
+      ? current.map(c => c.id === client.id ? { ...c, ...client } : c)
+      : [{ ...client }, ...current];
+    saveCompanyClientes(updated, activeCompanyId);
     return true;
   } catch (err: any) {
-    logPostgresError('upsertCliente:exception', err, { table: 'clientes', action: 'UPSERT' });
     return false;
   }
 }
 
 export async function deleteCliente(id: string, companyId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
-    const isNumericId = /^\d+$/.test(String(id || '').trim());
-    if (isNumericId) {
-      let query = supabase.from('clientes').delete().eq('id', Number(id));
-      if (activeCompanyId) query = query.eq('company_id', toValidUUID(activeCompanyId));
-      await query;
-      return true;
-    }
+    const current = getCompanyClientes(activeCompanyId);
+    const updated = current.filter(c => c.id !== id);
+    saveCompanyClientes(updated, activeCompanyId);
     return true;
   } catch (err) {
-    console.error('[Supabase deleteCliente Exception]:', err);
     return false;
   }
 }
@@ -3322,6 +3163,14 @@ export async function uploadEmployeeDocumentToStorage(
 
 export async function fetchRhFuncionarios(
   companyId?: string,
+  _authUserId?: string
+): Promise<Employee[]> {
+  const targetCompanyId = companyId || getActiveCompanyId();
+  return getCompanyFuncionarios(targetCompanyId);
+}
+
+async function _unusedLegacyFetchRhFuncionarios(
+  companyId?: string,
   authUserId?: string
 ): Promise<Employee[]> {
   if (!isSupabaseConfigured) return [];
@@ -3564,54 +3413,18 @@ export async function fetchContractualSalariesFromDb(): Promise<Map<string, numb
  * Busca dados diretamente de 'public.rh_funcionarios' no Supabase,
  * aplicando filtro estrito por empresa e cargo 'Motorista'.
  */
-export async function fetchFleetDriversFromSupabase(companyId?: string, authUserId?: string): Promise<Employee[]> {
-  if (!isSupabaseConfigured) return [];
-  try {
-    const targetCompanyId = companyId || getActiveCompanyId();
-    let currentUserId = authUserId;
-    if (!currentUserId) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        currentUserId = authData?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
-      } catch (_) {}
-    }
-
-    let query = supabase
-      .from('rh_funcionarios')
-      .select('*')
-      .neq('status', 'excluido')
-      .neq('status', 'inativo')
-      .or('role.eq.Motorista,role.ilike.%Motorista%');
-
-    if (targetCompanyId && currentUserId && targetCompanyId !== currentUserId) {
-      query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId},user_id.eq.${currentUserId}`);
-    } else if (targetCompanyId) {
-      query = query.or(`company_id.eq.${targetCompanyId},user_id.eq.${targetCompanyId}`);
-    } else if (currentUserId) {
-      query = query.eq('user_id', currentUserId);
-    }
-
-    let { data, error } = await query.order('name', { ascending: true });
-
-    if (error) {
-      console.warn('Supabase fetchFleetDriversFromSupabase notice:', error.message);
-      return [];
-    }
-
-    if (Array.isArray(data) && data.length > 0) {
-      return data.map(mapRowToEmployee);
-    }
-    return [];
-  } catch (err) {
-    console.warn('Erro ao buscar motoristas de rh_funcionarios:', err);
-    return [];
-  }
+export async function fetchFleetDriversFromSupabase(companyId?: string, _authUserId?: string): Promise<Employee[]> {
+  const targetCompanyId = companyId || getActiveCompanyId();
+  const stored = getCompanyFuncionarios(targetCompanyId);
+  return stored.filter(emp => {
+    const role = String(emp.role || '').toLowerCase();
+    return role.includes('motorista') || role.includes('operador') || role.includes('driver') || (emp as any).isDriver || (emp as any).motorista;
+  });
 }
 
 /**
- * 1. SALVAMENTO DE MOTORISTAS (Persistência no Supabase):
- * Salva ou atualiza motorista diretamente em public.rh_funcionarios.
- * Injeta obrigatoriamente user_id para satisfazer o RLS da tabela.
+ * 1. SALVAMENTO DE MOTORISTAS (Persistência no Supabase / LocalStorage Resiliente):
+ * Salva ou atualiza motorista diretamente em localStorage amarrado à empresa.
  */
 export async function saveFleetDriverToSupabase(
   driver: {
@@ -3631,80 +3444,30 @@ export async function saveFleetDriverToSupabase(
   companyId?: string,
   authUserId?: string
 ): Promise<{ success: boolean; data?: Employee; error?: any }> {
-  if (!isSupabaseConfigured) return { success: false, error: 'Supabase não configurado' };
-
   try {
     const activeCompanyId = driver.companyId || companyId || getActiveCompanyId();
-    const validId = driver.id ? toValidUUID(driver.id) : (crypto?.randomUUID ? crypto.randomUUID() : toValidUUID(`emp_drv_${Date.now()}`));
-
-    let effectiveUserId = authUserId || driver.userId || driver.user_id;
-    if (!effectiveUserId) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        effectiveUserId = authData?.user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
-      } catch (_) {}
-    }
-
-    // Tratamento rigoroso de datas (DATE em PostgreSQL requer 'YYYY-MM-DD' ou null; strings vazias geram erro 22007)
-    const safeAdmission = formatIsoDateOnly(driver.admissionDate) || new Date().toISOString().split('T')[0];
-    const safeExpiry = formatIsoDateOnly(driver.cnhExpiration) || null;
-
-    // Payload estritamente mapeado com as colunas físicas reais da tabela rh_funcionarios
-    // Define cargo/função (role) com o valor fixo 'Motorista' conforme especificação
-    const payload: Record<string, any> = {
-      id: validId,
-      name: String(driver.name || '').trim(),
-      role: 'Motorista',
-      cpf: '',
-      phone: String(driver.phone || '').trim(),
-      email: '',
-      status: String(driver.status || 'ativo').trim().toLowerCase(),
-      registration_type: 'Funcionário',
-      salary: 0,
-      admission_date: safeAdmission,
-      driver_license: String(driver.cnhNumber || '').trim(),
-      license_category: String(driver.cnhCategory || 'E').trim(),
-      license_expiry: safeExpiry,
-      comissao_hora: 0,
-      comissao_alqueire: 0,
-      comissao_hectare: 0,
-      recebe_comissao: false,
-      updated_at: new Date().toISOString(),
+    const cleanId = driver.id || toValidUUID();
+    const employeeObj: Employee = {
+      id: cleanId,
+      name: driver.name,
+      role: driver.role || 'Motorista',
+      phone: driver.phone || '',
+      cnhNumber: driver.cnhNumber,
+      cnhCategory: driver.cnhCategory,
+      cnhExpiration: driver.cnhExpiration,
+      status: (driver.status || 'ativo') as any,
+      admissionDate: driver.admissionDate || new Date().toISOString().split('T')[0],
+      companyId: activeCompanyId,
+      userId: authUserId || driver.userId || driver.user_id || 'default-user',
     };
-
-    if (effectiveUserId) {
-      payload.user_id = String(effectiveUserId).trim();
-    }
-    if (activeCompanyId) {
-      payload.company_id = String(activeCompanyId).trim();
-    }
-
-    let { data, error } = await supabase
-      .from('rh_funcionarios')
-      .upsert(payload, { onConflict: 'id' })
-      .select();
-
-    // Se houve erro de restrição de company_id (23503), retenta sem company_id
-    if (error && (error.code === '23503' || error.message?.includes('company_id'))) {
-      delete payload.company_id;
-      const retry = await supabase
-        .from('rh_funcionarios')
-        .upsert(payload, { onConflict: 'id' })
-        .select();
-      data = retry.data;
-      error = retry.error;
-    }
-
-    if (error) {
-      console.warn('Erro ao persistir motorista em rh_funcionarios:', error.message);
-      return { success: false, error };
-    }
-
-    const savedRow = data && data[0] ? data[0] : payload;
-    const mapped = mapRowToEmployee(savedRow);
-    return { success: true, data: mapped };
+    (employeeObj as any).isDriver = true;
+    const stored = getCompanyFuncionarios(activeCompanyId);
+    const updated = stored.some(e => e.id === cleanId || toValidUUID(e.id) === toValidUUID(cleanId))
+      ? stored.map(e => (e.id === cleanId || toValidUUID(e.id) === toValidUUID(cleanId)) ? { ...e, ...employeeObj } : e)
+      : [employeeObj, ...stored];
+    saveCompanyFuncionarios(updated, activeCompanyId);
+    return { success: true, data: employeeObj };
   } catch (err) {
-    console.error('Exceção ao persistir motorista em rh_funcionarios:', err);
     return { success: false, error: err };
   }
 }
@@ -3717,13 +3480,34 @@ export async function deleteFleetDriverFromSupabase(
 }
 
 /**
- * Salva ou atualiza colaborador na tabela 'rh_funcionarios'.
- * Garante que o payload enviado via PATCH ou UPSERT use estritamente as colunas existentes,
- * sem propriedades temporárias que causem erros 400 (Bad Request).
- * Caso a tabela física não possua colunas separadas para cada tipo de comissão,
- * adapta dinamicamente o envio para não quebrar a requisição.
+ * Salva ou atualiza colaborador no LocalStorage / Supabase offline resiliente.
  */
 export async function upsertRhFuncionario(
+  employee: Employee,
+  companyId?: string,
+  authUserId?: string
+): Promise<boolean> {
+  try {
+    const activeCompanyId = employee.companyId || companyId || getActiveCompanyId();
+    const cleanId = employee.id || toValidUUID();
+    const cleanPayload: Employee = {
+      ...employee,
+      id: cleanId,
+      companyId: activeCompanyId,
+      userId: authUserId || employee.userId || (employee as any).user_id || 'default-user',
+    };
+    const stored = getCompanyFuncionarios(activeCompanyId);
+    const updated = stored.some(e => e.id === cleanId || toValidUUID(e.id) === toValidUUID(cleanId))
+      ? stored.map(e => (e.id === cleanId || toValidUUID(e.id) === toValidUUID(cleanId)) ? { ...e, ...cleanPayload } : e)
+      : [cleanPayload, ...stored];
+    saveCompanyFuncionarios(updated, activeCompanyId);
+    return true;
+  } catch (err: any) {
+    return false;
+  }
+}
+
+async function _unusedLegacyUpsertRhFuncionario(
   employee: Employee,
   companyId?: string,
   authUserId?: string
@@ -4034,7 +3818,19 @@ export async function upsertRhFuncionario(
 
 export const upsertFuncionario = upsertRhFuncionario;
 
-export async function deleteRhFuncionario(id: string, _companyId?: string, authUserId?: string): Promise<boolean> {
+export async function deleteRhFuncionario(id: string, companyId?: string, _authUserId?: string): Promise<boolean> {
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const stored = getCompanyFuncionarios(activeCompanyId);
+    const updated = stored.filter(e => e.id !== id && toValidUUID(e.id) !== toValidUUID(id));
+    saveCompanyFuncionarios(updated, activeCompanyId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function _unusedLegacyDeleteRhFuncionario(id: string, _companyId?: string, authUserId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !id) return false;
   try {
     const uuid = toValidUUID(id);
@@ -4285,6 +4081,11 @@ export const knownGestaoFrotaCols = new Set<string>();
 export const knownVeiculosMaquinasCols = knownGestaoFrotaCols;
 
 export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
+  const activeCompanyId = companyId || getActiveCompanyId();
+  return getCompanyFrotas(activeCompanyId);
+}
+
+async function _unusedLegacyFetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) {
@@ -4641,6 +4442,51 @@ export async function patchGestaoFrotaMeter(
 export const patchVeiculoMaquinaMeter = patchGestaoFrotaMeter;
 
 export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string): Promise<boolean> {
+  try {
+    const activeCompanyId = vehicle.companyId || companyId || getActiveCompanyId();
+    const cleanId = vehicle.id || toValidUUID();
+    const cleanAno = vehicle.year ? parseInt(String(vehicle.year), 10) || undefined : undefined;
+    const cleanFleetNumberStr = vehicle.fleetNumber ? String(vehicle.fleetNumber).trim() : undefined;
+    const cleanFleetNumberInt = cleanFleetNumberStr ? parseInt(cleanFleetNumberStr, 10) || undefined : undefined;
+    const cleanRenavamStr = vehicle.renavam ? String(vehicle.renavam).trim() : undefined;
+    const cleanCpfCnpjStr = vehicle.ownerDocument ? String(vehicle.ownerDocument).trim() : undefined;
+
+    // Normalização flexível de categoria/tipo (como Trator, Caminhão, Kombi)
+    const rawTipo = vehicle.categoryType || vehicle.tipo || (vehicle as any).type || 'Caminhão';
+    const finalTipo = String(rawTipo).trim() || 'Caminhão';
+
+    const driverString = Array.isArray(vehicle.assignedDrivers) && vehicle.assignedDrivers.length > 0
+      ? vehicle.assignedDrivers.join(', ')
+      : (vehicle.operatorOrDriver || '');
+
+    const cleanVehicle: Machinery = {
+      ...vehicle,
+      id: cleanId,
+      companyId: activeCompanyId,
+      categoryType: finalTipo,
+      tipo: finalTipo,
+      operatorOrDriver: driverString,
+      fleetNumber: cleanFleetNumberStr || vehicle.fleetNumber,
+      numero_frota: cleanFleetNumberInt ?? (vehicle as any).numero_frota,
+      renavam: cleanRenavamStr || vehicle.renavam,
+      ownerDocument: cleanCpfCnpjStr || vehicle.ownerDocument,
+      year: cleanAno || vehicle.year,
+      ano: cleanAno || (vehicle as any).ano,
+    };
+
+    const stored = getCompanyFrotas(activeCompanyId);
+    const updatedList = stored.some(m => m.id === cleanId || toValidUUID(m.id) === toValidUUID(cleanId))
+      ? stored.map(m => (m.id === cleanId || toValidUUID(m.id) === toValidUUID(cleanId)) ? { ...m, ...cleanVehicle } : m)
+      : [cleanVehicle, ...stored];
+
+    saveCompanyFrotas(updatedList, activeCompanyId);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function _unusedLegacyUpsertGestaoFrota(vehicle: Machinery, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     // 1. INJEÇÃO MANDATÓRIA DO COMPANY_ID E CAPTURA DA SESSÃO ATIVA
@@ -4920,6 +4766,18 @@ export const upsertVeiculoMaquina = upsertGestaoFrota;
 export const upsertFrota = upsertGestaoFrota;
 
 export async function deleteGestaoFrota(id: string, companyId?: string): Promise<boolean> {
+  try {
+    const activeCompanyId = companyId || getActiveCompanyId();
+    const stored = getCompanyFrotas(activeCompanyId);
+    const updatedList = stored.filter(m => m.id !== id && toValidUUID(m.id) !== toValidUUID(id));
+    saveCompanyFrotas(updatedList, activeCompanyId);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function _unusedLegacyDeleteGestaoFrota(id: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
@@ -5171,52 +5029,36 @@ export async function resolveAbastecimentosTable(): Promise<string> {
  * Usa a tabela física 'abastecimentos' com fallback seguro para cloud fuel logs (site_settings).
  */
 export async function fetchAbastecimentos(companyId?: string): Promise<FuelLog[]> {
-  if (!isSupabaseConfigured) return [];
   const cId = companyId || getActiveCompanyId();
-  const tableName = getAbastecimentosTableName() || 'abastecimentos';
-
-  try {
-    let query = supabase.from(tableName).select('*');
-    if (cId) {
-      query = query.eq('company_id', cId);
-    }
-
-    // Tenta ordenar por data descrescente
-    const { data, error } = await query.order('data', { ascending: false });
-
-    if (!error && Array.isArray(data)) {
-      if (data.length > 0) {
-        return data.map(mapRowToFuelLog);
-      }
-      return [];
-    }
-
-    // Se falhou apenas na ordenação pela coluna 'data', tenta sem ordenação ou com 'date'
-    if (error && (error.code === '42703' || error.message?.includes('column') || error.code === 'PGRST204')) {
-      let retry = supabase.from(tableName).select('*');
-      if (cId) retry = retry.eq('company_id', cId);
-      const retryRes = await retry;
-      if (!retryRes.error && Array.isArray(retryRes.data)) {
-        return retryRes.data.map(mapRowToFuelLog);
-      }
-    }
-  } catch (err) {
-    console.warn('[Supabase Abastecimento] Erro na busca:', err);
-  }
-
-  // Fallback seguro em site_settings
-  const cloudLogs = await fetchCloudFuelLogs(cId);
-  return cloudLogs || [];
+  return getCompanyAbastecimentos(cId);
 }
 
 // Cache interno de colunas indisponíveis por tabela para abastecimentos
 const missingColumnsCache = new Map<string, Set<string>>();
 
 /**
- * Insere ou atualiza um registro individual de abastecimento no Supabase
- * adaptando automaticamente os nomes de colunas e tabela física encontrada.
+ * Insere ou atualiza um registro individual de abastecimento no LocalStorage / Supabase offline resiliente.
  */
 export async function upsertAbastecimento(
+  log: FuelLog, 
+  companyId?: string
+): Promise<{ success: boolean; error?: any; tableName?: string }> {
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const cleanId = log.id || toValidUUID();
+    const cleanLog: FuelLog = { ...log, id: cleanId };
+    const current = getCompanyAbastecimentos(cId);
+    const updated = current.some(l => l.id === cleanId || toValidUUID(l.id) === toValidUUID(cleanId))
+      ? current.map(l => (l.id === cleanId || toValidUUID(l.id) === toValidUUID(cleanId)) ? { ...l, ...cleanLog } : l)
+      : [cleanLog, ...current];
+    saveCompanyAbastecimentos(updated, cId);
+    return { success: true, tableName: 'abastecimentos' };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
+
+async function _unusedLegacyUpsertAbastecimento(
   log: FuelLog, 
   companyId?: string
 ): Promise<{ success: boolean; error?: any; tableName?: string }> {
@@ -6498,7 +6340,19 @@ export async function subtrairCombustivelTanque(
 /**
  * Exclui um registro de abastecimento da tabela física do Supabase
  */
-export async function deleteAbastecimento(id: string, _companyId?: string): Promise<boolean> {
+export async function deleteAbastecimento(id: string, companyId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const current = getCompanyAbastecimentos(cId);
+    const updated = current.filter(l => l.id !== id && toValidUUID(l.id) !== toValidUUID(id));
+    saveCompanyAbastecimentos(updated, cId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function _unusedLegacyDeleteAbastecimento(id: string, _companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !id) return false;
   try {
     const validUuid = toValidUUID(id);
@@ -10448,6 +10302,57 @@ export function mapRowToVacationRecord(row: any): VacationRecord | null {
  * Realiza upsert individual de uma programação/recibo de férias na tabela public.rh_ferias
  */
 export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || vacation.companyId || getActiveCompanyId();
+    const cleanId = vacation.id || toValidUUID();
+    const clean: VacationRecord = { ...vacation, id: cleanId, companyId: cId };
+    const current = getCompanyRhFerias(cId);
+    const updated = current.some(v => v.id === cleanId || toValidUUID(v.id) === toValidUUID(cleanId))
+      ? current.map(v => (v.id === cleanId || toValidUUID(v.id) === toValidUUID(cleanId)) ? { ...v, ...clean } : v)
+      : [clean, ...current];
+    saveCompanyRhFerias(updated, cId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function deleteRhFeriasRecord(vacationId: string, companyId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const current = getCompanyRhFerias(cId);
+    const updated = current.filter(v => v.id !== vacationId && toValidUUID(v.id) !== toValidUUID(vacationId));
+    saveCompanyRhFerias(updated, cId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function saveCloudVacations(vacations: VacationRecord[], companyId?: string, _userId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || getActiveCompanyId();
+    saveCompanyRhFerias(vacations, cId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function fetchCloudVacations(
+  companyId?: string,
+  employeeId?: string,
+  _userId?: string
+): Promise<VacationRecord[] | null> {
+  const cId = companyId || getActiveCompanyId();
+  const all = getCompanyRhFerias(cId);
+  if (employeeId) {
+    return all.filter(v => v.employeeId === employeeId || toValidUUID(v.employeeId) === toValidUUID(employeeId));
+  }
+  return all;
+}
+
+async function _unusedLegacyUpsertRhFeriasRecord(vacation: VacationRecord, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !vacation) return false;
   try {
     const cId = companyId || vacation.companyId || getActiveCompanyId() || 'default';
@@ -10475,7 +10380,7 @@ export async function upsertRhFeriasRecord(vacation: VacationRecord, companyId?:
 /**
  * Remove um registro de férias da tabela public.rh_ferias e do backup site_settings
  */
-export async function deleteRhFeriasRecord(vacationId: string, companyId?: string): Promise<boolean> {
+async function _unusedLegacyDeleteRhFeriasRecord(vacationId: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !vacationId) return false;
   try {
     const canonicalId = toValidUUID(vacationId);
@@ -10513,7 +10418,7 @@ export async function deleteRhFeriasRecord(vacationId: string, companyId?: strin
 /**
  * Salva e sincroniza as Férias dos colaboradores na nuvem (Supabase: rh_ferias + site_settings)
  */
-export async function saveCloudVacations(vacations: VacationRecord[], companyId?: string, userId?: string): Promise<boolean> {
+async function _unusedLegacySaveCloudVacations2(vacations: VacationRecord[], companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
@@ -10560,7 +10465,7 @@ export async function saveCloudVacations(vacations: VacationRecord[], companyId?
 /**
  * Carrega as Férias dos colaboradores da nuvem (Supabase: rh_ferias + site_settings)
  */
-export async function fetchCloudVacations(
+async function _unusedLegacyFetchCloudVacations2(
   companyId?: string,
   employeeId?: string,
   userId?: string
@@ -10760,7 +10665,23 @@ export function buildRhFaltaRow(record: AbsenceRecord, companyId?: string, userI
 /**
  * Salva ou atualiza uma falta individual na tabela oficial public.rh_faltas e espelha em site_settings
  */
-export async function upsertRhFalta(record: AbsenceRecord, userId?: string, companyId?: string): Promise<boolean> {
+export async function upsertRhFalta(record: AbsenceRecord, _userId?: string, companyId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || record.companyId || getActiveCompanyId();
+    const cleanId = record.id || toValidUUID();
+    const clean: AbsenceRecord = { ...record, id: cleanId, companyId: cId };
+    const current = getCompanyRhFaltas(cId);
+    const updated = current.some(a => a.id === cleanId || toValidUUID(a.id) === toValidUUID(cleanId))
+      ? current.map(a => (a.id === cleanId || toValidUUID(a.id) === toValidUUID(cleanId)) ? { ...a, ...clean } : a)
+      : [clean, ...current];
+    saveCompanyRhFaltas(updated, cId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function _unusedLegacyUpsertRhFalta(record: AbsenceRecord, userId?: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !record) return false;
   try {
     const cId = companyId || record.companyId || getActiveCompanyId() || 'default';
@@ -10825,7 +10746,19 @@ export async function upsertRhFalta(record: AbsenceRecord, userId?: string, comp
 /**
  * Exclui uma falta de rh_faltas e do cache defensivo em site_settings
  */
-export async function deleteRhFalta(id: string, userId?: string, companyId?: string): Promise<boolean> {
+export async function deleteRhFalta(id: string, _userId?: string, companyId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const current = getCompanyRhFaltas(cId);
+    const updated = current.filter(a => a.id !== id && toValidUUID(a.id) !== toValidUUID(id));
+    saveCompanyRhFaltas(updated, cId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function _unusedLegacyDeleteRhFalta(id: string, userId?: string, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !id) return false;
   try {
     const cId = companyId || getActiveCompanyId();
@@ -10867,7 +10800,30 @@ export async function deleteRhFalta(id: string, userId?: string, companyId?: str
 /**
  * Salva e sincroniza as Faltas na nuvem (Supabase: rh_faltas + site_settings)
  */
-export async function saveCloudAbsences(absences: AbsenceRecord[], companyId?: string, userId?: string): Promise<boolean> {
+export async function saveCloudAbsences(absences: AbsenceRecord[], companyId?: string, _userId?: string): Promise<boolean> {
+  try {
+    const cId = companyId || getActiveCompanyId();
+    saveCompanyRhFaltas(absences, cId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function fetchCloudAbsences(
+  companyId?: string,
+  employeeId?: string,
+  _userId?: string
+): Promise<AbsenceRecord[]> {
+  const cId = companyId || getActiveCompanyId();
+  const all = getCompanyRhFaltas(cId);
+  if (employeeId) {
+    return all.filter(a => a.employeeId === employeeId || toValidUUID(a.employeeId) === toValidUUID(employeeId));
+  }
+  return all;
+}
+
+async function _unusedLegacySaveCloudAbsences(absences: AbsenceRecord[], companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     const cId = companyId || getActiveCompanyId();
@@ -10912,7 +10868,7 @@ export async function saveCloudAbsences(absences: AbsenceRecord[], companyId?: s
 /**
  * Carrega as Faltas dos colaboradores da nuvem (Supabase: rh_faltas + site_settings)
  */
-export async function fetchCloudAbsences(
+async function _unusedLegacyFetchCloudAbsences2(
   companyId?: string,
   employeeId?: string,
   userId?: string
@@ -11209,6 +11165,40 @@ export async function upsertRhFolhasPagamento(
   userId?: string,
   companyId?: string
 ): Promise<boolean> {
+  try {
+    const cId = companyId || getActiveCompanyId() || userId || 'default';
+    const list = Array.isArray(records) ? records : [records];
+    if (list.length === 0) return true;
+
+    const current = getCompanyRhFolhas(cId);
+    let updated = [...current];
+    for (const item of list) {
+      const cleanId = item.id || toValidUUID();
+      const cleanItem: PayrollRecord = {
+        ...item,
+        id: cleanId,
+        companyId: cId,
+        userId: userId || item.userId || 'default-user',
+      };
+      const idx = updated.findIndex(p => p.id === cleanId || toValidUUID(p.id) === toValidUUID(cleanId));
+      if (idx >= 0) {
+        updated[idx] = { ...updated[idx], ...cleanItem };
+      } else {
+        updated.unshift(cleanItem);
+      }
+    }
+    saveCompanyRhFolhas(updated, cId);
+    return true;
+  } catch (err: any) {
+    return false;
+  }
+}
+
+async function _unusedLegacyUpsertRhFolhasPagamento(
+  records: PayrollRecord | PayrollRecord[],
+  userId?: string,
+  companyId?: string
+): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     let activeUid = userId;
@@ -11382,6 +11372,23 @@ export async function upsertRhFolhasPagamento(
  * Carrega folhas de pagamento diretamente da tabela public.rh_folhas_pagamento com filtro por user_id
  */
 export async function fetchCloudPayrolls(userId?: string): Promise<PayrollRecord[]> {
+  const cId = userId || getActiveCompanyId();
+  return getCompanyRhFolhas(cId);
+}
+
+export async function deleteRhFolhaPagamento(id: string, userId?: string): Promise<boolean> {
+  try {
+    const cId = userId || getActiveCompanyId();
+    const current = getCompanyRhFolhas(cId);
+    const updated = current.filter(p => p.id !== id && toValidUUID(p.id) !== toValidUUID(id));
+    saveCompanyRhFolhas(updated, cId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function _unusedLegacyFetchCloudPayrolls(userId?: string): Promise<PayrollRecord[]> {
   if (!isSupabaseConfigured) return [];
   try {
     let activeUid = userId;
@@ -11411,7 +11418,7 @@ export async function fetchCloudPayrolls(userId?: string): Promise<PayrollRecord
 /**
  * Remove uma folha de pagamento da tabela public.rh_folhas_pagamento com isolamento estrito de user_id
  */
-export async function deleteRhFolhaPagamento(id: string, userId?: string): Promise<boolean> {
+async function _unusedLegacyDeleteRhFolhaPagamento2(id: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
     let activeUid = userId;

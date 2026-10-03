@@ -55,6 +55,7 @@ import {
   getStoredBankAccounts,
   saveStoredBankAccounts,
   saveStoredMachineries,
+  saveCompanyFrotas,
   saveStoredMaintenanceLogs,
   getActiveCompanyId,
   calculateDefaultDueDate
@@ -316,8 +317,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       const nextList = machineries.filter(m => m.id !== id);
       onSaveMachineries(nextList);
       saveStoredMachineries(nextList);
-      saveCloudMachineries(nextList).catch(console.error);
-      deleteVeiculoMaquina(id).catch(err => console.warn('Aviso ao excluir veículo no banco:', err));
+      saveCompanyFrotas(nextList);
+      deleteVeiculoMaquina(id).catch(err => console.warn('Aviso ao excluir veículo:', err));
     }
   };
 
@@ -387,12 +388,12 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       });
       onSaveMachineries(updatedList);
       saveStoredMachineries(updatedList);
-      saveCloudMachineries(updatedList).catch(console.error);
+      saveCompanyFrotas(updatedList);
       if (savedTargetVehicle) {
         try {
           await upsertVeiculoMaquina(savedTargetVehicle);
         } catch (err) {
-          console.error('Erro ao salvar veículo no Supabase veiculos_maquinas:', err);
+          console.error('Erro ao salvar veículo:', err);
         }
       }
     } else {
@@ -453,11 +454,11 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       updatedList = [calculatedNew, ...machineries];
       onSaveMachineries(updatedList);
       saveStoredMachineries(updatedList);
-      saveCloudMachineries(updatedList).catch(console.error);
+      saveCompanyFrotas(updatedList);
       try {
         await upsertVeiculoMaquina(calculatedNew);
       } catch (err) {
-        console.error('Erro ao salvar novo veículo no Supabase veiculos_maquinas:', err);
+        console.error('Erro ao salvar novo veículo:', err);
       }
     }
     setIsVehicleModalOpen(false);
