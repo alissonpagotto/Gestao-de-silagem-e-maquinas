@@ -292,7 +292,9 @@ export function saveStoredExpenses(expenses: Expense[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
+      }, 0);
     }
   } catch (e) {
     console.error('Failed to save expenses', e);
@@ -1009,8 +1011,10 @@ export function saveStoredServices(services: ServiceOrder[]): void {
     const cleaned = sanitizeServiceOrders(services);
     localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(cleaned));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: cleaned }));
-      window.dispatchEvent(new Event('storage'));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: cleaned }));
+        window.dispatchEvent(new Event('storage'));
+      }, 0);
     }
   } catch (e) {
     console.error('Failed to save services', e);
@@ -1048,8 +1052,10 @@ export function saveStoredAppointments(appointments: ServiceAppointment[]): void
   try {
     localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_appointments_updated', { detail: appointments }));
-      window.dispatchEvent(new Event('storage'));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('silagem_appointments_updated', { detail: appointments }));
+        window.dispatchEvent(new Event('storage'));
+      }, 0);
     }
   } catch (e) {
     console.error('Failed to save appointments', e);
@@ -1091,8 +1097,10 @@ export function saveStoredMaintenanceLogs(logs: MaintenanceLog[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(logs));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('silagem_maintenance_updated', { detail: logs }));
-      window.dispatchEvent(new Event('storage'));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('silagem_maintenance_updated', { detail: logs }));
+        window.dispatchEvent(new Event('storage'));
+      }, 0);
     }
   } catch (e) {
     console.error('Failed to save maintenance logs', e);
