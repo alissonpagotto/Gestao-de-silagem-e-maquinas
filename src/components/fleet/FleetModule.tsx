@@ -130,7 +130,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
-    let channel: any = null;
+    let activeChannel: any = null;
 
     const setupRealtime = async () => {
       let activeUid = currentUser?.id;
@@ -140,7 +140,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           activeUid = authData?.user?.id;
         } catch (_) {}
       }
-      if (!activeUid) return;
+      if (!activeUid || !isMounted) return null;
 
       const channelId = `manutencoes_rt_sync_${activeUid}`;
       const existingChannels = supabase.getChannels?.() || [];
@@ -150,7 +150,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         }
       }
 
-      channel = supabase
+      const channel = supabase
         .channel(channelId)
         .on(
           'postgres_changes',
@@ -201,9 +201,17 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           }
         )
         .subscribe();
+
+      return channel;
     };
 
-    setupRealtime();
+    setupRealtime().then((ch) => {
+      if (!isMounted && ch) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      } else {
+        activeChannel = ch;
+      }
+    });
 
     const handleLocalDeleteEvent = (e: any) => {
       const delId = e?.detail?.id;
@@ -219,8 +227,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     return () => {
       isMounted = false;
       window.removeEventListener('silagem_maintenance_deleted', handleLocalDeleteEvent);
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch (_) {}
+      if (activeChannel) {
+        try { supabase.removeChannel(activeChannel); } catch (_) {}
       }
     };
   }, [currentUser?.id]);

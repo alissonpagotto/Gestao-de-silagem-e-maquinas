@@ -1284,7 +1284,7 @@ export default function App() {
         { event: '*', schema: 'public', table: 'veiculos_maquinas' },
         (_payload) => {
           fetchGestaoFrotas(activeTenantId).then(fresh => {
-            if (fresh && Array.isArray(fresh) && isMounted) {
+            if (fresh && Array.isArray(fresh) && fresh.length > 0 && isMounted) {
               setMachineries(fresh);
               saveStoredMachineries(fresh);
             }

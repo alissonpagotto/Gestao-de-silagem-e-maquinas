@@ -4299,11 +4299,22 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
 
     const resVm = await supabase
       .from('veiculos_maquinas')
-      .select('id, modelo, marca, ano, status, company_id')
+      .select('id, modelo, marca, placa, ano, status, company_id')
       .eq('company_id', activeCompanyId);
     
     data = resVm.data as any[];
     error = resVm.error;
+
+    // Se a busca com filtro não trouxer registros, tenta buscar sem filtro estrito de company_id
+    if ((!data || data.length === 0) && !error) {
+      const allVm = await supabase
+        .from('veiculos_maquinas')
+        .select('id, modelo, marca, placa, ano, status, company_id')
+        .or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+      if (!allVm.error && allVm.data && allVm.data.length > 0) {
+        data = allVm.data as any[];
+      }
+    }
 
     // Se 'veiculos_maquinas' retornar erro ou vazio, busca em 'gestao_frotas'
     if (error || !data || data.length === 0) {
@@ -4501,16 +4512,20 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         tipo: row.tipo || row.type || 'veiculo',
         controla_por: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
         controlBy: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
-        licensePlateOrSerial: row.placa_ou_serie || row.plate_or_serial || '',
-        placa_ou_serie: row.placa_ou_serie || row.plate_or_serial || '',
-        fleetNumber: row.fleet_number || row.fleetNumber || undefined,
-        year: row.ano ? Number(row.ano) : (row.year ? Number(row.year) : null),
-        ano: row.ano ? Number(row.ano) : null,
-        hourMeter: hourVal !== undefined ? hourVal : undefined,
-        currentKm: kmVal !== undefined ? kmVal : undefined,
-        km_atual: kmVal !== undefined ? kmVal : undefined,
-        horas_atual: hourVal !== undefined ? hourVal : undefined,
-        horimetro_ou_km_atual: (hourVal || kmVal || 0),
+        licensePlateOrSerial: row.placa || row.placa_ou_serie || row.plate_or_serial || matchedLocal?.licensePlateOrSerial || '',
+        placa_ou_serie: row.placa || row.placa_ou_serie || row.plate_or_serial || matchedLocal?.placa_ou_serie || '',
+        propriedade: row.propriedade || row.ownership || matchedLocal?.ownership || 'proprio',
+        ownership: row.propriedade || row.ownership || matchedLocal?.ownership || 'proprio',
+        companyId: row.company_id || activeCompanyId,
+        company_id: row.company_id || activeCompanyId,
+        fleetNumber: row.fleet_number || row.fleetNumber || matchedLocal?.fleetNumber || undefined,
+        year: row.ano ? Number(row.ano) : (row.year ? Number(row.year) : (matchedLocal?.year || null)),
+        ano: row.ano ? Number(row.ano) : (matchedLocal?.year ? Number(matchedLocal.year) : null),
+        hourMeter: hourVal !== undefined ? hourVal : (matchedLocal?.hourMeter || undefined),
+        currentKm: kmVal !== undefined ? kmVal : (matchedLocal?.currentKm || undefined),
+        km_atual: kmVal !== undefined ? kmVal : (matchedLocal?.currentKm || undefined),
+        horas_atual: hourVal !== undefined ? hourVal : (matchedLocal?.hourMeter || undefined),
+        horimetro_ou_km_atual: (hourVal || kmVal || matchedLocal?.horimetro_ou_km_atual || 0),
         status: row.status || 'ativo',
         maintenanceStatus: row.manutencao_status || row.maintenanceStatus || 'ok',
         imageUrl: validPhoto,

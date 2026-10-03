@@ -370,6 +370,11 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     }
   }, [machineries?.length]);
 
+  // Controle para evitar loops infinitos de requisição:
+  // Só dispara a busca de dados (.select()) uma única vez ao carregar a página ou quando o ID do assinante mudar
+  const lastFetchedSubscriberIdRef = React.useRef<string | null>(null);
+  const isFetchingVehiclesRef = React.useRef<boolean>(false);
+
   // Sincronização em tempo real de frotas (multi-dispositivos) escutando 'veiculos_maquinas'
   React.useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -391,17 +396,29 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         } catch (err) {
           console.warn('Aviso seguro: sincronização de frotas manteve dados locais:', err);
         }
-      }, 400);
+      }, 500);
     };
 
-    // Busca inicial imediata com proteção contra esvaziamento da tabela
-    fetchGestaoFrotas(companyProfile?.id).then(fresh => {
-      if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineriesRef.current) {
-        onSaveMachineriesRef.current(fresh);
-      }
-    }).catch(err => {
-      console.warn('Aviso discreto: mantendo frotas anteriores após erro no Supabase:', err);
-    });
+    // 3. EVITAR REQUISIÇÕES EM LOOP:
+    // Dispara a busca principal no Supabase (.select()) estritamente UMA ÚNICA VEZ
+    // ao carregar o componente ou quando o ID do assinante / company_id realmente mudar
+    const currentSubscriberId = companyProfile?.id || '__default__';
+    if (lastFetchedSubscriberIdRef.current !== currentSubscriberId && !isFetchingVehiclesRef.current) {
+      lastFetchedSubscriberIdRef.current = currentSubscriberId;
+      isFetchingVehiclesRef.current = true;
+
+      fetchGestaoFrotas(companyProfile?.id)
+        .then(fresh => {
+          isFetchingVehiclesRef.current = false;
+          if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineriesRef.current) {
+            onSaveMachineriesRef.current(fresh);
+          }
+        })
+        .catch(err => {
+          isFetchingVehiclesRef.current = false;
+          console.warn('Aviso discreto: mantendo frotas anteriores após erro no Supabase:', err);
+        });
+    }
 
     const channelId = `fleet_vehicles_rt_${companyProfile?.id || 'all'}`;
     const existingChannels = supabase.getChannels?.() || [];
@@ -411,18 +428,12 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       }
     }
 
+    // 1. Conexão Realtime ouvindo tabela correta 'veiculos_maquinas'
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'veiculos_maquinas' },
-        () => {
-          debouncedSync();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'gestao_frotas' },
         () => {
           debouncedSync();
         }
@@ -434,12 +445,14 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     };
     window.addEventListener('silagem_force_rest_sync', handleForceSync);
 
+    // 2. TRAVA DE SEGURANÇA CONTRA CONSUMO EM SEGUNDO PLANO (CLEANUP FUNCTION):
+    // Fecha a conexão do canal Realtime imediatamente assim que o usuário mudar de aba ou desmontar
     return () => {
       isMounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener('silagem_force_rest_sync', handleForceSync);
       try {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(channel); // Desliga a tomada ao sair da aba
       } catch (_) {}
     };
   }, [companyProfile?.id]);
