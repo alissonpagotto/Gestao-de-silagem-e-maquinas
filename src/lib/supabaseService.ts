@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery } from './supabase';
-export { isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery };
+export { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery };
 export { getActiveCompanyId } from './storage';
 import {
   Client,
@@ -4299,7 +4299,7 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
 
     const resVm = await supabase
       .from('veiculos_maquinas')
-      .select('id, modelo, marca, placa, ano, status, company_id')
+      .select('id, modelo, marca, placa, ano, status, company_id, km_atual, tipo')
       .eq('company_id', activeCompanyId);
     
     data = resVm.data as any[];
@@ -4309,7 +4309,7 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
     if ((!data || data.length === 0) && !error) {
       const allVm = await supabase
         .from('veiculos_maquinas')
-        .select('id, modelo, marca, placa, ano, status, company_id')
+        .select('id, modelo, marca, placa, ano, status, company_id, km_atual, tipo')
         .or(`company_id.eq.${activeCompanyId},company_id.is.null`);
       if (!allVm.error && allVm.data && allVm.data.length > 0) {
         data = allVm.data as any[];
@@ -4508,8 +4508,8 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
         nome: cleanNome || cleanModel || 'Veículo',
         model: cleanModel,
         modelo: cleanModel,
-        categoryType: row.tipo || row.type || 'veiculo',
-        tipo: row.tipo || row.type || 'veiculo',
+        categoryType: row.tipo || row.type || matchedLocal?.categoryType || 'Caminhão',
+        tipo: row.tipo || row.type || matchedLocal?.tipo || 'Caminhão',
         controla_por: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
         controlBy: row.controla_por || row.controlaPor || (isAgricolaOuMaquina ? 'horas' : 'km'),
         licensePlateOrSerial: row.placa || row.placa_ou_serie || row.plate_or_serial || matchedLocal?.licensePlateOrSerial || '',
@@ -4643,7 +4643,21 @@ export const patchVeiculoMaquinaMeter = patchGestaoFrotaMeter;
 export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const activeCompanyId = vehicle.companyId || companyId || getActiveCompanyId();
+    // 1. INJEÇÃO MANDATÓRIA DO COMPANY_ID E CAPTURA DA SESSÃO ATIVA
+    const activeCompanyId = String(
+      vehicle.companyId || 
+      (vehicle as any).company_id || 
+      companyId || 
+      getActiveCompanyId() || 
+      getDbAuthCompanyId() || 
+      ''
+    ).trim();
+
+    // 2. AJUSTE DE CABEÇALHOS (HEADERS COMPATIBILITY):
+    // Garante que o cliente global configurado em supabaseService.ts carregue a sessão JWT ativa
+    try {
+      await supabase.auth.getSession();
+    } catch (_) {}
 
     // 1. TRATAMENTO E SANITIZAÇÃO DE INPUTS NUMÉRICOS (BIGINT COMPATIBILITY):
     // - CPF/CNPJ do Proprietário: Limpeza de pontuação e conversão segura para inteiro / null
@@ -4725,10 +4739,14 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
     const qtdPneus = vehicle.quantidade_pneus ?? (vehicle as any).quantidadePneus;
     const cleanQtdPneus = (qtdPneus !== undefined && qtdPneus !== null && String(qtdPneus).trim() !== '') ? Number(qtdPneus) : null;
 
+    // 3. REMOÇÃO DE VALORES ENUM FIXOS: textos normais e flexíveis (como 'Caminhão', 'Trator'), eliminando resquício de 'veiculo'
+    const rawTipo = String(vehicle.categoryType || vehicle.tipo || (vehicle as any).type || '').trim();
+    const finalTipo = (rawTipo && rawTipo.toLowerCase() !== 'veiculo') ? rawTipo : 'Caminhão';
+
     const payload: Record<string, any> = {
       id: toValidUUID(vehicle.id),
-      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
-      tipo: vehicle.categoryType || vehicle.tipo || 'veiculo',
+      company_id: activeCompanyId,
+      tipo: finalTipo,
       nome: String(vehicle.name || vehicle.nome || vehicle.model || 'Veículo').trim(),
       modelo: vehicle.model || vehicle.modelo || null,
       marca: vehicle.brand || (vehicle as any).marca || null,
@@ -4776,13 +4794,13 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       placa: vmPlate,
       ano: cleanAno,
       status: vmStatus,
-      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
+      company_id: activeCompanyId, // INJEÇÃO MANDATÓRIA DO COMPANY_ID PARA RLS
       km_atual: vmKmAtual,
-      tipo: vehicle.categoryType || vehicle.tipo || 'veiculo'
+      tipo: finalTipo // REMOÇÃO DE VALORES ENUM FIXOS ('Caminhão', 'Trator', flexível)
     };
 
     // Só inclui 'id' em veiculos_maquinas se for um BIGINT numérico válido, impedindo erro de sintaxe inválida
-    let vmError = null;
+    let vmError: any = null;
     try {
       if (cleanBigIntId !== null) {
         payloadVeiculos.id = cleanBigIntId;
@@ -4799,6 +4817,29 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       }
     } catch (e: any) {
       vmError = e;
+    }
+
+    // Se o banco tiver a coluna company_id como estritamente UUID e retornar erro 22P02, retenta com toValidUUID
+    if (vmError && (vmError.code === '22P02' || String(vmError.message).toLowerCase().includes('uuid')) && activeCompanyId) {
+      const altCompanyUuid = toValidUUID(activeCompanyId);
+      if (altCompanyUuid && altCompanyUuid !== activeCompanyId) {
+        payloadVeiculos.company_id = altCompanyUuid;
+        try {
+          if (cleanBigIntId !== null) {
+            const retryRes = await supabase
+              .from('veiculos_maquinas')
+              .upsert(payloadVeiculos, { onConflict: 'id' });
+            vmError = retryRes.error;
+          } else {
+            const retryRes = await supabase
+              .from('veiculos_maquinas')
+              .insert(payloadVeiculos);
+            vmError = retryRes.error;
+          }
+        } catch (e2: any) {
+          vmError = e2;
+        }
+      }
     }
 
     if (vmError) {
@@ -4825,7 +4866,12 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       delete (payloadGf as any).assigned_drivers;
       payloadGf.motorista = driverString || null;
       payloadGf.operator_or_driver = driverString || null;
-      const fallbackRes = await supabase.from('gestao_frotas').upsert(payloadGf, { onConflict: 'id' });
+      payloadGf.company_id = activeCompanyId;
+      let fallbackRes = await supabase.from('gestao_frotas').upsert(payloadGf, { onConflict: 'id' });
+      if (fallbackRes.error && (fallbackRes.error.code === '22P02' || String(fallbackRes.error.message).toLowerCase().includes('uuid')) && activeCompanyId) {
+        payloadGf.company_id = toValidUUID(activeCompanyId);
+        fallbackRes = await supabase.from('gestao_frotas').upsert(payloadGf, { onConflict: 'id' });
+      }
       if (fallbackRes.error) {
         console.warn('Supabase fallback gestao_frotas notice:', fallbackRes.error.message);
       }

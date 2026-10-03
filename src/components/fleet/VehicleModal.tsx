@@ -46,8 +46,7 @@ import {
   getActiveCompanyId
 } from '../../lib/storage';
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
-import { toValidUUID, isSupabaseConfigured } from '../../lib/supabaseService';
-import { supabase } from '../../lib/supabaseClient';
+import { toValidUUID, isSupabaseConfigured, supabase, upsertVeiculoMaquina } from '../../lib/supabaseService';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
 
 function isCandidateTrailer(v: any): boolean {
@@ -181,7 +180,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   useEffect(() => {
     const loadedCats = getStoredVehicleSystemCategories();
     setCategoriesList(loadedCats);
-    if (!editingVehicle && loadedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType === 'Forrageira / Ensiladeira')) {
+    if (!editingVehicle && loadedCats.length > 0 && (!categoryType || categoryType === 'forrageira' || categoryType === 'Forrageira / Ensiladeira' || categoryType.toLowerCase() === 'veiculo')) {
       setCategoryType(loadedCats[0]);
     }
 
@@ -589,12 +588,16 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const numInstallments = parseInt(installmentsCount, 10) || 0;
     const numInstallmentVal = desformatarMoeda(installmentValue);
 
-    const finalCategoryType = categoryType || 'forrageira';
+    const rawCat = (categoryType || editingVehicle?.categoryType || editingVehicle?.tipo || '').trim();
+    const finalCategoryType = (rawCat && rawCat.toLowerCase() !== 'veiculo') ? rawCat : (categoriesList[0] || 'Caminhão (Basculante / Graneleiro)');
     const computedNome = (formattedModel || finalCategoryType || formattedName || 'Veículo').trim();
     const computedTipoModelo = `${finalCategoryType} - ${formattedModel}`;
+    const activeCompanyId = getActiveCompanyId();
 
     return {
       id: editingVehicle ? editingVehicle.id : `veh_${Date.now()}`,
+      companyId: activeCompanyId,
+      company_id: activeCompanyId,
       name: formattedName,
       nome: computedNome,
       model: formattedModel,
@@ -756,12 +759,12 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         cavalo: 'Tração Caminhão Trator (Cavalo)',
         implemento: 'Implemento',
         outro: 'Outro Equipamento',
+        veiculo: 'Caminhão (Basculante / Graneleiro)'
       };
-      setCategoryType(
-        editingVehicle.categoryType
-          ? (categoryMap[editingVehicle.categoryType] || editingVehicle.categoryType)
-          : (categoriesList[0] || 'Ensiladeira Autopropelida')
-      );
+      const rawEditCat = String(editingVehicle.categoryType || editingVehicle.tipo || (editingVehicle as any).type || '').trim();
+      const mappedEditCat = categoryMap[rawEditCat.toLowerCase()] || rawEditCat;
+      const safeEditCat = mappedEditCat && mappedEditCat.toLowerCase() !== 'veiculo' ? mappedEditCat : (categoriesList[0] || 'Ensiladeira Autopropelida');
+      setCategoryType(safeEditCat);
       setStatus(editingVehicle.status || 'disponivel');
       const ownershipMap: Record<string, string> = {
         proprio: 'Próprio',
@@ -1334,10 +1337,19 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     const rawYearDigits = String(year || '').replace(/\D/g, '');
     const cleanYearInt = rawYearDigits ? parseInt(rawYearDigits, 10) : undefined;
 
+    const activeCompanyId = getActiveCompanyId();
+    const rawCat = (categoryType || editingVehicle?.categoryType || editingVehicle?.tipo || '').trim();
+    const finalCategoryType = (rawCat && rawCat.toLowerCase() !== 'veiculo') ? rawCat : (categoriesList[0] || 'Caminhão (Basculante / Graneleiro)');
+    const computedTipoModelo = `${finalCategoryType} - ${formattedModel}`;
+
     const vehicleData: Machinery = {
       id: editingVehicle ? editingVehicle.id : `veh_${Date.now()}`,
+      companyId: activeCompanyId,
+      company_id: activeCompanyId,
       name: formattedName,
+      nome: (formattedModel || finalCategoryType || formattedName || 'Veículo').trim(),
       model: formattedModel,
+      modelo: formattedModel,
       brand: formattedBrand,
       year: cleanYearInt,
       renavam: cleanRenavamStr,
@@ -1346,7 +1358,9 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       fleetNumber: cleanFleetNumberStr,
       numero_frota: cleanFleetNumberInt,
       fleet_number: cleanFleetNumberInt,
-      categoryType: categoryType || 'forrageira',
+      categoryType: finalCategoryType,
+      tipo: finalCategoryType,
+      tipo_modelo: computedTipoModelo,
       status: status || 'disponivel',
       ownership: ownership || 'proprio',
       
