@@ -74,6 +74,7 @@ import {
   getFaixaIrrf
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
+import { LivePayslipPreview } from './LivePayslipPreview';
 
 // ==========================================
 // COMPONENTE DE INPUT MONETÁRIO BRL (R$ 0.000,00)
@@ -2416,994 +2417,929 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         </div>
       </div>
 
-      {/* Modal Lançamento / Edição de Folha - Expandido para 90% da tela (w-[90vw]) */}
+      {/* Modal Lançamento / Edição de Folha - Formato Split Screen 50/50 */}
       {isModalOpen && (
         <div 
           id="payroll-edit-modal-overlay" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-xs overflow-y-auto print:hidden"
         >
-          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-[90vw] max-w-[90vw] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[94vh] flex flex-col print:hidden">
+          <div className="bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-2xl w-[96vw] max-w-[1550px] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 h-[92vh] max-h-[92vh] flex flex-col print:hidden">
             
             {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
-            <div className="flex items-center justify-between px-3.5 sm:px-4 py-2 bg-[#0963cb] text-white shrink-0">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#0963cb] text-white shrink-0 shadow-xs">
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-                  {editingPayroll ? 'Editar Folha de Pagamento' : 'Lançar Folha de Pagamento'} ({currentMonthRef})
+                <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                  <span>{editingPayroll ? 'Editar Folha de Pagamento' : 'Lançar Folha de Pagamento'}</span>
+                  <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-mono font-bold">
+                    {currentMonthRef}
+                  </span>
                 </h3>
               </div>
               <div className="flex items-center space-x-2">
+                <span className="hidden md:inline-block text-[11px] font-bold text-blue-100 bg-white/10 px-2.5 py-1 rounded-lg">
+                  Split Screen • Lançamentos & Espelho do Holerite
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="p-1 text-white hover:bg-white/20 rounded-lg transition cursor-pointer"
+                  title="Fechar Modal"
                 >
-                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  <X className="w-5 h-5 text-white" />
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-2 sm:p-2.5 space-y-2 text-xs bg-[#b0d2ed] flex-1 flex flex-col justify-between overflow-y-auto">
-              
-              {/* Colaborador & Informações de Enquadramento */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-1.5 items-end shrink-0">
-                <div className="lg:col-span-8">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <label className="block font-bold text-stone-900 text-[11px]">
-                      Colaborador / Funcionário <span className="text-rose-600">*</span>
-                    </label>
-                    <span className="text-[9.5px] text-stone-700 font-medium">
-                      (Motoristas Terceirizados são geridos no Financeiro)
-                    </span>
-                  </div>
-                  <select
-                    value={selectedEmployeeId}
-                    onChange={(e) => handleSelectEmployee(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-stone-300 rounded-lg bg-white text-stone-900 outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs shadow-2xs"
-                    required
-                  >
-                    <option value="">Selecione um funcionário...</option>
-                    {employees
-                      .filter(emp => !isThirdPartyDriver(emp) && !isBrokerEmployee(emp))
-                      .map(emp => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role}) - {emp.contractType || 'CLT'} - Salário: {formatCurrencyBRL(emp.salary || emp.baseSalary || 3500)}
-                        </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="lg:col-span-4">
-                  {selectedEmployeeId ? (() => {
-                    const emp = employees.find(e => e.id === selectedEmployeeId);
-                    const isClt = isCltContract(emp);
-                    return (
-                      <div className="px-2 py-1.5 bg-white border border-stone-300 rounded-lg flex items-center justify-between shadow-2xs">
-                        <div className="truncate mr-2">
-                          <span className="text-[8.5px] text-stone-500 font-bold uppercase block tracking-wider leading-none">Regime / Vínculo</span>
-                          <span className="text-xs font-bold text-stone-900 truncate block mt-0.5">{emp?.role || 'Operador'} ({emp?.contractType || 'CLT'})</span>
-                        </div>
-                        <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded shrink-0 ${
-                          isClt ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {isClt ? 'CLT: INSS Automático' : 'Isento de INSS'}
-                        </span>
-                      </div>
-                    );
-                  })() : (
-                    <div className="px-2 py-1.5 bg-white/70 border border-stone-300 rounded-lg text-stone-500 text-xs text-center font-medium">
-                      Selecione um colaborador para carregar dados
+            <form onSubmit={handleSaveModal} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {/* CORPO SPLIT SCREEN: 50% ESQUERDA (LANÇAMENTOS) / 50% DIREITA (ESPELHO DO HOLERITE) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 min-h-0 divide-y lg:divide-y-0 lg:divide-x divide-stone-300 dark:divide-stone-700 overflow-hidden">
+                
+                {/* ======================================================== */}
+                {/* COLUNA DA ESQUERDA: Painel de Lançamentos (Slim/Compact) */}
+                {/* ======================================================== */}
+                <div className="overflow-y-auto p-3 sm:p-4 space-y-3 bg-[#e8f1f8] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col">
+                  
+                  {/* 1. Colaborador & Informações de Enquadramento */}
+                  <div className="bg-white dark:bg-stone-800 rounded-xl p-3 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-bold text-stone-900 dark:text-stone-100 text-xs">
+                        Colaborador / Funcionário <span className="text-rose-600">*</span>
+                      </label>
+                      <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium">
+                        (Motoristas Terceirizados são geridos no Financeiro)
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Enriquecimento do Cabeçalho do Funcionário: Admissão, CPF e Banco para Depósito */}
-              {selectedEmployeeId && (() => {
-                const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
-                if (!selectedEmployee) return null;
-                return (
-                  <div className="p-1.5 bg-white border border-stone-300 rounded-xl shadow-2xs shrink-0">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
-                      <div className="flex items-center space-x-1.5 p-1 bg-stone-50 rounded-lg border border-stone-200">
-                        <Calendar className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                        <div className="truncate">
-                          <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
-                            Data de Admissão:
-                          </span>
-                          <span className="font-bold text-stone-900 text-xs block mt-0.5">
-                            {formatEmployeeAdmissionDate(selectedEmployee.admissionDate)}
-                            {admissionInfo?.isAdmittedInCompetenceMonth && (
-                              <span className="ml-1 text-[9.5px] text-amber-700 font-extrabold">
-                                ({admissionInfo.daysWorked}/30 dias)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-1.5 p-1 bg-stone-50 rounded-lg border border-stone-200">
-                        <CreditCard className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                        <div className="truncate">
-                          <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
-                            CPF:
-                          </span>
-                          <span className="font-bold text-stone-900 text-xs block mt-0.5">
-                            {formatCPF(selectedEmployee.cpf)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-1.5 p-1 bg-stone-50 rounded-lg border border-stone-200">
-                        <Landmark className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                        <div className="truncate">
-                          <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
-                            Banco para Depósito:
-                          </span>
-                          <span className="font-bold text-stone-900 text-xs truncate block mt-0.5" title={formatEmployeeBankDeposit(selectedEmployee)}>
-                            {formatEmployeeBankDeposit(selectedEmployee)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Grid de Proventos com botão de sincronização em alto destaque */}
-              <div className="p-2 sm:p-2.5 bg-blue-50/90 dark:bg-stone-900/90 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-[11px] font-black uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
-                      Proventos (Vencimentos)
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-blue-200/60 text-blue-900 font-bold text-[10px] font-['Outfit']">
-                      Bruto: {formatMoneyBRL(modalGrossTotal)}
-                    </span>
-                  </div>
-                  {selectedEmployeeId && (
-                    <button
-                      type="button"
-                      onClick={handleSyncButton}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#0963cb] dark:text-sky-400 border border-blue-300 dark:border-blue-600 font-bold text-[11px] shadow-2xs hover:shadow-xs active:scale-98 transition cursor-pointer"
-                      title="Sincronizar comissões de OS, adiantamentos e faltas ativas cadastradas no mês"
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(e) => handleSelectEmployee(e.target.value)}
+                      className="w-full px-2.5 py-1.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs shadow-2xs"
+                      required
                     >
-                      <RefreshCw className={`w-3 h-3 text-[#0963cb] dark:text-sky-400 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-                      <span>Sincronizar Comissões / Vales / Faltas</span>
-                    </button>
-                  )}
-                </div>
+                      <option value="">Selecione um funcionário...</option>
+                      {employees
+                        .filter(emp => !isThirdPartyDriver(emp) && !isBrokerEmployee(emp))
+                        .map(emp => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name} ({emp.role}) - {emp.contractType || 'CLT'} - Salário: {formatCurrencyBRL(emp.salary || emp.baseSalary || 3500)}
+                          </option>
+                      ))}
+                    </select>
 
-                {/* Destaque Inteligente: Regra de Proporcionalidade da Data de Admissão */}
-                {admissionInfo?.isAdmittedInCompetenceMonth && (
-                  <div className="p-1.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[10.5px]">
-                    <div className="flex items-center space-x-1.5 text-amber-950 dark:text-amber-200 font-semibold">
-                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>
-                        Admissão em <strong>{formatEmployeeAdmissionDate(admissionInfo.admissionDate)}</strong>: Proporcional a <strong>{admissionInfo.daysWorked} de 30 dias</strong> ({formatMoneyBRL(admissionInfo.proportionalSalary)})
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBaseSalary(admissionInfo.proportionalSalary);
-                          setUseProportionalSalary(true);
-                        }}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
-                          useProportionalSalary 
-                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs' 
-                            : 'bg-white hover:bg-amber-100 text-amber-900 border-amber-300'
-                        }`}
-                        title="Aplicar cálculo automático proporcional aos dias trabalhados na competência"
-                      >
-                        ✓ Usar Proporcional ({admissionInfo.daysWorked}d)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBaseSalary(admissionInfo.fullContractualSalary);
-                          setUseProportionalSalary(false);
-                        }}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
-                          !useProportionalSalary 
-                            ? 'bg-stone-700 text-white border-stone-800 shadow-2xs' 
-                            : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300'
-                        }`}
-                        title="Forçar o valor cheio contratual integral (30 dias)"
-                      >
-                        Forçar Integral (30d)
-                      </button>
-                    </div>
-                  </div>
-                )}
+                    {/* Resumo do Colaborador: Vínculo, Admissão, CPF e Depósito */}
+                    {selectedEmployeeId && (() => {
+                      const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+                      if (!selectedEmployee) return null;
+                      const isClt = isCltContract(selectedEmployee);
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 pt-1 text-xs">
+                          <div className="p-1.5 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
+                            <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                              Regime / Vínculo:
+                            </span>
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] block mt-0.5 truncate">
+                              {selectedEmployee.role} ({selectedEmployee.contractType || 'CLT'})
+                            </span>
+                          </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                  <BrlCurrencyInput
-                    id="baseSalaryContratual"
-                    label="Salário Base Contratual (R$)"
-                    value={baseSalaryContratual}
-                    onChange={(val) => {
-                      setBaseSalaryContratual(val);
-                      if (baseCalculoInssFgts === 0 || baseCalculoInssFgts === baseSalaryContratual) {
-                        handleBaseCalculoChange(val);
-                      }
-                    }}
-                    title="Valor fixo da ficha do funcionário (ex: R$ 2.523,21)"
-                    inputClassName="border-stone-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold"
-                  />
-                  <BrlCurrencyInput
-                    id="baseCalculoInssFgts"
-                    label="Base Cálc. INSS / FGTS (R$)"
-                    value={baseCalculoInssFgts}
-                    onChange={handleBaseCalculoChange}
-                    title="Valor usado efetivamente no mês para incidir as taxas"
-                    inputClassName="border-[#0963cb]/40 bg-blue-50/80 dark:bg-blue-950/40 text-[#0963cb] dark:text-sky-300 font-black focus:ring-[#0963cb]"
-                  />
-                  <BrlCurrencyInput
-                    id="baseSalary"
-                    label={admissionInfo?.isAdmittedInCompetenceMonth && useProportionalSalary ? "Salário Base (Proporcional)" : "Salário Base"}
-                    value={baseSalary}
-                    onChange={(val) => {
-                      setBaseSalary(val);
-                      if (admissionInfo?.isAdmittedInCompetenceMonth) {
-                        setUseProportionalSalary(Math.abs(val - admissionInfo.proportionalSalary) < 0.05);
-                      }
-                    }}
-                    required
-                  />
-                  <BrlCurrencyInput
-                    id="overtimeAmount"
-                    label="Horas Extras / Safra"
-                    value={overtimeAmount}
-                    onChange={setOvertimeAmount}
-                  />
-                  <BrlCurrencyInput
-                    id="bonusAmount"
-                    label="Bônus / Insalubridade"
-                    value={bonusAmount}
-                    onChange={setBonusAmount}
-                  />
-                  <BrlCurrencyInput
-                    id="commissionAmount"
-                    label={commissionItems.length > 0 ? `Comissões Silagem (${commissionItems.length})` : "Comissões Silagem"}
-                    value={activeCommissionTotal}
-                    onChange={(val) => {
-                      setCommissionAmount(val);
-                    }}
-                    inputClassName="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 focus:ring-emerald-600 font-bold"
-                    headerRight={
-                      <span className="text-[9.5px] font-bold text-emerald-700 font-['Outfit']">
-                        {commissionItems.length} item(ns)
-                      </span>
-                    }
-                    title="Valor total apurado ou lançado nas comissões de silagem"
-                  />
-                </div>
+                          <div className="p-1.5 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
+                            <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                              CPF / Admissão:
+                            </span>
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] block mt-0.5 truncate">
+                              {formatCPF(selectedEmployee.cpf)} • {formatEmployeeAdmissionDate(selectedEmployee.admissionDate)}
+                            </span>
+                          </div>
 
-                {/* 2. Mini-tabela de Detalhamento de Proventos (Comissões) */}
-                <div className="p-2 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between pb-1 border-b border-blue-100 dark:border-stone-700">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                      <span className="text-[11px] font-black uppercase text-blue-950 dark:text-blue-200 tracking-wider">
-                        Extrato de Comissões & Serviços Lançados
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[10px] font-['Outfit']">
-                        {commissionItems.length} item(ns) • + {formatCurrencyBRL(activeCommissionTotal)}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAddingCommission(!isAddingCommission);
-                        setEditingCommItemId(null);
-                        setNewCommDesc('');
-                        setNewCommRef(currentMonthRef);
-                        setNewCommAmount(0);
-                      }}
-                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[10.5px] transition cursor-pointer shadow-2xs"
-                    >
-                      <Plus className="w-3 h-3 text-[#0963cb]" />
-                      <span>+ Incluir Comissão Manual</span>
-                    </button>
-                  </div>
-
-                  {/* Formulário de inclusão / edição manual de comissão */}
-                  {isAddingCommission && (
-                    <div className="p-2 bg-blue-50/90 border border-blue-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-blue-950 tracking-wider">
-                          {editingCommItemId ? 'Editar Comissão / Prêmio' : 'Nova Comissão ou Prêmio Manual'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAddingCommission(false);
-                            setEditingCommItemId(null);
-                          }}
-                          className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
-                        >
-                          ✕ Fechar
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
-                        <div className="sm:col-span-6">
-                          <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
-                            Descrição / Serviço <span className="text-rose-600">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={newCommDesc}
-                            onChange={(e) => setNewCommDesc(e.target.value)}
-                            placeholder="Ex: Ensilagem - Produtor João, Bônus Produtividade..."
-                            className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
-                          />
-                        </div>
-                        <div className="sm:col-span-3">
-                          <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
-                            Referência / Data
-                          </label>
-                          <input
-                            type="text"
-                            value={newCommRef}
-                            onChange={(e) => setNewCommRef(e.target.value)}
-                            placeholder="Ex: 15/09 ou OS #1042"
-                            className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
-                          />
-                        </div>
-                        <div className="sm:col-span-3">
-                          <BrlCurrencyInput
-                            id="newCommAmount"
-                            label="Valor (+)"
-                            value={newCommAmount}
-                            onChange={setNewCommAmount}
-                            inputClassName="border-emerald-300 bg-white text-emerald-800 font-bold"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-end space-x-1.5 pt-0.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAddingCommission(false);
-                            setEditingCommItemId(null);
-                          }}
-                          className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveCommissionItem}
-                          disabled={!newCommDesc.trim() || newCommAmount <= 0}
-                          className="px-2.5 py-0.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
-                        >
-                          {editingCommItemId ? 'Atualizar Item' : 'Adicionar ao Extrato'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tabela de Itens de Comissão */}
-                  <div className="max-h-28 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
-                    <table className="w-full text-left border-collapse text-[10.5px]">
-                      <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[9px] sticky top-0 border-b border-stone-200 z-10">
-                        <tr>
-                          <th className="py-1 px-2">Descrição / Serviço</th>
-                          <th className="py-1 px-2 w-28">Referência / Data</th>
-                          <th className="py-1 px-2 text-right w-28">Valor (+)</th>
-                          <th className="py-1 px-2 text-center w-16">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-stone-200/70 bg-white">
-                        {commissionItems.length > 0 ? (
-                          commissionItems.map((item) => (
-                            <tr key={item.id} className="hover:bg-blue-50/40 transition">
-                              <td className="py-1 px-2 font-medium text-stone-900">
-                                <div className="flex items-center space-x-1.5">
-                                  <span className="truncate">{item.description}</span>
-                                  {item.isManual ? (
-                                    <span className="px-1 py-0.2 rounded bg-amber-100 text-amber-800 text-[8.5px] font-bold shrink-0">
-                                      Manual
-                                    </span>
-                                  ) : (
-                                    <span className="px-1 py-0.2 rounded bg-blue-100 text-blue-800 text-[8.5px] font-bold shrink-0">
-                                      OS Silagem
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-1 px-2 text-stone-600 font-medium whitespace-nowrap">
-                                {item.referenceDate || currentMonthRef}
-                              </td>
-                              <td className="py-1 px-2 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap">
-                                + {formatCurrencyBRL(item.amount)}
-                              </td>
-                              <td className="py-1 px-2 text-center whitespace-nowrap">
-                                <div className="flex items-center justify-center space-x-1">
-                                  {item.isManual && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleStartEditCommission(item)}
-                                      className="p-0.5 text-stone-500 hover:text-[#0963cb] rounded hover:bg-stone-100 transition cursor-pointer"
-                                      title="Editar comissão manual"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteCommissionItem(item.id)}
-                                    className="p-0.5 text-stone-400 hover:text-rose-600 rounded hover:bg-rose-50 transition cursor-pointer"
-                                    title="Excluir item da comissão"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={4} className="py-2.5 text-center text-stone-500 text-[10px]">
-                              Nenhuma comissão ou serviço lançado nesta competência. Clique em "Sincronizar" ou "+ Incluir Comissão Manual".
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* Grid 2 Colunas: Deduções (Esquerda) + Situação & Resumo Financeiro com Cores Contrastantes (Direita) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start shrink-0">
-                {/* 3. Deduções com Impostos Oficiais + Tabela de Detalhamento de Descontos (Vales, Faltas, Peças, Combustível) */}
-                <div className="lg:col-span-7 p-2 sm:p-2.5 bg-white border border-stone-300 rounded-xl space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between pb-0.5">
-                    <span className="text-[11px] font-black uppercase text-stone-900 tracking-wider block">
-                      Deduções (Descontos & Impostos)
-                    </span>
-                    <span className="text-[10px] font-bold text-rose-700 font-['Outfit']">
-                      Total Deduções: - {formatMoneyBRL(modalDiscountsTotal)}
-                    </span>
-                  </div>
-
-                  {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) com Alíquotas e Toggles */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* INSS com Indicador [ 8,04 ] % e Toggle */}
-                    <div className="bg-stone-50 dark:bg-stone-850 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1 flex-wrap">
-                          <span className="text-[11px] font-bold text-stone-900 dark:text-stone-100">
-                            INSS
-                          </span>
-                          <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 shadow-2xs">
-                            <span className="text-[10px] text-stone-400 font-bold mr-0.5">[</span>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={aliquotaInssStr}
-                              onChange={(e) => handleAliquotaInssChange(e.target.value)}
-                              disabled={!inssEnabled}
-                              className="w-10 sm:w-11 text-center font-black text-xs text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
-                              title="Alíquota efetiva do INSS (%)"
-                            />
-                            <span className="text-[10px] text-stone-400 font-bold ml-0.5">]</span>
-                            <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 ml-0.5">%</span>
+                          <div className="p-1.5 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
+                            <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                              Banco para Depósito:
+                            </span>
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] block mt-0.5 truncate" title={formatEmployeeBankDeposit(selectedEmployee)}>
+                              {formatEmployeeBankDeposit(selectedEmployee)}
+                            </span>
                           </div>
                         </div>
-
-                        <div className="flex items-center space-x-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = !inssEnabled;
-                              setInssEnabled(next);
-                              if (next) {
-                                const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
-                                const calculated = Math.round((base * (aliquotaInss / 100)) * 100) / 100;
-                                setInssDiscount(calculated > 0 ? calculated : calculateProgressiveInss(base));
-                              } else {
-                                setInssDiscount(0);
-                              }
-                            }}
-                            className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                              inssEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
-                            }`}
-                            title={inssEnabled ? 'INSS Ativado. Clique para Isentar' : 'INSS Desativado. Clique para Ativar'}
-                          >
-                            <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
-                              inssEnabled ? 'translate-x-3' : 'translate-x-0.5'
-                            }`} />
-                          </button>
-                          <span className={`text-[9.5px] font-bold ${inssEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
-                            {inssEnabled ? 'Ativo' : 'Isento'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <BrlCurrencyInput
-                        id="inssDiscount"
-                        label=""
-                        value={inssDiscount}
-                        onChange={handleInssDiscountChange}
-                        disabled={!inssEnabled}
-                        inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
-                      />
-                    </div>
-
-                    {/* IRRF Retenção com Indicador [ 0,0 ] % e Toggle */}
-                    <div className="bg-stone-50 dark:bg-stone-850 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1 flex-wrap">
-                          <span className="text-[11px] font-bold text-stone-900 dark:text-stone-100">
-                            IRRF
-                          </span>
-                          <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 shadow-2xs">
-                            <span className="text-[10px] text-stone-400 font-bold mr-0.5">[</span>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={aliquotaIrrfStr}
-                              onChange={(e) => handleAliquotaIrrfChange(e.target.value)}
-                              disabled={!irrfEnabled}
-                              className="w-10 sm:w-11 text-center font-black text-xs text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
-                              title="Alíquota efetiva do IRRF (%)"
-                            />
-                            <span className="text-[10px] text-stone-400 font-bold ml-0.5">]</span>
-                            <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 ml-0.5">%</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = !irrfEnabled;
-                              setIrrfEnabled(next);
-                              if (next) {
-                                const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
-                                const inssVal = inssEnabled ? inssDiscount : 0;
-                                const baseIrrf = Math.max(0, base - inssVal);
-                                const calculated = aliquotaIrrf > 0 
-                                  ? Math.round((baseIrrf * (aliquotaIrrf / 100)) * 100) / 100 
-                                  : calculateOfficialIrrf(base, inssVal);
-                                setIrrfDiscount(calculated);
-                              } else {
-                                setIrrfDiscount(0);
-                              }
-                            }}
-                            className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                              irrfEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
-                            }`}
-                            title={irrfEnabled ? 'IRRF Ativado. Clique para Isentar' : 'IRRF Desativado. Clique para Ativar'}
-                          >
-                            <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
-                              irrfEnabled ? 'translate-x-3' : 'translate-x-0.5'
-                            }`} />
-                          </button>
-                          <span className={`text-[9.5px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
-                            {irrfEnabled ? 'Ativo' : 'Isento'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <BrlCurrencyInput
-                        id="irrfDiscount"
-                        label=""
-                        value={irrfDiscount}
-                        onChange={handleIrrfDiscountChange}
-                        disabled={!irrfEnabled}
-                        inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
-                      />
-                    </div>
-
-                    {/* Taxa Assistencial Sindicato com Indicador [ 1,0 ] % e Toggle */}
-                    <div className="bg-stone-50 dark:bg-stone-850 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1 flex-wrap">
-                          <span className="text-[11px] font-bold text-stone-900 dark:text-stone-100 truncate" title="Taxa Assistencial Sindicato">
-                            Taxa Assistencial
-                          </span>
-                          <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 shadow-2xs">
-                            <span className="text-[10px] text-stone-400 font-bold mr-0.5">[</span>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={aliquotaSindicatoStr}
-                              onChange={(e) => handleAliquotaSindicatoChange(e.target.value)}
-                              disabled={!sindicalEnabled}
-                              className="w-10 sm:w-11 text-center font-black text-xs text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
-                              title="Alíquota da Taxa Assistencial do Sindicato (%)"
-                            />
-                            <span className="text-[10px] text-stone-400 font-bold ml-0.5">]</span>
-                            <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 ml-0.5">%</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = !sindicalEnabled;
-                              setSindicalEnabled(next);
-                              if (next) {
-                                const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
-                                const calculated = Math.round((base * (aliquotaSindicato / 100)) * 100) / 100;
-                                const restoredVal = calculated > 0 ? calculated : (lastCustomSindical > 0 ? lastCustomSindical : 25.23);
-                                setSindicalDiscount(restoredVal);
-                              } else {
-                                if (sindicalDiscount > 0) {
-                                  setLastCustomSindical(sindicalDiscount);
-                                }
-                                setSindicalDiscount(0);
-                              }
-                            }}
-                            className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                              sindicalEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
-                            }`}
-                            title={sindicalEnabled ? 'Taxa Assistencial Sindicato Ativada. Clique para Isentar' : 'Taxa Assistencial Isenta. Clique para Ativar'}
-                          >
-                            <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
-                              sindicalEnabled ? 'translate-x-3' : 'translate-x-0.5'
-                            }`} />
-                          </button>
-                          <span className={`text-[9.5px] font-bold ${sindicalEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
-                            {sindicalEnabled ? 'Ativo' : 'Isento'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <BrlCurrencyInput
-                        id="sindicalDiscount"
-                        label=""
-                        value={sindicalDiscount}
-                        onChange={handleSindicalDiscountChange}
-                        disabled={!sindicalEnabled}
-                        inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
-                      />
-                    </div>
+                      );
+                    })()}
                   </div>
 
-                  {/* Tabela de Detalhamento de Deduções (Vales, Faltas, Peças, Combustível) */}
-                  <div className="pt-1 space-y-1.5">
-                    <div className="flex items-center justify-between pb-1 border-b border-stone-200">
+                  {/* 2. Bloco de Proventos com Grid 2 Colunas para os Inputs */}
+                  <div className="p-3 bg-blue-50/90 dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <CreditCard className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                        <span className="text-[11px] font-black uppercase text-stone-900 tracking-wider">
-                          Extrato de Descontos Ocorridos no Mês
+                        <span className="text-xs font-black uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
+                          Proventos (Vencimentos)
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-900 font-extrabold text-[10px] font-['Outfit']">
-                          {deductionItems.length} item(ns) • - {formatCurrencyBRL(activeListDeductions)}
+                        <span className="px-1.5 py-0.5 rounded bg-blue-200/60 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] font-['Outfit']">
+                          Bruto: {formatMoneyBRL(modalGrossTotal)}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingDeduction(!isAddingDeduction);
-                          setEditingDeductItemId(null);
-                          setNewDeductType('Vale / Adiantamento');
-                          setNewDeductDesc('');
-                          setNewDeductDate(formatDateBR(new Date().toISOString().split('T')[0]));
-                          setNewDeductAmount(0);
-                        }}
-                        className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[10.5px] transition cursor-pointer shadow-2xs"
-                      >
-                        <Plus className="w-3 h-3 text-rose-600" />
-                        <span>+ Incluir Desconto Manual</span>
-                      </button>
+                      {selectedEmployeeId && (
+                        <button
+                          type="button"
+                          onClick={handleSyncButton}
+                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#0963cb] dark:text-sky-400 border border-blue-300 dark:border-blue-600 font-bold text-[11px] shadow-2xs hover:shadow-xs active:scale-98 transition cursor-pointer"
+                          title="Sincronizar comissões de OS, adiantamentos e faltas ativas cadastradas no mês"
+                        >
+                          <RefreshCw className={`w-3 h-3 text-[#0963cb] dark:text-sky-400 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+                          <span>Sincronizar Comissões / Vales</span>
+                        </button>
+                      )}
                     </div>
 
-                    {/* Formulário de inclusão / edição manual de desconto */}
-                    {isAddingDeduction && (
-                      <div className="p-2 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase text-rose-950 tracking-wider">
-                            {editingDeductItemId ? 'Editar Desconto / Vale' : 'Novo Desconto Manual (Peças, Combustível, Vales)'}
+                    {/* Destaque Inteligente: Regra de Proporcionalidade da Data de Admissão */}
+                    {admissionInfo?.isAdmittedInCompetenceMonth && (
+                      <div className="p-1.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[10.5px]">
+                        <div className="flex items-center space-x-1.5 text-amber-950 dark:text-amber-200 font-semibold">
+                          <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>
+                            Admissão em <strong>{formatEmployeeAdmissionDate(admissionInfo.admissionDate)}</strong>: Proporcional a <strong>{admissionInfo.daysWorked} de 30 dias</strong> ({formatMoneyBRL(admissionInfo.proportionalSalary)})
                           </span>
+                        </div>
+                        <div className="flex items-center space-x-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => {
-                              setIsAddingDeduction(false);
-                              setEditingDeductItemId(null);
+                              setBaseSalary(admissionInfo.proportionalSalary);
+                              setUseProportionalSalary(true);
                             }}
-                            className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                              useProportionalSalary 
+                                ? 'bg-amber-600 text-white border-amber-700 shadow-2xs' 
+                                : 'bg-white hover:bg-amber-100 text-amber-900 border-amber-300'
+                            }`}
+                            title="Aplicar cálculo automático proporcional aos dias trabalhados na competência"
                           >
-                            ✕ Fechar
+                            ✓ Proporcional ({admissionInfo.daysWorked}d)
                           </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
-                          <div className="sm:col-span-3">
-                            <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
-                              Tipo de Lançamento
-                            </label>
-                            <select
-                              value={newDeductType}
-                              onChange={(e) => setNewDeductType(e.target.value)}
-                              className="w-full px-1.5 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-semibold outline-none focus:ring-1 focus:ring-rose-600"
-                            >
-                              <option value="Vale / Adiantamento">Vale / Adiantamento</option>
-                              <option value="Peças / Oficina">Peças / Oficina</option>
-                              <option value="Combustível">Combustível</option>
-                              <option value="Falta / Atraso">Falta / Atraso</option>
-                              <option value="Outro Desconto">Outro Desconto</option>
-                            </select>
-                          </div>
-                          <div className="sm:col-span-4">
-                            <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
-                              Descrição / Motivo
-                            </label>
-                            <input
-                              type="text"
-                              value={newDeductDesc}
-                              onChange={(e) => setNewDeductDesc(e.target.value)}
-                              placeholder="Ex: Peças Trator, Posto Ipiranga..."
-                              className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
-                            />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="block text-[9.5px] font-bold text-stone-700 uppercase mb-0.5">
-                              Data
-                            </label>
-                            <input
-                              type="text"
-                              value={newDeductDate}
-                              onChange={(e) => setNewDeductDate(e.target.value)}
-                              placeholder="Ex: 15/09/2026"
-                              className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
-                            />
-                          </div>
-                          <div className="sm:col-span-3">
-                            <BrlCurrencyInput
-                              id="newDeductAmount"
-                              label="Valor (-)"
-                              value={newDeductAmount}
-                              onChange={setNewDeductAmount}
-                              inputClassName="border-rose-300 bg-white text-rose-800 font-bold"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-end space-x-1.5 pt-0.5">
                           <button
                             type="button"
                             onClick={() => {
-                              setIsAddingDeduction(false);
-                              setEditingDeductItemId(null);
+                              setBaseSalary(admissionInfo.fullContractualSalary);
+                              setUseProportionalSalary(false);
                             }}
-                            className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                              !useProportionalSalary 
+                                ? 'bg-stone-700 text-white border-stone-800 shadow-2xs' 
+                                : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300'
+                            }`}
+                            title="Forçar o valor cheio contratual integral (30 dias)"
                           >
-                            Cancelar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSaveDeductionItem}
-                            disabled={!newDeductType || newDeductAmount <= 0}
-                            className="px-2.5 py-0.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
-                          >
-                            {editingDeductItemId ? 'Atualizar Desconto' : 'Adicionar Desconto'}
+                            Integral (30d)
                           </button>
                         </div>
                       </div>
                     )}
 
-                    {/* Tabela de Lançamentos de Deduções */}
-                    <div className="max-h-36 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
-                      <table className="w-full text-left border-collapse text-[10.5px]">
-                        <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[9px] sticky top-0 border-b border-stone-200 z-10">
-                          <tr>
-                            <th className="py-1 px-2">Tipo de Lançamento</th>
-                            <th className="py-1 px-2 w-24">Data</th>
-                            <th className="py-1 px-2 text-right w-28">Valor (-)</th>
-                            <th className="py-1 px-2 text-center w-16">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-stone-200/70 bg-white">
-                          {deductionItems.length > 0 ? (
-                            deductionItems.map((item) => (
-                              <tr key={item.id} className="hover:bg-rose-50/40 transition">
-                                <td className="py-1 px-2 font-medium text-stone-900">
-                                  <div className="flex items-center space-x-1.5">
-                                    <span className={`px-1 py-0.2 rounded text-[8.5px] font-bold shrink-0 ${
-                                      item.type === 'Vale / Adiantamento'
-                                        ? 'bg-rose-100 text-rose-800'
-                                        : item.type === 'Falta / Atraso'
-                                        ? 'bg-amber-100 text-amber-800'
-                                        : 'bg-purple-100 text-purple-800'
-                                    }`}>
-                                      {item.type}
-                                    </span>
-                                    <span className="truncate text-stone-800 font-semibold" title={item.description}>
-                                      {item.description || item.type}
-                                    </span>
-                                    {item.isManual && (
-                                      <span className="px-1 py-0.2 rounded bg-stone-100 text-stone-600 text-[8px] font-bold shrink-0">
-                                        Manual
+                    {/* Grid Compacto de 2 Colunas para os Inputs de Proventos */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <BrlCurrencyInput
+                        id="baseSalaryContratual"
+                        label="Salário Base Contratual (R$)"
+                        value={baseSalaryContratual}
+                        onChange={(val) => {
+                          setBaseSalaryContratual(val);
+                          if (baseCalculoInssFgts === 0 || baseCalculoInssFgts === baseSalaryContratual) {
+                            handleBaseCalculoChange(val);
+                          }
+                        }}
+                        title="Valor fixo da ficha do funcionário"
+                        inputClassName="border-stone-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold"
+                      />
+                      <BrlCurrencyInput
+                        id="baseCalculoInssFgts"
+                        label="Base Cálc. INSS / FGTS (R$)"
+                        value={baseCalculoInssFgts}
+                        onChange={handleBaseCalculoChange}
+                        title="Valor usado efetivamente no mês para incidir as taxas"
+                        inputClassName="border-[#0963cb]/40 bg-blue-50/80 dark:bg-blue-950/40 text-[#0963cb] dark:text-sky-300 font-black focus:ring-[#0963cb]"
+                      />
+                      <BrlCurrencyInput
+                        id="baseSalary"
+                        label={admissionInfo?.isAdmittedInCompetenceMonth && useProportionalSalary ? "Salário Base (Proporcional)" : "Salário Base (Folha)"}
+                        value={baseSalary}
+                        onChange={(val) => {
+                          setBaseSalary(val);
+                          if (admissionInfo?.isAdmittedInCompetenceMonth) {
+                            setUseProportionalSalary(Math.abs(val - admissionInfo.proportionalSalary) < 0.05);
+                          }
+                        }}
+                        required
+                      />
+                      <BrlCurrencyInput
+                        id="overtimeAmount"
+                        label="Horas Extras / Safra"
+                        value={overtimeAmount}
+                        onChange={setOvertimeAmount}
+                      />
+                      <BrlCurrencyInput
+                        id="bonusAmount"
+                        label="Bônus / Insalubridade"
+                        value={bonusAmount}
+                        onChange={setBonusAmount}
+                      />
+                      <BrlCurrencyInput
+                        id="commissionAmount"
+                        label={commissionItems.length > 0 ? `Comissões Silagem (${commissionItems.length})` : "Comissões Silagem"}
+                        value={activeCommissionTotal}
+                        onChange={(val) => {
+                          setCommissionAmount(val);
+                        }}
+                        inputClassName="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 focus:ring-emerald-600 font-bold"
+                        headerRight={
+                          <span className="text-[9.5px] font-bold text-emerald-700 font-['Outfit']">
+                            {commissionItems.length} item(ns)
+                          </span>
+                        }
+                        title="Valor total apurado ou lançado nas comissões de silagem"
+                      />
+                    </div>
+
+                    {/* Mini-tabela de Detalhamento de Proventos (Comissões) */}
+                    <div className="p-2 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between pb-1 border-b border-blue-100 dark:border-stone-700">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
+                          <span className="text-[10.5px] font-black uppercase text-blue-950 dark:text-blue-200 tracking-wider">
+                            Extrato de Comissões & Serviços
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[9.5px] font-['Outfit']">
+                            + {formatCurrencyBRL(activeCommissionTotal)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingCommission(!isAddingCommission);
+                            setEditingCommItemId(null);
+                            setNewCommDesc('');
+                            setNewCommRef(currentMonthRef);
+                            setNewCommAmount(0);
+                          }}
+                          className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[10px] transition cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="w-3 h-3 text-[#0963cb]" />
+                          <span>+ Comissão Manual</span>
+                        </button>
+                      </div>
+
+                      {/* Formulário de inclusão / edição manual de comissão */}
+                      {isAddingCommission && (
+                        <div className="p-2 bg-blue-50/90 border border-blue-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9.5px] font-black uppercase text-blue-950 tracking-wider">
+                              {editingCommItemId ? 'Editar Comissão' : 'Nova Comissão Manual'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingCommission(false);
+                                setEditingCommItemId(null);
+                              }}
+                              className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                            >
+                              ✕ Fechar
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
+                            <div className="sm:col-span-6">
+                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                                Descrição / Serviço <span className="text-rose-600">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={newCommDesc}
+                                onChange={(e) => setNewCommDesc(e.target.value)}
+                                placeholder="Ex: Ensilagem - João..."
+                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                                Referência
+                              </label>
+                              <input
+                                type="text"
+                                value={newCommRef}
+                                onChange={(e) => setNewCommRef(e.target.value)}
+                                placeholder="Ex: OS #1042"
+                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <BrlCurrencyInput
+                                id="newCommAmount"
+                                label="Valor (+)"
+                                value={newCommAmount}
+                                onChange={setNewCommAmount}
+                                inputClassName="border-emerald-300 bg-white text-emerald-800 font-bold"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end space-x-1.5 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingCommission(false);
+                                setEditingCommItemId(null);
+                              }}
+                              className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveCommissionItem}
+                              disabled={!newCommDesc.trim() || newCommAmount <= 0}
+                              className="px-2.5 py-0.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
+                            >
+                              {editingCommItemId ? 'Atualizar Item' : 'Adicionar ao Extrato'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tabela de Itens de Comissão */}
+                      <div className="max-h-24 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
+                        <table className="w-full text-left border-collapse text-[10px]">
+                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[8.5px] sticky top-0 border-b border-stone-200 z-10">
+                            <tr>
+                              <th className="py-1 px-2">Descrição</th>
+                              <th className="py-1 px-2 w-20">Ref.</th>
+                              <th className="py-1 px-2 text-right w-24">Valor (+)</th>
+                              <th className="py-1 px-2 text-center w-12">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-200/70 bg-white">
+                            {commissionItems.length > 0 ? (
+                              commissionItems.map((item) => (
+                                <tr key={item.id} className="hover:bg-blue-50/40 transition">
+                                  <td className="py-1 px-2 font-medium text-stone-900">
+                                    <div className="flex items-center space-x-1">
+                                      <span className="truncate">{item.description}</span>
+                                      <span className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                        item.isManual ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                                      }`}>
+                                        {item.isManual ? 'Manual' : 'OS'}
                                       </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-1 px-2 text-stone-600 font-medium whitespace-nowrap">
-                                  {item.date || '-'}
-                                </td>
-                                <td className="py-1 px-2 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap">
-                                  - {formatCurrencyBRL(item.amount)}
-                                </td>
-                                <td className="py-1 px-2 text-center whitespace-nowrap">
-                                  <div className="flex items-center justify-center space-x-1">
-                                    {item.isManual && (
+                                    </div>
+                                  </td>
+                                  <td className="py-1 px-2 text-stone-600 whitespace-nowrap">
+                                    {item.referenceDate || currentMonthRef}
+                                  </td>
+                                  <td className="py-1 px-2 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap">
+                                    + {formatCurrencyBRL(item.amount)}
+                                  </td>
+                                  <td className="py-1 px-2 text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center space-x-1">
+                                      {item.isManual && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditCommission(item)}
+                                          className="p-0.5 text-stone-500 hover:text-[#0963cb] rounded transition cursor-pointer"
+                                          title="Editar"
+                                        >
+                                          <Edit2 className="w-2.5 h-2.5" />
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
-                                        onClick={() => handleStartEditDeduction(item)}
-                                        className="p-0.5 text-stone-500 hover:text-rose-700 rounded hover:bg-stone-100 transition cursor-pointer"
-                                        title="Editar desconto manual"
+                                        onClick={() => handleDeleteCommissionItem(item.id)}
+                                        className="p-0.5 text-stone-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                        title="Excluir"
                                       >
-                                        <Edit2 className="w-3 h-3" />
+                                        <Trash2 className="w-2.5 h-2.5" />
                                       </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteDeductionItem(item.id)}
-                                      className="p-0.5 text-stone-400 hover:text-rose-600 rounded hover:bg-rose-50 transition cursor-pointer"
-                                      title="Excluir desconto da folha"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={4} className="py-2 text-center text-stone-500 text-[9.5px]">
+                                  Nenhuma comissão ou serviço lançado nesta competência.
                                 </td>
                               </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={4} className="py-2.5 text-center text-stone-500 text-[10px]">
-                                Nenhum vale ou falta adicionado nesta competência. Clique em "Sincronizar" ou "+ Incluir Desconto Manual".
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Situação do Pagamento & Resumo Financeiro com Cores Contrastantes */}
-                <div className="lg:col-span-5 p-2 sm:p-2.5 bg-white border border-stone-300 rounded-xl shadow-2xs flex flex-col justify-between space-y-2">
-                  <div>
-                    <span className="text-[10.5px] font-black uppercase text-stone-900 tracking-wider block mb-1">
-                      Situação do Pagamento:
-                    </span>
-                    <div className="flex items-center space-x-3 bg-stone-50 p-1.5 rounded-lg border border-stone-200">
-                      <label className="flex items-center space-x-1.5 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="status"
-                          checked={payrollStatus === 'pendente'}
-                          onChange={() => setPayrollStatus('pendente')}
-                          className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
-                        />
-                        <span className="font-bold text-amber-700 text-xs">A Pagar</span>
-                      </label>
-                      <label className="flex items-center space-x-1.5 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="status"
-                          checked={payrollStatus === 'pago'}
-                          onChange={() => setPayrollStatus('pago')}
-                          className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
-                        />
-                        <span className="font-bold text-emerald-700 text-xs">Já Liquidado / Pago</span>
-                      </label>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Card de Resumo Financeiro com 2 Cores Contrastantes */}
-                  <div className="rounded-xl overflow-hidden border border-stone-300/80 shadow-2xs">
-                    {/* Bloco 1: Contrastante Claro / Neutro com Totais Bruto e Descontos */}
-                    <div className="bg-slate-100 p-2 border-b border-stone-200 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
-                          Total Bruto (+)
-                        </span>
-                        <span className="font-black text-emerald-800 text-xs sm:text-[13px] font-['Outfit'] block mt-0.5">
-                          {formatMoneyBRL(modalGrossTotal)}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[9px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
-                          Total Descontos (-)
-                        </span>
-                        <span className="font-black text-rose-700 text-xs sm:text-[13px] font-['Outfit'] block mt-0.5">
-                          - {formatMoneyBRL(modalDiscountsTotal)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bloco 2: Contrastante Escuro / Azul Corporativo #0963cb com Valor Líquido em Grande Destaque */}
-                    <div className="bg-[#0963cb] text-white p-2.5 flex items-center justify-between">
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase text-blue-100 tracking-wider block leading-none">
-                          Líquido a Pagar
-                        </span>
-                        <span className="text-xs font-bold text-white block mt-0.5">
-                          Salário Líquido
-                        </span>
-                      </div>
-                      <span className="text-xl sm:text-2xl font-black text-white font-['Outfit'] tracking-tight">
-                        {formatMoneyBRL(calculatedModalNet)}
+                  {/* 3. Bloco de Deduções (Descontos & Impostos) */}
+                  <div className="p-3 bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between pb-0.5">
+                      <span className="text-xs font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider block">
+                        Deduções (Descontos & Impostos)
+                      </span>
+                      <span className="text-[10.5px] font-bold text-rose-700 font-['Outfit']">
+                        Total Deduções: - {formatMoneyBRL(modalDiscountsTotal)}
                       </span>
                     </div>
+
+                    {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {/* INSS */}
+                      <div className="bg-stone-50 dark:bg-stone-900 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1 flex-wrap">
+                            <span className="text-[10.5px] font-bold text-stone-900 dark:text-stone-100">INSS</span>
+                            <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1 py-0.2 shadow-2xs">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={aliquotaInssStr}
+                                onChange={(e) => handleAliquotaInssChange(e.target.value)}
+                                disabled={!inssEnabled}
+                                className="w-9 text-center font-black text-[11px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                                title="Alíquota (%)"
+                              />
+                              <span className="text-[9.5px] font-bold text-stone-500">%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = !inssEnabled;
+                                setInssEnabled(next);
+                                if (next) {
+                                  const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+                                  const calculated = Math.round((base * (aliquotaInss / 100)) * 100) / 100;
+                                  setInssDiscount(calculated > 0 ? calculated : calculateProgressiveInss(base));
+                                } else {
+                                  setInssDiscount(0);
+                                }
+                              }}
+                              className={`relative inline-flex h-3 w-5.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                inssEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
+                              }`}
+                            >
+                              <span className={`inline-block h-2 w-2 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                                inssEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
+                              }`} />
+                            </button>
+                            <span className={`text-[9px] font-bold ${inssEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                              {inssEnabled ? 'Ativo' : 'Isento'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <BrlCurrencyInput
+                          id="inssDiscount"
+                          label=""
+                          value={inssDiscount}
+                          onChange={handleInssDiscountChange}
+                          disabled={!inssEnabled}
+                          inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
+                        />
+                      </div>
+
+                      {/* IRRF */}
+                      <div className="bg-stone-50 dark:bg-stone-900 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1 flex-wrap">
+                            <span className="text-[10.5px] font-bold text-stone-900 dark:text-stone-100">IRRF</span>
+                            <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1 py-0.2 shadow-2xs">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={aliquotaIrrfStr}
+                                onChange={(e) => handleAliquotaIrrfChange(e.target.value)}
+                                disabled={!irrfEnabled}
+                                className="w-9 text-center font-black text-[11px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                                title="Alíquota (%)"
+                              />
+                              <span className="text-[9.5px] font-bold text-stone-500">%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = !irrfEnabled;
+                                setIrrfEnabled(next);
+                                if (next) {
+                                  const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+                                  const inssVal = inssEnabled ? inssDiscount : 0;
+                                  const baseIrrf = Math.max(0, base - inssVal);
+                                  const calculated = aliquotaIrrf > 0 
+                                    ? Math.round((baseIrrf * (aliquotaIrrf / 100)) * 100) / 100 
+                                    : calculateOfficialIrrf(base, inssVal);
+                                  setIrrfDiscount(calculated);
+                                } else {
+                                  setIrrfDiscount(0);
+                                }
+                              }}
+                              className={`relative inline-flex h-3 w-5.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                irrfEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
+                              }`}
+                            >
+                              <span className={`inline-block h-2 w-2 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                                irrfEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
+                              }`} />
+                            </button>
+                            <span className={`text-[9px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                              {irrfEnabled ? 'Ativo' : 'Isento'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <BrlCurrencyInput
+                          id="irrfDiscount"
+                          label=""
+                          value={irrfDiscount}
+                          onChange={handleIrrfDiscountChange}
+                          disabled={!irrfEnabled}
+                          inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
+                        />
+                      </div>
+
+                      {/* Sindicato */}
+                      <div className="bg-stone-50 dark:bg-stone-900 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1 flex-wrap">
+                            <span className="text-[10.5px] font-bold text-stone-900 dark:text-stone-100 truncate" title="Taxa Assistencial Sindicato">
+                              Sindicato
+                            </span>
+                            <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1 py-0.2 shadow-2xs">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={aliquotaSindicatoStr}
+                                onChange={(e) => handleAliquotaSindicatoChange(e.target.value)}
+                                disabled={!sindicalEnabled}
+                                className="w-9 text-center font-black text-[11px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                                title="Alíquota (%)"
+                              />
+                              <span className="text-[9.5px] font-bold text-stone-500">%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = !sindicalEnabled;
+                                setSindicalEnabled(next);
+                                if (next) {
+                                  const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+                                  const calculated = Math.round((base * (aliquotaSindicato / 100)) * 100) / 100;
+                                  const restoredVal = calculated > 0 ? calculated : (lastCustomSindical > 0 ? lastCustomSindical : 25.23);
+                                  setSindicalDiscount(restoredVal);
+                                } else {
+                                  if (sindicalDiscount > 0) {
+                                    setLastCustomSindical(sindicalDiscount);
+                                  }
+                                  setSindicalDiscount(0);
+                                }
+                              }}
+                              className={`relative inline-flex h-3 w-5.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                sindicalEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
+                              }`}
+                            >
+                              <span className={`inline-block h-2 w-2 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                                sindicalEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
+                              }`} />
+                            </button>
+                            <span className={`text-[9px] font-bold ${sindicalEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                              {sindicalEnabled ? 'Ativo' : 'Isento'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <BrlCurrencyInput
+                          id="sindicalDiscount"
+                          label=""
+                          value={sindicalDiscount}
+                          onChange={handleSindicalDiscountChange}
+                          disabled={!sindicalEnabled}
+                          inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tabela de Detalhamento de Deduções (Vales, Faltas, Peças, Combustível) */}
+                    <div className="pt-1 space-y-1.5">
+                      <div className="flex items-center justify-between pb-1 border-b border-stone-200 dark:border-stone-700">
+                        <div className="flex items-center space-x-2">
+                          <CreditCard className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span className="text-[10.5px] font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider">
+                            Extrato de Descontos Ocorridos
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-900 font-extrabold text-[9.5px] font-['Outfit']">
+                            - {formatCurrencyBRL(activeListDeductions)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingDeduction(!isAddingDeduction);
+                            setEditingDeductItemId(null);
+                            setNewDeductType('Vale / Adiantamento');
+                            setNewDeductDesc('');
+                            setNewDeductDate(formatDateBR(new Date().toISOString().split('T')[0]));
+                            setNewDeductAmount(0);
+                          }}
+                          className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[10px] transition cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="w-3 h-3 text-rose-600" />
+                          <span>+ Desconto Manual</span>
+                        </button>
+                      </div>
+
+                      {/* Formulário de inclusão / edição manual de desconto */}
+                      {isAddingDeduction && (
+                        <div className="p-2 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9.5px] font-black uppercase text-rose-950 tracking-wider">
+                              {editingDeductItemId ? 'Editar Desconto' : 'Novo Desconto Manual'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingDeduction(false);
+                                setEditingDeductItemId(null);
+                              }}
+                              className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                            >
+                              ✕ Fechar
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
+                            <div className="sm:col-span-3">
+                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                                Tipo
+                              </label>
+                              <select
+                                value={newDeductType}
+                                onChange={(e) => setNewDeductType(e.target.value)}
+                                className="w-full px-1.5 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-semibold outline-none focus:ring-1 focus:ring-rose-600"
+                              >
+                                <option value="Vale / Adiantamento">Vale / Adiantamento</option>
+                                <option value="Peças / Oficina">Peças / Oficina</option>
+                                <option value="Combustível">Combustível</option>
+                                <option value="Falta / Atraso">Falta / Atraso</option>
+                                <option value="Outro Desconto">Outro Desconto</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-4">
+                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                                Descrição
+                              </label>
+                              <input
+                                type="text"
+                                value={newDeductDesc}
+                                onChange={(e) => setNewDeductDesc(e.target.value)}
+                                placeholder="Ex: Adiantamento..."
+                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                                Data
+                              </label>
+                              <input
+                                type="text"
+                                value={newDeductDate}
+                                onChange={(e) => setNewDeductDate(e.target.value)}
+                                placeholder="Ex: 15/09/2026"
+                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <BrlCurrencyInput
+                                id="newDeductAmount"
+                                label="Valor (-)"
+                                value={newDeductAmount}
+                                onChange={setNewDeductAmount}
+                                inputClassName="border-rose-300 bg-white text-rose-800 font-bold"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end space-x-1.5 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingDeduction(false);
+                                setEditingDeductItemId(null);
+                              }}
+                              className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveDeductionItem}
+                              disabled={!newDeductType || newDeductAmount <= 0}
+                              className="px-2.5 py-0.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
+                            >
+                              {editingDeductItemId ? 'Atualizar Desconto' : 'Adicionar Desconto'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tabela de Lançamentos de Deduções */}
+                      <div className="max-h-28 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
+                        <table className="w-full text-left border-collapse text-[10px]">
+                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[8.5px] sticky top-0 border-b border-stone-200 z-10">
+                            <tr>
+                              <th className="py-1 px-2">Tipo / Descrição</th>
+                              <th className="py-1 px-2 w-20">Data</th>
+                              <th className="py-1 px-2 text-right w-24">Valor (-)</th>
+                              <th className="py-1 px-2 text-center w-12">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-200/70 bg-white">
+                            {deductionItems.length > 0 ? (
+                              deductionItems.map((item) => (
+                                <tr key={item.id} className="hover:bg-rose-50/40 transition">
+                                  <td className="py-1 px-2 font-medium text-stone-900">
+                                    <div className="flex items-center space-x-1">
+                                      <span className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                        item.type === 'Vale / Adiantamento'
+                                          ? 'bg-rose-100 text-rose-800'
+                                          : item.type === 'Falta / Atraso'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-purple-100 text-purple-800'
+                                      }`}>
+                                        {item.type}
+                                      </span>
+                                      <span className="truncate text-stone-800 font-semibold" title={item.description}>
+                                        {item.description || item.type}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-1 px-2 text-stone-600 whitespace-nowrap">
+                                    {item.date || '-'}
+                                  </td>
+                                  <td className="py-1 px-2 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap">
+                                    - {formatCurrencyBRL(item.amount)}
+                                  </td>
+                                  <td className="py-1 px-2 text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center space-x-1">
+                                      {item.isManual && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditDeduction(item)}
+                                          className="p-0.5 text-stone-500 hover:text-rose-700 rounded transition cursor-pointer"
+                                          title="Editar"
+                                        >
+                                          <Edit2 className="w-2.5 h-2.5" />
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteDeductionItem(item.id)}
+                                        className="p-0.5 text-stone-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                        title="Excluir"
+                                      >
+                                        <Trash2 className="w-2.5 h-2.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={4} className="py-2 text-center text-stone-500 text-[9.5px]">
+                                  Nenhum vale ou falta adicionado nesta competência.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Rodapé Oficial Holerite: Badges Cinzas [Base Cálc. FGTS] | [FGTS do Mês] | [Base Cálc. IRRF] | [Faixa IRRF] */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 bg-stone-100/90 dark:bg-stone-800/80 border border-stone-300 dark:border-stone-700 rounded-xl shadow-2xs shrink-0">
-                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
-                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
-                    Base Cálc. FGTS
-                  </span>
-                  <span className="text-xs sm:text-[13px] font-black text-stone-900 dark:text-stone-100 font-['Outfit'] block mt-1">
-                    {formatMoneyBRL(baseCalculoInssFgts || baseSalaryContratual || baseSalary)}
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
-                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
-                    FGTS do Mês (8%)
-                  </span>
-                  <span className="text-xs sm:text-[13px] font-black text-[#0963cb] dark:text-sky-400 font-['Outfit'] block mt-1">
-                    {formatMoneyBRL(Math.round(((baseCalculoInssFgts || baseSalaryContratual || baseSalary) * 0.08) * 100) / 100)}
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
-                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
-                    Base Cálc. IRRF
-                  </span>
-                  <span className="text-xs sm:text-[13px] font-black text-stone-900 dark:text-stone-100 font-['Outfit'] block mt-1">
-                    {formatMoneyBRL(Math.max(0, (baseCalculoInssFgts || baseSalaryContratual || baseSalary) - (inssEnabled ? inssDiscount : 0)))}
-                  </span>
-                </div>
-                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
-                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
-                    Faixa IRRF
-                  </span>
-                  <span className="text-xs sm:text-[13px] font-black text-stone-800 dark:text-stone-200 block mt-1">
-                    {getFaixaIrrf(Math.max(0, (baseCalculoInssFgts || baseSalaryContratual || baseSalary) - (inssEnabled ? inssDiscount : 0)))}
-                  </span>
-                </div>
-              </div>
+                  {/* 4. Situação do Pagamento & Observações */}
+                  <div className="bg-white dark:bg-stone-800 rounded-xl p-3 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider block mb-1">
+                          Situação do Pagamento:
+                        </span>
+                        <div className="flex items-center space-x-3 bg-stone-50 dark:bg-stone-900 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                          <label className="flex items-center space-x-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              checked={payrollStatus === 'pendente'}
+                              onChange={() => setPayrollStatus('pendente')}
+                              className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
+                            />
+                            <span className="font-bold text-amber-700 text-xs">A Pagar</span>
+                          </label>
+                          <label className="flex items-center space-x-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              checked={payrollStatus === 'pago'}
+                              onChange={() => setPayrollStatus('pago')}
+                              className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
+                            />
+                            <span className="font-bold text-emerald-700 text-xs">Já Liquidado / Pago</span>
+                          </label>
+                        </div>
+                      </div>
 
-              {/* Observações Internas e Ações do Rodapé */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1.5 border-t border-black/15 shrink-0">
-                {/* Campo de Observações Internas */}
-                <div className="flex-1 min-w-0 px-2 py-1 bg-white border border-stone-300 rounded-lg shadow-2xs flex items-center gap-1.5">
-                  <label className="font-bold text-stone-900 text-xs shrink-0">
-                    Observações:
-                  </label>
-                  <input
-                    type="text"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ex: Pagamento agendado, observações..."
-                    className="w-full py-0.5 bg-transparent text-stone-900 outline-none text-xs font-medium"
+                      <div className="flex-1 sm:max-w-xs">
+                        <label className="text-[10px] font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider block mb-1">
+                          Observações:
+                        </label>
+                        <input
+                          type="text"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          placeholder="Ex: Pagamento via Pix..."
+                          className="w-full px-2.5 py-1 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* ======================================================== */}
+                {/* COLUNA DA DIREITA: Espelho do Holerite em Tempo Real    */}
+                {/* ======================================================== */}
+                <div className="overflow-y-auto p-3 sm:p-5 bg-stone-200/90 dark:bg-stone-950 flex flex-col items-center">
+                  <LivePayslipPreview
+                    companyProfile={companyProfile}
+                    employee={employees.find(e => e.id === selectedEmployeeId)}
+                    currentMonthRef={currentMonthRef}
+                    baseSalary={baseSalary}
+                    admissionInfo={admissionInfo}
+                    overtimeAmount={overtimeAmount}
+                    bonusAmount={bonusAmount}
+                    commissionAmount={commissionAmount}
+                    commissionItems={commissionItems}
+                    activeCommissionTotal={activeCommissionTotal}
+                    inssDiscount={inssDiscount}
+                    inssEnabled={inssEnabled}
+                    aliquotaInssStr={aliquotaInssStr}
+                    irrfDiscount={irrfDiscount}
+                    irrfEnabled={irrfEnabled}
+                    aliquotaIrrfStr={aliquotaIrrfStr}
+                    sindicalDiscount={sindicalDiscount}
+                    sindicalEnabled={sindicalEnabled}
+                    aliquotaSindicatoStr={aliquotaSindicatoStr}
+                    deductionItems={deductionItems}
+                    advancesDiscount={advancesDiscount}
+                    otherDiscounts={otherDiscounts}
+                    activeListDeductions={activeListDeductions}
+                    modalGrossTotal={modalGrossTotal}
+                    modalDiscountsTotal={modalDiscountsTotal}
+                    calculatedModalNet={calculatedModalNet}
+                    baseCalculoInssFgts={baseCalculoInssFgts}
+                    baseSalaryContratual={baseSalaryContratual}
                   />
                 </div>
 
-                {/* Botões de Ação com Botão Único 'Imprimir Folha' entre Observações e Cancelar */}
-                <div className="flex items-center space-x-1.5 shrink-0 justify-end">
+              </div>
+
+              {/* ======================================================== */}
+              {/* BARRA INFERIOR DE AÇÕES (Fixa no rodapé do modal)        */}
+              {/* ======================================================== */}
+              <div className="px-4 py-2.5 bg-white dark:bg-stone-850 border-t border-stone-300 dark:border-stone-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-stone-500 font-bold uppercase">Colaborador:</span>
+                    <strong className="text-xs text-stone-900 dark:text-stone-100 font-bold">
+                      {employees.find(e => e.id === selectedEmployeeId)?.name || 'Nenhum selecionado'}
+                    </strong>
+                  </div>
+                  <div className="h-4 w-px bg-stone-300 dark:bg-stone-700 hidden sm:block" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-stone-500 font-bold uppercase">Líquido a Pagar:</span>
+                    <strong className="text-sm font-black text-[#0963cb] dark:text-sky-400 font-['Outfit']">
+                      {formatMoneyBRL(calculatedModalNet)}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 justify-end">
                   <button
                     type="button"
                     onClick={handlePrintCurrentModalPayroll}
                     disabled={!selectedEmployeeId}
-                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold transition shadow-2xs cursor-pointer text-xs disabled:opacity-40"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 font-bold transition shadow-2xs cursor-pointer text-xs disabled:opacity-40"
                     title="Imprimir Holerite Oficial (Recibo Limpo em PDF)"
                   >
-                    <Printer className="w-3.5 h-3.5 text-stone-600" />
-                    <span>Imprimir Folha</span>
+                    <Printer className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300" />
+                    <span>Imprimir Holerite</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-white border border-stone-300 text-stone-700 font-bold hover:bg-stone-50 cursor-pointer transition text-xs shadow-2xs"
+                    className="px-3.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200 font-bold hover:bg-stone-50 dark:hover:bg-stone-700 cursor-pointer transition text-xs shadow-2xs"
                   >
                     Cancelar
                   </button>
