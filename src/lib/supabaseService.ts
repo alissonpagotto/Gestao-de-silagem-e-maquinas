@@ -4318,8 +4318,8 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
 
     // Se 'veiculos_maquinas' retornar erro ou vazio, busca em 'gestao_frotas'
     if (error || !data || data.length === 0) {
-      // Colunas seguras e existentes na tabela 'gestao_frotas' (exclui composition_type)
-      const safeGfCols = 'id, nome, modelo, placa_ou_serie, ano, horimetro_ou_km_atual, status, company_id, tank_capacity, user_id, motorista, operator_or_driver, assigned_driver_ids, assigned_drivers, numero_eixos, quantidade_pneus, reboque_vinculado_id';
+      // Colunas seguras e existentes na tabela 'gestao_frotas' (exclui composition_type e assigned_driver_ids fantasma)
+      const safeGfCols = 'id, nome, modelo, placa_ou_serie, ano, horimetro_ou_km_atual, status, company_id, tank_capacity, user_id, motorista, operator_or_driver, numero_eixos, quantidade_pneus, reboque_vinculado_id';
       let gfRes: any = await supabase
         .from('gestao_frotas')
         .select(safeGfCols)
@@ -4716,35 +4716,31 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       updated_at: new Date().toISOString()
     };
 
-    // Detecta as colunas reais da tabela veiculos_maquinas para evitar erro 400 (PGRST204)
-    if (knownVeiculosMaquinasCols.size === 0) {
-      try {
-        const { data: sampleCols } = await supabase.from('veiculos_maquinas').select('*').limit(1);
-        if (sampleCols && Array.isArray(sampleCols) && sampleCols.length > 0 && sampleCols[0]) {
-          Object.keys(sampleCols[0]).forEach(k => knownVeiculosMaquinasCols.add(k));
-        }
-      } catch (_) {}
-    }
-
-    // Se detectou colunas, filtra apenas as válidas
-    const payloadVeiculos = { ...payload };
-    if (knownVeiculosMaquinasCols.size > 0) {
-      for (const key of Object.keys(payloadVeiculos)) {
-        if (key === 'id' || key === 'reboque_vinculado_id' || key === 'updated_at') continue;
-        if (!knownVeiculosMaquinasCols.has(key)) {
-          delete payloadVeiculos[key];
-        }
+    // 1. Tenta salvar na tabela oficial física 'veiculos_maquinas'
+    // Sanitização rigorosa: veiculos_maquinas possui estritamente id, modelo, marca, placa, ano, status, company_id, km_atual, tipo
+    const safeVmColsSet = new Set([
+      'id', 'modelo', 'marca', 'placa', 'ano', 'status', 'company_id', 'km_atual', 'tipo'
+    ]);
+    const payloadVeiculos: Record<string, any> = {};
+    for (const [k, v] of Object.entries(payload)) {
+      if (safeVmColsSet.has(k)) {
+        payloadVeiculos[k] = v;
       }
     }
+    if (!payloadVeiculos.placa && payload.placa_ou_serie) {
+      payloadVeiculos.placa = payload.placa_ou_serie;
+    }
+    if (!payloadVeiculos.km_atual && payload.horimetro_ou_km_atual) {
+      payloadVeiculos.km_atual = payload.horimetro_ou_km_atual;
+    }
 
-    // 1. Tenta salvar na tabela oficial física 'veiculos_maquinas'
     let { error } = await supabase
       .from('veiculos_maquinas')
       .upsert(payloadVeiculos, { onConflict: 'id' });
 
     if (error) {
       console.warn('Supabase upsertVeiculoMaquina (veiculos_maquinas) notice:', error.message);
-      // Tenta fallback em gestao_frotas removendo composition_type e colunas não existentes para evitar erro 400 (PGRST204 / schema cache)
+      // Tenta fallback em gestao_frotas removendo composition_type, assigned_driver_ids e colunas não existentes para evitar erro 400 (PGRST204 / schema cache)
       const payloadGf = { ...payload };
       delete (payloadGf as any).composition_type;
       delete (payloadGf as any).compositionType;
@@ -4760,6 +4756,10 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       delete (payloadGf as any).controla_por;
       delete (payloadGf as any).renavam;
       delete (payloadGf as any).cor;
+      delete (payloadGf as any).assigned_driver_ids;
+      delete (payloadGf as any).assigned_drivers;
+      payloadGf.motorista = driverString || null;
+      payloadGf.operator_or_driver = driverString || null;
       const fallbackRes = await supabase.from('gestao_frotas').upsert(payloadGf, { onConflict: 'id' });
       if (fallbackRes.error) {
         console.warn('Supabase fallback gestao_frotas notice:', fallbackRes.error.message);
