@@ -5,7 +5,7 @@ import html2canvas from 'html2canvas-pro';
 import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, ServiceOrder } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
-import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions } from './payrollHelpers';
+import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -526,7 +526,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
                       Desconto Previdência Social (INSS)
                     </td>
-                    <td className="py-2 px-3 text-center text-stone-500">Oficial</td>
+                    <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
+                      {payroll.aliquotaInss ?? payroll.aliquota_inss ?? (payroll as any).payload?.aliquotaInss ?? (payroll as any).payload?.aliquota_inss
+                        ? `${(payroll.aliquotaInss ?? payroll.aliquota_inss ?? (payroll as any).payload?.aliquotaInss ?? (payroll as any).payload?.aliquota_inss).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
+                        : 'Oficial'}
+                    </td>
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
                       {formatCurrencyBRL(payroll.inssDiscount)}
@@ -540,7 +544,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
                       Retenção Imposto de Renda (IRRF)
                     </td>
-                    <td className="py-2 px-3 text-center text-stone-500">Oficial</td>
+                    <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
+                      {payroll.aliquotaIrrf ?? payroll.aliquota_irrf ?? (payroll as any).payload?.aliquotaIrrf ?? (payroll as any).payload?.aliquota_irrf
+                        ? `${(payroll.aliquotaIrrf ?? payroll.aliquota_irrf ?? (payroll as any).payload?.aliquotaIrrf ?? (payroll as any).payload?.aliquota_irrf).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
+                        : 'Oficial'}
+                    </td>
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
                       {formatCurrencyBRL(payroll.irrfDiscount || 0)}
@@ -554,7 +562,11 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                     <td className="py-2 px-3 font-semibold text-stone-800 dark:text-stone-200">
                       Taxa Assistencial Sindicato
                     </td>
-                    <td className="py-2 px-3 text-center text-stone-500">Convenção</td>
+                    <td className="py-2 px-3 text-center text-stone-600 dark:text-stone-300 font-bold">
+                      {payroll.aliquotaSindicato ?? payroll.aliquota_sindicato ?? (payroll as any).payload?.aliquotaSindicato ?? (payroll as any).payload?.aliquota_sindicato
+                        ? `${(payroll.aliquotaSindicato ?? payroll.aliquota_sindicato ?? (payroll as any).payload?.aliquotaSindicato ?? (payroll as any).payload?.aliquota_sindicato).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
+                        : '1,0%'}
+                    </td>
                     <td className="py-2 px-3 text-right text-stone-400">-</td>
                     <td className="py-2 px-3 text-right font-medium text-rose-600 dark:text-rose-400">
                       {formatCurrencyBRL(activeSindical)}
@@ -635,6 +647,52 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Rodapé Oficial Holerite: Badges Cinzas [Base Cálc. FGTS] | [FGTS do Mês] | [Base Cálc. IRRF] | [Faixa IRRF] */}
+          {(() => {
+            const baseFgts = payroll.baseCalculoFgts ?? payroll.baseCalculoInssFgts ?? payroll.base_inss ?? (payroll as any).payload?.baseCalculoInssFgts ?? (payroll as any).payload?.base_inss ?? payroll.baseSalaryContratual ?? payroll.baseSalary;
+            const fgtsMes = payroll.fgtsDoMes ?? (payroll as any).payload?.fgtsDoMes ?? Math.round((baseFgts * 0.08) * 100) / 100;
+            const inssVal = payroll.inssDiscount || 0;
+            const baseIrrf = payroll.baseCalculoIrrf ?? (payroll as any).payload?.baseCalculoIrrf ?? Math.max(0, baseFgts - inssVal);
+            const faixaIrrf = payroll.faixaIrrf ?? (payroll as any).payload?.faixaIrrf ?? getFaixaIrrf(baseIrrf);
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-stone-100 dark:bg-stone-800/80 border border-stone-300 dark:border-stone-700 rounded-xl p-3 print:p-2 text-center text-xs">
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-2 print:p-1.5 shadow-2xs">
+                  <span className="text-[9px] print:text-[8px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    Base Cálc. FGTS
+                  </span>
+                  <span className="text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100 font-['Outfit'] block mt-1">
+                    {formatCurrencyBRL(baseFgts)}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-2 print:p-1.5 shadow-2xs">
+                  <span className="text-[9px] print:text-[8px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    FGTS do Mês (8%)
+                  </span>
+                  <span className="text-xs sm:text-sm font-black text-[#0963cb] dark:text-sky-400 font-['Outfit'] block mt-1">
+                    {formatCurrencyBRL(fgtsMes)}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-2 print:p-1.5 shadow-2xs">
+                  <span className="text-[9px] print:text-[8px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    Base Cálc. IRRF
+                  </span>
+                  <span className="text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100 font-['Outfit'] block mt-1">
+                    {formatCurrencyBRL(baseIrrf)}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-2 print:p-1.5 shadow-2xs">
+                  <span className="text-[9px] print:text-[8px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    Faixa IRRF
+                  </span>
+                  <span className="text-xs sm:text-sm font-black text-stone-800 dark:text-stone-200 block mt-1">
+                    {faixaIrrf}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Seção: DETALHAMENTO DOS LANÇAMENTOS (CONFERÊNCIA) */}
           {hasDetailedBreakdown && (

@@ -1140,6 +1140,19 @@ export interface PayrollRecord {
   employeeRole: string;
   referenceMonth: string; // MM/YYYY (ex: '09/2026')
   baseSalary: number;
+  baseSalaryContratual?: number; // Salário Base Contratual (R$) fixo da ficha
+  baseCalculoInssFgts?: number; // Base Cálc. INSS / FGTS (R$)
+  base_inss?: number;
+  aliquota_inss?: number;
+  aliquotaInss?: number;
+  aliquota_sindicato?: number;
+  aliquotaSindicato?: number;
+  aliquota_irrf?: number;
+  aliquotaIrrf?: number;
+  baseCalculoFgts?: number;
+  fgtsDoMes?: number;
+  baseCalculoIrrf?: number;
+  faixaIrrf?: string;
   overtimeHours?: number;
   overtimeAmount: number; // Horas extras / diárias de safra
   bonusAmount: number; // Insalubridade, bônus safra, etc.

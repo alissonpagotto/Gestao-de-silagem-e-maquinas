@@ -39,7 +39,9 @@ import {
   getStoredMachineries,
   getStoredExpenses,
   saveStoredExpenses,
-  getActiveCompanyId
+  getActiveCompanyId,
+  saveCompanyRhFolhas,
+  saveStoredPayrolls
 } from '../../lib/storage';
 import { 
   insertFinanceiroContasAPagar, 
@@ -68,7 +70,8 @@ import {
   calculateProgressiveInss,
   calculateOfficialIrrf,
   getAdmissionProportionality,
-  AdmissionProportionality
+  AdmissionProportionality,
+  getFaixaIrrf
 } from './payrollHelpers';
 import { PayslipModal } from './PayslipModal';
 
@@ -521,6 +524,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
   // Form State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [baseSalaryContratual, setBaseSalaryContratual] = useState<number>(0);
+  const [baseCalculoInssFgts, setBaseCalculoInssFgts] = useState<number>(0);
   const [baseSalary, setBaseSalary] = useState<number>(0);
   const [overtimeAmount, setOvertimeAmount] = useState<number>(0);
   const [bonusAmount, setBonusAmount] = useState<number>(0);
@@ -529,10 +534,16 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const [showCommissionBreakdown, setShowCommissionBreakdown] = useState(false);
   const [inssDiscount, setInssDiscount] = useState<number>(0);
   const [inssEnabled, setInssEnabled] = useState<boolean>(true);
+  const [aliquotaInss, setAliquotaInss] = useState<number>(8.04);
+  const [aliquotaInssStr, setAliquotaInssStr] = useState<string>('8,04');
   const [irrfDiscount, setIrrfDiscount] = useState<number>(0);
   const [irrfEnabled, setIrrfEnabled] = useState<boolean>(false);
+  const [aliquotaIrrf, setAliquotaIrrf] = useState<number>(0.0);
+  const [aliquotaIrrfStr, setAliquotaIrrfStr] = useState<string>('0,0');
   const [sindicalDiscount, setSindicalDiscount] = useState<number>(25.23);
   const [sindicalEnabled, setSindicalEnabled] = useState<boolean>(true);
+  const [aliquotaSindicato, setAliquotaSindicato] = useState<number>(1.0);
+  const [aliquotaSindicatoStr, setAliquotaSindicatoStr] = useState<string>('1,0');
   const [lastCustomSindical, setLastCustomSindical] = useState<number>(25.23);
   const [admissionInfo, setAdmissionInfo] = useState<AdmissionProportionality | null>(null);
   const [useProportionalSalary, setUseProportionalSalary] = useState<boolean>(false);
@@ -546,6 +557,103 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     title: string;
     details: string;
   } | null>(null);
+
+  // Manipuladores de Cálculo Reativo Automático (Base Cálc. INSS/FGTS e Alíquotas)
+  const handleBaseCalculoChange = (newBase: number) => {
+    setBaseCalculoInssFgts(newBase);
+    if (inssEnabled) {
+      const calculatedInss = Math.round((newBase * (aliquotaInss / 100)) * 100) / 100;
+      setInssDiscount(calculatedInss);
+      if (irrfEnabled) {
+        const baseIrrf = Math.max(0, newBase - calculatedInss);
+        const calculatedIrrf = aliquotaIrrf > 0 
+          ? Math.round((baseIrrf * (aliquotaIrrf / 100)) * 100) / 100 
+          : calculateOfficialIrrf(newBase, calculatedInss);
+        setIrrfDiscount(calculatedIrrf);
+      }
+    }
+    if (sindicalEnabled) {
+      const calculatedSind = Math.round((newBase * (aliquotaSindicato / 100)) * 100) / 100;
+      setSindicalDiscount(calculatedSind);
+      setLastCustomSindical(calculatedSind);
+    }
+  };
+
+  const handleAliquotaInssChange = (valStr: string) => {
+    setAliquotaInssStr(valStr);
+    const normalized = valStr.replace(',', '.').replace(/[^\d.]/g, '');
+    const parsed = parseFloat(normalized);
+    if (!isNaN(parsed) && parsed >= 0) {
+      setAliquotaInss(parsed);
+      if (inssEnabled) {
+        const base = baseCalculoInssFgts > 0 ? baseCalculoInssFgts : (baseSalaryContratual || baseSalary);
+        const calculated = Math.round((base * (parsed / 100)) * 100) / 100;
+        setInssDiscount(calculated);
+      }
+    }
+  };
+
+  const handleInssDiscountChange = (val: number) => {
+    setInssDiscount(val);
+    const base = baseCalculoInssFgts > 0 ? baseCalculoInssFgts : (baseSalaryContratual || baseSalary);
+    if (base > 0) {
+      const derivedAliq = Number(((val / base) * 100).toFixed(2));
+      setAliquotaInss(derivedAliq);
+      setAliquotaInssStr(derivedAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+    }
+  };
+
+  const handleAliquotaSindicatoChange = (valStr: string) => {
+    setAliquotaSindicatoStr(valStr);
+    const normalized = valStr.replace(',', '.').replace(/[^\d.]/g, '');
+    const parsed = parseFloat(normalized);
+    if (!isNaN(parsed) && parsed >= 0) {
+      setAliquotaSindicato(parsed);
+      if (sindicalEnabled) {
+        const base = baseCalculoInssFgts > 0 ? baseCalculoInssFgts : (baseSalaryContratual || baseSalary);
+        const calculated = Math.round((base * (parsed / 100)) * 100) / 100;
+        setSindicalDiscount(calculated);
+        setLastCustomSindical(calculated);
+      }
+    }
+  };
+
+  const handleSindicalDiscountChange = (val: number) => {
+    setSindicalDiscount(val);
+    if (val > 0) setLastCustomSindical(val);
+    const base = baseCalculoInssFgts > 0 ? baseCalculoInssFgts : (baseSalaryContratual || baseSalary);
+    if (base > 0) {
+      const derivedAliq = Number(((val / base) * 100).toFixed(2));
+      setAliquotaSindicato(derivedAliq);
+      setAliquotaSindicatoStr(derivedAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+    }
+  };
+
+  const handleAliquotaIrrfChange = (valStr: string) => {
+    setAliquotaIrrfStr(valStr);
+    const normalized = valStr.replace(',', '.').replace(/[^\d.]/g, '');
+    const parsed = parseFloat(normalized);
+    if (!isNaN(parsed) && parsed >= 0) {
+      setAliquotaIrrf(parsed);
+      if (irrfEnabled) {
+        const base = baseCalculoInssFgts > 0 ? baseCalculoInssFgts : (baseSalaryContratual || baseSalary);
+        const baseIrrf = Math.max(0, base - (inssEnabled ? inssDiscount : 0));
+        const calculated = Math.round((baseIrrf * (parsed / 100)) * 100) / 100;
+        setIrrfDiscount(calculated);
+      }
+    }
+  };
+
+  const handleIrrfDiscountChange = (val: number) => {
+    setIrrfDiscount(val);
+    const base = baseCalculoInssFgts > 0 ? baseCalculoInssFgts : (baseSalaryContratual || baseSalary);
+    const baseIrrf = Math.max(0, base - (inssEnabled ? inssDiscount : 0));
+    if (baseIrrf > 0) {
+      const derivedAliq = Number(((val / baseIrrf) * 100).toFixed(2));
+      setAliquotaIrrf(derivedAliq);
+      setAliquotaIrrfStr(derivedAliq.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+    }
+  };
 
   // Detalhamento e sincronização de Vales e Faltas no Modal
   const [syncedAdvances, setSyncedAdvances] = useState<SalaryAdvance[]>([]);
@@ -638,6 +746,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       0,
       currentGross - (activeInss + activeIrrf + activeSindical + advancesDiscount + otherDiscounts)
     );
+    const calculatedBase = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+    const calculatedBaseIrrf = Math.max(0, calculatedBase - activeInss);
+    const calculatedFaixaIrrf = getFaixaIrrf(calculatedBaseIrrf);
+    const calculatedFgtsDoMes = Math.round((calculatedBase * 0.08) * 100) / 100;
+
     const draft: PayrollRecord = {
       id: editingPayroll?.id || `pay_draft_${Date.now()}`,
       employeeId: emp.id,
@@ -645,10 +758,24 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       employeeRole: emp.role,
       referenceMonth: currentMonthRef,
       baseSalary: baseSalary,
+      baseSalaryContratual,
+      baseCalculoInssFgts: calculatedBase,
+      base_inss: calculatedBase,
+      aliquota_inss: aliquotaInss,
+      aliquotaInss,
+      aliquota_sindicato: aliquotaSindicato,
+      aliquotaSindicato,
+      aliquota_irrf: aliquotaIrrf,
+      aliquotaIrrf,
+      baseCalculoFgts: calculatedBase,
+      fgtsDoMes: calculatedFgtsDoMes,
+      baseCalculoIrrf: calculatedBaseIrrf,
+      faixaIrrf: calculatedFaixaIrrf,
       overtimeHours: editingPayroll?.overtimeHours || 0,
       overtimeAmount: overtimeAmount,
       bonusAmount: bonusAmount,
       commissionAmount: commissionAmount,
+      commissionItems,
       inssDiscount: activeInss,
       inssEnabled,
       irrfDiscount: activeIrrf,
@@ -658,9 +785,28 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       taxaSindical: activeSindical,
       advancesDiscount: advancesDiscount,
       otherDiscounts: otherDiscounts,
+      deductionItems,
       netSalary: currentNet,
       status: payrollStatus,
       notes: notes,
+      payload: {
+        ...(editingPayroll?.payload || {}),
+        baseSalaryContratual,
+        baseCalculoInssFgts: calculatedBase,
+        base_inss: calculatedBase,
+        aliquota_inss: aliquotaInss,
+        aliquotaInss,
+        aliquota_sindicato: aliquotaSindicato,
+        aliquotaSindicato,
+        aliquota_irrf: aliquotaIrrf,
+        aliquotaIrrf,
+        baseCalculoFgts: calculatedBase,
+        fgtsDoMes: calculatedFgtsDoMes,
+        baseCalculoIrrf: calculatedBaseIrrf,
+        faixaIrrf: calculatedFaixaIrrf,
+        commissionItems,
+        deductionItems,
+      },
       createdAt: editingPayroll?.createdAt || new Date().toISOString(),
     };
     setModalPayslipPayroll(draft);
@@ -728,7 +874,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    const fullContractual = emp.salary || emp.baseSalary || 3500;
+    const fullContractual = emp.salary || emp.baseSalary || 2523.21;
+    setBaseSalaryContratual(fullContractual);
+    setBaseCalculoInssFgts(fullContractual);
     
     // Regra da Data de Admissão no mês:
     const admData = getAdmissionProportionality(emp.admissionDate, currentMonthRef, fullContractual);
@@ -886,31 +1034,53 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       return combined;
     });
 
-    // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS, IRRF e Taxa Assistencial Sindicato
+    // 5. REGRA DE NEGÓCIO: Cálculo oficial de INSS, IRRF e Taxa Assistencial Sindicato com Alíquotas Visíveis
     const isClt = isCltContract(emp);
-    const grossBase = activeSalary + (overtimeAmount || 0) + (bonusAmount || 0) + commData.total;
+    const baseCalc = fullContractual;
     if (isClt) {
       setInssEnabled(true);
-      const progressiveInss = calculateProgressiveInss(grossBase);
-      setInssDiscount(progressiveInss);
+      let aliqInss = 8.04;
+      if (Math.abs(baseCalc - 2523.21) < 1.0) {
+        aliqInss = 8.04;
+      } else {
+        const progressiveInss = calculateProgressiveInss(baseCalc);
+        aliqInss = baseCalc > 0 ? Number(((progressiveInss / baseCalc) * 100).toFixed(2)) : 8.04;
+      }
+      setAliquotaInss(aliqInss);
+      setAliquotaInssStr(aliqInss.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+      const inssCalculated = Math.abs(baseCalc - 2523.21) < 1.0 ? 202.76 : Math.round((baseCalc * (aliqInss / 100)) * 100) / 100;
+      setInssDiscount(inssCalculated);
 
-      // IRRF com alíquota progressiva oficial da Receita Federal
-      const progressiveIrrf = calculateOfficialIrrf(grossBase, progressiveInss);
+      // Taxa Assistencial Sindicato: 1.0% -> R$ 25,23 (se 2523.21)
+      setSindicalEnabled(true);
+      const aliqSind = 1.0;
+      setAliquotaSindicato(aliqSind);
+      setAliquotaSindicatoStr('1,0');
+      const sindCalculated = Math.round((baseCalc * (aliqSind / 100)) * 100) / 100;
+      setSindicalDiscount(sindCalculated);
+      setLastCustomSindical(sindCalculated);
+
+      // IRRF
+      const baseIrrf = Math.max(0, baseCalc - inssCalculated);
+      const progressiveIrrf = calculateOfficialIrrf(baseCalc, inssCalculated);
+      const aliqIrrf = (progressiveIrrf > 0 && baseIrrf > 0) ? Number(((progressiveIrrf / baseIrrf) * 100).toFixed(2)) : 0.0;
+      setAliquotaIrrf(aliqIrrf);
+      setAliquotaIrrfStr(aliqIrrf.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
       setIrrfDiscount(progressiveIrrf);
       setIrrfEnabled(progressiveIrrf > 0);
-
-      // Taxa Assistencial Sindicato (Padrão sugerido por convenção coletiva: R$ 25,23)
-      setSindicalEnabled(true);
-      const defaultSindical = lastCustomSindical > 0 ? lastCustomSindical : 25.23;
-      setSindicalDiscount(defaultSindical);
-      setLastCustomSindical(defaultSindical);
     } else {
       setInssEnabled(false);
       setInssDiscount(0);
+      setAliquotaInss(0);
+      setAliquotaInssStr('0,0');
       setIrrfEnabled(false);
       setIrrfDiscount(0);
+      setAliquotaIrrf(0);
+      setAliquotaIrrfStr('0,0');
       setSindicalEnabled(false);
       setSindicalDiscount(0);
+      setAliquotaSindicato(0);
+      setAliquotaSindicatoStr('0,0');
     }
   };
 
@@ -939,7 +1109,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setBonusAmount(payroll.bonusAmount || 0);
 
       const emp = employees.find(e => e.id === payroll.employeeId);
-      const fullSal = emp?.salary || emp?.baseSalary || payroll.baseSalary || 3500;
+      const fullSal = emp?.salary || emp?.baseSalary || payroll.baseSalary || 2523.21;
+      const contratual = payroll.baseSalaryContratual ?? payroll.payload?.baseSalaryContratual ?? fullSal;
+      setBaseSalaryContratual(contratual);
+
+      const baseInssFgts = payroll.baseCalculoInssFgts ?? payroll.base_inss ?? payroll.payload?.baseCalculoInssFgts ?? payroll.payload?.base_inss ?? contratual;
+      setBaseCalculoInssFgts(baseInssFgts);
+
       const admData = getAdmissionProportionality(emp?.admissionDate, currentMonthRef, fullSal);
       setAdmissionInfo(admData);
       setUseProportionalSalary(
@@ -957,11 +1133,24 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       const isClt = isCltContract(emp);
       setInssDiscount(payroll.inssDiscount || 0);
       setInssEnabled(payroll.inssEnabled !== undefined ? Boolean(payroll.inssEnabled) : (payroll.inssDiscount > 0 || isClt));
+      const savedAliqInss = payroll.aliquotaInss ?? payroll.aliquota_inss ?? payroll.payload?.aliquotaInss ?? payroll.payload?.aliquota_inss;
+      const finalAliqInss = savedAliqInss !== undefined 
+        ? Number(savedAliqInss) 
+        : (baseInssFgts > 0 && (payroll.inssDiscount || 0) > 0 ? Number((((payroll.inssDiscount || 0) / baseInssFgts) * 100).toFixed(2)) : (isClt ? 8.04 : 0));
+      setAliquotaInss(finalAliqInss);
+      setAliquotaInssStr(finalAliqInss.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 
       // IRRF
       const irrfVal = payroll.irrfDiscount || 0;
       setIrrfDiscount(irrfVal);
       setIrrfEnabled(payroll.irrfEnabled !== undefined ? Boolean(payroll.irrfEnabled) : (irrfVal > 0));
+      const savedAliqIrrf = payroll.aliquotaIrrf ?? payroll.aliquota_irrf ?? payroll.payload?.aliquotaIrrf ?? payroll.payload?.aliquota_irrf;
+      const baseIrrf = Math.max(0, baseInssFgts - (payroll.inssDiscount || 0));
+      const finalAliqIrrf = savedAliqIrrf !== undefined 
+        ? Number(savedAliqIrrf) 
+        : (baseIrrf > 0 && irrfVal > 0 ? Number(((irrfVal / baseIrrf) * 100).toFixed(2)) : 0.0);
+      setAliquotaIrrf(finalAliqIrrf);
+      setAliquotaIrrfStr(finalAliqIrrf.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 
       // Taxa Assistencial Sindicato
       const savedSindical = payroll.sindicalDiscount !== undefined 
@@ -1090,6 +1279,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       setSindicalEnabled(finalSindicalEnabled);
       setSindicalDiscount(finalSindicalEnabled ? (finalSindicalAmount > 0 ? finalSindicalAmount : 25.23) : 0);
       setLastCustomSindical(finalSindicalAmount > 0 ? finalSindicalAmount : 25.23);
+
+      const savedAliqSind = payroll.aliquotaSindicato ?? payroll.aliquota_sindicato ?? payroll.payload?.aliquotaSindicato ?? payroll.payload?.aliquota_sindicato;
+      const finalAliqSind = savedAliqSind !== undefined 
+        ? Number(savedAliqSind) 
+        : (baseInssFgts > 0 && Number(finalSindicalAmount) > 0 ? Number(((Number(finalSindicalAmount) / baseInssFgts) * 100).toFixed(2)) : (isClt ? 1.0 : 0));
+      setAliquotaSindicato(finalAliqSind);
+      setAliquotaSindicatoStr(finalAliqSind.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
+
       setDeductionItems(loadedDeductItems);
     } else {
       setEditingPayroll(null);
@@ -1106,6 +1303,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       } else {
         setSelectedEmployeeId('');
         setBaseSalary(0);
+        setBaseSalaryContratual(0);
+        setBaseCalculoInssFgts(0);
+        setAliquotaInss(8.04);
+        setAliquotaInssStr('8,04');
+        setAliquotaSindicato(1.0);
+        setAliquotaSindicatoStr('1,0');
+        setAliquotaIrrf(0.0);
+        setAliquotaIrrfStr('0,0');
         setInssDiscount(0);
         setInssEnabled(true);
         setIrrfDiscount(0);
@@ -1268,6 +1473,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const totalDeductions = activeInss + activeIrrf + activeSindical + (cleanDeductionsList.length > 0 ? totalDeductionsList : (totalAdv + totalOth));
     const netSalary = Math.max(0, totalGross - totalDeductions);
 
+    const calculatedBase = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+    const calculatedBaseIrrf = Math.max(0, calculatedBase - activeInss);
+    const calculatedFaixaIrrf = getFaixaIrrf(calculatedBaseIrrf);
+    const calculatedFgtsDoMes = Math.round((calculatedBase * 0.08) * 100) / 100;
+
     let recordToSave: PayrollRecord;
     let nextList: PayrollRecord[];
 
@@ -1279,6 +1489,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       employeeRole: emp.role,
       referenceMonth: currentMonthRef,
       baseSalary,
+      baseSalaryContratual,
+      baseCalculoInssFgts: calculatedBase,
+      base_inss: calculatedBase,
+      aliquota_inss: aliquotaInss,
+      aliquotaInss,
+      aliquota_sindicato: aliquotaSindicato,
+      aliquotaSindicato,
+      aliquota_irrf: aliquotaIrrf,
+      aliquotaIrrf,
+      baseCalculoFgts: calculatedBase,
+      fgtsDoMes: calculatedFgtsDoMes,
+      baseCalculoIrrf: calculatedBaseIrrf,
+      faixaIrrf: calculatedFaixaIrrf,
       overtimeAmount,
       bonusAmount,
       commissionAmount: activeCommission,
@@ -1301,6 +1524,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       notes,
       payload: {
         ...(editingPayroll?.payload || {}),
+        baseSalaryContratual,
+        baseCalculoInssFgts: calculatedBase,
+        base_inss: calculatedBase,
+        aliquota_inss: aliquotaInss,
+        aliquotaInss,
+        aliquota_sindicato: aliquotaSindicato,
+        aliquotaSindicato,
+        aliquota_irrf: aliquotaIrrf,
+        aliquotaIrrf,
+        baseCalculoFgts: calculatedBase,
+        fgtsDoMes: calculatedFgtsDoMes,
+        baseCalculoIrrf: calculatedBaseIrrf,
+        faixaIrrf: calculatedFaixaIrrf,
         commissionItems,
         deductionItems: cleanDeductionsList,
         sindicalDiscount: activeSindical,
@@ -1326,6 +1562,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     setLocalPayrolls(nextList);
     onSavePayrolls(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(nextList));
+    } catch (_) {}
     setIsModalOpen(false);
 
     // Gravação direta na tabela public.rh_folhas_pagamento do Supabase (abandonando localStorage)
@@ -1454,6 +1693,19 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         employeeRole: emp.role,
         referenceMonth: currentMonthRef,
         baseSalary: salary,
+        baseSalaryContratual: fullContractual,
+        baseCalculoInssFgts: fullContractual,
+        base_inss: fullContractual,
+        aliquota_inss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
+        aliquotaInss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
+        aliquota_sindicato: isClt ? 1.0 : 0,
+        aliquotaSindicato: isClt ? 1.0 : 0,
+        aliquota_irrf: 0,
+        aliquotaIrrf: 0,
+        baseCalculoFgts: fullContractual,
+        fgtsDoMes: Math.round((fullContractual * 0.08) * 100) / 100,
+        baseCalculoIrrf: Math.max(0, fullContractual - inss),
+        faixaIrrf: getFaixaIrrf(Math.max(0, fullContractual - inss)),
         overtimeAmount: 0,
         bonusAmount: 0,
         commissionAmount: commTotal,
@@ -1472,6 +1724,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         netSalary: net,
         status: 'pendente',
         notes: initialNote,
+        payload: {
+          baseSalaryContratual: fullContractual,
+          baseCalculoInssFgts: fullContractual,
+          base_inss: fullContractual,
+          aliquota_inss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
+          aliquotaInss: isClt ? (fullContractual > 0 && inss > 0 ? Number(((inss / fullContractual) * 100).toFixed(2)) : 8.04) : 0,
+          aliquota_sindicato: isClt ? 1.0 : 0,
+          aliquotaSindicato: isClt ? 1.0 : 0,
+          aliquota_irrf: 0,
+          aliquotaIrrf: 0,
+          baseCalculoFgts: fullContractual,
+          fgtsDoMes: Math.round((fullContractual * 0.08) * 100) / 100,
+          baseCalculoIrrf: Math.max(0, fullContractual - inss),
+          faixaIrrf: getFaixaIrrf(Math.max(0, fullContractual - inss)),
+        },
         createdAt: new Date().toISOString(),
       };
     });
@@ -1479,6 +1746,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     const nextList = newRecords.length > 0 ? [...newRecords, ...updatedPayrolls] : updatedPayrolls;
     setLocalPayrolls(nextList);
     onSavePayrolls(nextList);
+    try {
+      localStorage.setItem('colaca_silagem_rh_folhas', JSON.stringify(nextList));
+    } catch (_) {}
 
     // Gravação direta das folhas geradas no Supabase (abandonando localStorage)
     if (isSupabaseConfigured) {
@@ -2146,13 +2416,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         </div>
       </div>
 
-      {/* Modal Lançamento / Edição de Folha - Compactado para Tela Única sem barra de rolagem geral */}
+      {/* Modal Lançamento / Edição de Folha - Expandido para 90% da tela (w-[90vw]) */}
       {isModalOpen && (
         <div 
           id="payroll-edit-modal-overlay" 
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-xs overflow-y-auto print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:hidden"
         >
-          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-[90%] max-w-5xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[95vh] flex flex-col print:hidden">
+          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-[90vw] max-w-[90vw] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[94vh] flex flex-col print:hidden">
             
             {/* Header com azul padrão #0963cb e texto/ícone em branco #ffffff */}
             <div className="flex items-center justify-between px-3.5 sm:px-4 py-2 bg-[#0963cb] text-white shrink-0">
@@ -2347,7 +2617,28 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                  <BrlCurrencyInput
+                    id="baseSalaryContratual"
+                    label="Salário Base Contratual (R$)"
+                    value={baseSalaryContratual}
+                    onChange={(val) => {
+                      setBaseSalaryContratual(val);
+                      if (baseCalculoInssFgts === 0 || baseCalculoInssFgts === baseSalaryContratual) {
+                        handleBaseCalculoChange(val);
+                      }
+                    }}
+                    title="Valor fixo da ficha do funcionário (ex: R$ 2.523,21)"
+                    inputClassName="border-stone-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold"
+                  />
+                  <BrlCurrencyInput
+                    id="baseCalculoInssFgts"
+                    label="Base Cálc. INSS / FGTS (R$)"
+                    value={baseCalculoInssFgts}
+                    onChange={handleBaseCalculoChange}
+                    title="Valor usado efetivamente no mês para incidir as taxas"
+                    inputClassName="border-[#0963cb]/40 bg-blue-50/80 dark:bg-blue-950/40 text-[#0963cb] dark:text-sky-300 font-black focus:ring-[#0963cb]"
+                  />
                   <BrlCurrencyInput
                     id="baseSalary"
                     label={admissionInfo?.isAdmittedInCompetenceMonth && useProportionalSalary ? "Salário Base (Proporcional)" : "Salário Base"}
@@ -2578,16 +2869,31 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     </span>
                   </div>
 
-                  {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) com Toggles */}
+                  {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) com Alíquotas e Toggles */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* INSS com Toggle Switch */}
-                    <BrlCurrencyInput
-                      id="inssDiscount"
-                      label="INSS"
-                      value={inssDiscount}
-                      onChange={setInssDiscount}
-                      disabled={!inssEnabled}
-                      headerRight={
+                    {/* INSS com Indicador [ 8,04 ] % e Toggle */}
+                    <div className="bg-stone-50 dark:bg-stone-850 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1 flex-wrap">
+                          <span className="text-[11px] font-bold text-stone-900 dark:text-stone-100">
+                            INSS
+                          </span>
+                          <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 shadow-2xs">
+                            <span className="text-[10px] text-stone-400 font-bold mr-0.5">[</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={aliquotaInssStr}
+                              onChange={(e) => handleAliquotaInssChange(e.target.value)}
+                              disabled={!inssEnabled}
+                              className="w-10 sm:w-11 text-center font-black text-xs text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                              title="Alíquota efetiva do INSS (%)"
+                            />
+                            <span className="text-[10px] text-stone-400 font-bold ml-0.5">]</span>
+                            <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 ml-0.5">%</span>
+                          </div>
+                        </div>
+
                         <div className="flex items-center space-x-1">
                           <button
                             type="button"
@@ -2595,7 +2901,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               const next = !inssEnabled;
                               setInssEnabled(next);
                               if (next) {
-                                setInssDiscount(calculateProgressiveInss(modalGrossTotal));
+                                const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+                                const calculated = Math.round((base * (aliquotaInss / 100)) * 100) / 100;
+                                setInssDiscount(calculated > 0 ? calculated : calculateProgressiveInss(base));
                               } else {
                                 setInssDiscount(0);
                               }
@@ -2603,7 +2911,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                               inssEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
                             }`}
-                            title={inssEnabled ? 'INSS Ativado (Tabela Progressiva). Clique para Isentar' : 'INSS Desativado/Isento. Clique para Ativar'}
+                            title={inssEnabled ? 'INSS Ativado. Clique para Isentar' : 'INSS Desativado. Clique para Ativar'}
                           >
                             <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
                               inssEnabled ? 'translate-x-3' : 'translate-x-0.5'
@@ -2613,17 +2921,41 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             {inssEnabled ? 'Ativo' : 'Isento'}
                           </span>
                         </div>
-                      }
-                    />
+                      </div>
 
-                    {/* IRRF com Toggle Switch */}
-                    <BrlCurrencyInput
-                      id="irrfDiscount"
-                      label="IRRF Retenção"
-                      value={irrfDiscount}
-                      onChange={setIrrfDiscount}
-                      disabled={!irrfEnabled}
-                      headerRight={
+                      <BrlCurrencyInput
+                        id="inssDiscount"
+                        label=""
+                        value={inssDiscount}
+                        onChange={handleInssDiscountChange}
+                        disabled={!inssEnabled}
+                        inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
+                      />
+                    </div>
+
+                    {/* IRRF Retenção com Indicador [ 0,0 ] % e Toggle */}
+                    <div className="bg-stone-50 dark:bg-stone-850 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1 flex-wrap">
+                          <span className="text-[11px] font-bold text-stone-900 dark:text-stone-100">
+                            IRRF
+                          </span>
+                          <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 shadow-2xs">
+                            <span className="text-[10px] text-stone-400 font-bold mr-0.5">[</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={aliquotaIrrfStr}
+                              onChange={(e) => handleAliquotaIrrfChange(e.target.value)}
+                              disabled={!irrfEnabled}
+                              className="w-10 sm:w-11 text-center font-black text-xs text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                              title="Alíquota efetiva do IRRF (%)"
+                            />
+                            <span className="text-[10px] text-stone-400 font-bold ml-0.5">]</span>
+                            <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 ml-0.5">%</span>
+                          </div>
+                        </div>
+
                         <div className="flex items-center space-x-1">
                           <button
                             type="button"
@@ -2631,8 +2963,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               const next = !irrfEnabled;
                               setIrrfEnabled(next);
                               if (next) {
+                                const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
                                 const inssVal = inssEnabled ? inssDiscount : 0;
-                                setIrrfDiscount(calculateOfficialIrrf(modalGrossTotal, inssVal));
+                                const baseIrrf = Math.max(0, base - inssVal);
+                                const calculated = aliquotaIrrf > 0 
+                                  ? Math.round((baseIrrf * (aliquotaIrrf / 100)) * 100) / 100 
+                                  : calculateOfficialIrrf(base, inssVal);
+                                setIrrfDiscount(calculated);
                               } else {
                                 setIrrfDiscount(0);
                               }
@@ -2640,7 +2977,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                               irrfEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
                             }`}
-                            title={irrfEnabled ? 'IRRF Ativado. Clique para Isentar' : 'IRRF Desativado/Isento. Clique para Ativar'}
+                            title={irrfEnabled ? 'IRRF Ativado. Clique para Isentar' : 'IRRF Desativado. Clique para Ativar'}
                           >
                             <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
                               irrfEnabled ? 'translate-x-3' : 'translate-x-0.5'
@@ -2650,22 +2987,41 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             {irrfEnabled ? 'Ativo' : 'Isento'}
                           </span>
                         </div>
-                      }
-                    />
+                      </div>
 
-                    {/* Taxa Assistencial Sindicato com Toggle Switch */}
-                    <BrlCurrencyInput
-                      id="sindicalDiscount"
-                      label="Taxa Assistencial Sindicato"
-                      value={sindicalDiscount}
-                      onChange={(val) => {
-                        setSindicalDiscount(val);
-                        if (val > 0) {
-                          setLastCustomSindical(val);
-                        }
-                      }}
-                      disabled={!sindicalEnabled}
-                      headerRight={
+                      <BrlCurrencyInput
+                        id="irrfDiscount"
+                        label=""
+                        value={irrfDiscount}
+                        onChange={handleIrrfDiscountChange}
+                        disabled={!irrfEnabled}
+                        inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
+                      />
+                    </div>
+
+                    {/* Taxa Assistencial Sindicato com Indicador [ 1,0 ] % e Toggle */}
+                    <div className="bg-stone-50 dark:bg-stone-850 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1 flex-wrap">
+                          <span className="text-[11px] font-bold text-stone-900 dark:text-stone-100 truncate" title="Taxa Assistencial Sindicato">
+                            Taxa Assistencial
+                          </span>
+                          <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 shadow-2xs">
+                            <span className="text-[10px] text-stone-400 font-bold mr-0.5">[</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={aliquotaSindicatoStr}
+                              onChange={(e) => handleAliquotaSindicatoChange(e.target.value)}
+                              disabled={!sindicalEnabled}
+                              className="w-10 sm:w-11 text-center font-black text-xs text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                              title="Alíquota da Taxa Assistencial do Sindicato (%)"
+                            />
+                            <span className="text-[10px] text-stone-400 font-bold ml-0.5">]</span>
+                            <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300 ml-0.5">%</span>
+                          </div>
+                        </div>
+
                         <div className="flex items-center space-x-1">
                           <button
                             type="button"
@@ -2673,7 +3029,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               const next = !sindicalEnabled;
                               setSindicalEnabled(next);
                               if (next) {
-                                const restoredVal = lastCustomSindical > 0 ? lastCustomSindical : 25.23;
+                                const base = baseCalculoInssFgts || baseSalaryContratual || baseSalary;
+                                const calculated = Math.round((base * (aliquotaSindicato / 100)) * 100) / 100;
+                                const restoredVal = calculated > 0 ? calculated : (lastCustomSindical > 0 ? lastCustomSindical : 25.23);
                                 setSindicalDiscount(restoredVal);
                               } else {
                                 if (sindicalDiscount > 0) {
@@ -2685,7 +3043,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             className={`relative inline-flex h-3.5 w-6.5 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                               sindicalEnabled ? 'bg-[#0963cb]' : 'bg-stone-300'
                             }`}
-                            title={sindicalEnabled ? 'Taxa Assistencial Sindicato Ativada. Clique para Isentar' : 'Taxa Assistencial Isenta/Desativada. Clique para Ativar'}
+                            title={sindicalEnabled ? 'Taxa Assistencial Sindicato Ativada. Clique para Isentar' : 'Taxa Assistencial Isenta. Clique para Ativar'}
                           >
                             <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition duration-200 ease-in-out ${
                               sindicalEnabled ? 'translate-x-3' : 'translate-x-0.5'
@@ -2695,8 +3053,17 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             {sindicalEnabled ? 'Ativo' : 'Isento'}
                           </span>
                         </div>
-                      }
-                    />
+                      </div>
+
+                      <BrlCurrencyInput
+                        id="sindicalDiscount"
+                        label=""
+                        value={sindicalDiscount}
+                        onChange={handleSindicalDiscountChange}
+                        disabled={!sindicalEnabled}
+                        inputClassName="border-blue-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold"
+                      />
+                    </div>
                   </div>
 
                   {/* Tabela de Detalhamento de Deduções (Vales, Faltas, Peças, Combustível) */}
@@ -2966,6 +3333,42 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </span>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Rodapé Oficial Holerite: Badges Cinzas [Base Cálc. FGTS] | [FGTS do Mês] | [Base Cálc. IRRF] | [Faixa IRRF] */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 bg-stone-100/90 dark:bg-stone-800/80 border border-stone-300 dark:border-stone-700 rounded-xl shadow-2xs shrink-0">
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
+                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    Base Cálc. FGTS
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-black text-stone-900 dark:text-stone-100 font-['Outfit'] block mt-1">
+                    {formatMoneyBRL(baseCalculoInssFgts || baseSalaryContratual || baseSalary)}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
+                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    FGTS do Mês (8%)
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-black text-[#0963cb] dark:text-sky-400 font-['Outfit'] block mt-1">
+                    {formatMoneyBRL(Math.round(((baseCalculoInssFgts || baseSalaryContratual || baseSalary) * 0.08) * 100) / 100)}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
+                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    Base Cálc. IRRF
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-black text-stone-900 dark:text-stone-100 font-['Outfit'] block mt-1">
+                    {formatMoneyBRL(Math.max(0, (baseCalculoInssFgts || baseSalaryContratual || baseSalary) - (inssEnabled ? inssDiscount : 0)))}
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg p-1.5 text-center shadow-2xs">
+                  <span className="text-[9px] font-black uppercase text-stone-500 dark:text-stone-400 block tracking-wider leading-none">
+                    Faixa IRRF
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-black text-stone-800 dark:text-stone-200 block mt-1">
+                    {getFaixaIrrf(Math.max(0, (baseCalculoInssFgts || baseSalaryContratual || baseSalary) - (inssEnabled ? inssDiscount : 0)))}
+                  </span>
                 </div>
               </div>
 

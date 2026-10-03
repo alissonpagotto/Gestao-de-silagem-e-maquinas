@@ -1026,5 +1026,16 @@ export const calculateOfficialIrrf = (
   return Math.max(0, Math.round(irrf * 100) / 100);
 };
 
+/**
+ * Retorna a faixa oficial do IRRF com base no valor apurado.
+ */
+export const getFaixaIrrf = (baseIrrf: number): string => {
+  if (baseIrrf <= 2259.20) return 'Isento (0,0%)';
+  if (baseIrrf <= 2826.65) return 'Faixa 1 (7,5%)';
+  if (baseIrrf <= 3751.05) return 'Faixa 2 (15,0%)';
+  if (baseIrrf <= 4664.68) return 'Faixa 3 (22,5%)';
+  return 'Faixa 4 (27,5%)';
+};
+
 
 
