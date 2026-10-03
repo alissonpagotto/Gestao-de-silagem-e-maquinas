@@ -478,79 +478,31 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             </div>
           )}
 
-          {/* BLOCO 1: Identificação da Conta & Marcador Visual */}
+          {/* BLOCO 1: Identificação da Conta */}
           <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-              
-              {/* Nome Identificador da Conta */}
-              <div className="sm:col-span-8">
-                <label 
-                  htmlFor="input-conta-nome" 
-                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between"
-                >
-                  <span>
-                    Nome Identificador da Conta <span className="text-rose-600">*</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
-                </label>
-                <input
-                  id="input-conta-nome"
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => {
-                    setValidationError('');
-                    setName(e.target.value);
-                  }}
-                  placeholder="Ex: Banco do Brasil - Fazenda Sede"
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
-                />
-              </div>
-
-              {/* Cor / Marcador Visual */}
-              <div className="sm:col-span-4">
-                <label className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between">
-                  <span>Marcador Visual</span>
-                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Etiqueta</span>
-                </label>
-                <div className="flex items-center space-x-2">
-                  <div 
-                    id="marcador-visual-banco"
-                    className="w-9 h-9 rounded-xl border border-zinc-300 dark:border-stone-600 shadow-inner flex items-center justify-center text-white shrink-0 font-bold overflow-hidden"
-                    style={{ backgroundColor: color }}
-                    title={bankName || 'Conta Bancária'}
-                  >
-                    <BankLogoIcon 
-                      code={bankCode} 
-                      name={bankName} 
-                      size={24} 
-                      className="text-white" 
-                    />
-                  </div>
-                  <div className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1">
-                    {COLOR_PRESETS.slice(0, 6).map((preset) => (
-                      <button
-                        key={preset.color}
-                        type="button"
-                        onClick={() => setColor(preset.color)}
-                        className={`w-6 h-6 rounded-lg transition-transform shrink-0 shadow-2xs cursor-pointer ${
-                          color === preset.color ? 'ring-2 ring-zinc-900 dark:ring-white scale-110' : 'hover:scale-105 opacity-85 hover:opacity-100'
-                        }`}
-                        style={{ backgroundColor: preset.color }}
-                        title={preset.label}
-                      />
-                    ))}
-                    <input
-                      type="color"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
-                      title="Escolher outra cor personalizada"
-                    />
-                  </div>
-                </div>
-              </div>
-
+            {/* Nome Identificador da Conta (Largura Total da Linha) */}
+            <div className="w-full">
+              <label 
+                htmlFor="input-conta-nome" 
+                className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between"
+              >
+                <span>
+                  Nome Identificador da Conta <span className="text-rose-600">*</span>
+                </span>
+                <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
+              </label>
+              <input
+                id="input-conta-nome"
+                type="text"
+                required
+                value={name}
+                onChange={(e) => {
+                  setValidationError('');
+                  setName(e.target.value);
+                }}
+                placeholder="Ex: Banco do Brasil - Fazenda Sede"
+                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+              />
             </div>
           </div>
 
