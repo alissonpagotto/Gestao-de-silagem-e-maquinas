@@ -684,7 +684,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
   // Ação de Impressão Isolada do Recibo Branco (Holerite Oficial) com injeção de estilos do projeto
   const handlePrintIsolated = () => {
-    const reciboElement = document.getElementById('recibo-holerite-branco');
+    const reciboElement = document.getElementById('recibo-holerite-branco') || document.getElementById('live-holerite-sheet');
     if (!reciboElement) return;
 
     const printWindow = window.open('', '_blank', 'width=900,height=1000');
@@ -706,6 +706,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         <html>
           <head>
             <title>Imprimir Holerite</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
             <style>
               ${estilosPai}
               body { background: white !important; color: black !important; padding: 24px; font-family: sans-serif; }
@@ -724,11 +725,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       `);
       printWindow.document.close();
       
-      // Aguarda a renderização completa e dispara a impressora
+      // Aguarda a renderização completa e imagens do QR Code carregarem antes de disparar a impressora
       setTimeout(() => {
         printWindow.focus();
         printWindow.print();
-      }, 600);
+      }, 750);
     }
   };
 
@@ -815,7 +816,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     // Aguarda o React renderizar o elemento #recibo-holerite-branco e dispara a impressão isolada
     setTimeout(() => {
       handlePrintIsolated();
-    }, 150);
+    }, 250);
   };
 
   // Filtered Payrolls - Exclusão estrita de Terceirizados (gerenciados pelo Financeiro)

@@ -6,6 +6,7 @@ import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, 
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
+import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl } from './pixUtils';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -260,6 +261,19 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   const totalEarnings = payroll.baseSalary + (payroll.overtimeAmount || 0) + (payroll.bonusAmount || 0) + (payroll.commissionAmount || 0);
   const activeSindical = (payroll as any).sindicalEnabled !== false ? ((payroll as any).sindicalDiscount || (payroll as any).taxaSindical || 0) : 0;
   const totalDiscounts = (payroll.inssDiscount || 0) + (payroll.irrfDiscount || 0) + activeSindical + (payroll.advancesDiscount || 0) + (payroll.otherDiscounts || 0);
+  const netSalaryAmount = Math.max(0, totalEarnings - totalDiscounts);
+
+  // Verificação dinâmica de PIX para renderização do QR Code oficial
+  const isPixPayment = hasEmployeePixPayment(employee, formatEmployeeBankDeposit(employee));
+  const pixKey = isPixPayment ? getEmployeePixKey(employee) : '';
+  const pixPayload = isPixPayment && pixKey ? generatePixPayload({
+    pixKey,
+    amount: netSalaryAmount,
+    merchantName: tradeName || 'COLACA SILAGEM',
+    merchantCity: companyProfile?.city || 'COLATINA',
+    txId: (payroll.referenceMonth || '').replace('/', '') || 'HOLERITE',
+  }) : '';
+  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 160) : '';
 
   // Verifica se há qualquer lançamento detalhado ou observação para exibir a seção de conferência
   const hasDetailedBreakdown = 
@@ -414,8 +428,8 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
           </div>
 
           {/* Dados Cadastrais do Empregado Enriquecidos (Bloco Compacto e Alinhado) */}
-          <div className="border border-stone-300 dark:border-stone-700 rounded-lg p-2 sm:p-2.5 print:p-1.5 my-1 sm:my-1.5 print:my-0.5 bg-stone-50/50 dark:bg-stone-800/30">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1 sm:gap-y-1.5 print:gap-y-0.5 print:gap-x-2 text-xs">
+          <div className="relative border border-stone-300 dark:border-stone-700 rounded-lg p-2 sm:p-2.5 print:p-1.5 my-1 sm:my-1.5 print:my-0.5 bg-stone-50/50 dark:bg-stone-800/30">
+            <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1 sm:gap-y-1.5 print:gap-y-0.5 print:gap-x-2 text-xs ${isPixPayment && pixQrCodeUrl ? 'pr-[88px] sm:pr-[96px] print:pr-[88px]' : ''}`}>
               <div>
                 <span className="text-stone-500 block text-[9.5px] sm:text-[10px] print:text-[8.5px] font-bold leading-tight">Colaborador:</span>
                 <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] sm:text-xs print:text-[9.5px] block leading-tight truncate">{payroll.employeeName}</span>
@@ -453,6 +467,29 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* QR Code do PIX Dinâmico (Canto superior direito do quadro de dados do colaborador) */}
+            {isPixPayment && pixQrCodeUrl && (
+              <div 
+                className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 dark:border-stone-600 rounded shadow-2xs z-10 print:border-black"
+                style={{ width: '80px' }}
+              >
+                <img
+                  src={pixQrCodeUrl}
+                  alt="QR Code PIX para Pagamento"
+                  className="w-[72px] h-[72px] object-contain rounded-xs"
+                  width="72"
+                  height="72"
+                  crossOrigin="anonymous"
+                />
+                <span 
+                  className="text-[8px] text-stone-500 font-semibold text-center block mt-0.5 leading-tight select-none"
+                  style={{ fontSize: '8px', color: '#78716c' }}
+                >
+                  PIX para Pagamento
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Tabela de Itens (Proventos e Descontos) */}

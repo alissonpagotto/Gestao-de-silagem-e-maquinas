@@ -3,6 +3,7 @@ import { Building2, FileText, CheckCircle2 } from 'lucide-react';
 import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf } from './payrollHelpers';
+import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl } from './pixUtils';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -98,6 +99,18 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const baseIrrf = Math.max(0, baseCalculo - activeInss);
   const faixaIrrf = getFaixaIrrf(baseIrrf);
 
+  // Verificação e geração do PIX Dinâmico para exibição no holerite
+  const isPixPayment = hasEmployeePixPayment(employee, formatEmployeeBankDeposit(employee));
+  const pixKey = isPixPayment ? getEmployeePixKey(employee) : '';
+  const pixPayload = isPixPayment && pixKey ? generatePixPayload({
+    pixKey,
+    amount: calculatedModalNet,
+    merchantName: tradeName || 'COLACA SILAGEM',
+    merchantCity: companyProfile?.city || 'COLATINA',
+    txId: currentMonthRef.replace('/', '') || 'HOLERITE',
+  }) : '';
+  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 160) : '';
+
   return (
     <div className="w-full flex flex-col items-center">
       {/* Top Banner de Status Live */}
@@ -157,8 +170,8 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
         </div>
 
         {/* DADOS DO COLABORADOR */}
-        <div className="border border-stone-300 rounded-lg p-2 bg-stone-50/80">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 text-[11px]">
+        <div className="relative border border-stone-300 rounded-lg p-2 bg-stone-50/80">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1 text-[11px] ${isPixPayment && pixQrCodeUrl ? 'pr-[85px]' : ''}`}>
             <div className="col-span-2 sm:col-span-1">
               <span className="text-stone-500 block text-[9px] font-bold uppercase leading-none">Colaborador:</span>
               <span className="font-bold text-stone-900 truncate block mt-0.5">
@@ -199,6 +212,28 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
               </span>
             </div>
           </div>
+
+          {/* QR Code do PIX Dinâmico (Canto superior direito) */}
+          {isPixPayment && pixQrCodeUrl && (
+            <div 
+              className="absolute top-1.5 right-1.5 flex flex-col items-center justify-center p-1 bg-white border border-stone-300 rounded shadow-2xs z-10"
+              style={{ width: '78px' }}
+            >
+              <img
+                src={pixQrCodeUrl}
+                alt="QR Code PIX para Pagamento"
+                className="w-[70px] h-[70px] object-contain rounded-xs"
+                width="70"
+                height="70"
+              />
+              <span 
+                className="text-[8px] text-stone-500 font-semibold text-center block mt-0.5 leading-tight select-none"
+                style={{ fontSize: '8px', color: '#78716c' }}
+              >
+                PIX para Pagamento
+              </span>
+            </div>
+          )}
         </div>
 
         {/* CENTRO: QUADRO OFICIAL DE VERBAS */}
