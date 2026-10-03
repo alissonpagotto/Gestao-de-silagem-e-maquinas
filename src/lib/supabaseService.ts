@@ -8204,6 +8204,11 @@ export const isRealtimeWebSocketActive = typeof window !== 'undefined' && (windo
 // Desativação explícita de telemetria desnecessária e redução de Log Ingestion durante os testes/desenvolvimento
 export const isSupabaseTelemetryDisabled = true;
 
+// Prevenção de telemetria e loops contínuos de rede
+if (typeof window !== 'undefined') {
+  (window as any).__SUPABASE_TELEMETRY_DISABLED__ = true;
+}
+
 export function subscribeToCloudTable(
   tableName: string,
   onChange: (payload: any) => void

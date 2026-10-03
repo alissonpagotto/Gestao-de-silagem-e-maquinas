@@ -95,16 +95,19 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const onSaveAbsencesRef = React.useRef(onSaveAbsences);
   onSaveAbsencesRef.current = onSaveAbsences;
 
+  // Trava de segurança para carga inicial única das faltas
+  const isAbsencesLoadedRef = useRef<string | null>(null);
+
   // Sincronização em Tempo Real via Realtime Channel apontando estritamente para 'rh_faltas'
   useEffect(() => {
-    // 2. LIMPEZA DE CACHE DO ESTADO (STATE RESET):
-    setLocalAbsences([]);
-    setIsLoading(true);
+    if (!effectiveCompanyId) return;
+
     let isMounted = true;
     let debounceTimer: any = null;
 
     const loadInitialFromSupabase = async () => {
       try {
+        setIsLoading(true);
         const fresh = await fetchCloudAbsences(effectiveCompanyId);
         if (!isMounted) return;
         if (Array.isArray(fresh)) {
@@ -123,24 +126,18 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       }
     };
 
-    if (isSupabaseConfigured) {
-      loadInitialFromSupabase();
-    } else {
-      setLocalAbsences(Array.isArray(absences) ? absences : []);
-      setIsLoading(false);
+    if (isAbsencesLoadedRef.current !== effectiveCompanyId) {
+      isAbsencesLoadedRef.current = effectiveCompanyId;
+      if (isSupabaseConfigured) {
+        loadInitialFromSupabase();
+      } else {
+        setLocalAbsences(Array.isArray(absences) ? absences : []);
+        setIsLoading(false);
+      }
     }
 
     // Assinatura com canal estável por tenant (sem Date.now/random) para reaproveitamento de conexão
     const channelTopic = `rh_faltas_tab_${effectiveCompanyId}`;
-    
-    // Remove canal prévio com mesmo nome se existir
-    const existingChannels = supabase.getChannels?.() || [];
-    for (const ch of existingChannels) {
-      if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
-        try { supabase.removeChannel(ch); } catch (_) {}
-      }
-    }
-
     const faltasRtChannel = isSupabaseConfigured ? supabase
       .channel(channelTopic)
       .on(

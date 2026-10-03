@@ -316,30 +316,6 @@ export function subscribeToVacationRealtimeChannel(
             }
           }
         )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'site_settings',
-            filter: `id=eq.cloud_vacations_${tenantId}`,
-          },
-          (payload: any) => {
-            const row = payload?.new;
-            if (row?.hero_title) {
-              try {
-                const parsed = JSON.parse(row.hero_title) as VacationRecord[];
-                if (Array.isArray(parsed)) {
-                  postgresListeners.forEach((listener) => {
-                    try {
-                      listener(parsed);
-                    } catch (_) {}
-                  });
-                }
-              } catch (_) {}
-            }
-          }
-        )
         .subscribe();
     } catch (err) {
       console.warn('⚠️ [Realtime Channel Notice] Aviso ao inicializar canal de férias:', err);

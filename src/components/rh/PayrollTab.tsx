@@ -315,6 +315,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     setInternalAbsences(Array.isArray(absences) ? absences : (Array.isArray(getStoredAbsences()) ? getStoredAbsences() : []));
   }, [absences]);
 
+  // Sincronização local com eventos de serviços e faltas na mesma aba
   useEffect(() => {
     const handleServicesUpdate = (e: any) => {
       if (e?.detail && Array.isArray(e.detail)) {
@@ -337,18 +338,22 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     window.addEventListener('storage', handleServicesUpdate);
     window.addEventListener('storage', handleAbsencesUpdate);
 
-    // Assinatura Realtime Channel com canal estável na tabela public.rh_faltas
-    const channelTopic = 'rh_faltas_payroll_rt';
-    const existingChannels = supabase.getChannels?.() || [];
-    for (const ch of existingChannels) {
-      if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
-        try { supabase.removeChannel(ch); } catch (_) {}
-      }
-    }
+    return () => {
+      window.removeEventListener('silagem_services_updated', handleServicesUpdate);
+      window.removeEventListener('silagem_absences_updated', handleAbsencesUpdate);
+      window.removeEventListener('storage', handleServicesUpdate);
+      window.removeEventListener('storage', handleAbsencesUpdate);
+    };
+  }, []);
+
+  // Assinatura Realtime Channel controlada estritamente por companyId para rh_faltas
+  useEffect(() => {
+    if (!isSupabaseConfigured || !effectiveCompanyId) return;
 
     let faltasDebounceTimer: any = null;
+    const channelTopic = `rh_faltas_payroll_rt_${effectiveCompanyId}`;
 
-    const faltasChannel = isSupabaseConfigured ? supabase
+    const faltasChannel = supabase
       .channel(channelTopic)
       .on(
         'postgres_changes',
@@ -362,22 +367,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 setInternalAbsences(fresh);
               }
             } catch (_) {}
-          }, 400);
+          }, 500);
         }
       )
-      .subscribe() : null;
+      .subscribe();
 
     return () => {
       if (faltasDebounceTimer) clearTimeout(faltasDebounceTimer);
-      window.removeEventListener('silagem_services_updated', handleServicesUpdate);
-      window.removeEventListener('silagem_absences_updated', handleAbsencesUpdate);
-      window.removeEventListener('storage', handleServicesUpdate);
-      window.removeEventListener('storage', handleAbsencesUpdate);
-      if (faltasChannel) {
-        try { supabase.removeChannel(faltasChannel); } catch (_) {}
-      }
+      try {
+        supabase.removeChannel(faltasChannel);
+      } catch (_) {}
     };
-  }, []);
+  }, [effectiveCompanyId]);
 
   // Estado das Folhas de Pagamento conectado diretamente à nuvem (Supabase)
   const [localPayrolls, setLocalPayrolls] = useState<PayrollRecord[]>(() => 
@@ -388,26 +389,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     setLocalPayrolls(Array.isArray(payrolls) ? payrolls : []);
   }, [payrolls]);
 
+  // Trava de segurança para carga inicial única das folhas de pagamento
+  const isPayrollsLoadedRef = useRef<string | null>(null);
+
   // Carga inicial das folhas de pagamento diretamente da nuvem (tabela public.rh_folhas_pagamento)
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !effectiveCompanyId) return;
+    if (isPayrollsLoadedRef.current === effectiveCompanyId) return;
+    isPayrollsLoadedRef.current = effectiveCompanyId;
+
     let isMounted = true;
 
     const loadCloudPayrolls = async () => {
-      let uid = activeUid;
-      if (!uid) {
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          uid = authData?.user?.id;
-        } catch (_) {}
-      }
-      if (!uid) {
-        if (isMounted) setLocalPayrolls([]);
-        return;
-      }
-
       try {
-        const cloudData = await fetchCloudPayrolls(uid);
+        const cloudData = await fetchCloudPayrolls(effectiveCompanyId);
         if (isMounted) {
           if (Array.isArray(cloudData) && cloudData.length > 0) {
             const safeEmps = Array.isArray(employeesRef.current) ? employeesRef.current : [];
@@ -439,114 +434,86 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     loadCloudPayrolls();
 
-    const handleFocus = () => {
-      loadCloudPayrolls();
-    };
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
-
     return () => {
       isMounted = false;
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
     };
-  }, [activeUid]);
+  }, [effectiveCompanyId]);
 
-  // Listener em tempo real (Supabase Realtime) escutando 'rh_folhas_pagamento'
+  // Listener em tempo real (Supabase Realtime) escutando 'rh_folhas_pagamento' com fechamento severo
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !effectiveCompanyId) return;
     let isMounted = true;
-    let channel: any = null;
 
-    const setupRealtime = async () => {
-      let uid = activeUid;
-      if (!uid) {
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          uid = authData?.user?.id;
-        } catch (_) {}
-      }
-      if (!uid) return;
+    const channelId = `rh_folhas_pagamento_rt_${effectiveCompanyId}`;
 
-      const channelId = `rh_folhas_pagamento_rt_${uid}`;
-      const existingChannels = supabase.getChannels?.() || [];
-      for (const ch of existingChannels) {
-        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
-          try { supabase.removeChannel(ch); } catch (_) {}
-        }
-      }
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rh_folhas_pagamento',
+        },
+        (payload: any) => {
+          if (!isMounted) return;
 
-      channel = supabase
-        .channel(channelId)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'rh_folhas_pagamento',
-          },
-          (payload: any) => {
-            if (!isMounted) return;
-
-            // Validação de segurança por assinante
-            if (payload.new) {
-              const rowUid = String(payload.new.user_id || '').trim();
-              const rowCid = String(payload.new.company_id || '').trim();
-              if (rowUid && rowUid !== uid && rowCid && rowCid !== uid && rowCid !== companyProfile?.id && rowCid !== activeCompanyId) {
-                return;
-              }
-            }
-
-            if (payload.eventType === 'DELETE' && payload.old?.id) {
-              const delId = toValidUUID(payload.old.id);
-              setLocalPayrolls(prev => {
-                const next = prev.filter(p => toValidUUID(p.id) !== delId && p.id !== delId && p.id !== payload.old.id);
-                onSavePayrollsRef.current(next);
-                return next;
-              });
-            } else if (payload.new) {
-              const mapped = mapRowToPayrollRecord(payload.new);
-              const mappedId = toValidUUID(mapped.id);
-
-              const currentEmps = employeesRef.current || [];
-              const emp = currentEmps.find(e => e.id === mapped.employeeId || toValidUUID(e.id) === mapped.employeeId);
-              if (emp) {
-                if (!mapped.employeeName) mapped.employeeName = emp.name;
-                if (!mapped.employeeRole) mapped.employeeRole = emp.role;
-              }
-
-              setLocalPayrolls(prev => {
-                const isMatch = (p: PayrollRecord) => {
-                  if (mappedId && (toValidUUID(p.id) === mappedId || p.id === mappedId || p.id === payload.new.id)) return true;
-                  if (p.employeeId && mapped.employeeId && (p.employeeId === mapped.employeeId || toValidUUID(p.employeeId) === toValidUUID(mapped.employeeId))) {
-                    if (p.referenceMonth && mapped.referenceMonth && p.referenceMonth === mapped.referenceMonth) return true;
-                  }
-                  return false;
-                };
-
-                const exists = prev.some(isMatch);
-                const next = exists
-                  ? prev.map(p => isMatch(p) ? { ...p, ...mapped, id: mappedId || p.id } : p)
-                  : [mapped, ...prev];
-
-                onSavePayrollsRef.current(next);
-                return next;
-              });
+          // Validação de segurança por assinante
+          if (payload.new) {
+            const rowUid = String(payload.new.user_id || '').trim();
+            const rowCid = String(payload.new.company_id || '').trim();
+            if (rowUid && rowUid !== effectiveCompanyId && rowCid && rowCid !== effectiveCompanyId) {
+              return;
             }
           }
-        )
-        .subscribe();
-    };
 
-    setupRealtime();
+          if (payload.eventType === 'DELETE' && payload.old?.id) {
+            const delId = toValidUUID(payload.old.id);
+            setLocalPayrolls(prev => {
+              const next = prev.filter(p => toValidUUID(p.id) !== delId && p.id !== delId && p.id !== payload.old.id);
+              onSavePayrollsRef.current(next);
+              return next;
+            });
+          } else if (payload.new) {
+            const mapped = mapRowToPayrollRecord(payload.new);
+            const mappedId = toValidUUID(mapped.id);
+
+            const currentEmps = employeesRef.current || [];
+            const emp = currentEmps.find(e => e.id === mapped.employeeId || toValidUUID(e.id) === mapped.employeeId);
+            if (emp) {
+              if (!mapped.employeeName) mapped.employeeName = emp.name;
+              if (!mapped.employeeRole) mapped.employeeRole = emp.role;
+            }
+
+            setLocalPayrolls(prev => {
+              const isMatch = (p: PayrollRecord) => {
+                if (mappedId && (toValidUUID(p.id) === mappedId || p.id === mappedId || p.id === payload.new.id)) return true;
+                if (p.employeeId && mapped.employeeId && (p.employeeId === mapped.employeeId || toValidUUID(p.employeeId) === toValidUUID(mapped.employeeId))) {
+                  if (p.referenceMonth && mapped.referenceMonth && p.referenceMonth === mapped.referenceMonth) return true;
+                }
+                return false;
+              };
+
+              const exists = prev.some(isMatch);
+              const next = exists
+                ? prev.map(p => isMatch(p) ? { ...p, ...mapped, id: mappedId || p.id } : p)
+                : [mapped, ...prev];
+
+              onSavePayrollsRef.current(next);
+              return next;
+            });
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       isMounted = false;
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch (_) {}
-      }
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [activeUid, companyProfile?.id, activeCompanyId]);
+  }, [effectiveCompanyId]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);

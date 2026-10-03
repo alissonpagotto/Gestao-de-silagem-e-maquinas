@@ -222,17 +222,17 @@ export const RHModule: React.FC<RHModuleProps> = ({
     );
   }, [tenantEmployees]);
 
-  // Force a limpeza do cache de estado (state reset) sempre que alternar entre as abas de RH,
-  // disparando uma nova requisição limpa para o Supabase (funcionários, salários base contratuais e férias)
+  // Trava de segurança para carga inicial única dos dados do RH (evita requisições em loop ao alternar abas)
+  const isRhInitialLoadedRef = React.useRef<string | null>(null);
+
+  // Sincronização inicial estritamente vinculada ao carregamento inicial da empresa/usuário
   React.useEffect(() => {
     if (!isSupabaseConfigured) return;
-    let isMounted = true;
     const activeTenant = authCompanyId || currentUserId || getActiveCompanyId() || 'default';
+    if (isRhInitialLoadedRef.current === activeTenant) return;
+    isRhInitialLoadedRef.current = activeTenant;
 
-    // Limpeza de cache de estado (State Reset) ao alternar para a aba de Faltas
-    if (activeTab === 'faltas') {
-      setAbsences([]);
-    }
+    let isMounted = true;
 
     Promise.all([
       fetchRhFuncionarios(undefined, currentUserId),
@@ -289,200 +289,124 @@ export const RHModule: React.FC<RHModuleProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeTab, tabRefreshEpoch, authCompanyId, currentUserId]);
+  }, [authCompanyId, currentUserId]);
 
-  // 3. Limpeza Imediata da Tela e Sincronização Estrita do RH por Usuário Autenticado (RLS auth.uid() = user_id)
+  // 3. Sincronização Estrita do RH por Usuário Autenticado com Fechamento Severo de Canal
   React.useEffect(() => {
     let isMounted = true;
-    let channel: any = null;
+    const activeUid = currentUserId;
+    if (!activeUid || !isSupabaseConfigured) return;
+    const activeTenant = authCompanyId || activeUid || getActiveCompanyId() || 'default';
 
-    const setupRHAuthSync = async () => {
-      // 1. Obtém o ID do usuário autenticado no sistema (auth.uid)
-      let activeUid = currentUserId;
-      if (!activeUid && isSupabaseConfigured) {
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          activeUid = authData?.user?.id;
-          if (!activeUid) {
-            const { data: sessData } = await supabase.auth.getSession();
-            activeUid = sessData?.session?.user?.id;
+    // Canal de escuta Realtime (.on) para tabelas do RH (rh_funcionarios, rh_ferias, rh_rescisoes)
+    const channelId = `rh_module_rt_${activeUid}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rh_funcionarios',
+          filter: `user_id=eq.${activeUid}`,
+        },
+        async (payload: any) => {
+          if (!isMounted) return;
+
+          // Validação de segurança: se vier de outro user_id, ignora
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new;
+            if (row && String(row.user_id || '').trim() !== activeUid) {
+              return;
+            }
           }
-        } catch (_) {}
-      }
 
-      // 2. Elimina qualquer tentativa de buscar registros sem essa cláusula de amarração
-      if (!activeUid) return;
-
-      // 3. Limpeza Imediata da Tela:
-      // Ao carregar a página, qualquer dado residual de terceiros preso no estado local é totalmente descartado
-      const stored = getStoredEmployees();
-      const strictlyMine = stored.filter(emp => {
-        const uid = String(emp.userId || (emp as any).user_id || '').trim();
-        if (uid) return uid === activeUid;
-        const cid = String(emp.companyId || (emp as any).company_id || '').trim();
-        return cid === activeUid;
-      });
-
-      if (strictlyMine.length !== stored.length) {
-        saveStoredEmployees(strictlyMine);
-        if (onSaveEmployees) onSaveEmployees(strictlyMine);
-      }
-
-      // Query de listagem inicial (fetch) aplicando estritamente .eq('user_id', activeUid)
-      if (isSupabaseConfigured) {
-        try {
+          // Re-sincroniza com filtro estrito por user_id
           const fresh = await fetchRhFuncionarios(undefined, activeUid);
           if (isMounted && fresh && Array.isArray(fresh)) {
-            const verifiedFresh = fresh.filter(emp => {
-              const uid = String(emp.userId || (emp as any).user_id || '').trim();
-              return uid === activeUid;
-            });
-            saveStoredEmployees(verifiedFresh);
-            if (onSaveEmployees) onSaveEmployees(verifiedFresh);
-          }
-        } catch (err) {
-          console.warn('[RHModule] Erro ao sincronizar funcionários:', err);
-        }
-
-        // Sincroniza férias e rescisões iniciais do locatário
-        const activeTenant = authCompanyId || activeUid || getActiveCompanyId() || 'default';
-        fetchCloudVacations(activeTenant, undefined, activeUid)
-          .then((cloudVacs) => {
-            if (isMounted && cloudVacs && Array.isArray(cloudVacs) && cloudVacs.length > 0) {
-              saveStoredVacations(cloudVacs);
-              if (onSaveVacations) onSaveVacations(cloudVacs);
-            }
-          })
-          .catch(() => {});
-
-        fetchCloudTerminations(activeTenant)
-          .then((cloudTerms) => {
-            if (isMounted && cloudTerms && Array.isArray(cloudTerms) && cloudTerms.length > 0) {
-              saveStoredTerminations(cloudTerms);
-            }
-          })
-          .catch(() => {});
-
-        // Canal de escuta Realtime (.on) para tabelas do RH (rh_funcionarios, rh_ferias, rh_rescisoes)
-        const channelId = `rh_module_rt_${activeUid}`;
-        const existingChannels = supabase.getChannels?.() || [];
-        for (const ch of existingChannels) {
-          if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
-            try { supabase.removeChannel(ch); } catch (_) {}
+            const strictlyMineFresh = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+            saveStoredEmployees(strictlyMineFresh);
+            onSaveEmployeesRef.current?.(strictlyMineFresh);
           }
         }
-
-        channel = supabase
-          .channel(channelId)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'rh_funcionarios',
-              filter: `user_id=eq.${activeUid}`,
-            },
-            async (payload: any) => {
-              if (!isMounted) return;
-
-              // Validação de segurança: se vier de outro user_id, ignora
-              if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                const row = payload.new;
-                if (row && String(row.user_id || '').trim() !== activeUid) {
-                  return;
-                }
-              }
-
-              // Re-sincroniza com filtro estrito por user_id
-              const fresh = await fetchRhFuncionarios(undefined, activeUid);
-              if (isMounted && fresh && Array.isArray(fresh)) {
-                const strictlyMineFresh = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
-                saveStoredEmployees(strictlyMineFresh);
-                onSaveEmployeesRef.current?.(strictlyMineFresh);
-              }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rh_ferias',
+        },
+        (payload: any) => {
+          if (!isMounted) return;
+          const eventType = payload?.eventType;
+          if (eventType === 'DELETE') {
+            const oldId = payload?.old?.id;
+            if (oldId) {
+              const targetId = toValidUUID(String(oldId));
+              const nextList = getStoredVacations().filter((v) => toValidUUID(v.id) !== targetId);
+              saveStoredVacations(nextList);
+              onSaveVacationsRef.current?.(nextList);
             }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'rh_ferias',
-            },
-            (payload: any) => {
-              if (!isMounted) return;
-              const eventType = payload?.eventType;
-              if (eventType === 'DELETE') {
-                const oldId = payload?.old?.id;
-                if (oldId) {
-                  const targetId = toValidUUID(String(oldId));
-                  const nextList = getStoredVacations().filter((v) => toValidUUID(v.id) !== targetId);
-                  saveStoredVacations(nextList);
-                  onSaveVacationsRef.current?.(nextList);
-                }
-                return;
-              }
-              const row = payload?.new;
-              if (!row) return;
-              if (row.company_id && String(row.company_id) !== String(activeTenant)) return;
-              const mapped = mapRowToVacationRecord(row);
-              if (mapped) {
-                const current = getStoredVacations();
-                const exists = current.some((v) => toValidUUID(v.id) === toValidUUID(mapped.id));
-                const nextList = exists
-                  ? current.map((v) => (toValidUUID(v.id) === toValidUUID(mapped.id) ? { ...v, ...mapped } : v))
-                  : [mapped, ...current];
-                saveStoredVacations(nextList);
-                onSaveVacationsRef.current?.(nextList);
-              }
+            return;
+          }
+          const row = payload?.new;
+          if (!row) return;
+          if (row.company_id && String(row.company_id) !== String(activeTenant)) return;
+          const mapped = mapRowToVacationRecord(row);
+          if (mapped) {
+            const current = getStoredVacations();
+            const exists = current.some((v) => toValidUUID(v.id) === toValidUUID(mapped.id));
+            const nextList = exists
+              ? current.map((v) => (toValidUUID(v.id) === toValidUUID(mapped.id) ? { ...v, ...mapped } : v))
+              : [mapped, ...current];
+            saveStoredVacations(nextList);
+            onSaveVacationsRef.current?.(nextList);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rh_rescisoes',
+        },
+        (payload: any) => {
+          if (!isMounted) return;
+          const eventType = payload?.eventType;
+          if (eventType === 'DELETE') {
+            const oldId = payload?.old?.id;
+            if (oldId) {
+              const targetId = toValidUUID(String(oldId));
+              const nextList = getStoredTerminations().filter((t) => toValidUUID(t.id) !== targetId);
+              saveStoredTerminations(nextList);
             }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'rh_rescisoes',
-            },
-            (payload: any) => {
-              if (!isMounted) return;
-              const eventType = payload?.eventType;
-              if (eventType === 'DELETE') {
-                const oldId = payload?.old?.id;
-                if (oldId) {
-                  const targetId = toValidUUID(String(oldId));
-                  const nextList = getStoredTerminations().filter((t) => toValidUUID(t.id) !== targetId);
-                  saveStoredTerminations(nextList);
-                }
-                return;
-              }
-              const row = payload?.new;
-              if (!row) return;
-              if (row.company_id && String(row.company_id) !== String(activeTenant)) return;
-              const mapped = mapRowToTerminationRecord(row);
-              if (mapped) {
-                const current = getStoredTerminations();
-                const exists = current.some((t) => toValidUUID(t.id) === toValidUUID(mapped.id));
-                const nextList = exists
-                  ? current.map((t) => (toValidUUID(t.id) === toValidUUID(mapped.id) ? { ...t, ...mapped } : t))
-                  : [mapped, ...current];
-                saveStoredTerminations(nextList);
-              }
-            }
-          )
-          .subscribe();
-      }
-    };
-
-    setupRHAuthSync();
+            return;
+          }
+          const row = payload?.new;
+          if (!row) return;
+          if (row.company_id && String(row.company_id) !== String(activeTenant)) return;
+          const mapped = mapRowToTerminationRecord(row);
+          if (mapped) {
+            const current = getStoredTerminations();
+            const exists = current.some((t) => toValidUUID(t.id) === toValidUUID(mapped.id));
+            const nextList = exists
+              ? current.map((t) => (toValidUUID(t.id) === toValidUUID(mapped.id) ? { ...t, ...mapped } : t))
+              : [mapped, ...current];
+            saveStoredTerminations(nextList);
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       isMounted = false;
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch (_) {}
-      }
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [currentUserId]);
+  }, [currentUserId, authCompanyId]);
 
   // Payslip Modal State
   const [viewingPayslip, setViewingPayslip] = useState<PayrollRecord | null>(null);

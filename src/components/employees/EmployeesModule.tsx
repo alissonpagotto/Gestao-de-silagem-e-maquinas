@@ -813,8 +813,20 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // 3. CARREGAMENTO DOS DADOS REAIS DO BANCO (INITIAL LOAD CONFORME DIRETRIZ):
   // Ao abrir o modal, assegura que o sistema povoe os estados iniciais com os dados reais
   // vindos do Supabase para que os campos nunca apareçam vazios.
+  const lastFetchedEmployeeDataIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!isModalOpen || !activeEmployeeId) return;
+    if (!isModalOpen || !activeEmployeeId) {
+      if (!isModalOpen) {
+        lastFetchedEmployeeDataIdRef.current = null;
+      }
+      return;
+    }
+    if (lastFetchedEmployeeDataIdRef.current === activeEmployeeId) {
+      return;
+    }
+    lastFetchedEmployeeDataIdRef.current = activeEmployeeId;
+
     let isMounted = true;
     const empId = activeEmployeeId;
     const empUuid = toValidUUID(empId);
@@ -899,22 +911,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     };
   }, [isModalOpen, activeEmployeeId]);
 
-  // Gatilho de verificação em background para sincronizar férias (rh_ferias) do Supabase (uma única vez)
-  const hasInitialVacSyncRef = useRef<boolean>(false);
+  // Gatilho de verificação com trava para sincronizar férias (rh_ferias) do Supabase (uma única vez)
+  const isVacSyncLoadedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    const companyId = activeCompany?.id || getActiveCompanyId() || currentUser?.id;
+    if (!isSupabaseConfigured || !companyId) return;
     let isMounted = true;
-    const companyId = activeCompany?.id || getActiveCompanyId();
-    const activeUid = currentUser?.id;
 
-    if (!hasInitialVacSyncRef.current) {
-      hasInitialVacSyncRef.current = true;
-      fetchCloudVacations(companyId, undefined, activeUid)
+    if (isVacSyncLoadedRef.current !== companyId) {
+      isVacSyncLoadedRef.current = companyId;
+      fetchCloudVacations(companyId, undefined, currentUser?.id)
         .then((cloudVacations) => {
           if (!isMounted) return;
-          // 2. Validação de Resposta do Banco:
-          // Se a consulta retornar vazia ou der erro, trata o estado local como um array vazio [] de forma silenciosa
           if (Array.isArray(cloudVacations) && cloudVacations.length > 0) {
             setLocalVacations(cloudVacations);
           } else {
@@ -928,31 +937,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         });
     }
 
-    let vacChannel: any = null;
-    try {
-      const channelId = `emp_vac_alerts_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      vacChannel = supabase
-        .channel(channelId)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'rh_ferias' },
-          (payload: any) => {
-            if (!isMounted) return;
-            if (payload.eventType === 'DELETE' && payload.old?.id) {
-              setLocalVacations(prev => prev.filter(v => v.id !== payload.old.id && toValidUUID(v.id) !== payload.old.id));
-            } else if (payload.new) {
-              const mapped = mapRowToVacationRecord(payload.new);
-              setLocalVacations(prev => {
-                const exists = prev.some(v => v.id === mapped.id || toValidUUID(v.id) === mapped.id);
-                return exists
-                  ? prev.map(v => (v.id === mapped.id || toValidUUID(v.id) === mapped.id ? { ...v, ...mapped } : v))
-                  : [mapped, ...prev];
-              });
-            }
+    const channelId = `emp_vac_alerts_rt_${companyId}`;
+    const vacChannel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rh_ferias' },
+        (payload: any) => {
+          if (!isMounted) return;
+          if (payload.eventType === 'DELETE' && payload.old?.id) {
+            setLocalVacations(prev => prev.filter(v => v.id !== payload.old.id && toValidUUID(v.id) !== payload.old.id));
+          } else if (payload.new) {
+            const mapped = mapRowToVacationRecord(payload.new);
+            setLocalVacations(prev => {
+              const exists = prev.some(v => v.id === mapped.id || toValidUUID(v.id) === mapped.id);
+              return exists
+                ? prev.map(v => (v.id === mapped.id || toValidUUID(v.id) === mapped.id ? { ...v, ...mapped } : v))
+                : [mapped, ...prev];
+            });
           }
-        )
-        .subscribe();
-    } catch (_) {}
+        }
+      )
+      .subscribe();
 
     const handleLocalVacationMutation = (e: any) => {
       const incoming = e?.detail?.vacation as VacationRecord | undefined;
@@ -971,13 +977,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     return () => {
       isMounted = false;
       window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalVacationMutation);
-      if (vacChannel) {
-        try {
-          supabase.removeChannel(vacChannel);
-        } catch (_) {}
-      }
+      try {
+        supabase.removeChannel(vacChannel);
+      } catch (_) {}
     };
-  }, []);
+  }, [activeCompany?.id, currentUser?.id]);
 
   const onSaveEmployeesRef = useRef(onSaveEmployees);
   useEffect(() => {
@@ -986,187 +990,168 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const empDebounceTimerRef = useRef<any>(null);
 
-  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com canal estável
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    let isMounted = true;
-    let channel: any = null;
+  // Carga inicial única dos funcionários amarrada ao currentUser?.id (trava de segurança)
+  const isEmployeesLoadedRef = useRef<string | null>(null);
 
-    const debouncedReconcile = (activeUid: string) => {
+  useEffect(() => {
+    const activeUid = currentUser?.id;
+    if (!isSupabaseConfigured || !activeUid) return;
+    if (isEmployeesLoadedRef.current === activeUid) return;
+    isEmployeesLoadedRef.current = activeUid;
+
+    let isMounted = true;
+    fetchRhFuncionarios(undefined, activeUid).then(fresh => {
+      if (!isMounted) return;
+      if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+        const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+        setLocalEmployees(strictlyMine);
+        saveStoredEmployees(strictlyMine);
+        onSaveEmployeesRef.current?.(strictlyMine);
+      }
+    }).catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id]);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com fechamento severo
+  useEffect(() => {
+    const activeUid = currentUser?.id;
+    if (!isSupabaseConfigured || !activeUid) return;
+    let isMounted = true;
+
+    const debouncedReconcile = (uid: string) => {
       if (empDebounceTimerRef.current) clearTimeout(empDebounceTimerRef.current);
       empDebounceTimerRef.current = setTimeout(async () => {
         try {
-          const fresh = await fetchRhFuncionarios(undefined, activeUid);
+          const fresh = await fetchRhFuncionarios(undefined, uid);
           if (isMounted) {
             if (fresh && Array.isArray(fresh) && fresh.length > 0) {
-              const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+              const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === uid);
               setLocalEmployees(strictlyMine);
               saveStoredEmployees(strictlyMine);
               onSaveEmployeesRef.current?.(strictlyMine);
             }
           }
         } catch (_) {}
-      }, 400);
+      }, 500);
     };
 
-    const setupRealtime = async () => {
-      let activeUid = currentUser?.id;
-      if (!activeUid) {
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          activeUid = authData?.user?.id;
-          if (!activeUid) {
-            const { data: sessData } = await supabase.auth.getSession();
-            activeUid = sessData?.session?.user?.id;
-          }
-        } catch (_) {}
-      }
-      if (!activeUid) return;
+    const channelId = `employees_module_rt_${activeUid}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'rh_funcionarios',
+          filter: `user_id=eq.${activeUid}`
+        },
+        async (payload: any) => {
+          if (!isMounted) return;
 
-      const channelId = `employees_module_rt_${activeUid}`;
-      const existingChannels = supabase.getChannels?.() || [];
-      for (const ch of existingChannels) {
-        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
-          try { supabase.removeChannel(ch); } catch (_) {}
+          // Blindagem absoluta de isolamento: descarta eventos pertencentes a outros assinantes
+          if (payload.new) {
+            const rowUid = String(payload.new.user_id || '').trim();
+            if (rowUid && rowUid !== activeUid) {
+              return;
+            }
+          }
+
+          // 1. Atualização de estado imediata sem delay
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setLocalEmployees(prev => {
+                const updated = prev.filter(e => e.id !== deletedId && toValidUUID(e.id) !== deletedId);
+                saveStoredEmployees(updated);
+                onSaveEmployeesRef.current?.(updated);
+                return updated;
+              });
+            }
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            const baseMapped = mapRowToEmployee(payload.new);
+            const mapped: Employee = {
+              ...baseMapped,
+              user_id: activeUid,
+              userId: activeUid,
+              paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
+              bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
+              bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
+              bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
+              local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
+              banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
+              agencia: payload.new.agencia || baseMapped.bankAgency,
+              conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
+              photoUrl: payload.new.foto_url || baseMapped.photoUrl,
+              foto_url: payload.new.foto_url || baseMapped.foto_url,
+              aso_url: payload.new.aso_url || baseMapped.aso_url,
+              contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
+              cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
+              ficha_registro_url: payload.new.ficha_registro_url || baseMapped.ficha_registro_url,
+              admissionExamDoc: baseMapped.admissionExamDoc,
+              experienceContractDoc: baseMapped.experienceContractDoc,
+              generalDocs: baseMapped.generalDocs,
+              signedRegistrationDoc: baseMapped.signedRegistrationDoc,
+            };
+            setLocalEmployees(prev => {
+              const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
+              const updated = exists
+                ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
+                : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+              saveStoredEmployees(updated);
+              onSaveEmployeesRef.current?.(updated);
+              return updated;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const baseMapped = mapRowToEmployee(payload.new);
+            const mapped: Employee = {
+              ...baseMapped,
+              user_id: activeUid,
+              userId: activeUid,
+              paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
+              bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
+              bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
+              bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
+              local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
+              banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
+              agencia: payload.new.agencia || baseMapped.bankAgency,
+              conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
+              photoUrl: payload.new.foto_url || baseMapped.photoUrl,
+              foto_url: payload.new.foto_url || baseMapped.foto_url,
+              aso_url: payload.new.aso_url || baseMapped.aso_url,
+              contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
+              cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
+              ficha_registro_url: payload.new.ficha_registro_url || baseMapped.ficha_registro_url,
+              admissionExamDoc: baseMapped.admissionExamDoc,
+              experienceContractDoc: baseMapped.experienceContractDoc,
+              generalDocs: baseMapped.generalDocs,
+              signedRegistrationDoc: baseMapped.signedRegistrationDoc,
+            };
+            setLocalEmployees(prev => {
+              const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
+              saveStoredEmployees(updated);
+              onSaveEmployeesRef.current?.(updated);
+              return updated;
+            });
+          }
+
+          // 2. Reconciliação debounced
+          debouncedReconcile(activeUid);
         }
-      }
-
-      channel = supabase
-        .channel(channelId)
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'rh_funcionarios',
-            filter: `user_id=eq.${activeUid}`
-          },
-          async (payload: any) => {
-            if (!isMounted) return;
-
-            // Blindagem absoluta de isolamento: descarta eventos pertencentes a outros assinantes
-            if (payload.new) {
-              const rowUid = String(payload.new.user_id || '').trim();
-              if (rowUid && rowUid !== activeUid) {
-                return;
-              }
-            }
-
-            // 1. Atualização de estado imediata sem delay
-            if (payload.eventType === 'DELETE') {
-              const deletedId = payload.old?.id;
-              if (deletedId) {
-                setLocalEmployees(prev => {
-                  const updated = prev.filter(e => e.id !== deletedId && toValidUUID(e.id) !== deletedId);
-                  saveStoredEmployees(updated);
-                  onSaveEmployeesRef.current?.(updated);
-                  return updated;
-                });
-              }
-            } else if (payload.eventType === 'INSERT' && payload.new) {
-              const baseMapped = mapRowToEmployee(payload.new);
-              const mapped: Employee = {
-                ...baseMapped,
-                user_id: activeUid,
-                userId: activeUid,
-                paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
-                bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
-                bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
-                bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
-                local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
-                banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
-                agencia: payload.new.agencia || baseMapped.bankAgency,
-                conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
-                photoUrl: payload.new.foto_url || baseMapped.photoUrl,
-                foto_url: payload.new.foto_url || baseMapped.foto_url,
-                aso_url: payload.new.aso_url || baseMapped.aso_url,
-                contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
-                cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
-                ficha_registro_url: payload.new.ficha_registro_url || baseMapped.ficha_registro_url,
-                admissionExamDoc: baseMapped.admissionExamDoc,
-                experienceContractDoc: baseMapped.experienceContractDoc,
-                generalDocs: baseMapped.generalDocs,
-                signedRegistrationDoc: baseMapped.signedRegistrationDoc,
-              };
-              setLocalEmployees(prev => {
-                const exists = prev.some(e => e.id === mapped.id || toValidUUID(e.id) === mapped.id);
-                const updated = exists
-                  ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
-                  : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-                saveStoredEmployees(updated);
-                onSaveEmployeesRef.current?.(updated);
-                return updated;
-              });
-            } else if (payload.eventType === 'UPDATE' && payload.new) {
-              const baseMapped = mapRowToEmployee(payload.new);
-              const mapped: Employee = {
-                ...baseMapped,
-                user_id: activeUid,
-                userId: activeUid,
-                paymentLocation: payload.new.local_recebimento || payload.new.payment_location || baseMapped.paymentLocation,
-                bankPixKey: payload.new.banco_chave_pix || payload.new.bank_pix_key || baseMapped.bankPixKey,
-                bankAgency: payload.new.agencia || payload.new.bank_agency || baseMapped.bankAgency,
-                bankAccount: payload.new.conta_corrente || payload.new.bank_account || baseMapped.bankAccount,
-                local_recebimento: payload.new.local_recebimento || baseMapped.paymentLocation,
-                banco_chave_pix: payload.new.banco_chave_pix || baseMapped.bankPixKey,
-                agencia: payload.new.agencia || baseMapped.bankAgency,
-                conta_corrente: payload.new.conta_corrente || baseMapped.bankAccount,
-                photoUrl: payload.new.foto_url || baseMapped.photoUrl,
-                foto_url: payload.new.foto_url || baseMapped.foto_url,
-                aso_url: payload.new.aso_url || baseMapped.aso_url,
-                contrato_experiencia_url: payload.new.contrato_experiencia_url || baseMapped.contrato_experiencia_url,
-                cnh_url: payload.new.cnh_url || baseMapped.cnh_url,
-                ficha_registro_url: payload.new.ficha_registro_url || baseMapped.ficha_registro_url,
-                admissionExamDoc: baseMapped.admissionExamDoc,
-                experienceContractDoc: baseMapped.experienceContractDoc,
-                generalDocs: baseMapped.generalDocs,
-                signedRegistrationDoc: baseMapped.signedRegistrationDoc,
-              };
-              setLocalEmployees(prev => {
-                const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
-                saveStoredEmployees(updated);
-                onSaveEmployeesRef.current?.(updated);
-                return updated;
-              });
-            }
-
-            // 2. Reconciliação debounced
-            debouncedReconcile(activeUid);
-          }
-        )
-        .subscribe();
-    };
-
-    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
-    const handleFocus = async () => {
-      let activeUid = currentUser?.id;
-      if (!activeUid) {
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          activeUid = authData?.user?.id;
-        } catch (_) {}
-      }
-      if (!activeUid) return;
-
-      debouncedReconcile(activeUid);
-    };
-
-    setupRealtime();
-    handleFocus();
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
+      )
+      .subscribe();
 
     return () => {
       isMounted = false;
       if (empDebounceTimerRef.current) {
         clearTimeout(empDebounceTimerRef.current);
       }
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch (_) {}
-      }
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
   }, [currentUser?.id]);
 

@@ -1177,9 +1177,15 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     return formatPaymentDeadline(startDate);
   }, [startDate]);
 
+  // Trava de segurança para carga inicial única das férias
+  const isVacationsLoadedRef = useRef<string | null>(null);
+
   // Sincronização inicial e canal Realtime direto na tabela public.rh_ferias do Supabase
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !activeTenantId) return;
+    if (isVacationsLoadedRef.current === activeTenantId) return;
+    isVacationsLoadedRef.current = activeTenantId;
+
     let isMounted = true;
 
     const loadInitialFromSupabase = async () => {
@@ -1198,13 +1204,6 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     // Assinatura Realtime estável com canal compartilhado por tenant
     const channelTopic = `rh_ferias_tab_${activeTenantId}`;
-    const existingChannels = supabase.getChannels?.() || [];
-    for (const ch of existingChannels) {
-      if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
-        try { supabase.removeChannel(ch); } catch (_) {}
-      }
-    }
-
     const directChannel = supabase
       .channel(channelTopic)
       .on(
@@ -1247,7 +1246,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   useEffect(() => {
     isModalOpenRef.current = isModalOpen;
     activeDraftIdRef.current = activeDraftId;
-  });
+  }, [isModalOpen, activeDraftId]);
 
   // Canal de Escuta Ativa (Supabase Realtime Channel) para sincronizar dispositivos do mesmo locatário
   useEffect(() => {
