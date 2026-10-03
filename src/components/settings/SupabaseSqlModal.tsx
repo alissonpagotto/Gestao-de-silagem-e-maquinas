@@ -205,6 +205,57 @@ ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS trailer_plate TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS trailer_model TEXT;
 ALTER TABLE public.gestao_frotas ADD COLUMN IF NOT EXISTS composition_type TEXT;
 
+-- Tabela oficial de Veículos e Máquinas (veiculos_maquinas)
+CREATE TABLE IF NOT EXISTS public.veiculos_maquinas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id TEXT,
+    nome TEXT,
+    name TEXT,
+    tipo TEXT,
+    type TEXT,
+    modelo TEXT,
+    model TEXT,
+    marca TEXT,
+    brand TEXT,
+    placa_ou_serie TEXT,
+    plate_or_serial TEXT,
+    fleet_number TEXT,
+    ano INTEGER,
+    year INTEGER,
+    horimetro_ou_km_atual NUMERIC(12,2) DEFAULT 0,
+    hourmeter NUMERIC(12,2) DEFAULT 0,
+    current_km NUMERIC(12,2) DEFAULT 0,
+    status TEXT DEFAULT 'ativo',
+    manutencao_status TEXT DEFAULT 'ok',
+    fuel_level NUMERIC(5,2) DEFAULT 100,
+    tank_capacity NUMERIC(12,2),
+    driver_id UUID,
+    motorista TEXT,
+    operator_or_driver TEXT,
+    assigned_driver_ids JSONB DEFAULT '[]'::jsonb,
+    assigned_drivers JSONB DEFAULT '[]'::jsonb,
+    reboque_vinculado_id TEXT,
+    reboque_id TEXT,
+    has_coupled_trailer BOOLEAN DEFAULT false,
+    coupled_trailer_name TEXT,
+    coupled_trailer_type TEXT,
+    trailer_plate TEXT,
+    trailer_model TEXT,
+    composition_type TEXT,
+    numero_eixos INTEGER,
+    quantidade_pneus INTEGER,
+    controla_por TEXT DEFAULT 'horas',
+    propriedade TEXT DEFAULT 'proprio',
+    renavam TEXT,
+    cor TEXT,
+    foto_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.veiculos_maquinas ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permissao Total veiculos_maquinas" ON public.veiculos_maquinas;
+CREATE POLICY "Permissao Total veiculos_maquinas" ON public.veiculos_maquinas FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
+
 -- ==============================================================================
 -- 7.1. TABELA: tanques_combustivel (Tanques Aéreos da Fazenda)
 -- ==============================================================================
@@ -1024,6 +1075,8 @@ BEGIN
             public.estoque,
             public.clientes,
             public.rh_funcionarios,
+            public.veiculos_maquinas,
+            public.manutencoes,
             public.gestao_frotas,
             public.assinantes,
             public.subscribers;

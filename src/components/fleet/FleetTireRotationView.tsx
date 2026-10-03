@@ -430,14 +430,26 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       if (!vId) return;
       setIsLoadingVehicleConfig(true);
       try {
-        // 1. Busca na tabela 'public.gestao_frotas'
+        // 1. Busca na tabela física 'public.veiculos_maquinas'
         let vRow: any = null;
         if (isSupabaseConfigured) {
-          const { data, error } = await supabase
-            .from('gestao_frotas')
+          let { data, error } = await supabase
+            .from('veiculos_maquinas')
             .select('*')
             .eq('id', vId)
             .maybeSingle();
+
+          if (error || !data) {
+            const fallback = await supabase
+              .from('gestao_frotas')
+              .select('*')
+              .eq('id', vId)
+              .maybeSingle();
+            if (!fallback.error && fallback.data) {
+              data = fallback.data;
+              error = null;
+            }
+          }
 
           if (!error && data) {
             vRow = data;
@@ -525,13 +537,16 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           if (categoryFilter === 'caminhao') {
             // Caminhões e Cavalos Mecânicos (incluindo Caminhão-Trator / Axor 2540 S)
             let q = supabase
-              .from('gestao_frotas')
+              .from('veiculos_maquinas')
               .select('*')
               .or('tipo.ilike.%caminh%,tipo.ilike.%cavalo%,tipo.ilike.%tração%,tipo.ilike.%tracao%,tipo.ilike.%truck%,tipo.ilike.%toco%,tipo.ilike.%bitruck%,nome.ilike.%axor%,modelo.ilike.%axor%');
 
             let res = await q;
-            if (res.error) {
-              res = await supabase.from('gestao_frotas').select('*');
+            if (res.error || !res.data || res.data.length === 0) {
+              res = await supabase.from('veiculos_maquinas').select('*');
+              if (res.error || !res.data || res.data.length === 0) {
+                res = await supabase.from('gestao_frotas').select('*');
+              }
             }
             if (res.data) {
               rows = res.data.filter((r: any) => isCaminhao(r));
@@ -539,41 +554,50 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           } else if (categoryFilter === 'trator' || categoryFilter === 'trator_agricola') {
             // Tratores exclusivamente agrícolas (de lavoura / pneu ou esteira), excluindo rigorosamente qualquer caminhão-trator
             let q = supabase
-              .from('gestao_frotas')
+              .from('veiculos_maquinas')
               .select('*')
               .or('tipo.ilike.%trator%,tipo.ilike.%agricola%,tipo.ilike.%agrícola%,tipo.ilike.%esteira%,tipo.ilike.%lavoura%')
               .not('tipo', 'ilike', '%caminh%')
               .not('tipo', 'ilike', '%cavalo%');
 
             let res = await q;
-            if (res.error) {
-              res = await supabase.from('gestao_frotas').select('*');
+            if (res.error || !res.data || res.data.length === 0) {
+              res = await supabase.from('veiculos_maquinas').select('*');
+              if (res.error || !res.data || res.data.length === 0) {
+                res = await supabase.from('gestao_frotas').select('*');
+              }
             }
             if (res.data) {
               rows = res.data.filter((r: any) => isTratorAgricola(r));
             }
           } else if (categoryFilter === 'ensiladeira') {
             let q = supabase
-              .from('gestao_frotas')
+              .from('veiculos_maquinas')
               .select('*')
               .or('tipo.ilike.%ensilad%,tipo.ilike.%forrageir%,tipo.ilike.%colhedora%,tipo.ilike.%jaguar%,nome.ilike.%claas%,nome.ilike.%jaguar%');
 
             let res = await q;
-            if (res.error) {
-              res = await supabase.from('gestao_frotas').select('*');
+            if (res.error || !res.data || res.data.length === 0) {
+              res = await supabase.from('veiculos_maquinas').select('*');
+              if (res.error || !res.data || res.data.length === 0) {
+                res = await supabase.from('gestao_frotas').select('*');
+              }
             }
             if (res.data) {
               rows = res.data.filter((r: any) => isEnsiladeira(r));
             }
           } else if (categoryFilter === 'reboque') {
             let q = supabase
-              .from('gestao_frotas')
+              .from('veiculos_maquinas')
               .select('*')
               .or('tipo.ilike.%reboque%,tipo.ilike.%prancha%,tipo.ilike.%transbordo%,tipo.ilike.%carreta%,tipo.ilike.%implemento%');
 
             let res = await q;
-            if (res.error) {
-              res = await supabase.from('gestao_frotas').select('*');
+            if (res.error || !res.data || res.data.length === 0) {
+              res = await supabase.from('veiculos_maquinas').select('*');
+              if (res.error || !res.data || res.data.length === 0) {
+                res = await supabase.from('gestao_frotas').select('*');
+              }
             }
             if (res.data) {
               rows = res.data.filter((r: any) => isReboque(r));
@@ -589,11 +613,18 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
             }
           }
         } else {
-          // 'todos': consulta completa ordenada
-          const res = await supabase
-            .from('gestao_frotas')
+          // 'todos': consulta completa ordenada na tabela física 'veiculos_maquinas'
+          let res = await supabase
+            .from('veiculos_maquinas')
             .select('*')
             .order('nome', { ascending: true });
+
+          if (res.error || !res.data || res.data.length === 0) {
+            res = await supabase
+              .from('gestao_frotas')
+              .select('*')
+              .order('nome', { ascending: true });
+          }
 
           if (!isCancelled && res.data) {
             const mapped = res.data.map((row: any) => mapSupabaseRowToMachinery(row, machineries));
@@ -601,7 +632,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           }
         }
       } catch (err) {
-        console.warn('Error querying gestao_frotas with category filter:', err);
+        console.warn('Error querying veiculos_maquinas with category filter:', err);
         if (!isCancelled) {
           const localFiltered = machineries.filter((m) => matchVehicleCategory(m, categoryFilter));
           setDbVehicles(localFiltered);

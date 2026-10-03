@@ -24,8 +24,8 @@ import {
   CaixaFerramentaVeiculoRecord,
   MaintenanceLog,
   VacationRecord,
-  PayrollRecord,
   AbsenceRecord,
+  PayrollRecord,
   BankAccount,
   FinanceiroCheque,
   ClienteCredito,
@@ -43,7 +43,8 @@ export type {
   FinanceiroCheque,
   ClienteCredito,
   ChequeStatus,
-  CreditoStatus
+  CreditoStatus,
+  AbsenceRecord
 };
 import {
   SiteConfig,
@@ -4256,29 +4257,43 @@ export async function desalocarFuncionarioFrente(funcionarioId: string): Promise
 }
 
 // ===========================================================================
-// 7. Gestão de Frotas (Tabela: public.gestao_frotas)
+// 7. Gestão de Frotas e Veículos (Tabela física oficial: public.veiculos_maquinas)
 // ===========================================================================
 const unsupportedGestaoFrotaCols = new Set<string>();
 export const knownGestaoFrotaCols = new Set<string>();
+export const knownVeiculosMaquinasCols = knownGestaoFrotaCols;
 
 export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
   if (!activeCompanyId) return [];
   try {
+    // 1. Consulta prioritária na tabela física oficial 'veiculos_maquinas'
     let { data, error } = await supabase
-      .from('gestao_frotas')
+      .from('veiculos_maquinas')
       .select('*')
       .eq('company_id', activeCompanyId)
       .order('nome', { ascending: true });
 
     if (error && error.message?.includes('nome')) {
       const fallbackOrder = await supabase
-        .from('gestao_frotas')
+        .from('veiculos_maquinas')
         .select('*')
         .eq('company_id', activeCompanyId);
       data = fallbackOrder.data;
       error = fallbackOrder.error;
+    }
+
+    // Se a tabela 'veiculos_maquinas' retornar erro de inexistência (404/PGRST205) ou vazia, tenta 'gestao_frotas'
+    if (error || !data || data.length === 0) {
+      const fallbackQuery = await supabase
+        .from('gestao_frotas')
+        .select('*')
+        .eq('company_id', activeCompanyId);
+      if (!fallbackQuery.error && fallbackQuery.data && fallbackQuery.data.length > 0) {
+        data = fallbackQuery.data;
+        error = null;
+      }
     }
 
     if (data && Array.isArray(data) && data.length > 0 && data[0]) {
@@ -4288,10 +4303,16 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
     if ((!data || data.length === 0) && activeCompanyId) {
       const altUuid = toValidUUID(activeCompanyId);
       if (altUuid && altUuid !== activeCompanyId) {
-        const retry = await supabase
-          .from('gestao_frotas')
+        let retry = await supabase
+          .from('veiculos_maquinas')
           .select('*')
           .eq('company_id', altUuid);
+        if (retry.error || !retry.data || retry.data.length === 0) {
+          retry = await supabase
+            .from('gestao_frotas')
+            .select('*')
+            .eq('company_id', altUuid);
+        }
         if (retry.data && retry.data.length > 0) {
           data = retry.data;
           error = null;
@@ -4498,10 +4519,10 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
 }
 
 /**
- * 3. AJUSTE DE COLUNAS E REQUISIÇÕES DE VEÍCULOS:
+ * 3. AJUSTE DE COLUNAS E REQUISIÇÕES DE VEÍCULOS / MÁQUINAS:
  * Atualização direta de horímetro/quilometragem da frota via PATCH.
  * Limpa rigorosamente o payload enviado para que use apenas as colunas numéricas válidas
- * da tabela 'gestao_frotas' (horimetro_ou_km_atual), evitando o envio de strings vazias, nulas ou NaN.
+ * da tabela física oficial 'veiculos_maquinas' (horimetro_ou_km_atual), evitando o envio de strings vazias, nulas ou NaN.
  */
 export async function patchGestaoFrotaMeter(
   vehicleId: string,
@@ -4525,28 +4546,33 @@ export async function patchGestaoFrotaMeter(
       updated_at: new Date().toISOString()
     };
 
+    // 1. Tenta atualizar na tabela oficial 'veiculos_maquinas'
     let { error, data } = await supabase
-      .from('gestao_frotas')
+      .from('veiculos_maquinas')
       .update(payload)
       .eq('id', validId)
       .select('id');
 
-    if (error) {
-      console.warn('Supabase patchGestaoFrotaMeter notice:', error.message);
-      return false;
-    }
-
-    if (!data || data.length === 0) {
-      if (vehicleId !== validId) {
+    if (error || !data || data.length === 0) {
+      // Fallback em 'gestao_frotas'
+      const fallback = await supabase
+        .from('gestao_frotas')
+        .update(payload)
+        .eq('id', validId)
+        .select('id');
+      if (fallback.error && vehicleId !== validId) {
+        await supabase.from('veiculos_maquinas').update(payload).eq('id', vehicleId);
         await supabase.from('gestao_frotas').update(payload).eq('id', vehicleId);
       }
     }
+
     return true;
   } catch (err) {
     console.warn('Supabase patchGestaoFrotaMeter err:', err);
     return false;
   }
 }
+export const patchVeiculoMaquinaMeter = patchGestaoFrotaMeter;
 
 export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
@@ -4587,69 +4613,7 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       ? vehicle.assignedDrivers.join(', ')
       : (vehicle.operatorOrDriver ? String(vehicle.operatorOrDriver).trim() : null);
 
-    const modeloVeiculo = String(vehicle.model || vehicle.modelo || '').trim();
-    const tipoVeiculo = String(vehicle.categoryType || (vehicle as any).vehicleTypeDetailed || vehicle.type || vehicle.tipo || 'Veículo').trim();
-    const rawNome = String(vehicle.name || vehicle.nome || '').trim();
-    // Exigência estrita: nome obrigatório (NOT-NULL), usando modeloVeiculo || tipoVeiculo
-    const nomeCalculado = (modeloVeiculo || tipoVeiculo || rawNome || 'Veículo').trim();
-    const tipoModeloInput = (vehicle as any).tipo_modelo || (tipoVeiculo && modeloVeiculo ? `${tipoVeiculo} - ${modeloVeiculo}` : (modeloVeiculo || tipoVeiculo || 'Veículo'));
-
-    const payload: Record<string, any> = {
-      id: toValidUUID(vehicle.id),
-      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
-      nome: nomeCalculado, // NOT-NULL: modeloVeiculo || tipoVeiculo
-      name: nomeCalculado, // Compatibilidade EN
-      tipo_modelo: tipoModeloInput,
-      tipo: tipoVeiculo || 'veiculo',
-      type: tipoVeiculo || 'veiculo',
-      modelo: modeloVeiculo || null,
-      model: modeloVeiculo || null,
-      placa_ou_serie: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
-      plate_or_serial: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
-      ano: cleanAno,
-      year: cleanAno,
-      horimetro_ou_km_atual: currentMeter,
-      hourmeter: currentMeter,
-      status: vehicle.status || 'ativo',
-      manutencao_status: vehicle.maintenanceStatus || vehicle.manutencao_status || 'ok',
-      foto_url: vehicle.imageUrl || vehicle.photoUrl || vehicle.foto_url || null,
-      tank_capacity: tankCapacityNumber,
-      user_id: firstDriverId, // user_id existe fisicamente em gestao_frotas e persiste o UUID do motorista sem erro de RLS
-      updated_at: new Date().toISOString()
-    };
-
-    // Adiciona colunas dedicadas de motoristas se suportadas pela tabela
-    if (!unsupportedGestaoFrotaCols.has('driver_id') && firstDriverId) {
-      payload.driver_id = firstDriverId;
-    }
-    if (!unsupportedGestaoFrotaCols.has('motorista') && driverString) {
-      payload.motorista = driverString;
-    }
-    if (!unsupportedGestaoFrotaCols.has('operator_or_driver') && driverString) {
-      payload.operator_or_driver = driverString;
-    }
-    if (!unsupportedGestaoFrotaCols.has('assigned_driver_ids') && vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0) {
-      payload.assigned_driver_ids = vehicle.assignedDriverIds;
-    }
-    if (!unsupportedGestaoFrotaCols.has('assigned_drivers') && vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0) {
-      payload.assigned_drivers = vehicle.assignedDrivers;
-    }
-
-    const numEixos = vehicle.numero_eixos ?? (vehicle as any).numeroEixos;
-    const cleanNumEixos = (numEixos !== undefined && numEixos !== null && String(numEixos).trim() !== '') ? Number(numEixos) : null;
-    const qtdPneus = vehicle.quantidade_pneus ?? (vehicle as any).quantidadePneus;
-    const cleanQtdPneus = (qtdPneus !== undefined && qtdPneus !== null && String(qtdPneus).trim() !== '') ? Number(qtdPneus) : null;
-
-    if (!unsupportedGestaoFrotaCols.has('numero_eixos') && cleanNumEixos !== null && !isNaN(cleanNumEixos)) {
-      payload.numero_eixos = cleanNumEixos;
-    }
-    if (!unsupportedGestaoFrotaCols.has('quantidade_pneus') && cleanQtdPneus !== null && !isNaN(cleanQtdPneus)) {
-      payload.quantidade_pneus = cleanQtdPneus;
-    }
-
     // Mapeamento direto e estrito para a coluna física 'reboque_vinculado_id':
-    // Se o switch estiver como "SIM" e um reboque for selecionado: grava o ID do reboque
-    // Se o switch estiver como "NÃO" ou sem reboque: grava estritamente como NULL
     const hasTrailerSwitchOn = Boolean(vehicle.hasCoupledTrailer);
     const selectedTrailerId = (hasTrailerSwitchOn && (vehicle.reboque_vinculado_id || vehicle.coupledTrailerId))
       ? String(vehicle.reboque_vinculado_id || vehicle.coupledTrailerId).trim()
@@ -4663,88 +4627,81 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
       finalReboqueId = null;
     }
 
-    payload.reboque_vinculado_id = finalReboqueId;
+    const numEixos = vehicle.numero_eixos ?? (vehicle as any).numeroEixos;
+    const cleanNumEixos = (numEixos !== undefined && numEixos !== null && String(numEixos).trim() !== '') ? Number(numEixos) : null;
+    const qtdPneus = vehicle.quantidade_pneus ?? (vehicle as any).quantidadePneus;
+    const cleanQtdPneus = (qtdPneus !== undefined && qtdPneus !== null && String(qtdPneus).trim() !== '') ? Number(qtdPneus) : null;
 
-    // Detecta as colunas reais da tabela gestao_frotas para evitar erro 400 (PGRST204)
-    if (knownGestaoFrotaCols.size === 0) {
+    const payload: Record<string, any> = {
+      id: toValidUUID(vehicle.id),
+      company_id: activeCompanyId ? toValidUUID(activeCompanyId) : null,
+      tipo: vehicle.categoryType || vehicle.tipo || 'veiculo',
+      nome: String(vehicle.name || vehicle.nome || vehicle.model || 'Veículo').trim(),
+      modelo: vehicle.model || vehicle.modelo || null,
+      marca: vehicle.brand || (vehicle as any).marca || null,
+      placa_ou_serie: vehicle.licensePlateOrSerial || vehicle.serialNumber || vehicle.placa_ou_serie || null,
+      fleet_number: vehicle.fleetNumber || (vehicle as any).fleet_number || null,
+      ano: cleanAno,
+      horimetro_ou_km_atual: currentMeter,
+      status: vehicle.status || 'ativo',
+      manutencao_status: vehicle.maintenanceStatus || vehicle.manutencao_status || 'ok',
+      foto_url: vehicle.imageUrl || vehicle.photoUrl || vehicle.foto_url || null,
+      tank_capacity: tankCapacityNumber,
+      user_id: firstDriverId,
+      driver_id: firstDriverId,
+      motorista: driverString,
+      operator_or_driver: driverString,
+      assigned_driver_ids: vehicle.assignedDriverIds && vehicle.assignedDriverIds.length > 0 ? vehicle.assignedDriverIds : null,
+      assigned_drivers: vehicle.assignedDrivers && vehicle.assignedDrivers.length > 0 ? vehicle.assignedDrivers : null,
+      numero_eixos: cleanNumEixos,
+      quantidade_pneus: cleanQtdPneus,
+      reboque_vinculado_id: finalReboqueId,
+      reboque_id: finalReboqueId,
+      has_coupled_trailer: hasTrailerSwitchOn,
+      coupled_trailer_name: vehicle.coupledTrailerName || null,
+      coupled_trailer_type: vehicle.coupledTrailerType || null,
+      trailer_plate: vehicle.trailerPlate || null,
+      trailer_model: vehicle.trailerModel || null,
+      composition_type: vehicle.compositionType || (hasTrailerSwitchOn ? 'cavalo' : 'veiculo_simples'),
+      controla_por: (vehicle as any).controlBy || (vehicle as any).controla_por || ((vehicle as any).currentKm ? 'km' : 'horas'),
+      propriedade: vehicle.ownership || (vehicle as any).propriedade || 'proprio',
+      renavam: (vehicle as any).renavam || null,
+      cor: (vehicle as any).color || (vehicle as any).cor || null,
+      updated_at: new Date().toISOString()
+    };
+
+    // Detecta as colunas reais da tabela veiculos_maquinas para evitar erro 400 (PGRST204)
+    if (knownVeiculosMaquinasCols.size === 0) {
       try {
-        const { data: sampleCols } = await supabase.from('gestao_frotas').select('*').limit(1);
+        const { data: sampleCols } = await supabase.from('veiculos_maquinas').select('*').limit(1);
         if (sampleCols && Array.isArray(sampleCols) && sampleCols.length > 0 && sampleCols[0]) {
-          Object.keys(sampleCols[0]).forEach(k => knownGestaoFrotaCols.add(k));
+          Object.keys(sampleCols[0]).forEach(k => knownVeiculosMaquinasCols.add(k));
         }
       } catch (_) {}
     }
-    // Garante que a coluna física criada pelo usuário seja sempre permitida
-    knownGestaoFrotaCols.add('reboque_vinculado_id');
 
-    // Mapeamento resiliente de compatibilidade PT/EN conforme o schema do Supabase
-    if (knownGestaoFrotaCols.has('name') && !knownGestaoFrotaCols.has('nome')) {
-      payload.name = payload.nome;
-    }
-    if (knownGestaoFrotaCols.has('type') && !knownGestaoFrotaCols.has('tipo')) {
-      payload.type = payload.tipo;
-    }
-    if (knownGestaoFrotaCols.has('model') && !knownGestaoFrotaCols.has('modelo')) {
-      payload.model = payload.modelo;
-    }
-    if (knownGestaoFrotaCols.has('plate_or_serial') && !knownGestaoFrotaCols.has('placa_ou_serie')) {
-      payload.plate_or_serial = payload.placa_ou_serie;
-    }
-    if (knownGestaoFrotaCols.has('hourmeter') && !knownGestaoFrotaCols.has('horimetro_ou_km_atual')) {
-      payload.hourmeter = currentMeter;
-    }
-    if (knownGestaoFrotaCols.has('year') && !knownGestaoFrotaCols.has('ano')) {
-      payload.year = cleanAno;
-    }
-
-    // Filtra o payload para enviar apenas colunas que realmente existem no schema físico do banco
-    if (knownGestaoFrotaCols.size > 0) {
-      for (const key of Object.keys(payload)) {
-        // 'nome' é NOT-NULL no banco; nunca remover nome, name, id, reboque_vinculado_id ou updated_at
-        if (key === 'id' || key === 'nome' || key === 'name' || key === 'reboque_vinculado_id' || key === 'updated_at') continue;
-        if (!knownGestaoFrotaCols.has(key)) {
-          delete payload[key];
+    // Se detectou colunas, filtra apenas as válidas
+    const payloadVeiculos = { ...payload };
+    if (knownVeiculosMaquinasCols.size > 0) {
+      for (const key of Object.keys(payloadVeiculos)) {
+        if (key === 'id' || key === 'reboque_vinculado_id' || key === 'updated_at') continue;
+        if (!knownVeiculosMaquinasCols.has(key)) {
+          delete payloadVeiculos[key];
         }
       }
     }
 
-    // Garante valor final não nulo para nome
-    if (!payload.nome) {
-      payload.nome = nomeCalculado;
-    }
-
+    // 1. Tenta salvar na tabela oficial física 'veiculos_maquinas'
     let { error } = await supabase
-      .from('gestao_frotas')
-      .upsert(payload, { onConflict: 'id' });
+      .from('veiculos_maquinas')
+      .upsert(payloadVeiculos, { onConflict: 'id' });
 
     if (error) {
-      console.warn('Supabase upsertGestaoFrota notice:', error.message);
-      // Se deu erro de coluna inexistente no schema cache (PGRST204) ou restrição, limpa colunas opcionais mas preserva nome
-      delete payload.driver_id;
-      delete payload.motorista;
-      delete payload.operator_or_driver;
-      delete payload.assigned_driver_ids;
-      delete payload.assigned_drivers;
-      delete payload.tank_capacity;
-      delete payload.user_id;
-      delete payload.foto_url;
-      delete payload.tipo_modelo;
-      delete payload.company_id;
-
-      // Assegura que nome nunca seja nulo no retry
-      payload.nome = payload.nome || nomeCalculado;
-      payload.name = payload.name || nomeCalculado;
-
-      const retryRes = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
-      if (retryRes.error) {
-        // Fallback direcionado: atualiza estritamente reboque_vinculado_id pelo ID do veículo
-        await supabase
-          .from('gestao_frotas')
-          .update({
-            reboque_vinculado_id: finalReboqueId,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', payload.id);
+      console.warn('Supabase upsertVeiculoMaquina (veiculos_maquinas) notice:', error.message);
+      // Tenta fallback em gestao_frotas
+      const fallbackRes = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
+      if (fallbackRes.error) {
+        console.warn('Supabase fallback gestao_frotas error:', fallbackRes.error.message);
       }
     }
 
@@ -4766,7 +4723,9 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
 }
 
 // Aliases para compatibilidade direta de chamadas
+export const fetchVeiculosMaquinas = fetchGestaoFrotas;
 export const fetchFrotas = fetchGestaoFrotas;
+export const upsertVeiculoMaquina = upsertGestaoFrota;
 export const upsertFrota = upsertGestaoFrota;
 
 export async function deleteGestaoFrota(id: string, companyId?: string): Promise<boolean> {
@@ -4774,20 +4733,32 @@ export async function deleteGestaoFrota(id: string, companyId?: string): Promise
   try {
     const activeCompanyId = companyId || getActiveCompanyId();
     const uuid = toValidUUID(id);
-    let query = supabase.from('gestao_frotas').delete().eq('id', uuid);
+
+    // 1. Exclui prioritariamente da tabela oficial 'veiculos_maquinas'
+    let query = supabase.from('veiculos_maquinas').delete().eq('id', uuid);
     if (activeCompanyId) query = query.eq('company_id', activeCompanyId);
     const { error } = await query;
+
     if (error && id !== uuid) {
-      let retry = supabase.from('gestao_frotas').delete().eq('id', id);
+      let retry = supabase.from('veiculos_maquinas').delete().eq('id', id);
       if (activeCompanyId) retry = retry.eq('company_id', activeCompanyId);
       await retry;
     }
+
+    // 2. Exclusão também em 'gestao_frotas' para consistência
+    try {
+      let gfQuery = supabase.from('gestao_frotas').delete().eq('id', uuid);
+      if (activeCompanyId) gfQuery = gfQuery.eq('company_id', activeCompanyId);
+      await gfQuery;
+    } catch (_) {}
+
     return true;
   } catch (err) {
     console.warn('Supabase deleteGestaoFrota err:', err);
     return false;
   }
 }
+export const deleteVeiculoMaquina = deleteGestaoFrota;
 
 // Operações de abastecimento utilizam o histórico local, o perfil da frota ('gestao_frotas') e persistência segura em nuvem
 
@@ -9537,14 +9508,8 @@ export async function fetchCloudTerminations(companyId?: string): Promise<Termin
   }
 }
 
-let resolvedManutencoesTableName: 'frotas_manutencoes' | 'manutencoes' = 'frotas_manutencoes';
-
-export function getManutencoesTableName(): 'frotas_manutencoes' | 'manutencoes' {
-  return resolvedManutencoesTableName;
-}
-
 /**
- * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase: tabelas 'frotas_manutencoes' e 'manutencoes' e espelho 'site_settings')
+ * Salva e sincroniza as Ordens de Serviço de Manutenção na nuvem (Supabase: tabela oficial 'manutencoes' e espelho 'site_settings')
  */
 export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
@@ -9559,7 +9524,7 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
     }
     const cleanLogs = Array.isArray(logs) ? logs : [];
 
-    // 1. Tenta gravar os registros diretamente nas tabelas físicas 'frotas_manutencoes' e 'manutencoes' do Supabase
+    // 1. Grava os registros diretamente na tabela física oficial 'manutencoes' do Supabase
     try {
       if (cleanLogs.length > 0) {
         const rows = cleanLogs.map(m => ({
@@ -9581,15 +9546,9 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
           updated_at: new Date().toISOString()
         }));
 
-        const primaryTable = getManutencoesTableName();
-        let res = await supabase.from(primaryTable).upsert(rows, { onConflict: 'id' });
-        if (res.error && (res.error.code === '42P01' || res.error.code === 'PGRST200' || (res.error as any).status === 404)) {
-          const altTable = primaryTable === 'frotas_manutencoes' ? 'manutencoes' : 'frotas_manutencoes';
-          const altRes = await supabase.from(altTable).upsert(rows, { onConflict: 'id' });
-          if (!altRes.error) {
-            resolvedManutencoesTableName = altTable;
-          }
-        }
+        try {
+          await supabase.from('manutencoes').upsert(rows, { onConflict: 'id' });
+        } catch (_) {}
       }
     } catch (_) {}
 
@@ -9608,7 +9567,7 @@ export async function saveCloudMaintenanceLogs(logs: MaintenanceLog[], companyId
 }
 
 /**
- * Salva uma única ordem de manutenção instantaneamente no Supabase
+ * Salva uma única ordem de manutenção instantaneamente no Supabase (tabela 'manutencoes')
  */
 export async function upsertCloudMaintenanceLog(log: MaintenanceLog, companyId?: string, userId?: string): Promise<boolean> {
   if (!isSupabaseConfigured || !log) return false;
@@ -9641,15 +9600,9 @@ export async function upsertCloudMaintenanceLog(log: MaintenanceLog, companyId?:
       updated_at: new Date().toISOString()
     };
 
-    const primaryTable = getManutencoesTableName();
-    let res = await supabase.from(primaryTable).upsert(row, { onConflict: 'id' });
-    if (res.error && (res.error.code === '42P01' || res.error.code === 'PGRST200' || (res.error as any).status === 404)) {
-      const altTable = primaryTable === 'frotas_manutencoes' ? 'manutencoes' : 'frotas_manutencoes';
-      const altRes = await supabase.from(altTable).upsert(row, { onConflict: 'id' });
-      if (!altRes.error) {
-        resolvedManutencoesTableName = altTable;
-      }
-    }
+    try {
+      await supabase.from('manutencoes').upsert(row, { onConflict: 'id' });
+    } catch (_) {}
 
     return true;
   } catch (err) {
@@ -9689,7 +9642,7 @@ export function mapRowToMaintenanceLog(r: any): MaintenanceLog {
 }
 
 /**
- * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase: tabela 'frotas_manutencoes' e 'manutencoes')
+ * Carrega as Ordens de Serviço de Manutenção da nuvem (Supabase: tabela oficial 'manutencoes')
  */
 export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: string): Promise<MaintenanceLog[] | null> {
   if (!isSupabaseConfigured) return null;
@@ -9705,48 +9658,19 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
 
     const map = new Map<string, MaintenanceLog>();
 
-    // 1. Busca na tabela física correta: 'frotas_manutencoes' com fallback em 'manutencoes'
-    const tableCandidates: ('frotas_manutencoes' | 'manutencoes')[] = 
-      resolvedManutencoesTableName === 'manutencoes'
-        ? ['manutencoes', 'frotas_manutencoes']
-        : ['frotas_manutencoes', 'manutencoes'];
-
-    let foundInTable = false;
-
-    for (const tbl of tableCandidates) {
-      try {
-        let query = supabase.from(tbl).select('*');
-        if (cId) query = query.eq('company_id', cId);
-        const { data: relData, error: relErr } = await query;
-        if (!relErr && Array.isArray(relData)) {
-          resolvedManutencoesTableName = tbl;
-          foundInTable = true;
-          for (const r of relData) {
-            const item = mapRowToMaintenanceLog(r);
-            if (item.id) map.set(item.id, item);
-          }
-          break;
-        } else if (relErr) {
-          // Se falhou apenas o filtro por company_id, tenta select * direto
-          if (relErr.code !== '42P01' && relErr.code !== 'PGRST200' && (relErr as any).status !== 404) {
-            const retryQuery = await supabase.from(tbl).select('*');
-            if (!retryQuery.error && Array.isArray(retryQuery.data)) {
-              resolvedManutencoesTableName = tbl;
-              foundInTable = true;
-              for (const r of retryQuery.data) {
-                const item = mapRowToMaintenanceLog(r);
-                if (item.id) map.set(item.id, item);
-              }
-              break;
-            }
-          }
+    // 1. Busca prioritária na tabela física oficial 'manutencoes'
+    try {
+      let query = supabase.from('manutencoes').select('*');
+      if (cId) query = query.eq('company_id', cId);
+      const { data: relData, error: relErr } = await query;
+      if (!relErr && Array.isArray(relData) && relData.length > 0) {
+        for (const r of relData) {
+          const item = mapRowToMaintenanceLog(r);
+          if (item.id) map.set(item.id, item);
         }
-      } catch (_) {}
-    }
-
-    if (foundInTable) {
-      return Array.from(map.values());
-    }
+        return Array.from(map.values());
+      }
+    } catch (_) {}
 
     // 2. Fallback no espelho de site_settings
     try {
@@ -9773,7 +9697,7 @@ export async function fetchCloudMaintenanceLogs(companyId?: string, userId?: str
 }
 
 /**
- * Exclui fisicamente uma Ordem de Serviço de Manutenção nas tabelas do Supabase
+ * Exclui fisicamente uma Ordem de Serviço de Manutenção nas tabelas do Supabase (tabela 'manutencoes')
  */
 export async function deleteCloudMaintenanceLog(
   ordemId: string,
@@ -9792,17 +9716,11 @@ export async function deleteCloudMaintenanceLog(
 
     const uuid = toValidUUID(ordemId);
 
-    // 1. Exclui de frotas_manutencoes e manutencoes
+    // 1. Exclui de manutencoes
     try {
-      const primaryTable = getManutencoesTableName();
-      await supabase.from(primaryTable).delete().eq('id', uuid);
+      await supabase.from('manutencoes').delete().eq('id', uuid);
       if (ordemId !== uuid) {
-        await supabase.from(primaryTable).delete().eq('id', ordemId);
-      }
-      const altTable = primaryTable === 'frotas_manutencoes' ? 'manutencoes' : 'frotas_manutencoes';
-      await supabase.from(altTable).delete().eq('id', uuid);
-      if (ordemId !== uuid) {
-        await supabase.from(altTable).delete().eq('id', ordemId);
+        await supabase.from('manutencoes').delete().eq('id', ordemId);
       }
     } catch (_) {}
 
@@ -9879,16 +9797,6 @@ export async function fetchCloudBankAccounts(companyId?: string, userId?: string
           if (acc.id) map.set(acc.id, acc);
         });
         return Array.from(map.values());
-      } else if (error) {
-        // Fallback: se falhou por restrição de coluna company_id, busca sem o filtro
-        const retry = await supabase.from('financeiro_contas').select('*');
-        if (!retry.error && Array.isArray(retry.data) && retry.data.length > 0) {
-          retry.data.forEach(r => {
-            const acc = mapRowToBankAccount(r);
-            if (acc.id) map.set(acc.id, acc);
-          });
-          return Array.from(map.values());
-        }
       }
     } catch (_) {}
 
@@ -10519,6 +10427,339 @@ export async function fetchCloudVacations(
   }
 }
 
+// ===========================================================================
+// RH: Faltas e Ocorrências (Tabela oficial: public.rh_faltas + site_settings)
+// ===========================================================================
+
+/**
+ * Converte uma linha da tabela public.rh_faltas ou payload em AbsenceRecord
+ */
+export function mapRowToAbsenceRecord(row: any): AbsenceRecord {
+  if (!row) {
+    return {
+      id: toValidUUID(),
+      employeeId: '',
+      employeeName: '',
+      employeeRole: '',
+      date: new Date().toISOString().split('T')[0],
+      daysCount: 1,
+      type: 'injustificada',
+      discountPayroll: true,
+      discountAmount: 0,
+      referenceMonth: '',
+      status: 'pendente',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  let parsedPayload: any = {};
+  if (row.payload) {
+    if (typeof row.payload === 'string') {
+      try {
+        parsedPayload = JSON.parse(row.payload);
+      } catch (_) {}
+    } else if (typeof row.payload === 'object') {
+      parsedPayload = row.payload;
+    }
+  }
+
+  const rawId = row.id || parsedPayload.id || `abs_${Date.now()}`;
+  const canonicalId = toValidUUID(rawId);
+  const employeeId = row.funcionario_id || row.employee_id || parsedPayload.employeeId || parsedPayload.funcionario_id || '';
+  const employeeName = parsedPayload.employeeName || row.employee_name || row.nome_funcionario || '';
+  const employeeRole = parsedPayload.employeeRole || row.cargo || '';
+  const dateStr = row.data_periodo || parsedPayload.date || row.data || new Date().toISOString().split('T')[0];
+  const refMonth = parsedPayload.referenceMonth || row.mes_referencia || (dateStr.length >= 7 ? `${dateStr.substring(5, 7)}/${dateStr.substring(0, 4)}` : '');
+  const days = Number(row.qtd_dias ?? parsedPayload.daysCount ?? 1);
+  const discountVal = Number(row.desconto_estimado ?? parsedPayload.discountAmount ?? 0);
+  const absenceType = (row.tipo_falta || parsedPayload.type || 'injustificada') as AbsenceRecord['type'];
+  const statusVal = (row.status || parsedPayload.status || 'pendente') as AbsenceRecord['status'];
+
+  return {
+    id: canonicalId,
+    companyId: row.company_id || parsedPayload.companyId || getActiveCompanyId() || 'default',
+    userId: row.user_id || parsedPayload.userId || undefined,
+    employeeId,
+    employeeName,
+    employeeRole,
+    date: dateStr,
+    endDate: parsedPayload.endDate || row.data_fim || undefined,
+    daysCount: isNaN(days) ? 1 : days,
+    absenceUnit: parsedPayload.absenceUnit || (row.tipo_unidade === 'horas' ? 'horas' : 'dias'),
+    absenceHours: Number(parsedPayload.absenceHours ?? row.qtd_horas ?? 0),
+    calculationMemory: parsedPayload.calculationMemory || row.memoria_calculo || undefined,
+    isProportionalAdmission: Boolean(parsedPayload.isProportionalAdmission ?? row.proporcional_admissao),
+    proportionalBaseSalary: parsedPayload.proportionalBaseSalary !== undefined ? Number(parsedPayload.proportionalBaseSalary) : undefined,
+    type: absenceType,
+    discountPayroll: parsedPayload.discountPayroll !== undefined ? Boolean(parsedPayload.discountPayroll) : true,
+    discountAmount: isNaN(discountVal) ? 0 : discountVal,
+    referenceMonth: refMonth,
+    reason: row.motivo_justificativa || parsedPayload.reason || undefined,
+    status: statusVal,
+    notes: parsedPayload.notes || row.observacoes || undefined,
+    payload: parsedPayload,
+    createdAt: row.created_at || parsedPayload.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || parsedPayload.updatedAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Monta a linha estruturada para a tabela public.rh_faltas
+ */
+export function buildRhFaltaRow(record: AbsenceRecord, companyId?: string, userId?: string): Record<string, any> {
+  const cId = companyId || record.companyId || getActiveCompanyId() || 'default';
+  const canonicalId = toValidUUID(record.id);
+
+  return {
+    id: canonicalId,
+    company_id: cId,
+    funcionario_id: record.employeeId,
+    tipo_falta: record.type || 'injustificada',
+    data_periodo: record.date || new Date().toISOString().split('T')[0],
+    qtd_dias: record.daysCount ?? 1,
+    motivo_justificativa: record.reason || record.notes || '',
+    desconto_estimado: record.discountAmount ?? 0,
+    status: record.status || 'pendente',
+  };
+}
+
+/**
+ * Salva ou atualiza uma falta individual na tabela oficial public.rh_faltas e espelha em site_settings
+ */
+export async function upsertRhFalta(record: AbsenceRecord, userId?: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !record) return false;
+  try {
+    const cId = companyId || record.companyId || getActiveCompanyId() || 'default';
+    let activeUid = userId || record.userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const row = buildRhFaltaRow(record, cId, activeUid);
+
+    // 1. Gravação prioritária na tabela relacional public.rh_faltas
+    try {
+      const { error: relErr } = await supabase.from('rh_faltas').upsert(row, { onConflict: 'id' });
+      if (relErr) {
+        console.warn('[Supabase] Aviso ao fazer upsert em rh_faltas:', relErr.message);
+      }
+    } catch (err) {
+      console.warn('[Supabase] Falha ao tentar upsert em rh_faltas:', err);
+    }
+
+    // 2. Espelhamento defensivo em site_settings (cloud_absences_${cId})
+    try {
+      const { data: existingData } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_absences_${cId}`)
+        .maybeSingle();
+
+      let currentList: AbsenceRecord[] = [];
+      if (existingData?.hero_title) {
+        try {
+          const parsed = JSON.parse(existingData.hero_title);
+          if (Array.isArray(parsed)) currentList = parsed;
+        } catch (_) {}
+      }
+
+      const canonicalId = toValidUUID(record.id);
+      const cleanRecord: AbsenceRecord = { ...record, id: canonicalId, companyId: cId, userId: activeUid };
+      const exists = currentList.some(a => toValidUUID(a.id) === canonicalId);
+      const updatedList = exists
+        ? currentList.map(a => toValidUUID(a.id) === canonicalId ? cleanRecord : a)
+        : [cleanRecord, ...currentList];
+
+      await supabase.from('site_settings').upsert({
+        id: `cloud_absences_${cId}`,
+        hero_title: JSON.stringify(updatedList),
+        allow_free_trial: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (_) {}
+
+    return true;
+  } catch (e) {
+    console.error('Falha ao persistir falta/ausência no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Exclui uma falta de rh_faltas e do cache defensivo em site_settings
+ */
+export async function deleteRhFalta(id: string, userId?: string, companyId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !id) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    const canonicalId = toValidUUID(id);
+
+    // 1. Deleta de rh_faltas
+    try {
+      await supabase.from('rh_faltas').delete().eq('id', canonicalId);
+    } catch (_) {}
+
+    // 2. Remove do espelhamento em site_settings
+    try {
+      const { data: existingData } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_absences_${cId}`)
+        .maybeSingle();
+
+      if (existingData?.hero_title) {
+        const parsed = JSON.parse(existingData.hero_title);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((a: any) => toValidUUID(a.id) !== canonicalId);
+          await supabase.from('site_settings').upsert({
+            id: `cloud_absences_${cId}`,
+            hero_title: JSON.stringify(filtered),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        }
+      }
+    } catch (_) {}
+
+    return true;
+  } catch (e) {
+    console.error('Falha ao excluir falta no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Salva e sincroniza as Faltas na nuvem (Supabase: rh_faltas + site_settings)
+ */
+export async function saveCloudAbsences(absences: AbsenceRecord[], companyId?: string, userId?: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const cId = companyId || getActiveCompanyId();
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const cleanAbsences = (Array.isArray(absences) ? absences : []).map(a => ({
+      ...a,
+      id: toValidUUID(a.id),
+      companyId: cId,
+      userId: activeUid || a.userId,
+    }));
+
+    // 1. Upsert em lote na tabela oficial public.rh_faltas
+    try {
+      const rows = cleanAbsences.map(a => buildRhFaltaRow(a, cId, activeUid));
+      if (rows.length > 0) {
+        await supabase.from('rh_faltas').upsert(rows, { onConflict: 'id' });
+      }
+    } catch (_) {}
+
+    // 2. Espelhamento em site_settings
+    const { error } = await supabase.from('site_settings').upsert({
+      id: `cloud_absences_${cId}`,
+      hero_title: JSON.stringify(cleanAbsences),
+      allow_free_trial: true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+
+    return !error;
+  } catch (e) {
+    console.error('Falha ao persistir faltas em lote no Supabase:', e);
+    return false;
+  }
+}
+
+/**
+ * Carrega as Faltas dos colaboradores da nuvem (Supabase: rh_faltas + site_settings)
+ */
+export async function fetchCloudAbsences(
+  companyId?: string,
+  employeeId?: string,
+  userId?: string
+): Promise<AbsenceRecord[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const cId = companyId || getActiveCompanyId();
+    let activeUid = userId;
+    if (!activeUid) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        activeUid = authData?.user?.id;
+      } catch (_) {}
+    }
+
+    const map = new Map<string, AbsenceRecord>();
+    let foundInRelational = false;
+
+    // 1. Busca prioritária na tabela relacional public.rh_faltas
+    try {
+      let query = supabase.from('rh_faltas').select('*');
+      if (cId && cId !== 'default') {
+        query = query.or(`company_id.eq.${cId},company_id.is.null`);
+      }
+      const { data: rows, error } = await query;
+      if (!error && Array.isArray(rows)) {
+        foundInRelational = true;
+        for (const r of rows) {
+          if (employeeId) {
+            const rowEmpId = r.funcionario_id || r.employee_id || r.employeeId;
+            const targetUuid = toValidUUID(employeeId);
+            if (rowEmpId !== employeeId && toValidUUID(rowEmpId) !== targetUuid) {
+              continue;
+            }
+          }
+          const mapped = mapRowToAbsenceRecord(r);
+          if (mapped && mapped.id) {
+            map.set(mapped.id, mapped);
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback / merge com site_settings
+    try {
+      const { data: settingData } = await supabase
+        .from('site_settings')
+        .select('hero_title')
+        .eq('id', `cloud_absences_${cId}`)
+        .maybeSingle();
+
+      if (settingData?.hero_title) {
+        try {
+          const parsed = JSON.parse(settingData.hero_title);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed as AbsenceRecord[]) {
+              if (item && item.id) {
+                const normId = toValidUUID(item.id);
+                if (employeeId) {
+                  const targetUuid = toValidUUID(employeeId);
+                  if (item.employeeId !== employeeId && toValidUUID(item.employeeId) !== targetUuid) {
+                    continue;
+                  }
+                }
+                if (!map.has(normId)) {
+                  map.set(normId, { ...item, id: normId, companyId: cId });
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    return Array.from(map.values());
+  } catch (e) {
+    console.error('Falha ao carregar faltas do Supabase:', e);
+    return [];
+  }
+}
+
 export const RH_FOLHAS_PAGAMENTO_BASE_COLUMNS = [
   'id',
   'user_id',
@@ -10590,16 +10831,10 @@ export function buildRhFolhaPagamentoRow(
   const proventosFloat = baseSalaryFloat + overtimeFloat + bonusFloat + commissionFloat;
 
   const inssFloat = parseFloat(String(p.inssDiscount ?? 0)) || 0;
-  const irrfFloat = parseFloat(String((p as any).irrfDiscount ?? (p as any).irrf ?? 0)) || 0;
-  const sindicalFloat = parseFloat(String((p as any).sindicalDiscount ?? (p as any).taxaSindical ?? (p as any).desconto_sindical ?? (p as any).sindical ?? 0)) || 0;
-  const sindicalEnabledBool = (p as any).sindicalEnabled !== undefined ? Boolean((p as any).sindicalEnabled) : sindicalFloat > 0;
-  const activeSindicalFloat = sindicalEnabledBool ? sindicalFloat : 0;
-  const totalValesFloat = parseFloat(String((p as any).total_vales ?? (p as any).totalVales ?? p.advancesDiscount ?? 0)) || 0;
-  const totalFaltasFloat = parseFloat(String((p as any).total_faltas ?? (p as any).totalFaltas ?? p.otherDiscounts ?? 0)) || 0;
-  const advancesFloat = totalValesFloat;
-  const otherDiscountsFloat = totalFaltasFloat;
-  const valesDescontosFloat = totalValesFloat; // Estritamente adiantamentos/vales reais
-  const totalDescontosFloat = inssFloat + irrfFloat + activeSindicalFloat + totalValesFloat + totalFaltasFloat;
+  const advancesFloat = parseFloat(String(p.advancesDiscount ?? 0)) || 0;
+  const otherDiscountsFloat = parseFloat(String(p.otherDiscounts ?? 0)) || 0;
+  const valesDescontosFloat = advancesFloat + otherDiscountsFloat;
+  const totalDescontosFloat = inssFloat + valesDescontosFloat;
 
   const rawNetFloat = parseFloat(String(p.netSalary ?? (proventosFloat - totalDescontosFloat))) || 0;
   const netSalaryFloat = Math.max(0, rawNetFloat);
@@ -10644,26 +10879,12 @@ export function buildRhFolhaPagamentoRow(
   if (activeCols.has('desconto_inss')) fullCandidate.desconto_inss = inssFloat;
   if (activeCols.has('inss_discount')) fullCandidate.inss_discount = inssFloat;
 
-  // 6.1 IRRF ('irrf', 'desconto_irrf', 'irrf_discount')
-  if (activeCols.has('irrf')) fullCandidate.irrf = irrfFloat;
-  if (activeCols.has('desconto_irrf')) fullCandidate.desconto_irrf = irrfFloat;
-  if (activeCols.has('irrf_discount')) fullCandidate.irrf_discount = irrfFloat;
-
-  // 6.2 Sindicato / Taxa Assistencial ('sindical', 'desconto_sindical', 'sindical_discount', 'taxa_sindical', 'sindical_enabled')
-  if (activeCols.has('sindical')) fullCandidate.sindical = activeSindicalFloat;
-  if (activeCols.has('desconto_sindical')) fullCandidate.desconto_sindical = activeSindicalFloat;
-  if (activeCols.has('sindical_discount')) fullCandidate.sindical_discount = activeSindicalFloat;
-  if (activeCols.has('taxa_sindical')) fullCandidate.taxa_sindical = activeSindicalFloat;
-  if (activeCols.has('sindical_enabled')) fullCandidate.sindical_enabled = sindicalEnabledBool;
-
-  // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts', 'total_vales', 'total_faltas')
+  // 7. Deduções / Vales / Descontos ('deducoes', 'vales_descontos', 'total_descontos', 'other_discounts')
   if (activeCols.has('deducoes')) fullCandidate.deducoes = totalDescontosFloat;
-  if (activeCols.has('vales_descontos')) fullCandidate.vales_descontos = totalValesFloat;
+  if (activeCols.has('vales_descontos')) fullCandidate.vales_descontos = valesDescontosFloat;
   if (activeCols.has('total_descontos')) fullCandidate.total_descontos = totalDescontosFloat;
-  if (activeCols.has('advances_discount')) fullCandidate.advances_discount = totalValesFloat;
-  if (activeCols.has('other_discounts')) fullCandidate.other_discounts = totalFaltasFloat;
-  if (activeCols.has('total_vales')) fullCandidate.total_vales = totalValesFloat;
-  if (activeCols.has('total_faltas')) fullCandidate.total_faltas = totalFaltasFloat;
+  if (activeCols.has('advances_discount')) fullCandidate.advances_discount = advancesFloat;
+  if (activeCols.has('other_discounts')) fullCandidate.other_discounts = otherDiscountsFloat;
 
   // 8. Líquido a Pagar ('liquido_a_pagar', 'valor_liquido', 'net_salary', 'salario_liquido')
   if (activeCols.has('liquido_a_pagar')) fullCandidate.liquido_a_pagar = netSalaryFloat;
@@ -10692,19 +10913,7 @@ export function buildRhFolhaPagamentoRow(
     salario_base: baseSalaryFloat,
     proventos: proventosFloat,
     inss: inssFloat,
-    irrf: irrfFloat,
-    sindicalDiscount: activeSindicalFloat,
-    sindicalEnabled: sindicalEnabledBool,
-    taxaSindical: activeSindicalFloat,
-    desconto_sindical: activeSindicalFloat,
-    vales_descontos: totalValesFloat,
-    advances_discount: totalValesFloat,
-    other_discounts: totalFaltasFloat,
-    total_vales: totalValesFloat,
-    total_faltas: totalFaltasFloat,
-    totalVales: totalValesFloat,
-    totalFaltas: totalFaltasFloat,
-    totalFaltasRef: p.totalFaltasRef || (p.payload && p.payload.totalFaltasRef) || (p.payload && p.payload.total_faltas_ref) || undefined,
+    vales_descontos: valesDescontosFloat,
     deducoes: totalDescontosFloat,
     liquido_a_pagar: netSalaryFloat,
   };
@@ -10718,11 +10927,6 @@ export function buildRhFolhaPagamentoRow(
       filteredRow[k] = v;
     }
   }
-
-  // OBRIGATÓRIO PARA RLS DO SUPABASE: company_id e user_id devem estar SEMPRE presentes no JSON enviado
-  filteredRow.company_id = cId;
-  filteredRow.user_id = userId;
-
   return filteredRow;
 }
 
@@ -10733,26 +10937,12 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
   const p = row.payload && typeof row.payload === 'object' ? row.payload : (row.dados && typeof row.dados === 'object' ? row.dados : {});
   const baseSalary = parseFloat(String(row.salario_base ?? row.base_salary ?? p.baseSalary ?? 0)) || 0;
   const inss = parseFloat(String(row.inss ?? row.desconto_inss ?? row.inss_discount ?? p.inssDiscount ?? 0)) || 0;
-  const irrf = parseFloat(String(row.irrf ?? row.desconto_irrf ?? row.irrf_discount ?? p.irrfDiscount ?? 0)) || 0;
-  const sindical = parseFloat(String(row.desconto_sindical ?? row.sindical_discount ?? row.taxa_sindical ?? row.sindical ?? p.sindicalDiscount ?? p.taxaSindical ?? p.desconto_sindical ?? 0)) || 0;
-  const sindicalEnabled = row.sindical_enabled !== undefined
-    ? Boolean(row.sindical_enabled)
-    : (p.sindicalEnabled !== undefined ? Boolean(p.sindicalEnabled) : sindical > 0);
-  
-  // Total exclusivo de vales e adiantamentos (Rubrica 110)
-  const totalVales = parseFloat(String(p.total_vales ?? p.totalVales ?? row.total_vales ?? p.advancesDiscount ?? row.advances_discount ?? row.vales_descontos ?? 0)) || 0;
-  // Total exclusivo de faltas e atrasos integrados (Rubrica 201)
-  const totalFaltas = parseFloat(String(p.total_faltas ?? p.totalFaltas ?? row.total_faltas ?? p.otherDiscounts ?? row.other_discounts ?? 0)) || 0;
-  
-  const activeSindicalVal = sindicalEnabled ? sindical : 0;
-  const rawDeducoes = parseFloat(String(row.deducoes ?? row.total_descontos ?? (inss + irrf + activeSindicalVal + totalVales + totalFaltas))) || (inss + irrf + activeSindicalVal + totalVales + totalFaltas);
-  const otherDiscounts = totalFaltas;
+  const vales = parseFloat(String(row.vales_descontos ?? row.advances_discount ?? p.advancesDiscount ?? 0)) || 0;
+  const otherDiscounts = parseFloat(String(row.deducoes ?? row.total_descontos ?? row.other_discounts ?? p.otherDiscounts ?? (inss + vales))) || 0;
   const net = parseFloat(String(row.liquido_a_pagar ?? row.valor_liquido ?? row.net_salary ?? row.salario_liquido ?? p.netSalary ?? 0)) || 0;
 
   return {
     id: row.id || p.id || '',
-    companyId: row.company_id || p.companyId,
-    userId: row.user_id || p.userId,
     employeeId: row.funcionario_id || row.employee_id || row.colaborador_id || p.employeeId || p.funcionario_id || '',
     employeeName: row.employee_name || row.nome_funcionario || row.nome || p.employeeName || '',
     employeeRole: row.employee_role || row.cargo || row.funcao || p.employeeRole || '',
@@ -10762,22 +10952,9 @@ export function mapRowToPayrollRecord(row: any): PayrollRecord {
     overtimeAmount: parseFloat(String(row.overtime_amount ?? p.overtimeAmount ?? 0)) || 0,
     bonusAmount: parseFloat(String(row.bonus_amount ?? p.bonusAmount ?? 0)) || 0,
     commissionAmount: parseFloat(String(row.commission_amount ?? p.commissionAmount ?? 0)) || 0,
-    commissionItems: Array.isArray(p.commissionItems) ? p.commissionItems : [],
     inssDiscount: inss,
-    irrfDiscount: irrf,
-    inssEnabled: p.inssEnabled !== undefined ? Boolean(p.inssEnabled) : inss > 0,
-    irrfEnabled: p.irrfEnabled !== undefined ? Boolean(p.irrfEnabled) : irrf > 0,
-    sindicalDiscount: sindical,
-    sindicalEnabled,
-    taxaSindical: sindical,
-    daysWorked: p.daysWorked,
-    unworkedDays: p.unworkedDays,
-    isProportional: p.isProportional,
-    advancesDiscount: totalVales,
-    otherDiscounts,
-    totalVales,
-    totalFaltas,
-    deductionItems: Array.isArray(p.deductionItems) ? p.deductionItems : [],
+    advancesDiscount: vales,
+    otherDiscounts: Math.max(0, otherDiscounts - inss - vales),
     netSalary: net,
     status: row.status || p.status || 'pendente',
     paymentDate: row.payment_date || p.paymentDate,
@@ -10850,40 +11027,13 @@ export async function upsertRhFolhasPagamento(
         });
 
         // Tentativa alternativa com .insert() direto para casos onde apenas a política de INSERT está configurada
-        // Garante obrigatoriamente a inclusão da propriedade company_id no objeto JSON enviado no método .insert()
-        const insertRows = rows.map(r => ({
-          ...r,
-          company_id: r.company_id || cId,
-          user_id: r.user_id || activeUid
-        }));
         const { error: insertErr } = await supabase
           .from('rh_folhas_pagamento')
-          .insert(insertRows);
+          .insert(rows);
 
         if (!insertErr) {
-          console.info('✅ [Supabase Folha] Linhas persistidas com sucesso via .insert() direto com company_id.');
+          console.info('✅ [Supabase Folha] Linhas persistidas com sucesso via .insert() direto.');
           return true;
-        }
-
-        // Se houver conflito de chave existente (23505), executa .update() individual com company_id
-        if (insertErr && (insertErr.code === '23505' || insertErr.message?.includes('duplicate') || insertErr.message?.includes('already exists'))) {
-          let allUpdated = true;
-          for (const row of insertRows) {
-            const rowId = (row as any).id;
-            if (!rowId) continue;
-            const { error: updateErr } = await supabase
-              .from('rh_folhas_pagamento')
-              .update(row)
-              .eq('id', rowId);
-            if (updateErr) {
-              allUpdated = false;
-              break;
-            }
-          }
-          if (allUpdated) {
-            console.info('✅ [Supabase Folha] Linhas atualizadas com sucesso via .update() com company_id.');
-            return true;
-          }
         }
       }
 
@@ -10936,7 +11086,6 @@ export async function upsertRhFolhasPagamento(
       const fallbackItem: Record<string, any> = {
         id: canonicalId,
         user_id: activeUid,
-        company_id: cId,
         employee_id: canonicalEmpId,
         mes_referencia: formattedCompetencia,
         salario_base: baseSalaryFloat,
@@ -10945,6 +11094,11 @@ export async function upsertRhFolhasPagamento(
         valor_liquido: netFloat,
         status: p.status || 'pendente',
       };
+
+      // Injeta company_id no fallback para atender à política de segurança RLS caso a coluna exista
+      if (schemaCols.has('company_id')) {
+        fallbackItem.company_id = cId;
+      }
 
       return fallbackItem;
     });
@@ -10965,17 +11119,6 @@ export async function upsertRhFolhasPagamento(
       if (!directInsertRes.error) {
         console.info('✅ [Supabase Folha] Fallback persistido com sucesso via .insert() direto.');
         return true;
-      }
-      if (directInsertRes.error && (directInsertRes.error.code === '23505' || directInsertRes.error.message?.includes('duplicate'))) {
-        let allUpdated = true;
-        for (const row of minimalFallback) {
-          const { error: updateErr } = await supabase
-            .from('rh_folhas_pagamento')
-            .update(row)
-            .eq('id', row.id);
-          if (updateErr) { allUpdated = false; break; }
-        }
-        if (allUpdated) return true;
       }
     }
 
@@ -11052,402 +11195,6 @@ export async function deleteRhFolhaPagamento(id: string, userId?: string): Promi
     const { error } = await query;
     return !error;
   } catch {
-    return false;
-  }
-}
-
-// ========================================================
-// OPERAÇÕES OFICIAIS NA TABELA PUBLIC.RH_FALTAS (SUPABASE)
-// ========================================================
-
-/**
- * Colunas exatas presentes na tabela public.rh_faltas no Supabase:
- * id, company_id, funcionario_id, tipo_falta, data_periodo, qtd_dias, motivo_justificativa, desconto_estimado, status
- */
-export const RH_FALTAS_SELECT_COLUMNS = 'id, company_id, funcionario_id, tipo_falta, data_periodo, qtd_dias, motivo_justificativa, desconto_estimado, status';
-
-/**
- * Constrói o objeto estritamente compatível com as colunas da tabela public.rh_faltas
- */
-export function buildRhFaltaRow(
-  item: AbsenceRecord,
-  companyId?: string
-): Record<string, any> {
-  const cId = item.companyId || companyId || getActiveCompanyId() || 'default';
-  const canonicalId = toValidUUID(item.id);
-  const canonicalEmpId = toValidUUID(item.employeeId);
-
-  const daysCountVal = Number(item.daysCount) || 1;
-  const discountAmountVal = parseFloat(String(item.discountAmount ?? 0)) || 0;
-  const absenceHoursVal = item.absenceHours !== undefined ? Number(item.absenceHours) : 0;
-  const unit = item.absenceUnit || (absenceHoursVal > 0 ? 'horas' : 'dias');
-  const baseReason = item.reason || item.notes || '';
-
-  // Empacotamento de resiliência: se o banco só possui colunas físicas básicas,
-  // preservamos unidade, horas fracionadas e memória de cálculo de forma transparente
-  let motivoWithMeta = baseReason;
-  if (unit === 'horas' || item.calculationMemory || item.isProportionalAdmission) {
-    const meta = {
-      unit,
-      hours: absenceHoursVal,
-      calcMem: item.calculationMemory || '',
-      isProp: !!item.isProportionalAdmission,
-      propSal: item.proportionalBaseSalary,
-    };
-    motivoWithMeta = `${baseReason} [META:${JSON.stringify(meta)}]`.trim();
-  }
-
-  return {
-    id: canonicalId,
-    company_id: cId,
-    funcionario_id: canonicalEmpId,
-    tipo_falta: item.type || 'injustificada',
-    data_periodo: item.date || new Date().toISOString().split('T')[0],
-    qtd_dias: Math.max(1, Math.round(daysCountVal)),
-    motivo_justificativa: motivoWithMeta,
-    desconto_estimado: discountAmountVal,
-    status: item.status || 'pendente',
-  };
-}
-
-/**
- * Constrói o objeto enriquecido com payload JSONB para preservação de unidade de medida e horas
- */
-export function buildRhFaltaRowWithPayload(
-  item: AbsenceRecord,
-  companyId?: string
-): Record<string, any> {
-  const base = buildRhFaltaRow(item, companyId);
-  const absenceHoursVal = item.absenceHours !== undefined ? Number(item.absenceHours) : 0;
-  const unit = item.absenceUnit || (absenceHoursVal > 0 ? 'horas' : 'dias');
-
-  const unifiedPayload = {
-    ...item,
-    id: base.id,
-    company_id: base.company_id,
-    funcionario_id: base.funcionario_id,
-    unidade_medida: unit,
-    horas_ausencia: absenceHoursVal,
-    absenceUnit: unit,
-    absenceHours: absenceHoursVal,
-    calculationMemory: item.calculationMemory || '',
-    isProportionalAdmission: Boolean(item.isProportionalAdmission),
-    proportionalBaseSalary: item.proportionalBaseSalary,
-  };
-
-  return {
-    ...base,
-    payload: unifiedPayload,
-    dados: unifiedPayload,
-    unidade_medida: unit,
-    horas_ausencia: absenceHoursVal,
-  };
-}
-
-/**
- * Converte uma linha retornada da tabela public.rh_faltas em AbsenceRecord
- */
-export function mapRowToAbsenceRecord(row: any): AbsenceRecord {
-  if (!row) {
-    return {
-      id: '',
-      employeeId: '',
-      employeeName: '',
-      employeeRole: '',
-      date: '',
-      daysCount: 1,
-      type: 'injustificada',
-      discountPayroll: true,
-      discountAmount: 0,
-      referenceMonth: '',
-      status: 'pendente',
-      createdAt: new Date().toISOString(),
-    };
-  }
-
-  const p = row.payload && typeof row.payload === 'object' ? row.payload : (row.dados && typeof row.dados === 'object' ? row.dados : {});
-  const empId = row.funcionario_id || row.employee_id || p.employeeId || '';
-  const dt = row.data_periodo || row.data || row.date || p.date || '';
-  const days = Number(row.qtd_dias ?? row.dias ?? p.daysCount ?? 1) || 1;
-  const tp = (row.tipo_falta || row.tipo || p.type || 'injustificada') as AbsenceRecord['type'];
-  const discAmount = parseFloat(String(row.desconto_estimado ?? row.valor_desconto ?? p.discountAmount ?? 0)) || 0;
-  const discPayroll = discAmount > 0;
-
-  // Extrai metadata de resiliência caso presente em motivo_justificativa
-  let rawReason = row.motivo_justificativa || row.motivo || p.reason || p.notes || '';
-  let metaExt: any = null;
-  if (typeof rawReason === 'string' && rawReason.includes('[META:')) {
-    const startIdx = rawReason.indexOf('[META:');
-    const endIdx = rawReason.lastIndexOf(']');
-    if (endIdx > startIdx) {
-      try {
-        const jsonStr = rawReason.slice(startIdx + 6, endIdx);
-        metaExt = JSON.parse(jsonStr);
-        rawReason = rawReason.slice(0, startIdx).trim();
-      } catch (_) {}
-    }
-  }
-
-  // Unidade de Medida e Horas Fracionadas
-  const rawUnit = p.absenceUnit || p.unidade_medida || row.unidade_medida || metaExt?.unit;
-  const rawHours = p.absenceHours || p.horas_ausencia || row.horas_ausencia || metaExt?.hours;
-  const absenceUnit = rawUnit === 'horas' ? 'horas' : (Number(rawHours) > 0 ? 'horas' : 'dias');
-  const absenceHours = Number(rawHours) || (absenceUnit === 'horas' ? days : undefined);
-  const calculationMemory = p.calculationMemory || metaExt?.calcMem || undefined;
-  const isProportionalAdmission = p.isProportionalAdmission !== undefined 
-    ? Boolean(p.isProportionalAdmission) 
-    : (metaExt?.isProp !== undefined ? Boolean(metaExt.isProp) : undefined);
-  const proportionalBaseSalary = p.proportionalBaseSalary !== undefined 
-    ? Number(p.proportionalBaseSalary) 
-    : (metaExt?.propSal !== undefined ? Number(metaExt.propSal) : undefined);
-
-  // Extrai competência MM/AAAA da data_periodo (ex: "2026-09-15" -> "09/2026")
-  let comp = p.referenceMonth || row.competencia || '';
-  if (!comp && dt) {
-    if (dt.includes('-')) {
-      const parts = dt.split('-');
-      if (parts.length >= 2) {
-        comp = `${parts[1].padStart(2, '0')}/${parts[0]}`;
-      }
-    } else if (dt.includes('/')) {
-      const parts = dt.split('/');
-      if (parts.length === 3) {
-        comp = `${parts[1].padStart(2, '0')}/${parts[2]}`;
-      }
-    }
-  }
-
-  const reason = rawReason || undefined;
-  const st = (row.status || p.status || 'pendente') as AbsenceRecord['status'];
-
-  // Busca funcionário no localStorage caso não venha no payload
-  let empName = row.employee_name || p.employeeName || '';
-  let empRole = row.employee_role || p.employeeRole || '';
-  if (!empName && empId) {
-    try {
-      const emps = getStoredEmployees();
-      const found = emps.find(e => e.id === empId || toValidUUID(e.id) === toValidUUID(empId));
-      if (found) {
-        empName = found.name;
-        empRole = found.role;
-      }
-    } catch (_) {}
-  }
-
-  return {
-    id: row.id || p.id || toValidUUID(`abs_${Date.now()}`),
-    companyId: row.company_id || p.companyId || 'default',
-    employeeId: empId,
-    employeeName: empName || 'Colaborador',
-    employeeRole: empRole || 'Operador',
-    date: dt,
-    daysCount: days,
-    absenceUnit,
-    absenceHours,
-    calculationMemory,
-    isProportionalAdmission,
-    proportionalBaseSalary,
-    type: tp,
-    discountPayroll: discPayroll,
-    discountAmount: discAmount,
-    referenceMonth: comp,
-    reason: reason,
-    notes: reason,
-    status: st,
-    payload: p,
-    createdAt: row.created_at || p.createdAt || new Date().toISOString(),
-  };
-}
-
-/**
- * Salva ou atualiza um registro na tabela public.rh_faltas do Supabase
- */
-export async function upsertRhFalta(
-  item: AbsenceRecord,
-  _userId?: string,
-  companyId?: string
-): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
-  try {
-    const cId = companyId || item.companyId || getActiveCompanyId() || 'default';
-    
-    // 1. Tenta gravar com payload enriquecido
-    const richRow = buildRhFaltaRowWithPayload(item, cId);
-    const { error: richErr } = await supabase
-      .from('rh_faltas')
-      .upsert(richRow, { onConflict: 'id' });
-
-    if (!richErr) return true;
-
-    // 2. Fallback resiliente estritamente para as colunas físicas básicas da tabela
-    const basicRow = buildRhFaltaRow(item, cId);
-    const { error: basicErr } = await supabase
-      .from('rh_faltas')
-      .upsert(basicRow, { onConflict: 'id' });
-
-    if (basicErr) {
-      console.warn('[upsertRhFalta] Falha ao persistir em rh_faltas:', basicErr.message);
-      return false;
-    }
-
-    return true;
-  } catch (err: any) {
-    console.error('[upsertRhFalta] Erro inesperado ao gravar em rh_faltas:', err);
-    return false;
-  }
-}
-
-/**
- * Exclui um registro da tabela public.rh_faltas do Supabase
- */
-export async function deleteRhFalta(id: string, _userId?: string): Promise<boolean> {
-  if (!isSupabaseConfigured || !id) return false;
-  try {
-    const canonicalId = toValidUUID(id);
-    const { error } = await supabase
-      .from('rh_faltas')
-      .delete()
-      .eq('id', canonicalId);
-
-    if (error) {
-      console.warn('[deleteRhFalta] Falha ao deletar em rh_faltas:', error.message);
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Busca todas as faltas e ocorrências na tabela public.rh_faltas do Supabase
- * utilizando estritamente as colunas existentes para eliminar o erro GET 400
- */
-export async function fetchCloudAbsences(
-  companyId?: string,
-  employeeId?: string,
-  _userId?: string
-): Promise<AbsenceRecord[]> {
-  if (!isSupabaseConfigured) return [];
-  try {
-    const cId = companyId || getActiveCompanyId();
-    const map = new Map<string, AbsenceRecord>();
-    let foundInRelational = false;
-
-    // 1. Busca estrita na tabela public.rh_faltas com as colunas que batem exatamente com o banco
-    try {
-      const { data: relRows, error: relErr } = await supabase
-        .from('rh_faltas')
-        .select(RH_FALTAS_SELECT_COLUMNS);
-
-      if (!relErr && Array.isArray(relRows)) {
-        foundInRelational = true;
-        for (const r of relRows) {
-          if (employeeId) {
-            const rowEmpId = r.funcionario_id;
-            const targetEmpUuid = toValidUUID(employeeId);
-            if (rowEmpId !== employeeId && toValidUUID(rowEmpId) !== targetEmpUuid) {
-              continue;
-            }
-          }
-          const mapped = mapRowToAbsenceRecord(r);
-          if (mapped && mapped.id) {
-            map.set(toValidUUID(mapped.id), mapped);
-          }
-        }
-      } else if (relErr) {
-        console.warn('[fetchCloudAbsences] Erro ao buscar rh_faltas com colunas estritas, tentando select(*):', relErr.message);
-        const { data: fallbackRows, error: fallbackErr } = await supabase
-          .from('rh_faltas')
-          .select('*');
-
-        if (!fallbackErr && Array.isArray(fallbackRows)) {
-          foundInRelational = true;
-          for (const r of fallbackRows) {
-            const mapped = mapRowToAbsenceRecord(r);
-            if (mapped && mapped.id) {
-              map.set(toValidUUID(mapped.id), mapped);
-            }
-          }
-        }
-      }
-    } catch (queryErr) {
-      console.warn('[fetchCloudAbsences] Falha na consulta de rh_faltas:', queryErr);
-    }
-
-    // 2. Se a tabela estava vazia ou inacessível, fallback suave para site_settings
-    if (!foundInRelational || map.size === 0) {
-      try {
-        const { data, error } = await supabase
-          .from('site_settings')
-          .select('hero_title')
-          .eq('id', `cloud_absences_${cId}`)
-          .maybeSingle();
-
-        if (!error && data?.hero_title) {
-          try {
-            const parsed = JSON.parse(data.hero_title);
-            if (Array.isArray(parsed)) {
-              for (const item of parsed) {
-                const normId = toValidUUID(item.id);
-                if (employeeId) {
-                  const normEmpId = toValidUUID(employeeId);
-                  if (toValidUUID(item.employeeId) !== normEmpId && item.employeeId !== employeeId) {
-                    continue;
-                  }
-                }
-                if (!map.has(normId)) {
-                  map.set(normId, { ...item, id: normId, companyId: cId });
-                }
-              }
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-
-    return map.size > 0 ? Array.from(map.values()) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-/**
- * Salva e sincroniza faltas em lote no Supabase (rh_faltas + site_settings)
- */
-export async function saveCloudAbsences(
-  absences: AbsenceRecord[],
-  companyId?: string,
-  _userId?: string
-): Promise<boolean> {
-  if (!isSupabaseConfigured) return false;
-  try {
-    const cId = companyId || getActiveCompanyId();
-    const rows = (Array.isArray(absences) ? absences : []).map(a => buildRhFaltaRow(a, cId));
-
-    if (rows.length > 0) {
-      const { error } = await supabase
-        .from('rh_faltas')
-        .upsert(rows, { onConflict: 'id' });
-
-      if (error) {
-        console.warn('[saveCloudAbsences] Erro ao sincronizar em lote rh_faltas:', error.message);
-      }
-    }
-
-    // Mantém espelhamento em site_settings para resiliência
-    try {
-      await supabase.from('site_settings').upsert({
-        id: `cloud_absences_${cId}`,
-        hero_title: JSON.stringify(absences),
-        allow_free_trial: true,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-    } catch (_) {}
-
-    return true;
-  } catch (e) {
-    console.error('Falha ao persistir faltas no Supabase:', e);
     return false;
   }
 }
@@ -12644,7 +12391,7 @@ export async function fetchCaixaFerramentasVeiculo(
     }
 
     const mapped: CaixaFerramentaVeiculoRecord[] = (data || []).map((row: any) => {
-      const frotaRow = row.gestao_frotas;
+      const frotaRow = row.veiculos_maquinas || row.gestao_frotas;
       const matchedVehicle = machineries.find(
         m => m.id === row.veiculo_id || toValidUUID(m.id) === row.veiculo_id
       );

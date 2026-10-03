@@ -339,7 +339,7 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setIsPrintModalOpen(true);
   };
 
-  // Sincronização em tempo real de frotas (multi-dispositivos) escutando 'gestao_frotas'
+  // Sincronização em tempo real de frotas (multi-dispositivos) escutando 'veiculos_maquinas'
   React.useEffect(() => {
     if (!isSupabaseConfigured) return;
 
@@ -357,9 +357,9 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       .channel(channelId)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'gestao_frotas' },
+        { event: '*', schema: 'public', table: 'veiculos_maquinas' },
         async (payload: any) => {
-          console.info('📡 [Realtime Frotas - Veículos] Alteração detectada em gestao_frotas:', payload.eventType, payload);
+          console.info('📡 [Realtime Frotas - Veículos] Alteração detectada em veiculos_maquinas:', payload.eventType, payload);
 
           // Atualização reativa imediata: recarrega todos os registros de frotas via REST do Supabase
           try {
@@ -369,6 +369,20 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
             }
           } catch (err) {
             console.warn('Erro ao sincronizar frota em tempo real via listener:', err);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'gestao_frotas' },
+        async (payload: any) => {
+          try {
+            const fresh = await fetchGestaoFrotas(companyProfile?.id);
+            if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineries) {
+              onSaveMachineries(fresh);
+            }
+          } catch (err) {
+            console.warn('Erro ao sincronizar frota em tempo real via listener gestao_frotas:', err);
           }
         }
       )

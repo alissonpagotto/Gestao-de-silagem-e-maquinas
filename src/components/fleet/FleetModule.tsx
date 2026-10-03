@@ -25,7 +25,8 @@ import { VehicleHistoryModal } from './VehicleHistoryModal';
 import { updateVehicleWithCalculatedMetrics } from '../../lib/fleetMetrics';
 import { 
   upsertGestaoFrota, 
-  fetchGestaoFrotas,
+  upsertVeiculoMaquina,
+  deleteVeiculoMaquina,
   saveCloudFuelLogs, 
   saveCloudMachineries, 
   upsertAbastecimento, 
@@ -37,8 +38,7 @@ import {
   deleteCloudMaintenanceLog,
   saveCloudMaintenanceLogs,
   upsertCloudMaintenanceLog,
-  fetchCloudMaintenanceLogs,
-  fetchCloudBankAccounts
+  mapRowToMaintenanceLog
 } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
@@ -126,101 +126,25 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const maintenanceLogsRef = useRef(maintenanceLogs);
   maintenanceLogsRef.current = maintenanceLogs;
 
-  // 1. Inscrição em tempo real (Supabase Realtime) escutando 'gestao_frotas' para manter grade e contadores atualizados
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    let isMounted = true;
-    const activeCompany = companyProfile?.id || getActiveCompanyId();
-
-    // Busca inicial rápida para sincronizar frotas, manutenções e contas bancárias
-    fetchGestaoFrotas(activeCompany).then(fresh => {
-      if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0) {
-        onSaveMachineries(fresh);
-        saveStoredMachineries(fresh);
-      }
-    }).catch(() => {});
-
-    fetchCloudMaintenanceLogs(activeCompany, currentUser?.id || currentUser?.uid).then(freshMaint => {
-      if (isMounted && freshMaint && Array.isArray(freshMaint) && freshMaint.length > 0) {
-        onSaveMaintenanceLogs(freshMaint);
-        saveStoredMaintenanceLogs(freshMaint);
-      }
-    }).catch(() => {});
-
-    if (onSaveBankAccounts) {
-      fetchCloudBankAccounts(activeCompany, currentUser?.id || currentUser?.uid).then(freshAccs => {
-        if (isMounted && freshAccs && Array.isArray(freshAccs) && freshAccs.length > 0) {
-          onSaveBankAccounts(freshAccs);
-          saveStoredBankAccounts(freshAccs);
-        }
-      }).catch(() => {});
-    }
-
-    const channelId = `fleet_module_frotas_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const frotasChannel = supabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'gestao_frotas' },
-        async (payload: any) => {
-          console.info('📡 [Realtime FleetModule] Alteração detectada em gestao_frotas:', payload.eventType, payload);
-          try {
-            const fresh = await fetchGestaoFrotas(activeCompany);
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              onSaveMachineries(fresh);
-              saveStoredMachineries(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao atualizar frota em tempo real no FleetModule:', err);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      isMounted = false;
-      try { supabase.removeChannel(frotasChannel); } catch (_) {}
-    };
-  }, [companyProfile?.id, currentUser?.id, onSaveMachineries, onSaveMaintenanceLogs, onSaveBankAccounts]);
-
-  // 2. Listener em tempo real escutando eventos em 'frotas_manutencoes' e 'manutencoes'
+  // Listener em tempo real (Supabase Realtime) escutando eventos na tabela física oficial 'manutencoes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
     let channel: any = null;
 
     const setupRealtime = async () => {
-      const activeUid = currentUser?.id || 'public';
-      const channelId = `frotas_manutencoes_rt_sync_${activeUid}_${Date.now()}`;
+      let activeUid = currentUser?.id;
+      if (!activeUid) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          activeUid = authData?.user?.id;
+        } catch (_) {}
+      }
+      if (!activeUid) return;
+
+      const channelId = `manutencoes_rt_sync_${activeUid}_${Date.now()}`;
       channel = supabase
         .channel(channelId)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'frotas_manutencoes',
-          },
-          (payload: any) => {
-            if (!isMounted) return;
-            if (payload.eventType === 'DELETE') {
-              const delId = payload.old?.id;
-              if (delId) {
-                const nextLogs = maintenanceLogsRef.current.filter(m => m.id !== delId);
-                onSaveMaintenanceLogs(nextLogs);
-                saveStoredMaintenanceLogs(nextLogs);
-              }
-            } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const activeCompany = companyProfile?.id || getActiveCompanyId();
-              fetchCloudMaintenanceLogs(activeCompany, currentUser?.id || currentUser?.uid).then(fresh => {
-                if (isMounted && fresh && Array.isArray(fresh)) {
-                  onSaveMaintenanceLogs(fresh);
-                  saveStoredMaintenanceLogs(fresh);
-                }
-              }).catch(() => {});
-            }
-          }
-        )
         .on(
           'postgres_changes',
           {
@@ -237,14 +161,24 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                 onSaveMaintenanceLogs(nextLogs);
                 saveStoredMaintenanceLogs(nextLogs);
               }
-            } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const activeCompany = companyProfile?.id || getActiveCompanyId();
-              fetchCloudMaintenanceLogs(activeCompany, currentUser?.id || currentUser?.uid).then(fresh => {
-                if (isMounted && fresh && Array.isArray(fresh)) {
-                  onSaveMaintenanceLogs(fresh);
-                  saveStoredMaintenanceLogs(fresh);
+            } else if (payload.eventType === 'INSERT' && payload.new) {
+              const item = mapRowToMaintenanceLog(payload.new);
+              if (item.id) {
+                const current = maintenanceLogsRef.current;
+                const exists = current.some(m => m.id === item.id);
+                if (!exists) {
+                  const nextLogs = [item, ...current];
+                  onSaveMaintenanceLogs(nextLogs);
+                  saveStoredMaintenanceLogs(nextLogs);
                 }
-              }).catch(() => {});
+              }
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+              const item = mapRowToMaintenanceLog(payload.new);
+              if (item.id) {
+                const nextLogs = maintenanceLogsRef.current.map(m => m.id === item.id ? { ...m, ...item } : m);
+                onSaveMaintenanceLogs(nextLogs);
+                saveStoredMaintenanceLogs(nextLogs);
+              }
             }
           }
         )
@@ -282,7 +216,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         try { supabase.removeChannel(channel); } catch (_) {}
       }
     };
-  }, [currentUser?.id, companyProfile?.id, onSaveMaintenanceLogs]);
+  }, [currentUser?.id]);
 
   // Vehicle Types configuration & Tire Rotation Logs state
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeDefinition[]>(() => getStoredVehicleTypes());
@@ -364,7 +298,11 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       variant: 'danger',
     });
     if (isConfirmed) {
-      onSaveMachineries(machineries.filter(m => m.id !== id));
+      const nextList = machineries.filter(m => m.id !== id);
+      onSaveMachineries(nextList);
+      saveStoredMachineries(nextList);
+      saveCloudMachineries(nextList).catch(console.error);
+      deleteVeiculoMaquina(id).catch(err => console.warn('Aviso ao excluir veículo no banco:', err));
     }
   };
 
@@ -397,27 +335,11 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const handleSaveVehicle = async (vehicleData: Partial<Machinery>) => {
     let savedTargetVehicle: Machinery | null = null;
     let updatedList: Machinery[] = [];
-    const activeCompanyId = companyProfile?.id || getActiveCompanyId();
-    const modeloVeiculo = vehicleData.model || vehicleData.modelo || 'Modelo';
-    const tipoVeiculo = vehicleData.categoryType || vehicleData.tipo || 'forrageira';
-    const nomeVeiculo = vehicleData.nome || vehicleData.name || modeloVeiculo || tipoVeiculo || 'Veículo';
-    const tipoModeloInput = (vehicleData as any).tipo_modelo || `${tipoVeiculo} - ${modeloVeiculo}`;
 
     if (editingVehicle) {
       updatedList = machineries.map(m => {
         if (m.id === editingVehicle.id) {
-          const merged = { 
-            ...m, 
-            ...vehicleData,
-            nome: nomeVeiculo,
-            name: nomeVeiculo,
-            modelo: modeloVeiculo,
-            model: modeloVeiculo,
-            tipo: tipoVeiculo,
-            categoryType: tipoVeiculo,
-            tipo_modelo: tipoModeloInput,
-            companyId: activeCompanyId
-          } as Machinery;
+          const merged = { ...m, ...vehicleData } as Machinery;
 
           // Se o usuário desativou o reboque (switch NÃO), limpa estritamente todos os dados de vínculo
           if (!vehicleData.hasCoupledTrailer) {
@@ -453,9 +375,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       saveCloudMachineries(updatedList).catch(console.error);
       if (savedTargetVehicle) {
         try {
-          await upsertGestaoFrota(savedTargetVehicle, activeCompanyId);
+          await upsertVeiculoMaquina(savedTargetVehicle);
         } catch (err) {
-          console.error('Erro ao salvar veículo no Supabase gestao_frotas:', err);
+          console.error('Erro ao salvar veículo no Supabase veiculos_maquinas:', err);
         }
       }
     } else {
@@ -463,15 +385,10 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       const newVehicle: Machinery = {
         ...vehicleData,
         id: vehicleData.id || `mach_${Date.now()}`,
-        nome: nomeVeiculo,
-        name: nomeVeiculo,
-        modelo: modeloVeiculo,
-        model: modeloVeiculo,
-        tipo: tipoVeiculo,
-        categoryType: tipoVeiculo,
-        tipo_modelo: tipoModeloInput,
-        companyId: activeCompanyId,
+        name: vehicleData.name || vehicleData.model || 'Novo Veículo',
+        model: vehicleData.model || 'Modelo',
         brand: vehicleData.brand || 'Agrícola',
+        categoryType: vehicleData.categoryType || 'forrageira',
         status: vehicleData.status || 'disponivel',
         ownership: vehicleData.ownership || 'proprio',
         licensePlateOrSerial: vehicleData.licensePlateOrSerial || '',
@@ -513,9 +430,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       saveStoredMachineries(updatedList);
       saveCloudMachineries(updatedList).catch(console.error);
       try {
-        await upsertGestaoFrota(calculatedNew, activeCompanyId);
+        await upsertVeiculoMaquina(calculatedNew);
       } catch (err) {
-        console.error('Erro ao salvar novo veículo no Supabase gestao_frotas:', err);
+        console.error('Erro ao salvar novo veículo no Supabase veiculos_maquinas:', err);
       }
     }
     setIsVehicleModalOpen(false);

@@ -354,15 +354,20 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       try {
         const results: Machinery[] = [];
 
-        // 1. Busca na tabela gestao_frotas trazendo APENAS registros cujo campo 'categoria' ou 'tipo_veiculo' / 'tipo' seja estritamente igual a 'Reboque' ou 'Implemento'
+        // 1. Busca na tabela física veiculos_maquinas trazendo APENAS registros cujo campo 'categoria' ou 'tipo_veiculo' / 'tipo' seja estritamente igual a 'Reboque' ou 'Implemento'
         const activeCompanyId = getActiveCompanyId();
 
-        // Detecta colunas reais disponíveis em gestao_frotas para evitar erro 400 (PGRST204)
+        // Detecta colunas reais disponíveis em veiculos_maquinas para evitar erro 400 (PGRST204)
         const cols = new Set<string>();
         try {
-          const { data: sampleCols } = await supabase.from('gestao_frotas').select('*').limit(1);
+          const { data: sampleCols } = await supabase.from('veiculos_maquinas').select('*').limit(1);
           if (sampleCols && Array.isArray(sampleCols) && sampleCols.length > 0 && sampleCols[0]) {
             Object.keys(sampleCols[0]).forEach(k => cols.add(k));
+          } else {
+            const { data: gfCols } = await supabase.from('gestao_frotas').select('*').limit(1);
+            if (gfCols && Array.isArray(gfCols) && gfCols.length > 0 && gfCols[0]) {
+              Object.keys(gfCols[0]).forEach(k => cols.add(k));
+            }
           }
         } catch (_) {}
 
@@ -386,25 +391,44 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
 
         let frotasData: any[] | null = null;
         if (filterClauses.length > 0) {
-          let filteredQuery = supabase.from('gestao_frotas').select('*');
+          let filteredQuery = supabase.from('veiculos_maquinas').select('*');
           if (activeCompanyId && (cols.size === 0 || cols.has('company_id'))) {
             filteredQuery = filteredQuery.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
           }
           const { data: qData, error: qErr } = await filteredQuery.or(filterClauses.join(','));
-          if (!qErr && Array.isArray(qData)) {
+          if (!qErr && Array.isArray(qData) && qData.length > 0) {
             frotasData = qData;
+          } else {
+            // Fallback em gestao_frotas
+            let gfQuery = supabase.from('gestao_frotas').select('*');
+            if (activeCompanyId && (cols.size === 0 || cols.has('company_id'))) {
+              gfQuery = gfQuery.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+            }
+            const gfRes = await gfQuery.or(filterClauses.join(','));
+            if (!gfRes.error && Array.isArray(gfRes.data)) {
+              frotasData = gfRes.data;
+            }
           }
         }
 
         // Se cols ainda não tinha sido carregado ou a query com filtros não retornou, faz a query base
-        if (!frotasData) {
-          let query = supabase.from('gestao_frotas').select('*');
+        if (!frotasData || frotasData.length === 0) {
+          let query = supabase.from('veiculos_maquinas').select('*');
           if (activeCompanyId) {
             query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
           }
           const { data, error } = await query;
-          if (!error && Array.isArray(data)) {
+          if (!error && Array.isArray(data) && data.length > 0) {
             frotasData = data;
+          } else {
+            let fallbackQ = supabase.from('gestao_frotas').select('*');
+            if (activeCompanyId) {
+              fallbackQ = fallbackQ.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
+            }
+            const fallbackRes = await fallbackQ;
+            if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
+              frotasData = fallbackRes.data;
+            }
           }
         }
 

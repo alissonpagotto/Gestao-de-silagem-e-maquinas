@@ -909,7 +909,7 @@ export default function App() {
       });
     });
 
-    const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
+    const handleFrotasUpdate = () => {
       fetchGestaoFrotas(activeTenantId).then(fresh => {
         if (fresh && isMounted) {
           setMachineries(prev => {
@@ -937,7 +937,7 @@ export default function App() {
                   compositionType: f.compositionType,
                   assignedDrivers,
                   assignedDriverIds,
-                  operatorOrDriver,
+                  operatorOrDriver
                 };
               }
               return f;
@@ -949,6 +949,17 @@ export default function App() {
             }
             return merged;
           });
+        }
+      });
+    };
+
+    const unsubFrotasVM = subscribeToCloudTable('veiculos_maquinas', handleFrotasUpdate);
+    const unsubFrotas = subscribeToCloudTable('gestao_frotas', handleFrotasUpdate);
+    const unsubManut = subscribeToCloudTable('manutencoes', () => {
+      fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+        if (fresh && isMounted) {
+          setMaintenanceLogs(fresh);
+          saveStoredMaintenanceLogs(fresh);
         }
       });
     });
@@ -1234,22 +1245,9 @@ export default function App() {
       );
     canalFornecedores.subscribe();
 
-    // 4. Realtime para Manutenções de Frotas (tabelas 'frotas_manutencoes' e 'manutencoes')
+    // 4. Realtime para Manutenções de Frotas (tabela física oficial 'manutencoes')
     const canalManutencoes = supabase
-      .channel('app_frotas_manutencoes_rt')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'frotas_manutencoes' },
-        (_payload) => {
-          fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
-            if (isMounted) {
-              const safeLogs = Array.isArray(fresh) ? fresh : [];
-              setMaintenanceLogs(safeLogs);
-              if (safeLogs.length > 0) saveStoredMaintenanceLogs(safeLogs);
-            }
-          });
-        }
-      )
+      .channel('app_manutencoes_rt')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'manutencoes' },
@@ -1262,8 +1260,38 @@ export default function App() {
             }
           });
         }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'frotas_manutencoes' },
+        (_payload) => {
+          fetchCloudMaintenanceLogs(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
+            if (isMounted) {
+              const safeLogs = Array.isArray(fresh) ? fresh : [];
+              setMaintenanceLogs(safeLogs);
+              if (safeLogs.length > 0) saveStoredMaintenanceLogs(safeLogs);
+            }
+          });
+        }
       );
     canalManutencoes.subscribe();
+
+    // 4.1 Realtime para Veículos e Máquinas (tabela física oficial 'veiculos_maquinas')
+    const canalVeiculosMaquinas = supabase
+      .channel('app_veiculos_maquinas_rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'veiculos_maquinas' },
+        (_payload) => {
+          fetchGestaoFrotas(activeTenantId).then(fresh => {
+            if (fresh && Array.isArray(fresh) && isMounted) {
+              setMachineries(fresh);
+              saveStoredMachineries(fresh);
+            }
+          });
+        }
+      );
+    canalVeiculosMaquinas.subscribe();
 
     // 5. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
     const pollAbastecimentosInterval = setInterval(() => {
@@ -1308,7 +1336,9 @@ export default function App() {
       unsubTanquesCombustivel();
       unsubRH();
       unsubFuncionarios();
+      unsubFrotasVM();
       unsubFrotas();
+      unsubManut();
       unsubContas();
       unsubSettings();
       unsubFrentes();
@@ -1319,6 +1349,7 @@ export default function App() {
       supabase.removeChannel(canalContasBancarias);
       supabase.removeChannel(canalFornecedores);
       supabase.removeChannel(canalManutencoes);
+      supabase.removeChannel(canalVeiculosMaquinas);
       clearInterval(pollAbastecimentosInterval);
       document.removeEventListener('visibilitychange', handleFocusSync);
       window.removeEventListener('focus', handleFocusSync);

@@ -197,7 +197,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         'notas_fiscais',
         'notas_entradas',
         'entradas_mercadorias',
+        'veiculos_maquinas',
         'gestao_frotas',
+        'manutencoes',
         'site_settings'
       ];
 
@@ -261,7 +263,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     const unsubNotasEntradas = subscribeToCloudTable('notas_entradas', () => {
       if (isMounted) refreshDashboardData(false);
     });
+    const unsubFrotasVM = subscribeToCloudTable('veiculos_maquinas', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
     const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
+      if (isMounted) refreshDashboardData(false);
+    });
+    const unsubManut = subscribeToCloudTable('manutencoes', () => {
       if (isMounted) refreshDashboardData(false);
     });
     const unsubSettings = subscribeToCloudTable('site_settings', () => {
