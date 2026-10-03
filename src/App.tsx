@@ -3080,7 +3080,7 @@ export default function App() {
           )}
 
           {/* TAB: Gestão de Frotas / Veículos / Manutenções / Motoristas / Equipe / Combustível / Rodízio */}
-          {(activeTab === 'frotas' || activeTab === 'veiculos' || activeTab === 'manutencoes' || activeTab === 'combustivel' || activeTab === 'motoristas' || activeTab === 'equipe' || activeTab === 'rodizio' || activeTab === 'rodizio_pneus') && (
+          {(activeTab === 'frotas' || activeTab === 'frota' || activeTab === 'veiculos' || activeTab === 'manutencoes' || activeTab === 'combustivel' || activeTab === 'motoristas' || activeTab === 'equipe' || activeTab === 'rodizio' || activeTab === 'rodizio_pneus') && (
             <FleetModule
               machineries={machineries}
               employees={employees}
@@ -3162,6 +3162,29 @@ export default function App() {
               onSyncSupabase={handleSyncSupabase}
               onOpenCustomizeShortcuts={() => setIsCustomizeShortcutsOpen(true)}
               onOpenReorderMenu={() => setIsReorderMenuOpen(true)}
+            />
+          )}
+
+          {/* Fallback Visual Seguro para MainDashboard se a aba não for reconhecida */}
+          {!['dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes'].includes(activeTab) && (
+            <MainDashboard
+              expenses={expenses}
+              clients={clients}
+              machineries={machineries}
+              employees={employees}
+              orders={orders}
+              services={services}
+              inventory={inventory}
+              fuelLogs={fuelLogs}
+              seasons={seasons}
+              onNavigate={(tab) => setActiveTab(tab)}
+              onNewExpense={() => {
+                setEditingExpense(null);
+                setIsExpenseModalOpen(true);
+              }}
+              onOpenAiParser={() => setIsAiParserOpen(true)}
+              onOpenIntegration={() => setIsIntegrationModalOpen(true)}
+              onExpensesChange={setExpenses}
             />
           )}
 
