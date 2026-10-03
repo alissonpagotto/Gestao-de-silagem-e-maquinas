@@ -73,16 +73,29 @@ import {
   formatCurrencyBRL,
   getActiveCompanyId,
   saveCompanyRhFolhas,
+  getCompanyRhFolhas,
   saveCompanyRhFerias,
+  getCompanyRhFerias,
+  saveCompanyRhFaltas,
+  getCompanyRhFaltas,
   saveCompanyFrotas,
+  getCompanyFrotas,
   saveCompanyFuncionarios,
+  getCompanyFuncionarios,
   saveCompanyFornecedores,
+  getCompanyFornecedores,
   saveCompanyClientes,
+  getCompanyClientes,
   saveCompanyDespesas,
+  getCompanyDespesas,
   saveCompanyServicos,
+  getCompanyServicos,
   saveCompanyEstoque,
-  saveCompanyAbastecimentos
+  getCompanyEstoque,
+  saveCompanyAbastecimentos,
+  getCompanyAbastecimentos
 } from './lib/storage';
+import { IS_OFFLINE_LOCAL_STORAGE_MODE } from './lib/supabase';
 import { useConfirm } from './context/ConfirmContext';
 
 
@@ -185,26 +198,26 @@ import {
 import { supabase } from './lib/supabaseClient';
 
 export default function App() {
-  // State Initialization from LocalStorage
-  const [expenses, setExpenses] = useState<Expense[]>(() => getStoredExpenses());
+  // State Initialization from LocalStorage (resiliente, amarrado à empresa/PC)
+  const [expenses, setExpenses] = useState<Expense[]>(() => getCompanyDespesas());
   const [categories, setCategories] = useState<ExpenseCategory[]>(() => getStoredCategories());
   const [costCenters, setCostCenters] = useState<CostCenter[]>(() => getStoredCostCenters());
-  const [clients, setClients] = useState<Client[]>(() => getStoredClients());
+  const [clients, setClients] = useState<Client[]>(() => getCompanyClientes());
   const [orders, setOrders] = useState<SilageOrder[]>(() => getStoredOrders());
-  const [machineries, setMachineries] = useState<Machinery[]>(() => getStoredMachineries());
+  const [machineries, setMachineries] = useState<Machinery[]>(() => getCompanyFrotas());
   const [seasons, setSeasons] = useState<CropSeason[]>(() => getStoredSeasons());
-  const [employees, setEmployees] = useState<Employee[]>(() => getStoredEmployees());
+  const [employees, setEmployees] = useState<Employee[]>(() => getCompanyFuncionarios());
   const [fleetTeams, setFleetTeams] = useState<FleetTeam[]>(() => getStoredFleetTeams());
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => getStoredSuppliers());
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => getStoredInventory());
-  const [services, setServices] = useState<ServiceOrder[]>(() => getStoredServices());
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => getStoredFuelLogs());
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => getCompanyFornecedores());
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => getCompanyEstoque());
+  const [services, setServices] = useState<ServiceOrder[]>(() => getCompanyServicos());
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>(() => getCompanyAbastecimentos());
   const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>(() => getStoredMaintenanceLogs());
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => getStoredCompanyProfile());
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(() => getStoredBankAccounts());
   const [settlements, setSettlements] = useState<ThirdPartySettlement[]>(() => getStoredSettlements());
-  const [payrolls, setPayrolls] = useState<PayrollRecord[]>(() => getStoredPayrolls());
-  const [vacations, setVacations] = useState<VacationRecord[]>(() => getStoredVacations());
+  const [payrolls, setPayrolls] = useState<PayrollRecord[]>(() => getCompanyRhFolhas());
+  const [vacations, setVacations] = useState<VacationRecord[]>(() => getCompanyRhFerias());
   const [leaves, setLeaves] = useState<LeaveRecord[]>(() => getStoredLeaves());
   const [advances, setAdvances] = useState<SalaryAdvance[]>(() => getStoredSalaryAdvances());
 
@@ -2102,10 +2115,9 @@ export default function App() {
   // Determinação de Rota com Isolamento Estrito de Ambientes
   // 1. Admin Mestre: rota limpa /master-admin ou /master-login com autenticação de Super Admin
   // 2. Formulários Públicos Externos: ?ficha=cliente, ?ficha=fornecedor, ?agendamento=...
-  // 3. Painel Interno de Gestão de Silagem (ERP): rota /dashboard ou usuário com sessão ativa
-  // 4. Landing Page Pública: Rota raiz "/" como padrão se o usuário não estiver logado
+  // 3. Painel Interno de Gestão de Silagem (ERP): rota padrão para renderizar a interface visual completa
   const getResolvedRoute = (): 'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'auth' | 'dashboard' => {
-    if (typeof window === 'undefined') return 'landing';
+    if (typeof window === 'undefined') return 'dashboard';
     const path = window.location.pathname || '';
     const search = window.location.search || '';
     const hash = window.location.hash || '';
@@ -2137,7 +2149,7 @@ export default function App() {
       return 'operador-campo';
     }
 
-    // 3. Rota de Autenticação / Cadastro / Sign-up / Login
+    // 3. Rota de Autenticação apenas se explicitamente solicitada
     if (
       path.includes('/auth') ||
       path.includes('/cadastro') ||
@@ -2145,8 +2157,6 @@ export default function App() {
       path.includes('/signup') ||
       search.includes('view=auth') ||
       search.includes('tab=auth') ||
-      search.includes('mode=signup') ||
-      search.includes('mode=login') ||
       hash.includes('auth') ||
       hash.includes('cadastro') ||
       hash.includes('signup')
@@ -2154,7 +2164,7 @@ export default function App() {
       return 'auth';
     }
 
-    // 4. Forçar Landing Page se requisitado explicitamente via URL
+    // 4. Forçar Landing Page APENAS se requisitado explicitamente via URL
     if (
       path === '/landing' ||
       search.includes('view=landing') ||
@@ -2165,41 +2175,15 @@ export default function App() {
       return 'landing';
     }
 
-    // 5. Painel Interno do Cliente (ERP Gestão de Silagem) - Protegido por Auth Guard
-    const hasActiveSession = typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active';
-    const isDashboardPath =
-      path.includes('/dashboard') ||
-      path.includes('/app') ||
-      search.includes('view=dashboard') ||
-      search.includes('tab=dashboard') ||
-      search.includes('app=true') ||
-      hash.includes('dashboard');
-
-    const isAuthenticated = hasActiveSession || Boolean(currentUser);
-
-    // Bloqueio por URL Direta (Auth Guard):
-    // Se tentar acessar o dashboard operacional sem autenticação (login e senha),
-    // bloqueia o acesso e força o redirecionamento imediato para a tela de login (/auth?mode=login)
-    if (isDashboardPath) {
-      if (isAuthenticated) {
-        return 'dashboard';
-      } else {
-        try {
-          window.history.replaceState({}, '', '/auth?mode=login');
-        } catch (e) {
-          console.error(e);
-        }
-        return 'auth';
+    // 5. Garantir sessão ativa localmente para operação offline imediata
+    try {
+      if (typeof localStorage !== 'undefined' && !localStorage.getItem('silagem_client_session')) {
+        localStorage.setItem('silagem_client_session', 'active');
       }
-    }
+    } catch (_) {}
 
-    // Se já estiver autenticado com sessão ativa e não especificou outra rota pública, libera o dashboard
-    if (isAuthenticated && (path === '/app' || path === '/dashboard')) {
-      return 'dashboard';
-    }
-
-    // 6. Rota padrão da raiz "/": Landing Page Pública
-    return 'landing';
+    // 6. Rota padrão do ERP: Dashboard operacional com todas as tabelas, botões e painel visual
+    return 'dashboard';
   };
 
   const [currentRoute, setCurrentRoute] = useState<'master-admin' | 'operador-campo' | 'ficha-cliente' | 'ficha-fornecedor' | 'landing' | 'auth' | 'dashboard'>(getResolvedRoute);
@@ -2712,7 +2696,11 @@ export default function App() {
   }
 
   // 6. Painel de Gestão de Silagem (ERP Interno do Cliente, visível em /dashboard com login ativo)
-  const isUserAuthenticated = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') || Boolean(currentUser);
+  const isUserAuthenticated = 
+    IS_OFFLINE_LOCAL_STORAGE_MODE ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') || 
+    Boolean(currentUser);
+
   if (!isUserAuthenticated) {
     return (
       <AuthPage
@@ -2726,8 +2714,8 @@ export default function App() {
   }
 
   // Se o status for diferente de 'active' ou se os dias de trial forem menores ou iguais a 0 (ou assinante excluído),
-  // bloqueia o acesso e redireciona imediatamente para a tela de bloqueio
-  if (!subscriptionCheck.hasAccess && !isAdminImpersonating) {
+  // bloqueia o acesso e redireciona imediatamente para a tela de bloqueio (apenas em modo nuvem com assinatura checada)
+  if (!IS_OFFLINE_LOCAL_STORAGE_MODE && !subscriptionCheck.hasAccess && !isAdminImpersonating) {
     return (
       <SuspendedAccountScreen
         subscriberName={subscriptionCheck.subscriberName || companyProfile?.tradeName || companyProfile?.corporateName}

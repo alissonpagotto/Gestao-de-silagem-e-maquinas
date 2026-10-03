@@ -394,18 +394,11 @@ export function getStoredMachineries(): Machinery[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    // Higienização de veículos de teste/mock legados
+    // Higienização segura preservando todos os cadastros do usuário
     const cleaned = parsed.filter(m => {
       if (!m || typeof m !== 'object') return false;
-      const name = (m.name || '').toLowerCase();
-      const model = (m.model || '').toLowerCase();
-      const num = (m.fleetNumber || '').toLowerCase();
-      const plate = (m.licensePlateOrSerial || m.serialNumber || '').toLowerCase();
-      const isMock = ['claas jaguar', 'trator jd 6110', 'mercedes-benz 2726', 'evd-2j61', 'forr 05', 'colh 02', 'maq 10', 'jf maq1', 'john deere maq'].some(fake => 
-        name.includes(fake) || model.includes(fake) || num.includes(fake) || plate.includes(fake)
-      );
-      const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61', 'veh_forrageira', 'veh_trator', 'veh_heavy_machine'].includes(m.id);
-      return !isMock && !isMockId;
+      const isMockId = ['veh_forr_05_2023', 'veh_colh_02_2022', 'veh_trator_jd_6110', 'veh_evd_2j61'].includes(m.id);
+      return !isMockId;
     }).map(m => {
       const img = m.imageUrl || m.photoUrl;
       if (img && (img.includes('wix_mp.com') || img.includes('wix_mp') || img.includes('static.wixstatic.com') || img.includes('/_upload/') || img.includes('/upload/') || (img.startsWith('blob:') && typeof window !== 'undefined' && !window.location.href.includes(img)))) {

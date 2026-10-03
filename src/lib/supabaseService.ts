@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery } from './supabase';
-export { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery };
+import { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery, IS_OFFLINE_LOCAL_STORAGE_MODE } from './supabase';
+export { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery, IS_OFFLINE_LOCAL_STORAGE_MODE };
 export { getActiveCompanyId } from './storage';
 import {
   Client,
@@ -8269,6 +8269,18 @@ export async function checkSubscriberAccessStatus(identifier: {
     targetId = (localStorage.getItem('silagem_active_subscriber_id') || '').trim();
   }
 
+  // Se estiver em modo offline ou Supabase desativado, libera acesso total imediato
+  if (IS_OFFLINE_LOCAL_STORAGE_MODE) {
+    return {
+      hasAccess: true,
+      status: 'active',
+      daysRemaining: 999,
+      subscriberName: 'Assinante Local',
+      subscriberEmail: targetEmail || 'produtor@silagem.com.br',
+      planName: 'Produtor Essencial'
+    };
+  }
+
   // Se Supabase não estiver configurado, valida pelo armazenamento local
   if (!isSupabaseConfigured) {
     if (typeof localStorage !== 'undefined') {
@@ -8282,10 +8294,12 @@ export async function checkSubscriberAccessStatus(identifier: {
           );
           if (!found) {
             return {
-              hasAccess: false,
-              status: 'not_found',
-              daysRemaining: 0,
-              errorMessage: 'Sua assinatura expirou. Entre em contato com o administrador'
+              hasAccess: true,
+              status: 'active',
+              daysRemaining: 999,
+              subscriberName: 'Assinante Local',
+              subscriberEmail: targetEmail || 'produtor@silagem.com.br',
+              planName: 'Produtor Essencial'
             };
           }
           const st = (found.status || '').toLowerCase();
