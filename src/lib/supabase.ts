@@ -56,7 +56,7 @@ export const isSupabaseConfigured = Boolean(
   SUPABASE_URL.startsWith('http')
 );
 
-if (isSupabaseConfigured) {
+if (isSupabaseConfigured && typeof window !== 'undefined' && (window as any).__DEBUG_SUPABASE__) {
   console.log('✅ Supabase conectado de forma unificada (multi-dispositivo):', SUPABASE_URL);
 }
 
@@ -135,7 +135,8 @@ export const supabase: SupabaseClient = createClient(
     realtime: isRealtimeEnabledInEnv ? {
       params: {
         eventsPerSecond: 2,
-      }
+      },
+      heartbeatIntervalMs: 30000,
     } : {
       transport: NoOpWebSocket as any,
       params: {

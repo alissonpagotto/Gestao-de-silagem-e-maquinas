@@ -979,11 +979,35 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     };
   }, []);
 
-  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com isolamento estrito
+  const onSaveEmployeesRef = useRef(onSaveEmployees);
+  useEffect(() => {
+    onSaveEmployeesRef.current = onSaveEmployees;
+  }, [onSaveEmployees]);
+
+  const empDebounceTimerRef = useRef<any>(null);
+
+  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'rh_funcionarios' com canal estável
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
     let channel: any = null;
+
+    const debouncedReconcile = (activeUid: string) => {
+      if (empDebounceTimerRef.current) clearTimeout(empDebounceTimerRef.current);
+      empDebounceTimerRef.current = setTimeout(async () => {
+        try {
+          const fresh = await fetchRhFuncionarios(undefined, activeUid);
+          if (isMounted) {
+            if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+              const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
+              setLocalEmployees(strictlyMine);
+              saveStoredEmployees(strictlyMine);
+              onSaveEmployeesRef.current?.(strictlyMine);
+            }
+          }
+        } catch (_) {}
+      }, 400);
+    };
 
     const setupRealtime = async () => {
       let activeUid = currentUser?.id;
@@ -999,7 +1023,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       }
       if (!activeUid) return;
 
-      const channelId = `employees_module_rt_${activeUid}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const channelId = `employees_module_rt_${activeUid}`;
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+          try { supabase.removeChannel(ch); } catch (_) {}
+        }
+      }
+
       channel = supabase
         .channel(channelId)
         .on(
@@ -1012,7 +1043,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           },
           async (payload: any) => {
             if (!isMounted) return;
-            console.info('📡 [Realtime RH - Funcionários] Alteração em rh_funcionarios:', payload.eventType, payload);
 
             // Blindagem absoluta de isolamento: descarta eventos pertencentes a outros assinantes
             if (payload.new) {
@@ -1022,14 +1052,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               }
             }
 
-            // 1. Atualização de estado imediata sem delay (Zero delay)
+            // 1. Atualização de estado imediata sem delay
             if (payload.eventType === 'DELETE') {
               const deletedId = payload.old?.id;
               if (deletedId) {
                 setLocalEmployees(prev => {
                   const updated = prev.filter(e => e.id !== deletedId && toValidUUID(e.id) !== deletedId);
                   saveStoredEmployees(updated);
-                  if (onSaveEmployees) onSaveEmployees(updated);
+                  onSaveEmployeesRef.current?.(updated);
                   return updated;
                 });
               }
@@ -1064,7 +1094,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   ? prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e)
                   : [...prev, mapped].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
                 saveStoredEmployees(updated);
-                if (onSaveEmployees) onSaveEmployees(updated);
+                onSaveEmployeesRef.current?.(updated);
                 return updated;
               });
             } else if (payload.eventType === 'UPDATE' && payload.new) {
@@ -1095,37 +1125,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               setLocalEmployees(prev => {
                 const updated = prev.map(e => (e.id === mapped.id || toValidUUID(e.id) === mapped.id) ? { ...e, ...mapped } : e);
                 saveStoredEmployees(updated);
-                if (onSaveEmployees) onSaveEmployees(updated);
+                onSaveEmployeesRef.current?.(updated);
                 return updated;
               });
             }
 
-            // 2. Reconciliação completa com filtro estrito .eq('user_id', activeUid)
-            try {
-              const fresh = await fetchRhFuncionarios(undefined, activeUid);
-              if (isMounted) {
-                if (fresh && Array.isArray(fresh) && fresh.length > 0) {
-                  const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
-                  setLocalEmployees(strictlyMine);
-                  saveStoredEmployees(strictlyMine);
-                  if (onSaveEmployees) onSaveEmployees(strictlyMine);
-                } else {
-                  // SAFE ARRAY FALLBACK: se a consulta retornar vazia ou erro (como 404), popula com array vazia []
-                  setLocalEmployees([]);
-                }
-              }
-            } catch (err) {
-              console.warn('[EmployeesModule] Erro ao sincronizar funcionários em tempo real, aplicando fallback seguro []:', err);
-              if (isMounted) {
-                setLocalEmployees([]);
-              }
-            }
+            // 2. Reconciliação debounced
+            debouncedReconcile(activeUid);
           }
         )
         .subscribe();
     };
 
-    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto) com fallback seguro []
+    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
     const handleFocus = async () => {
       let activeUid = currentUser?.id;
       if (!activeUid) {
@@ -1134,49 +1146,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           activeUid = authData?.user?.id;
         } catch (_) {}
       }
-      if (!activeUid) {
-        if (isMounted) setLocalEmployees([]);
-        return;
-      }
+      if (!activeUid) return;
 
-      try {
-        const fresh = await fetchRhFuncionarios(undefined, activeUid);
-        if (isMounted) {
-          if (fresh && Array.isArray(fresh) && fresh.length > 0) {
-            const strictlyMine = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
-            setLocalEmployees(strictlyMine);
-            saveStoredEmployees(strictlyMine);
-            if (onSaveEmployees) onSaveEmployees(strictlyMine);
-          } else {
-            // SAFE ARRAY FALLBACK: se a consulta retornar vazia ou erro (como 404), popula com array vazia []
-            setLocalEmployees([]);
-          }
-        }
-      } catch (err) {
-        console.warn('[EmployeesModule] Erro ao sincronizar funcionários no Supabase, aplicando fallback seguro []:', err);
-        if (isMounted) {
-          setLocalEmployees([]);
-        }
-      }
+      debouncedReconcile(activeUid);
     };
 
     setupRealtime();
-    // Dispara sincronização inicial com fallback seguro [] em caso de erro 404
     handleFocus();
 
-    // Revalidação em caso de foco / retorno à aba (evita cache obsoleto)
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
       isMounted = false;
+      if (empDebounceTimerRef.current) {
+        clearTimeout(empDebounceTimerRef.current);
+      }
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
       if (channel) {
-        supabase.removeChannel(channel);
+        try { supabase.removeChannel(channel); } catch (_) {}
       }
     };
-  }, [currentUser?.id, onSaveEmployees]);
+  }, [currentUser?.id]);
 
   const cnhReport = checkCnhStatus(Array.isArray(localEmployees) ? localEmployees : []);
 

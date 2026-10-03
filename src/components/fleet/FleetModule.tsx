@@ -142,7 +142,14 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       }
       if (!activeUid) return;
 
-      const channelId = `manutencoes_rt_sync_${activeUid}_${Date.now()}`;
+      const channelId = `manutencoes_rt_sync_${activeUid}`;
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+          try { supabase.removeChannel(ch); } catch (_) {}
+        }
+      }
+
       channel = supabase
         .channel(channelId)
         .on(

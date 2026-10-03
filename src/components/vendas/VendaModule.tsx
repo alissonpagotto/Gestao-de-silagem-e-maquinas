@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ShoppingCart,
   Search,
@@ -13,7 +13,7 @@ import {
   FileCheck2
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile } from '../../types';
-import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ServiceFormModal } from '../services/ServiceFormModal';
 import { supabase } from '../../lib/supabaseClient';
@@ -56,51 +56,69 @@ export const VendaModule: React.FC<VendaModuleProps> = ({
     }
   }, [services]);
 
+  const onSaveServicesRef = useRef(onSaveServices);
+  useEffect(() => {
+    onSaveServicesRef.current = onSaveServices;
+  }, [onSaveServices]);
+
+  const vendaDebounceTimerRef = useRef<any>(null);
+
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'site_settings'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
+    const companyId = companyProfile?.id || getActiveCompanyId();
+    const channelId = `venda_module_rt_${companyId || 'default'}`;
 
-    const channelId = `venda_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
+    const debouncedFetchSales = () => {
+      if (vendaDebounceTimerRef.current) clearTimeout(vendaDebounceTimerRef.current);
+      vendaDebounceTimerRef.current = setTimeout(async () => {
+        try {
+          const fresh = await fetchAllClientModulesFromSupabase(companyId);
+          if (isMounted && fresh && Array.isArray(fresh.services)) {
+            setLocalServices(fresh.services);
+            onSaveServicesRef.current?.(fresh.services);
+          }
+        } catch (_) {}
+      }, 400);
+    };
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'site_settings' },
-        async (payload: any) => {
-          console.info('📡 [Realtime Vendas] Alteração em site_settings:', payload.eventType);
-          try {
-            const fresh = await fetchAllClientModulesFromSupabase(companyProfile?.id);
-            if (isMounted && fresh && Array.isArray(fresh.services)) {
-              setLocalServices(fresh.services);
-              if (onSaveServices) onSaveServices(fresh.services);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar vendas em tempo real:', err);
-          }
+        () => {
+          debouncedFetchSales();
         }
       )
       .subscribe();
 
-    const handleFocus = async () => {
-      try {
-        const fresh = await fetchAllClientModulesFromSupabase(companyProfile?.id);
-        if (isMounted && fresh && Array.isArray(fresh.services)) {
-          setLocalServices(fresh.services);
-          if (onSaveServices) onSaveServices(fresh.services);
-        }
-      } catch (_) {}
+    const handleFocus = () => {
+      debouncedFetchSales();
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
       isMounted = false;
+      if (vendaDebounceTimerRef.current) {
+        clearTimeout(vendaDebounceTimerRef.current);
+      }
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [companyProfile?.id, onSaveServices]);
+  }, [companyProfile?.id]);
 
   // Filtragem exclusiva de Vendas (serviceTab === 'venda' ou serviceType com 'venda')
   const salesRecords = useMemo(() => {

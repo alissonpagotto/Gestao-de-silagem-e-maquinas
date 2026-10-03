@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
   Plus, 
@@ -53,42 +53,59 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
 
+  const accountsRef = useRef(accounts);
+  const onSaveAccountsRef = useRef(onSaveAccounts);
+  useEffect(() => {
+    accountsRef.current = accounts;
+    onSaveAccountsRef.current = onSaveAccounts;
+  });
+
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'financeiro_contas'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    const channelId = `bank_accounts_tab_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const safeAccounts = Array.isArray(accounts) ? accounts : [];
+    const channelId = 'bank_accounts_tab_rt';
+
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'financeiro_contas' },
         (payload: any) => {
+          const currentList = Array.isArray(accountsRef.current) ? accountsRef.current : [];
           if (payload.eventType === 'DELETE') {
             const delId = payload.old?.id;
             if (delId) {
-              const updated = safeAccounts.filter(a => a.id !== delId && toValidUUID(a.id) !== delId);
+              const updated = currentList.filter(a => a.id !== delId && toValidUUID(a.id) !== delId);
               saveStoredBankAccounts(updated);
-              onSaveAccounts(updated);
+              onSaveAccountsRef.current?.(updated);
             }
           } else if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
             const row = payload.new;
             const mapped = mapRowToBankAccount(row);
-            const exists = safeAccounts.some(a => a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id));
+            const exists = currentList.some(a => a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id));
             const updated = exists
-              ? safeAccounts.map(a => (a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id)) ? { ...a, ...mapped } : a)
-              : [...safeAccounts, mapped];
+              ? currentList.map(a => (a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id)) ? { ...a, ...mapped } : a)
+              : [...currentList, mapped];
             saveStoredBankAccounts(updated);
-            onSaveAccounts(updated);
+            onSaveAccountsRef.current?.(updated);
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [accounts, onSaveAccounts]);
+  }, []);
 
   // Extrato Modal State
   const [isStatementOpen, setIsStatementOpen] = useState(false);

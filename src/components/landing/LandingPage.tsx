@@ -301,9 +301,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       }
     });
 
-    // Assinatura Realtime Direta no Supabase na tabela 'plans'
+    // Assinatura Realtime Direta no Supabase na tabela 'plans' com canal estável
+    const plansChannelId = 'landing_plans_feed_unified';
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === plansChannelId || ch.topic === `realtime:${plansChannelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const plansChannel = supabase
-      .channel(`public:landing_plans_feed_${Date.now()}`)
+      .channel(plansChannelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'plans' },

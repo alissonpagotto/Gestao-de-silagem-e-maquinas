@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   Plus, 
@@ -50,28 +50,54 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
     }
   }, [clients]);
 
+  const onSaveClientsRef = useRef(onSaveClients);
+  useEffect(() => {
+    onSaveClientsRef.current = onSaveClients;
+  }, [onSaveClients]);
+
+  const crmDebounceTimerRef = useRef<any>(null);
+
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'clientes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
 
-    const channelId = `crm_clients_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const debouncedFetchClients = () => {
+      if (crmDebounceTimerRef.current) clearTimeout(crmDebounceTimerRef.current);
+      crmDebounceTimerRef.current = setTimeout(async () => {
+        try {
+          const fresh = await fetchClientes();
+          if (isMounted && fresh && Array.isArray(fresh)) {
+            setLocalClients(fresh);
+            saveStoredClients(fresh);
+            onSaveClientsRef.current?.(fresh);
+          }
+        } catch (_) {}
+      }, 400);
+    };
+
+    const channelId = 'crm_clients_rt';
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'clientes' },
-        async (payload: any) => {
-          console.info('📡 [Realtime Clientes] Alteração em clientes:', payload.eventType, payload);
-
-          // 1. Atualização imediata sem delay (Zero delay)
+        (payload: any) => {
+          // 1. Atualização imediata
           if (payload.eventType === 'DELETE') {
             const deletedId = payload.old?.id;
             if (deletedId) {
               setLocalClients(prev => {
                 const updated = prev.filter(c => c.id !== deletedId && toValidUUID(c.id) !== deletedId);
                 saveStoredClients(updated);
-                if (onSaveClients) onSaveClients(updated);
+                onSaveClientsRef.current?.(updated);
                 return updated;
               });
             }
@@ -83,7 +109,7 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
                 ? prev.map(c => (c.id === mapped.id || toValidUUID(c.id) === mapped.id) ? { ...c, ...mapped } : c)
                 : [mapped, ...prev].sort((a, b) => (a.name || a.nome || '').localeCompare(b.name || b.nome || '', 'pt-BR'));
               saveStoredClients(updated);
-              if (onSaveClients) onSaveClients(updated);
+              onSaveClientsRef.current?.(updated);
               return updated;
             });
           } else if (payload.eventType === 'UPDATE' && payload.new) {
@@ -91,46 +117,35 @@ export const CrmModule: React.FC<CrmModuleProps> = ({
             setLocalClients(prev => {
               const updated = prev.map(c => (c.id === mapped.id || toValidUUID(c.id) === mapped.id) ? { ...c, ...mapped } : c);
               saveStoredClients(updated);
-              if (onSaveClients) onSaveClients(updated);
+              onSaveClientsRef.current?.(updated);
               return updated;
             });
           }
 
-          // 2. Reconciliação completa com Supabase
-          try {
-            const fresh = await fetchClientes();
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalClients(fresh);
-              saveStoredClients(fresh);
-              if (onSaveClients) onSaveClients(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar clientes em tempo real:', err);
-          }
+          // 2. Reconciliação debounced
+          debouncedFetchClients();
         }
       )
       .subscribe();
 
-    const handleFocus = async () => {
-      try {
-        const fresh = await fetchClientes();
-        if (isMounted && fresh && Array.isArray(fresh)) {
-          setLocalClients(fresh);
-          saveStoredClients(fresh);
-          if (onSaveClients) onSaveClients(fresh);
-        }
-      } catch (_) {}
+    const handleFocus = () => {
+      debouncedFetchClients();
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
       isMounted = false;
+      if (crmDebounceTimerRef.current) {
+        clearTimeout(crmDebounceTimerRef.current);
+      }
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [onSaveClients]);
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCattleType, setSelectedCattleType] = useState<string>('todos');

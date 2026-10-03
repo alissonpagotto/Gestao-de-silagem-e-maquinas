@@ -27,12 +27,12 @@ import {
   Loader2
 } from 'lucide-react';
 import { Employee, Machinery, FleetTeam, CompanyProfile } from '../../types';
-import { getStoredCompanyProfile, formatDateBR } from '../../lib/storage';
+import { getStoredCompanyProfile, formatDateBR, getActiveCompanyId } from '../../lib/storage';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { sendViaWhatsApp } from '../../lib/printService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { 
   fetchFrentesTrabalho, 
   fetchFrentesTrabalhoMembros, 
@@ -241,35 +241,57 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     }
   }, [companyProfile?.id, externalTeams]);
 
-  // 4. SINCRONIZAÇÃO EM TEMPO REAL (Multi-dispositivos):
+  const frentesDebounceTimerRef = useRef<any>(null);
+
+  // 4. SINCRONIZAÇÃO EM TEMPO REAL (Multi-dispositivos) com canal estável e desmonte obrigatório:
   useEffect(() => {
     loadFrentesFromSupabase();
 
-    const channelId = `frentes_trabalho_realtime_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    if (!isSupabaseConfigured) return;
+    const companyId = companyProfile?.id || getActiveCompanyId();
+    const channelId = `frentes_trabalho_rt_${companyId || 'default'}`;
+
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
+    const debouncedLoadFrentes = () => {
+      if (frentesDebounceTimerRef.current) clearTimeout(frentesDebounceTimerRef.current);
+      frentesDebounceTimerRef.current = setTimeout(() => {
+        loadFrentesFromSupabase();
+      }, 400);
+    };
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'frentes_trabalho' },
         () => {
-          loadFrentesFromSupabase();
+          debouncedLoadFrentes();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'frentes_trabalho_membros' },
         () => {
-          loadFrentesFromSupabase();
+          debouncedLoadFrentes();
         }
       )
       .subscribe();
 
     return () => {
+      if (frentesDebounceTimerRef.current) {
+        clearTimeout(frentesDebounceTimerRef.current);
+      }
       try {
         supabase.removeChannel(channel);
       } catch (_) {}
     };
-  }, [loadFrentesFromSupabase]);
+  }, [companyProfile?.id, loadFrentesFromSupabase]);
 
   // Group employees by team
   const { teamEmployeesMap, unassignedEmployees } = useMemo(() => {

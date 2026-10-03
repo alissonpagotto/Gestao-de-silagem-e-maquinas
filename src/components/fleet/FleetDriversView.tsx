@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   UserCheck, 
   Plus, 
@@ -74,29 +74,50 @@ export const FleetDriversView: React.FC<FleetDriversViewProps> = ({
     }
   }, [companyProfile?.id]);
 
-  // Realtime multi-dispositivos para a tabela rh_funcionarios e carregamento inicial
+  const driversDebounceTimerRef = useRef<any>(null);
+
+  // Realtime multi-dispositivos para a tabela rh_funcionarios com canal estável e desmonte obrigatório
   React.useEffect(() => {
     loadDriversFromSupabase();
 
     if (!isSupabaseConfigured) return;
+    const companyId = companyProfile?.id || getActiveCompanyId();
+    const channelId = `fleet_drivers_rt_${companyId || 'default'}`;
 
-    const channelId = `fleet_drivers_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
+    const debouncedLoad = () => {
+      if (driversDebounceTimerRef.current) clearTimeout(driversDebounceTimerRef.current);
+      driversDebounceTimerRef.current = setTimeout(() => {
+        loadDriversFromSupabase();
+      }, 400);
+    };
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_funcionarios' },
-        (payload) => {
-          console.info('📡 [Realtime Frotas - Motoristas] Alteração em rh_funcionarios:', payload.eventType);
-          loadDriversFromSupabase();
+        () => {
+          debouncedLoad();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (driversDebounceTimerRef.current) {
+        clearTimeout(driversDebounceTimerRef.current);
+      }
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [loadDriversFromSupabase]);
+  }, [companyProfile?.id, loadDriversFromSupabase]);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);

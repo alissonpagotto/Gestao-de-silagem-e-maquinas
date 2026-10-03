@@ -1293,20 +1293,7 @@ export default function App() {
       );
     canalVeiculosMaquinas.subscribe();
 
-    // 5. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
-    const pollAbastecimentosInterval = setInterval(() => {
-      fetchAbastecimentos(activeTenantId).then(fresh => {
-        if (fresh && fresh.length > 0 && isMounted) {
-          const ser = JSON.stringify(fresh);
-          if (ser !== lastSyncedState.current.fuelLogs) {
-            lastSyncedState.current.fuelLogs = ser;
-            setFuelLogs(fresh);
-            saveStoredFuelLogs(fresh);
-          }
-        }
-      }).catch(() => {});
-    }, 30000);
-
+    // 5. RECUPERAÇÃO INSTANTÂNEA AO RETORNAR PARA A ABA (Visibility / Focus) - sem polling contínuo para evitar consumo excessivo de Egress
     const handleFocusSync = () => {
       if (document.visibilityState === 'visible' && isMounted) {
         fetchAbastecimentos(activeTenantId).then(fresh => {
@@ -1350,7 +1337,6 @@ export default function App() {
       supabase.removeChannel(canalFornecedores);
       supabase.removeChannel(canalManutencoes);
       supabase.removeChannel(canalVeiculosMaquinas);
-      clearInterval(pollAbastecimentosInterval);
       document.removeEventListener('visibilitychange', handleFocusSync);
       window.removeEventListener('focus', handleFocusSync);
     };

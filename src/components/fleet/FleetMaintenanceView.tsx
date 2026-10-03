@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Wrench, 
   Plus, 
@@ -69,17 +69,31 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
     setLocalLogs(maintenanceLogs);
   }, [maintenanceLogs]);
 
+  const onDeleteMaintenanceRef = useRef(onDeleteMaintenance);
+  useEffect(() => {
+    onDeleteMaintenanceRef.current = onDeleteMaintenance;
+  }, [onDeleteMaintenance]);
+
   // Listener em tempo real (Supabase Realtime) escutando eventos na tabela oficial 'manutencoes'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
+    const companyId = companyProfile?.id || getActiveCompanyId();
+    const channelId = `manutencoes_view_rt_${companyId || 'default'}`;
+
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const handlePayload = (payload: any) => {
-      console.info('📡 [Realtime Manutenções] Alteração:', payload.eventType, payload);
       if (payload.eventType === 'DELETE') {
         const delId = payload.old?.id;
         if (delId) {
           setLocalLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
-          onDeleteMaintenance(delId);
+          onDeleteMaintenanceRef.current?.(delId);
         }
       } else if (payload.eventType === 'INSERT' && payload.new) {
         const item = mapRowToMaintenanceLog(payload.new);
@@ -98,7 +112,6 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
       }
     };
 
-    const channelId = `manutencoes_view_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const channel = supabase
       .channel(channelId)
       .on(
@@ -118,7 +131,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
           const delId = payload.payload?.id;
           if (delId) {
             setLocalLogs(prev => prev.filter(m => m.id !== delId && toValidUUID(m.id) !== delId));
-            onDeleteMaintenance(delId);
+            onDeleteMaintenanceRef.current?.(delId);
           }
         }
       )
@@ -136,7 +149,7 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
       window.removeEventListener('silagem_maintenance_deleted', handleLocal);
       try { supabase.removeChannel(channel); } catch (_) {}
     };
-  }, [onDeleteMaintenance]);
+  }, [companyProfile?.id]);
 
   // Função rigorosa de exclusão física no Supabase com amarração por usuário ativo e atualização reativa
   const handleDeleteOrdem = async (ordemId: string) => {
@@ -186,17 +199,26 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
         // Propagação via Supabase Realtime para que suma simultaneamente em todos os outros dispositivos abertos
         try {
           const rtChannel = supabase.channel(`manutencoes_rt_broadcast_${Date.now()}`);
+          let channelCleaned = false;
+          const cleanUpChannel = () => {
+            if (channelCleaned) return;
+            channelCleaned = true;
+            try { supabase.removeChannel(rtChannel); } catch (_) {}
+          };
+          const safetyTimer = setTimeout(cleanUpChannel, 3000);
+
           rtChannel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               rtChannel.send({
                 type: 'broadcast',
                 event: 'delete_manutencao',
                 payload: { id: ordemId, user_id: currentUserId, company_id: cId }
-              }).then(() => {
-                setTimeout(() => {
-                  try { supabase.removeChannel(rtChannel); } catch (_) {}
-                }, 500);
+              }).finally(() => {
+                setTimeout(cleanUpChannel, 500);
               });
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              clearTimeout(safetyTimer);
+              cleanUpChannel();
             }
           });
         } catch (_) {}

@@ -101,6 +101,7 @@ export function useAbastecimentosRealtime(
 
     let isMounted = true;
 
+    let debounceTimer: any = null;
     const executeSafeFetch = async () => {
       if (!isMounted) return;
       try {
@@ -121,30 +122,46 @@ export function useAbastecimentosRealtime(
       }
     };
 
-    // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes):
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        executeSafeFetch();
+      }, 350);
+    };
+
+    // 1. ATIVAÇÃO DO ESCUTADOR DE EVENTOS REALTIME (Postgres Changes) com canal estável e desmonte obrigatório:
     const currentTable = getAbastecimentosTableName() || 'abastecimentos';
-    const channelId = `abastecimentos-hook-${Math.random().toString(36).substring(2, 8)}`;
+    const channelId = `abastecimentos_hook_rt_${companyId || 'default'}`;
+
+    // Remove instâncias duplicadas antes de abrir canal
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: currentTable },
         () => {
-          executeSafeFetch();
+          debouncedFetch();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'site_settings' },
         () => {
-          executeSafeFetch();
+          debouncedFetch();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_funcionarios' },
         () => {
-          executeSafeFetch();
+          debouncedFetch();
         }
       );
 
@@ -152,20 +169,15 @@ export function useAbastecimentosRealtime(
       channel.subscribe();
     }
 
-    // 2. EVITAR CONFLITOS COM O PROXY DO GOOGLE IDX (Fallback Seguro a cada 30 segundos)
-    const intervalId = setInterval(() => {
-      executeSafeFetch();
-    }, pollIntervalMs);
-
-    // 3. RECUPERAÇÃO INSTANTÂNEA AO RETORNAR PARA A ABA (Visibility / Focus)
+    // 2. RECUPERAÇÃO INSTANTÂNEA AO RETORNAR PARA A ABA (Visibility / Focus) - sem polling contínuo para evitar vazamento de Egress
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
-        executeSafeFetch();
+        debouncedFetch();
       }
     };
 
     const handleCustomSync = () => {
-      executeSafeFetch();
+      debouncedFetch();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -174,15 +186,15 @@ export function useAbastecimentosRealtime(
 
     return () => {
       isMounted = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       try {
         supabase.removeChannel(channel);
       } catch (_) {}
-      clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('silagem_force_rest_sync', handleCustomSync);
     };
-  }, [autoFetch, companyId, pollIntervalMs]);
+  }, [autoFetch, companyId]);
 
   // Suporte a desestruturação como Objeto { fuelLogs, refetch } ou Array [fuelLogs, refetch]
   const tuple = [fuelLogs, refetch, loading, error] as const;
@@ -327,6 +339,7 @@ export function useEmployeesRealtime(
     if (!autoFetch) return;
     let isMounted = true;
 
+    let debounceTimer: any = null;
     const executeSafeFetch = async () => {
       if (!isMounted) return;
       try {
@@ -336,21 +349,37 @@ export function useEmployeesRealtime(
       }
     };
 
-    const channelId = `rh-funcionarios-hook-${Math.random().toString(36).substring(2, 8)}`;
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        executeSafeFetch();
+      }, 350);
+    };
+
+    const channelId = `rh_funcionarios_hook_rt_${companyId || 'default'}`;
+
+    // Remove instâncias duplicadas antes de abrir canal
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_funcionarios' },
         () => {
-          executeSafeFetch();
+          debouncedFetch();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'funcionarios' },
         () => {
-          executeSafeFetch();
+          debouncedFetch();
         }
       );
 
@@ -358,18 +387,14 @@ export function useEmployeesRealtime(
       channel.subscribe();
     }
 
-    const intervalId = setInterval(() => {
-      executeSafeFetch();
-    }, pollIntervalMs);
-
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
-        executeSafeFetch();
+        debouncedFetch();
       }
     };
 
     const handleCustomSync = () => {
-      executeSafeFetch();
+      debouncedFetch();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -378,15 +403,15 @@ export function useEmployeesRealtime(
 
     return () => {
       isMounted = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       try {
         supabase.removeChannel(channel);
       } catch (_) {}
-      clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('silagem_force_rest_sync', handleCustomSync);
     };
-  }, [autoFetch, companyId, pollIntervalMs, refetch]);
+  }, [autoFetch, companyId, refetch]);
 
   const tuple = [employees, refetch, loading, error] as const;
   const result = Object.assign([...tuple], {

@@ -1074,14 +1074,32 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     reloadDocumentosEntrada(true);
   };
 
+  const nfeDebounceTimerRef = useRef<any>(null);
+
+  const debouncedReloadDocs = useCallback(() => {
+    if (nfeDebounceTimerRef.current) clearTimeout(nfeDebounceTimerRef.current);
+    nfeDebounceTimerRef.current = setTimeout(() => {
+      reloadDocumentosEntrada(false);
+    }, 450);
+  }, [reloadDocumentosEntrada]);
+
   useEffect(() => {
     let isMounted = true;
     reloadDocumentosEntrada(false);
 
-    // 1. Canal Supabase Realtime dedicado escutando eventos postgres_changes
+    // 1. Canal Supabase Realtime dedicado com tópico estável e fechamento obrigatório
     let channel: any = null;
+    const companyId = companyProfile?.id || getActiveCompanyId();
     if (isSupabaseConfigured) {
-      const channelId = `nfe_doc_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const channelId = `nfe_doc_rt_${companyId || 'default'}`;
+
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+          try { supabase.removeChannel(ch); } catch (_) {}
+        }
+      }
+
       try {
         channel = supabase
           .channel(channelId)
@@ -1089,21 +1107,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             'postgres_changes',
             { event: '*', schema: 'public', table: 'documentos_entrada' },
             () => {
-              if (isMounted) reloadDocumentosEntrada(false);
+              if (isMounted) debouncedReloadDocs();
             }
           )
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'documentos_entrada_itens' },
             () => {
-              if (isMounted) reloadDocumentosEntrada(false);
+              if (isMounted) debouncedReloadDocs();
             }
           )
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'notas_fiscais' },
             () => {
-              if (isMounted) reloadDocumentosEntrada(false);
+              if (isMounted) debouncedReloadDocs();
             }
           )
           .subscribe();
@@ -1112,39 +1130,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       }
     }
 
-    // 2. Inscrições resilientes via subscribeToCloudTable
-    const unsubDocs = subscribeToCloudTable('documentos_entrada', () => {
-      if (isMounted) reloadDocumentosEntrada(false);
-    });
-    const unsubItens = subscribeToCloudTable('documentos_entrada_itens', () => {
-      if (isMounted) reloadDocumentosEntrada(false);
-    });
-    const unsubNotas = subscribeToCloudTable('notas_fiscais', () => {
-      if (isMounted) reloadDocumentosEntrada(false);
-    });
-
-    // 3. BroadcastChannel para comunicação instantânea entre abas no mesmo navegador
+    // 2. BroadcastChannel para comunicação instantânea entre abas no mesmo navegador
     let bc: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         bc = new BroadcastChannel('silagem_documentos_entrada_channel');
         bc.onmessage = () => {
-          if (isMounted) reloadDocumentosEntrada(false);
+          if (isMounted) debouncedReloadDocs();
         };
       } catch (_) {}
     }
 
-    // 4. Listeners para evento storage (localStorage cross-tab) e foco da janela
+    // 3. Listeners para evento storage (localStorage cross-tab) e foco da janela
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'silagem_facil_documentos_entrada_v1') {
-        if (isMounted) reloadDocumentosEntrada(false);
+        if (isMounted) debouncedReloadDocs();
       }
     };
     const handleCustomSyncEvent = () => {
-      if (isMounted) reloadDocumentosEntrada(false);
+      if (isMounted) debouncedReloadDocs();
     };
     const handleFocus = () => {
-      if (isMounted) reloadDocumentosEntrada(false);
+      if (isMounted) debouncedReloadDocs();
     };
 
     window.addEventListener('storage', handleStorageEvent);
@@ -1153,26 +1160,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isMounted) {
-        reloadDocumentosEntrada(false);
+        debouncedReloadDocs();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 5. Polling de segurança a cada 6 segundos quando a aba estiver visível
-    const pollInterval = setInterval(() => {
-      if (isMounted && document.visibilityState === 'visible') {
-        reloadDocumentosEntrada(false);
-      }
-    }, 6000);
-
     return () => {
       isMounted = false;
+      if (nfeDebounceTimerRef.current) {
+        clearTimeout(nfeDebounceTimerRef.current);
+      }
       if (channel) {
         try { supabase.removeChannel(channel); } catch (_) {}
       }
-      unsubDocs();
-      unsubItens();
-      unsubNotas();
       if (bc) {
         try { bc.close(); } catch (_) {}
       }
@@ -1180,9 +1180,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       window.removeEventListener('silagem_documentos_entrada_updated', handleCustomSyncEvent);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(pollInterval);
     };
-  }, [reloadDocumentosEntrada]);
+  }, [debouncedReloadDocs, companyProfile?.id]);
 
   // Fornecedores locais e sincronização
   const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -346,23 +346,29 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       }
     }
 
+    let faltasDebounceTimer: any = null;
+
     const faltasChannel = isSupabaseConfigured ? supabase
       .channel(channelTopic)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_faltas' },
-        async () => {
-          try {
-            const fresh = await fetchCloudAbsences();
-            if (Array.isArray(fresh) && fresh.length > 0) {
-              setInternalAbsences(fresh);
-            }
-          } catch (_) {}
+        () => {
+          if (faltasDebounceTimer) clearTimeout(faltasDebounceTimer);
+          faltasDebounceTimer = setTimeout(async () => {
+            try {
+              const fresh = await fetchCloudAbsences();
+              if (Array.isArray(fresh) && fresh.length > 0) {
+                setInternalAbsences(fresh);
+              }
+            } catch (_) {}
+          }, 400);
         }
       )
       .subscribe() : null;
 
     return () => {
+      if (faltasDebounceTimer) clearTimeout(faltasDebounceTimer);
       window.removeEventListener('silagem_services_updated', handleServicesUpdate);
       window.removeEventListener('silagem_absences_updated', handleAbsencesUpdate);
       window.removeEventListener('storage', handleServicesUpdate);

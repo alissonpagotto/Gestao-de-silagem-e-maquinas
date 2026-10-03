@@ -2438,6 +2438,20 @@ export const RH_FUNCIONARIOS_BASE_COLUMNS = [
   'aso_url',
   'cnh_url',
   'ficha_registro_url',
+  // Campos de identificação pessoal e regime
+  'numero_rg',
+  'rg_numero',
+  'rg',
+  'data_nascimento',
+  'nascimento',
+  'birth_date',
+  'numero_pis',
+  'pis_pasep',
+  'pis',
+  'regime_contratacao',
+  'tipo_contrato',
+  'regime',
+  'contract_type',
 ] as const;
 
 export const FUNCIONARIOS_BASE_COLUMNS = [
@@ -2447,6 +2461,13 @@ export const FUNCIONARIOS_BASE_COLUMNS = [
   'cnh_categoria',
   'cnh_validade',
   'ativo',
+  'cpf',
+  'numero_rg',
+  'rg',
+  'data_nascimento',
+  'numero_pis',
+  'pis',
+  'regime_contratacao',
 ] as const;
 
 let detectedRhFuncionariosColumns: Set<string> | null = null;
@@ -8032,7 +8053,7 @@ export async function deleteCloudSubscriber(id: string, email?: string): Promise
 // ==============================================================================
 
 // Gerenciador de canais compartilhados (Singleton por tabela) para evitar churn de conexões no API Gateway
-const activeChannels = new Map<string, { channel: any; listeners: Set<(payload: any) => void>; debounceTimer?: any }>();
+const activeChannels = new Map<string, { channel: any; listeners: Set<(payload: any) => void>; debounceTimer?: any; clearTimer?: () => void }>();
 let realtimeTransportDisabledUntil = 0;
 let consecutiveTransportFailures = 0;
 
@@ -8040,6 +8061,9 @@ let consecutiveTransportFailures = 0;
 // os cabeçalhos de upgrade de WebSocket ('Sec-WebSocket-Accept') são bloqueados por padrão.
 // O realtime via WebSocket é ativado por padrão no navegador, com fallback resiliente caso o proxy ou rede apresente instabilidades
 export const isRealtimeWebSocketActive = typeof window !== 'undefined' && (window as any).__ENABLE_SUPABASE_REALTIME__ !== false;
+
+// Desativação explícita de telemetria desnecessária e redução de Log Ingestion durante os testes/desenvolvimento
+export const isSupabaseTelemetryDisabled = true;
 
 export function subscribeToCloudTable(
   tableName: string,
@@ -8062,10 +8086,17 @@ export function subscribeToCloudTable(
     const listeners = new Set<(payload: any) => void>();
     listeners.add(onChange);
 
+    let debounceTimer: any = null;
+    let latestPayload: any = null;
+
     const notifyListeners = (payload: any) => {
-      listeners.forEach(fn => {
-        try { fn(payload); } catch (err) { console.error('Realtime listener error:', err); }
-      });
+      latestPayload = payload;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        listeners.forEach(fn => {
+          try { fn(latestPayload); } catch (_) {}
+        });
+      }, 350);
     };
 
     try {
@@ -8095,26 +8126,39 @@ export function subscribeToCloudTable(
           }
         });
 
-      entry = { channel, listeners };
-      activeChannels.set(channelKey, entry);
-    } catch (e) {
-      return () => {};
-    }
-  } else {
-    entry.listeners.add(onChange);
+    entry = {
+      channel,
+      listeners,
+      debounceTimer: null,
+      clearTimer: () => {
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
+      }
+    };
+    activeChannels.set(channelKey, entry);
+  } catch (e) {
+    return () => {};
   }
+} else {
+  entry.listeners.add(onChange);
+}
 
-  return () => {
-    const current = activeChannels.get(channelKey);
-    if (!current) return;
-    current.listeners.delete(onChange);
-    if (current.listeners.size === 0) {
-      try {
-        supabase.removeChannel(current.channel);
-      } catch {}
-      activeChannels.delete(channelKey);
+return () => {
+  const current = activeChannels.get(channelKey);
+  if (!current) return;
+  current.listeners.delete(onChange);
+  if (current.listeners.size === 0) {
+    if ((current as any).clearTimer) {
+      (current as any).clearTimer();
     }
-  };
+    try {
+      supabase.removeChannel(current.channel);
+    } catch {}
+    activeChannels.delete(channelKey);
+  }
+};
 }
 
 // ==============================================================================

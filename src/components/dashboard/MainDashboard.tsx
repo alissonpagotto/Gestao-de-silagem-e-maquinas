@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { 
   ArrowDownRight, 
   ArrowUpRight,
@@ -112,6 +112,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     setActiveFuelLogs(propFuelLogs || []);
   }, [propFuelLogs]);
 
+  const onExpensesChangeRef = useRef(onExpensesChange);
+  useEffect(() => {
+    onExpensesChangeRef.current = onExpensesChange;
+  }, [onExpensesChange]);
+
+  const refreshDebounceTimerRef = useRef<any>(null);
+
   // Função central de busca e reconciliação com o Supabase
   // Zera imediatamente o estado se o banco de dados tiver sido esvaziado (0 registros)
   const refreshDashboardData = useCallback(async (showIndicator = false) => {
@@ -137,7 +144,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           if (activeCompanyId) {
             saveCloudExpenses([], activeCompanyId).catch(() => {});
           }
-          onExpensesChange?.([]);
+          onExpensesChangeRef.current?.([]);
         } else {
           const mapped: Expense[] = cloudContas.map((d: any) => ({
             id: d.id,
@@ -156,7 +163,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           } as unknown as Expense));
           setActiveExpenses(mapped);
           saveStoredExpenses(mapped);
-          onExpensesChange?.(mapped);
+          onExpensesChangeRef.current?.(mapped);
         }
       }
 
@@ -175,18 +182,25 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         setTimeout(() => setIsSyncing(false), 400);
       }
     }
-  }, [onExpensesChange]);
+  }, []);
 
-  // Supabase Realtime Listener para eventos DELETE, INSERT e UPDATE
+  const debouncedRefresh = useCallback(() => {
+    if (refreshDebounceTimerRef.current) clearTimeout(refreshDebounceTimerRef.current);
+    refreshDebounceTimerRef.current = setTimeout(() => {
+      refreshDashboardData(false);
+    }, 450);
+  }, [refreshDashboardData]);
+
+  // Supabase Realtime Listener para eventos DELETE, INSERT e UPDATE com desmonte obrigatório
   useEffect(() => {
     let isMounted = true;
-    // Carga inicial para validar se o banco não foi esvaziado
+    // Carga inicial
     refreshDashboardData(false);
 
-    // 1. Canal Supabase Realtime dedicado escutando eventos de DELETE, INSERT e UPDATE
+    // 1. Canal estável por tenant/sistema
     let channel: any = null;
     if (isSupabaseConfigured) {
-      const channelId = `dashboard_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const channelId = 'dashboard_realtime_stream';
       const fuelTable = getAbastecimentosTableName() || 'abastecimentos';
       const tablesToListen = [
         'contas_a_pagar',
@@ -203,6 +217,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         'site_settings'
       ];
 
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+          try { supabase.removeChannel(ch); } catch (_) {}
+        }
+      }
+
       try {
         channel = supabase.channel(channelId);
 
@@ -212,7 +233,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             { event: '*', schema: 'public', table },
             (payload: any) => {
               if (!isMounted) return;
-              // Se for evento de DELETE, remove imediatamente pelo ID no estado do React para resposta instantânea
               if (payload.eventType === 'DELETE') {
                 const deletedId = payload.old?.id;
                 const oldNotaId = payload.old?.nota_fiscal_id;
@@ -224,7 +244,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                       return true;
                     });
                     saveStoredExpenses(filtered);
-                    onExpensesChange?.(filtered);
+                    onExpensesChangeRef.current?.(filtered);
                     return filtered;
                   });
                   setActiveFuelLogs(prev => {
@@ -235,8 +255,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 }
               }
 
-              // Reconcilia com o banco para garantir sincronismo total e zerar se não houver mais registros
-              refreshDashboardData(false);
+              // Dispara atualização unificada com debounce
+              debouncedRefresh();
             }
           );
         });
@@ -247,62 +267,33 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       }
     }
 
-    // 2. Fallbacks de Realtime via subscribeToCloudTable
-    const unsubContas = subscribeToCloudTable('contas_a_pagar', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubFuel = subscribeToCloudTable(getAbastecimentosTableName() || 'abastecimentos', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubDocs = subscribeToCloudTable('documentos_entrada', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubNotas = subscribeToCloudTable('notas_fiscais', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubNotasEntradas = subscribeToCloudTable('notas_entradas', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubFrotasVM = subscribeToCloudTable('veiculos_maquinas', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubFrotas = subscribeToCloudTable('gestao_frotas', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubManut = subscribeToCloudTable('manutencoes', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-    const unsubSettings = subscribeToCloudTable('site_settings', () => {
-      if (isMounted) refreshDashboardData(false);
-    });
-
-    // 3. Comunicação instantânea entre abas via BroadcastChannel
+    // 2. Comunicação instantânea entre abas via BroadcastChannel
     let bc: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         bc = new BroadcastChannel('silagem_dashboard_sync_channel');
         bc.onmessage = () => {
-          if (isMounted) refreshDashboardData(false);
+          if (isMounted) debouncedRefresh();
         };
       } catch (_) {}
     }
 
-    // 4. Listeners para evento de storage (localStorage cross-tab), foco da janela e visibilidade
+    // 3. Listeners para evento de storage (localStorage cross-tab), foco da janela e visibilidade
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'silagem_facil_despesas_v1' || e.key === 'silagem_facil_fuel_logs_v1' || e.key === 'silagem_facil_documentos_entrada_v1') {
-        if (isMounted) refreshDashboardData(false);
+        if (isMounted) debouncedRefresh();
       }
     };
     const handleFocus = () => {
-      if (isMounted) refreshDashboardData(false);
+      if (isMounted) debouncedRefresh();
     };
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && isMounted) {
-        refreshDashboardData(false);
+        debouncedRefresh();
       }
     };
     const handleCustomSync = () => {
-      if (isMounted) refreshDashboardData(false);
+      if (isMounted) debouncedRefresh();
     };
 
     window.addEventListener('storage', handleStorage);
@@ -310,25 +301,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('silagem_documentos_entrada_updated', handleCustomSync);
 
-    // 5. Polling de segurança a cada 8 segundos enquanto a aba estiver visível
-    const pollInterval = setInterval(() => {
-      if (isMounted && document.visibilityState === 'visible') {
-        refreshDashboardData(false);
-      }
-    }, 8000);
-
     return () => {
       isMounted = false;
+      if (refreshDebounceTimerRef.current) {
+        clearTimeout(refreshDebounceTimerRef.current);
+      }
       if (channel) {
         try { supabase.removeChannel(channel); } catch (_) {}
       }
-      unsubContas();
-      unsubFuel();
-      unsubDocs();
-      unsubNotas();
-      unsubNotasEntradas();
-      unsubFrotas();
-      unsubSettings();
       if (bc) {
         try { bc.close(); } catch (_) {}
       }
@@ -336,9 +316,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('silagem_documentos_entrada_updated', handleCustomSync);
-      clearInterval(pollInterval);
     };
-  }, [refreshDashboardData, onExpensesChange]);
+  }, [refreshDashboardData, debouncedRefresh]);
 
   // Calculate current month expenses
   const now = new Date();

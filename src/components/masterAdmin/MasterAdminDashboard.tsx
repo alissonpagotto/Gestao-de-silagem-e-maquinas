@@ -638,11 +638,19 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     fetchSubscribersFromAssinantes();
     triggerSafeCloudSync();
 
-    // 2. Canal Realtime unificado e gerenciado (Elimina concorrência e duplicidade de listeners)
+    // 2. Canal Realtime unificado e gerenciado com tópico estável e desmonte obrigatório
     let masterRealtimeChannel: any = null;
     if (isSupabaseConfigured) {
+      const channelId = 'master_admin_stream_unified';
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+          try { supabase.removeChannel(ch); } catch (_) {}
+        }
+      }
+
       masterRealtimeChannel = supabase
-        .channel(`master_admin_stream_${Date.now()}`)
+        .channel(channelId)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'assinantes' },

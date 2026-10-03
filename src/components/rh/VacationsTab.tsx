@@ -1242,6 +1242,13 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
     };
   }, [activeTenantId]);
 
+  const isModalOpenRef = useRef(isModalOpen);
+  const activeDraftIdRef = useRef(activeDraftId);
+  useEffect(() => {
+    isModalOpenRef.current = isModalOpen;
+    activeDraftIdRef.current = activeDraftId;
+  });
+
   // Canal de Escuta Ativa (Supabase Realtime Channel) para sincronizar dispositivos do mesmo locatário
   useEffect(() => {
     const applyIncomingRecord = (incoming: VacationRecord, isFromDatabase = false) => {
@@ -1269,7 +1276,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
         prev && toValidUUID(prev.id) === incomingId ? { ...prev, ...normalizedIncoming } : prev
       );
 
-      if (isModalOpen && (!activeDraftId || toValidUUID(activeDraftId) === incomingId)) {
+      if (isModalOpenRef.current && (!activeDraftIdRef.current || toValidUUID(activeDraftIdRef.current) === incomingId)) {
         if (normalizedIncoming.employeeId) setSelectedEmployeeId(normalizedIncoming.employeeId);
         if (normalizedIncoming.acquisitionPeriodStart) setAcquisitionPeriodStart(normalizedIncoming.acquisitionPeriodStart);
         if (normalizedIncoming.acquisitionPeriodEnd) setAcquisitionPeriodEnd(normalizedIncoming.acquisitionPeriodEnd);
@@ -1330,8 +1337,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       (parsed: VacationRecord[]) => {
         saveStoredVacations(parsed);
         onSaveVacationsRef.current(parsed);
-        if (isModalOpen && activeDraftId) {
-          const matched = parsed.find((v) => toValidUUID(v.id) === toValidUUID(activeDraftId));
+        if (isModalOpenRef.current && activeDraftIdRef.current) {
+          const matched = parsed.find((v) => toValidUUID(v.id) === toValidUUID(activeDraftIdRef.current));
           if (matched) applyIncomingRecord(matched, true);
         }
       }
@@ -1341,7 +1348,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalEvent);
       unsubscribeRealtime();
     };
-  }, [activeTenantId, isModalOpen, activeDraftId]);
+  }, [activeTenantId]);
 
   // Propaga alterações em tempo real para outros dispositivos conectados sob o mesmo tenantId
   const broadcastActiveVacationDraft = useCallback(

@@ -119,7 +119,14 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       }
     };
 
-    const channelId = `dre_maint_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const channelId = 'dre_maint_rt_unified';
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
@@ -130,11 +137,6 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'frotas_manutencoes' },
-        handlePayload
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'manutencoes' },
         handlePayload
       )
       .subscribe();

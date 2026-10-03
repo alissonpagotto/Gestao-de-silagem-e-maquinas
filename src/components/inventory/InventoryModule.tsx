@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Package, 
   Plus, 
@@ -63,67 +63,76 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     }
   }, [inventory]);
 
+  const onSaveInventoryRef = useRef(onSaveInventory);
+  useEffect(() => {
+    onSaveInventoryRef.current = onSaveInventory;
+  }, [onSaveInventory]);
+
+  const inventoryDebounceTimerRef = useRef<any>(null);
+
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'estoque_produtos' e 'tanques_combustivel'
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
 
-    const channelId = `inventory_module_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const debouncedFetchEstoque = () => {
+      if (inventoryDebounceTimerRef.current) clearTimeout(inventoryDebounceTimerRef.current);
+      inventoryDebounceTimerRef.current = setTimeout(async () => {
+        try {
+          const fresh = await fetchEstoque();
+          if (isMounted && fresh && Array.isArray(fresh)) {
+            setLocalInventory(fresh);
+            saveStoredInventory(fresh);
+            onSaveInventoryRef.current?.(fresh);
+          }
+        } catch (_) {}
+      }, 400);
+    };
+
+    const channelId = 'inventory_module_rt';
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'estoque_produtos' },
-        async (payload: any) => {
-          console.info('📡 [Realtime Estoque] Alteração em estoque_produtos:', payload.eventType);
-          try {
-            const fresh = await fetchEstoque();
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalInventory(fresh);
-              saveStoredInventory(fresh);
-              if (onSaveInventory) onSaveInventory(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar estoque em tempo real:', err);
-          }
+        () => {
+          debouncedFetchEstoque();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tanques_combustivel' },
-        async () => {
-          try {
-            const fresh = await fetchEstoque();
-            if (isMounted && fresh && Array.isArray(fresh)) {
-              setLocalInventory(fresh);
-              saveStoredInventory(fresh);
-              if (onSaveInventory) onSaveInventory(fresh);
-            }
-          } catch (_) {}
+        () => {
+          debouncedFetchEstoque();
         }
       )
       .subscribe();
 
-    const handleFocus = async () => {
-      try {
-        const fresh = await fetchEstoque();
-        if (isMounted && fresh && Array.isArray(fresh)) {
-          setLocalInventory(fresh);
-          saveStoredInventory(fresh);
-          if (onSaveInventory) onSaveInventory(fresh);
-        }
-      } catch (_) {}
+    const handleFocus = () => {
+      debouncedFetchEstoque();
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
       isMounted = false;
+      if (inventoryDebounceTimerRef.current) {
+        clearTimeout(inventoryDebounceTimerRef.current);
+      }
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [onSaveInventory]);
+  }, []);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
