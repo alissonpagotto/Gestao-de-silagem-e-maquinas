@@ -911,7 +911,7 @@ export default function App() {
 
     const handleFrotasUpdate = () => {
       fetchGestaoFrotas(activeTenantId).then(fresh => {
-        if (fresh && isMounted) {
+        if (fresh && isMounted && Array.isArray(fresh) && fresh.length > 0) {
           setMachineries(prev => {
             const merged = fresh.map(f => {
               const existing = prev.find(p => p.id === f.id || toValidUUID(p.id) === toValidUUID(f.id));

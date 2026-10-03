@@ -10,7 +10,7 @@ import { Machinery, FuelLog, MaintenanceLog, Employee, ServiceOrder, SilageOrder
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
 import { generateFleetListHtml, generateFleetWhatsAppText, syncFleetMeters } from './fleetPrintUtils';
 import { PrintDocumentOptions } from '../../lib/printService';
-import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile } from '../../lib/storage';
+import { getStoredVehicleSystemCategories, getStoredVehicleOwnershipRegimes, getStoredCompanyProfile, getStoredMachineries } from '../../lib/storage';
 import { fetchGestaoFrotas, fetchCloudFuelLogs, patchGestaoFrotaMeter, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -277,11 +277,25 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         (selOwnLower.includes('alug') && (ownLower === 'alugado' || ownLower.includes('alug'))) ||
         (selOwnLower.includes('arrend') && (ownLower === 'arrendado' || ownLower.includes('arrend')));
 
+      // FILTRO SEGURO 100% LOCAL (REACT MEMORY) PARA "TODAS COMPOSIÇÕES"
+      // Não injeta nenhum parâmetro na requisição do Supabase
+      const isReboqueItem = 
+        m.compositionType === 'reboque' ||
+        catLower.includes('reboque') ||
+        catLower.includes('carreta') ||
+        catLower.includes('transbordo') ||
+        catLower.includes('implemento');
+
+      const isCavaloItem = 
+        m.compositionType === 'cavalo' || 
+        m.hasCoupledTrailer === true ||
+        Boolean(m.coupledTrailerId || m.reboque_vinculado_id || m.trailerPlate);
+
       const matchComposition = 
         selectedComposition === 'todos' ||
-        (selectedComposition === 'cavalo' && m.compositionType === 'cavalo') ||
-        (selectedComposition === 'reboque' && (m.compositionType === 'reboque' || (m.categoryType || '').trim().toLowerCase() === 'reboque')) ||
-        (selectedComposition === 'veiculo_simples' && (m.compositionType === 'veiculo_simples' || !m.compositionType));
+        (selectedComposition === 'cavalo' && isCavaloItem) ||
+        (selectedComposition === 'reboque' && isReboqueItem) ||
+        (selectedComposition === 'veiculo_simples' && !isCavaloItem && !isReboqueItem);
 
       return matchSearch && matchCategory && matchStatus && matchOwnership && matchComposition;
     });
@@ -342,6 +356,20 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   const onSaveMachineriesRef = React.useRef(onSaveMachineries);
   onSaveMachineriesRef.current = onSaveMachineries;
 
+  // Fallback e restauração resiliente imediata de veículos se a lista estiver zerada
+  React.useEffect(() => {
+    if ((!machineries || machineries.length === 0) && onSaveMachineriesRef.current) {
+      try {
+        const stored = getStoredMachineries();
+        if (stored && Array.isArray(stored) && stored.length > 0) {
+          onSaveMachineriesRef.current(stored);
+        }
+      } catch (err) {
+        console.warn('Aviso discreto ao restaurar frota do cache local:', err);
+      }
+    }
+  }, [machineries?.length]);
+
   // Sincronização em tempo real de frotas (multi-dispositivos) escutando 'veiculos_maquinas'
   React.useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -354,19 +382,26 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
       debounceTimer = setTimeout(async () => {
         try {
           const fresh = await fetchGestaoFrotas(companyProfile?.id);
-          if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineriesRef.current) {
+          // EVITAR TRAVAMENTO DE TELA E SUMIÇO DA TABELA:
+          // Apenas atualiza o estado se fresh trouxer registros válidos.
+          // Se o banco retornar vazio ou erro, mantém os dados anteriores carregados.
+          if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineriesRef.current) {
             onSaveMachineriesRef.current(fresh);
           }
-        } catch (_) {}
+        } catch (err) {
+          console.warn('Aviso seguro: sincronização de frotas manteve dados locais:', err);
+        }
       }, 400);
     };
 
-    // Busca inicial imediata
+    // Busca inicial imediata com proteção contra esvaziamento da tabela
     fetchGestaoFrotas(companyProfile?.id).then(fresh => {
       if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineriesRef.current) {
         onSaveMachineriesRef.current(fresh);
       }
-    }).catch(() => {});
+    }).catch(err => {
+      console.warn('Aviso discreto: mantendo frotas anteriores após erro no Supabase:', err);
+    });
 
     const channelId = `fleet_vehicles_rt_${companyProfile?.id || 'all'}`;
     const existingChannels = supabase.getChannels?.() || [];

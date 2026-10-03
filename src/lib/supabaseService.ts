@@ -4287,32 +4287,43 @@ export const knownVeiculosMaquinasCols = knownGestaoFrotaCols;
 export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[] | null> {
   if (!isSupabaseConfigured) return null;
   const activeCompanyId = companyId || getActiveCompanyId();
-  if (!activeCompanyId) return [];
+  if (!activeCompanyId) {
+    const stored = getStoredMachineries();
+    return stored.length > 0 ? stored : [];
+  }
   try {
-    // 1. Consulta prioritária na tabela física oficial 'veiculos_maquinas'
-    let { data, error } = await supabase
+    // 1. Colunas básicas e seguras existentes (sem composition_type para evitar erro 400 Bad Request / Schema Cache)
+    // Tenta primeiro na tabela 'veiculos_maquinas'
+    let data: any[] | null = null;
+    let error: any = null;
+
+    const resVm = await supabase
       .from('veiculos_maquinas')
-      .select('*')
-      .eq('company_id', activeCompanyId)
-      .order('nome', { ascending: true });
+      .select('id, modelo, marca, ano, status, company_id')
+      .eq('company_id', activeCompanyId);
+    
+    data = resVm.data as any[];
+    error = resVm.error;
 
-    if (error && error.message?.includes('nome')) {
-      const fallbackOrder = await supabase
-        .from('veiculos_maquinas')
-        .select('*')
-        .eq('company_id', activeCompanyId);
-      data = fallbackOrder.data;
-      error = fallbackOrder.error;
-    }
-
-    // Se a tabela 'veiculos_maquinas' retornar erro de inexistência (404/PGRST205) ou vazia, tenta 'gestao_frotas'
+    // Se 'veiculos_maquinas' retornar erro ou vazio, busca em 'gestao_frotas'
     if (error || !data || data.length === 0) {
-      const fallbackQuery = await supabase
+      // Colunas seguras e existentes na tabela 'gestao_frotas' (exclui composition_type)
+      const safeGfCols = 'id, nome, modelo, placa_ou_serie, ano, horimetro_ou_km_atual, status, company_id, tank_capacity, user_id, motorista, operator_or_driver, assigned_driver_ids, assigned_drivers, numero_eixos, quantidade_pneus, reboque_vinculado_id';
+      let gfRes: any = await supabase
         .from('gestao_frotas')
-        .select('*')
+        .select(safeGfCols)
         .eq('company_id', activeCompanyId);
-      if (!fallbackQuery.error && fallbackQuery.data && fallbackQuery.data.length > 0) {
-        data = fallbackQuery.data;
+
+      // Se falhar ou vier vazio, tenta busca mais básica com colunas fundamentais
+      if (gfRes.error || !gfRes.data || gfRes.data.length === 0) {
+        gfRes = await supabase
+          .from('gestao_frotas')
+          .select('id, nome, modelo, placa_ou_serie, horimetro_ou_km_atual, status, company_id')
+          .eq('company_id', activeCompanyId);
+      }
+
+      if (!gfRes.error && gfRes.data && gfRes.data.length > 0) {
+        data = gfRes.data;
         error = null;
       }
     }
@@ -4325,15 +4336,9 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       const altUuid = toValidUUID(activeCompanyId);
       if (altUuid && altUuid !== activeCompanyId) {
         let retry = await supabase
-          .from('veiculos_maquinas')
-          .select('*')
+          .from('gestao_frotas')
+          .select('id, nome, modelo, placa_ou_serie, horimetro_ou_km_atual, status, company_id')
           .eq('company_id', altUuid);
-        if (retry.error || !retry.data || retry.data.length === 0) {
-          retry = await supabase
-            .from('gestao_frotas')
-            .select('*')
-            .eq('company_id', altUuid);
-        }
         if (retry.data && retry.data.length > 0) {
           data = retry.data;
           error = null;
@@ -4341,12 +4346,17 @@ export async function fetchGestaoFrotas(companyId?: string): Promise<Machinery[]
       }
     }
 
-    if (error) {
-      console.warn('Supabase fetchGestaoFrotas notice:', error.message);
+    // Se o banco retornar erro de coluna inválida ou lista vazia, mantém o estado com os dados locais salvos
+    const storedMachineries = getStoredMachineries();
+    if (error || !data || data.length === 0) {
+      if (error) {
+        console.warn('Aviso discreto Supabase fetchGestaoFrotas (mantendo dados locais):', error.message);
+      }
+      if (storedMachineries && storedMachineries.length > 0) {
+        return storedMachineries;
+      }
       return [];
     }
-
-    const storedMachineries = getStoredMachineries();
     const storedEmployees = getStoredEmployees();
 
     return (data as any[] || []).map(row => {
@@ -4719,10 +4729,25 @@ export async function upsertGestaoFrota(vehicle: Machinery, companyId?: string):
 
     if (error) {
       console.warn('Supabase upsertVeiculoMaquina (veiculos_maquinas) notice:', error.message);
-      // Tenta fallback em gestao_frotas
-      const fallbackRes = await supabase.from('gestao_frotas').upsert(payload, { onConflict: 'id' });
+      // Tenta fallback em gestao_frotas removendo composition_type e colunas não existentes para evitar erro 400 (PGRST204 / schema cache)
+      const payloadGf = { ...payload };
+      delete (payloadGf as any).composition_type;
+      delete (payloadGf as any).compositionType;
+      delete (payloadGf as any).propriedade;
+      delete (payloadGf as any).marca;
+      delete (payloadGf as any).fleet_number;
+      delete (payloadGf as any).reboque_id;
+      delete (payloadGf as any).has_coupled_trailer;
+      delete (payloadGf as any).coupled_trailer_name;
+      delete (payloadGf as any).coupled_trailer_type;
+      delete (payloadGf as any).trailer_plate;
+      delete (payloadGf as any).trailer_model;
+      delete (payloadGf as any).controla_por;
+      delete (payloadGf as any).renavam;
+      delete (payloadGf as any).cor;
+      const fallbackRes = await supabase.from('gestao_frotas').upsert(payloadGf, { onConflict: 'id' });
       if (fallbackRes.error) {
-        console.warn('Supabase fallback gestao_frotas error:', fallbackRes.error.message);
+        console.warn('Supabase fallback gestao_frotas notice:', fallbackRes.error.message);
       }
     }
 
