@@ -134,7 +134,7 @@ export const supabase: SupabaseClient = createClient(
     },
     realtime: isRealtimeEnabledInEnv ? {
       params: {
-        eventsPerSecond: 10,
+        eventsPerSecond: 2,
       }
     } : {
       transport: NoOpWebSocket as any,
@@ -144,6 +144,44 @@ export const supabase: SupabaseClient = createClient(
     }
   }
 );
+
+/**
+ * Utilitário seguro para remoção e desmonte obrigatório de canais Realtime
+ * Previne vazamentos de conexão e reduz o tráfego de Egress e Log Ingestion.
+ */
+export function safeRemoveChannel(channel: any): void {
+  if (!channel) return;
+  try {
+    supabase.removeChannel(channel);
+  } catch (_) {}
+}
+
+/**
+ * Cria uma função de consulta com debounce para evitar disparos em massa ao Supabase
+ */
+export function createDebouncedQuery<T extends (...args: any[]) => any>(
+  fn: T,
+  delayMs: number = 300
+): T & { cancel: () => void } {
+  let timer: any = null;
+  const debounced = ((...args: any[]) => {
+    return new Promise((resolve, reject) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        try {
+          const res = await fn(...args);
+          resolve(res);
+        } catch (e) {
+          reject(e);
+        }
+      }, delayMs);
+    });
+  }) as any;
+  debounced.cancel = () => {
+    if (timer) clearTimeout(timer);
+  };
+  return debounced;
+}
 
 if (typeof window !== 'undefined') {
   // Evita looping de requisições de refresh 400 em caso de token expirado

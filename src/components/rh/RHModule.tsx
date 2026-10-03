@@ -123,6 +123,13 @@ export const RHModule: React.FC<RHModuleProps> = ({
   const [tabRefreshEpoch, setTabRefreshEpoch] = useState<number>(0);
   const [currentMonthRef, setCurrentMonthRef] = useState<string>('09/2026');
 
+  const onSaveEmployeesRef = React.useRef(onSaveEmployees);
+  onSaveEmployeesRef.current = onSaveEmployees;
+  const onSaveVacationsRef = React.useRef(onSaveVacations);
+  onSaveVacationsRef.current = onSaveVacations;
+  const onSaveAbsencesRef = React.useRef(onSaveAbsences);
+  onSaveAbsencesRef.current = onSaveAbsences;
+
   const handleTabChange = (newTab: RHTabType) => {
     setActiveTab(newTab);
     setTabRefreshEpoch(prev => prev + 1);
@@ -263,19 +270,19 @@ export const RHModule: React.FC<RHModuleProps> = ({
         });
 
         saveStoredEmployees(enriched);
-        if (onSaveEmployees) onSaveEmployees(enriched);
+        onSaveEmployeesRef.current?.(enriched);
       }
 
       if (Array.isArray(freshVacs)) {
         const cleanVacs = freshVacs.filter((v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado');
         saveStoredVacations(cleanVacs);
-        if (onSaveVacations) onSaveVacations(cleanVacs);
+        onSaveVacationsRef.current?.(cleanVacs);
       }
 
       if (Array.isArray(freshAbsences) && freshAbsences.length > 0) {
         setAbsences(freshAbsences);
         saveStoredAbsences(freshAbsences);
-        if (onSaveAbsences) onSaveAbsences(freshAbsences);
+        onSaveAbsencesRef.current?.(freshAbsences);
       }
     }).catch(() => {});
 
@@ -357,7 +364,14 @@ export const RHModule: React.FC<RHModuleProps> = ({
           .catch(() => {});
 
         // Canal de escuta Realtime (.on) para tabelas do RH (rh_funcionarios, rh_ferias, rh_rescisoes)
-        const channelId = `rh_module_rt_${activeUid}_${Date.now()}`;
+        const channelId = `rh_module_rt_${activeUid}`;
+        const existingChannels = supabase.getChannels?.() || [];
+        for (const ch of existingChannels) {
+          if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+            try { supabase.removeChannel(ch); } catch (_) {}
+          }
+        }
+
         channel = supabase
           .channel(channelId)
           .on(
@@ -370,7 +384,6 @@ export const RHModule: React.FC<RHModuleProps> = ({
             },
             async (payload: any) => {
               if (!isMounted) return;
-              console.info('📡 [Realtime RH] Alteração em rh_funcionarios filtrada por user_id:', payload.eventType);
 
               // Validação de segurança: se vier de outro user_id, ignora
               if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -385,7 +398,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
               if (isMounted && fresh && Array.isArray(fresh)) {
                 const strictlyMineFresh = fresh.filter(e => String(e.userId || (e as any).user_id || '').trim() === activeUid);
                 saveStoredEmployees(strictlyMineFresh);
-                if (onSaveEmployees) onSaveEmployees(strictlyMineFresh);
+                onSaveEmployeesRef.current?.(strictlyMineFresh);
               }
             }
           )
@@ -405,7 +418,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
                   const targetId = toValidUUID(String(oldId));
                   const nextList = getStoredVacations().filter((v) => toValidUUID(v.id) !== targetId);
                   saveStoredVacations(nextList);
-                  if (onSaveVacations) onSaveVacations(nextList);
+                  onSaveVacationsRef.current?.(nextList);
                 }
                 return;
               }
@@ -420,7 +433,7 @@ export const RHModule: React.FC<RHModuleProps> = ({
                   ? current.map((v) => (toValidUUID(v.id) === toValidUUID(mapped.id) ? { ...v, ...mapped } : v))
                   : [mapped, ...current];
                 saveStoredVacations(nextList);
-                if (onSaveVacations) onSaveVacations(nextList);
+                onSaveVacationsRef.current?.(nextList);
               }
             }
           )
@@ -466,10 +479,10 @@ export const RHModule: React.FC<RHModuleProps> = ({
     return () => {
       isMounted = false;
       if (channel) {
-        supabase.removeChannel(channel);
+        try { supabase.removeChannel(channel); } catch (_) {}
       }
     };
-  }, [currentUserId, onSaveEmployees]);
+  }, [currentUserId]);
 
   // Payslip Modal State
   const [viewingPayslip, setViewingPayslip] = useState<PayrollRecord | null>(null);

@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured, logPostgresError } from './supabase';
-export { isSupabaseConfigured, logPostgresError };
+import { supabase, isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery } from './supabase';
+export { isSupabaseConfigured, logPostgresError, safeRemoveChannel, createDebouncedQuery };
 export { getActiveCompanyId } from './storage';
 import {
   Client,

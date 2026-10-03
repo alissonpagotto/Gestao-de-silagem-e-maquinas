@@ -339,73 +339,75 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
     setIsPrintModalOpen(true);
   };
 
+  const onSaveMachineriesRef = React.useRef(onSaveMachineries);
+  onSaveMachineriesRef.current = onSaveMachineries;
+
   // Sincronização em tempo real de frotas (multi-dispositivos) escutando 'veiculos_maquinas'
   React.useEffect(() => {
     if (!isSupabaseConfigured) return;
 
     let isMounted = true;
+    let debounceTimer: any = null;
 
-    // Busca inicial imediata na tabela física gestao_frotas para garantir contadores e listagem sem atraso
+    const debouncedSync = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const fresh = await fetchGestaoFrotas(companyProfile?.id);
+          if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineriesRef.current) {
+            onSaveMachineriesRef.current(fresh);
+          }
+        } catch (_) {}
+      }, 400);
+    };
+
+    // Busca inicial imediata
     fetchGestaoFrotas(companyProfile?.id).then(fresh => {
-      if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineries) {
-        onSaveMachineries(fresh);
+      if (isMounted && fresh && Array.isArray(fresh) && fresh.length > 0 && onSaveMachineriesRef.current) {
+        onSaveMachineriesRef.current(fresh);
       }
-    }).catch(err => console.warn('Erro ao carregar frotas no mount:', err));
+    }).catch(() => {});
 
-    const channelId = `fleet_vehicles_rt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const channelId = `fleet_vehicles_rt_${companyProfile?.id || 'all'}`;
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const channel = supabase
       .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'veiculos_maquinas' },
-        async (payload: any) => {
-          console.info('📡 [Realtime Frotas - Veículos] Alteração detectada em veiculos_maquinas:', payload.eventType, payload);
-
-          // Atualização reativa imediata: recarrega todos os registros de frotas via REST do Supabase
-          try {
-            const fresh = await fetchGestaoFrotas(companyProfile?.id);
-            if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineries) {
-              onSaveMachineries(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar frota em tempo real via listener:', err);
-          }
+        () => {
+          debouncedSync();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'gestao_frotas' },
-        async (payload: any) => {
-          try {
-            const fresh = await fetchGestaoFrotas(companyProfile?.id);
-            if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineries) {
-              onSaveMachineries(fresh);
-            }
-          } catch (err) {
-            console.warn('Erro ao sincronizar frota em tempo real via listener gestao_frotas:', err);
-          }
+        () => {
+          debouncedSync();
         }
       )
       .subscribe();
 
-    const handleForceSync = async () => {
-      try {
-        const fresh = await fetchGestaoFrotas(companyProfile?.id);
-        if (isMounted && fresh && Array.isArray(fresh) && onSaveMachineries) {
-          onSaveMachineries(fresh);
-        }
-      } catch (err) {
-        console.warn('Erro ao atualizar frotas via evento local:', err);
-      }
+    const handleForceSync = () => {
+      debouncedSync();
     };
     window.addEventListener('silagem_force_rest_sync', handleForceSync);
 
     return () => {
       isMounted = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener('silagem_force_rest_sync', handleForceSync);
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
-  }, [companyProfile?.id, onSaveMachineries]);
+  }, [companyProfile?.id]);
 
   // Automated Meter Synchronization Handler via direct HTTP REST
   const handleSyncMeters = async () => {

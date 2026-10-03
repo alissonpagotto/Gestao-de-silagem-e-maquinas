@@ -92,13 +92,16 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
   const absencesRef = useRef<AbsenceRecord[]>(localAbsences);
   absencesRef.current = localAbsences;
 
+  const onSaveAbsencesRef = React.useRef(onSaveAbsences);
+  onSaveAbsencesRef.current = onSaveAbsences;
+
   // Sincronização em Tempo Real via Realtime Channel apontando estritamente para 'rh_faltas'
   useEffect(() => {
     // 2. LIMPEZA DE CACHE DO ESTADO (STATE RESET):
-    // Limpa imediatamente o array local antes de disparar a nova busca reativa no Supabase
     setLocalAbsences([]);
     setIsLoading(true);
     let isMounted = true;
+    let debounceTimer: any = null;
 
     const loadInitialFromSupabase = async () => {
       try {
@@ -107,10 +110,9 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
         if (Array.isArray(fresh)) {
           setLocalAbsences(fresh);
           saveStoredAbsences(fresh);
-          onSaveAbsences(fresh);
+          onSaveAbsencesRef.current(fresh);
         }
       } catch (err) {
-        console.warn('[FaltasTab] Aviso ao carregar rh_faltas do Supabase:', err);
         if (isMounted) {
           setLocalAbsences([]);
         }
@@ -128,22 +130,31 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
       setIsLoading(false);
     }
 
-    // Assinatura Realtime Channel estritamente na tabela public.rh_faltas
+    // Assinatura com canal estável por tenant (sem Date.now/random) para reaproveitamento de conexão
+    const channelTopic = `rh_faltas_tab_${effectiveCompanyId}`;
+    
+    // Remove canal prévio com mesmo nome se existir
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const faltasRtChannel = isSupabaseConfigured ? supabase
-      .channel(`rh_faltas_realtime_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .channel(channelTopic)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_faltas' },
         (payload: any) => {
           if (!isMounted) return;
-          console.info('📡 [FaltasTab Realtime rh_faltas] Evento recebido:', payload.eventType);
 
           if (payload.eventType === 'DELETE' && payload.old?.id) {
             const deletedId = toValidUUID(payload.old.id);
             setLocalAbsences(prev => {
               const nextList = prev.filter(a => toValidUUID(a.id) !== deletedId);
               saveStoredAbsences(nextList);
-              onSaveAbsences(nextList);
+              onSaveAbsencesRef.current(nextList);
               return nextList;
             });
             return;
@@ -158,7 +169,7 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
                 ? prev.map(a => toValidUUID(a.id) === mappedId ? { ...a, ...mapped, id: mappedId } : a)
                 : [{ ...mapped, id: mappedId }, ...prev];
               saveStoredAbsences(nextList);
-              onSaveAbsences(nextList);
+              onSaveAbsencesRef.current(nextList);
               return nextList;
             });
           }
@@ -168,8 +179,11 @@ export const FaltasTab: React.FC<FaltasTabProps> = ({
 
     return () => {
       isMounted = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (faltasRtChannel) {
-        supabase.removeChannel(faltasRtChannel);
+        try {
+          supabase.removeChannel(faltasRtChannel);
+        } catch (_) {}
       }
     };
   }, [effectiveCompanyId]);

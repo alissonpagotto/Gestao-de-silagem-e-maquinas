@@ -573,6 +573,8 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
   }, [authCompanyId, currentUser?.id]);
 
   const clientInstanceIdRef = useRef<string>(`vac_tab_${Math.random().toString(36).slice(2, 10)}`);
+  const onSaveVacationsRef = useRef(onSaveVacations);
+  onSaveVacationsRef.current = onSaveVacations;
   const vacationsRef = useRef<VacationRecord[]>(vacations);
   useEffect(() => {
     vacationsRef.current = vacations;
@@ -1188,15 +1190,23 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           (v) => v && v.id !== 'vac_alisson_pag_01' && v.status !== 'cancelado'
         );
         saveStoredVacations(cleanFresh);
-        onSaveVacations(cleanFresh);
+        onSaveVacationsRef.current(cleanFresh);
       } catch (_) {}
     };
 
     loadInitialFromSupabase();
 
-    // Assinatura Realtime direta na tabela public.rh_ferias
+    // Assinatura Realtime estável com canal compartilhado por tenant
+    const channelTopic = `rh_ferias_tab_${activeTenantId}`;
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const directChannel = supabase
-      .channel(`rh_ferias_tab_direct_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .channel(channelTopic)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_ferias' },
@@ -1206,7 +1216,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
             const deletedId = toValidUUID(payload.old.id);
             const nextList = vacationsRef.current.filter((v) => toValidUUID(v.id) !== deletedId);
             saveStoredVacations(nextList);
-            onSaveVacations(nextList);
+            onSaveVacationsRef.current(nextList);
             return;
           }
           if (payload.new) {
@@ -1218,7 +1228,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
               ? currentList.map((v) => (toValidUUID(v.id) === mappedId ? { ...v, ...mapped, id: mappedId } : v))
               : [{ ...mapped, id: mappedId }, ...currentList];
             saveStoredVacations(nextList);
-            onSaveVacations(nextList);
+            onSaveVacationsRef.current(nextList);
           }
         }
       )
@@ -1226,9 +1236,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(directChannel);
+      try {
+        supabase.removeChannel(directChannel);
+      } catch (_) {}
     };
-  }, [activeTenantId, onSaveVacations]);
+  }, [activeTenantId]);
 
   // Canal de Escuta Ativa (Supabase Realtime Channel) para sincronizar dispositivos do mesmo locatário
   useEffect(() => {
@@ -1245,11 +1257,11 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           toValidUUID(v.id) === incomingId ? { ...v, ...normalizedIncoming, id: toValidUUID(v.id) } : v
         );
         saveStoredVacations(nextList);
-        onSaveVacations(nextList);
+        onSaveVacationsRef.current(nextList);
       } else if (isFromDatabase) {
         const nextList = [normalizedIncoming, ...currentList];
         saveStoredVacations(nextList);
-        onSaveVacations(nextList);
+        onSaveVacationsRef.current(nextList);
       }
 
       // Se o modal de edição ou recibo estiver aberto para o mesmo registro, sincroniza os estados locais imediatamente
@@ -1306,7 +1318,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
           const targetId = toValidUUID(payload.deletedId);
           const nextList = vacationsRef.current.filter(v => toValidUUID(v.id) !== targetId);
           saveStoredVacations(nextList);
-          onSaveVacations(nextList);
+          onSaveVacationsRef.current(nextList);
           return;
         }
 
@@ -1317,7 +1329,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       },
       (parsed: VacationRecord[]) => {
         saveStoredVacations(parsed);
-        onSaveVacations(parsed);
+        onSaveVacationsRef.current(parsed);
         if (isModalOpen && activeDraftId) {
           const matched = parsed.find((v) => toValidUUID(v.id) === toValidUUID(activeDraftId));
           if (matched) applyIncomingRecord(matched, true);
@@ -1329,7 +1341,7 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
       window.removeEventListener('silagem_vacation_realtime_mutation', handleLocalEvent);
       unsubscribeRealtime();
     };
-  }, [activeTenantId, isModalOpen, activeDraftId, onSaveVacations]);
+  }, [activeTenantId, isModalOpen, activeDraftId]);
 
   // Propaga alterações em tempo real para outros dispositivos conectados sob o mesmo tenantId
   const broadcastActiveVacationDraft = useCallback(

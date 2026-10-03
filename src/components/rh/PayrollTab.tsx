@@ -292,6 +292,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   const effectiveCompanyId = activeCompanyId || companyProfile?.id || getActiveCompanyId() || activeUid || '';
   const [searchTerm, setSearchTerm] = useState('');
 
+  const employeesRef = useRef(employees);
+  employeesRef.current = employees;
+  const onSavePayrollsRef = useRef(onSavePayrolls);
+  onSavePayrollsRef.current = onSavePayrolls;
+
   // Sincronização em tempo real com ordens de serviço de silagem
   const [internalServices, setInternalServices] = useState<ServiceOrder[]>(() => 
     Array.isArray(services) ? services : (Array.isArray(getStoredServices()) ? getStoredServices() : [])
@@ -332,9 +337,17 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     window.addEventListener('storage', handleServicesUpdate);
     window.addEventListener('storage', handleAbsencesUpdate);
 
-    // Assinatura Realtime Channel estritamente na tabela public.rh_faltas para manter folha atualizada
+    // Assinatura Realtime Channel com canal estável na tabela public.rh_faltas
+    const channelTopic = 'rh_faltas_payroll_rt';
+    const existingChannels = supabase.getChannels?.() || [];
+    for (const ch of existingChannels) {
+      if (ch.topic === channelTopic || ch.topic === `realtime:${channelTopic}`) {
+        try { supabase.removeChannel(ch); } catch (_) {}
+      }
+    }
+
     const faltasChannel = isSupabaseConfigured ? supabase
-      .channel(`rh_faltas_payroll_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`)
+      .channel(channelTopic)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rh_faltas' },
@@ -355,7 +368,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       window.removeEventListener('storage', handleServicesUpdate);
       window.removeEventListener('storage', handleAbsencesUpdate);
       if (faltasChannel) {
-        supabase.removeChannel(faltasChannel);
+        try { supabase.removeChannel(faltasChannel); } catch (_) {}
       }
     };
   }, []);
@@ -391,7 +404,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
         const cloudData = await fetchCloudPayrolls(uid);
         if (isMounted) {
           if (Array.isArray(cloudData) && cloudData.length > 0) {
-            const safeEmps = Array.isArray(employees) ? employees : [];
+            const safeEmps = Array.isArray(employeesRef.current) ? employeesRef.current : [];
             const cleanList = cloudData.map(p => {
               if (!p.employeeName || !p.employeeRole) {
                 const emp = safeEmps.find(e => e.id === p.employeeId || toValidUUID(e.id) === p.employeeId);
@@ -406,14 +419,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               return p;
             });
             setLocalPayrolls(cleanList);
-            onSavePayrolls(cleanList);
+            onSavePayrollsRef.current(cleanList);
           } else {
-            // SAFE ARRAY FALLBACK: se a consulta retornar vazia ou der erro 404, popula com array vazia []
             setLocalPayrolls([]);
           }
         }
       } catch (err) {
-        console.warn('[PayrollTab] Erro ao carregar folhas do Supabase, aplicando fallback seguro []:', err);
         if (isMounted) {
           setLocalPayrolls([]);
         }
@@ -422,7 +433,6 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
     loadCloudPayrolls();
 
-    // Revalidação em retorno de foco para manter todos os dispositivos do assinante alinhados
     const handleFocus = () => {
       loadCloudPayrolls();
     };
@@ -434,11 +444,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
     };
-  }, [activeUid, employees]);
+  }, [activeUid]);
 
   // Listener em tempo real (Supabase Realtime) escutando 'rh_folhas_pagamento'
-  // Atualiza imediatamente o status visual (ex: badge amarelo 'A Pagar' -> badge verde 'Pago')
-  // simultaneamente em todos os dispositivos conectados do mesmo assinante.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let isMounted = true;
@@ -454,7 +462,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
       }
       if (!uid) return;
 
-      const channelId = `rh_folhas_pagamento_rt_${uid}_${Date.now()}`;
+      const channelId = `rh_folhas_pagamento_rt_${uid}`;
+      const existingChannels = supabase.getChannels?.() || [];
+      for (const ch of existingChannels) {
+        if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
+          try { supabase.removeChannel(ch); } catch (_) {}
+        }
+      }
+
       channel = supabase
         .channel(channelId)
         .on(
@@ -466,7 +481,6 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
           },
           (payload: any) => {
             if (!isMounted) return;
-            console.info('📡 [Realtime Folhas] Evento recebido em rh_folhas_pagamento:', payload.eventType, payload);
 
             // Validação de segurança por assinante
             if (payload.new) {
@@ -481,22 +495,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
               const delId = toValidUUID(payload.old.id);
               setLocalPayrolls(prev => {
                 const next = prev.filter(p => toValidUUID(p.id) !== delId && p.id !== delId && p.id !== payload.old.id);
-                onSavePayrolls(next);
+                onSavePayrollsRef.current(next);
                 return next;
               });
             } else if (payload.new) {
               const mapped = mapRowToPayrollRecord(payload.new);
               const mappedId = toValidUUID(mapped.id);
 
-              // Enriquece nome e cargo do colaborador a partir da lista local caso o banco não retorne tais colunas
-              const emp = employees.find(e => e.id === mapped.employeeId || toValidUUID(e.id) === mapped.employeeId);
+              const currentEmps = employeesRef.current || [];
+              const emp = currentEmps.find(e => e.id === mapped.employeeId || toValidUUID(e.id) === mapped.employeeId);
               if (emp) {
                 if (!mapped.employeeName) mapped.employeeName = emp.name;
                 if (!mapped.employeeRole) mapped.employeeRole = emp.role;
               }
 
               setLocalPayrolls(prev => {
-                // Identifica o mesmo registro por ID ou pela combinação colaborador + competência
                 const isMatch = (p: PayrollRecord) => {
                   if (mappedId && (toValidUUID(p.id) === mappedId || p.id === mappedId || p.id === payload.new.id)) return true;
                   if (p.employeeId && mapped.employeeId && (p.employeeId === mapped.employeeId || toValidUUID(p.employeeId) === toValidUUID(mapped.employeeId))) {
@@ -510,8 +523,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   ? prev.map(p => isMatch(p) ? { ...p, ...mapped, id: mappedId || p.id } : p)
                   : [mapped, ...prev];
 
-                console.info(`🔄 [Realtime Folhas] Status visual atualizado na tela para colaborador: ${mapped.employeeName} -> Status: ${mapped.status}`);
-                onSavePayrolls(next);
+                onSavePayrollsRef.current(next);
                 return next;
               });
             }
@@ -525,10 +537,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
     return () => {
       isMounted = false;
       if (channel) {
-        supabase.removeChannel(channel);
+        try { supabase.removeChannel(channel); } catch (_) {}
       }
     };
-  }, [activeUid, employees, companyProfile?.id]);
+  }, [activeUid, companyProfile?.id, activeCompanyId]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
@@ -1377,6 +1389,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   event: 'payroll_updated',
                   payload: recordToSave
                 });
+                setTimeout(() => {
+                  try { supabase.removeChannel(rtChan); } catch (_) {}
+                }, 200);
               } catch (_) {}
             }
           } catch (err: any) {
