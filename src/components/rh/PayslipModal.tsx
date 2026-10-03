@@ -6,7 +6,7 @@ import { PayrollRecord, Employee, CompanyProfile, SalaryAdvance, AbsenceRecord, 
 import { formatCurrencyBRL, formatDateBR, getStoredServices, getStoredAbsences, getStoredSalaryAdvances } from '../../lib/storage';
 import { PrintReportFooter } from '../common/PrintReportFooter';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getEmployeeMonthCommissions, EmployeeMonthCommissions, getFaixaIrrf } from './payrollHelpers';
-import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl } from './pixUtils';
+import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 
 interface PayslipModalProps {
   payroll: PayrollRecord | null;
@@ -263,17 +263,18 @@ export const PayslipModal: React.FC<PayslipModalProps> = ({
   const totalDiscounts = (payroll.inssDiscount || 0) + (payroll.irrfDiscount || 0) + activeSindical + (payroll.advancesDiscount || 0) + (payroll.otherDiscounts || 0);
   const netSalaryAmount = Math.max(0, totalEarnings - totalDiscounts);
 
-  // Verificação dinâmica de PIX para renderização do QR Code oficial
-  const isPixPayment = hasEmployeePixPayment(employee, formatEmployeeBankDeposit(employee));
-  const pixKey = isPixPayment ? getEmployeePixKey(employee) : '';
-  const pixPayload = isPixPayment && pixKey ? generatePixPayload({
+  // Verificação dinâmica de PIX para renderização do QR Code oficial (ativação por chave preenchida)
+  const resolvedEmp = employee || findEmployeeFromStorage(payroll.employeeId || payroll.employeeName);
+  const pixKey = getEmployeePixKey(resolvedEmp);
+  const isPixPayment = Boolean(pixKey);
+  const pixPayload = isPixPayment ? generatePixPayload({
     pixKey,
     amount: netSalaryAmount,
     merchantName: tradeName || 'COLACA SILAGEM',
     merchantCity: companyProfile?.city || 'COLATINA',
     txId: (payroll.referenceMonth || '').replace('/', '') || 'HOLERITE',
   }) : '';
-  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 160) : '';
+  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 180) : '';
 
   // Verifica se há qualquer lançamento detalhado ou observação para exibir a seção de conferência
   const hasDetailedBreakdown = 

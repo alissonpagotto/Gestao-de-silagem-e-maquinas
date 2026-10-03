@@ -3,7 +3,7 @@ import { Building2, FileText, CheckCircle2 } from 'lucide-react';
 import { Employee, CompanyProfile, PayrollCommissionItem, PayrollDeductionItem } from '../../types';
 import { formatCurrencyBRL, formatDateBR } from '../../lib/storage';
 import { formatCPF, formatEmployeeAdmissionDate, formatEmployeeBankDeposit, getFaixaIrrf } from './payrollHelpers';
-import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl } from './pixUtils';
+import { hasEmployeePixPayment, getEmployeePixKey, generatePixPayload, getPixQrCodeUrl, findEmployeeFromStorage } from './pixUtils';
 
 interface LivePayslipPreviewProps {
   companyProfile: CompanyProfile;
@@ -99,17 +99,18 @@ export const LivePayslipPreview: React.FC<LivePayslipPreviewProps> = ({
   const baseIrrf = Math.max(0, baseCalculo - activeInss);
   const faixaIrrf = getFaixaIrrf(baseIrrf);
 
-  // Verificação e geração do PIX Dinâmico para exibição no holerite
-  const isPixPayment = hasEmployeePixPayment(employee, formatEmployeeBankDeposit(employee));
-  const pixKey = isPixPayment ? getEmployeePixKey(employee) : '';
-  const pixPayload = isPixPayment && pixKey ? generatePixPayload({
+  // Verificação e geração do PIX Dinâmico para exibição no holerite (ativação por chave preenchida)
+  const resolvedEmp = employee || findEmployeeFromStorage(employee?.id || employee?.name);
+  const pixKey = getEmployeePixKey(resolvedEmp);
+  const isPixPayment = Boolean(pixKey);
+  const pixPayload = isPixPayment ? generatePixPayload({
     pixKey,
     amount: calculatedModalNet,
     merchantName: tradeName || 'COLACA SILAGEM',
     merchantCity: companyProfile?.city || 'COLATINA',
     txId: currentMonthRef.replace('/', '') || 'HOLERITE',
   }) : '';
-  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 160) : '';
+  const pixQrCodeUrl = pixPayload ? getPixQrCodeUrl(pixPayload, 180) : '';
 
   return (
     <div className="w-full flex flex-col items-center">

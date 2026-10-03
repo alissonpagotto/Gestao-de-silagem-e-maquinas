@@ -1,5 +1,4 @@
 import { Employee } from '../../types';
-import { formatEmployeeBankDeposit } from './payrollHelpers';
 
 /**
  * Remove acentos e caracteres especiais para compatibilidade com o padrão EMV BACEN
@@ -42,78 +41,129 @@ export function emv(id: string, value: string): string {
 }
 
 /**
- * Identifica se a forma de pagamento / depósito do colaborador é via PIX
+ * Busca o colaborador no LocalStorage ('colaca_silagem_funcionarios' ou 'silagem_facil_clean_v1_employees')
  */
-export function hasEmployeePixPayment(
-  emp?: Partial<Employee> | null,
-  depositStr?: string
-): boolean {
-  if (!emp) return false;
+export function findEmployeeFromStorage(idOrNameOrCpf?: string): Employee | null {
+  if (!idOrNameOrCpf) return null;
+  const search = idOrNameOrCpf.trim().toLowerCase();
+  const searchDigits = idOrNameOrCpf.replace(/\D/g, '');
 
-  const deposit = (depositStr || formatEmployeeBankDeposit(emp)).toLowerCase();
-  const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').toLowerCase();
-  const pixKeyField = (emp.bankPixKey || (emp as any).banco_chave_pix || '').toLowerCase();
-  const account = (emp.bankAccount || (emp as any).conta_corrente || '').toLowerCase();
+  const searchInList = (list: any[]): Employee | null => {
+    if (!Array.isArray(list)) return null;
+    return (
+      list.find(
+        e =>
+          (e.id && String(e.id) === idOrNameOrCpf) ||
+          (e.name && e.name.toLowerCase() === search) ||
+          (searchDigits.length >= 10 && e.cpf && e.cpf.replace(/\D/g, '') === searchDigits)
+      ) || null
+    );
+  };
 
-  // 1. Se contiver expressamente o termo "PIX"
-  if (
-    deposit.includes('pix') ||
-    paymentLoc.includes('pix') ||
-    pixKeyField.includes('pix') ||
-    account.includes('pix')
-  ) {
-    return true;
-  }
+  // 1. Tenta carregar de colaca_silagem_funcionarios
+  try {
+    const rawColaca = localStorage.getItem('colaca_silagem_funcionarios');
+    if (rawColaca) {
+      const parsed = JSON.parse(rawColaca);
+      const found = searchInList(parsed);
+      if (found) return found;
+    }
+  } catch {}
 
-  // 2. Se houver chave PIX preenchida (e-mail, chave aleatória, celular ou CPF válido fora do nome de banco)
-  const rawKey = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim();
-  const standardBanks = ['banco do brasil', 'bradesco', 'itau', 'caixa', 'santander', 'sicoob', 'sicredi'];
-  if (rawKey && !standardBanks.includes(rawKey.toLowerCase())) {
-    // E-mail
-    if (rawKey.includes('@')) return true;
-    // Chave Aleatória (UUID)
-    if (/^[0-9a-fA-F-]{32,36}$/.test(rawKey)) return true;
-    // Celular com DDD (+55 ou apenas DDD e número)
-    if (/^\+?55\d{10,11}$/.test(rawKey.replace(/\D/g, '')) || /^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$/.test(rawKey)) return true;
-    // CPF/CNPJ como chave
-    const digits = rawKey.replace(/\D/g, '');
-    if (digits.length === 11 || digits.length === 14) return true;
-  }
+  // 2. Tenta carregar de silagem_facil_clean_v1_employees
+  try {
+    const rawV1 = localStorage.getItem('silagem_facil_clean_v1_employees');
+    if (rawV1) {
+      const parsed = JSON.parse(rawV1);
+      const found = searchInList(parsed);
+      if (found) return found;
+    }
+  } catch {}
 
-  // 3. Se for conta bancária tradicional sem menção a PIX (Ex: "Banco do Brasil Ag: 0000 Cc: 00000-0")
-  return false;
+  return null;
 }
 
 /**
- * Extrai a chave PIX do colaborador
+ * Extrai a chave PIX do colaborador (lê o campo de Chave Pix / E-mail / Celular / Aleatória / CPF)
  */
 export function getEmployeePixKey(emp?: Partial<Employee> | null): string {
   if (!emp) return '';
 
-  const rawKey = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim();
-  const standardBanks = ['banco do brasil', 'bradesco', 'itau', 'caixa', 'santander', 'sicoob', 'sicredi'];
+  // 1. Chave explícita em propriedades adicionais
+  const directPix = (
+    (emp as any).pixKey ||
+    (emp as any).chavePix ||
+    (emp as any).chave_pix ||
+    (emp as any).pix_key ||
+    ''
+  ).trim();
 
-  // 1. Se campo bankPixKey tem chave real e não é apenas nome de banco tradicional
-  if (rawKey && !standardBanks.includes(rawKey.toLowerCase())) {
-    return rawKey.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+  if (directPix) {
+    return directPix.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
   }
 
-  // 2. Se campo conta_corrente contiver e-mail ou formato de chave PIX
-  const account = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
-  if (account.includes('@') || /^[0-9a-fA-F-]{32,36}$/.test(account)) {
-    return account.replace(/^pix[:\s-]*/i, '').trim();
+  // 2. Campo bankAccount (onde o usuário digita no input "Conta Corrente (C.C.) / Chave Pix" / "Chave Pix: E-mail")
+  const bankAccount = (emp.bankAccount || (emp as any).conta_corrente || '').trim();
+  if (bankAccount) {
+    // Se for e-mail (ex: agrocontrolemaquinas@gmail.com)
+    if (bankAccount.includes('@')) {
+      return bankAccount.replace(/^pix[:\s-]*/i, '').trim();
+    }
+    // Se for chave aleatória UUID
+    if (/^[0-9a-fA-F-]{32,36}$/.test(bankAccount)) {
+      return bankAccount.replace(/^pix[:\s-]*/i, '').trim();
+    }
+    // Se contiver o prefixo "pix"
+    if (/pix/i.test(bankAccount)) {
+      return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+    }
+    // Se tiver telefone (com DDD) ou CPF/CNPJ
+    const digits = bankAccount.replace(/\D/g, '');
+    if (digits.length === 11 || digits.length === 14 || /^\+?55\d{10,11}$/.test(digits)) {
+      return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+    }
+    // Qualquer texto digitado no campo de conta que não seja apenas placeholder "00000-0"
+    if (bankAccount !== '00000-0' && bankAccount !== '0000-0' && bankAccount !== '000-0' && !/^\d{4,6}-\d$/.test(bankAccount)) {
+      return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+    }
   }
 
-  // 3. Se forma de pagamento for PIX e não houver chave digitada, utiliza o CPF do colaborador (padrão CLT)
+  // 3. Campo bankPixKey (onde pode estar a chave Pix direta ou Banco)
+  const bankPixKey = (emp.bankPixKey || (emp as any).banco_chave_pix || '').trim();
+  const knownBanks = [
+    'banco do brasil', 'bradesco', 'itau', 'itaú', 'caixa', 'caixa econômica', 'caixa economica',
+    'santander', 'sicoob', 'sicredi', 'nubank', 'inter', 'banco inter', 'c6', 'c6 bank', 'banestes',
+    'safra', 'banco safra', 'btg', 'original', 'pagbank', 'mercado pago'
+  ];
+
+  if (bankPixKey && !knownBanks.includes(bankPixKey.toLowerCase())) {
+    return bankPixKey.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+  }
+
+  // 4. Se o usuário preencheu o banco (ex: Nubank) e digitou a conta/chave em bankAccount
+  if (bankAccount && bankAccount !== '00000-0' && bankAccount !== '0000-0') {
+    return bankAccount.replace(/^chave\s*pix[:\s-]*/i, '').replace(/^pix[:\s-]*/i, '').trim();
+  }
+
+  // 5. Se Forma de Recebimento ou Local de Recebimento contiver "PIX", fallback para o CPF do colaborador
   const paymentLoc = (emp.paymentLocation || (emp as any).local_recebimento || '').toLowerCase();
-  if (paymentLoc.includes('pix') || rawKey.toLowerCase().includes('pix') || account.toLowerCase().includes('pix')) {
+  if (paymentLoc.includes('pix') || bankPixKey.toLowerCase().includes('pix')) {
     if (emp.cpf) {
       const cleanCpf = emp.cpf.replace(/\D/g, '');
       if (cleanCpf.length === 11) return cleanCpf;
     }
   }
 
-  return rawKey || (emp.cpf ? emp.cpf.replace(/\D/g, '') : '');
+  return '';
+}
+
+/**
+ * Identifica se o colaborador possui chave PIX cadastrada para gerar o QR Code
+ */
+export function hasEmployeePixPayment(emp?: Partial<Employee> | null): boolean {
+  if (!emp) return false;
+  const key = getEmployeePixKey(emp);
+  return Boolean(key && key.trim().length > 0);
 }
 
 /**
@@ -182,6 +232,6 @@ export function generatePixPayload(params: {
 /**
  * Gera URL de imagem estática do QR Code para renderização instantânea em tela e impressão
  */
-export function getPixQrCodeUrl(pixPayload: string, size = 160): string {
+export function getPixQrCodeUrl(pixPayload: string, size = 180): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=2&format=png&data=${encodeURIComponent(pixPayload)}`;
 }
