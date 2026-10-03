@@ -494,11 +494,71 @@ function createOfflineSupabaseClient(): SupabaseClient {
     getChannels: () => [],
     rpc: (_fn: string, _args?: any) => Promise.resolve({ data: null, error: null }),
     auth: {
-      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-      signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: null }),
+      getSession: () => {
+        const email = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_active_user_email')) || 'pcjulia@gmail.com';
+        const uid = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_active_subscriber_id')) || 'colaca_silagem';
+        return Promise.resolve({
+          data: {
+            session: {
+              access_token: 'offline-jwt-token',
+              refresh_token: 'offline-refresh-token',
+              user: { id: uid, email, user_metadata: { full_name: 'Usuário Teste (Modo Local)' } }
+            } as any
+          },
+          error: null
+        });
+      },
+      getUser: () => {
+        const email = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_active_user_email')) || 'pcjulia@gmail.com';
+        const uid = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_active_subscriber_id')) || 'colaca_silagem';
+        return Promise.resolve({
+          data: {
+            user: { id: uid, email, user_metadata: { full_name: 'Usuário Teste (Modo Local)' } } as any
+          },
+          error: null
+        });
+      },
+      onAuthStateChange: (cb?: any) => {
+        if (cb) {
+          const email = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_active_user_email')) || 'pcjulia@gmail.com';
+          const uid = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_active_subscriber_id')) || 'colaca_silagem';
+          setTimeout(() => {
+            try {
+              cb('SIGNED_IN', {
+                access_token: 'offline-jwt-token',
+                user: { id: uid, email }
+              });
+            } catch (_) {}
+          }, 0);
+        }
+        return { data: { subscription: { unsubscribe: () => {} } } };
+      },
+      signInWithPassword: (creds?: any) => {
+        const email = creds?.email || 'pcjulia@gmail.com';
+        const uid = 'colaca_silagem';
+        return Promise.resolve({
+          data: {
+            user: { id: uid, email, user_metadata: { full_name: email.split('@')[0] } } as any,
+            session: { access_token: 'offline-token', user: { id: uid, email } } as any
+          },
+          error: null
+        });
+      },
+      signUp: (creds?: any) => {
+        const email = creds?.email || 'pcjulia@gmail.com';
+        const uid = 'colaca_silagem';
+        return Promise.resolve({
+          data: {
+            user: { id: uid, email, user_metadata: creds?.options?.data || { full_name: email.split('@')[0] } } as any,
+            session: { access_token: 'offline-token', user: { id: uid, email } } as any
+          },
+          error: null
+        });
+      },
+      signInWithOAuth: () => Promise.resolve({ data: { url: null, provider: 'google' }, error: null }),
       signOut: () => Promise.resolve({ error: null }),
+      resetPasswordForEmail: () => Promise.resolve({ data: {}, error: null }),
+      updateUser: (attrs: any) => Promise.resolve({ data: { user: attrs as any }, error: null }),
     }
   };
   return client as SupabaseClient;

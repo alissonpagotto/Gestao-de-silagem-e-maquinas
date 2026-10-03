@@ -2232,9 +2232,15 @@ export default function App() {
 
   // Transições de Navegação entre Ambientes com Verificação Estrita (Auth Guard)
   const handleEnterApp = () => {
-    const hasActiveSession = (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') || Boolean(currentUser);
+    const hasActiveSession = 
+      IS_OFFLINE_LOCAL_STORAGE_MODE ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('silagem_client_session') === 'active') || 
+      Boolean(currentUser);
     if (hasActiveSession) {
       try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('silagem_client_session', 'active');
+        }
         window.history.pushState({}, '', '/dashboard');
       } catch (e) {
         console.error(e);

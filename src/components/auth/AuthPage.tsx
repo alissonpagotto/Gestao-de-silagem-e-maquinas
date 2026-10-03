@@ -43,9 +43,9 @@ import {
 } from '../../lib/masterAdminStorage';
 import { PlanDefinition, SubscriberStatus, SiteConfig } from '../../types/masterAdmin';
 import { CompanyProfile } from '../../types';
-import { getStoredCompanyProfile, clearAllAuthSessionCache, setDbAuthCompanyId } from '../../lib/storage';
+import { getStoredCompanyProfile, saveStoredCompanyProfile, clearAllAuthSessionCache, setDbAuthCompanyId } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured, IS_OFFLINE_LOCAL_STORAGE_MODE } from '../../lib/supabase';
 import { toValidUUID, upsertCloudSubscriber, fetchCloudSiteConfig, resolveUserCompanyIdFromSupabase } from '../../lib/supabaseService';
 
 interface AuthPageProps {
@@ -527,25 +527,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   // Dados do formulário de Cadastro (Sign-up)
   const [formData, setFormData] = useState({
-    name: '',
-    tradeName: '',
-    responsibleName: '',
-    responsibleEmail: '',
-    password: '',
-    phone: '',
-    cpfCnpj: '',
-    stateRegistration: '',
-    cep: '',
-    street: '',
-    number: '',
-    neighborhood: '',
-    city: '',
+    name: 'Agropecuária Colaça Silagem Ltda',
+    tradeName: 'Colaça Silagem',
+    responsibleName: 'Júlia Colaça',
+    responsibleEmail: 'pcjulia@gmail.com',
+    password: '123456',
+    phone: '(44) 99988-7766',
+    cpfCnpj: '00.000.000/0001-99',
+    stateRegistration: 'ISENTO',
+    cep: '87000-000',
+    street: 'Rodovia PR-317, Km 12',
+    number: 'S/N',
+    neighborhood: 'Zona Rural',
+    city: 'Maringá',
     state: 'PR',
   });
 
   // Dados de Login
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState('pcjulia@gmail.com');
+  const [loginPassword, setLoginPassword] = useState('123456');
 
   // Estados Visuais & Utilitários
   const [showPassword, setShowPassword] = useState(false);
@@ -657,424 +657,223 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  // Submissão do Cadastro (Sign-up)
+  // Submissão do Cadastro (Sign-up) com simulação pura em LocalStorage e Auto-Login
   const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    // Validações Essenciais
-    if (!formData.name.trim()) {
-      setFormError('Por favor, informe a Razão Social ou Nome da Empresa.');
-      return;
-    }
-    if (!formData.cpfCnpj.trim()) {
-      setFormError('Por favor, informe o CPF ou CNPJ.');
-      return;
-    }
-    const emailClean = formData.responsibleEmail.trim().toLowerCase();
-    if (!emailClean || !emailClean.includes('@')) {
-      setFormError('Por favor, informe um e-mail válido para acesso.');
-      return;
-    }
-    if (!formData.phone.trim()) {
-      setFormError('Por favor, informe um telefone ou WhatsApp para contato.');
-      return;
-    }
-    if (!formData.password || formData.password.length < 6) {
-      setFormError('A senha de acesso deve ter no mínimo 6 caracteres.');
-      return;
-    }
-    if (!formData.cep.trim() || !formData.city.trim()) {
-      setFormError('Por favor, informe o CEP e a Cidade da empresa.');
-      return;
-    }
+    // Dados digitados com fallback seguro para testes imediatos
+    const nameClean = (formData.name || 'Agropecuária Colaça Silagem').trim();
+    const tradeNameClean = (formData.tradeName || nameClean).trim();
+    const emailClean = (formData.responsibleEmail || 'pcjulia@gmail.com').trim().toLowerCase();
+    const phoneClean = (formData.phone || '(44) 99988-7766').trim();
+    const documentClean = (formData.cpfCnpj || '00.000.000/0001-99').trim();
+    const passwordClean = formData.password || '123456';
+    const assignedCompanyId = 'colaca_silagem';
+    const authUserId = toValidUUID(emailClean) || 'colaca_silagem';
 
     setIsLoading(true);
 
     try {
-      const nameClean = formData.name.trim();
-      const phoneClean = formData.phone.trim();
-      const documentClean = formData.cpfCnpj.trim();
-
-      // 1. Mapeamento dinâmico do plano selecionado e seus valores reais do banco de dados (Supabase)
       const planKey = activePlan?.id || selectedPlanId || 'plano';
       const planPrice = Number(activePlan?.price) || 0;
       const planDisplayName = activePlan?.name || 'Plano Silagem Fácil';
 
-      // 2. Calcula data de expiração do trial (+7 dias conforme especificação comercial)
-      const trialDays = 7;
-      const trialDate = new Date();
-      trialDate.setDate(trialDate.getDate() + trialDays);
-      const trialEndsAtIso = trialDate.toISOString();
-      const criadoEmIso = new Date().toISOString();
-
-      // Determina status inicial ('ativa' se pré-pago ou sem trial, senão 'trial')
-      const initialStatus: SubscriberStatus = (isPrePaid || !allowFreeTrial) ? 'ativa' : 'trial';
-
-      // =========================================================================
-      // 1. CRIAÇÃO OU IDENTIFICAÇÃO DE USUÁRIO NO SUPABASE AUTH (auth.users)
-      // =========================================================================
-      let authUserId: string | null = null;
-      let isExistingAuthUser = false;
-
-      if (isSupabaseConfigured) {
-        try {
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: emailClean,
-            password: formData.password,
-            options: {
-              data: {
-                full_name: nameClean,
-                name: nameClean,
-                company_name: formData.tradeName.trim() || nameClean,
-                phone: phoneClean,
-                cpf_cnpj: documentClean,
-                plan_name: planDisplayName,
-                plano_selecionado: planKey,
-              }
-            }
-          });
-
-          if (authError) {
-            const errorMsg = (authError.message || '').toLowerCase();
-            const isDuplicate = 
-              errorMsg.includes('already registered') || 
-              errorMsg.includes('already exists') || 
-              errorMsg.includes('already in use') || 
-              errorMsg.includes('já cadastrado') || 
-              errorMsg.includes('já registrado');
-
-            if (isDuplicate) {
-              isExistingAuthUser = true;
-              console.log('Usuário existente no Supabase Auth. Recuperando credenciais e sincronizando tabelas públicas...');
-              // Tenta autenticar diretamente para obter o UUID real do Auth
-              try {
-                const { data: loginData } = await supabase.auth.signInWithPassword({
-                  email: emailClean,
-                  password: formData.password,
-                });
-                if (loginData?.user?.id) {
-                  authUserId = loginData.user.id;
-                }
-              } catch (loginErr) {
-                console.warn('Tentativa de login silenciosa durante cadastro existente:', loginErr);
-              }
-            } else {
-              throw new Error(authError.message || 'Erro ao criar o usuário no serviço de autenticação.');
-            }
-          } else if (authData?.user?.id) {
-            authUserId = authData.user.id;
-            if (authData.user.identities && authData.user.identities.length === 0) {
-              isExistingAuthUser = true;
-            }
-          }
-        } catch (authErr: any) {
-          if (!isExistingAuthUser) {
-            throw authErr;
-          }
-        }
-
-        // Se ainda não obtivemos o UUID (ex: senha diferente de teste anterior), busca na tabela de assinantes/subscribers
-        if (!authUserId) {
-          try {
-            const { data: existingAssinante } = await supabase
-              .from('assinantes')
-              .select('id')
-              .eq('email', emailClean)
-              .maybeSingle();
-
-            if (existingAssinante?.id) {
-              authUserId = existingAssinante.id;
-            } else {
-              const { data: existingLegacy } = await supabase
-                .from('subscribers')
-                .select('id')
-                .eq('email', emailClean)
-                .maybeSingle();
-              if (existingLegacy?.id) {
-                authUserId = existingLegacy.id;
-              }
-            }
-          } catch (lookupErr) {
-            console.warn('Busca de ID existente:', lookupErr);
-          }
-        }
-      }
-
-      // Fallback de UUID válido e consistente baseado no e-mail caso ainda não possua
-      if (!authUserId) {
-        authUserId = toValidUUID(emailClean);
-      }
-
-      // =========================================================================
-      // 2. INSERÇÃO OBRIGATÓRIA NA TABELA 'assinantes' (COM ESTRUTURA OFICIAL)
-      // Campos: id (UUID), nome, email, plano_selecionado, valor_mensal, status, trial_ate, criado_em
-      // =========================================================================
-      if (isSupabaseConfigured) {
-        const exactAssinantesPayload = {
-          id: authUserId,
-          nome: nameClean,
-          email: emailClean,
-          plano_selecionado: planKey,
-          valor_mensal: planPrice,
-          status: (isPrePaid || !allowFreeTrial) ? 'ativa' : 'trial',
-          trial_ate: (allowFreeTrial && !isPrePaid) ? trialEndsAtIso : null,
-          criado_em: criadoEmIso,
-        };
-
-        // 1. Gravação prioritária na tabela oficial 'assinantes'
-        const { error: insertAssinantesError } = await supabase
-          .from('assinantes')
-          .upsert(exactAssinantesPayload, { onConflict: 'id' });
-
-        if (insertAssinantesError) {
-          console.warn('Notice tabela assinantes por id, tentando fallback:', insertAssinantesError.message);
-          try {
-            await supabase
-              .from('assinantes')
-              .upsert(exactAssinantesPayload, { onConflict: 'email' });
-          } catch {
-            // Continua
-          }
-        }
-
-        // 2. Gravação de contingência na tabela 'subscribers'
-        try {
-          const exactSubscriberPayload = {
-            id: authUserId,
-            name: nameClean,
-            email: emailClean,
-            phone: phoneClean,
-            document: documentClean,
-            plan_name: planDisplayName,
-            status: (isPrePaid || !allowFreeTrial) ? 'Ativa' : 'Trial',
-            trial_ends_at: (allowFreeTrial && !isPrePaid) ? trialEndsAtIso : null,
-            created_at: criadoEmIso,
-          };
-
-          await supabase
-            .from('subscribers')
-            .upsert(exactSubscriberPayload, { onConflict: 'id' });
-        } catch {
-          // fallback silencioso
-        }
-      }
-
-      // =========================================================================
-      // 3. PERSISTÊNCIA LOCAL E EM NUVEM COM O MESMO UUID DO SUPABASE AUTH
-      // =========================================================================
-      const result = registerNewSubscriber({
+      // 1. SIMULAR O CADASTRO NO LOCALSTORAGE (Chave solicitada: 'colaca_silagem_usuarios_teste')
+      const usuarioEmpresaTeste = {
         id: authUserId,
+        company_id: assignedCompanyId,
+        companyId: assignedCompanyId,
         name: nameClean,
-        tradeName: formData.tradeName.trim() || nameClean,
+        tradeName: tradeNameClean,
+        corporateName: nameClean,
+        email: emailClean,
         responsibleEmail: emailClean,
-        password: formData.password,
+        password: passwordClean,
         phone: phoneClean,
         cpfCnpj: documentClean,
+        document: documentClean,
         stateRegistration: formData.stateRegistration.trim() || 'ISENTO',
-        cep: formData.cep.trim(),
+        cep: formData.cep.trim() || '87000-000',
         street: formData.street.trim() || 'Endereço Comercial',
         number: formData.number.trim() || 'S/N',
         neighborhood: formData.neighborhood.trim() || 'Centro',
-        city: formData.city.trim(),
-        state: formData.state.trim().toUpperCase(),
+        city: formData.city.trim() || 'Maringá',
+        state: (formData.state.trim() || 'PR').toUpperCase(),
+        representativeName: formData.responsibleName.trim() || nameClean,
+        planId: planKey,
+        planName: planDisplayName,
+        monthlyValue: planPrice,
+        status: 'ativa',
+        criado_em: new Date().toISOString(),
+      };
+
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const rawTestUsers = window.localStorage.getItem('colaca_silagem_usuarios_teste');
+          let testUsersList: any[] = [];
+          if (rawTestUsers) {
+            try {
+              const parsed = JSON.parse(rawTestUsers);
+              testUsersList = Array.isArray(parsed) ? parsed : [parsed];
+            } catch (_) {}
+          }
+          // Remove duplicado de mesmo email se houver e adiciona no topo
+          testUsersList = testUsersList.filter((u: any) => (u.email || u.responsibleEmail) !== emailClean);
+          testUsersList.unshift(usuarioEmpresaTeste);
+          window.localStorage.setItem('colaca_silagem_usuarios_teste', JSON.stringify(testUsersList));
+        } catch (storageErr) {
+          console.warn('Aviso ao gravar em colaca_silagem_usuarios_teste:', storageErr);
+        }
+      }
+
+      // Salva no registro de assinantes locais
+      const subscriberResult = registerNewSubscriber({
+        id: authUserId,
+        name: nameClean,
+        tradeName: tradeNameClean,
+        responsibleEmail: emailClean,
+        password: passwordClean,
+        phone: phoneClean,
+        cpfCnpj: documentClean,
+        stateRegistration: formData.stateRegistration.trim() || 'ISENTO',
+        cep: formData.cep.trim() || '87000-000',
+        street: formData.street.trim() || 'Endereço Comercial',
+        number: formData.number.trim() || 'S/N',
+        neighborhood: formData.neighborhood.trim() || 'Centro',
+        city: formData.city.trim() || 'Maringá',
+        state: (formData.state.trim() || 'PR').toUpperCase(),
         representativeName: formData.responsibleName.trim() || nameClean,
         planId: planKey,
         monthlyValue: planPrice,
-        status: initialStatus,
-        trialDays: (allowFreeTrial && !isPrePaid) ? 7 : 0,
+        status: 'ativa',
+        trialDays: 15,
       });
 
-      // Dispara persistência na nuvem via serviço centralizado
-      upsertCloudSubscriber(result.subscriber).catch(err => {
-        console.warn('Notice upsertCloudSubscriber:', err);
-      });
+      // Atualiza o perfil da empresa no LocalStorage para que o sistema carregue com a nova empresa
+      const newCompanyProfile: CompanyProfile = {
+        ...subscriberResult.companyProfile,
+        id: assignedCompanyId,
+        corporateName: nameClean,
+        tradeName: tradeNameClean,
+        email: emailClean,
+        phone: phoneClean,
+        cnpj: documentClean,
+      };
+      saveStoredCompanyProfile(newCompanyProfile);
 
-      // Notifica o estado do App sobre a nova empresa
       if (onCompanyCreated) {
-        onCompanyCreated(result.companyProfile);
+        onCompanyCreated(newCompanyProfile);
       }
 
-      // Dispara eventos em tempo real para sincronização imediata no Master Admin
-      if (typeof window !== 'undefined') {
+      // 2. EFETUAR LOGIN AUTOMÁTICO APÓS O CADASTRO:
+      // Salva o estado de sessão como ativo e redireciona IMEDIATAMENTE para a tela interna do painel
+      setDbAuthCompanyId(assignedCompanyId);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('silagem_client_session', 'active');
+        window.localStorage.setItem('silagem_active_user_email', emailClean);
+        window.localStorage.setItem('silagem_active_subscriber_id', assignedCompanyId);
+        window.localStorage.setItem('current_company_id', assignedCompanyId);
+        window.localStorage.setItem('admin_impersonated_company_id', assignedCompanyId);
+        window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: assignedCompanyId } }));
         window.dispatchEvent(new CustomEvent('master_admin_data_changed'));
-        window.dispatchEvent(new CustomEvent('agrocontrol_plans_updated'));
+        window.history.pushState({}, '', '/dashboard');
       }
 
-      setSuccessMessage(
-        isExistingAuthUser
-          ? 'Conta autenticada e assinatura vinculada com sucesso! Inicializando seu painel...'
-          : 'Empresa, conta e assinatura criadas com sucesso! Inicializando seu painel...'
-      );
+      setSuccessMessage('Empresa cadastrada com sucesso! Entrando no sistema...');
+      setIsLoading(false);
 
-      // Redirecionamento suave para o ERP
-      setTimeout(() => {
-        onEnterApp();
-      }, 1200);
+      // Redirecionamento imediato para a tela interna do ERP
+      onEnterApp();
 
     } catch (err: any) {
-      console.error('Falha no cadastro:', err);
-      setFormError(err.message || 'Ocorreu um erro ao realizar o cadastro. Tente novamente.');
+      console.warn('Falha no cadastro (ativando fallback seguro de sessão):', err);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('silagem_client_session', 'active');
+        window.localStorage.setItem('current_company_id', 'colaca_silagem');
+      }
       setIsLoading(false);
+      onEnterApp();
     }
   };
 
-  // Submissão do Login
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 3. BOTÃO DE LOGAR DIRETO (IGNORAR VALIDAÇÃO RÍGIDA DE REDE):
+  // Ao digitar qualquer e-mail e senha de teste (ou o seu e-mail pcjulia@gmail.com),
+  // o sistema pula a validação de rede e concede acesso direto definindo company_id padrão como 'colaca_silagem'.
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     setFormError(null);
 
-    const emailClean = loginEmail.trim().toLowerCase();
-
-    if (!emailClean || !emailClean.includes('@')) {
-      setFormError('Por favor, informe um e-mail válido.');
-      return;
-    }
-    if (!loginPassword) {
-      setFormError('Por favor, digite sua senha.');
-      return;
-    }
+    const emailClean = (loginEmail || 'pcjulia@gmail.com').trim().toLowerCase();
+    const assignedCompanyId = 'colaca_silagem';
 
     setIsLoading(true);
 
     try {
-      // 0. Limpeza total de credenciais e caches anteriores para evitar contaminação cruzada
+      // 0. Limpeza total de credenciais antigas
       clearAllAuthSessionCache();
 
-      const subscribers = getStoredSubscribers();
-      const existingSub = subscribers.find(s => s.responsibleEmail.toLowerCase() === emailClean);
-      const company = getStoredCompanyProfile();
-      const isCompanyEmail = (company.loginEmail || company.email)?.toLowerCase() === emailClean;
-
-      let authSuccess = false;
-
-      // 1. Tenta autenticar via Supabase
-      try {
-        await signIn(emailClean, loginPassword);
-        authSuccess = true;
-      } catch (supabaseErr) {
-        console.warn('Tentativa via Supabase concluída com aviso:', supabaseErr);
-      }
-
-      // 2. Valida com a base de assinantes e perfil da empresa
-      if (!authSuccess) {
-        if (existingSub) {
-          if (existingSub.password && existingSub.password !== '••••••••' && existingSub.password !== loginPassword) {
-            setFormError('Senha incorreta para este usuário.');
-            setIsLoading(false);
-            return;
-          }
-          authSuccess = true;
-        } else if (isCompanyEmail) {
-          authSuccess = true;
-        } else if (subscribers.length === 0) {
-          authSuccess = true;
-        }
-      }
-
-      if (!authSuccess) {
-        setFormError('E-mail não cadastrado ou credenciais inválidas. Crie sua conta para começar.');
-        setIsLoading(false);
-        return;
-      }
-
-      // 3. Validação de Acesso: Garante que o assinante ainda existe no banco e não está cancelado ou inativo
-      let resolvedCompanyId: string | null = null;
-      if (isSupabaseConfigured) {
+      // 1. Grava no localStorage com a chave 'colaca_silagem_usuarios_teste' para persistência
+      if (typeof window !== 'undefined' && window.localStorage) {
         try {
-          const { data: assinanteRow } = await supabase
-            .from('assinantes')
-            .select('id, status, email, company_id')
-            .eq('email', emailClean)
-            .maybeSingle();
-
-          if (!assinanteRow) {
-            const { data: subRow } = await supabase
-              .from('subscribers')
-              .select('id, status, email, company_id')
-              .eq('email', emailClean)
-              .maybeSingle();
-
-            if (!subRow) {
-              setFormError('Acesso revogado: este assinante não foi encontrado no sistema ou foi excluído pelo administrador.');
-              setIsLoading(false);
-              return;
-            }
-
-            const subSt = (subRow.status || '').toLowerCase();
-            if (['cancelado', 'cancelada', 'inativo', 'inativa', 'suspensa', 'suspenso'].includes(subSt)) {
-              setFormError('Acesso bloqueado: sua assinatura está inativa ou cancelada.');
-              setIsLoading(false);
-              return;
-            }
-            resolvedCompanyId = (subRow.company_id && String(subRow.company_id).trim()) || subRow.id;
-          } else {
-            const assSt = (assinanteRow.status || '').toLowerCase();
-            if (['cancelado', 'cancelada', 'inativo', 'inativa', 'suspensa', 'suspenso'].includes(assSt)) {
-              setFormError('Acesso bloqueado: sua assinatura foi cancelada ou suspensa pelo administrador.');
-              setIsLoading(false);
-              return;
-            }
-            resolvedCompanyId = (assinanteRow.company_id && String(assinanteRow.company_id).trim()) || assinanteRow.id;
+          const rawTestUsers = window.localStorage.getItem('colaca_silagem_usuarios_teste');
+          let testUsersList: any[] = [];
+          if (rawTestUsers) {
+            try {
+              const parsed = JSON.parse(rawTestUsers);
+              testUsersList = Array.isArray(parsed) ? parsed : [parsed];
+            } catch (_) {}
           }
-        } catch (dbErr) {
-          console.warn('Aviso ao checar permissão de acesso do assinante:', dbErr);
-        }
-
-        // Se ainda não resolveu company_id, busca pelas tabelas remotas (profiles, user_companies, users, subscribers)
-        if (!resolvedCompanyId) {
-          try {
-            const { data: userData } = await supabase.auth.getUser();
-            const uid = userData?.user?.id || '';
-            resolvedCompanyId = await resolveUserCompanyIdFromSupabase(uid, emailClean);
-          } catch (resErr) {
-            console.warn('Aviso ao resolver company_id do usuário autenticado:', resErr);
+          if (!testUsersList.some((u: any) => (u.email || u.responsibleEmail) === emailClean)) {
+            testUsersList.unshift({
+              id: 'colaca_silagem',
+              email: emailClean,
+              responsibleEmail: emailClean,
+              name: emailClean.split('@')[0],
+              company_id: assignedCompanyId,
+              status: 'ativa',
+              created_at: new Date().toISOString()
+            });
+            window.localStorage.setItem('colaca_silagem_usuarios_teste', JSON.stringify(testUsersList));
           }
-        }
-      } else {
-        if (!existingSub) {
-          setFormError('Assinante não encontrado ou excluído do sistema.');
-          setIsLoading(false);
-          return;
-        }
-        const st = (existingSub.status || '').toLowerCase();
-        if (['cancelada', 'cancelado', 'inativo', 'inativa', 'suspensa'].includes(st)) {
-          setFormError('Acesso bloqueado: sua assinatura está inativa ou cancelada.');
-          setIsLoading(false);
-          return;
-        }
-        resolvedCompanyId = existingSub.id;
+        } catch (_) {}
       }
 
-      // 4. Injeta o company_id no storage e ativa a sessão segura
-      if (resolvedCompanyId) {
-        setDbAuthCompanyId(resolvedCompanyId);
-      }
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('silagem_client_session', 'active');
-        localStorage.setItem('silagem_active_user_email', emailClean);
-        if (resolvedCompanyId) {
-          localStorage.setItem('silagem_active_subscriber_id', resolvedCompanyId);
-          localStorage.setItem('current_company_id', resolvedCompanyId);
-        } else if (existingSub) {
-          localStorage.setItem('silagem_active_subscriber_id', existingSub.id);
-          localStorage.setItem('current_company_id', existingSub.id);
-        }
+      // 2. Tenta autenticação silenciosa sem travar caso o Supabase esteja offline
+      try {
+        await signIn(emailClean, loginPassword || '123456');
+      } catch (supabaseErr) {
+        console.warn('Aviso silencioso de autenticação local (modo offline):', supabaseErr);
       }
 
-      if (typeof window !== 'undefined' && resolvedCompanyId) {
-        window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: resolvedCompanyId } }));
+      // 3. Concede acesso direto: define sessão ativa e company_id como 'colaca_silagem'
+      setDbAuthCompanyId(assignedCompanyId);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('silagem_client_session', 'active');
+        window.localStorage.setItem('silagem_active_user_email', emailClean);
+        window.localStorage.setItem('silagem_active_subscriber_id', assignedCompanyId);
+        window.localStorage.setItem('current_company_id', assignedCompanyId);
+        window.localStorage.setItem('admin_impersonated_company_id', assignedCompanyId);
+        window.dispatchEvent(new CustomEvent('active_company_id_changed', { detail: { companyId: assignedCompanyId } }));
+        window.history.pushState({}, '', '/dashboard');
       }
 
-      setSuccessMessage('Login efetuado com sucesso! Redirecionando para o ERP...');
-      setTimeout(() => {
-        onEnterApp();
-      }, 700);
+      setSuccessMessage('Acesso concedido! Redirecionando para o sistema...');
+      setIsLoading(false);
+
+      // Redirecionamento imediato para a tela interna
+      onEnterApp();
 
     } catch (err: any) {
-      console.error('Erro de login:', err);
-      setFormError(err.message || 'Credenciais inválidas. Verifique seu e-mail e senha.');
+      console.warn('Erro contornado no login (garantindo acesso direto):', err);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('silagem_client_session', 'active');
+        window.localStorage.setItem('current_company_id', 'colaca_silagem');
+      }
       setIsLoading(false);
+      onEnterApp();
     }
   };
 
@@ -1644,7 +1443,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-2.5">
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -1661,6 +1460,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
+                </button>
+
+                {/* Botão de Logar Direto com Conta de Teste (pula validação de rede) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginEmail('pcjulia@gmail.com');
+                    setLoginPassword('123456');
+                    handleLoginSubmit();
+                  }}
+                  className="w-full py-2.5 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Logar Direto (pcjulia@gmail.com / colaca_silagem)</span>
                 </button>
               </div>
 
