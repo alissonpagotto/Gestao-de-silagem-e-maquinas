@@ -144,12 +144,12 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-0.5">
-        <label htmlFor={id} className="block text-[10.5px] sm:text-[11px] font-bold text-stone-900 dark:text-stone-200 truncate">
+        <label htmlFor={id} className="block text-xs font-semibold text-stone-900 dark:text-stone-200 truncate">
           {label}
         </label>
         {headerRight}
       </div>
-      {subtitle && <div className="text-[9.5px] text-stone-500 mb-0.5">{subtitle}</div>}
+      {subtitle && <div className="text-[9px] text-stone-500 mb-0.5 leading-none">{subtitle}</div>}
       <div className="relative">
         <input
           id={id}
@@ -163,7 +163,7 @@ const BrlCurrencyInput: React.FC<BrlCurrencyInputProps> = ({
           disabled={disabled}
           required={required}
           title={title}
-          className={`w-full px-2 py-1.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs transition ${
+          className={`w-full px-2 py-1 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-white font-bold outline-none focus:ring-1 focus:ring-[#0963cb] text-xs transition ${
             disabled ? 'opacity-50 bg-stone-100 dark:bg-stone-900/60 cursor-not-allowed' : ''
           } ${inputClassName}`}
         />
@@ -2458,15 +2458,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                 {/* ======================================================== */}
                 {/* COLUNA DA ESQUERDA: Painel de Lançamentos (Slim/Compact) */}
                 {/* ======================================================== */}
-                <div className="overflow-y-auto p-3 sm:p-4 space-y-3 bg-[#e8f1f8] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col">
+                <div className="overflow-y-hidden p-2 space-y-1.5 bg-[#e8f1f8] dark:bg-stone-900 text-stone-900 dark:text-stone-100 flex flex-col justify-between">
                   
                   {/* 1. Colaborador & Informações de Enquadramento */}
-                  <div className="bg-white dark:bg-stone-800 rounded-xl p-3 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-2">
+                  <div className="bg-white dark:bg-stone-800 rounded-xl p-2 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-1">
                     <div className="flex items-center justify-between">
-                      <label className="block font-bold text-stone-900 dark:text-stone-100 text-xs">
+                      <label className="block text-xs font-semibold text-stone-900 dark:text-stone-100">
                         Colaborador / Funcionário <span className="text-rose-600">*</span>
                       </label>
-                      <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium">
+                      <span className="text-[9px] text-stone-500 dark:text-stone-400 font-medium">
                         (Motoristas Terceirizados são geridos no Financeiro)
                       </span>
                     </div>
@@ -2474,7 +2474,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     <select
                       value={selectedEmployeeId}
                       onChange={(e) => handleSelectEmployee(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] font-semibold text-xs shadow-2xs"
+                      className="w-full px-2 py-1 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-[#0963cb] text-xs font-semibold shadow-2xs"
                       required
                     >
                       <option value="">Selecione um funcionário...</option>
@@ -2491,32 +2491,31 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     {selectedEmployeeId && (() => {
                       const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
                       if (!selectedEmployee) return null;
-                      const isClt = isCltContract(selectedEmployee);
                       return (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 pt-1 text-xs">
-                          <div className="p-1.5 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
-                            <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-xs">
+                          <div className="p-1 bg-stone-50 dark:bg-stone-900 rounded border border-stone-200 dark:border-stone-700">
+                            <span className="text-[8px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                               Regime / Vínculo:
                             </span>
-                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] block mt-0.5 truncate">
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[10px] block mt-0.5 truncate">
                               {selectedEmployee.role} ({selectedEmployee.contractType || 'CLT'})
                             </span>
                           </div>
 
-                          <div className="p-1.5 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
-                            <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          <div className="p-1 bg-stone-50 dark:bg-stone-900 rounded border border-stone-200 dark:border-stone-700">
+                            <span className="text-[8px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                               CPF / Admissão:
                             </span>
-                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] block mt-0.5 truncate">
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[10px] block mt-0.5 truncate">
                               {formatCPF(selectedEmployee.cpf)} • {formatEmployeeAdmissionDate(selectedEmployee.admissionDate)}
                             </span>
                           </div>
 
-                          <div className="p-1.5 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
-                            <span className="text-[8.5px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
+                          <div className="p-1 bg-stone-50 dark:bg-stone-900 rounded border border-stone-200 dark:border-stone-700">
+                            <span className="text-[8px] font-bold text-stone-500 uppercase block tracking-wider leading-none">
                               Banco para Depósito:
                             </span>
-                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[11px] block mt-0.5 truncate" title={formatEmployeeBankDeposit(selectedEmployee)}>
+                            <span className="font-bold text-stone-900 dark:text-stone-100 text-[10px] block mt-0.5 truncate" title={formatEmployeeBankDeposit(selectedEmployee)}>
                               {formatEmployeeBankDeposit(selectedEmployee)}
                             </span>
                           </div>
@@ -2526,13 +2525,13 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
 
                   {/* 2. Bloco de Proventos com Grid 2 Colunas para os Inputs */}
-                  <div className="p-3 bg-blue-50/90 dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-2 shadow-2xs">
+                  <div className="p-2 bg-blue-50/90 dark:bg-stone-850 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-black uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
+                        <span className="text-xs font-bold uppercase text-blue-950 dark:text-blue-300 block tracking-wider">
                           Proventos (Vencimentos)
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-blue-200/60 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] font-['Outfit']">
+                        <span className="px-1.5 py-0.2 rounded bg-blue-200/60 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200 font-bold text-[9.5px] font-['Outfit']">
                           Bruto: {formatMoneyBRL(modalGrossTotal)}
                         </span>
                       </div>
@@ -2540,7 +2539,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         <button
                           type="button"
                           onClick={handleSyncButton}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#0963cb] dark:text-sky-400 border border-blue-300 dark:border-blue-600 font-bold text-[11px] shadow-2xs hover:shadow-xs active:scale-98 transition cursor-pointer"
+                          className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-white hover:bg-blue-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-[#0963cb] dark:text-sky-400 border border-blue-300 dark:border-blue-600 font-bold text-[10px] shadow-2xs hover:shadow-xs active:scale-98 transition cursor-pointer"
                           title="Sincronizar comissões de OS, adiantamentos e faltas ativas cadastradas no mês"
                         >
                           <RefreshCw className={`w-3 h-3 text-[#0963cb] dark:text-sky-400 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -2551,9 +2550,9 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
 
                     {/* Destaque Inteligente: Regra de Proporcionalidade da Data de Admissão */}
                     {admissionInfo?.isAdmittedInCompetenceMonth && (
-                      <div className="p-1.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[10.5px]">
+                      <div className="p-1 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800 rounded-lg flex flex-wrap items-center justify-between gap-1 text-[9.5px]">
                         <div className="flex items-center space-x-1.5 text-amber-950 dark:text-amber-200 font-semibold">
-                          <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <Calendar className="w-3 h-3 text-amber-600 shrink-0" />
                           <span>
                             Admissão em <strong>{formatEmployeeAdmissionDate(admissionInfo.admissionDate)}</strong>: Proporcional a <strong>{admissionInfo.daysWorked} de 30 dias</strong> ({formatMoneyBRL(admissionInfo.proportionalSalary)})
                           </span>
@@ -2565,12 +2564,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               setBaseSalary(admissionInfo.proportionalSalary);
                               setUseProportionalSalary(true);
                             }}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold border transition cursor-pointer ${
                               useProportionalSalary 
                                 ? 'bg-amber-600 text-white border-amber-700 shadow-2xs' 
                                 : 'bg-white hover:bg-amber-100 text-amber-900 border-amber-300'
                             }`}
-                            title="Aplicar cálculo automático proporcional aos dias trabalhados na competência"
                           >
                             ✓ Proporcional ({admissionInfo.daysWorked}d)
                           </button>
@@ -2580,12 +2578,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               setBaseSalary(admissionInfo.fullContractualSalary);
                               setUseProportionalSalary(false);
                             }}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold border transition cursor-pointer ${
                               !useProportionalSalary 
                                 ? 'bg-stone-700 text-white border-stone-800 shadow-2xs' 
                                 : 'bg-white hover:bg-stone-100 text-stone-800 border-stone-300'
                             }`}
-                            title="Forçar o valor cheio contratual integral (30 dias)"
                           >
                             Integral (30d)
                           </button>
@@ -2649,7 +2646,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                         }}
                         inputClassName="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 focus:ring-emerald-600 font-bold"
                         headerRight={
-                          <span className="text-[9.5px] font-bold text-emerald-700 font-['Outfit']">
+                          <span className="text-[9px] font-bold text-emerald-700 font-['Outfit']">
                             {commissionItems.length} item(ns)
                           </span>
                         }
@@ -2657,15 +2654,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       />
                     </div>
 
-                    {/* Mini-tabela de Detalhamento de Proventos (Comissões) */}
-                    <div className="p-2 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
-                      <div className="flex items-center justify-between pb-1 border-b border-blue-100 dark:border-stone-700">
-                        <div className="flex items-center space-x-2">
-                          <FileText className="w-3.5 h-3.5 text-[#0963cb] shrink-0" />
-                          <span className="text-[10.5px] font-black uppercase text-blue-950 dark:text-blue-200 tracking-wider">
-                            Extrato de Comissões & Serviços
+                    {/* Mini-tabela de Detalhamento de Proventos (Extrato de Comissões) */}
+                    <div className="p-1 sm:p-1.5 bg-white/95 dark:bg-stone-800/95 border border-blue-200 dark:border-stone-700 rounded-lg space-y-1 shadow-2xs my-0.5">
+                      <div className="flex items-center justify-between pb-0.5 border-b border-blue-100 dark:border-stone-700">
+                        <div className="flex items-center space-x-1.5">
+                          <FileText className="w-3 h-3 text-[#0963cb] shrink-0" />
+                          <span className="text-[9.5px] font-bold uppercase text-blue-950 dark:text-blue-200 tracking-wider">
+                            Extrato de Comissões
                           </span>
-                          <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[9.5px] font-['Outfit']">
+                          <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[8.5px] font-['Outfit']">
                             + {formatCurrencyBRL(activeCommissionTotal)}
                           </span>
                         </div>
@@ -2678,18 +2675,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             setNewCommRef(currentMonthRef);
                             setNewCommAmount(0);
                           }}
-                          className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[10px] transition cursor-pointer shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-[#0963cb] border border-blue-300 font-bold text-[9px] transition cursor-pointer shadow-2xs"
                         >
-                          <Plus className="w-3 h-3 text-[#0963cb]" />
-                          <span>+ Comissão Manual</span>
+                          <Plus className="w-2.5 h-2.5 text-[#0963cb]" />
+                          <span>+ Comissão</span>
                         </button>
                       </div>
 
                       {/* Formulário de inclusão / edição manual de comissão */}
                       {isAddingCommission && (
-                        <div className="p-2 bg-blue-50/90 border border-blue-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
+                        <div className="p-1.5 bg-blue-50/90 border border-blue-200 rounded-lg space-y-1 animate-in fade-in duration-100">
                           <div className="flex items-center justify-between">
-                            <span className="text-[9.5px] font-black uppercase text-blue-950 tracking-wider">
+                            <span className="text-[9px] font-bold uppercase text-blue-950 tracking-wider">
                               {editingCommItemId ? 'Editar Comissão' : 'Nova Comissão Manual'}
                             </span>
                             <button
@@ -2698,26 +2695,26 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 setIsAddingCommission(false);
                                 setEditingCommItemId(null);
                               }}
-                              className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                              className="text-stone-500 hover:text-stone-800 text-[9px] font-bold cursor-pointer"
                             >
                               ✕ Fechar
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 items-end">
                             <div className="sm:col-span-6">
-                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
-                                Descrição / Serviço <span className="text-rose-600">*</span>
+                              <label className="block text-[8px] font-bold text-stone-700 uppercase mb-0.5">
+                                Descrição <span className="text-rose-600">*</span>
                               </label>
                               <input
                                 type="text"
                                 value={newCommDesc}
                                 onChange={(e) => setNewCommDesc(e.target.value)}
-                                placeholder="Ex: Ensilagem - João..."
-                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                                placeholder="Ex: Ensilagem..."
+                                className="w-full px-1.5 py-0.5 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
                               />
                             </div>
                             <div className="sm:col-span-3">
-                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                              <label className="block text-[8px] font-bold text-stone-700 uppercase mb-0.5">
                                 Referência
                               </label>
                               <input
@@ -2725,7 +2722,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 value={newCommRef}
                                 onChange={(e) => setNewCommRef(e.target.value)}
                                 placeholder="Ex: OS #1042"
-                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
+                                className="w-full px-1.5 py-0.5 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-[#0963cb]"
                               />
                             </div>
                             <div className="sm:col-span-3">
@@ -2738,14 +2735,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               />
                             </div>
                           </div>
-                          <div className="flex items-center justify-end space-x-1.5 pt-0.5">
+                          <div className="flex items-center justify-end space-x-1 pt-0.5">
                             <button
                               type="button"
                               onClick={() => {
                                 setIsAddingCommission(false);
                                 setEditingCommItemId(null);
                               }}
-                              className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                              className="px-1.5 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[9px] cursor-pointer"
                             >
                               Cancelar
                             </button>
@@ -2753,46 +2750,46 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               type="button"
                               onClick={handleSaveCommissionItem}
                               disabled={!newCommDesc.trim() || newCommAmount <= 0}
-                              className="px-2.5 py-0.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
+                              className="px-2 py-0.5 bg-[#0963cb] hover:bg-[#0852a8] text-white font-bold rounded text-[9.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
                             >
-                              {editingCommItemId ? 'Atualizar Item' : 'Adicionar ao Extrato'}
+                              {editingCommItemId ? 'Atualizar' : 'Adicionar'}
                             </button>
                           </div>
                         </div>
                       )}
 
                       {/* Tabela de Itens de Comissão */}
-                      <div className="max-h-24 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
-                        <table className="w-full text-left border-collapse text-[10px]">
-                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[8.5px] sticky top-0 border-b border-stone-200 z-10">
+                      <div className="max-h-16 overflow-y-auto border border-stone-200 rounded bg-stone-50/50">
+                        <table className="w-full text-left border-collapse text-[9px]">
+                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[7.5px] sticky top-0 border-b border-stone-200 z-10">
                             <tr>
-                              <th className="py-1 px-2">Descrição</th>
-                              <th className="py-1 px-2 w-20">Ref.</th>
-                              <th className="py-1 px-2 text-right w-24">Valor (+)</th>
-                              <th className="py-1 px-2 text-center w-12">Ações</th>
+                              <th className="py-1 px-1.5">Descrição</th>
+                              <th className="py-1 px-1.5 w-16">Ref.</th>
+                              <th className="py-1 px-1.5 text-right w-20">Valor (+)</th>
+                              <th className="py-1 px-1.5 text-center w-10">Ações</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-stone-200/70 bg-white">
                             {commissionItems.length > 0 ? (
                               commissionItems.map((item) => (
                                 <tr key={item.id} className="hover:bg-blue-50/40 transition">
-                                  <td className="py-1 px-2 font-medium text-stone-900">
+                                  <td className="py-1 px-1.5 font-medium text-stone-900">
                                     <div className="flex items-center space-x-1">
-                                      <span className="truncate">{item.description}</span>
-                                      <span className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                      <span className="truncate max-w-[130px] text-[9px]">{item.description}</span>
+                                      <span className={`px-1 py-0.2 rounded text-[7px] font-bold shrink-0 ${
                                         item.isManual ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                                       }`}>
                                         {item.isManual ? 'Manual' : 'OS'}
                                       </span>
                                     </div>
                                   </td>
-                                  <td className="py-1 px-2 text-stone-600 whitespace-nowrap">
+                                  <td className="py-1 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
                                     {item.referenceDate || currentMonthRef}
                                   </td>
-                                  <td className="py-1 px-2 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap">
+                                  <td className="py-1 px-1.5 text-right font-black text-emerald-800 font-['Outfit'] whitespace-nowrap text-[9px]">
                                     + {formatCurrencyBRL(item.amount)}
                                   </td>
-                                  <td className="py-1 px-2 text-center whitespace-nowrap">
+                                  <td className="py-1 px-1.5 text-center whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-1">
                                       {item.isManual && (
                                         <button
@@ -2818,8 +2815,8 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={4} className="py-2 text-center text-stone-500 text-[9.5px]">
-                                  Nenhuma comissão ou serviço lançado nesta competência.
+                                <td colSpan={4} className="py-1 text-center text-stone-500 text-[8.5px]">
+                                  Nenhuma comissão lançada nesta competência.
                                 </td>
                               </tr>
                             )}
@@ -2830,12 +2827,12 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
 
                   {/* 3. Bloco de Deduções (Descontos & Impostos) */}
-                  <div className="p-3 bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-2 shadow-2xs">
+                  <div className="p-2 bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-700 space-y-1 shadow-2xs">
                     <div className="flex items-center justify-between pb-0.5">
-                      <span className="text-xs font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider block">
+                      <span className="text-xs font-bold uppercase text-stone-900 dark:text-stone-100 tracking-wider block">
                         Deduções (Descontos & Impostos)
                       </span>
-                      <span className="text-[10.5px] font-bold text-rose-700 font-['Outfit']">
+                      <span className="text-[9.5px] font-bold text-rose-700 font-['Outfit']">
                         Total Deduções: - {formatMoneyBRL(modalDiscountsTotal)}
                       </span>
                     </div>
@@ -2843,10 +2840,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                     {/* Linha dos Impostos e Descontos Oficiais (INSS, IRRF e Sindicato) */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {/* INSS */}
-                      <div className="bg-stone-50 dark:bg-stone-900 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1 flex-wrap">
-                            <span className="text-[10.5px] font-bold text-stone-900 dark:text-stone-100">INSS</span>
+                            <span className="text-xs font-semibold text-stone-900 dark:text-stone-100">INSS</span>
                             <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1 py-0.2 shadow-2xs">
                               <input
                                 type="text"
@@ -2854,10 +2851,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 value={aliquotaInssStr}
                                 onChange={(e) => handleAliquotaInssChange(e.target.value)}
                                 disabled={!inssEnabled}
-                                className="w-9 text-center font-black text-[11px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                                className="w-8 text-center font-black text-[10px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
                                 title="Alíquota (%)"
                               />
-                              <span className="text-[9.5px] font-bold text-stone-500">%</span>
+                              <span className="text-[8.5px] font-bold text-stone-500">%</span>
                             </div>
                           </div>
 
@@ -2883,7 +2880,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 inssEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
                               }`} />
                             </button>
-                            <span className={`text-[9px] font-bold ${inssEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                            <span className={`text-[8px] font-bold ${inssEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
                               {inssEnabled ? 'Ativo' : 'Isento'}
                             </span>
                           </div>
@@ -2900,10 +2897,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </div>
 
                       {/* IRRF */}
-                      <div className="bg-stone-50 dark:bg-stone-900 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1 flex-wrap">
-                            <span className="text-[10.5px] font-bold text-stone-900 dark:text-stone-100">IRRF</span>
+                            <span className="text-xs font-semibold text-stone-900 dark:text-stone-100">IRRF</span>
                             <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1 py-0.2 shadow-2xs">
                               <input
                                 type="text"
@@ -2911,10 +2908,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 value={aliquotaIrrfStr}
                                 onChange={(e) => handleAliquotaIrrfChange(e.target.value)}
                                 disabled={!irrfEnabled}
-                                className="w-9 text-center font-black text-[11px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                                className="w-8 text-center font-black text-[10px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
                                 title="Alíquota (%)"
                               />
-                              <span className="text-[9.5px] font-bold text-stone-500">%</span>
+                              <span className="text-[8.5px] font-bold text-stone-500">%</span>
                             </div>
                           </div>
 
@@ -2944,7 +2941,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 irrfEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
                               }`} />
                             </button>
-                            <span className={`text-[9px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                            <span className={`text-[8px] font-bold ${irrfEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
                               {irrfEnabled ? 'Ativo' : 'Isento'}
                             </span>
                           </div>
@@ -2961,10 +2958,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </div>
 
                       {/* Sindicato */}
-                      <div className="bg-stone-50 dark:bg-stone-900 p-2 rounded-xl border border-stone-200 dark:border-stone-700 space-y-1 shadow-2xs">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-1.5 rounded-lg border border-stone-200 dark:border-stone-700 space-y-0.5 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1 flex-wrap">
-                            <span className="text-[10.5px] font-bold text-stone-900 dark:text-stone-100 truncate" title="Taxa Assistencial Sindicato">
+                            <span className="text-xs font-semibold text-stone-900 dark:text-stone-100 truncate" title="Taxa Assistencial Sindicato">
                               Sindicato
                             </span>
                             <div className="inline-flex items-center bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1 py-0.2 shadow-2xs">
@@ -2974,10 +2971,10 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 value={aliquotaSindicatoStr}
                                 onChange={(e) => handleAliquotaSindicatoChange(e.target.value)}
                                 disabled={!sindicalEnabled}
-                                className="w-9 text-center font-black text-[11px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
+                                className="w-8 text-center font-black text-[10px] text-[#0963cb] dark:text-sky-400 bg-transparent outline-none p-0"
                                 title="Alíquota (%)"
                               />
-                              <span className="text-[9.5px] font-bold text-stone-500">%</span>
+                              <span className="text-[8.5px] font-bold text-stone-500">%</span>
                             </div>
                           </div>
 
@@ -3007,7 +3004,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 sindicalEnabled ? 'translate-x-2.5' : 'translate-x-0.5'
                               }`} />
                             </button>
-                            <span className={`text-[9px] font-bold ${sindicalEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
+                            <span className={`text-[8px] font-bold ${sindicalEnabled ? 'text-[#0963cb]' : 'text-stone-400'}`}>
                               {sindicalEnabled ? 'Ativo' : 'Isento'}
                             </span>
                           </div>
@@ -3024,15 +3021,15 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Tabela de Detalhamento de Deduções (Vales, Faltas, Peças, Combustível) */}
-                    <div className="pt-1 space-y-1.5">
-                      <div className="flex items-center justify-between pb-1 border-b border-stone-200 dark:border-stone-700">
-                        <div className="flex items-center space-x-2">
-                          <CreditCard className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                          <span className="text-[10.5px] font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider">
-                            Extrato de Descontos Ocorridos
+                    {/* Mini-tabela de Detalhamento de Deduções (Extrato de Descontos Ocorridos no Mês) */}
+                    <div className="pt-0.5 space-y-1 my-0.5">
+                      <div className="flex items-center justify-between pb-0.5 border-b border-stone-200 dark:border-stone-700">
+                        <div className="flex items-center space-x-1.5">
+                          <CreditCard className="w-3 h-3 text-rose-600 shrink-0" />
+                          <span className="text-[9.5px] font-bold uppercase text-stone-900 dark:text-stone-100 tracking-wider">
+                            Extrato de Descontos Ocorridos no Mês
                           </span>
-                          <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-900 font-extrabold text-[9.5px] font-['Outfit']">
+                          <span className="px-1 py-0.2 rounded bg-rose-100 text-rose-900 font-extrabold text-[8.5px] font-['Outfit']">
                             - {formatCurrencyBRL(activeListDeductions)}
                           </span>
                         </div>
@@ -3046,18 +3043,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             setNewDeductDate(formatDateBR(new Date().toISOString().split('T')[0]));
                             setNewDeductAmount(0);
                           }}
-                          className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[10px] transition cursor-pointer shadow-2xs"
+                          className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[9px] transition cursor-pointer shadow-2xs"
                         >
-                          <Plus className="w-3 h-3 text-rose-600" />
-                          <span>+ Desconto Manual</span>
+                          <Plus className="w-2.5 h-2.5 text-rose-600" />
+                          <span>+ Desconto</span>
                         </button>
                       </div>
 
                       {/* Formulário de inclusão / edição manual de desconto */}
                       {isAddingDeduction && (
-                        <div className="p-2 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1.5 animate-in fade-in duration-100">
+                        <div className="p-1.5 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1 animate-in fade-in duration-100">
                           <div className="flex items-center justify-between">
-                            <span className="text-[9.5px] font-black uppercase text-rose-950 tracking-wider">
+                            <span className="text-[9px] font-bold uppercase text-rose-950 tracking-wider">
                               {editingDeductItemId ? 'Editar Desconto' : 'Novo Desconto Manual'}
                             </span>
                             <button
@@ -3066,20 +3063,20 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 setIsAddingDeduction(false);
                                 setEditingDeductItemId(null);
                               }}
-                              className="text-stone-500 hover:text-stone-800 text-[10px] font-bold cursor-pointer"
+                              className="text-stone-500 hover:text-stone-800 text-[9px] font-bold cursor-pointer"
                             >
                               ✕ Fechar
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-end">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-1 items-end">
                             <div className="sm:col-span-3">
-                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                              <label className="block text-[8px] font-bold text-stone-700 uppercase mb-0.5">
                                 Tipo
                               </label>
                               <select
                                 value={newDeductType}
                                 onChange={(e) => setNewDeductType(e.target.value)}
-                                className="w-full px-1.5 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-semibold outline-none focus:ring-1 focus:ring-rose-600"
+                                className="w-full px-1.5 py-0.5 bg-white border border-stone-300 rounded text-stone-900 text-xs font-semibold outline-none focus:ring-1 focus:ring-rose-600"
                               >
                                 <option value="Vale / Adiantamento">Vale / Adiantamento</option>
                                 <option value="Peças / Oficina">Peças / Oficina</option>
@@ -3089,7 +3086,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               </select>
                             </div>
                             <div className="sm:col-span-4">
-                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                              <label className="block text-[8px] font-bold text-stone-700 uppercase mb-0.5">
                                 Descrição
                               </label>
                               <input
@@ -3097,11 +3094,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 value={newDeductDesc}
                                 onChange={(e) => setNewDeductDesc(e.target.value)}
                                 placeholder="Ex: Adiantamento..."
-                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
+                                className="w-full px-1.5 py-0.5 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
                               />
                             </div>
                             <div className="sm:col-span-2">
-                              <label className="block text-[9px] font-bold text-stone-700 uppercase mb-0.5">
+                              <label className="block text-[8px] font-bold text-stone-700 uppercase mb-0.5">
                                 Data
                               </label>
                               <input
@@ -3109,7 +3106,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                 value={newDeductDate}
                                 onChange={(e) => setNewDeductDate(e.target.value)}
                                 placeholder="Ex: 15/09/2026"
-                                className="w-full px-2 py-1 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
+                                className="w-full px-1.5 py-0.5 bg-white border border-stone-300 rounded text-stone-900 text-xs font-medium outline-none focus:ring-1 focus:ring-rose-600"
                               />
                             </div>
                             <div className="sm:col-span-3">
@@ -3122,14 +3119,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               />
                             </div>
                           </div>
-                          <div className="flex items-center justify-end space-x-1.5 pt-0.5">
+                          <div className="flex items-center justify-end space-x-1 pt-0.5">
                             <button
                               type="button"
                               onClick={() => {
                                 setIsAddingDeduction(false);
                                 setEditingDeductItemId(null);
                               }}
-                              className="px-2 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[10px] cursor-pointer"
+                              className="px-1.5 py-0.5 text-stone-600 font-bold hover:bg-stone-200/60 rounded text-[9px] cursor-pointer"
                             >
                               Cancelar
                             </button>
@@ -3137,32 +3134,32 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               type="button"
                               onClick={handleSaveDeductionItem}
                               disabled={!newDeductType || newDeductAmount <= 0}
-                              className="px-2.5 py-0.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded text-[10.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
+                              className="px-2 py-0.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded text-[9.5px] shadow-2xs disabled:opacity-40 cursor-pointer"
                             >
-                              {editingDeductItemId ? 'Atualizar Desconto' : 'Adicionar Desconto'}
+                              {editingDeductItemId ? 'Atualizar' : 'Adicionar'}
                             </button>
                           </div>
                         </div>
                       )}
 
                       {/* Tabela de Lançamentos de Deduções */}
-                      <div className="max-h-28 overflow-y-auto border border-stone-200 rounded-lg bg-stone-50/50">
-                        <table className="w-full text-left border-collapse text-[10px]">
-                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[8.5px] sticky top-0 border-b border-stone-200 z-10">
+                      <div className="max-h-16 overflow-y-auto border border-stone-200 rounded bg-stone-50/50">
+                        <table className="w-full text-left border-collapse text-[9px]">
+                          <thead className="bg-stone-100 text-stone-700 font-bold uppercase text-[7.5px] sticky top-0 border-b border-stone-200 z-10">
                             <tr>
-                              <th className="py-1 px-2">Tipo / Descrição</th>
-                              <th className="py-1 px-2 w-20">Data</th>
-                              <th className="py-1 px-2 text-right w-24">Valor (-)</th>
-                              <th className="py-1 px-2 text-center w-12">Ações</th>
+                              <th className="py-1 px-1.5">Tipo / Descrição</th>
+                              <th className="py-1 px-1.5 w-16">Data</th>
+                              <th className="py-1 px-1.5 text-right w-20">Valor (-)</th>
+                              <th className="py-1 px-1.5 text-center w-10">Ações</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-stone-200/70 bg-white">
                             {deductionItems.length > 0 ? (
                               deductionItems.map((item) => (
                                 <tr key={item.id} className="hover:bg-rose-50/40 transition">
-                                  <td className="py-1 px-2 font-medium text-stone-900">
+                                  <td className="py-1 px-1.5 font-medium text-stone-900">
                                     <div className="flex items-center space-x-1">
-                                      <span className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                      <span className={`px-1 py-0.2 rounded text-[7px] font-bold shrink-0 ${
                                         item.type === 'Vale / Adiantamento'
                                           ? 'bg-rose-100 text-rose-800'
                                           : item.type === 'Falta / Atraso'
@@ -3171,18 +3168,18 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                                       }`}>
                                         {item.type}
                                       </span>
-                                      <span className="truncate text-stone-800 font-semibold" title={item.description}>
+                                      <span className="truncate max-w-[130px] text-stone-800 font-semibold text-[9px]" title={item.description}>
                                         {item.description || item.type}
                                       </span>
                                     </div>
                                   </td>
-                                  <td className="py-1 px-2 text-stone-600 whitespace-nowrap">
+                                  <td className="py-1 px-1.5 text-stone-600 whitespace-nowrap text-[8.5px]">
                                     {item.date || '-'}
                                   </td>
-                                  <td className="py-1 px-2 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap">
+                                  <td className="py-1 px-1.5 text-right font-black text-rose-700 font-['Outfit'] whitespace-nowrap text-[9px]">
                                     - {formatCurrencyBRL(item.amount)}
                                   </td>
-                                  <td className="py-1 px-2 text-center whitespace-nowrap">
+                                  <td className="py-1 px-1.5 text-center whitespace-nowrap">
                                     <div className="flex items-center justify-center space-x-1">
                                       {item.isManual && (
                                         <button
@@ -3208,7 +3205,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={4} className="py-2 text-center text-stone-500 text-[9.5px]">
+                                <td colSpan={4} className="py-1 text-center text-stone-500 text-[8.5px]">
                                   Nenhum vale ou falta adicionado nesta competência.
                                 </td>
                               </tr>
@@ -3220,14 +3217,14 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                   </div>
 
                   {/* 4. Situação do Pagamento & Observações */}
-                  <div className="bg-white dark:bg-stone-800 rounded-xl p-3 border border-stone-300 dark:border-stone-700 shadow-2xs space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider block mb-1">
-                          Situação do Pagamento:
+                  <div className="bg-white dark:bg-stone-800 rounded-xl p-1.5 border border-stone-300 dark:border-stone-700 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
+                          Situação:
                         </span>
-                        <div className="flex items-center space-x-3 bg-stone-50 dark:bg-stone-900 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
-                          <label className="flex items-center space-x-1.5 cursor-pointer">
+                        <div className="flex items-center space-x-2 bg-stone-50 dark:bg-stone-900 px-2 py-0.5 rounded-lg border border-stone-200 dark:border-stone-700">
+                          <label className="flex items-center space-x-1 cursor-pointer">
                             <input
                               type="radio"
                               name="status"
@@ -3237,7 +3234,7 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                             />
                             <span className="font-bold text-amber-700 text-xs">A Pagar</span>
                           </label>
-                          <label className="flex items-center space-x-1.5 cursor-pointer">
+                          <label className="flex items-center space-x-1 cursor-pointer">
                             <input
                               type="radio"
                               name="status"
@@ -3245,21 +3242,21 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
                               onChange={() => setPayrollStatus('pago')}
                               className="text-[#0963cb] focus:ring-[#0963cb] accent-[#0963cb] cursor-pointer"
                             />
-                            <span className="font-bold text-emerald-700 text-xs">Já Liquidado / Pago</span>
+                            <span className="font-bold text-emerald-700 text-xs">Já Pago</span>
                           </label>
                         </div>
                       </div>
 
-                      <div className="flex-1 sm:max-w-xs">
-                        <label className="text-[10px] font-black uppercase text-stone-900 dark:text-stone-100 tracking-wider block mb-1">
-                          Observações:
+                      <div className="flex-1 sm:max-w-xs flex items-center gap-1.5">
+                        <label className="text-xs font-semibold text-stone-900 dark:text-stone-100 tracking-wider shrink-0">
+                          Obs:
                         </label>
                         <input
                           type="text"
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
                           placeholder="Ex: Pagamento via Pix..."
-                          className="w-full px-2.5 py-1 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
+                          className="w-full px-2 py-1 bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded text-stone-900 dark:text-stone-100 text-xs outline-none focus:ring-1 focus:ring-[#0963cb]"
                         />
                       </div>
                     </div>
