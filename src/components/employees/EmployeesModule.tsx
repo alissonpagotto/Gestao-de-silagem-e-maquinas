@@ -738,11 +738,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const activeEmployeeId = editingEmployee?.id ? String(editingEmployee.id) : null;
 
   useEffect(() => {
-    setLocalEmployees(Array.isArray(employees) ? employees : []);
+    setLocalEmployees((prev) => {
+      const next = Array.isArray(employees) ? employees : [];
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
   }, [employees]);
 
   useEffect(() => {
-    setLocalVacations(Array.isArray(propVacations) ? propVacations : []);
+    setLocalVacations((prev) => {
+      const next = Array.isArray(propVacations) ? propVacations : [];
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
   }, [propVacations]);
 
   // 1. Estancar o Loop do useEffect para Férias/Afastamentos do Funcionário Selecionado no Modal:

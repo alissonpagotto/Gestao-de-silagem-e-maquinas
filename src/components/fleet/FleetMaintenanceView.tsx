@@ -66,7 +66,10 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
   // Sincroniza estado local com as props quando houver atualização externa
   useEffect(() => {
-    setLocalLogs(maintenanceLogs);
+    setLocalLogs((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(maintenanceLogs)) return prev;
+      return maintenanceLogs;
+    });
   }, [maintenanceLogs]);
 
   const onDeleteMaintenanceRef = useRef(onDeleteMaintenance);

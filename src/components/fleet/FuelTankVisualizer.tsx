@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { AlertCircle, Droplets, Info, CheckCircle2, ShieldAlert, Sparkles, Truck } from 'lucide-react';
 import { Machinery } from '../../types';
 import { 
@@ -214,12 +214,18 @@ export const FuelTankVisualizer: React.FC<FuelTankVisualizerProps> = ({
     isFirstRecordEffective,
   ]);
 
-  // Notifica o componente pai sempre que os cálculos atualizarem
+  // Notifica o componente pai apenas se os valores do cálculo realmente mudarem
+  const lastResultJsonRef = useRef<string>('');
+  const onCalcChangeRef = useRef(onCalculationChange);
+  onCalcChangeRef.current = onCalculationChange;
+
   useEffect(() => {
-    if (onCalculationChange) {
-      onCalculationChange(calculationResult);
+    const json = JSON.stringify(calculationResult);
+    if (lastResultJsonRef.current !== json) {
+      lastResultJsonRef.current = json;
+      onCalcChangeRef.current?.(calculationResult);
     }
-  }, [calculationResult, onCalculationChange]);
+  }, [calculationResult]);
 
   // 10. Tema Dinâmico de Cor com base na projeção e se excede o tanque
   const theme = useMemo(() => {

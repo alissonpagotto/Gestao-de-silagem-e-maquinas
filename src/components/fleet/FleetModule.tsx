@@ -276,16 +276,21 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     }
   }, [initialSubTab]);
 
+  const onClearInitialDraftRef = React.useRef(onClearInitialDraftMaintenanceLog);
+  React.useEffect(() => {
+    onClearInitialDraftRef.current = onClearInitialDraftMaintenanceLog;
+  }, [onClearInitialDraftMaintenanceLog]);
+
   React.useEffect(() => {
     if (initialDraftMaintenanceLog) {
       setActiveSubTab('manutencoes');
       setEditingMaintenanceLog(initialDraftMaintenanceLog);
       setIsMaintenanceModalOpen(true);
-      if (onClearInitialDraftMaintenanceLog) {
-        onClearInitialDraftMaintenanceLog();
+      if (onClearInitialDraftRef.current) {
+        onClearInitialDraftRef.current();
       }
     }
-  }, [initialDraftMaintenanceLog, onClearInitialDraftMaintenanceLog]);
+  }, [initialDraftMaintenanceLog]);
 
   // --- VEHICLES HANDLERS ---
   const handleOpenNewVehicle = () => {

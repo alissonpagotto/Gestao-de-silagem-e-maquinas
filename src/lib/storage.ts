@@ -288,13 +288,16 @@ export function getStoredExpenses(): Expense[] {
   }
 }
 
+let lastSavedExpensesJson = '';
+
 export function saveStoredExpenses(expenses: Expense[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    const json = JSON.stringify(expenses);
+    if (json === lastSavedExpensesJson) return;
+    lastSavedExpensesJson = json;
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, json);
     if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
-      }, 0);
+      window.dispatchEvent(new CustomEvent('silagem_expenses_updated', { detail: expenses }));
     }
   } catch (e) {
     console.error('Failed to save expenses', e);
@@ -1006,15 +1009,17 @@ export function getStoredServices(): ServiceOrder[] {
   }
 }
 
+let lastSavedServicesJson = '';
+
 export function saveStoredServices(services: ServiceOrder[]): void {
   try {
     const cleaned = sanitizeServiceOrders(services);
-    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(cleaned));
+    const json = JSON.stringify(cleaned);
+    if (json === lastSavedServicesJson) return;
+    lastSavedServicesJson = json;
+    localStorage.setItem(STORAGE_KEYS.SERVICES, json);
     if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: cleaned }));
-        window.dispatchEvent(new Event('storage'));
-      }, 0);
+      window.dispatchEvent(new CustomEvent('silagem_services_updated', { detail: cleaned }));
     }
   } catch (e) {
     console.error('Failed to save services', e);
@@ -1048,14 +1053,16 @@ export function getStoredAppointments(): ServiceAppointment[] {
   }
 }
 
+let lastSavedAppointmentsJson = '';
+
 export function saveStoredAppointments(appointments: ServiceAppointment[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
+    const json = JSON.stringify(appointments);
+    if (json === lastSavedAppointmentsJson) return;
+    lastSavedAppointmentsJson = json;
+    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, json);
     if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('silagem_appointments_updated', { detail: appointments }));
-        window.dispatchEvent(new Event('storage'));
-      }, 0);
+      window.dispatchEvent(new CustomEvent('silagem_appointments_updated', { detail: appointments }));
     }
   } catch (e) {
     console.error('Failed to save appointments', e);
@@ -1093,14 +1100,16 @@ export function getStoredMaintenanceLogs(): MaintenanceLog[] {
   }
 }
 
+let lastSavedMaintenanceLogsJson = '';
+
 export function saveStoredMaintenanceLogs(logs: MaintenanceLog[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(logs));
+    const json = JSON.stringify(logs);
+    if (json === lastSavedMaintenanceLogsJson) return;
+    lastSavedMaintenanceLogsJson = json;
+    localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, json);
     if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('silagem_maintenance_updated', { detail: logs }));
-        window.dispatchEvent(new Event('storage'));
-      }, 0);
+      window.dispatchEvent(new CustomEvent('silagem_maintenance_updated', { detail: logs }));
     }
   } catch (e) {
     console.error('Failed to save maintenance logs', e);
@@ -1665,12 +1674,16 @@ export function getStoredSettlements(): ThirdPartySettlement[] {
   }
 }
 
+let lastSavedSettlementsJson = '';
+
 export function saveStoredSettlements(settlements: ThirdPartySettlement[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, JSON.stringify(settlements));
+    const json = JSON.stringify(settlements);
+    if (json === lastSavedSettlementsJson) return;
+    lastSavedSettlementsJson = json;
+    localStorage.setItem(STORAGE_KEYS.SETTLEMENTS, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_settlements_updated', { detail: settlements }));
-      window.dispatchEvent(new Event('storage'));
     }
   } catch (e) {
     console.error('Failed to save settlements', e);
@@ -1824,12 +1837,16 @@ export function getStoredTerminations(): TerminationRecord[] {
   }
 }
 
+let lastSavedTerminationsJson = '';
+
 export function saveStoredTerminations(terminations: TerminationRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TERMINATIONS, JSON.stringify(terminations));
+    const json = JSON.stringify(terminations);
+    if (json === lastSavedTerminationsJson) return;
+    lastSavedTerminationsJson = json;
+    localStorage.setItem(STORAGE_KEYS.TERMINATIONS, json);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('silagem_terminations_updated', { detail: terminations }));
-      window.dispatchEvent(new Event('storage'));
     }
   } catch (e) {
     console.error('Failed to save terminations', e);
@@ -2257,10 +2274,14 @@ export function getStoredFinanceiroCheques(): FinanceiroCheque[] {
   }
 }
 
+let lastSavedChequesJson = '';
+
 export function saveStoredFinanceiroCheques(cheques: FinanceiroCheque[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.FINANCEIRO_CHEQUES, JSON.stringify(cheques));
-    window.dispatchEvent(new Event('storage'));
+    const json = JSON.stringify(cheques);
+    if (json === lastSavedChequesJson) return;
+    lastSavedChequesJson = json;
+    localStorage.setItem(STORAGE_KEYS.FINANCEIRO_CHEQUES, json);
   } catch (e) {
     console.error('Erro ao salvar cheques no storage local:', e);
   }

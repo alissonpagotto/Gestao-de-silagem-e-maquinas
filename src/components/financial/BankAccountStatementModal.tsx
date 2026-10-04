@@ -344,10 +344,9 @@ export const BankAccountStatementModal: React.FC<BankAccountStatementModalProps>
             <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center space-x-3">
                 <div 
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-inner overflow-hidden"
-                  style={{ backgroundColor: activeAccount.color || '#0963cb' }}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner overflow-hidden"
                 >
-                  <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={30} className="text-white" />
+                  <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={38} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">

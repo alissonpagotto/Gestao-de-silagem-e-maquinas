@@ -105,13 +105,23 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   const [activeFuelLogs, setActiveFuelLogs] = useState<FuelLog[]>(() => propFuelLogs || []);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Sincroniza se a prop externa mudar
+  // Sincroniza se a prop externa mudar com verificação de igualdade profunda defensiva
   useEffect(() => {
-    setActiveExpenses(propExpenses || []);
+    setActiveExpenses((prev) => {
+      const serPrev = JSON.stringify(prev || []);
+      const serNext = JSON.stringify(propExpenses || []);
+      if (serPrev === serNext) return prev;
+      return propExpenses || [];
+    });
   }, [propExpenses]);
 
   useEffect(() => {
-    setActiveFuelLogs(propFuelLogs || []);
+    setActiveFuelLogs((prev) => {
+      const serPrev = JSON.stringify(prev || []);
+      const serNext = JSON.stringify(propFuelLogs || []);
+      if (serPrev === serNext) return prev;
+      return propFuelLogs || [];
+    });
   }, [propFuelLogs]);
 
   const onExpensesChangeRef = useRef(onExpensesChange);

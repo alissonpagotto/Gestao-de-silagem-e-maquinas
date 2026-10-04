@@ -197,10 +197,9 @@ export const BankStatementView: React.FC<BankStatementViewProps> = ({
           )}
 
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-2xs font-black shrink-0 overflow-hidden"
-            style={{ backgroundColor: account.color || '#0963cb' }}
+            className="w-12 h-12 rounded-xl flex items-center justify-center shadow-2xs font-black shrink-0 overflow-hidden"
           >
-            <BankLogoIcon code={account.bankCode} name={account.bankName} size={28} className="text-white" />
+            <BankLogoIcon code={account.bankCode} name={account.bankName} size={36} />
           </div>
 
           <div>

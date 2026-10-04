@@ -739,12 +739,14 @@ export const VacationsTab: React.FC<VacationsTabProps> = ({
 
     if (hasChanges) {
       saveStoredVacations(updatedList);
-      onSaveVacations(updatedList);
+      if (onSaveVacationsRef.current) {
+        onSaveVacationsRef.current(updatedList);
+      }
       if (isSupabaseConfigured) {
         saveCloudVacations(updatedList, activeTenantId).catch(() => {});
       }
     }
-  }, [vacations, activeTenantId, onSaveVacations]);
+  }, [vacations, activeTenantId]);
 
   // Construção reativa da Tabela de Gestão de Períodos Aquisitivos e Concessivos
   const periodRows = useMemo<VacationManagementRow[]>(() => {

@@ -139,21 +139,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleImpersonationEvent = (e: any) => {
       const cId = e.detail?.companyId || null;
-      setImpersonatedCompanyId(cId);
+      setImpersonatedCompanyId((prev) => (prev === cId ? prev : cId));
     };
 
     const handleCompanyIdChanged = (e: any) => {
       const cId = e.detail?.companyId || getDbAuthCompanyId();
-      setActiveCompanyId(cId || null);
+      setActiveCompanyId((prev) => (prev === (cId || null) ? prev : (cId || null)));
     };
 
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'admin_impersonated_company_id' || e.key === 'is_admin_impersonating') {
         const current = localStorage.getItem('admin_impersonated_company_id');
-        setImpersonatedCompanyId(current || null);
+        setImpersonatedCompanyId((prev) => (prev === (current || null) ? prev : (current || null)));
       }
       if (e.key === 'supabase_auth_company_id' || e.key === 'authenticated_user_company_id') {
-        setActiveCompanyId(getDbAuthCompanyId());
+        const fresh = getDbAuthCompanyId();
+        setActiveCompanyId((prev) => (prev === (fresh || null) ? prev : (fresh || null)));
       }
     };
 

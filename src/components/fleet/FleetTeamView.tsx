@@ -157,6 +157,16 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     onSaveTeamsRef.current = onSaveTeams;
   }, [onSaveTeams]);
 
+  const externalTeamsRef = useRef(externalTeams);
+  useEffect(() => {
+    externalTeamsRef.current = externalTeams;
+  }, [externalTeams]);
+
+  const teamsRef = useRef(teams);
+  useEffect(() => {
+    teamsRef.current = teams;
+  }, [teams]);
+
   // Trigger temporary notification
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -180,7 +190,7 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
       if (frentesData && frentesData.length > 0) {
         const mappedTeams = frentesData.map(f => mapDbFrenteToFleetTeam(f, currentMachineries));
         setTeams(mappedTeams);
-        if (onSaveTeamsRef.current) {
+        if (onSaveTeamsRef.current && JSON.stringify(teamsRef.current) !== JSON.stringify(mappedTeams)) {
           onSaveTeamsRef.current(mappedTeams);
         }
 
@@ -200,15 +210,16 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
           };
         });
 
-        if (onSaveEmployeesRef.current) {
+        if (onSaveEmployeesRef.current && JSON.stringify(currentEmployees) !== JSON.stringify(updatedEmployees)) {
           onSaveEmployeesRef.current(updatedEmployees);
         }
       } else {
         // Se ainda não houver frentes no Supabase, mas temos equipes locais herdadas que ainda não foram sincronizadas,
         // sincroniza-as no Supabase para nunca perder dados no F5
-        if (externalTeams && externalTeams.length > 0) {
+        const inheritedTeams = externalTeamsRef.current;
+        if (inheritedTeams && inheritedTeams.length > 0) {
           const createdTeams: FleetTeam[] = [];
-          for (const localTeam of externalTeams) {
+          for (const localTeam of inheritedTeams) {
             const row = await createFrenteTrabalho({
               name: localTeam.name,
               cor: localTeam.headerBgColor || localTeam.headerBg || '#fef08a',
@@ -225,12 +236,14 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
           }
           if (createdTeams.length > 0) {
             setTeams(createdTeams);
-            if (onSaveTeamsRef.current) onSaveTeamsRef.current(createdTeams);
+            if (onSaveTeamsRef.current && JSON.stringify(teamsRef.current) !== JSON.stringify(createdTeams)) {
+              onSaveTeamsRef.current(createdTeams);
+            }
             return;
           }
         }
         setTeams([]);
-        if (onSaveTeamsRef.current) {
+        if (onSaveTeamsRef.current && (teamsRef.current?.length || 0) > 0) {
           onSaveTeamsRef.current([]);
         }
       }
@@ -239,7 +252,7 @@ export const FleetTeamView: React.FC<FleetTeamViewProps> = ({
     } finally {
       setIsLoadingTeams(false);
     }
-  }, [companyProfile?.id, externalTeams]);
+  }, [companyProfile?.id]);
 
   const frentesDebounceTimerRef = useRef<any>(null);
 

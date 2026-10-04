@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Building2, 
   Wallet, 
@@ -421,13 +421,13 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   }, [numericBalance, numericOverdraft]);
 
   // Manipulador de troca de banco no Combobox
-  const handleBankChange = (newBankName: string, newBankCode?: string, suggestedColor?: string) => {
+  const handleBankChange = useCallback((newBankName: string, newBankCode?: string, suggestedColor?: string) => {
     setBankName(newBankName);
     setBankCode(newBankCode);
     if (suggestedColor) {
       setColor(suggestedColor);
     }
-  };
+  }, []);
 
   // Manipulador de troca do tipo de chave PIX
   const handlePixTypeChange = (newType: 'cpf' | 'cnpj' | 'phone' | 'email' | 'random') => {

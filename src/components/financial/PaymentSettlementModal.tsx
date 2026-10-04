@@ -353,10 +353,9 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
                     <div className="flex items-center space-x-2.5">
                       <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 overflow-hidden shadow-2xs"
-                        style={{ backgroundColor: selectedAccount.color || '#0963cb' }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-2xs"
                       >
-                        <BankLogoIcon code={selectedAccount.bankCode} name={selectedAccount.bankName} size={20} className="text-white" />
+                        <BankLogoIcon code={selectedAccount.bankCode} name={selectedAccount.bankName} size={24} />
                       </div>
                       <div>
                         <div className="font-bold text-black text-xs">

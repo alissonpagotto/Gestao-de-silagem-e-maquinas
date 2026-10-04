@@ -300,11 +300,10 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
           {/* Logo da conta selecionada com identidade nítida */}
           {activeAccount ? (
             <div 
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs overflow-hidden p-0.5"
-              style={{ backgroundColor: activeAccount.color || '#0963cb' }}
+              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-2xs overflow-hidden"
               title={`${activeAccount.name || 'Conta'} (${activeAccount.bankName || 'Banco'})`}
             >
-              <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={24} className="text-white" />
+              <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={24} />
             </div>
           ) : (
             <div className="w-7 h-7 rounded-lg bg-[#0963cb] text-white flex items-center justify-center shrink-0">

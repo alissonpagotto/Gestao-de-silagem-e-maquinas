@@ -58,11 +58,17 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const [localServices, setLocalServices] = useState<ServiceOrder[]>(services);
 
   useEffect(() => {
-    setLocalOrders(orders);
+    setLocalOrders((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(orders)) return prev;
+      return orders;
+    });
   }, [orders]);
 
   useEffect(() => {
-    setLocalServices(services);
+    setLocalServices((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(services)) return prev;
+      return services;
+    });
   }, [services]);
 
   const [searchTerm, setSearchTerm] = useState('');

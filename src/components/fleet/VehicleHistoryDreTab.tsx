@@ -91,7 +91,10 @@ export const VehicleHistoryDreTab: React.FC<VehicleHistoryDreTabProps> = ({
   const [localMaintenanceLogs, setLocalMaintenanceLogs] = useState<MaintenanceLog[]>(() => maintenanceLogs);
 
   useEffect(() => {
-    setLocalMaintenanceLogs(maintenanceLogs);
+    setLocalMaintenanceLogs((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(maintenanceLogs)) return prev;
+      return maintenanceLogs;
+    });
   }, [maintenanceLogs]);
 
   // Escuta ativa em tempo real (Supabase Realtime) na tabela oficial 'manutencoes'

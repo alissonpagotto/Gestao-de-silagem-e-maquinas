@@ -307,7 +307,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   );
 
   useEffect(() => {
-    setInternalServices(Array.isArray(services) ? services : (Array.isArray(getStoredServices()) ? getStoredServices() : []));
+    setInternalServices((prev) => {
+      const next = Array.isArray(services) ? services : (Array.isArray(getStoredServices()) ? getStoredServices() : []);
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
   }, [services]);
 
   // Sincronização em tempo real com registros de faltas
@@ -316,7 +320,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   );
 
   useEffect(() => {
-    setInternalAbsences(Array.isArray(absences) ? absences : (Array.isArray(getStoredAbsences()) ? getStoredAbsences() : []));
+    setInternalAbsences((prev) => {
+      const next = Array.isArray(absences) ? absences : (Array.isArray(getStoredAbsences()) ? getStoredAbsences() : []);
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
   }, [absences]);
 
   // Sincronização local com eventos de serviços e faltas na mesma aba
@@ -390,7 +398,11 @@ export const PayrollTab: React.FC<PayrollTabProps> = ({
   );
 
   useEffect(() => {
-    setLocalPayrolls(Array.isArray(payrolls) ? payrolls : []);
+    setLocalPayrolls((prev) => {
+      const next = Array.isArray(payrolls) ? payrolls : [];
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
   }, [payrolls]);
 
   // Trava de segurança para carga inicial única das folhas de pagamento

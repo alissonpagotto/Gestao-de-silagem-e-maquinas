@@ -150,7 +150,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
   useEffect(() => {
     if (expenses) {
-      setLocalExpenses(expenses);
+      setLocalExpenses((prev) => {
+        if (JSON.stringify(prev) === JSON.stringify(expenses)) return prev;
+        return expenses;
+      });
     }
   }, [expenses]);
 
@@ -276,7 +279,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
   useEffect(() => {
     if (bankTransactionsProp) {
-      setInternalBankTransactions(bankTransactionsProp);
+      setInternalBankTransactions((prev) => {
+        if (JSON.stringify(prev) === JSON.stringify(bankTransactionsProp)) return prev;
+        return bankTransactionsProp;
+      });
     }
   }, [bankTransactionsProp]);
 

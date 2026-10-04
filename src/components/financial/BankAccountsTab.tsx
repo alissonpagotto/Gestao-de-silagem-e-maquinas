@@ -144,7 +144,10 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         ? stored 
         : (Array.isArray(accounts) && accounts.length > 0 ? accounts : []);
       if (safeList.length > 0) {
-        setLocalAccounts(safeList);
+        setLocalAccounts((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(safeList)) return prev;
+          return safeList;
+        });
       }
     } catch (err) {
       console.warn('Erro ao inicializar saldos e contas bancárias:', err);
@@ -537,15 +540,16 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center space-x-2.5 truncate min-w-0">
-                      {/* Logotipo oficial em tamanho nítido e discreto (30px) */}
+                      {/* Logotipo oficial em tamanho nítido e discreto (24px) */}
                       <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs font-black shrink-0 overflow-hidden p-0.5"
-                        style={{ backgroundColor: theme.accentBar }}
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shadow-2xs font-black shrink-0 overflow-hidden"
                       >
                         {safeAccountType === 'caixa_fisico' ? (
-                          <Wallet className="w-4 h-4 text-white" />
+                          <div className="w-full h-full bg-slate-700 flex items-center justify-center rounded-lg text-white">
+                            <Wallet className="w-4 h-4 text-white" />
+                          </div>
                         ) : (
-                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={30} className="text-white" />
+                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={28} />
                         )}
                       </div>
                       <div className="truncate min-w-0">
@@ -602,10 +606,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                       <span className="text-stone-400 font-medium text-[8.5px] shrink-0">Titular:</span>
                       <div className="flex items-center gap-1.5 truncate min-w-0">
                         <div 
-                          className="w-4 h-4 rounded shrink-0 overflow-hidden flex items-center justify-center p-0.5 shadow-2xs"
-                          style={{ backgroundColor: theme.accentBar }}
+                          className="w-4 h-4 rounded-xs shrink-0 overflow-hidden flex items-center justify-center shadow-2xs"
                         >
-                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={15} className="text-white" />
+                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={16} />
                         </div>
                         <span 
                           className="font-bold text-stone-800 dark:text-stone-100 text-[9.5px] truncate" 

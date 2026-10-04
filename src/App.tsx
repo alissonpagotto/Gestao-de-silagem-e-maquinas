@@ -1046,7 +1046,10 @@ export default function App() {
     const handleLocalExpensesUpdated = (ev: any) => {
       const updated = ev?.detail;
       if (Array.isArray(updated)) {
-        setExpenses(updated);
+        setExpenses(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(updated)) return prev;
+          return updated;
+        });
       }
     };
     window.addEventListener('silagem_expenses_updated', handleLocalExpensesUpdated);
@@ -2592,15 +2595,19 @@ export default function App() {
     lastCheckTimeRef.current = now;
 
     if (isAdminImpersonating) {
-      setSubscriptionCheck({
+      const nextAdminCheck = {
         isChecking: false,
         hasAccess: true,
-        status: 'active',
+        status: 'active' as const,
         daysRemaining: 999,
         blockMessage: '',
         subscriberName: impersonatedSubscriber?.name,
         subscriberEmail: impersonatedSubscriber?.email,
         planName: impersonatedSubscriber?.planName || 'Produtor Essencial',
+      };
+      setSubscriptionCheck((prev) => {
+        if (JSON.stringify(prev) === JSON.stringify(nextAdminCheck)) return prev;
+        return nextAdminCheck;
       });
       return;
     }
@@ -2620,7 +2627,7 @@ export default function App() {
       companyId: companyProfile?.id,
     });
 
-    setSubscriptionCheck({
+    const nextCheck = {
       isChecking: false,
       hasAccess: result.hasAccess,
       status: result.status,
@@ -2629,22 +2636,31 @@ export default function App() {
       subscriberName: result.subscriberName || companyProfile?.tradeName || companyProfile?.corporateName,
       subscriberEmail: result.subscriberEmail || userEmail,
       planName: result.planName || companyProfile?.planName || 'Produtor Essencial',
+    };
+    setSubscriptionCheck((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(nextCheck)) return prev;
+      return nextCheck;
     });
   }, [isAdminImpersonating, currentUser?.email, companyProfile?.id, companyProfile?.email, impersonatedSubscriber]);
 
+  const performSubCheckRef = useRef(performSubscriptionCheck);
+  useEffect(() => {
+    performSubCheckRef.current = performSubscriptionCheck;
+  }, [performSubscriptionCheck]);
+
   // Executa checagem de assinatura ao iniciar ou ao retomar foco (com throttle e canal persistente)
   useEffect(() => {
-    performSubscriptionCheck(true);
+    performSubCheckRef.current(false);
 
     const handleFocus = () => {
-      performSubscriptionCheck();
+      performSubCheckRef.current();
     };
     window.addEventListener('focus', handleFocus);
 
     // Escuta eventos em tempo real para sincronização imediata sem F5
     const handleImmediateSync = (e?: any) => {
       if (e?.type === 'storage' && e?.key && !['assinantes', 'subscribers', 'company_profile', 'silagem_active_subscriber_id'].includes(e.key)) return;
-      performSubscriptionCheck(false);
+      performSubCheckRef.current(false);
     };
     window.addEventListener('master_admin_data_changed', handleImmediateSync);
     window.addEventListener('company_profile_updated', handleImmediateSync);
@@ -2652,10 +2668,10 @@ export default function App() {
 
     // Escuta em tempo real nas tabelas de assinantes do Supabase
     const unsubAssinantes = subscribeToCloudTable('assinantes', () => {
-      performSubscriptionCheck(true);
+      performSubCheckRef.current(true);
     });
     const unsubSubs = subscribeToCloudTable('subscribers', () => {
-      performSubscriptionCheck(true);
+      performSubCheckRef.current(true);
     });
 
     return () => {
@@ -2666,7 +2682,7 @@ export default function App() {
       unsubAssinantes();
       unsubSubs();
     };
-  }, [performSubscriptionCheck]);
+  }, []);
 
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {

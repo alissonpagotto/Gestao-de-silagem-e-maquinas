@@ -23,9 +23,15 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   // Sincroniza quando o valor muda externamente
   useEffect(() => {
-    setSearchTerm(value || '');
+    setSearchTerm((prev) => {
+      const next = value || '';
+      return prev === next ? prev : next;
+    });
   }, [value]);
 
   // Identifica o banco selecionado
@@ -45,17 +51,17 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
         if (searchTerm.trim() && searchTerm !== value) {
           const matched = findBankByQuery(searchTerm);
           if (matched) {
-            onChange(matched.displayName, matched.code, matched.color);
+            onChangeRef.current?.(matched.displayName, matched.code, matched.color);
             setSearchTerm(matched.displayName);
           } else {
-            onChange(searchTerm.trim(), undefined);
+            onChangeRef.current?.(searchTerm.trim(), undefined);
           }
         }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [searchTerm, value, onChange]);
+  }, [searchTerm, value]);
 
   // Lista filtrada de bancos por código, nome, displayName ou apelidos
   const filteredBanks = useMemo(() => {
@@ -244,12 +250,9 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
                     } ${isSelected ? 'bg-zinc-100 dark:bg-stone-800 font-black' : ''}`}
                   >
                     <div className="flex items-center space-x-2.5 truncate">
-                      {/* Logo Oficial do Banco com tamanho nítido e container refinado */}
-                      <div 
-                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-xs border border-zinc-200/60 dark:border-stone-700/60"
-                        style={{ backgroundColor: bank.color || '#0963cb' }}
-                      >
-                        <BankLogoIcon code={bank.code} name={bank.shortName} size={28} className="text-white" />
+                      {/* Logo Oficial do Banco com tamanho compacto e nítido (24px) */}
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                        <BankLogoIcon code={bank.code} name={bank.shortName} size={24} />
                       </div>
 
                       {/* Registro Exato e Nome Formatado com Badge de Código */}

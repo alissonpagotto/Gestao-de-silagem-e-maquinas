@@ -98,9 +98,11 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
   // 1. Faturamento do Trator: Se configurado por "Por Alqueire (alq)" ou "Por Hectare (ha)", puxa automaticamente o valor da área global
   React.useEffect(() => {
     if (modoCobrancaTrator !== 'horas' && quantidadeAreaGlobal !== undefined && quantidadeAreaGlobal !== '') {
-      onQtdCobrancaChange(quantidadeAreaGlobal);
+      if (qtdCobrancaTrator !== quantidadeAreaGlobal) {
+        onQtdCobrancaChange(quantidadeAreaGlobal);
+      }
     }
-  }, [modoCobrancaTrator, quantidadeAreaGlobal]);
+  }, [modoCobrancaTrator, quantidadeAreaGlobal, qtdCobrancaTrator, onQtdCobrancaChange]);
 
   // 2. Comissão do Operador: Se "Por Horas (h)", puxa as horas faturadas do trator acima. Se "Por Área", puxa a área global. Se 'livre', preserva a base digitada.
   React.useEffect(() => {
@@ -109,14 +111,18 @@ export const TractorBlock: React.FC<TractorBlockProps> = ({
     }
     if (modoComissaoOperador === 'horas') {
       if (qtdCobrancaTrator !== undefined && qtdCobrancaTrator !== '') {
-        onQtdBaseComissaoChange(qtdCobrancaTrator);
+        if (qtdBaseComissao !== qtdCobrancaTrator) {
+          onQtdBaseComissaoChange(qtdCobrancaTrator);
+        }
       }
     } else {
       if (quantidadeAreaGlobal !== undefined && quantidadeAreaGlobal !== '') {
-        onQtdBaseComissaoChange(quantidadeAreaGlobal);
+        if (qtdBaseComissao !== quantidadeAreaGlobal) {
+          onQtdBaseComissaoChange(quantidadeAreaGlobal);
+        }
       }
     }
-  }, [modoComissaoOperador, qtdCobrancaTrator, quantidadeAreaGlobal]);
+  }, [modoComissaoOperador, qtdCobrancaTrator, quantidadeAreaGlobal, qtdBaseComissao, onQtdBaseComissaoChange]);
 
   // Limpa completamente todos os campos vinculados ao trator (Opção Neutra)
   const handleClearTractor = () => {
