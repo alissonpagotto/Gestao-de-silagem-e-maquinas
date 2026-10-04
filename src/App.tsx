@@ -351,6 +351,7 @@ export default function App() {
     rel_employees?: string;
     rel_machineries?: string;
     rel_expenses?: string;
+    bankAccounts?: string;
   }>({});
 
   useEffect(() => {
@@ -581,8 +582,12 @@ export default function App() {
         // 3.1 Carrega Contas Bancárias em nuvem (tabela 'financeiro_contas')
         const cloudAccs = await fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid);
         if (Array.isArray(cloudAccs) && cloudAccs.length > 0 && isMounted) {
-          setBankAccounts(cloudAccs);
-          saveStoredBankAccounts(cloudAccs);
+          const ser = JSON.stringify(cloudAccs);
+          if (ser !== lastSyncedState.current.bankAccounts) {
+            lastSyncedState.current.bankAccounts = ser;
+            setBankAccounts(cloudAccs);
+            saveStoredBankAccounts(cloudAccs);
+          }
         }
 
         // 3.2 Carrega Fornecedores em nuvem (tabela 'fornecedores')
@@ -662,7 +667,11 @@ export default function App() {
     loadCloudData();
 
     // Sincronização forçada sob demanda via REST (desencadeada por ações manuais como 'Sincronizar Leituras')
+    let lastForceSyncTime = 0;
     const handleForceRestSync = () => {
+      const now = Date.now();
+      if (now - lastForceSyncTime < 4000) return;
+      lastForceSyncTime = now;
       loadCloudData();
     };
     window.addEventListener('silagem_force_rest_sync', handleForceRestSync);
@@ -1238,8 +1247,12 @@ export default function App() {
           fetchCloudBankAccounts(activeTenantId, currentUser?.id || currentUser?.uid).then(fresh => {
             if (isMounted) {
               const safeAccs = Array.isArray(fresh) ? fresh : [];
-              setBankAccounts(safeAccs);
-              if (safeAccs.length > 0) saveStoredBankAccounts(safeAccs);
+              const ser = JSON.stringify(safeAccs);
+              if (ser !== lastSyncedState.current.bankAccounts) {
+                lastSyncedState.current.bankAccounts = ser;
+                setBankAccounts(safeAccs);
+                if (safeAccs.length > 0) saveStoredBankAccounts(safeAccs);
+              }
             }
           });
         }
@@ -1366,11 +1379,15 @@ export default function App() {
   }, [activeTenantId, currentUser?.uid]);
 
   const handleSaveBankAccounts = (newAccounts: BankAccount[]) => {
-    setBankAccounts(newAccounts);
-    saveStoredBankAccounts(newAccounts);
-    saveCloudBankAccounts(newAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
-      console.warn('Supabase saveCloudBankAccounts notice:', err)
-    );
+    const ser = JSON.stringify(newAccounts);
+    if (ser !== lastSyncedState.current.bankAccounts) {
+      lastSyncedState.current.bankAccounts = ser;
+      setBankAccounts(newAccounts);
+      saveStoredBankAccounts(newAccounts);
+      saveCloudBankAccounts(newAccounts, activeTenantId, currentUser?.id || currentUser?.uid).catch(err =>
+        console.warn('Supabase saveCloudBankAccounts notice:', err)
+      );
+    }
   };
 
   const handleSaveMaintenanceLogs = (newLogs: MaintenanceLog[]) => {
@@ -1632,8 +1649,13 @@ export default function App() {
 
   // Keep third-party settlements state fresh across component interactions
   useEffect(() => {
-    const handleSettlementsUpdate = () => {
-      setSettlements(getStoredSettlements());
+    const handleSettlementsUpdate = (e: any) => {
+      if (e?.type === 'storage' && e?.key && e.key !== 'silagem_facil_settlements_v1' && e.key !== 'colaca_silagem_settlements') return;
+      const current = getStoredSettlements();
+      setSettlements(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
     };
     window.addEventListener('silagem_settlements_updated', handleSettlementsUpdate);
     window.addEventListener('storage', handleSettlementsUpdate);
@@ -2620,8 +2642,9 @@ export default function App() {
     window.addEventListener('focus', handleFocus);
 
     // Escuta eventos em tempo real para sincronização imediata sem F5
-    const handleImmediateSync = () => {
-      performSubscriptionCheck(true);
+    const handleImmediateSync = (e?: any) => {
+      if (e?.type === 'storage' && e?.key && !['assinantes', 'subscribers', 'company_profile', 'silagem_active_subscriber_id'].includes(e.key)) return;
+      performSubscriptionCheck(false);
     };
     window.addEventListener('master_admin_data_changed', handleImmediateSync);
     window.addEventListener('company_profile_updated', handleImmediateSync);
@@ -2957,7 +2980,7 @@ export default function App() {
           )}
 
           {/* TAB: Financeiro (Consolidado, Despesas, Contas, A Pagar, A Receber, Acertos, Exportar) */}
-          {(activeTab === 'financeiro' || activeTab === 'despesas') && (
+          {(activeTab === 'financeiro' || activeTab === 'despesas' || activeTab === 'contas' || activeTab === 'bancos' || activeTab === 'pagar' || activeTab === 'receber') && (
             <FinancialSummary
               expenses={expenses}
               orders={orders}
@@ -2971,7 +2994,12 @@ export default function App() {
               fleetTeams={fleetTeams}
               machineries={machineries}
               companyProfile={companyProfile}
-              initialSubTab={activeTab === 'despesas' ? 'despesas' : undefined}
+              initialSubTab={
+                activeTab === 'despesas' ? 'despesas' :
+                (activeTab === 'contas' || activeTab === 'bancos') ? 'contas' :
+                activeTab === 'pagar' ? 'a_pagar' :
+                activeTab === 'receber' ? 'a_receber' : undefined
+              }
               onSaveBankAccounts={handleSaveBankAccounts}
               onSaveExpenses={handleSaveExpense}
               onSaveSettlements={handleSaveSettlements}

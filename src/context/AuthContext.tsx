@@ -166,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.removeEventListener('active_company_id_changed', handleCompanyIdChanged);
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, [activeCompanyId]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

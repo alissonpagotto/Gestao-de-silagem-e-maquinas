@@ -297,18 +297,18 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
       <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-2">
         {/* Esquerda: Identificação e Seletor de Conta Vinculada */}
         <div className="flex items-center space-x-2 min-w-0">
-          {/* Logo pequeno da conta selecionada ou ícone geral */}
+          {/* Logo da conta selecionada com identidade nítida */}
           {activeAccount ? (
             <div 
-              className="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 shadow-2xs overflow-hidden"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs overflow-hidden p-0.5"
               style={{ backgroundColor: activeAccount.color || '#0963cb' }}
               title={`${activeAccount.name || 'Conta'} (${activeAccount.bankName || 'Banco'})`}
             >
-              <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={14} className="text-white" />
+              <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={24} className="text-white" />
             </div>
           ) : (
-            <div className="w-6 h-6 rounded-md bg-[#0963cb] text-white flex items-center justify-center shrink-0">
-              <Building2 className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-lg bg-[#0963cb] text-white flex items-center justify-center shrink-0">
+              <Building2 className="w-4 h-4" />
             </div>
           )}
 

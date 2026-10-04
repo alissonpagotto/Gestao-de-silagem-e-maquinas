@@ -51,7 +51,9 @@ import {
   formatDateBR, 
   checkCnhStatus,
   saveStoredExpenses,
+  getStoredExpenses,
   saveStoredFuelLogs,
+  getStoredFuelLogs,
   getActiveCompanyId
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
@@ -161,16 +163,25 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             supplier: 'Fornecedor',
             createdAt: d.created_at || new Date().toISOString()
           } as unknown as Expense));
-          setActiveExpenses(mapped);
-          saveStoredExpenses(mapped);
-          onExpensesChangeRef.current?.(mapped);
+          const currentStored = getStoredExpenses();
+          const serMapped = JSON.stringify(mapped);
+          const serStored = JSON.stringify(currentStored);
+          if (serMapped !== serStored) {
+            setActiveExpenses(mapped);
+            saveStoredExpenses(mapped);
+            onExpensesChangeRef.current?.(mapped);
+          }
         }
       }
 
       // 2. Reconciliação de Abastecimentos / Combustível
       if (cloudFuels !== null && Array.isArray(cloudFuels)) {
-        setActiveFuelLogs(cloudFuels);
-        saveStoredFuelLogs(cloudFuels);
+        const serFuels = JSON.stringify(cloudFuels);
+        const curFuels = JSON.stringify(getStoredFuelLogs());
+        if (serFuels !== curFuels) {
+          setActiveFuelLogs(cloudFuels);
+          saveStoredFuelLogs(cloudFuels);
+        }
         if (cloudFuels.length === 0 && activeCompanyId) {
           saveCloudFuelLogs([], activeCompanyId).catch(() => {});
         }

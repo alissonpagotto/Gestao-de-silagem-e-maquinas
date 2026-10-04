@@ -124,13 +124,13 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
         {/* Mini-ícone dentro do input: Logo oficial do banco ou Building2 clássico */}
         <div 
           id="mini-icone-banco-input"
-          className="absolute left-2.5 flex items-center justify-center pointer-events-none z-10 w-5 h-5"
+          className="absolute left-2.5 flex items-center justify-center pointer-events-none z-10 w-6 h-6 rounded-md overflow-hidden"
         >
           <BankLogoIcon
             code={selectedBank?.code || bankCode}
             name={searchTerm || value}
-            size={20}
-            className="text-stone-400"
+            size={24}
+            className="text-stone-400 shrink-0"
           />
         </div>
 
@@ -160,8 +160,8 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
             }
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar por código (ex: 001, 133, 756) ou nome..."
-          className="w-full py-1.5 pl-9.5 pr-16 text-xs sm:text-sm border border-zinc-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs transition"
+          placeholder="Buscar por código (ex: 001, 104, 133, 756, 748, 341) ou nome..."
+          className="w-full py-1.5 pl-10 pr-16 text-xs sm:text-sm border border-zinc-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs transition"
         />
 
         {/* Ações da Direita: Limpar & Dropdown Chevron */}
@@ -244,16 +244,24 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
                     } ${isSelected ? 'bg-zinc-100 dark:bg-stone-800 font-black' : ''}`}
                   >
                     <div className="flex items-center space-x-2.5 truncate">
-                      {/* Logo / Identidade do Banco em Miniatura */}
-                      <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
-                        <BankLogoIcon code={bank.code} name={bank.shortName} size={24} />
+                      {/* Logo Oficial do Banco com tamanho nítido e container refinado */}
+                      <div 
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-xs border border-zinc-200/60 dark:border-stone-700/60"
+                        style={{ backgroundColor: bank.color || '#0963cb' }}
+                      >
+                        <BankLogoIcon code={bank.code} name={bank.shortName} size={28} className="text-white" />
                       </div>
 
-                      {/* Registro Exato e Nome Formatado */}
+                      {/* Registro Exato e Nome Formatado com Badge de Código */}
                       <div className="truncate">
-                        <span className="font-bold text-zinc-900 dark:text-stone-100 text-xs block truncate">
-                          {bank.displayName}
-                        </span>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="font-bold text-zinc-900 dark:text-stone-100 text-xs truncate">
+                            {bank.shortName}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold font-mono bg-zinc-100 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-600 shrink-0">
+                            {bank.code}
+                          </span>
+                        </div>
                         <span className="text-[10px] text-zinc-500 dark:text-stone-400 block truncate">
                           {bank.name}
                         </span>
@@ -261,7 +269,7 @@ export const BankCombobox: React.FC<BankComboboxProps> = ({
                     </div>
 
                     {isSelected && (
-                      <Check className="w-4 h-4 text-zinc-900 dark:text-stone-100 shrink-0 ml-2 stroke-[2.5]" />
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 ml-2 stroke-[2.5]" />
                     )}
                   </li>
                 );

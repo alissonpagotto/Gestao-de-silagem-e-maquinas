@@ -188,10 +188,6 @@ function saveOfflineTableData(entity: string, data: any[]): void {
   if (legKey) {
     try { localStorage.setItem(legKey, json); } catch (_) {}
   }
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('silagem_force_rest_sync'));
-    window.dispatchEvent(new Event('storage'));
-  }
 }
 
 function executeOfflineTableOperation(

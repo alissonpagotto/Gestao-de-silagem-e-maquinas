@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Building2, 
   Plus, 
@@ -24,6 +24,7 @@ import { BankAccountModal } from './BankAccountModal';
 import { BankLogoIcon } from './BankLogoIcon';
 import { BankAccountStatementModal } from './BankAccountStatementModal';
 import { BankIntegrationCard } from './BankIntegrationCard';
+import { getBankTheme } from './bankThemes';
 
 interface BankAccountsTabProps {
   accounts: BankAccount[];
@@ -118,11 +119,17 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
     return loadInitialLocalAccounts(accounts);
   });
 
-  // Saldo Consolidado em estado isolado próprio
-  const [consolidatedBalances, setConsolidatedBalances] = useState(() => {
-    const initialList = loadInitialLocalAccounts(accounts);
-    return computeConsolidatedBalances(initialList);
-  });
+  // Lista efetiva de contas com proteção contra listas vazias ou nulas
+  const effectiveAccounts = useMemo(() => {
+    if (Array.isArray(localAccounts) && localAccounts.length > 0) return localAccounts;
+    if (Array.isArray(accounts) && accounts.length > 0) return accounts;
+    return [];
+  }, [localAccounts, accounts]);
+
+  // Saldo Consolidado em computação isolada pura (sem chamada a setState e sem risco de loop)
+  const consolidatedBalances = useMemo(() => {
+    return computeConsolidatedBalances(effectiveAccounts);
+  }, [effectiveAccounts]);
 
   // Trava de segurança para execução EXCLUSIVAMENTE UMA ÚNICA VEZ durante o carregamento inicial
   const isInitialLoad = useRef(true);
@@ -136,31 +143,15 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       const safeList = Array.isArray(stored) && stored.length > 0 
         ? stored 
         : (Array.isArray(accounts) && accounts.length > 0 ? accounts : []);
-      const balances = computeConsolidatedBalances(safeList);
-      setLocalAccounts(safeList);
-      setConsolidatedBalances(balances);
+      if (safeList.length > 0) {
+        setLocalAccounts(safeList);
+      }
     } catch (err) {
       console.warn('Erro ao inicializar saldos e contas bancárias:', err);
     }
   }, []);
 
-  // Sincronização externa estritamente controlada: somente atualiza quando o JSON das contas mudar de fato
   const lastPropsJsonRef = useRef(JSON.stringify(accounts || []));
-  useEffect(() => {
-    if (isInitialLoad.current) return;
-    const currentJson = JSON.stringify(accounts || []);
-    if (currentJson !== lastPropsJsonRef.current) {
-      lastPropsJsonRef.current = currentJson;
-      const safe = Array.isArray(accounts) ? accounts : [];
-      setLocalAccounts(safe);
-      setConsolidatedBalances(computeConsolidatedBalances(safe));
-    }
-  }, [accounts]);
-
-  // Lista efetiva de contas com proteção contra listas vazias ou nulas
-  const effectiveAccounts = (Array.isArray(localAccounts) && localAccounts.length > 0)
-    ? localAccounts
-    : (Array.isArray(accounts) && accounts.length > 0 ? accounts : []);
 
   // Extrato Modal State e Seletor de Conta Vinculada
   const [isStatementOpen, setIsStatementOpen] = useState(false);
@@ -197,7 +188,6 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
       saveStoredBankAccounts(updated);
       setLocalAccounts(updated);
-      setConsolidatedBalances(computeConsolidatedBalances(updated));
       lastPropsJsonRef.current = JSON.stringify(updated);
 
       if (onSaveAccounts) {
@@ -277,7 +267,6 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         const updated = effectiveAccounts.filter((a) => a.id !== id);
         saveStoredBankAccounts(updated);
         setLocalAccounts(updated);
-        setConsolidatedBalances(computeConsolidatedBalances(updated));
         lastPropsJsonRef.current = JSON.stringify(updated);
 
         if (onSaveAccounts) {
@@ -322,7 +311,6 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
         saveStoredBankAccounts(updatedAccounts);
         setLocalAccounts(updatedAccounts);
-        setConsolidatedBalances(computeConsolidatedBalances(updatedAccounts));
         lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
 
         if (onSaveAccounts) {
@@ -368,7 +356,6 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
         saveStoredBankAccounts(updatedAccounts);
         setLocalAccounts(updatedAccounts);
-        setConsolidatedBalances(computeConsolidatedBalances(updatedAccounts));
         lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
 
         if (onSaveAccounts) {
@@ -530,47 +517,59 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
               console.warn('Erro ao processar visual da conta bancária:', err);
             }
 
+            let theme = getBankTheme('', 'Conta Bancária');
+            try {
+              theme = getBankTheme(safeBankCode, safeBankName, safeAccountType);
+            } catch (err) {
+              console.warn('Erro ao mapear tema visual da conta bancária:', err);
+            }
+
             return (
               <div
                 key={safeId}
                 id={`card-conta-${safeId}`}
-                className="bg-white border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-2xs flex flex-col justify-between gap-1.5 hover:border-slate-300 transition text-black"
+                className={`${theme.bgCard} border ${theme.borderCard} ${theme.hoverBorder} rounded-xl p-2.5 sm:p-3 shadow-2xs flex flex-col justify-between gap-2 transition text-black relative overflow-hidden`}
+                style={{
+                  borderLeftWidth: '4px',
+                  borderLeftColor: theme.accentBar,
+                }}
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-1.5">
-                    <div className="flex items-center space-x-2 truncate min-w-0">
+                    <div className="flex items-center space-x-2.5 truncate min-w-0">
+                      {/* Logotipo oficial em tamanho nítido e discreto (30px) */}
                       <div
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-white shadow-2xs font-black shrink-0 overflow-hidden"
-                        style={{ backgroundColor: safeColor }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs font-black shrink-0 overflow-hidden p-0.5"
+                        style={{ backgroundColor: theme.accentBar }}
                       >
                         {safeAccountType === 'caixa_fisico' ? (
-                          <Wallet className="w-3.5 h-3.5" />
+                          <Wallet className="w-4 h-4 text-white" />
                         ) : (
-                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={15} className="text-white" />
+                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={30} className="text-white" />
                         )}
                       </div>
                       <div className="truncate min-w-0">
-                        <h4 className="font-black text-black text-xs leading-tight truncate">
+                        <h4 className={`font-black text-xs sm:text-[13px] leading-tight truncate ${theme.textPrimary}`}>
                           {safeAccName}
                         </h4>
-                        <div className="flex items-center space-x-1 text-[9.5px] text-stone-500 font-semibold truncate leading-tight">
+                        <div className="flex items-center space-x-1.5 text-[9.5px] font-semibold truncate leading-tight mt-0.5">
                           {safeBankCode && (
-                            <span className="px-1 py-0.2 rounded text-[8.5px] font-bold font-mono bg-stone-100 text-stone-600 border border-stone-200">
+                            <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold font-mono border shadow-2xs ${theme.accentTag}`}>
                               {safeBankCode}
                             </span>
                           )}
-                          <span className="truncate">{safeBankName}</span>
+                          <span className={`truncate font-bold ${theme.textSecondary}`}>{safeBankName}</span>
                         </div>
                       </div>
                     </div>
 
-                    <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-stone-700 border border-slate-200 shrink-0 leading-none">
+                    <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded shrink-0 leading-none shadow-2xs border ${theme.badgeBg}`}>
                       {getAccountTypeLabel(safeAccountType)}
                     </span>
                   </div>
 
-                  {/* Card de Saldo Compacto */}
-                  <div className="p-1.5 sm:p-2 bg-slate-50/90 rounded-lg border border-slate-200/80 space-y-0.5">
+                  {/* Card de Saldo Compacto com fundo e borda temáticos */}
+                  <div className={`p-1.5 sm:p-2 rounded-lg border space-y-0.5 ${theme.innerCardBg}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-[8.5px] font-extrabold text-stone-500 uppercase tracking-wider">
                         {hasOverdraft ? 'Disponível Total' : 'Saldo em Conta'}
@@ -596,7 +595,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                 </div>
 
                 {/* Dados da Base e Ações Integradas */}
-                <div className="pt-1 border-t border-slate-100 space-y-1">
+                <div className="pt-1 border-t border-black/5 dark:border-white/5 space-y-1">
                   {acc && ((acc.agency || acc.accountNumber) || acc.pixKey || (acc.corporateCards && acc.corporateCards.length > 0)) && (
                     <div className="space-y-0.5 text-[9px] text-stone-600 leading-tight">
                       {(acc.agency || acc.accountNumber) && (

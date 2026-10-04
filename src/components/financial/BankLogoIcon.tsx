@@ -33,7 +33,9 @@ export function identifyBankCode(code?: any, name?: any): string | null {
     const c = rawCode.trim().replace(/\D/g, '');
     if (c) {
       const padCode = c.padStart(3, '0');
-      if (['001', '104', '341', '133', '756', '748', '237', '033', '260', '077'].includes(padCode)) {
+      if (padCode === '074') return '748';
+      if (padCode === '099') return '099';
+      if (['001', '104', '341', '133', '756', '748', '237', '033', '260', '077', '099'].includes(padCode)) {
         return padCode;
       }
     }
@@ -46,11 +48,12 @@ export function identifyBankCode(code?: any, name?: any): string | null {
     if (n.includes('341') || n.includes('itau')) return '341';
     if (n.includes('133') || n.includes('cresol') || n.includes('cressol')) return '133';
     if (n.includes('756') || n.includes('sicoob') || n.includes('siccob')) return '756';
-    if (n.includes('748') || n.includes('sicredi') || n.includes('sicred')) return '748';
+    if (n.includes('748') || n.includes('074') || n.includes('sicredi') || n.includes('sicred')) return '748';
     if (n.includes('237') || n.includes('bradesco')) return '237';
     if (n.includes('033') || n.includes('santander')) return '033';
     if (n.includes('260') || n.includes('nubank') || n.includes('nu pagamentos')) return '260';
     if (n.includes('077') || n.includes('inter') || n.includes('banco inter')) return '077';
+    if (n.includes('099') || n.includes('caixa fisico') || n.includes('caixa sede') || n.includes('especie')) return '099';
 
     return null;
   } catch (_) {
@@ -346,6 +349,31 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           >
             inter
           </text>
+        </svg>
+      );
+
+    // 099 - Caixa Físico / Sede
+    case '099':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect width="32" height="32" rx="7" fill="#475569" />
+          <path
+            d="M8 11C8 9.89543 8.89543 9 10 9H22C23.1046 9 24 9.89543 24 11V21C24 22.1046 23.1046 23 22 23H10C8.89543 23 8 22.1046 8 21V11Z"
+            stroke="#FFFFFF"
+            strokeWidth="2"
+          />
+          <path
+            d="M19 16C19 16.5523 19.4477 17 20 17H24V15H20C19.4477 15 19 15.4477 19 16Z"
+            fill="#FFFFFF"
+          />
+          <circle cx="21.5" cy="16" r="0.75" fill="#475569" />
         </svg>
       );
 
