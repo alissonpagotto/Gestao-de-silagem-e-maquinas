@@ -1408,24 +1408,42 @@ export default function App() {
     saveStoredSalaryAdvances(newAdvances);
   };
 
-  // Active Navigation Tab (Defaults to 'dashboard' matching the requested view or URL query parameter)
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const urlTab = params.get('tab') || params.get('modulo');
-        if (urlTab === 'formularios' || urlTab === 'agenda' || urlTab === 'servicos') {
-          return 'servicos';
-        }
-        if (urlTab) {
-          return urlTab;
-        }
-      } catch (e) {
-        console.error(e);
+  // Active Navigation Tab (Defaults to 'dashboard' matching the requested view or URL query parameter/path)
+  const getResolvedActiveTab = (): string => {
+    if (typeof window === 'undefined') return 'dashboard';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get('tab') || params.get('modulo');
+      if (urlTab === 'formularios' || urlTab === 'agenda' || urlTab === 'servicos') {
+        return 'servicos';
       }
+      if (urlTab) {
+        return urlTab;
+      }
+      const rawPath = (window.location.pathname || '').replace(/^\//, '').toLowerCase().trim();
+      const pathSegment = rawPath.split('/')[0];
+      if (['frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus'].includes(pathSegment)) {
+        return pathSegment === 'frota' ? 'frotas' : pathSegment;
+      }
+      if (['financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe'].includes(pathSegment)) {
+        return pathSegment;
+      }
+      if (['rh', 'funcionarios', 'folha', 'ferias', 'colaboradores'].includes(pathSegment)) {
+        return pathSegment === 'colaboradores' ? 'funcionarios' : pathSegment;
+      }
+      if (['almoxarifado', 'estoque'].includes(pathSegment)) {
+        return pathSegment;
+      }
+      if (['clientes', 'crm', 'fornecedores', 'servicos', 'relatorios', 'configuracoes'].includes(pathSegment)) {
+        return pathSegment;
+      }
+    } catch (e) {
+      console.error(e);
     }
     return 'dashboard';
-  });
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(getResolvedActiveTab);
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -2192,6 +2210,10 @@ export default function App() {
   useEffect(() => {
     const handleUrlChange = () => {
       setCurrentRoute(getResolvedRoute());
+      const resolvedTab = getResolvedActiveTab();
+      if (resolvedTab) {
+        setActiveTab(resolvedTab);
+      }
     };
 
     window.addEventListener('popstate', handleUrlChange);
