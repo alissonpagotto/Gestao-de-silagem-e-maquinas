@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { X, Printer, Palmtree, Wifi } from 'lucide-react';
 import { VacationRecord, Employee, CompanyProfile } from '../../types';
 import { formatDateBR, getStoredCompanyProfile, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
+import { PixQrCodeBlock } from './PixQrCodeBlock';
+import { resolveEmployeePixKey } from './pixQrCodeHelper';
+import { getEmployeePixKey, findEmployeeFromStorage } from './pixUtils';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   saveCloudVacations,
@@ -733,29 +736,11 @@ export function VacationReceiptModal({
   }, [isOpen, sourceVacation]);
 
   // =========================================================================
-  // 2. CONDICIONAIS DE RENDERIZAÇÃO
+  // 2. CONDICIONAIS DE RENDERIZAÇÃO LIMPA E SEGURA
   // =========================================================================
 
-  if (!isOpen) return null;
-
-  if (!sourceVacation) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-hidden">
-        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-4 shadow-xl text-center max-w-sm w-full">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-xs font-bold text-stone-800 dark:text-stone-200">
-            Carregando dados do Supabase...
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-3 px-4 py-1.5 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-xs font-bold rounded-lg transition cursor-pointer"
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
-    );
+  if (!isOpen || !sourceVacation) {
+    return null;
   }
 
   // =========================================================================
@@ -799,9 +784,64 @@ export function VacationReceiptModal({
     year: 'numeric',
   });
 
-  // Disparo direto da rotina de impressão nativa do navegador (window.print)
+  // Resolução simples e direta da chave PIX em variável JavaScript (sem hooks)
+  const resolvedEmp = employee || findEmployeeFromStorage(sourceVacation.employeeId || sourceVacation.employeeName);
+  const pixKey = getEmployeePixKey(resolvedEmp || employee) || resolveEmployeePixKey(
+    employee || sourceVacation.employeeId || sourceVacation.employeeName
+  );
+
+  // Rotina de impressão com janela isolada (window.open) com fallback para window.print
   const handlePrint = () => {
-    window.print();
+    const reciboElement = document.getElementById('recibo-ferias-branco');
+    if (!reciboElement) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1000');
+    if (printWindow) {
+      const estilosPai = Array.from(document.styleSheets)
+        .map(styleSheet => {
+          try {
+            return Array.from(styleSheet.cssRules)
+              .map(rule => rule.cssText)
+              .join('\n');
+          } catch (e) {
+            return '';
+          }
+        })
+        .join('\n');
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Recibo de Férias - ${employeeName}</title>
+            <style>
+              ${estilosPai}
+              body { background: white !important; color: black !important; padding: 20px; font-family: sans-serif; }
+              @media print {
+                @page { size: A4 portrait; margin: 1cm; }
+                body { padding: 0; }
+                .no-print { display: none !important; }
+              }
+            </style>
+          </head>
+          <body class="bg-white text-black antialiased">
+            <div class="w-full max-w-4xl mx-auto p-2 bg-white border border-gray-200 rounded-xl shadow-none">
+              ${reciboElement.innerHTML}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 500);
+    } else {
+      window.print();
+    }
   };
 
   const handleToggleInss = (checked: boolean) => {
@@ -916,6 +956,7 @@ export function VacationReceiptModal({
         >
           {/* Documento Centralizado - Padding 16px e Gap 0.75rem entre blocos */}
           <div
+            id="recibo-ferias-branco"
             className="recibo-ferias-container bg-white text-black w-full max-w-[210mm] border border-stone-300 p-4 rounded-lg shadow-sm text-xs leading-snug font-sans flex flex-col gap-3 overflow-y-hidden"
             style={{ padding: '16px', gap: '0.75rem', overflowY: 'hidden' }}
           >
@@ -943,28 +984,42 @@ export function VacationReceiptModal({
                 <span className="text-[9px] font-semibold text-stone-600">Comunicação Formal ao Empregado</span>
               </div>
 
-              {/* Tabela dos Dados Cadastrais e Períodos */}
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 border border-stone-300 p-2 bg-white rounded-xs text-[11px]">
-                <div className="sm:col-span-2">
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Colaborador(a):</span>
-                  <span className="font-black text-black text-[11px] truncate block">{employeeName}</span>
+              {/* Tabela dos Dados Cadastrais e Períodos com Grid Horizontal + QR Code */}
+              <div className="flex flex-row items-center justify-between gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 border border-stone-300 p-2 bg-white rounded-xs text-[11px] flex-1">
+                  <div className="sm:col-span-2">
+                    <span className="block text-[9px] font-bold text-stone-500 uppercase">Colaborador(a):</span>
+                    <span className="font-black text-black text-[11px] truncate block">{employeeName}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-bold text-stone-500 uppercase">Cargo / Função:</span>
+                    <span className="font-bold text-stone-900 truncate block">{employeeRole}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-bold text-stone-500 uppercase">CPF:</span>
+                    <span className="font-bold text-stone-900">{employeeCpf}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-bold text-stone-500 uppercase">Per. Aquisitivo:</span>
+                    <span className="font-black text-stone-900 text-[10px]">{periodAcquisitive}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-bold text-stone-500 uppercase">Gozo ({daysCount}d):</span>
+                    <span className="font-black text-blue-900 text-[10px]">{periodGozo}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Cargo / Função:</span>
-                  <span className="font-bold text-stone-900 truncate block">{employeeRole}</span>
-                </div>
-                <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase">CPF:</span>
-                  <span className="font-bold text-stone-900">{employeeCpf}</span>
-                </div>
-                <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Per. Aquisitivo:</span>
-                  <span className="font-black text-stone-900 text-[10px]">{periodAcquisitive}</span>
-                </div>
-                <div>
-                  <span className="block text-[9px] font-bold text-stone-500 uppercase">Gozo ({daysCount}d):</span>
-                  <span className="font-black text-blue-900 text-[10px]">{periodGozo}</span>
-                </div>
+
+                {pixKey ? (
+                  <div className="shrink-0 pl-1 self-center">
+                    <PixQrCodeBlock
+                      pixKey={pixKey}
+                      amount={valorLiquido}
+                      label="PIX para Adiantamento de Férias"
+                      receiverName={employeeName}
+                      city={issueCity}
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
 

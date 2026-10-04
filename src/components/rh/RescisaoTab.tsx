@@ -61,6 +61,9 @@ import {
   formatEmployeeAdmissionDate,
   findEmployeeLinkedMachinery
 } from './payrollHelpers';
+import { PixQrCodeBlock } from './PixQrCodeBlock';
+import { resolveEmployeePixKey } from './pixQrCodeHelper';
+import { getEmployeePixKey, findEmployeeFromStorage } from './pixUtils';
 import { useConfirm } from '../../context/ConfirmContext';
 import { ResignCalculationModal } from './ResignCalculationModal';
 
@@ -116,6 +119,72 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
 
   // Modal de Impressão / TRCT
   const [viewingTRCT, setViewingTRCT] = useState<TerminationRecord | null>(null);
+
+  // Resolução dinâmica da chave PIX do colaborador na rescisão (consulta de employees e LocalStorage)
+  const trctPixKey = useMemo(() => {
+    if (!viewingTRCT) return '';
+    const stored = findEmployeeFromStorage(viewingTRCT.employeeId || viewingTRCT.employeeName);
+    const keyFromStored = getEmployeePixKey(stored);
+    if (keyFromStored) return keyFromStored;
+    return resolveEmployeePixKey(
+      viewingTRCT.employeeId || viewingTRCT.employeeName,
+      employees
+    );
+  }, [viewingTRCT, employees]);
+
+  // Rotina de impressão com janela isolada (window.open) para o Termo de Rescisão
+  const handlePrintTRCTIsolated = () => {
+    const trctEl = document.getElementById('trct-print-area');
+    if (!trctEl) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1000');
+    if (printWindow) {
+      const estilosPai = Array.from(document.styleSheets)
+        .map(styleSheet => {
+          try {
+            return Array.from(styleSheet.cssRules)
+              .map(rule => rule.cssText)
+              .join('\n');
+          } catch (e) {
+            return '';
+          }
+        })
+        .join('\n');
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Termo de Rescisão - ${viewingTRCT?.employeeName || 'TRCT'}</title>
+            <style>
+              ${estilosPai}
+              body { background: white !important; color: black !important; padding: 20px; font-family: sans-serif; }
+              @media print {
+                @page { size: A4 portrait; margin: 1cm; }
+                body { padding: 0; }
+                .no-print { display: none !important; }
+              }
+            </style>
+          </head>
+          <body class="bg-white text-black antialiased">
+            <div class="w-full max-w-4xl mx-auto p-2 bg-white border border-gray-200 rounded-xl shadow-none">
+              ${trctEl.innerHTML}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 500);
+    } else {
+      window.print();
+    }
+  };
 
   // Sincronização inicial com o Supabase da tabela public.rh_rescisoes
   useEffect(() => {
@@ -1011,7 +1080,7 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintTRCTIsolated}
                   className="btn-print-action px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs relative z-20 pointer-events-auto"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -1272,21 +1341,35 @@ export const RescisaoTab: React.FC<RescisaoTabProps> = ({
                 </table>
               </div>
 
-              {/* Quadro Resumo com Líquido e Multa FGTS */}
-              <div className="block-rescisao trct-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-2 border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-1.5">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%):</span>
-                  <span className="text-sm font-bold text-black print:text-xs">
-                    {formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}
-                  </span>
+              {/* Quadro Resumo com Líquido e Multa FGTS + QR Code PIX */}
+              <div className="block-rescisao trct-avoid-break border-2 border-black p-2.5 rounded-md bg-slate-50 print:bg-white print:p-1.5 flex flex-row items-center justify-between gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-600 print:text-black block uppercase print:text-[9px]">Multa Rescisória FGTS ({viewingTRCT.calculation?.fgtsFineRate || 40}%):</span>
+                    <span className="text-sm font-bold text-black print:text-xs">
+                      {formatMoneyBRL(viewingTRCT.calculation?.fgtsFineAmount || 0)}
+                    </span>
+                  </div>
+
+                  <div className="text-left sm:text-right">
+                    <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase print:text-[9px]">VALOR LÍQUIDO A RECEBER:</span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black print:text-lg">
+                      {formatMoneyBRL(viewingTRCT.calculation?.netTotal || 0)}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] font-black text-slate-600 print:text-black block uppercase print:text-[9px]">VALOR LÍQUIDO A RECEBER:</span>
-                  <span className="text-xl sm:text-2xl font-black text-emerald-800 print:text-black print:text-lg">
-                    {formatMoneyBRL(viewingTRCT.calculation?.netTotal || 0)}
-                  </span>
-                </div>
+                {trctPixKey ? (
+                  <div className="shrink-0 pl-2 border-l border-black/20 self-center">
+                    <PixQrCodeBlock
+                      pixKey={trctPixKey}
+                      amount={viewingTRCT.calculation?.netTotal || 0}
+                      label="PIX para Verbas Rescisórias"
+                      receiverName={viewingTRCT.employeeName}
+                      city={companyProfile?.city || 'Brasil'}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               {/* Container de Quitação e Assinaturas */}
