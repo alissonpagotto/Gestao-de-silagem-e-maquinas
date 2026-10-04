@@ -57,9 +57,14 @@ const COLOR_PRESETS = [
   { label: 'Inter Laranja', color: '#f97316' },
   { label: 'Sicredi Verde', color: '#16a34a' },
   { label: 'Sicoob Esmeralda', color: '#059669' },
-  { label: 'Teal Agrícola', color: '#0d9488' },
-  { label: 'Azul Institucional', color: '#0963cb' },
-  { label: 'Cinza / Caixa Sede', color: '#475569' },
+  { label: 'Banrisul Azul', color: '#004f9f' },
+  { label: 'C6 Bank Grafite', color: '#242424' },
+  { label: 'PagBank Verde', color: '#00a868' },
+  { label: 'Safra Dourado', color: '#b99b58' },
+  { label: 'BNB Laranja', color: '#ff6f00' },
+  { label: 'Ailos Teal', color: '#00857c' },
+  { label: 'Unicred Verde', color: '#005544' },
+  { label: 'Caixa Sede Cinza', color: '#475569' },
 ];
 
 /**

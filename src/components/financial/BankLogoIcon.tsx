@@ -35,7 +35,7 @@ export function identifyBankCode(code?: any, name?: any): string | null {
       const padCode = c.padStart(3, '0');
       if (padCode === '074') return '748';
       if (padCode === '099') return '099';
-      if (['001', '104', '341', '133', '756', '748', '237', '033', '260', '077', '099'].includes(padCode)) {
+      if (['001', '104', '341', '133', '756', '748', '237', '033', '260', '077', '041', '336', '290', '422', '004', '085', '136', '099'].includes(padCode)) {
         return padCode;
       }
     }
@@ -53,7 +53,14 @@ export function identifyBankCode(code?: any, name?: any): string | null {
     if (n.includes('033') || n.includes('santander')) return '033';
     if (n.includes('260') || n.includes('nubank') || n.includes('nu pagamentos')) return '260';
     if (n.includes('077') || n.includes('inter') || n.includes('banco inter')) return '077';
-    if (n.includes('099') || n.includes('caixa fisico') || n.includes('caixa sede') || n.includes('especie')) return '099';
+    if (n.includes('041') || n.includes('banrisul')) return '041';
+    if (n.includes('336') || n.includes('c6') || n.includes('c6 bank')) return '336';
+    if (n.includes('290') || n.includes('pagbank') || n.includes('pagseguro')) return '290';
+    if (n.includes('422') || n.includes('safra')) return '422';
+    if (n.includes('004') || n.includes('banco do nordeste') || n.includes('bnb') || n.includes('nordeste')) return '004';
+    if (n.includes('085') || n.includes('ailos') || n.includes('viacredi')) return '085';
+    if (n.includes('136') || n.includes('unicred')) return '136';
+    if (n.includes('099') || n.includes('caixa fisico') || n.includes('caixa sede') || n.includes('especie') || n.includes('dinheiro')) return '099';
 
     return null;
   } catch (_) {
@@ -376,7 +383,267 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
         </svg>
       );
 
-    // 099 - Caixa Físico / Sede
+    // 041 - Banrisul (O símbolo oficial de três cubos tridimensionais azuis alinhados)
+    case '041':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Fundo Branco Nítido com borda suave */}
+          <rect width="32" height="32" rx="7" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1" />
+          {/* Três cubos tridimensionais azuis alinhados em perspectiva isométrica (Símbolo Banrisul) */}
+          <g transform="translate(16, 16)">
+            {/* Cubo 1: Inferior-Esquerdo */}
+            <g transform="translate(-6.5, 4.5)">
+              <polygon points="0,-4.8 4.2,-2.4 0,0 -4.2,-2.4" fill="#38B6FF" />
+              <polygon points="-4.2,-2.4 0,0 0,4.8 -4.2,2.4" fill="#0073CE" />
+              <polygon points="0,0 4.2,-2.4 4.2,2.4 0,4.8" fill="#004F9F" />
+            </g>
+            {/* Cubo 2: Central */}
+            <g transform="translate(0, 0)">
+              <polygon points="0,-4.8 4.2,-2.4 0,0 -4.2,-2.4" fill="#38B6FF" />
+              <polygon points="-4.2,-2.4 0,0 0,4.8 -4.2,2.4" fill="#0073CE" />
+              <polygon points="0,0 4.2,-2.4 4.2,2.4 0,4.8" fill="#004F9F" />
+            </g>
+            {/* Cubo 3: Superior-Direito */}
+            <g transform="translate(6.5, -4.5)">
+              <polygon points="0,-4.8 4.2,-2.4 0,0 -4.2,-2.4" fill="#38B6FF" />
+              <polygon points="-4.2,-2.4 0,0 0,4.8 -4.2,2.4" fill="#0073CE" />
+              <polygon points="0,0 4.2,-2.4 4.2,2.4 0,4.8" fill="#004F9F" />
+            </g>
+          </g>
+        </svg>
+      );
+
+    // 336 - C6 Bank (O logotipo minimalista plano escrito 'C6 BANK' com 'C6' em negrito)
+    case '336':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect width="32" height="32" rx="7" fill="#18181B" />
+          <text
+            x="16"
+            y="16.5"
+            textAnchor="middle"
+            fill="#FFFFFF"
+            fontSize="12.5"
+            fontWeight="900"
+            fontFamily="system-ui, -apple-system, sans-serif"
+            letterSpacing="-0.5"
+          >
+            C6
+          </text>
+          <text
+            x="16.5"
+            y="24.5"
+            textAnchor="middle"
+            fill="#FFFFFF"
+            fontSize="5.2"
+            fontWeight="600"
+            fontFamily="system-ui, -apple-system, sans-serif"
+            letterSpacing="1.2"
+          >
+            BANK
+          </text>
+        </svg>
+      );
+
+    // 290 - PagBank (O círculo dividido com a marca clássica amarela e verde do PagSeguro)
+    case '290':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect width="32" height="32" rx="7" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1" />
+          <g transform="translate(16, 16)">
+            {/* Metade Amarela do PagSeguro (Yin-Yang wave) */}
+            <path
+              d="M 0,-10 A 10,10 0 0,0 0,10 A 5,5 0 0,1 0,0 A 5,5 0 0,0 0,-10 Z"
+              fill="#FFD100"
+            />
+            {/* Metade Verde do PagSeguro */}
+            <path
+              d="M 0,10 A 10,10 0 0,0 0,-10 A 5,5 0 0,1 0,0 A 5,5 0 0,0 0,10 Z"
+              fill="#00A868"
+            />
+            {/* Ponto Verde superior */}
+            <circle cx="0" cy="-5" r="1.8" fill="#00A868" />
+            {/* Ponto Amarelo inferior */}
+            <circle cx="0" cy="5" r="1.8" fill="#FFD100" />
+          </g>
+        </svg>
+      );
+
+    // 422 - Safra (O brasão ou escudo tradicional com as iniciais entrelaçadas em vetor limpo)
+    case '422':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Fundo Azul-Marinho Premium Sólido Safra */}
+          <rect width="32" height="32" rx="7" fill="#001C3D" />
+          <g transform="translate(16, 16)">
+            {/* Brasão / Escudo tradicional */}
+            <path
+              d="M -8,-9 L 8,-9 L 8,0 C 8,5.8 0,9.2 0,9.2 C 0,9.2 -8,5.8 -8,0 Z"
+              fill="#082245"
+              stroke="#B99B58"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            {/* Contorno interno fino dourado */}
+            <path
+              d="M -6.2,-7.2 L 6.2,-7.2 L 6.2,-0.5 C 6.2,4.2 0,7 0,7 C 0,7 -6.2,4.2 -6.2,-0.5 Z"
+              fill="none"
+              stroke="#D4AF37"
+              strokeWidth="0.7"
+            />
+            {/* Iniciais entrelaçadas 'S' / Monograma Safra em vetor limpo dourado */}
+            <path
+              d="M 2.2,-4.5 C 1.2,-5.4 -0.6,-5.4 -1.8,-4.4 C -3,-3.3 -2.2,-1.6 -1,-1.1 L 1,-0.2 C 2.2,0.4 2.8,2 1.6,3.1 C 0.4,4.1 -1.6,4.1 -2.6,3"
+              fill="none"
+              stroke="#D4AF37"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+            {/* Traço transversal nobre do brasão */}
+            <line x1="-3.8" y1="-0.8" x2="3.8" y2="-0.8" stroke="#B99B58" strokeWidth="0.8" strokeLinecap="round" />
+          </g>
+        </svg>
+      );
+
+    // 004 - Banco do Nordeste (O quadrado laranja contendo a flor/sol estilizada em vermelho escuro)
+    case '004':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Fundo Quadrado Laranja Oficial BNB */}
+          <rect width="32" height="32" rx="7" fill="#FF6A00" />
+          <g transform="translate(16, 16)">
+            {/* Flor / Sol estilizada original do Banco do Nordeste em vermelho escuro */}
+            <rect x="-2.2" y="-9" width="4.4" height="18" rx="2.2" fill="#990000" />
+            <rect x="-9" y="-2.2" width="18" height="4.4" rx="2.2" fill="#990000" />
+            <rect x="-2.2" y="-9" width="4.4" height="18" rx="2.2" transform="rotate(45)" fill="#990000" />
+            <rect x="-2.2" y="-9" width="4.4" height="18" rx="2.2" transform="rotate(-45)" fill="#990000" />
+            {/* Núcleo central laranja BNB */}
+            <circle cx="0" cy="0" r="3.2" fill="#FF6A00" />
+            <circle cx="0" cy="0" r="1.4" fill="#990000" />
+          </g>
+        </svg>
+      );
+
+    // 085 - Ailos (O círculo triplo colorido verde, amarelo e azul com os dois pinheiros brancos no centro)
+    case '085':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Fundo Branco Nítido com borda suave */}
+          <rect width="32" height="32" rx="7" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1" />
+          <g transform="translate(16, 16)">
+            {/* Círculo triplo colorido Ailos: azul superior, verde inferior, amarelo lateral */}
+            <circle
+              cx="0"
+              cy="0"
+              r="10.5"
+              fill="none"
+              stroke="#005CA9"
+              strokeWidth="2.2"
+              strokeDasharray="22 44"
+              strokeDashoffset="7"
+            />
+            <circle
+              cx="0"
+              cy="0"
+              r="10.5"
+              fill="none"
+              stroke="#00A859"
+              strokeWidth="2.2"
+              strokeDasharray="22 44"
+              strokeDashoffset="-15"
+            />
+            <circle
+              cx="0"
+              cy="0"
+              r="10.5"
+              fill="none"
+              stroke="#FFCC00"
+              strokeWidth="2.2"
+              strokeDasharray="22 44"
+              strokeDashoffset="-37"
+            />
+            {/* Núcleo circular central azul petróleo / teal */}
+            <circle cx="0" cy="0" r="7.8" fill="#00857C" />
+            {/* Dois Pinheiros Brancos Cooperativos Oficiais */}
+            {/* Pinheiro 1 (Esquerda) */}
+            <path d="M -2.6,-4 L -0.8,-1.8 L -1.5,-1.8 L 0,0.5 L -0.8,0.5 L -0.3,2.2 L -1.3,2.2 L -1.3,3.8 L -2.1,3.8 L -2.1,2.2 L -3.1,2.2 L -2.6,0.5 L -3.4,0.5 L -1.9,-1.8 L -2.6,-1.8 Z" fill="#FFFFFF" />
+            {/* Pinheiro 2 (Direita) */}
+            <path d="M 2.2,-4 L 4,-1.8 L 3.3,-1.8 L 4.8,0.5 L 4,0.5 L 4.5,2.2 L 3.5,2.2 L 3.5,3.8 L 2.7,3.8 L 2.7,2.2 L 1.7,2.2 L 2.2,0.5 L 1.4,0.5 L 2.9,-1.8 L 2.2,-1.8 Z" fill="#FFFFFF" />
+          </g>
+        </svg>
+      );
+
+    // 136 - Unicred (O símbolo da letra 'A' estilizada em formato de setas douradas paralelas)
+    case '136':
+      return (
+        <svg
+          viewBox="0 0 32 32"
+          width={size}
+          height={size}
+          className={`shrink-0 ${className}`}
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Fundo Verde Escuro Corporativo Unicred */}
+          <rect width="32" height="32" rx="7" fill="#004D38" />
+          <g transform="translate(16, 16)">
+            {/* Seta Dourada Superior formando o topo do 'A' */}
+            <path
+              d="M 0,-8.5 L 6.8,1.2 L 3.8,1.2 L 0,-4.2 L -3.8,1.2 L -6.8,1.2 Z"
+              fill="#C5A059"
+            />
+            {/* Seta Dourada Inferior Paralela completando o 'A' */}
+            <path
+              d="M 0,-1.8 L 6.8,8 L 3.8,8 L 0,2.5 L -3.8,8 L -6.8,8 Z"
+              fill="#D4AF37"
+            />
+          </g>
+        </svg>
+      );
+
+    // 099 - Caixa Físico Sede (Vetor plano minimalista de um cofre em cinza escuro corporativo)
     case '099':
       return (
         <svg
@@ -387,17 +654,23 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <rect width="32" height="32" rx="7" fill="#475569" />
-          <path
-            d="M8 11C8 9.89543 8.89543 9 10 9H22C23.1046 9 24 9.89543 24 11V21C24 22.1046 23.1046 23 22 23H10C8.89543 23 8 22.1046 8 21V11Z"
-            stroke="#FFFFFF"
-            strokeWidth="2"
-          />
-          <path
-            d="M19 16C19 16.5523 19.4477 17 20 17H24V15H20C19.4477 15 19 15.4477 19 16Z"
-            fill="#FFFFFF"
-          />
-          <circle cx="21.5" cy="16" r="0.75" fill="#475569" />
+          {/* Fundo cinza claro neutro de sistema */}
+          <rect width="32" height="32" rx="7" fill="#F1F5F9" stroke="#CBD5E1" strokeWidth="1" />
+          {/* Cofre plano minimalista em cinza escuro corporativo indicando caixa físico interno */}
+          <g transform="translate(16, 16)">
+            {/* Gabinete externo do cofre */}
+            <rect x="-9.5" y="-8.5" width="19" height="17" rx="3" fill="#334155" />
+            {/* Porta interna chanfrada */}
+            <rect x="-7.5" y="-6.5" width="15" height="13" rx="1.8" fill="#475569" />
+            {/* Volante / Dial rotativo com marcações */}
+            <circle cx="-1.5" cy="0" r="3.6" fill="#1E293B" stroke="#94A3B8" strokeWidth="1" />
+            <circle cx="-1.5" cy="0" r="1.3" fill="#F1F5F9" />
+            {/* Maçaneta / Alavanca direita do cofre */}
+            <rect x="3.2" y="-1.2" width="2.4" height="2.4" rx="0.6" fill="#E2E8F0" />
+            {/* Dobradiças laterais esquerdas */}
+            <rect x="-8.8" y="-4.8" width="1.4" height="2.2" rx="0.5" fill="#94A3B8" />
+            <rect x="-8.8" y="2.6" width="1.4" height="2.2" rx="0.5" fill="#94A3B8" />
+          </g>
         </svg>
       );
 

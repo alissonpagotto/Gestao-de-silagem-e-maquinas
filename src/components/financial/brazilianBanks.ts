@@ -151,11 +151,11 @@ export const BRAZILIAN_BANKS: BrazilianBank[] = [
   },
   {
     code: '099',
-    displayName: '099 - Caixa Físico / Sede',
-    shortName: 'Caixa Sede',
-    name: 'Caixa Físico / Espécie Sede',
+    displayName: '099 - Caixa Físico Sede',
+    shortName: 'Caixa Físico Sede',
+    name: 'Caixa Físico / Sede da Empresa (Dinheiro em Espécie)',
     color: '#475569',
-    aliases: ['caixa fisico', 'caixa sede', 'dinheiro', 'especie'],
+    aliases: ['caixa fisico', 'caixa sede', 'caixa fisico sede', 'dinheiro', 'especie'],
   },
 ];
 

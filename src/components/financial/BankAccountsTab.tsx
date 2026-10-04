@@ -540,17 +540,15 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center space-x-2.5 truncate min-w-0">
-                      {/* Logotipo oficial em tamanho nítido e discreto (24px) */}
+                      {/* Logotipo oficial em tamanho nítido e discreto (24px a 28px) */}
                       <div
                         className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shadow-2xs font-black shrink-0 overflow-hidden"
                       >
-                        {safeAccountType === 'caixa_fisico' ? (
-                          <div className="w-full h-full bg-slate-700 flex items-center justify-center rounded-lg text-white">
-                            <Wallet className="w-4 h-4 text-white" />
-                          </div>
-                        ) : (
-                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={28} />
-                        )}
+                        <BankLogoIcon 
+                          code={safeBankCode || (safeAccountType === 'caixa_fisico' ? '099' : undefined)} 
+                          name={safeBankName} 
+                          size={28} 
+                        />
                       </div>
                       <div className="truncate min-w-0">
                         <h4 className={`font-black text-xs sm:text-[13px] leading-tight truncate ${theme.textPrimary}`}>
@@ -608,7 +606,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                         <div 
                           className="w-4 h-4 rounded-xs shrink-0 overflow-hidden flex items-center justify-center shadow-2xs"
                         >
-                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={16} />
+                          <BankLogoIcon code={safeBankCode || (safeAccountType === 'caixa_fisico' ? '099' : undefined)} name={safeBankName} size={16} />
                         </div>
                         <span 
                           className="font-bold text-stone-800 dark:text-stone-100 text-[9.5px] truncate" 
