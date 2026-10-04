@@ -660,82 +660,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 </div>
               )}
 
-              {/* BLOCO 1: Identificação da Conta e Responsável */}
-              <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
-                <div className="w-full">
-                  <label 
-                    htmlFor="input-conta-nome" 
-                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
-                  >
-                    <span>
-                      Nome Identificador da Conta <span className="text-rose-600">*</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
-                  </label>
-                  <input
-                    id="input-conta-nome"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => {
-                      setValidationError('');
-                      setName(e.target.value);
-                    }}
-                    placeholder="Ex: Sicredi - Fazenda Sede"
-                    className="w-full px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
-                  />
-                </div>
-
-                {/* NOVO CAMPO (PROJETO DE VINCULAÇÃO): Responsável pela Conta (Painel da Esquerda) */}
-                <div className="pt-1 border-t border-zinc-100 dark:border-stone-700/60">
-                  <label 
-                    htmlFor="select-responsavel-conta" 
-                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
-                      <span>Responsável pela Conta</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Titularidade / Razão Social</span>
-                  </label>
-                  <select
-                    id="select-responsavel-conta"
-                    value={responsavelContaId}
-                    onChange={(e) => handleResponsavelContaChange(e.target.value)}
-                    className="w-full px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
-                  >
-                    <option value="">-- Selecione o Responsável pela Conta --</option>
-                    {accountHolders.map((holder) => (
-                      <option key={holder.id} value={holder.id}>
-                        {holder.name} ({holder.tipo}) {holder.documento ? `• ${holder.documento}` : ''}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Lembrete discreto com CNPJ, CPF e Nome Completo / Razão Social vinculado */}
-                  {selectedResponsavel && (
-                    <div 
-                      id="lembrete-responsavel-conta-vinculado"
-                      className="mt-1 px-2 py-0.5 rounded-md bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] flex items-center gap-1.5 shadow-2xs animate-in fade-in"
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <div className="flex-1 leading-tight flex items-center justify-between gap-1 flex-wrap">
-                        <span className="font-extrabold text-emerald-950 dark:text-emerald-100 text-[11px]">
-                          {selectedResponsavel.name}
-                        </span>
-                        <span className="text-[10px] text-emerald-900/80 dark:text-emerald-300 font-mono">
-                          {selectedResponsavel.documento ? `Doc: ${selectedResponsavel.documento}` : ''}
-                        </span>
-                        <span className="text-[9.5px] text-emerald-700 dark:text-emerald-400 font-bold ml-auto">
-                          ✓ Vinculado
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* BLOCO 2: Instituição Financeira & Dados Bancários */}
+              {/* BLOCO 1 (NOVO TOPO): Instituição Financeira & Dados Bancários */}
               <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-1.5">
                   {/* Instituição Financeira */}
@@ -818,6 +743,81 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                       className="w-full px-1.5 py-1 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs text-center font-mono uppercase"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* BLOCO 2 (NOVA POSIÇÃO): Identificação da Conta e Responsável */}
+              <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+                <div className="w-full">
+                  <label 
+                    htmlFor="input-conta-nome" 
+                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                  >
+                    <span>
+                      Nome Identificador da Conta <span className="text-rose-600">*</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
+                  </label>
+                  <input
+                    id="input-conta-nome"
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => {
+                      setValidationError('');
+                      setName(e.target.value);
+                    }}
+                    placeholder="Ex: Sicredi - Fazenda Sede"
+                    className="w-full px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+                  />
+                </div>
+
+                {/* NOVO CAMPO (PROJETO DE VINCULAÇÃO): Responsável pela Conta (Painel da Esquerda) */}
+                <div className="pt-1 border-t border-zinc-100 dark:border-stone-700/60">
+                  <label 
+                    htmlFor="select-responsavel-conta" 
+                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
+                      <span>Responsável pela Conta</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Titularidade / Razão Social</span>
+                  </label>
+                  <select
+                    id="select-responsavel-conta"
+                    value={responsavelContaId}
+                    onChange={(e) => handleResponsavelContaChange(e.target.value)}
+                    className="w-full px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
+                  >
+                    <option value="">-- Selecione o Responsável pela Conta --</option>
+                    {accountHolders.map((holder) => (
+                      <option key={holder.id} value={holder.id}>
+                        {holder.name} ({holder.tipo}) {holder.documento ? `• ${holder.documento}` : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Lembrete discreto com CNPJ, CPF e Nome Completo / Razão Social vinculado */}
+                  {selectedResponsavel && (
+                    <div 
+                      id="lembrete-responsavel-conta-vinculado"
+                      className="mt-1 px-2 py-0.5 rounded-md bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] flex items-center gap-1.5 shadow-2xs animate-in fade-in"
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <div className="flex-1 leading-tight flex items-center justify-between gap-1 flex-wrap">
+                        <span className="font-extrabold text-emerald-950 dark:text-emerald-100 text-[11px]">
+                          {selectedResponsavel.name}
+                        </span>
+                        <span className="text-[10px] text-emerald-900/80 dark:text-emerald-300 font-mono">
+                          {selectedResponsavel.documento ? `Doc: ${selectedResponsavel.documento}` : ''}
+                        </span>
+                        <span className="text-[9.5px] text-emerald-700 dark:text-emerald-400 font-bold ml-auto">
+                          ✓ Vinculado
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
