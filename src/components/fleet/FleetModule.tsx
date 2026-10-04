@@ -380,6 +380,31 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
             merged.coupledTrailerName = vehicleData.coupledTrailerName;
           }
 
+          // Sanitização explícita de campos numéricos (BIGINT Compatibility)
+          const rawFleet = vehicleData.fleetNumber !== undefined ? vehicleData.fleetNumber : (vehicleData as any).numero_frota ?? m.fleetNumber;
+          const cleanFleetDigits = String(rawFleet || '').replace(/\D/g, '');
+          const cleanFleetInt = cleanFleetDigits ? parseInt(cleanFleetDigits, 10) : null;
+
+          const rawRenavam = vehicleData.renavam !== undefined ? vehicleData.renavam : m.renavam;
+          const cleanRenavamDigits = String(rawRenavam || '').replace(/\D/g, '');
+          const cleanRenavamInt = cleanRenavamDigits ? parseInt(cleanRenavamDigits, 10) : null;
+
+          const rawOwnerDoc = (vehicleData.ownerDocument || (vehicleData as any).cpf_cnpj) !== undefined 
+            ? (vehicleData.ownerDocument || (vehicleData as any).cpf_cnpj) 
+            : (m.ownerDocument || (m as any).cpf_cnpj);
+          const cleanOwnerDocDigits = String(rawOwnerDoc || '').replace(/\D/g, '');
+          const cleanOwnerDocInt = cleanOwnerDocDigits ? parseInt(cleanOwnerDocDigits, 10) : null;
+
+          merged.fleetNumber = cleanFleetInt !== null ? String(cleanFleetInt) : undefined;
+          merged.numero_frota = cleanFleetInt;
+          merged.fleet_number = cleanFleetInt;
+          merged.renavam = cleanRenavamDigits || undefined;
+          merged.renavam_int = cleanRenavamInt;
+          merged.ownerDocument = cleanOwnerDocDigits || undefined;
+          merged.owner_document_num = cleanOwnerDocInt;
+          merged.cpf_cnpj = cleanOwnerDocDigits || undefined;
+          merged.cpf_cnpj_num = cleanOwnerDocInt;
+
           const calculated = updateVehicleWithCalculatedMetrics(merged, fuelLogs);
           savedTargetVehicle = calculated;
           return calculated;

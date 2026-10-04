@@ -4384,6 +4384,8 @@ export function toSafeBigInt(val: any): number | null {
   }
   const str = String(val).trim();
   if (!str) return null;
+  // Se contiver letras (ex: 'veh_...', 'mach_...', UUID hexadecimal), não é um ID BIGINT puro
+  if (/[a-zA-Z]/.test(str)) return null;
   const digits = str.replace(/\D/g, '');
   if (!digits) return null;
   const parsed = parseInt(digits.slice(-15), 10);
