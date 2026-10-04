@@ -9878,7 +9878,15 @@ export function mapRowToBankAccount(row: any): BankAccount {
     pixKey: row.pix_key || payload.pixKey,
     pixKeyType: row.pix_key_type || payload.pixKeyType,
     color: row.color || payload.color || '#0963cb',
-    corporateCards: row.corporate_cards || payload.corporateCards || [],
+    corporateCards: (row.corporate_cards || payload.corporateCards || []).map((c: any) => ({
+      ...c,
+      responsavel_cartao_id: c.responsavel_cartao_id || c.responsibleEmployeeId || '',
+      titular_nome: c.titular_nome || c.responsibleEmployeeName || 'AUDIRLEI REOLAN',
+      responsavel_funcao: c.responsavel_funcao || 'Motorista',
+    })),
+    responsavel_conta_id: row.responsavel_conta_id || payload.responsavel_conta_id,
+    responsavel_conta_nome: row.responsavel_conta_nome || payload.responsavel_conta_nome,
+    responsavel_conta_documento: row.responsavel_conta_documento || payload.responsavel_conta_documento,
   };
 }
 

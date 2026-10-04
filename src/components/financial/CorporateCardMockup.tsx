@@ -5,6 +5,7 @@ interface CorporateCardMockupProps {
   card: CorporateCard;
   bankName?: string;
   bankCode?: string;
+  accountHolderName?: string;
   className?: string;
 }
 
@@ -16,6 +17,7 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
   card,
   bankName = 'Sicredi',
   bankCode,
+  accountHolderName,
   className = '',
 }) => {
   // Normalização de dados para detecção
@@ -37,10 +39,10 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
   }
 
   // Extração dos 4 últimos dígitos
-  const last4 = card.last4 || card.name.match(/\d{4}/)?.[0] || '4587';
+  const last4 = card.last4 || card.name.match(/\d{4}/)?.[0] || '4520';
 
-  // Nome do portador em maiúsculas
-  const holderName = (card.responsibleEmployeeName || 'TITULAR DO CARTÃO').toUpperCase();
+  // Nome do portador em maiúsculas (lê dinamicamente o titular ou funcionário selecionado)
+  const holderName = (card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase();
 
   // Definição da Paleta de Cores e Estilo Visual do Cartão por Instituição
   let cardBgClass = 'bg-gradient-to-br from-[#00a859] via-[#00924d] to-[#006e39]';
@@ -107,26 +109,37 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
       />
 
       {/* LINHA SUPERIOR: Logotipo do Banco + Categoria Corporativa */}
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="flex items-center space-x-1.5">
-          {/* Ícone estilizado do Sicredi se for Sicredi */}
-          {bankDisplay === 'Sicredi' ? (
-            <div className="flex items-center space-x-1.5">
-              <svg 
-                className="w-5 h-5 text-white shrink-0 fill-current drop-shadow-xs" 
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 2L3 9v11h6v-7h6v7h6V9l-9-7z" fill="none" />
-                <path d="M12 3.5L5 9v9.5h3.5v-6h7v6H19V9l-7-5.5zm0 2.5l4 3.2v7.3h-2v-5H10v5H8V9.2l4-3.2z" opacity="0.3"/>
-                <path d="M12 3l8 6.5v11.5h-5v-6H9v6H4V9.5L12 3m0-2L1 8v15h9v-6h4v6h9V8L12 1z" />
-              </svg>
-              <span className="font-extrabold text-base sm:text-lg tracking-tight text-white font-['Outfit'] drop-shadow-xs">
-                Sicredi
+      <div className="relative z-10 flex items-start justify-between">
+        <div className="flex flex-col">
+          <div className="flex items-center space-x-1.5">
+            {/* Ícone estilizado do Sicredi se for Sicredi */}
+            {bankDisplay === 'Sicredi' ? (
+              <div className="flex items-center space-x-1.5">
+                <svg 
+                  className="w-5 h-5 text-white shrink-0 fill-current drop-shadow-xs" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2L3 9v11h6v-7h6v7h6V9l-9-7z" fill="none" />
+                  <path d="M12 3.5L5 9v9.5h3.5v-6h7v6H19V9l-7-5.5zm0 2.5l4 3.2v7.3h-2v-5H10v5H8V9.2l4-3.2z" opacity="0.3"/>
+                  <path d="M12 3l8 6.5v11.5h-5v-6H9v6H4V9.5L12 3m0-2L1 8v15h9v-6h4v6h9V8L12 1z" />
+                </svg>
+                <span className="font-extrabold text-base sm:text-lg tracking-tight text-white font-['Outfit'] drop-shadow-xs">
+                  Sicredi
+                </span>
+              </div>
+            ) : (
+              <span className="font-extrabold text-sm sm:text-base tracking-tight text-white font-['Outfit'] drop-shadow-xs truncate max-w-[170px]">
+                {bankDisplay}
               </span>
-            </div>
-          ) : (
-            <span className="font-extrabold text-sm sm:text-base tracking-tight text-white font-['Outfit'] drop-shadow-xs truncate max-w-[170px]">
-              {bankDisplay}
+            )}
+          </div>
+          {/* Nome do Responsável Geral pela Conta Corrente (Topo Esquerdo) */}
+          {accountHolderName && (
+            <span 
+              className="text-[9px] uppercase tracking-wider text-white/90 font-bold truncate max-w-[190px] drop-shadow-xs mt-0.5"
+              title={`Responsável pela Conta: ${accountHolderName}`}
+            >
+              {accountHolderName}
             </span>
           )}
         </div>

@@ -1012,6 +1012,9 @@ export interface CorporateCard {
   last4?: string; // Últimos 4 dígitos (ex: 4587)
   responsibleEmployeeId: string; // Funcionário Responsável (Módulo RH)
   responsibleEmployeeName: string; // Nome do Funcionário
+  responsavel_cartao_id?: string; // ID do Responsável pelo Cartão
+  titular_nome?: string; // Nome impresso no plástico do cartão
+  responsavel_funcao?: string; // Função / Cargo (ex: Motorista)
   totalLimit: number; // Limite Total do Cartão (R$)
   usedLimit: number; // Limite Utilizado / Saldo Devedor Atual (R$)
   dueDay: number; // Dia de Vencimento da Fatura (1 a 31)
@@ -1038,6 +1041,9 @@ export interface BankAccount {
   pixKeyType?: 'cpf' | 'cnpj' | 'phone' | 'email' | 'random';
   color?: string;
   corporateCards?: CorporateCard[];
+  responsavel_conta_id?: string; // ID do Responsável Geral pela Conta Corrente
+  responsavel_conta_nome?: string; // Nome Completo / Razão Social do Responsável
+  responsavel_conta_documento?: string; // CPF ou CNPJ do Responsável pela Conta
 }
 
 export interface BankTransaction {

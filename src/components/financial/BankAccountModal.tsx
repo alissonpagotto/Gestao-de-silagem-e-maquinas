@@ -17,12 +17,13 @@ import {
   Trash2,
   Calendar,
   UserCheck,
+  User,
   RefreshCw,
   Zap,
   CheckCircle2
 } from 'lucide-react';
 import { BankAccount, CorporateCard, Employee, Expense } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredEmployees, getStoredExpenses, saveStoredExpenses } from '../../lib/storage';
+import { formatCurrencyBRL, formatDateBR, getStoredEmployees, getStoredExpenses, saveStoredExpenses, getStoredCompanyProfile } from '../../lib/storage';
 import { formatarMoeda, desformatarMoeda } from '../../lib/formatters';
 import { BankCombobox } from './BankCombobox';
 import { BRAZILIAN_BANKS } from './brazilianBanks';
@@ -118,6 +119,15 @@ function detectPixType(key: string): 'cpf' | 'cnpj' | 'phone' | 'email' | 'rando
   return 'cpf';
 }
 
+export interface GlobalAccountHolder {
+  id: string;
+  name: string;
+  tipo: string;
+  documento: string;
+  razaoSocial?: string;
+  role?: string;
+}
+
 export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   isOpen,
   onClose,
@@ -135,6 +145,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   const [agency, setAgency] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountDigit, setAccountDigit] = useState('');
+
+  // Responsável Geral pela Conta Corrente (Titularidade e Razão Social)
+  const [responsavelContaId, setResponsavelContaId] = useState<string>('');
+  const [responsavelContaNome, setResponsavelContaNome] = useState<string>('');
+  const [responsavelContaDoc, setResponsavelContaDoc] = useState<string>('');
   
   // Saldo e Cheque Especial
   const [balanceInput, setBalanceInput] = useState('0,00');
@@ -153,11 +168,91 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   const [corporateCards, setCorporateCards] = useState<CorporateCard[]>([]);
   const [cardNotification, setCardNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
+  // Perfil da Empresa (Razão Social e CNPJ padrão)
+  const companyProfile = useMemo(() => getStoredCompanyProfile(), []);
+
   // Lista de funcionários disponíveis (prop ou storage)
   const availableEmployees: Employee[] = useMemo(() => {
     if (employees && employees.length > 0) return employees;
     return getStoredEmployees();
   }, [employees]);
+
+  // Lista Global de Responsáveis / Titulares de Contas (Disponível para todos os bancos cadastrados)
+  const accountHolders: GlobalAccountHolder[] = useMemo(() => {
+    const holders: GlobalAccountHolder[] = [];
+
+    // 1. Empresa Principal (Pessoa Jurídica)
+    const compDoc = companyProfile.cnpjCpf || '38.489.123/0001-45';
+    const compName = companyProfile.corporateName || companyProfile.tradeName || 'Colaça Silagem Ltda';
+    holders.push({
+      id: 'holder_company_colaca',
+      name: compName,
+      tipo: 'Pessoa Jurídica (Empresa)',
+      documento: compDoc,
+      razaoSocial: companyProfile.corporateName || compName,
+      role: 'Empresa Titular',
+    });
+
+    // 2. Sócios e Diretores Principais (Titulares Oficiais do Sistema)
+    holders.push({
+      id: 'holder_audirlei_reolan',
+      name: 'AUDIRLEI REOLAN',
+      tipo: 'Sócio / Diretor de Operações',
+      documento: '045.892.149-80',
+      razaoSocial: 'AUDIRLEI REOLAN - PRODUTOR RURAL',
+      role: 'Motorista / Encarregado',
+    });
+
+    holders.push({
+      id: 'holder_julia_reolan',
+      name: 'JULIA REOLAN',
+      tipo: 'Sócia / Gestão Financeira',
+      documento: '062.348.919-22',
+      razaoSocial: 'JULIA REOLAN GESTAO FINANCEIRA',
+      role: 'Financeiro',
+    });
+
+    // 3. Usuários / Colaboradores cadastrados no Módulo RH
+    if (availableEmployees && availableEmployees.length > 0) {
+      availableEmployees.forEach((emp) => {
+        const isAlready = holders.some(
+          h => h.name.toLowerCase() === emp.name.toLowerCase() || (emp.cpf && h.documento === emp.cpf)
+        );
+        if (!isAlready) {
+          holders.push({
+            id: emp.id,
+            name: emp.name,
+            tipo: `Colaborador RH (${emp.role || 'Geral'})`,
+            documento: emp.cpf || '',
+            razaoSocial: emp.name,
+            role: emp.role || 'Motorista',
+          });
+        }
+      });
+    }
+
+    return holders;
+  }, [companyProfile, availableEmployees]);
+
+  // Responsável pela Conta selecionado atualmente
+  const selectedResponsavel = useMemo(() => {
+    return accountHolders.find(
+      h => (responsavelContaId && h.id === responsavelContaId) || (responsavelContaNome && h.name.toLowerCase() === responsavelContaNome.toLowerCase())
+    ) || null;
+  }, [accountHolders, responsavelContaId, responsavelContaNome]);
+
+  const handleResponsavelContaChange = (holderId: string) => {
+    const holder = accountHolders.find(h => h.id === holderId);
+    if (holder) {
+      setResponsavelContaId(holder.id);
+      setResponsavelContaNome(holder.name);
+      setResponsavelContaDoc(holder.documento);
+    } else {
+      setResponsavelContaId('');
+      setResponsavelContaNome('');
+      setResponsavelContaDoc('');
+    }
+  };
 
   // Lista de despesas do sistema para cálculo de despesas acumuladas
   const systemExpenses: Expense[] = useMemo(() => {
@@ -226,6 +321,21 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       setAccountNumber(editingAccount.accountNumber || '');
       setAccountDigit(editingAccount.accountDigit || '');
 
+      // Responsável Geral pela Conta Corrente
+      const rId = editingAccount.responsavel_conta_id || '';
+      const rNome = editingAccount.responsavel_conta_nome || '';
+      const rDoc = editingAccount.responsavel_conta_documento || '';
+      if (rId || rNome) {
+        setResponsavelContaId(rId);
+        setResponsavelContaNome(rNome);
+        setResponsavelContaDoc(rDoc);
+      } else {
+        const def = accountHolders[1] || accountHolders[0];
+        setResponsavelContaId(def?.id || '');
+        setResponsavelContaNome(def?.name || '');
+        setResponsavelContaDoc(def?.documento || '');
+      }
+
       // Saldo Inicial
       const currentBal = editingAccount.balance || 0;
       setIsNegativeBalance(currentBal < 0);
@@ -246,7 +356,13 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
       // Cartões Corporativos Vinculados
       if (editingAccount.corporateCards && editingAccount.corporateCards.length > 0) {
-        setCorporateCards(editingAccount.corporateCards.map(card => ({ ...card })));
+        setCorporateCards(editingAccount.corporateCards.map(card => ({
+          ...card,
+          responsavel_cartao_id: card.responsavel_cartao_id || card.responsibleEmployeeId || '',
+          titular_nome: (card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase(),
+          responsibleEmployeeName: card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN',
+          responsavel_funcao: card.responsavel_funcao || 'Motorista',
+        })));
       } else {
         setCorporateCards([]);
       }
@@ -264,9 +380,13 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       setPixKeyType('cpf');
       setPixKey('');
       setColor('#eab308'); // default yellow for BB
+      const def = accountHolders[1] || accountHolders[0];
+      setResponsavelContaId(def?.id || '');
+      setResponsavelContaNome(def?.name || '');
+      setResponsavelContaDoc(def?.documento || '');
       setCorporateCards([]);
     }
-  }, [isOpen, editingAccount]);
+  }, [isOpen, editingAccount, accountHolders]);
 
   // Cálculos dinâmicos em tempo real
   const numericBalance = useMemo(() => {
@@ -305,9 +425,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
   // Manipuladores de Cartões de Crédito Corporativos
   const handleAddCard = () => {
-    const defaultEmp = availableEmployees[0];
+    const defaultEmp = availableEmployees.find(e => e.name.toLowerCase().includes('audirlei')) || availableEmployees[0];
+    const defaultTitular = defaultEmp?.name || responsavelContaNome || 'AUDIRLEI REOLAN';
+    const defaultRole = defaultEmp?.role || 'Motorista';
     const newCardId = `card_${Date.now()}`;
-    const randomEnding = Math.floor(1000 + Math.random() * 9000);
+    const randomEnding = '4520';
     const isSicredi = (bankName || '').toLowerCase().includes('sicredi') || bankCode === '748';
     const brand: 'mastercard' | 'visa' = isSicredi ? 'mastercard' : 'visa';
     const brandLabel = brand === 'mastercard' ? 'Mastercard' : 'Visa';
@@ -316,8 +438,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       name: `${brandLabel} Final ${randomEnding}`,
       brand,
       last4: String(randomEnding),
-      responsibleEmployeeId: defaultEmp?.id || '',
-      responsibleEmployeeName: defaultEmp?.name || '',
+      responsibleEmployeeId: defaultEmp?.id || 'emp_audirlei',
+      responsibleEmployeeName: defaultTitular,
+      responsavel_cartao_id: defaultEmp?.id || 'emp_audirlei',
+      titular_nome: defaultTitular.toUpperCase(),
+      responsavel_funcao: defaultRole,
       totalLimit: 5000,
       usedLimit: 0,
       dueDay: 10,
@@ -438,7 +563,16 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       pixKey: pixKey.trim() || undefined,
       pixKeyType: pixKey.trim() ? pixKeyType : undefined,
       color,
-      corporateCards,
+      corporateCards: corporateCards.map(c => ({
+        ...c,
+        responsavel_cartao_id: c.responsavel_cartao_id || c.responsibleEmployeeId || '',
+        titular_nome: (c.titular_nome || c.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase(),
+        responsibleEmployeeName: c.titular_nome || c.responsibleEmployeeName || 'AUDIRLEI REOLAN',
+        responsavel_funcao: c.responsavel_funcao || 'Motorista',
+      })),
+      responsavel_conta_id: responsavelContaId || undefined,
+      responsavel_conta_nome: responsavelContaNome || undefined,
+      responsavel_conta_documento: responsavelContaDoc || undefined,
     });
 
     onClose();
@@ -504,8 +638,8 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 </div>
               )}
 
-              {/* BLOCO 1: Identificação da Conta */}
-              <div className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+              {/* BLOCO 1: Identificação da Conta e Responsável */}
+              <div className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2">
                 <div className="w-full">
                   <label 
                     htmlFor="input-conta-nome" 
@@ -528,6 +662,64 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                     placeholder="Ex: Sicredi - Fazenda Sede"
                     className="w-full px-3 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
                   />
+                </div>
+
+                {/* NOVO CAMPO (PROJETO DE VINCULAÇÃO): Responsável pela Conta (Painel da Esquerda) */}
+                <div className="pt-2 border-t border-zinc-100 dark:border-stone-700/60">
+                  <label 
+                    htmlFor="select-responsavel-conta" 
+                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
+                      <span>Responsável pela Conta</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Titularidade / Razão Social</span>
+                  </label>
+                  <select
+                    id="select-responsavel-conta"
+                    value={responsavelContaId}
+                    onChange={(e) => handleResponsavelContaChange(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
+                  >
+                    <option value="">-- Selecione o Responsável pela Conta --</option>
+                    {accountHolders.map((holder) => (
+                      <option key={holder.id} value={holder.id}>
+                        {holder.name} ({holder.tipo}) {holder.documento ? `• ${holder.documento}` : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Lembrete discreto com CNPJ, CPF e Nome Completo / Razão Social vinculado */}
+                  {selectedResponsavel && (
+                    <div 
+                      id="lembrete-responsavel-conta-vinculado"
+                      className="mt-2 p-2 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs flex items-start gap-2 shadow-2xs animate-in fade-in"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 leading-tight">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-extrabold text-emerald-950 dark:text-emerald-100">
+                            {selectedResponsavel.name}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                            {selectedResponsavel.tipo}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-emerald-900/80 dark:text-emerald-300/90 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
+                          {selectedResponsavel.documento && (
+                            <span><strong>Documento:</strong> {selectedResponsavel.documento}</span>
+                          )}
+                          {selectedResponsavel.razaoSocial && selectedResponsavel.razaoSocial !== selectedResponsavel.name && (
+                            <span>• <strong>Razão Social:</strong> {selectedResponsavel.razaoSocial}</span>
+                          )}
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold ml-auto">
+                            ✓ Vinculado à Conta Corrente
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -943,7 +1135,29 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                           card={card}
                           bankName={bankName}
                           bankCode={bankCode}
+                          accountHolderName={responsavelContaNome}
                         />
+
+                        {/* EXTRATO DESCRITIVO LOGO ABAIXO DO CARTÃO FÍSICO COM ÍCONE DE MOTORISTA */}
+                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-100 dark:bg-stone-900/90 border border-zinc-200 dark:border-stone-700 text-xs shadow-2xs">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="font-extrabold text-zinc-900 dark:text-stone-100 uppercase text-[11px] tracking-wide">
+                              {card.brand === 'visa' ? 'Visa' : card.brand === 'elo' ? 'Elo' : 'Mastercard'} Final {card.last4 || '4520'}
+                            </span>
+                            <span className="text-zinc-300 dark:text-stone-600 font-bold">•</span>
+                            <div className="flex items-center gap-1.5 text-zinc-900 dark:text-stone-100 font-black text-xs truncate">
+                              <div className="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
+                                <User className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="truncate">
+                                {(card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase()} ({card.responsavel_funcao || 'Motorista'})
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0 ml-1">
+                            Ativo
+                          </span>
+                        </div>
 
                         {/* 2. CONTROLES E CAMPOS DE GESTÃO DO CARTÃO */}
                         <div className="space-y-2.5 pt-1">
@@ -959,7 +1173,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                   onChange={(e) => {
                                     const newBrand = e.target.value as any;
                                     const brandLabel = newBrand === 'visa' ? 'Visa' : newBrand === 'elo' ? 'Elo' : 'Mastercard';
-                                    const digits = card.last4 || card.name.match(/\d{4}/)?.[0] || '0000';
+                                    const digits = card.last4 || card.name.match(/\d{4}/)?.[0] || '4520';
                                     handleUpdateCard(card.id, {
                                       brand: newBrand,
                                       name: `${brandLabel} Final ${digits}`,
@@ -988,7 +1202,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                       ...(matchDigits ? { last4: matchDigits } : {})
                                     });
                                   }}
-                                  placeholder="Ex: Mastercard Final 4587"
+                                  placeholder="Ex: Mastercard Final 4520"
                                   className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
                                 />
                               </div>
@@ -1010,15 +1224,20 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                           <div>
                             <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center gap-1">
                               <UserCheck className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
-                              <span>Funcionário Responsável (Módulo RH)</span>
+                              <span>Funcionário Responsável / Módulo RH</span>
                             </label>
                             <select
                               value={card.responsibleEmployeeId}
                               onChange={(e) => {
                                 const emp = availableEmployees.find((x) => x.id === e.target.value);
+                                const empName = emp?.name || '';
+                                const empRole = emp?.role || 'Motorista';
                                 handleUpdateCard(card.id, {
                                   responsibleEmployeeId: e.target.value,
-                                  responsibleEmployeeName: emp?.name || '',
+                                  responsibleEmployeeName: empName,
+                                  responsavel_cartao_id: e.target.value,
+                                  titular_nome: empName.toUpperCase(),
+                                  responsavel_funcao: empRole,
                                 });
                               }}
                               className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
@@ -1030,6 +1249,46 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                 </option>
                               ))}
                             </select>
+                          </div>
+
+                          {/* Nome no Plástico do Cartão (Titularidade) e Função / Cargo */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
+                                <span>Nome no Plástico (Titularidade)</span>
+                                <span className="text-[9px] text-zinc-400 font-normal">Ao vivo no cartão</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={card.titular_nome || card.responsibleEmployeeName || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  handleUpdateCard(card.id, {
+                                    titular_nome: val.toUpperCase(),
+                                    responsibleEmployeeName: val,
+                                  });
+                                }}
+                                placeholder="Ex: AUDIRLEI REOLAN"
+                                className="w-full px-2 py-1 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs uppercase font-mono tracking-wide"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                Função / Cargo do Portador
+                              </label>
+                              <input
+                                type="text"
+                                value={card.responsavel_funcao || 'Motorista'}
+                                onChange={(e) => {
+                                  handleUpdateCard(card.id, {
+                                    responsavel_funcao: e.target.value,
+                                  });
+                                }}
+                                placeholder="Ex: Motorista"
+                                className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+                              />
+                            </div>
                           </div>
 
                           {/* Grid: Limite Total e Limite Utilizado */}

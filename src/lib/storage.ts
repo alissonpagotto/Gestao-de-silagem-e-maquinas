@@ -1603,8 +1603,22 @@ export function importFullBackup(jsonString: string): { success: boolean; messag
 export function getStoredBankAccounts(): BankAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BANK_ACCOUNTS);
-    if (!raw) return INITIAL_BANK_ACCOUNTS;
-    return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    const cId = getActiveCompanyId();
+    const rawColacaScoped = localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
+    if (rawColacaScoped) {
+      const parsed = JSON.parse(rawColacaScoped);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    const rawColacaGlobal = localStorage.getItem('colaca_silagem_financeiro_contas');
+    if (rawColacaGlobal) {
+      const parsed = JSON.parse(rawColacaGlobal);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    return INITIAL_BANK_ACCOUNTS;
   } catch (e) {
     return INITIAL_BANK_ACCOUNTS;
   }
@@ -1612,7 +1626,12 @@ export function getStoredBankAccounts(): BankAccount[] {
 
 export function saveStoredBankAccounts(accounts: BankAccount[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, JSON.stringify(accounts));
+    const json = JSON.stringify(accounts);
+    localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
+    const cId = getActiveCompanyId();
+    localStorage.setItem(`colaca_silagem_financeiro_contas_${cId}`, json);
+    localStorage.setItem('colaca_silagem_financeiro_contas', json);
+    saveCompanyData('financeiro_contas', accounts, cId);
   } catch (e) {
     console.error('Failed to save bank accounts', e);
   }
@@ -2384,6 +2403,19 @@ export const saveCompanyManutencoes = (manutencoes: MaintenanceLog[], companyId?
   try { localStorage.setItem(STORAGE_KEYS.MAINTENANCE_LOGS, JSON.stringify(manutencoes)); } catch {}
 };
 export const getCompanyManutencoes = (companyId?: string): MaintenanceLog[] => getCompanyData<MaintenanceLog>('manutencoes', getStoredMaintenanceLogs, companyId);
+
+export const saveCompanyFinanceiroContas = (contas: BankAccount[], companyId?: string): void => {
+  saveCompanyData('financeiro_contas', contas, companyId);
+  try {
+    const json = JSON.stringify(contas);
+    localStorage.setItem(STORAGE_KEYS.BANK_ACCOUNTS, json);
+    const cId = (companyId || getActiveCompanyId() || 'default').trim();
+    localStorage.setItem(`colaca_silagem_financeiro_contas_${cId}`, json);
+    localStorage.setItem('colaca_silagem_financeiro_contas', json);
+  } catch {}
+};
+export const getCompanyFinanceiroContas = (companyId?: string): BankAccount[] => getCompanyData<BankAccount>('financeiro_contas', getStoredBankAccounts, companyId);
+
 
 
 

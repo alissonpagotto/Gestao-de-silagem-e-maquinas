@@ -478,6 +478,15 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                         </div>
                       )}
 
+                      {acc.responsavel_conta_nome && (
+                        <div className="flex justify-between items-center gap-1">
+                          <span className="text-stone-400 font-medium text-[8.5px]">Titular:</span>
+                          <span className="font-bold text-stone-800 text-[9.5px] truncate" title={acc.responsavel_conta_nome}>
+                            {acc.responsavel_conta_nome}
+                          </span>
+                        </div>
+                      )}
+
                       {acc.pixKey && (
                         <div className="flex justify-between items-center gap-1">
                           <span className="text-stone-400 font-medium text-[8.5px] shrink-0">
