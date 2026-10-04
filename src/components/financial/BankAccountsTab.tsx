@@ -54,11 +54,9 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
 
   const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
   const onSaveAccountsRef = useRef(onSaveAccounts);
-  useEffect(() => {
-    accountsRef.current = accounts;
-    onSaveAccountsRef.current = onSaveAccounts;
-  });
+  onSaveAccountsRef.current = onSaveAccounts;
 
   // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'financeiro_contas'
   useEffect(() => {

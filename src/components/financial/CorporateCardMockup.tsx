@@ -82,20 +82,24 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
     cardBgClass = 'bg-gradient-to-br from-[#ff7a00] via-[#e06800] to-[#aa4c00] shadow-orange-950/20';
     bankDisplay = 'Inter Black';
     chipTone = 'silver';
+  } else if (bankLower.includes('cresol') || bankCode === '133') {
+    cardBgClass = 'bg-gradient-to-br from-zinc-900 via-neutral-950 to-black shadow-black/40';
+    bankDisplay = 'Cresol';
+    chipTone = 'gold';
   } else if (bankLower.includes('sicoob') || bankCode === '756') {
     cardBgClass = 'bg-gradient-to-br from-[#003641] via-[#004e5f] to-[#00232a] shadow-teal-950/20';
     bankDisplay = 'Sicoob';
     chipTone = 'silver';
   } else {
     // Padrão Executivo / Platinum Dark
-    cardBgClass = 'bg-gradient-to-br from-slate-800 via-zinc-900 to-stone-950 shadow-black/30';
+    cardBgClass = 'bg-gradient-to-br from-slate-900 via-zinc-900 to-black shadow-black/30';
     bankDisplay = bankName || 'Corporativo';
     chipTone = 'silver';
   }
 
   return (
     <div
-      className={`relative w-full aspect-[1.586/1] max-w-[340px] sm:max-w-[360px] mx-auto rounded-2xl p-4 sm:p-4.5 text-white shadow-xl overflow-hidden select-none transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl flex flex-col justify-between border border-white/15 ${cardBgClass} ${className}`}
+      className={`relative w-full aspect-[1.586/1] max-w-[220px] sm:max-w-[235px] mx-auto rounded-lg p-2 sm:p-2.5 text-white shadow-md overflow-hidden select-none transition-all duration-300 hover:scale-[1.01] hover:shadow-lg flex flex-col justify-between border border-white/15 ${cardBgClass} ${className}`}
       style={{
         textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)',
       }}
@@ -105,30 +109,36 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
         className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-black" 
       />
       <div 
-        className="absolute -right-12 -bottom-12 w-48 h-48 rounded-full border border-white/10 pointer-events-none opacity-30" 
+        className="absolute -right-8 -bottom-8 w-28 h-28 rounded-full border border-white/10 pointer-events-none opacity-30" 
       />
 
       {/* LINHA SUPERIOR: Logotipo do Banco + Categoria Corporativa */}
       <div className="relative z-10 flex items-start justify-between">
         <div className="flex flex-col">
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1">
             {/* Ícone estilizado do Sicredi se for Sicredi */}
             {bankDisplay === 'Sicredi' ? (
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center space-x-1">
                 <svg 
-                  className="w-5 h-5 text-white shrink-0 fill-current drop-shadow-xs" 
+                  className="w-3.5 h-3.5 text-white shrink-0 fill-current drop-shadow-xs" 
                   viewBox="0 0 24 24"
                 >
                   <path d="M12 2L3 9v11h6v-7h6v7h6V9l-9-7z" fill="none" />
                   <path d="M12 3.5L5 9v9.5h3.5v-6h7v6H19V9l-7-5.5zm0 2.5l4 3.2v7.3h-2v-5H10v5H8V9.2l4-3.2z" opacity="0.3"/>
                   <path d="M12 3l8 6.5v11.5h-5v-6H9v6H4V9.5L12 3m0-2L1 8v15h9v-6h4v6h9V8L12 1z" />
                 </svg>
-                <span className="font-extrabold text-base sm:text-lg tracking-tight text-white font-['Outfit'] drop-shadow-xs">
+                <span className="font-extrabold text-xs sm:text-sm tracking-tight text-white font-['Outfit'] drop-shadow-xs">
                   Sicredi
                 </span>
               </div>
+            ) : bankDisplay === 'Cresol' ? (
+              <div className="flex items-center space-x-1">
+                <span className="font-black text-xs sm:text-sm tracking-tight text-white font-['Outfit'] drop-shadow-xs">
+                  CRESOL
+                </span>
+              </div>
             ) : (
-              <span className="font-extrabold text-sm sm:text-base tracking-tight text-white font-['Outfit'] drop-shadow-xs truncate max-w-[170px]">
+              <span className="font-extrabold text-xs sm:text-sm tracking-tight text-white font-['Outfit'] drop-shadow-xs truncate max-w-[120px]">
                 {bankDisplay}
               </span>
             )}
@@ -136,7 +146,7 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
           {/* Nome do Responsável Geral pela Conta Corrente (Topo Esquerdo) */}
           {accountHolderName && (
             <span 
-              className="text-[9px] uppercase tracking-wider text-white/90 font-bold truncate max-w-[190px] drop-shadow-xs mt-0.5"
+              className="text-[7.5px] uppercase tracking-wider text-white/90 font-bold truncate max-w-[130px] drop-shadow-xs mt-0.2"
               title={`Responsável pela Conta: ${accountHolderName}`}
             >
               {accountHolderName}
@@ -145,13 +155,13 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
         </div>
 
         {/* Badge Business / Corporativo */}
-        <div className="flex items-center space-x-1.5">
-          <span className="text-[9px] uppercase tracking-widest font-black px-1.5 py-0.5 rounded bg-black/25 text-white/90 border border-white/15 backdrop-blur-xs">
+        <div className="flex items-center space-x-1">
+          <span className="text-[7px] uppercase tracking-wider font-black px-1 py-0.2 rounded bg-black/25 text-white/90 border border-white/15 backdrop-blur-xs">
             Business
           </span>
           {/* Símbolo de Pagamento por Aproximação (Contactless NFC) */}
           <svg
-            className="w-4 h-4 text-white/80 shrink-0 transform rotate-90 drop-shadow-xs"
+            className="w-3 h-3 text-white/80 shrink-0 transform rotate-90 drop-shadow-xs"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -166,11 +176,11 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
       </div>
 
       {/* LINHA CENTRAL: CHIP ELETRÔNICO FÍSICO REALISTA */}
-      <div className="relative z-10 flex items-center justify-between mt-1 sm:mt-1.5">
-        <div className="flex items-center space-x-3">
+      <div className="relative z-10 flex items-center justify-between my-0.5">
+        <div className="flex items-center space-x-1.5">
           {/* Chip EMV com linhas finas simuladas e acabamento metálico */}
           <div
-            className={`w-10 h-7.5 sm:w-11 sm:h-8 rounded-md p-0.5 relative shadow-md border flex items-center justify-center overflow-hidden ${
+            className={`w-7 h-5 sm:w-7.5 sm:h-5 rounded-xs p-0.5 relative shadow-md border flex items-center justify-center overflow-hidden ${
               chipTone === 'gold'
                 ? 'bg-gradient-to-br from-amber-200 via-amber-300 to-yellow-500 border-amber-400/80 shadow-amber-900/30'
                 : 'bg-gradient-to-br from-zinc-200 via-zinc-300 to-slate-400 border-zinc-300 shadow-black/20'
@@ -178,24 +188,24 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
           >
             {/* Contornos internos dos contatos do chip */}
             <div className="w-full h-full border border-black/15 rounded-xs relative flex items-center justify-center">
-              <div className="w-4 h-full border-x border-black/15 relative">
+              <div className="w-2.5 h-full border-x border-black/15 relative">
                 <div className="absolute top-1/2 left-0 right-0 h-px bg-black/20 -translate-y-1/2" />
               </div>
-              <div className="absolute top-0 bottom-0 left-2 w-px bg-black/15" />
-              <div className="absolute top-0 bottom-0 right-2 w-px bg-black/15" />
+              <div className="absolute top-0 bottom-0 left-1 w-px bg-black/15" />
+              <div className="absolute top-0 bottom-0 right-1 w-px bg-black/15" />
             </div>
           </div>
         </div>
 
         {/* Categoria Platinum / Gold em relevo */}
-        <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-white/75 uppercase">
+        <span className="text-[8px] font-semibold tracking-wider text-white/75 uppercase">
           Empresarial
         </span>
       </div>
 
       {/* NÚMERO DO CARTÃO MASCARADO */}
-      <div className="relative z-10 my-1">
-        <div className="font-mono text-sm sm:text-base font-bold tracking-[0.22em] text-white drop-shadow-md flex items-center space-x-2">
+      <div className="relative z-10 my-0.2">
+        <div className="font-mono text-[10.5px] sm:text-xs font-bold tracking-[0.14em] text-white drop-shadow-md flex items-center space-x-1.5">
           <span>••••</span>
           <span>••••</span>
           <span>••••</span>
@@ -205,12 +215,12 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
 
       {/* LINHA INFERIOR: Titular, Validade e Bandeira */}
       <div className="relative z-10 flex items-end justify-between pt-0.5 border-t border-white/10">
-        <div className="space-y-0.5 max-w-[65%]">
-          <div className="flex items-center space-x-3 text-[9px] text-white/75 font-semibold tracking-wider">
+        <div className="space-y-0.2 max-w-[70%]">
+          <div className="flex items-center space-x-1.5 text-[7px] text-white/75 font-semibold tracking-wider">
             <span>TITULAR</span>
             <span>VENC: DIA {String(card.dueDay || 10).padStart(2, '0')}</span>
           </div>
-          <div className="text-xs sm:text-sm font-black tracking-wide text-white uppercase truncate drop-shadow-xs font-['Outfit']">
+          <div className="text-[10px] sm:text-[11px] font-black tracking-wide text-white uppercase truncate drop-shadow-xs font-['Outfit'] leading-tight">
             {holderName}
           </div>
         </div>
@@ -220,30 +230,30 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
           {brand === 'mastercard' && (
             <div className="flex flex-col items-center">
               {/* Dois círculos entrelaçados em degradê vermelho e laranja/amarelo puros */}
-              <div className="flex items-center -space-x-3">
+              <div className="flex items-center -space-x-1.5">
                 <div 
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#eb001b] shadow-xs" 
+                  className="w-4 h-4 rounded-full bg-[#eb001b] shadow-xs" 
                 />
                 <div 
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#f79e1b] mix-blend-screen shadow-xs" 
+                  className="w-4 h-4 rounded-full bg-[#f79e1b] mix-blend-screen shadow-xs" 
                 />
               </div>
-              <span className="text-[8px] font-bold tracking-tight text-white/90 lowercase mt-0.5">
+              <span className="text-[6.5px] font-bold tracking-tight text-white/90 lowercase mt-0.2">
                 mastercard
               </span>
             </div>
           )}
 
           {brand === 'visa' && (
-            <div className="italic font-black text-lg sm:text-xl tracking-tighter text-white font-serif drop-shadow-md pr-1">
+            <div className="italic font-black text-sm sm:text-base tracking-tighter text-white font-serif drop-shadow-md pr-0.5">
               VISA
             </div>
           )}
 
           {brand === 'elo' && (
             <div className="flex items-center space-x-0.5">
-              <span className="font-black text-xs sm:text-sm text-yellow-300 drop-shadow-xs">elo</span>
-              <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              <span className="font-black text-[11px] text-yellow-300 drop-shadow-xs">elo</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
             </div>
           )}
         </div>

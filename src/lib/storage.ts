@@ -2281,7 +2281,9 @@ export function getStoredClienteCreditos(): ClienteCredito[] {
 export function saveStoredClienteCreditos(creditos: ClienteCredito[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.CLIENTE_CREDITOS, JSON.stringify(creditos));
-    window.dispatchEvent(new Event('storage'));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('silagem_cliente_creditos_updated', { detail: creditos }));
+    }
   } catch (e) {
     console.error('Erro ao salvar créditos do cliente no storage local:', e);
   }
@@ -2305,7 +2307,6 @@ export function saveCompanyData<T>(entity: string, data: T[], companyId?: string
     localStorage.setItem(`colaca_silagem_${entity}_${cId}`, json);
     localStorage.setItem(`colaca_silagem_${entity}`, json);
     window.dispatchEvent(new CustomEvent('silagem_local_offline_sync', { detail: { entity, companyId: cId } }));
-    window.dispatchEvent(new Event('storage'));
   } catch (e) {
     console.error(`Erro ao gravar dados locais em colaca_silagem_${entity}:`, e);
   }

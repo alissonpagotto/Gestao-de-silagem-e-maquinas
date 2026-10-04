@@ -1222,5 +1222,16 @@ html:not(.dark):not(.master-admin-active) table:not(.dark-elegance-table):not(#m
   }
 }
 
+/* Utilitário para ocultar barras de rolagem nativas */
+.scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 
 

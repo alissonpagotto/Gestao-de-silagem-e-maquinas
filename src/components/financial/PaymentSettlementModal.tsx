@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   Check, 
@@ -71,9 +71,21 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
   const [notes, setNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const initializedKeyRef = useRef<string | null>(null);
+
   // Sincroniza ao abrir o modal
   useEffect(() => {
-    if (!isOpen || !expense) return;
+    if (!isOpen || !expense) {
+      initializedKeyRef.current = null;
+      return;
+    }
+
+    const currentKey = `${expense.id}_${isOpen}`;
+    if (initializedKeyRef.current === currentKey) {
+      return;
+    }
+    initializedKeyRef.current = currentKey;
+
     setErrorMessage('');
     setPaymentDate(today);
 
@@ -113,7 +125,7 @@ export const PaymentSettlementModal: React.FC<PaymentSettlementModalProps> = ({
 
     setAuthenticationCode(expense.paymentAuthenticationCode || '');
     setNotes(expense.notes || '');
-  }, [isOpen, expense, bankAccounts, today]);
+  }, [isOpen, expense?.id]);
 
   // Lista de funcionários ativos
   const activeEmployees = useMemo(() => {
