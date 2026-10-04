@@ -610,11 +610,19 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                       )}
 
                       {acc.responsavel_conta_nome && (
-                        <div className="flex justify-between items-center gap-1">
-                          <span className="text-stone-400 font-medium text-[8.5px]">Titular:</span>
-                          <span className="font-bold text-stone-800 text-[9.5px] truncate" title={acc.responsavel_conta_nome}>
-                            {acc.responsavel_conta_nome}
-                          </span>
+                        <div className="flex justify-between items-center gap-1.5">
+                          <span className="text-stone-400 font-medium text-[8.5px] shrink-0">Titular:</span>
+                          <div className="flex items-center gap-1 truncate min-w-0">
+                            <div 
+                              className="w-3.5 h-3.5 rounded shrink-0 overflow-hidden flex items-center justify-center p-0.2 shadow-2xs"
+                              style={{ backgroundColor: theme.accentBar }}
+                            >
+                              <BankLogoIcon code={safeBankCode} name={safeBankName} size={14} className="text-white" />
+                            </div>
+                            <span className="font-bold text-stone-800 text-[9.5px] truncate" title={acc.responsavel_conta_nome}>
+                              {acc.responsavel_conta_nome}
+                            </span>
+                          </div>
                         </div>
                       )}
 

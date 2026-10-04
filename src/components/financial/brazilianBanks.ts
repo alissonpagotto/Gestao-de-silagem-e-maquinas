@@ -54,11 +54,11 @@ export const BRAZILIAN_BANKS: BrazilianBank[] = [
   },
   {
     code: '748',
-    displayName: '748 - Sicredi',
+    displayName: '748 / 074 - Sicredi',
     shortName: 'Sicredi',
     name: 'Banco Cooperativo Sicredi S.A. / Sistema Sicredi',
     color: '#00843d',
-    aliases: ['sicredi', 'sicred', 'banco sicredi', 'cooperativa sicredi'],
+    aliases: ['sicredi', 'sicred', 'banco sicredi', 'cooperativa sicredi', '074', '074 - sicredi'],
   },
   {
     code: '237',
@@ -213,6 +213,10 @@ export function findBankByQuery(query?: any, code?: any): BrazilianBank | undefi
     if (code) {
       const rawCode = typeof code === 'string' ? code : String(code);
       const cleanCode = rawCode.trim().replace(/\D/g, '').padStart(3, '0');
+      if (cleanCode === '074') {
+        const sicredi = BRAZILIAN_BANKS.find((b) => b && b.code === '748');
+        if (sicredi) return sicredi;
+      }
       const byCode = BRAZILIAN_BANKS.find((b) => b && b.code === cleanCode);
       if (byCode) return byCode;
     }

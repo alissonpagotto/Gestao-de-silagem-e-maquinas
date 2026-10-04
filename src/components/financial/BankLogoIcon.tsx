@@ -80,7 +80,7 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
     }
 
     switch (bankId) {
-    // 001 - Banco do Brasil (Símbolo entrelaçado BB em azul e amarelo)
+    // 001 - Banco do Brasil (Raias Azuis entrelaçadas sobre fundo amarelo corporativo)
     case '001':
       return (
         <svg
@@ -91,28 +91,29 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <rect width="32" height="32" rx="7" fill="#003882" />
+          <rect width="32" height="32" rx="7" fill="#FCDE00" />
+          {/* Raias Azuis do Banco do Brasil */}
           <path
-            d="M8.5 9.5C8.5 7.84 9.84 6.5 11.5 6.5H19C21.48 6.5 23.5 8.52 23.5 11C23.5 12.25 23 13.38 22.18 14.18L17.5 18.86V22.5C17.5 23.6 16.6 24.5 15.5 24.5H12C9.52 24.5 7.5 22.48 7.5 20C7.5 18.75 8 17.62 8.82 16.82L13.5 12.14V8.5H11.5C10.95 8.5 10.5 8.95 10.5 9.5V11H8.5V9.5Z"
-            fill="#FCDE00"
-          />
-          <path
-            d="M23.5 22.5C23.5 24.16 22.16 25.5 20.5 25.5H13C10.52 25.5 8.5 23.48 8.5 21C8.5 19.75 9 18.62 9.82 17.82L14.5 13.14V9.5C14.5 8.4 15.4 7.5 16.5 7.5H20C22.48 7.5 24.5 9.52 24.5 12C24.5 13.25 24 14.38 23.18 15.18L18.5 19.86V23.5H20.5C21.05 23.5 21.5 23.05 21.5 22.5V21H23.5V22.5Z"
+            d="M9 10.5L14 6L23 15L18 19.5L9 10.5Z"
             fill="#003882"
-            opacity="0.25"
           />
           <path
-            d="M11 11H21V13.5L16 18.5L11 13.5V11Z"
-            fill="#FCDE00"
+            d="M23 21.5L18 26L9 17L14 12.5L23 21.5Z"
+            fill="#003882"
           />
           <path
-            d="M21 21H11V18.5L16 13.5L21 18.5V21Z"
-            fill="#FCDE00"
+            d="M10.5 9L6 14L15 23L19.5 18L10.5 9Z"
+            fill="#003882"
           />
+          <path
+            d="M21.5 23L26 18L17 9L12.5 14L21.5 23Z"
+            fill="#003882"
+          />
+          <rect x="13.2" y="13.2" width="5.6" height="5.6" transform="rotate(45 16 16)" fill="#FCDE00" />
         </svg>
       );
 
-    // 104 - Caixa Econômica Federal (X icônico em laranja e branco sobre azul royal)
+    // 104 - Caixa Econômica Federal (X bicolor em azul e laranja)
     case '104':
       return (
         <svg
@@ -137,7 +138,7 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
         </svg>
       );
 
-    // 341 - Itaú Unibanco (Squircle laranja com tipografia e destaque itau)
+    // 341 - Itaú Unibanco (Quadrado azul e escrita branca itau)
     case '341':
       return (
         <svg
@@ -149,23 +150,23 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           xmlns="http://www.w3.org/2000/svg"
         >
           <rect width="32" height="32" rx="7" fill="#EC7000" />
-          <rect x="5" y="5" width="22" height="22" rx="5" fill="#003399" />
+          <rect x="5.5" y="5.5" width="21" height="21" rx="4.5" fill="#003399" />
           <text
             x="16"
             y="19"
             textAnchor="middle"
-            fill="#FFD200"
+            fill="#FFFFFF"
             fontSize="10"
             fontWeight="900"
             fontFamily="Arial, sans-serif"
             letterSpacing="-0.5"
           >
-            Itaú
+            itau
           </text>
         </svg>
       );
 
-    // 133 - Cresol (Símbolo circular orgânico em laranja e verde de cooperativismo)
+    // 133 - Cresol (Folha dupla estilizada Cresol)
     case '133':
       return (
         <svg
@@ -177,21 +178,20 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           xmlns="http://www.w3.org/2000/svg"
         >
           <rect width="32" height="32" rx="7" fill="#006837" />
-          {/* Arco em Laranja Cresol */}
-          <circle cx="16" cy="16" r="9" stroke="#F37021" strokeWidth="3" strokeDasharray="24 10" />
-          {/* Folha/Semente Central Verde e Laranja */}
+          {/* Folha dupla estilizada Cresol */}
           <path
-            d="M16 8C12 11 12 17 16 23C20 17 20 11 16 8Z"
+            d="M16 6C11 10 10 16 14 22C14.5 17 17 12 16 6Z"
             fill="#FFFFFF"
           />
           <path
-            d="M16 11C14 13.5 14 18 16 21C18 18 18 13.5 16 11Z"
+            d="M16 8C20 12 21 18 17 24C17.5 19 15 14 16 8Z"
             fill="#F37021"
           />
+          <circle cx="15.5" cy="19" r="1.5" fill="#FFFFFF" />
         </svg>
       );
 
-    // 756 - Sicoob (Símbolo prisma/triângulo estilizado em turquesa e ciano)
+    // 756 - Sicoob (Setas do Sicoob)
     case '756':
       return (
         <svg
@@ -203,19 +203,17 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           xmlns="http://www.w3.org/2000/svg"
         >
           <rect width="32" height="32" rx="7" fill="#003641" />
-          {/* Triângulo 1 (Topo Turquesa) */}
-          <path d="M16 6L24 16L16 14Z" fill="#00AE9D" />
-          {/* Triângulo 2 (Direita Verde Claro) */}
-          <path d="M24 16L16 26L18 17Z" fill="#78BE20" />
-          {/* Triângulo 3 (Base Verde Oliva) */}
-          <path d="M16 26L8 16L16 18Z" fill="#008375" />
-          {/* Triângulo 4 (Esquerda Ciano Escuro) */}
-          <path d="M8 16L16 6L14 15Z" fill="#006272" />
+          {/* Setas / Triângulos Sicoob */}
+          <path d="M16 6L23 15L16 13Z" fill="#00AE9D" />
+          <path d="M23 15L16 26L18 16Z" fill="#78BE20" />
+          <path d="M16 26L9 17L16 19Z" fill="#008375" />
+          <path d="M9 17L16 6L14 16Z" fill="#00AE9D" />
         </svg>
       );
 
-    // 748 - Sicredi (Catavento / Pinwheel verde cooperativo de 5 pontas)
+    // 748 / 074 - Sicredi (Logo oficial de esferas / catavento cooperativo)
     case '748':
+    case '074':
       return (
         <svg
           viewBox="0 0 32 32"
@@ -226,15 +224,13 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
           xmlns="http://www.w3.org/2000/svg"
         >
           <rect width="32" height="32" rx="7" fill="#00843D" />
-          {/* Pás do Catavento Sicredi */}
-          <g fill="#FFFFFF">
-            <path d="M16 16V7C18.5 7 20 8.5 20 10.5L16 16Z" fill="#FFFFFF" />
-            <path d="M16 16L24.5 13C25.5 15 25 17 23 18L16 16Z" fill="#E2F5DD" />
-            <path d="M16 16L21 23.5C19.5 25 17.5 25 15.5 24L16 16Z" fill="#FFFFFF" />
-            <path d="M16 16L7.5 20C6.5 18 7 16 9 14.5L16 16Z" fill="#E2F5DD" />
-            <path d="M16 16L11 8.5C12.5 7 14.5 7 16 8V16Z" fill="#FFFFFF" />
-          </g>
-          <circle cx="16" cy="16" r="2.5" fill="#00843D" />
+          {/* Esferas do símbolo oficial Sicredi */}
+          <circle cx="16" cy="10" r="3.2" fill="#FFFFFF" />
+          <circle cx="21.5" cy="13.5" r="3" fill="#FFFFFF" />
+          <circle cx="20" cy="20" r="3" fill="#FFFFFF" />
+          <circle cx="13" cy="20.5" r="3" fill="#FFFFFF" />
+          <circle cx="11" cy="14" r="3" fill="#FFFFFF" />
+          <circle cx="16" cy="16" r="2.2" fill="#00843D" />
         </svg>
       );
 
