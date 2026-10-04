@@ -11,42 +11,51 @@ interface BankLogoIconProps {
 /**
  * Normaliza strings para busca e identificação sem acentos e minúsculas
  */
-function normalizeString(str?: string): string {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+function normalizeString(str?: any): string {
+  try {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  } catch (_) {
+    return '';
+  }
 }
 
 /**
  * Identifica o código padronizado do banco a partir do código ou nome
  */
-export function identifyBankCode(code?: string, name?: string): string | null {
-  const c = (code || '').trim().replace(/\D/g, '');
-  if (c) {
-    const padCode = c.padStart(3, '0');
-    if (['001', '104', '341', '133', '756', '748', '237', '033', '260', '077'].includes(padCode)) {
-      return padCode;
+export function identifyBankCode(code?: any, name?: any): string | null {
+  try {
+    const rawCode = typeof code === 'string' ? code : (code ? String(code) : '');
+    const c = rawCode.trim().replace(/\D/g, '');
+    if (c) {
+      const padCode = c.padStart(3, '0');
+      if (['001', '104', '341', '133', '756', '748', '237', '033', '260', '077'].includes(padCode)) {
+        return padCode;
+      }
     }
+
+    const n = normalizeString(name);
+    if (!n) return null;
+
+    if (n.includes('001') || n.includes('banco do brasil') || n.includes(' bb ') || n === 'bb') return '001';
+    if (n.includes('104') || n.includes('caixa') || n.includes('cef')) return '104';
+    if (n.includes('341') || n.includes('itau')) return '341';
+    if (n.includes('133') || n.includes('cresol') || n.includes('cressol')) return '133';
+    if (n.includes('756') || n.includes('sicoob') || n.includes('siccob')) return '756';
+    if (n.includes('748') || n.includes('sicredi') || n.includes('sicred')) return '748';
+    if (n.includes('237') || n.includes('bradesco')) return '237';
+    if (n.includes('033') || n.includes('santander')) return '033';
+    if (n.includes('260') || n.includes('nubank') || n.includes('nu pagamentos')) return '260';
+    if (n.includes('077') || n.includes('inter') || n.includes('banco inter')) return '077';
+
+    return null;
+  } catch (_) {
+    return null;
   }
-
-  const n = normalizeString(name);
-  if (!n) return null;
-
-  if (n.includes('001') || n.includes('banco do brasil') || n.includes(' bb ') || n === 'bb') return '001';
-  if (n.includes('104') || n.includes('caixa') || n.includes('cef')) return '104';
-  if (n.includes('341') || n.includes('itau')) return '341';
-  if (n.includes('133') || n.includes('cresol') || n.includes('cressol')) return '133';
-  if (n.includes('756') || n.includes('sicoob') || n.includes('siccob')) return '756';
-  if (n.includes('748') || n.includes('sicredi') || n.includes('sicred')) return '748';
-  if (n.includes('237') || n.includes('bradesco')) return '237';
-  if (n.includes('033') || n.includes('santander')) return '033';
-  if (n.includes('260') || n.includes('nubank') || n.includes('nu pagamentos')) return '260';
-  if (n.includes('077') || n.includes('inter') || n.includes('banco inter')) return '077';
-
-  return null;
 }
 
 /**
@@ -60,13 +69,14 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
   className = '',
   size = 20,
 }) => {
-  const bankId = identifyBankCode(code, name);
+  try {
+    const bankId = identifyBankCode(code, name);
 
-  if (!bankId) {
-    return <Building2 className={className || 'w-4 h-4'} style={{ width: size, height: size }} />;
-  }
+    if (!bankId) {
+      return <Building2 className={className || 'w-4 h-4'} style={{ width: size, height: size }} />;
+    }
 
-  switch (bankId) {
+    switch (bankId) {
     // 001 - Banco do Brasil (Símbolo entrelaçado BB em azul e amarelo)
     case '001':
       return (
@@ -341,5 +351,8 @@ export const BankLogoIcon: React.FC<BankLogoIconProps> = ({
 
     default:
       return <Building2 className={className || 'w-4 h-4'} style={{ width: size, height: size }} />;
+    }
+  } catch (err) {
+    return <Building2 className={className || 'w-4 h-4'} style={{ width: size, height: size }} />;
   }
 };

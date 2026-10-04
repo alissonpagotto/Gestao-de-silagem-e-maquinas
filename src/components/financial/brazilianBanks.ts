@@ -162,59 +162,73 @@ export const BRAZILIAN_BANKS: BrazilianBank[] = [
 /**
  * Normaliza strings para busca insensível a maiúsculas, espaços e acentuação
  */
-export function normalizeBankSearch(str?: string): string {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+export function normalizeBankSearch(str?: any): string {
+  try {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  } catch (_) {
+    return '';
+  }
 }
 
 /**
  * Verifica se um banco atende à busca (por código, nome, displayName ou aliases)
  */
-export function bankMatchesQuery(bank: BrazilianBank, query: string): boolean {
-  if (!query) return true;
-  const clean = normalizeBankSearch(query);
-  const digits = clean.replace(/\D/g, '');
+export function bankMatchesQuery(bank: BrazilianBank, query: any): boolean {
+  try {
+    if (!bank) return false;
+    if (!query) return true;
+    const clean = normalizeBankSearch(query);
+    const digits = clean.replace(/\D/g, '');
 
-  // Match por código numérico ex: 001, 1, 104, 133, 756, etc.
-  if (digits && bank.code.includes(digits)) return true;
-  if (digits && digits.length <= 3 && bank.code === digits.padStart(3, '0')) return true;
+    // Match por código numérico ex: 001, 1, 104, 133, 756, etc.
+    if (digits && bank.code && bank.code.includes(digits)) return true;
+    if (digits && digits.length <= 3 && bank.code === digits.padStart(3, '0')) return true;
 
-  // Match por texto no displayName, shortName ou name
-  if (normalizeBankSearch(bank.displayName).includes(clean)) return true;
-  if (normalizeBankSearch(bank.shortName).includes(clean)) return true;
-  if (normalizeBankSearch(bank.name).includes(clean)) return true;
+    // Match por texto no displayName, shortName ou name
+    if (bank.displayName && normalizeBankSearch(bank.displayName).includes(clean)) return true;
+    if (bank.shortName && normalizeBankSearch(bank.shortName).includes(clean)) return true;
+    if (bank.name && normalizeBankSearch(bank.name).includes(clean)) return true;
 
-  // Match por aliases (ex: "cressol" para Cresol, "siccob" para Sicoob, "cef" para Caixa, "bb" para Banco do Brasil)
-  if (bank.aliases && bank.aliases.some((alias) => normalizeBankSearch(alias).includes(clean) || clean.includes(normalizeBankSearch(alias)))) {
-    return true;
+    // Match por aliases (ex: "cressol" para Cresol, "siccob" para Sicoob, "cef" para Caixa, "bb" para Banco do Brasil)
+    if (Array.isArray(bank.aliases) && bank.aliases.some((alias) => normalizeBankSearch(alias).includes(clean) || clean.includes(normalizeBankSearch(alias)))) {
+      return true;
+    }
+
+    return false;
+  } catch (_) {
+    return false;
   }
-
-  return false;
 }
 
 /**
  * Encontra a instituição financeira exata ou mais próxima a partir de código ou texto
  */
-export function findBankByQuery(query?: string, code?: string): BrazilianBank | undefined {
-  if (code) {
-    const cleanCode = code.trim().replace(/\D/g, '').padStart(3, '0');
-    const byCode = BRAZILIAN_BANKS.find((b) => b.code === cleanCode);
-    if (byCode) return byCode;
+export function findBankByQuery(query?: any, code?: any): BrazilianBank | undefined {
+  try {
+    if (code) {
+      const rawCode = typeof code === 'string' ? code : String(code);
+      const cleanCode = rawCode.trim().replace(/\D/g, '').padStart(3, '0');
+      const byCode = BRAZILIAN_BANKS.find((b) => b && b.code === cleanCode);
+      if (byCode) return byCode;
+    }
+
+    if (!query) return undefined;
+    const clean = normalizeBankSearch(query);
+    const digits = clean.replace(/\D/g, '');
+
+    if (digits && digits.length <= 3) {
+      const pad = digits.padStart(3, '0');
+      const exactCode = BRAZILIAN_BANKS.find((b) => b && b.code === pad);
+      if (exactCode) return exactCode;
+    }
+
+    return BRAZILIAN_BANKS.find((b) => b && bankMatchesQuery(b, query));
+  } catch (_) {
+    return undefined;
   }
-
-  if (!query) return undefined;
-  const clean = normalizeBankSearch(query);
-  const digits = clean.replace(/\D/g, '');
-
-  if (digits && digits.length <= 3) {
-    const pad = digits.padStart(3, '0');
-    const exactCode = BRAZILIAN_BANKS.find((b) => b.code === pad);
-    if (exactCode) return exactCode;
-  }
-
-  return BRAZILIAN_BANKS.find((b) => bankMatchesQuery(b, query));
 }

@@ -49,7 +49,12 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
 
   const activeAccountId = controlledAccountId || internalAccountId || (accounts[0]?.id || '');
   const activeAccount = useMemo(() => {
-    return accounts.find((a) => a.id === activeAccountId) || accounts[0];
+    try {
+      if (!Array.isArray(accounts) || accounts.length === 0) return undefined;
+      return accounts.find((a) => a && a.id === activeAccountId) || accounts[0];
+    } catch (_) {
+      return accounts?.[0];
+    }
   }, [accounts, activeAccountId]);
 
   // Modais de Ação do Card
@@ -70,17 +75,30 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
 
   // Contas a pagar pendentes ainda não vinculadas ou totais
   const pendingExpenses = useMemo(() => {
-    return expenses.filter((e) => e.status === 'pendente');
+    try {
+      if (!Array.isArray(expenses)) return [];
+      return expenses.filter((e) => e && e.status === 'pendente');
+    } catch (_) {
+      return [];
+    }
   }, [expenses]);
 
   // Contas a pagar já vinculadas diretamente a esta conta
   const linkedExpenses = useMemo(() => {
-    if (!activeAccount) return [];
-    return expenses.filter((e) => e.bankAccountId === activeAccount.id);
+    try {
+      if (!activeAccount || !Array.isArray(expenses)) return [];
+      return expenses.filter((e) => e && e.bankAccountId === activeAccount.id);
+    } catch (_) {
+      return [];
+    }
   }, [expenses, activeAccount]);
 
   const linkedTotal = useMemo(() => {
-    return linkedExpenses.reduce((sum, e) => sum + e.amount, 0);
+    try {
+      return linkedExpenses.reduce((sum, e) => sum + (e && typeof e.amount === 'number' && !isNaN(e.amount) ? e.amount : 0), 0);
+    } catch (_) {
+      return 0;
+    }
   }, [linkedExpenses]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -284,7 +302,7 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
             <div 
               className="w-6 h-6 rounded-md flex items-center justify-center text-white shrink-0 shadow-2xs overflow-hidden"
               style={{ backgroundColor: activeAccount.color || '#0963cb' }}
-              title={`${activeAccount.name} (${activeAccount.bankName})`}
+              title={`${activeAccount.name || 'Conta'} (${activeAccount.bankName || 'Banco'})`}
             >
               <BankLogoIcon code={activeAccount.bankCode} name={activeAccount.bankName} size={14} className="text-white" />
             </div>
@@ -306,9 +324,9 @@ export const BankIntegrationCard: React.FC<BankIntegrationCardProps> = ({
                 onChange={(e) => handleAccountChange(e.target.value)}
                 className="font-bold text-xs text-stone-900 bg-transparent outline-none cursor-pointer max-w-[150px] sm:max-w-[200px] truncate"
               >
-                {accounts.map((acc) => (
+                {accounts.filter(Boolean).map((acc) => (
                   <option key={acc.id} value={acc.id}>
-                    {acc.name} ({acc.bankName})
+                    {acc.name || 'Conta'} ({acc.bankName || 'Banco'})
                   </option>
                 ))}
               </select>

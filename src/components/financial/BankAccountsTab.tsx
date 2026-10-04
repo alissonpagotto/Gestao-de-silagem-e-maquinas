@@ -7,19 +7,18 @@ import {
   CreditCard, 
   CheckCircle2, 
   ArrowUpRight, 
-  ArrowDownRight,
-  Trash2,
-  Edit2,
-  DollarSign,
-  QrCode,
-  Sparkles,
-  FileText,
-  Link2
+  ArrowDownRight, 
+  Trash2, 
+  Edit2, 
+  DollarSign, 
+  QrCode, 
+  Sparkles, 
+  FileText, 
+  Link2 
 } from 'lucide-react';
 import { BankAccount, Expense, BankTransaction, Employee, ExpenseCategory, CorporateCard } from '../../types';
-import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts } from '../../lib/storage';
-import { supabase } from '../../lib/supabaseClient';
-import { mapRowToBankAccount, upsertContaBancaria, deleteContaBancaria, isSupabaseConfigured, toValidUUID } from '../../lib/supabaseService';
+import { formatCurrencyBRL, formatDateBR, getStoredExpenses, saveStoredExpenses, getActiveCompanyId, saveStoredBankAccounts, getStoredBankAccounts } from '../../lib/storage';
+import { upsertContaBancaria, deleteContaBancaria } from '../../lib/supabaseService';
 import { useConfirm } from '../../context/ConfirmContext';
 import { BankAccountModal } from './BankAccountModal';
 import { BankLogoIcon } from './BankLogoIcon';
@@ -38,8 +37,69 @@ interface BankAccountsTabProps {
   categories?: ExpenseCategory[];
 }
 
+/**
+ * Leitura isolada e resiliente de contas bancárias no LocalStorage
+ */
+function loadInitialLocalAccounts(fallbackAccounts: BankAccount[] = []): BankAccount[] {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      // 1. Chave prioritária solicitada
+      const rawGlobal = window.localStorage.getItem('colaca_silagem_financeiro_contas');
+      if (rawGlobal) {
+        const parsed = JSON.parse(rawGlobal);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+
+      // 2. Chave escopada por empresa ativa
+      const cId = getActiveCompanyId();
+      if (cId) {
+        const rawScoped = window.localStorage.getItem(`colaca_silagem_financeiro_contas_${cId}`);
+        if (rawScoped) {
+          const parsed = JSON.parse(rawScoped);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao carregar contas bancárias do LocalStorage:', err);
+  }
+
+  if (Array.isArray(fallbackAccounts) && fallbackAccounts.length > 0) {
+    return fallbackAccounts;
+  }
+  return getStoredBankAccounts();
+}
+
+/**
+ * Cálculo isolado do Saldo Consolidado usando variáveis locais simples
+ */
+function computeConsolidatedBalances(accList: BankAccount[]) {
+  let localTotal = 0;
+  let localOverdraft = 0;
+
+  try {
+    if (Array.isArray(accList)) {
+      for (const a of accList) {
+        if (!a) continue;
+        const bal = typeof a.balance === 'number' && !isNaN(a.balance) ? a.balance : 0;
+        const lim = typeof a.overdraftLimit === 'number' && !isNaN(a.overdraftLimit) ? a.overdraftLimit : 0;
+        localTotal += bal;
+        localOverdraft += lim;
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao calcular saldo consolidado:', err);
+  }
+
+  return {
+    totalBalance: localTotal,
+    totalOverdraftLimit: localOverdraft,
+    totalAvailableResources: localTotal + localOverdraft,
+  };
+}
+
 export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
-  accounts,
+  accounts = [],
   onSaveAccounts,
   expenses = [],
   employees = [],
@@ -53,66 +113,60 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
 
-  const accountsRef = useRef(accounts);
-  accountsRef.current = accounts;
-  const onSaveAccountsRef = useRef(onSaveAccounts);
-  onSaveAccountsRef.current = onSaveAccounts;
+  // Leitura inicial das contas bancárias diretamente do LocalStorage
+  const [localAccounts, setLocalAccounts] = useState<BankAccount[]>(() => {
+    return loadInitialLocalAccounts(accounts);
+  });
 
-  // Sincronização em tempo real multi-dispositivos (Supabase Realtime) escutando 'financeiro_contas'
+  // Saldo Consolidado em estado isolado próprio
+  const [consolidatedBalances, setConsolidatedBalances] = useState(() => {
+    const initialList = loadInitialLocalAccounts(accounts);
+    return computeConsolidatedBalances(initialList);
+  });
+
+  // Trava de segurança para execução EXCLUSIVAMENTE UMA ÚNICA VEZ durante o carregamento inicial
+  const isInitialLoad = useRef(true);
+
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    const channelId = 'bank_accounts_tab_rt';
+    if (!isInitialLoad.current) return;
+    isInitialLoad.current = false;
 
-    const existingChannels = supabase.getChannels?.() || [];
-    for (const ch of existingChannels) {
-      if (ch.topic === channelId || ch.topic === `realtime:${channelId}`) {
-        try { supabase.removeChannel(ch); } catch (_) {}
-      }
+    try {
+      const stored = loadInitialLocalAccounts(accounts);
+      const safeList = Array.isArray(stored) && stored.length > 0 
+        ? stored 
+        : (Array.isArray(accounts) && accounts.length > 0 ? accounts : []);
+      const balances = computeConsolidatedBalances(safeList);
+      setLocalAccounts(safeList);
+      setConsolidatedBalances(balances);
+    } catch (err) {
+      console.warn('Erro ao inicializar saldos e contas bancárias:', err);
     }
-
-    const channel = supabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'financeiro_contas' },
-        (payload: any) => {
-          const currentList = Array.isArray(accountsRef.current) ? accountsRef.current : [];
-          if (payload.eventType === 'DELETE') {
-            const delId = payload.old?.id;
-            if (delId) {
-              const updated = currentList.filter(a => a.id !== delId && toValidUUID(a.id) !== delId);
-              saveStoredBankAccounts(updated);
-              onSaveAccountsRef.current?.(updated);
-            }
-          } else if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new) {
-            const row = payload.new;
-            const mapped = mapRowToBankAccount(row);
-            const exists = currentList.some(a => a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id));
-            const updated = exists
-              ? currentList.map(a => (a.id === mapped.id || toValidUUID(a.id) === mapped.id || (row.id && toValidUUID(a.id) === row.id)) ? { ...a, ...mapped } : a)
-              : [...currentList, mapped];
-            saveStoredBankAccounts(updated);
-            onSaveAccountsRef.current?.(updated);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      try {
-        supabase.removeChannel(channel);
-      } catch (_) {}
-    };
   }, []);
 
-  // Extrato Modal State
+  // Sincronização externa estritamente controlada: somente atualiza quando o JSON das contas mudar de fato
+  const lastPropsJsonRef = useRef(JSON.stringify(accounts || []));
+  useEffect(() => {
+    if (isInitialLoad.current) return;
+    const currentJson = JSON.stringify(accounts || []);
+    if (currentJson !== lastPropsJsonRef.current) {
+      lastPropsJsonRef.current = currentJson;
+      const safe = Array.isArray(accounts) ? accounts : [];
+      setLocalAccounts(safe);
+      setConsolidatedBalances(computeConsolidatedBalances(safe));
+    }
+  }, [accounts]);
+
+  // Lista efetiva de contas com proteção contra listas vazias ou nulas
+  const effectiveAccounts = (Array.isArray(localAccounts) && localAccounts.length > 0)
+    ? localAccounts
+    : (Array.isArray(accounts) && accounts.length > 0 ? accounts : []);
+
+  // Extrato Modal State e Seletor de Conta Vinculada
   const [isStatementOpen, setIsStatementOpen] = useState(false);
   const [statementAccountId, setStatementAccountId] = useState<string>('todas');
 
-  // Totais consolidados
-  const totalBalance = accounts.reduce((acc, a) => acc + (a.balance || 0), 0);
-  const totalOverdraftLimit = accounts.reduce((acc, a) => acc + (a.overdraftLimit || 0), 0);
-  const totalAvailableResources = totalBalance + totalOverdraftLimit;
+  const { totalBalance, totalOverdraftLimit, totalAvailableResources } = consolidatedBalances;
 
   const handleOpenModal = (acc?: BankAccount) => {
     setEditingAccount(acc || null);
@@ -120,29 +174,40 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
   };
 
   const handleOpenStatement = (accountId?: string) => {
-    setStatementAccountId(accountId || (accounts[0]?.id || 'todas'));
+    setStatementAccountId(accountId || (effectiveAccounts[0]?.id || 'todas'));
     setIsStatementOpen(true);
   };
 
   const handleSaveAccount = (accountData: Omit<BankAccount, 'id'> & { id?: string }) => {
-    const activeCompanyId = getActiveCompanyId();
-    if (accountData.id) {
-      const updatedAccount: BankAccount = { ...accountData, id: accountData.id } as BankAccount;
-      const updated = accounts.map((a) =>
-        a.id === accountData.id ? updatedAccount : a
-      );
+    try {
+      const activeCompanyId = getActiveCompanyId();
+      let updated: BankAccount[] = [];
+      if (accountData.id) {
+        const updatedAccount: BankAccount = { ...accountData, id: accountData.id } as BankAccount;
+        updated = effectiveAccounts.map((a) =>
+          a.id === accountData.id ? updatedAccount : a
+        );
+      } else {
+        const newAcc: BankAccount = {
+          ...accountData,
+          id: `bank_${Date.now()}`,
+        } as BankAccount;
+        updated = [...effectiveAccounts, newAcc];
+      }
+
       saveStoredBankAccounts(updated);
-      onSaveAccounts(updated);
-      upsertContaBancaria(updatedAccount, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria error:', err));
-    } else {
-      const newAcc: BankAccount = {
-        ...accountData,
-        id: `bank_${Date.now()}`,
-      } as BankAccount;
-      const updated = [...accounts, newAcc];
-      saveStoredBankAccounts(updated);
-      onSaveAccounts(updated);
-      upsertContaBancaria(newAcc, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria error:', err));
+      setLocalAccounts(updated);
+      setConsolidatedBalances(computeConsolidatedBalances(updated));
+      lastPropsJsonRef.current = JSON.stringify(updated);
+
+      if (onSaveAccounts) {
+        onSaveAccounts(updated);
+      }
+
+      const target = accountData.id ? ({ ...accountData, id: accountData.id } as BankAccount) : updated[0];
+      upsertContaBancaria(target, activeCompanyId).catch(err => console.warn('Supabase upsertContaBancaria notice:', err));
+    } catch (err) {
+      console.warn('Erro ao salvar conta bancária:', err);
     }
   };
 
@@ -160,137 +225,177 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
     dueDate: string;
     description: string;
   }) => {
-    const newExpense: Expense = {
-      id: `exp_card_inv_${card.id}_${Date.now()}`,
-      description,
-      amount,
-      categoryId: 'cat_cartao',
-      categoryName: 'Fatura de Cartão Corporativo',
-      categoryColor: '#8b5cf6',
-      dueDate,
-      date: new Date().toISOString().split('T')[0],
-      status: 'pendente',
-      paymentMethod: 'boleto',
-      supplier: account ? `${account.bankName} - Cartão Corporativo (${card.name})` : `Cartão Corporativo (${card.name})`,
-      bankAccountId: account?.id,
-      bankAccountName: account?.name || account?.bankName,
-      employeeId: card.responsibleEmployeeId,
-      employeeName: card.responsibleEmployeeName,
-      corporateCardId: card.id,
-      corporateCardName: card.name,
-      notes: `Fatura de cartão corporativo provisionada automaticamente para quitação em ${formatDateBR(dueDate)}. Limite Total: ${formatCurrencyBRL(card.totalLimit)}. Titular: ${card.responsibleEmployeeName || 'Não especificado'}.`,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const newExpense: Expense = {
+        id: `exp_card_inv_${card.id}_${Date.now()}`,
+        description,
+        amount,
+        categoryId: 'cat_cartao',
+        categoryName: 'Fatura de Cartão Corporativo',
+        categoryColor: '#8b5cf6',
+        dueDate,
+        date: new Date().toISOString().split('T')[0],
+        status: 'pendente',
+        paymentMethod: 'boleto',
+        supplier: account ? `${account.bankName} - Cartão Corporativo (${card.name})` : `Cartão Corporativo (${card.name})`,
+        bankAccountId: account?.id,
+        bankAccountName: account?.name || account?.bankName,
+        employeeId: card.responsibleEmployeeId,
+        employeeName: card.responsibleEmployeeName,
+        corporateCardId: card.id,
+        corporateCardName: card.name,
+        notes: `Fatura de cartão corporativo provisionada automaticamente para quitação em ${formatDateBR(dueDate)}. Limite Total: ${formatCurrencyBRL(card.totalLimit)}. Titular: ${card.responsibleEmployeeName || 'Não especificado'}.`,
+        createdAt: new Date().toISOString(),
+      };
 
-    if (onAddExpenseFromBankBill) {
-      onAddExpenseFromBankBill(newExpense);
-    } else {
-      const currentExpenses = getStoredExpenses();
-      saveStoredExpenses([newExpense, ...currentExpenses]);
+      if (onAddExpenseFromBankBill) {
+        onAddExpenseFromBankBill(newExpense);
+      } else {
+        const currentExpenses = getStoredExpenses();
+        saveStoredExpenses([newExpense, ...currentExpenses]);
+      }
+    } catch (err) {
+      console.warn('Erro ao provisionar fatura de cartão:', err);
     }
   };
 
   const handleDelete = async (id: string) => {
-    const acc = accounts.find((a) => a.id === id);
+    const acc = effectiveAccounts.find((a) => a.id === id);
     const isConfirmed = await confirm({
       title: 'Excluir Conta Bancária',
       message: acc?.name
-        ? `Deseja realmente excluir a conta "${acc.name}" (${acc.bankName})?`
+        ? `Deseja realmente excluir a conta "${acc.name}" (${acc.bankName || 'Banco'})?`
         : 'Deseja realmente excluir esta conta bancária?',
       confirmLabel: 'Sim, Excluir',
       cancelLabel: 'Cancelar',
       variant: 'danger',
     });
+
     if (isConfirmed) {
-      const activeCompanyId = getActiveCompanyId();
-      const updated = accounts.filter((a) => a.id !== id);
-      saveStoredBankAccounts(updated);
-      onSaveAccounts(updated);
-      deleteContaBancaria(id, activeCompanyId).catch(err => console.warn('Supabase deleteContaBancaria error:', err));
+      try {
+        const activeCompanyId = getActiveCompanyId();
+        const updated = effectiveAccounts.filter((a) => a.id !== id);
+        saveStoredBankAccounts(updated);
+        setLocalAccounts(updated);
+        setConsolidatedBalances(computeConsolidatedBalances(updated));
+        lastPropsJsonRef.current = JSON.stringify(updated);
+
+        if (onSaveAccounts) {
+          onSaveAccounts(updated);
+        }
+
+        deleteContaBancaria(id, activeCompanyId).catch(err => console.warn('Supabase deleteContaBancaria notice:', err));
+      } catch (err) {
+        console.warn('Erro ao excluir conta bancária:', err);
+      }
     }
   };
 
   // Manipulador de novos lançamentos manuais no extrato
   const handleAddTransaction = (newTxData: Omit<BankTransaction, 'id' | 'createdAt'>) => {
-    const newTx: BankTransaction = {
-      ...newTxData,
-      id: `tx_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const newTx: BankTransaction = {
+        ...newTxData,
+        id: `tx_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
 
-    const updatedTransactions = [newTx, ...transactions];
-    if (onSaveTransactions) {
-      onSaveTransactions(updatedTransactions);
-    }
+      const updatedTransactions = [newTx, ...transactions];
+      if (onSaveTransactions) {
+        onSaveTransactions(updatedTransactions);
+      }
 
-    // Se for lançamento manual, atualiza também o saldo da conta e propaga no Supabase
-    if (newTx.bankAccountId) {
-      const activeCompanyId = getActiveCompanyId();
-      const updatedAccounts = accounts.map((acc) => {
-        if (acc.id === newTx.bankAccountId) {
-          const delta = newTx.type === 'entrada' ? newTx.amount : -newTx.amount;
-          const updatedAcc = {
-            ...acc,
-            balance: acc.balance + delta,
-          };
-          upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
-          return updatedAcc;
+      if (newTx.bankAccountId) {
+        const activeCompanyId = getActiveCompanyId();
+        const updatedAccounts = effectiveAccounts.map((acc) => {
+          if (acc.id === newTx.bankAccountId) {
+            const delta = newTx.type === 'entrada' ? newTx.amount : -newTx.amount;
+            const updatedAcc = {
+              ...acc,
+              balance: (acc.balance || 0) + delta,
+            };
+            upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+            return updatedAcc;
+          }
+          return acc;
+        });
+
+        saveStoredBankAccounts(updatedAccounts);
+        setLocalAccounts(updatedAccounts);
+        setConsolidatedBalances(computeConsolidatedBalances(updatedAccounts));
+        lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
+
+        if (onSaveAccounts) {
+          onSaveAccounts(updatedAccounts);
         }
-        return acc;
-      });
-      saveStoredBankAccounts(updatedAccounts);
-      onSaveAccounts(updatedAccounts);
+      }
+    } catch (err) {
+      console.warn('Erro ao adicionar transação:', err);
     }
   };
 
   // Manipulador de importação de transações bancárias (OFX / CSV)
   const handleImportBankTransactions = (newTxs: Omit<BankTransaction, 'id' | 'createdAt'>[]) => {
-    const formatted: BankTransaction[] = newTxs.map((t, idx) => ({
-      ...t,
-      id: `tx_imp_${Date.now()}_${idx}`,
-      createdAt: new Date().toISOString(),
-    }));
+    try {
+      const formatted: BankTransaction[] = newTxs.map((t, idx) => ({
+        ...t,
+        id: `tx_imp_${Date.now()}_${idx}`,
+        createdAt: new Date().toISOString(),
+      }));
 
-    const updatedTransactions = [...formatted, ...transactions];
-    if (onSaveTransactions) {
-      onSaveTransactions(updatedTransactions);
-    }
+      const updatedTransactions = [...formatted, ...transactions];
+      if (onSaveTransactions) {
+        onSaveTransactions(updatedTransactions);
+      }
 
-    // Atualiza os saldos das contas impactadas e propaga no Supabase
-    if (newTxs.length > 0) {
-      const activeCompanyId = getActiveCompanyId();
-      const updatedAccounts = accounts.map((acc) => {
-        const matchingTxs = newTxs.filter((tx) => tx.bankAccountId === acc.id);
-        if (matchingTxs.length > 0) {
-          const netDelta = matchingTxs.reduce((sum, tx) => {
-            return sum + (tx.type === 'entrada' ? tx.amount : -tx.amount);
-          }, 0);
-          const updatedAcc = {
-            ...acc,
-            balance: acc.balance + netDelta,
-          };
-          upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
-          return updatedAcc;
+      if (newTxs.length > 0) {
+        const activeCompanyId = getActiveCompanyId();
+        const updatedAccounts = effectiveAccounts.map((acc) => {
+          const matchingTxs = newTxs.filter((tx) => tx.bankAccountId === acc.id);
+          if (matchingTxs.length > 0) {
+            const netDelta = matchingTxs.reduce((sum, tx) => {
+              return sum + (tx.type === 'entrada' ? tx.amount : -tx.amount);
+            }, 0);
+            const updatedAcc = {
+              ...acc,
+              balance: (acc.balance || 0) + netDelta,
+            };
+            upsertContaBancaria(updatedAcc, activeCompanyId).catch(console.warn);
+            return updatedAcc;
+          }
+          return acc;
+        });
+
+        saveStoredBankAccounts(updatedAccounts);
+        setLocalAccounts(updatedAccounts);
+        setConsolidatedBalances(computeConsolidatedBalances(updatedAccounts));
+        lastPropsJsonRef.current = JSON.stringify(updatedAccounts);
+
+        if (onSaveAccounts) {
+          onSaveAccounts(updatedAccounts);
         }
-        return acc;
-      });
-      saveStoredBankAccounts(updatedAccounts);
-      onSaveAccounts(updatedAccounts);
+      }
+    } catch (err) {
+      console.warn('Erro ao importar transações:', err);
     }
   };
 
-  const getAccountTypeLabel = (type: BankAccount['accountType']) => {
-    switch (type) {
-      case 'corrente':
-        return 'Conta Corrente';
-      case 'poupanca':
-        return 'Poupança Agro';
-      case 'aplicacao':
-        return 'Investimento / Aplicação';
-      case 'caixa_fisico':
-        return 'Caixa Físico / Sede';
-      default:
-        return 'Conta Bancária';
+  const getAccountTypeLabel = (type?: BankAccount['accountType']) => {
+    try {
+      switch (type) {
+        case 'corrente':
+          return 'Conta Corrente';
+        case 'poupanca':
+          return 'Poupança Agro';
+        case 'aplicacao':
+          return 'Investimento / Aplicação';
+        case 'caixa_fisico':
+          return 'Caixa Físico / Sede';
+        default:
+          return 'Conta Bancária';
+      }
+    } catch (_) {
+      return 'Conta Bancária';
     }
   };
 
@@ -351,9 +456,13 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       {/* CARD DE INTEGRAÇÃO: Barra horizontal única e compacta */}
       <div className="shrink-0">
         <BankIntegrationCard
-          accounts={accounts}
+          accounts={effectiveAccounts}
           selectedAccountId={statementAccountId !== 'todas' ? statementAccountId : undefined}
-          onSelectAccount={(id) => setStatementAccountId(id)}
+          onSelectAccount={(id) => {
+            if (id && id !== statementAccountId) {
+              setStatementAccountId(id);
+            }
+          }}
           expenses={expenses}
           categories={categories}
           onAddExpenseFromBankBill={onAddExpenseFromBankBill}
@@ -363,7 +472,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       </div>
 
       {/* Accounts Grid */}
-      {accounts.length === 0 ? (
+      {effectiveAccounts.length === 0 ? (
         <div className="bg-white border border-dashed border-stone-300 rounded-xl p-6 text-center space-y-2 shrink-0">
           <div className="w-10 h-10 rounded-xl bg-sky-50 text-[#0963cb] flex items-center justify-center mx-auto">
             <Landmark className="w-5 h-5" />
@@ -383,22 +492,48 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
         </div>
       ) : (
         <div className={`grid gap-2 sm:gap-2.5 overflow-y-auto pr-0.5 ${
-          accounts.length === 1 
+          effectiveAccounts.length === 1 
             ? 'grid-cols-1 max-w-md' 
-            : accounts.length === 2 
+            : effectiveAccounts.length === 2 
               ? 'grid-cols-1 sm:grid-cols-2' 
-              : accounts.length === 3 
+              : effectiveAccounts.length === 3 
                 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
                 : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
         }`}>
-          {accounts.map((acc) => {
-            const hasOverdraft = (acc.overdraftLimit || 0) > 0;
-            const totalAccAvailable = (acc.balance || 0) + (acc.overdraftLimit || 0);
+          {effectiveAccounts.map((acc, index) => {
+            // Bloco try/catch para erros visuais em dados incompletos ou anômalos
+            let safeColor = '#009688';
+            let safeBankName = 'Conta Bancária';
+            let safeBankCode = '';
+            let safeAccountType: BankAccount['accountType'] = 'corrente';
+            let hasOverdraft = false;
+            let totalAccAvailable = 0;
+            let safeAccBalance = 0;
+            let safeOverdraft = 0;
+            let safeAccName = 'Conta Bancária';
+            let safeId = `acc_${index}`;
+
+            try {
+              if (acc) {
+                safeId = acc.id || `acc_${index}`;
+                safeColor = (acc.color && typeof acc.color === 'string' && acc.color.trim()) ? acc.color : '#009688';
+                safeBankName = acc.bankName || acc.name || 'Conta Bancária';
+                safeBankCode = acc.bankCode || '';
+                safeAccountType = acc.accountType || 'corrente';
+                safeAccName = acc.name || safeBankName;
+                safeAccBalance = typeof acc.balance === 'number' && !isNaN(acc.balance) ? acc.balance : 0;
+                safeOverdraft = typeof acc.overdraftLimit === 'number' && !isNaN(acc.overdraftLimit) ? acc.overdraftLimit : 0;
+                hasOverdraft = safeOverdraft > 0;
+                totalAccAvailable = safeAccBalance + safeOverdraft;
+              }
+            } catch (err) {
+              console.warn('Erro ao processar visual da conta bancária:', err);
+            }
 
             return (
               <div
-                key={acc.id}
-                id={`card-conta-${acc.id}`}
+                key={safeId}
+                id={`card-conta-${safeId}`}
                 className="bg-white border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-2xs flex flex-col justify-between gap-1.5 hover:border-slate-300 transition text-black"
               >
                 <div className="space-y-1.5">
@@ -406,31 +541,31 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                     <div className="flex items-center space-x-2 truncate min-w-0">
                       <div
                         className="w-7 h-7 rounded-md flex items-center justify-center text-white shadow-2xs font-black shrink-0 overflow-hidden"
-                        style={{ backgroundColor: acc.color || '#009688' }}
+                        style={{ backgroundColor: safeColor }}
                       >
-                        {acc.accountType === 'caixa_fisico' ? (
+                        {safeAccountType === 'caixa_fisico' ? (
                           <Wallet className="w-3.5 h-3.5" />
                         ) : (
-                          <BankLogoIcon code={acc.bankCode} name={acc.bankName} size={15} className="text-white" />
+                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={15} className="text-white" />
                         )}
                       </div>
                       <div className="truncate min-w-0">
                         <h4 className="font-black text-black text-xs leading-tight truncate">
-                          {acc.name}
+                          {safeAccName}
                         </h4>
                         <div className="flex items-center space-x-1 text-[9.5px] text-stone-500 font-semibold truncate leading-tight">
-                          {acc.bankCode && (
+                          {safeBankCode && (
                             <span className="px-1 py-0.2 rounded text-[8.5px] font-bold font-mono bg-stone-100 text-stone-600 border border-stone-200">
-                              {acc.bankCode}
+                              {safeBankCode}
                             </span>
                           )}
-                          <span className="truncate">{acc.bankName}</span>
+                          <span className="truncate">{safeBankName}</span>
                         </div>
                       </div>
                     </div>
 
                     <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-stone-700 border border-slate-200 shrink-0 leading-none">
-                      {getAccountTypeLabel(acc.accountType)}
+                      {getAccountTypeLabel(safeAccountType)}
                     </span>
                   </div>
 
@@ -448,13 +583,13 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                     </div>
 
                     <div className={`text-base sm:text-[17px] font-black font-['Outfit'] leading-tight ${totalAccAvailable >= 0 ? 'text-black' : 'text-rose-600'}`}>
-                      {formatCurrencyBRL(hasOverdraft ? totalAccAvailable : acc.balance)}
+                      {formatCurrencyBRL(hasOverdraft ? totalAccAvailable : safeAccBalance)}
                     </div>
 
                     {hasOverdraft && (
                       <div className="text-[9px] text-stone-600 font-medium border-t border-slate-200/70 pt-0.5 flex justify-between items-center leading-tight">
-                        <span>Próprio: <strong className={acc.balance < 0 ? 'text-rose-600' : 'text-stone-900'}>{formatCurrencyBRL(acc.balance)}</strong></span>
-                        <span>Limite: <strong className="text-emerald-800">{formatCurrencyBRL(acc.overdraftLimit || 0)}</strong></span>
+                        <span>Próprio: <strong className={safeAccBalance < 0 ? 'text-rose-600' : 'text-stone-900'}>{formatCurrencyBRL(safeAccBalance)}</strong></span>
+                        <span>Limite: <strong className="text-emerald-800">{formatCurrencyBRL(safeOverdraft)}</strong></span>
                       </div>
                     )}
                   </div>
@@ -462,8 +597,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
                 {/* Dados da Base e Ações Integradas */}
                 <div className="pt-1 border-t border-slate-100 space-y-1">
-                  {/* Dados de Ag/Conta e PIX compactos */}
-                  {((acc.agency || acc.accountNumber) || acc.pixKey || (acc.corporateCards && acc.corporateCards.length > 0)) && (
+                  {acc && ((acc.agency || acc.accountNumber) || acc.pixKey || (acc.corporateCards && acc.corporateCards.length > 0)) && (
                     <div className="space-y-0.5 text-[9px] text-stone-600 leading-tight">
                       {(acc.agency || acc.accountNumber) && (
                         <div className="flex justify-between items-center gap-1">
@@ -488,7 +622,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                       {acc.pixKey && (
                         <div className="flex justify-between items-center gap-1">
                           <span className="text-stone-400 font-medium text-[8.5px] shrink-0">
-                            PIX{acc.pixKeyType ? ` (${acc.pixKeyType.toUpperCase()})` : ''}:
+                            PIX{acc.pixKeyType ? ` (${String(acc.pixKeyType).toUpperCase()})` : ''}:
                           </span>
                           <span className="font-mono text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 truncate max-w-[140px]" title={acc.pixKey}>
                             {acc.pixKey}
@@ -496,14 +630,14 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                         </div>
                       )}
 
-                      {acc.corporateCards && acc.corporateCards.length > 0 && (
+                      {acc.corporateCards && Array.isArray(acc.corporateCards) && acc.corporateCards.length > 0 && (
                         <div className="flex justify-between items-center gap-1">
                           <span className="text-purple-700 font-medium text-[8.5px] flex items-center gap-1">
                             <CreditCard className="w-2.5 h-2.5 text-purple-600" />
                             <span>{acc.corporateCards.length} {acc.corporateCards.length === 1 ? 'Cartão' : 'Cartões'}:</span>
                           </span>
                           <span className="font-mono text-[8.5px] font-bold text-purple-900 bg-purple-50 px-1 py-0.2 rounded border border-purple-200">
-                            {formatCurrencyBRL(acc.corporateCards.reduce((s, c) => s + (c.usedLimit || 0), 0))} util.
+                            {formatCurrencyBRL(acc.corporateCards.reduce((s, c) => s + (c && typeof c.usedLimit === 'number' ? c.usedLimit : 0), 0))} util.
                           </span>
                         </div>
                       )}
@@ -514,7 +648,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                   <div className="flex items-center justify-between pt-0.5">
                     <button
                       type="button"
-                      onClick={() => handleOpenStatement(acc.id)}
+                      onClick={() => handleOpenStatement(acc?.id)}
                       className="inline-flex items-center space-x-1 text-[10px] font-bold text-[#0963cb] hover:text-blue-800 hover:bg-blue-50/80 px-1.5 py-0.5 rounded transition cursor-pointer active:scale-95"
                       title="Ver Extrato da Conta"
                     >
@@ -533,7 +667,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(acc.id)}
+                        onClick={() => acc && handleDelete(acc.id)}
                         className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
                         title="Excluir Conta"
                       >
@@ -563,7 +697,7 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       <BankAccountStatementModal
         isOpen={isStatementOpen}
         onClose={() => setIsStatementOpen(false)}
-        accounts={accounts}
+        accounts={effectiveAccounts}
         selectedAccountId={statementAccountId}
         expenses={expenses}
         transactions={transactions}
