@@ -1008,6 +1008,8 @@ export interface MaintenanceLog {
 export interface CorporateCard {
   id: string;
   name: string; // Ex: "Visa Final 4321"
+  brand?: 'mastercard' | 'visa' | 'elo' | 'amex'; // Bandeira do Cartão (Mastercard, Visa, Elo, etc.)
+  last4?: string; // Últimos 4 dígitos (ex: 4587)
   responsibleEmployeeId: string; // Funcionário Responsável (Módulo RH)
   responsibleEmployeeName: string; // Nome do Funcionário
   totalLimit: number; // Limite Total do Cartão (R$)

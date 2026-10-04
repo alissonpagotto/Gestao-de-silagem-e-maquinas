@@ -27,6 +27,7 @@ import { formatarMoeda, desformatarMoeda } from '../../lib/formatters';
 import { BankCombobox } from './BankCombobox';
 import { BRAZILIAN_BANKS } from './brazilianBanks';
 import { BankLogoIcon } from './BankLogoIcon';
+import { CorporateCardMockup } from './CorporateCardMockup';
 
 export interface BankAccountModalProps {
   isOpen: boolean;
@@ -307,9 +308,14 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
     const defaultEmp = availableEmployees[0];
     const newCardId = `card_${Date.now()}`;
     const randomEnding = Math.floor(1000 + Math.random() * 9000);
+    const isSicredi = (bankName || '').toLowerCase().includes('sicredi') || bankCode === '748';
+    const brand: 'mastercard' | 'visa' = isSicredi ? 'mastercard' : 'visa';
+    const brandLabel = brand === 'mastercard' ? 'Mastercard' : 'Visa';
     const newCard: CorporateCard = {
       id: newCardId,
-      name: `Visa Final ${randomEnding}`,
+      name: `${brandLabel} Final ${randomEnding}`,
+      brand,
+      last4: String(randomEnding),
       responsibleEmployeeId: defaultEmp?.id || '',
       responsibleEmployeeName: defaultEmp?.name || '',
       totalLimit: 5000,
@@ -319,6 +325,19 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
     };
     setCorporateCards((prev) => [...prev, newCard]);
   };
+
+  // Totais agregados dos cartões corporativos
+  const totalCardsLimit = useMemo(() => {
+    return corporateCards.reduce((acc, c) => acc + (c.totalLimit || 0), 0);
+  }, [corporateCards]);
+
+  const totalCardsUsed = useMemo(() => {
+    return corporateCards.reduce((acc, c) => acc + (c.usedLimit || 0), 0);
+  }, [corporateCards]);
+
+  const totalCardsAvailable = useMemo(() => {
+    return Math.max(0, totalCardsLimit - totalCardsUsed);
+  }, [totalCardsLimit, totalCardsUsed]);
 
   const handleUpdateCard = (id: string, updates: Partial<CorporateCard>) => {
     setCorporateCards((prev) =>
@@ -430,25 +449,25 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   return (
     <div 
       id="modal-cadastro-conta-bancaria"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto bg-black/60 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-xs animate-in fade-in"
     >
       <div 
-        className="w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-stone-800 bg-zinc-100 dark:bg-stone-900 my-auto flex flex-col max-h-[94vh]"
+        className="w-full max-w-5xl xl:max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-stone-800 bg-zinc-100 dark:bg-stone-900 my-auto flex flex-col max-h-[94vh]"
       >
         {/* CABEÇALHO */}
         <div 
-          className="px-5 py-3.5 flex items-center justify-between shrink-0 bg-zinc-900 dark:bg-stone-800 text-white shadow-xs"
+          className="px-4 sm:px-5 py-2.5 flex items-center justify-between shrink-0 bg-slate-800 dark:bg-slate-900 text-white shadow-xs"
         >
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
-              <Landmark className="w-5 h-5" />
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
+              <Landmark className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+              <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1.5 leading-tight">
                 {editingAccount ? 'Editar Conta Bancária' : 'Nova Conta Bancária / Caixa'}
               </h3>
-              <p className="text-xs text-zinc-300 font-medium">
-                Gestão de contas correntes, cooperativas de crédito e caixa sede
+              <p className="text-[11px] text-slate-300 font-medium leading-tight">
+                Gestão de contas correntes, cooperativas de crédito, caixas e cartões corporativos
               </p>
             </div>
           </div>
@@ -457,624 +476,722 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             type="button"
             id="btn-fechar-modal-conta"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
             title="Fechar Modal"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
-        {/* CORPO DO FORMULÁRIO */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-zinc-900 dark:text-stone-100">
+        {/* CORPO DO FORMULÁRIO EM DUAS COLUNAS (SPLIT SCREEN) */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden text-zinc-900 dark:text-stone-100 min-h-0">
           
-          {/* Mensagem de Erro de Validação */}
-          {validationError && (
-            <div 
-              id="alerta-validacao-conta"
-              className="p-3 bg-rose-100 border border-rose-400 rounded-xl flex items-center space-x-2 text-rose-900 text-xs font-black animate-in fade-in"
-            >
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{validationError}</span>
-            </div>
-          )}
-
-          {/* BLOCO 1: Identificação da Conta */}
-          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-3">
-            {/* Nome Identificador da Conta (Largura Total da Linha) */}
-            <div className="w-full">
-              <label 
-                htmlFor="input-conta-nome" 
-                className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between"
-              >
-                <span>
-                  Nome Identificador da Conta <span className="text-rose-600">*</span>
-                </span>
-                <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
-              </label>
-              <input
-                id="input-conta-nome"
-                type="text"
-                required
-                value={name}
-                onChange={(e) => {
-                  setValidationError('');
-                  setName(e.target.value);
-                }}
-                placeholder="Ex: Banco do Brasil - Fazenda Sede"
-                className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
-              />
-            </div>
-          </div>
-
-          {/* BLOCO 2: Instituição Financeira & Dados Bancários */}
-          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-3.5">
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden min-h-0">
+            
+            {/* ======================================================== */}
+            {/* COLUNA DA ESQUERDA (60% da Largura): DADOS DA CONTA */}
+            {/* ======================================================== */}
+            <div className="lg:col-span-7 flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-2.5 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-stone-800">
               
-              {/* 1. Instituição Financeira (Combobox Inteligente com busca por código ou nome) */}
-              <div className="sm:col-span-7">
-                <label className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between">
-                  <span>Instituição Financeira <span className="text-rose-600">*</span></span>
-                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Busca por código ou nome</span>
-                </label>
-                <BankCombobox
-                  value={bankName}
-                  bankCode={bankCode}
-                  onChange={handleBankChange}
-                />
-              </div>
-
-              {/* 2. Tipo de Conta */}
-              <div className="sm:col-span-5">
-                <label htmlFor="select-tipo-conta" className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1">
-                  Tipo de Conta / Destinação
-                </label>
-                <select
-                  id="select-tipo-conta"
-                  value={accountType}
-                  onChange={(e) => setAccountType(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
+              {/* Mensagem de Erro de Validação */}
+              {validationError && (
+                <div 
+                  id="alerta-validacao-conta"
+                  className="p-2.5 bg-rose-100 border border-rose-400 rounded-xl flex items-center space-x-2 text-rose-900 text-xs font-black animate-in fade-in"
                 >
-                  <option value="corrente">Conta Corrente (C.C.)</option>
-                  <option value="poupanca">Poupança Agro / Pessoal</option>
-                  <option value="aplicacao">Aplicação / Renda Fixa</option>
-                  <option value="caixa_fisico">Caixa Físico / Espécie Sede</option>
-                </select>
-              </div>
-
-            </div>
-
-            {/* Agência, Conta e Dígito (DV) */}
-            <div className="grid grid-cols-12 gap-2.5 pt-1">
-              {/* Agência */}
-              <div className="col-span-5 sm:col-span-4">
-                <label htmlFor="input-conta-agencia" className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1">
-                  Agência
-                </label>
-                <input
-                  id="input-conta-agencia"
-                  type="text"
-                  value={agency}
-                  onChange={(e) => setAgency(e.target.value)}
-                  placeholder="Ex: 1234-5"
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                />
-              </div>
-
-              {/* Número da Conta */}
-              <div className="col-span-5 sm:col-span-6">
-                <label htmlFor="input-conta-numero" className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1">
-                  Número da Conta
-                </label>
-                <input
-                  id="input-conta-numero"
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="Ex: 12345678"
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                />
-              </div>
-
-              {/* Dígito (DV) */}
-              <div className="col-span-2 sm:col-span-2">
-                <label 
-                  htmlFor="input-conta-dv" 
-                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 truncate text-center"
-                  title="Dígito Verificador da Conta"
-                >
-                  Dígito (DV)
-                </label>
-                <input
-                  id="input-conta-dv"
-                  type="text"
-                  maxLength={2}
-                  value={accountDigit}
-                  onChange={(e) => setAccountDigit(e.target.value.toUpperCase())}
-                  placeholder="X"
-                  className="w-full px-2 py-2 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs text-center font-mono uppercase"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* BLOCO 3: Valores, Saldo Inicial e Limite de Cheque Especial */}
-          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-3.5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              
-              {/* Saldo Inicial / Atual */}
-              <div>
-                <label 
-                  htmlFor="input-conta-saldo" 
-                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between"
-                >
-                  <span>Saldo Inicial / Atual (R$)</span>
-                  <div className="flex items-center space-x-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsNegativeBalance(!isNegativeBalance)}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-black tracking-tight transition cursor-pointer ${
-                        isNegativeBalance
-                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-stone-700 dark:text-stone-300'
-                      }`}
-                      title="Alternar entre saldo positivo e saldo negativo (devedor)"
-                    >
-                      {isNegativeBalance ? '(-) Negativo' : '(+) Positivo'}
-                    </button>
-                  </div>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-black text-xs pointer-events-none select-none">
-                    {isNegativeBalance ? '- R$' : 'R$'}
-                  </span>
-                  <input
-                    id="input-conta-saldo"
-                    type="text"
-                    inputMode="numeric"
-                    value={balanceInput}
-                    onChange={(e) => {
-                      const formatted = formatarMoeda(e.target.value);
-                      setBalanceInput(formatted || '0,00');
-                    }}
-                    className={`w-full pl-12 pr-3 py-2 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono ${
-                      isNegativeBalance ? 'text-rose-600' : 'text-zinc-900 dark:text-stone-100'
-                    }`}
-                  />
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{validationError}</span>
                 </div>
-                <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium block mt-1">
-                  Saldo existente no extrato bancário desta conta
-                </span>
-              </div>
+              )}
 
-              {/* Limite de Cheque Especial (R$) */}
-              <div>
-                <label 
-                  htmlFor="input-conta-cheque-especial" 
-                  className="block text-xs font-black text-zinc-900 dark:text-stone-100 mb-1 flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-1">
-                    <CreditCard className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
-                    <span>Limite de Cheque Especial (R$)</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Crédito Rotativo</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-black text-xs pointer-events-none select-none">
-                    R$
-                  </span>
-                  <input
-                    id="input-conta-cheque-especial"
-                    type="text"
-                    inputMode="numeric"
-                    value={overdraftInput}
-                    onChange={(e) => {
-                      const formatted = formatarMoeda(e.target.value);
-                      setOverdraftInput(formatted || '0,00');
-                    }}
-                    placeholder="0,00"
-                    className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                  />
-                </div>
-                <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium block mt-1">
-                  Limite concedido pelo banco para cobertura emergencial
-                </span>
-              </div>
-
-            </div>
-
-            {/* CARD DE PRÉ-VISUALIZAÇÃO: Saldo Total Disponível para Uso */}
-            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-stone-900/80 border border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400 block">
-                  Saldo Total Disponível para Uso
-                </span>
-                <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-stone-100 font-['Outfit'] tracking-tight">
-                  {formatCurrencyBRL(totalAvailable)}
-                </div>
-              </div>
-
-              <div className="text-xs text-zinc-600 dark:text-stone-400 font-medium sm:text-right border-t sm:border-t-0 pt-1.5 sm:pt-0 border-zinc-200 dark:border-stone-700">
-                <div className="flex sm:justify-end items-center gap-1.5 text-[11px]">
-                  <span>Saldo em Conta:</span>
-                  <strong className={numericBalance < 0 ? 'text-rose-700 font-bold' : 'text-zinc-900 dark:text-stone-100 font-bold'}>
-                    {formatCurrencyBRL(numericBalance)}
-                  </strong>
-                </div>
-                <div className="flex sm:justify-end items-center gap-1.5 text-[11px]">
-                  <span>+ Limite Especial:</span>
-                  <strong className="text-emerald-800 dark:text-emerald-400 font-bold">
-                    {formatCurrencyBRL(numericOverdraft)}
-                  </strong>
-                </div>
-                {numericBalance < 0 && numericOverdraft > 0 && (
-                  <span className="text-[10px] text-amber-800 dark:text-amber-400 font-bold block mt-0.5">
-                    ⚠️ Conta operando no cheque especial
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* BLOCO 4: Chave PIX Composta (Tipo + Input Mascarado) */}
-          <div className="bg-white dark:bg-stone-800 rounded-2xl p-4 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-2.5">
-            <label className="block text-xs font-black text-zinc-900 dark:text-stone-100 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <QrCode className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
-                <span>Chave PIX (Opcional)</span>
-              </span>
-              <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">
-                Para recebimentos e transferências rápidas
-              </span>
-            </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              {/* Select do Tipo de Chave */}
-              <div className="sm:col-span-4">
-                <select
-                  id="select-tipo-chave-pix"
-                  value={pixKeyType}
-                  onChange={(e) => handlePixTypeChange(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
-                >
-                  <option value="cpf">CPF (Pessoa Física)</option>
-                  <option value="cnpj">CNPJ (Pessoa Jurídica)</option>
-                  <option value="phone">Celular (Telefone)</option>
-                  <option value="email">E-mail</option>
-                  <option value="random">Chave Aleatória (EVP)</option>
-                </select>
-              </div>
-
-              {/* Input da Chave com Máscara Dinâmica */}
-              <div className="sm:col-span-8">
-                <input
-                  id="input-chave-pix"
-                  type={pixKeyType === 'email' ? 'email' : 'text'}
-                  value={pixKey}
-                  onChange={(e) => handlePixKeyChange(e.target.value)}
-                  placeholder={
-                    pixKeyType === 'cpf'
-                      ? '000.000.000-00'
-                      : pixKeyType === 'cnpj'
-                      ? '00.000.000/0000-00'
-                      : pixKeyType === 'phone'
-                      ? '(00) 00000-0000'
-                      : pixKeyType === 'email'
-                      ? 'financeiro@agro.com.br'
-                      : 'Cole ou digite a chave aleatória...'
-                  }
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* BLOCO 5: Cartões Corporativos Vinculados (Exatamente acima dos botões Cancelar / Atualizar) */}
-          <div 
-            id="bloco-cartoes-corporativos"
-            className="bg-white dark:bg-stone-800 rounded-2xl p-4 border border-zinc-200 dark:border-stone-700 shadow-xs space-y-3.5"
-          >
-            {/* Cabeçalho da Seção */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-zinc-200 dark:border-stone-700">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-stone-700 border border-zinc-200 dark:border-stone-600 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
-                  <CreditCard className="w-4 h-4 stroke-[2.5]" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>Cartões de Crédito Vinculados</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-stone-700 text-zinc-800 dark:text-stone-200 border border-zinc-200 dark:border-stone-600">
-                      {corporateCards.length}
+              {/* BLOCO 1: Identificação da Conta */}
+              <div className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+                <div className="w-full">
+                  <label 
+                    htmlFor="input-conta-nome" 
+                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                  >
+                    <span>
+                      Nome Identificador da Conta <span className="text-rose-600">*</span>
                     </span>
-                  </h4>
-                  <p className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium">
-                    Cartões corporativos com faturas quitadas através desta conta bancária
-                  </p>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
+                  </label>
+                  <input
+                    id="input-conta-nome"
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => {
+                      setValidationError('');
+                      setName(e.target.value);
+                    }}
+                    placeholder="Ex: Sicredi - Fazenda Sede"
+                    className="w-full px-3 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+                  />
                 </div>
               </div>
 
-              <button
-                type="button"
-                id="btn-adicionar-cartao-credito"
-                onClick={handleAddCard}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer active:scale-98 shrink-0 min-h-[34px]"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>+ Adicionar Cartão</span>
-              </button>
-            </div>
+              {/* BLOCO 2: Instituição Financeira & Dados Bancários */}
+              <div className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  {/* Instituição Financeira */}
+                  <div className="sm:col-span-7">
+                    <label className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between">
+                      <span>Instituição Financeira <span className="text-rose-600">*</span></span>
+                      <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Busca por código ou nome</span>
+                    </label>
+                    <BankCombobox
+                      value={bankName}
+                      bankCode={bankCode}
+                      onChange={handleBankChange}
+                    />
+                  </div>
 
-            {/* Banner de Feedback de Fechamento de Fatura */}
-            {cardNotification && (
-              <div className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 shadow-2xs animate-in fade-in ${
-                cardNotification.type === 'success' 
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900' 
-                  : 'bg-blue-50 border-blue-300 text-blue-900'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{cardNotification.message}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCardNotification(null)}
-                  className="text-stone-500 hover:text-stone-800 p-0.5 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-
-            {/* Listagem de Cartões ou Estado Vazio */}
-            {corporateCards.length === 0 ? (
-              <div className="text-center py-6 px-4 bg-zinc-50 dark:bg-stone-800/60 rounded-xl border border-dashed border-zinc-300 dark:border-stone-700">
-                <CreditCard className="w-8 h-8 text-zinc-400 dark:text-stone-500 mx-auto mb-1.5" />
-                <p className="text-xs font-black text-zinc-800 dark:text-stone-200">Nenhum cartão de crédito vinculado a esta conta bancária</p>
-                <p className="text-[11px] text-zinc-500 dark:text-stone-400 mt-0.5 max-w-md mx-auto">
-                  Vincule cartões corporativos de funcionários (Módulo RH) para gerenciar limites e automatizar o fechamento e provisionamento de faturas no Contas a Pagar.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleAddCard}
-                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 text-zinc-900 dark:text-stone-100" />
-                  <span>Vincular Primeiro Cartão</span>
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {corporateCards.map((card, index) => {
-                  const cardExpenses = getCardExpensesSum(card);
-                  const usedPercent = card.totalLimit > 0 ? Math.min(100, Math.round((card.usedLimit / card.totalLimit) * 100)) : 0;
-                  const availableLimit = Math.max(0, card.totalLimit - card.usedLimit);
-                  const nextDueDate = calculateDueDate(card.dueDay || 10);
-
-                  return (
-                    <div
-                      key={card.id || index}
-                      className="bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl p-3.5 space-y-3 shadow-2xs hover:border-zinc-400 dark:hover:border-stone-500 transition"
+                  {/* Tipo de Conta */}
+                  <div className="sm:col-span-5">
+                    <label htmlFor="select-tipo-conta" className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5">
+                      Tipo de Conta / Destinação
+                    </label>
+                    <select
+                      id="select-tipo-conta"
+                      value={accountType}
+                      onChange={(e) => setAccountType(e.target.value as any)}
+                      className="w-full px-3 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
                     >
-                      {/* Linha Superior: Identificador/Final e Botão Excluir */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-1">
-                          <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-stone-700 border border-zinc-200 dark:border-stone-600 flex items-center justify-center text-zinc-700 dark:text-stone-300 shrink-0">
-                            <CreditCard className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="flex-1 max-w-sm">
-                            <label className="block text-[10px] font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-0.5">
-                              Identificador / Final do Cartão
-                            </label>
-                            <input
-                              type="text"
-                              value={card.name}
-                              onChange={(e) => handleUpdateCard(card.id, { name: e.target.value })}
-                              placeholder="Ex: Visa Final 4321"
-                              className="w-full px-2.5 py-1 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                            />
-                          </div>
-                        </div>
+                      <option value="corrente">Conta Corrente (C.C.)</option>
+                      <option value="poupanca">Poupança Agro / Pessoal</option>
+                      <option value="aplicacao">Aplicação / Renda Fixa</option>
+                      <option value="caixa_fisico">Caixa Físico / Espécie Sede</option>
+                    </select>
+                  </div>
+                </div>
 
-                        <div className="flex items-center gap-1.5">
-                          {card.lastInvoiceProvisionedAt && (
-                            <span className="hidden sm:inline-block text-[10px] text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800 font-semibold">
-                              Última fatura: {formatDateBR(card.lastInvoiceProvisionedAt.split('T')[0])}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCard(card.id)}
-                            className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                            title="Excluir este Cartão"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
+                {/* Agência, Conta e Dígito (DV) */}
+                <div className="grid grid-cols-12 gap-2 pt-0.5">
+                  <div className="col-span-5 sm:col-span-4">
+                    <label htmlFor="input-conta-agencia" className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5">
+                      Agência
+                    </label>
+                    <input
+                      id="input-conta-agencia"
+                      type="text"
+                      value={agency}
+                      onChange={(e) => setAgency(e.target.value)}
+                      placeholder="Ex: 1234-5"
+                      className="w-full px-3 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                    />
+                  </div>
 
-                      {/* Grid de Campos Compactos */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                        
-                        {/* Funcionário Responsável: Dropdown com Módulo RH */}
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1 flex items-center gap-1">
-                            <UserCheck className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
-                            <span>Funcionário Responsável (Módulo RH)</span>
-                          </label>
-                          <select
-                            value={card.responsibleEmployeeId}
-                            onChange={(e) => {
-                              const emp = availableEmployees.find((x) => x.id === e.target.value);
-                              handleUpdateCard(card.id, {
-                                responsibleEmployeeId: e.target.value,
-                                responsibleEmployeeName: emp?.name || '',
-                              });
-                            }}
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
-                          >
-                            <option value="">-- Selecione o Funcionário Responsável --</option>
-                            {availableEmployees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name} {emp.role ? `(${emp.role})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                  <div className="col-span-5 sm:col-span-6">
+                    <label htmlFor="input-conta-numero" className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5">
+                      Número da Conta
+                    </label>
+                    <input
+                      id="input-conta-numero"
+                      type="text"
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      placeholder="Ex: 12345678"
+                      className="w-full px-3 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                    />
+                  </div>
 
-                        {/* Limite Total do Cartão (R$) com máscara monetária */}
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1">
-                            Limite Total (R$)
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 font-black text-[11px] pointer-events-none select-none">
-                              R$
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={card.totalLimit > 0 ? formatarMoeda(Math.round(card.totalLimit * 100)) : '0,00'}
-                              onChange={(e) => {
-                                const val = desformatarMoeda(e.target.value);
-                                handleUpdateCard(card.id, { totalLimit: val });
-                              }}
-                              placeholder="0,00"
-                              className="w-full pl-8 pr-2.5 py-1.5 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                            />
-                          </div>
-                        </div>
+                  <div className="col-span-2 sm:col-span-2">
+                    <label 
+                      htmlFor="input-conta-dv" 
+                      className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 truncate text-center"
+                      title="Dígito Verificador da Conta"
+                    >
+                      Dígito (DV)
+                    </label>
+                    <input
+                      id="input-conta-dv"
+                      type="text"
+                      maxLength={2}
+                      value={accountDigit}
+                      onChange={(e) => setAccountDigit(e.target.value.toUpperCase())}
+                      placeholder="X"
+                      className="w-full px-2 py-1.5 text-xs sm:text-sm font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs text-center font-mono uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
 
-                        {/* Limite Utilizado / Saldo Devedor Atual (R$) */}
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider mb-1 flex items-center justify-between">
-                            <span>Limite Utilizado (R$)</span>
-                            {cardExpenses > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateCard(card.id, { usedLimit: cardExpenses })}
-                                className="text-[9px] text-zinc-700 dark:text-stone-300 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                                title="Copiar soma de despesas lançadas no sistema para este titular/cartão"
-                              >
-                                <RefreshCw className="w-2.5 h-2.5" />
-                                <span>{formatCurrencyBRL(cardExpenses)}</span>
-                              </button>
-                            )}
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 font-black text-[11px] pointer-events-none select-none">
-                              R$
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={card.usedLimit > 0 ? formatarMoeda(Math.round(card.usedLimit * 100)) : '0,00'}
-                              onChange={(e) => {
-                                const val = desformatarMoeda(e.target.value);
-                                handleUpdateCard(card.id, { usedLimit: val });
-                              }}
-                              placeholder="0,00"
-                              className="w-full pl-8 pr-2.5 py-1.5 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                            />
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Linha de Vencimento, Barra de Progresso e Ação de Quitação Automática */}
-                      <div className="pt-2 border-t border-zinc-100 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                        
-                        {/* Dia de Vencimento da Fatura (Select de 1 a 31) */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase text-zinc-600 dark:text-stone-400 flex items-center gap-1 shrink-0">
-                            <Calendar className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
-                            <span>Vencimento da Fatura:</span>
-                          </span>
-                          <select
-                            value={card.dueDay || 10}
-                            onChange={(e) => handleUpdateCard(card.id, { dueDay: Number(e.target.value) })}
-                            className="px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer font-mono"
-                          >
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                              <option key={day} value={day}>
-                                Dia {String(day).padStart(2, '0')}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium">
-                            (Próx: {formatDateBR(nextDueDate)})
-                          </span>
-                        </div>
-
-                        {/* Botão de Fechamento da Fatura / Provisionamento no Contas a Pagar */}
+              {/* BLOCO 3: Valores, Saldo Inicial e Limite de Cheque Especial */}
+              <div className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Saldo Inicial / Atual */}
+                  <div>
+                    <label 
+                      htmlFor="input-conta-saldo" 
+                      className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                    >
+                      <span>Saldo Inicial / Atual (R$)</span>
+                      <div className="flex items-center space-x-1">
                         <button
                           type="button"
-                          onClick={() => handleCloseAndProvisionInvoice(card)}
-                          disabled={card.usedLimit <= 0}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition shadow-xs cursor-pointer active:scale-98 ${
-                            card.usedLimit > 0
-                              ? 'bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white'
-                              : 'bg-zinc-100 text-zinc-400 dark:bg-stone-800 dark:text-stone-500 border border-zinc-200 dark:border-stone-700 cursor-not-allowed'
+                          onClick={() => setIsNegativeBalance(!isNegativeBalance)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-tight transition cursor-pointer ${
+                            isNegativeBalance
+                              ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                              : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-stone-700 dark:text-stone-300'
                           }`}
-                          title={
-                            card.usedLimit > 0
-                              ? `Provisionar fatura de ${formatCurrencyBRL(card.usedLimit)} no Contas a Pagar com vencimento em ${formatDateBR(nextDueDate)}`
-                              : 'Não há limite utilizado para provisionar fatura'
-                          }
+                          title="Alternar entre saldo positivo e saldo negativo (devedor)"
                         >
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>Fechar Fatura & Provisionar</span>
+                          {isNegativeBalance ? '(-) Negativo' : '(+) Positivo'}
                         </button>
-
                       </div>
-
-                      {/* Barra Visual de Consumo do Limite */}
-                      <div className="space-y-1 pt-0.5">
-                        <div className="flex justify-between items-center text-[10px] font-semibold text-zinc-600 dark:text-stone-400">
-                          <span>
-                            Utilizado: <strong className="text-zinc-900 dark:text-stone-100 font-bold font-mono">{formatCurrencyBRL(card.usedLimit)}</strong> ({usedPercent}%)
-                          </span>
-                          <span>
-                            Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-bold font-mono">{formatCurrencyBRL(availableLimit)}</strong>
-                          </span>
-                        </div>
-                        <div className="w-full h-2 bg-zinc-100 dark:bg-stone-700 rounded-full overflow-hidden border border-zinc-200 dark:border-stone-600">
-                          <div
-                            className={`h-full transition-all duration-300 rounded-full ${
-                              usedPercent > 90
-                                ? 'bg-rose-500'
-                                : usedPercent > 70
-                                ? 'bg-amber-500'
-                                : 'bg-emerald-500'
-                            }`}
-                            style={{ width: `${usedPercent}%` }}
-                          />
-                        </div>
-                      </div>
-
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs pointer-events-none select-none">
+                        {isNegativeBalance ? '- R$' : 'R$'}
+                      </span>
+                      <input
+                        id="input-conta-saldo"
+                        type="text"
+                        inputMode="numeric"
+                        value={balanceInput}
+                        onChange={(e) => {
+                          const formatted = formatarMoeda(e.target.value);
+                          setBalanceInput(formatted || '0,00');
+                        }}
+                        className={`w-full pl-11 pr-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono ${
+                          isNegativeBalance ? 'text-rose-600' : 'text-zinc-900 dark:text-stone-100'
+                        }`}
+                      />
                     </div>
-                  );
-                })}
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium block mt-0.5">
+                      Saldo existente no extrato bancário desta conta
+                    </span>
+                  </div>
+
+                  {/* Limite de Cheque Especial (R$) */}
+                  <div>
+                    <label 
+                      htmlFor="input-conta-cheque-especial" 
+                      className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                    >
+                      <span className="flex items-center gap-1">
+                        <CreditCard className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
+                        <span>Limite de Cheque Especial (R$)</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Crédito Rotativo</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-xs pointer-events-none select-none">
+                        R$
+                      </span>
+                      <input
+                        id="input-conta-cheque-especial"
+                        type="text"
+                        inputMode="numeric"
+                        value={overdraftInput}
+                        onChange={(e) => {
+                          const formatted = formatarMoeda(e.target.value);
+                          setOverdraftInput(formatted || '0,00');
+                        }}
+                        placeholder="0,00"
+                        className="w-full pl-8 pr-2.5 py-1.5 text-xs sm:text-sm font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                      />
+                    </div>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium block mt-0.5">
+                      Limite concedido pelo banco para cobertura emergencial
+                    </span>
+                  </div>
+                </div>
+
+                {/* CARD DE PRÉ-VISUALIZAÇÃO: Saldo Total Disponível para Uso */}
+                <div className="p-2 sm:p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900/80 border border-zinc-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 shadow-2xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-stone-400 block">
+                      Saldo Total Disponível para Uso
+                    </span>
+                    <div className="text-base sm:text-lg font-black text-zinc-900 dark:text-stone-100 font-['Outfit'] tracking-tight leading-tight">
+                      {formatCurrencyBRL(totalAvailable)}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-zinc-600 dark:text-stone-400 font-medium sm:text-right border-t sm:border-t-0 pt-1 sm:pt-0 border-zinc-200 dark:border-stone-700">
+                    <div className="flex sm:justify-end items-center gap-1.5 text-[10px]">
+                      <span>Saldo em Conta:</span>
+                      <strong className={numericBalance < 0 ? 'text-rose-700 font-bold' : 'text-zinc-900 dark:text-stone-100 font-bold'}>
+                        {formatCurrencyBRL(numericBalance)}
+                      </strong>
+                    </div>
+                    <div className="flex sm:justify-end items-center gap-1.5 text-[10px]">
+                      <span>+ Limite Especial:</span>
+                      <strong className="text-emerald-800 dark:text-emerald-400 font-bold">
+                        {formatCurrencyBRL(numericOverdraft)}
+                      </strong>
+                    </div>
+                    {numericBalance < 0 && numericOverdraft > 0 && (
+                      <span className="text-[9px] text-amber-800 dark:text-amber-400 font-bold block mt-0.5">
+                        ⚠️ Operando no cheque especial
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* BLOCO 4: Chave PIX Composta (Tipo + Input Mascarado) */}
+              <div className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1.5">
+                <label className="block text-xs font-bold text-zinc-900 dark:text-stone-100 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
+                    <span>Chave PIX (Opcional)</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">
+                    Para recebimentos e transferências rápidas
+                  </span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-4">
+                    <select
+                      id="select-tipo-chave-pix"
+                      value={pixKeyType}
+                      onChange={(e) => handlePixTypeChange(e.target.value as any)}
+                      className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
+                    >
+                      <option value="cpf">CPF (Pessoa Física)</option>
+                      <option value="cnpj">CNPJ (Pessoa Jurídica)</option>
+                      <option value="phone">Celular (Telefone)</option>
+                      <option value="email">E-mail</option>
+                      <option value="random">Chave Aleatória (EVP)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-8">
+                    <input
+                      id="input-chave-pix"
+                      type={pixKeyType === 'email' ? 'email' : 'text'}
+                      value={pixKey}
+                      onChange={(e) => handlePixKeyChange(e.target.value)}
+                      placeholder={
+                        pixKeyType === 'cpf'
+                          ? '000.000.000-00'
+                          : pixKeyType === 'cnpj'
+                          ? '00.000.000/0000-00'
+                          : pixKeyType === 'phone'
+                          ? '(00) 00000-0000'
+                          : pixKeyType === 'email'
+                          ? 'financeiro@agro.com.br'
+                          : 'Cole ou digite a chave aleatória...'
+                      }
+                      className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* BLOCO 5 (AÇÃO DA COLUNA DA ESQUERDA): Cartões de Crédito Vinculados */}
+              <div 
+                id="bloco-cartoes-resumo-esquerda"
+                className="bg-white dark:bg-stone-800 rounded-xl p-2.5 sm:p-3 border border-zinc-200 dark:border-stone-700 shadow-2xs flex items-center justify-between gap-3 mt-auto"
+              >
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
+                    <CreditCard className="w-4 h-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <span>Cartões de Crédito Corporativos</span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                        {corporateCards.length}
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium">
+                      {corporateCards.length === 0
+                        ? 'Nenhum cartão cadastrado. Clique ao lado para vincular.'
+                        : `${corporateCards.length} cartão(ões) físico(s) simulado(s) à direita`}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-adicionar-cartao-coluna-esquerda"
+                  onClick={handleAddCard}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 shrink-0 min-h-[32px]"
+                  title="Adicionar Cartão Corporativo à lista"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>+ Adicionar Cartão</span>
+                </button>
+              </div>
+
+            </div>
+
+            {/* ======================================================== */}
+            {/* COLUNA DA DIREITA (40% da Largura): MOCKUPS DOS CARTÕES */}
+            {/* ======================================================== */}
+            <div 
+              id="painel-cartoes-corporativos"
+              className="lg:col-span-5 flex flex-col bg-zinc-50/70 dark:bg-stone-900/50 overflow-y-auto p-3.5 sm:p-4 space-y-3"
+            >
+              {/* Cabeçalho do Painel Lateral de Cartões */}
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-stone-700 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600/10 dark:bg-emerald-400/10 border border-emerald-600/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <CreditCard className="w-4 h-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-zinc-900 dark:text-stone-100 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Cartões Corporativos Vinculados</span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                        {corporateCards.length}
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 dark:text-stone-400 font-medium">
+                      Simulação física e gestão de faturas
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-adicionar-cartao-coluna-direita"
+                  onClick={handleAddCard}
+                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 shrink-0 min-h-[30px]"
+                >
+                  <Plus className="w-3 h-3 stroke-[3]" />
+                  <span>+ Adicionar</span>
+                </button>
+              </div>
+
+              {/* Resumo de Limites dos Cartões */}
+              {corporateCards.length > 0 && (
+                <div className="grid grid-cols-3 gap-1.5 p-2 rounded-lg bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 shadow-2xs text-center shrink-0">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-zinc-500 dark:text-stone-400 block">Limite Total</span>
+                    <strong className="text-xs font-black text-zinc-900 dark:text-stone-100 font-mono">
+                      {formatCurrencyBRL(totalCardsLimit)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-zinc-500 dark:text-stone-400 block">Utilizado</span>
+                    <strong className="text-xs font-black text-zinc-800 dark:text-stone-200 font-mono">
+                      {formatCurrencyBRL(totalCardsUsed)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">Disponível</span>
+                    <strong className="text-xs font-black text-emerald-700 dark:text-emerald-400 font-mono">
+                      {formatCurrencyBRL(totalCardsAvailable)}
+                    </strong>
+                  </div>
+                </div>
+              )}
+
+              {/* Banner de Feedback de Fechamento de Fatura */}
+              {cardNotification && (
+                <div className={`p-2 rounded-lg border text-xs font-bold flex items-center justify-between gap-2 shadow-2xs animate-in fade-in shrink-0 ${
+                  cardNotification.type === 'success' 
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900' 
+                    : 'bg-blue-50 border-blue-300 text-blue-900'
+                }`}>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{cardNotification.message}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCardNotification(null)}
+                    className="text-stone-500 hover:text-stone-800 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Listagem de Cartões ou Estado Vazio */}
+              {corporateCards.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-white/70 dark:bg-stone-800/40 rounded-xl border border-dashed border-zinc-300 dark:border-stone-700 my-auto">
+                  <div className="w-14 h-10 rounded-lg border-2 border-dashed border-zinc-300 dark:border-stone-600 flex items-center justify-center text-zinc-400 dark:text-stone-500 mb-2">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-stone-200">
+                    Nenhum cartão corporativo vinculado
+                  </p>
+                  <p className="text-[11px] text-zinc-500 dark:text-stone-400 mt-1 max-w-xs leading-relaxed">
+                    Clique em <strong>+ Adicionar Cartão</strong> para visualizar o mockup físico realista e vincular o cartão ao funcionário responsável.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddCard}
+                    className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer active:scale-98"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Vincular Primeiro Cartão</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {corporateCards.map((card, index) => {
+                    const cardExpenses = getCardExpensesSum(card);
+                    const usedPercent = card.totalLimit > 0 ? Math.min(100, Math.round((card.usedLimit / card.totalLimit) * 100)) : 0;
+                    const availableLimit = Math.max(0, card.totalLimit - card.usedLimit);
+                    const nextDueDate = calculateDueDate(card.dueDay || 10);
+
+                    return (
+                      <div
+                        key={card.id || index}
+                        className="bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl p-3 space-y-3 shadow-xs hover:border-zinc-400 dark:hover:border-stone-500 transition animate-in fade-in slide-in-from-right-4 duration-300"
+                      >
+                        {/* 1. MOCKUP FÍSICO REALISTA DO CARTÃO */}
+                        <CorporateCardMockup 
+                          card={card}
+                          bankName={bankName}
+                          bankCode={bankCode}
+                        />
+
+                        {/* 2. CONTROLES E CAMPOS DE GESTÃO DO CARTÃO */}
+                        <div className="space-y-2.5 pt-1">
+                          {/* Linha: Identificador/Final e Bandeira + Botão Excluir */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="grid grid-cols-2 gap-2 flex-1">
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                  Bandeira
+                                </label>
+                                <select
+                                  value={card.brand || (card.name.toLowerCase().includes('visa') ? 'visa' : 'mastercard')}
+                                  onChange={(e) => {
+                                    const newBrand = e.target.value as any;
+                                    const brandLabel = newBrand === 'visa' ? 'Visa' : newBrand === 'elo' ? 'Elo' : 'Mastercard';
+                                    const digits = card.last4 || card.name.match(/\d{4}/)?.[0] || '0000';
+                                    handleUpdateCard(card.id, {
+                                      brand: newBrand,
+                                      name: `${brandLabel} Final ${digits}`,
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer"
+                                >
+                                  <option value="mastercard">Mastercard</option>
+                                  <option value="visa">Visa</option>
+                                  <option value="elo">Elo</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                  Identificador / Final
+                                </label>
+                                <input
+                                  type="text"
+                                  value={card.name}
+                                  onChange={(e) => {
+                                    const newName = e.target.value;
+                                    const matchDigits = newName.match(/\d{4}/)?.[0];
+                                    handleUpdateCard(card.id, { 
+                                      name: newName,
+                                      ...(matchDigits ? { last4: matchDigits } : {})
+                                    });
+                                  }}
+                                  placeholder="Ex: Mastercard Final 4587"
+                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0 pt-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCard(card.id)}
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                                title="Excluir este Cartão"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Funcionário Responsável: Dropdown com Módulo RH */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center gap-1">
+                              <UserCheck className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
+                              <span>Funcionário Responsável (Módulo RH)</span>
+                            </label>
+                            <select
+                              value={card.responsibleEmployeeId}
+                              onChange={(e) => {
+                                const emp = availableEmployees.find((x) => x.id === e.target.value);
+                                handleUpdateCard(card.id, {
+                                  responsibleEmployeeId: e.target.value,
+                                  responsibleEmployeeName: emp?.name || '',
+                                });
+                              }}
+                              className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
+                            >
+                              <option value="">-- Selecione o Funcionário Responsável --</option>
+                              {availableEmployees.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                  {emp.name} {emp.role ? `(${emp.role})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Grid: Limite Total e Limite Utilizado */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                Limite Total (R$)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
+                                  R$
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={card.totalLimit > 0 ? formatarMoeda(Math.round(card.totalLimit * 100)) : '0,00'}
+                                  onChange={(e) => {
+                                    const val = desformatarMoeda(e.target.value);
+                                    handleUpdateCard(card.id, { totalLimit: val });
+                                  }}
+                                  placeholder="0,00"
+                                  className="w-full pl-7 pr-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
+                                <span>Limite Utilizado (R$)</span>
+                                {cardExpenses > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateCard(card.id, { usedLimit: cardExpenses })}
+                                    className="text-[9px] text-zinc-700 dark:text-stone-300 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                                    title="Copiar soma de despesas abertas no sistema"
+                                  >
+                                    <RefreshCw className="w-2.5 h-2.5" />
+                                    <span>{formatCurrencyBRL(cardExpenses)}</span>
+                                  </button>
+                                )}
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
+                                  R$
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={card.usedLimit > 0 ? formatarMoeda(Math.round(card.usedLimit * 100)) : '0,00'}
+                                  onChange={(e) => {
+                                    const val = desformatarMoeda(e.target.value);
+                                    handleUpdateCard(card.id, { usedLimit: val });
+                                  }}
+                                  placeholder="0,00"
+                                  className="w-full pl-7 pr-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Vencimento e Botão de Provisionamento */}
+                          <div className="pt-1.5 border-t border-zinc-100 dark:border-stone-700 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 flex items-center gap-1 shrink-0">
+                                <Calendar className="w-3 h-3 text-zinc-500" />
+                                <span>Venc.:</span>
+                              </span>
+                              <select
+                                value={card.dueDay || 10}
+                                onChange={(e) => handleUpdateCard(card.id, { dueDay: Number(e.target.value) })}
+                                className="px-1.5 py-0.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-md focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer font-mono"
+                              >
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                  <option key={day} value={day}>
+                                    Dia {String(day).padStart(2, '0')}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCloseAndProvisionInvoice(card)}
+                              disabled={card.usedLimit <= 0}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 ${
+                                card.usedLimit > 0
+                                  ? 'bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white'
+                                  : 'bg-zinc-100 text-zinc-400 dark:bg-stone-800 dark:text-stone-500 border border-zinc-200 dark:border-stone-700 cursor-not-allowed'
+                              }`}
+                              title={
+                                card.usedLimit > 0
+                                  ? `Provisionar fatura de ${formatCurrencyBRL(card.usedLimit)} no Contas a Pagar`
+                                  : 'Não há limite utilizado para provisionar fatura'
+                              }
+                            >
+                              <Zap className="w-3 h-3" />
+                              <span>Fechar Fatura</span>
+                            </button>
+                          </div>
+
+                          {/* Barra de Consumo do Limite */}
+                          <div className="space-y-0.5 pt-0.5">
+                            <div className="flex justify-between items-center text-[10px] text-zinc-600 dark:text-stone-400">
+                              <span>
+                                Utilizado: <strong className="text-zinc-900 dark:text-stone-100 font-bold font-mono">{formatCurrencyBRL(card.usedLimit)}</strong> ({usedPercent}%)
+                              </span>
+                              <span>
+                                Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-bold font-mono">{formatCurrencyBRL(availableLimit)}</strong>
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-zinc-100 dark:bg-stone-700 rounded-full overflow-hidden border border-zinc-200 dark:border-stone-600">
+                              <div
+                                className={`h-full transition-all duration-300 rounded-full ${
+                                  usedPercent > 90
+                                    ? 'bg-rose-500'
+                                    : usedPercent > 70
+                                    ? 'bg-amber-500'
+                                    : 'bg-emerald-500'
+                                }`}
+                                style={{ width: `${usedPercent}%` }}
+                              />
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </div>
 
-          {/* RODAPÉ DO MODAL: Botões de Ação */}
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-zinc-200 dark:border-stone-800 shrink-0">
-            <button
-              type="button"
-              id="btn-cancelar-modal-conta"
-              onClick={onClose}
-              className="px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[40px]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              id="btn-salvar-conta-bancaria"
-              className="px-6 py-2.5 text-xs sm:text-sm font-black rounded-xl bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[40px]"
-            >
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span>{editingAccount ? 'Atualizar Conta' : 'Salvar Conta'}</span>
-            </button>
+          {/* RODAPÉ DO MODAL: Ações e Resumo Geral */}
+          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-stone-800 bg-white dark:bg-stone-900 shrink-0">
+            <div className="hidden sm:flex items-center space-x-3 text-xs text-zinc-500 dark:text-stone-400 font-medium">
+              <span>Saldo: <strong className={numericBalance < 0 ? 'text-rose-600 font-bold' : 'text-zinc-900 dark:text-stone-100 font-bold'}>{formatCurrencyBRL(numericBalance)}</strong></span>
+              <span>•</span>
+              <span>Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrencyBRL(totalAvailable)}</strong></span>
+              <span>•</span>
+              <span>Cartões: <strong className="text-zinc-900 dark:text-stone-100 font-bold">{corporateCards.length}</strong></span>
+            </div>
+
+            <div className="flex items-center space-x-2 ml-auto">
+              <button
+                type="button"
+                id="btn-cancelar-modal-conta"
+                onClick={onClose}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-50 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[34px]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                id="btn-salvar-conta-bancaria"
+                className="px-5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[34px]"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <span>{editingAccount ? 'Atualizar Conta' : 'Salvar Conta'}</span>
+              </button>
+            </div>
           </div>
 
         </form>
