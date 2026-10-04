@@ -596,60 +596,60 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
 
                 {/* Dados da Base e Ações Integradas */}
                 <div className="pt-1 border-t border-black/5 dark:border-white/5 space-y-1">
-                  {acc && ((acc.agency || acc.accountNumber) || acc.pixKey || (acc.corporateCards && acc.corporateCards.length > 0)) && (
-                    <div className="space-y-0.5 text-[9px] text-stone-600 leading-tight">
-                      {(acc.agency || acc.accountNumber) && (
-                        <div className="flex justify-between items-center gap-1">
-                          <span className="text-stone-400 font-medium text-[8.5px]">Ag/Conta:</span>
-                          <span className="font-bold font-mono text-stone-800 text-[9.5px] truncate">
-                            {acc.agency ? `Ag: ${acc.agency}` : ''} 
-                            {acc.agency && acc.accountNumber ? ' | ' : ''}
-                            {acc.accountNumber ? `CC: ${acc.accountNumber}${acc.accountDigit ? `-${acc.accountDigit}` : ''}` : ''}
-                          </span>
+                  <div className="space-y-0.5 text-[9px] text-stone-600 dark:text-stone-300 leading-tight">
+                    {/* Linha do Titular com Logotipo Discreto e Nítido */}
+                    <div className="flex justify-between items-center gap-1.5">
+                      <span className="text-stone-400 font-medium text-[8.5px] shrink-0">Titular:</span>
+                      <div className="flex items-center gap-1.5 truncate min-w-0">
+                        <div 
+                          className="w-4 h-4 rounded shrink-0 overflow-hidden flex items-center justify-center p-0.5 shadow-2xs"
+                          style={{ backgroundColor: theme.accentBar }}
+                        >
+                          <BankLogoIcon code={safeBankCode} name={safeBankName} size={15} className="text-white" />
                         </div>
-                      )}
-
-                      {acc.responsavel_conta_nome && (
-                        <div className="flex justify-between items-center gap-1.5">
-                          <span className="text-stone-400 font-medium text-[8.5px] shrink-0">Titular:</span>
-                          <div className="flex items-center gap-1 truncate min-w-0">
-                            <div 
-                              className="w-3.5 h-3.5 rounded shrink-0 overflow-hidden flex items-center justify-center p-0.2 shadow-2xs"
-                              style={{ backgroundColor: theme.accentBar }}
-                            >
-                              <BankLogoIcon code={safeBankCode} name={safeBankName} size={14} className="text-white" />
-                            </div>
-                            <span className="font-bold text-stone-800 text-[9.5px] truncate" title={acc.responsavel_conta_nome}>
-                              {acc.responsavel_conta_nome}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {acc.pixKey && (
-                        <div className="flex justify-between items-center gap-1">
-                          <span className="text-stone-400 font-medium text-[8.5px] shrink-0">
-                            PIX{acc.pixKeyType ? ` (${String(acc.pixKeyType).toUpperCase()})` : ''}:
-                          </span>
-                          <span className="font-mono text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 truncate max-w-[140px]" title={acc.pixKey}>
-                            {acc.pixKey}
-                          </span>
-                        </div>
-                      )}
-
-                      {acc.corporateCards && Array.isArray(acc.corporateCards) && acc.corporateCards.length > 0 && (
-                        <div className="flex justify-between items-center gap-1">
-                          <span className="text-purple-700 font-medium text-[8.5px] flex items-center gap-1">
-                            <CreditCard className="w-2.5 h-2.5 text-purple-600" />
-                            <span>{acc.corporateCards.length} {acc.corporateCards.length === 1 ? 'Cartão' : 'Cartões'}:</span>
-                          </span>
-                          <span className="font-mono text-[8.5px] font-bold text-purple-900 bg-purple-50 px-1 py-0.2 rounded border border-purple-200">
-                            {formatCurrencyBRL(acc.corporateCards.reduce((s, c) => s + (c && typeof c.usedLimit === 'number' ? c.usedLimit : 0), 0))} util.
-                          </span>
-                        </div>
-                      )}
+                        <span 
+                          className="font-bold text-stone-800 dark:text-stone-100 text-[9.5px] truncate" 
+                          title={acc?.responsavel_conta_nome || acc?.accountName || safeAccName}
+                        >
+                          {acc?.responsavel_conta_nome || acc?.accountName || safeAccName}
+                        </span>
+                      </div>
                     </div>
-                  )}
+
+                    {(acc?.agency || acc?.accountNumber) && (
+                      <div className="flex justify-between items-center gap-1">
+                        <span className="text-stone-400 font-medium text-[8.5px]">Ag/Conta:</span>
+                        <span className="font-bold font-mono text-stone-800 dark:text-stone-200 text-[9.5px] truncate">
+                          {acc.agency ? `Ag: ${acc.agency}` : ''} 
+                          {acc.agency && acc.accountNumber ? ' | ' : ''}
+                          {acc.accountNumber ? `CC: ${acc.accountNumber}${acc.accountDigit ? `-${acc.accountDigit}` : ''}` : ''}
+                        </span>
+                      </div>
+                    )}
+
+                    {acc?.pixKey && (
+                      <div className="flex justify-between items-center gap-1">
+                        <span className="text-stone-400 font-medium text-[8.5px] shrink-0">
+                          PIX{acc.pixKeyType ? ` (${String(acc.pixKeyType).toUpperCase()})` : ''}:
+                        </span>
+                        <span className="font-mono text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 truncate max-w-[140px]" title={acc.pixKey}>
+                          {acc.pixKey}
+                        </span>
+                      </div>
+                    )}
+
+                    {acc?.corporateCards && Array.isArray(acc.corporateCards) && acc.corporateCards.length > 0 && (
+                      <div className="flex justify-between items-center gap-1">
+                        <span className="text-purple-700 font-medium text-[8.5px] flex items-center gap-1">
+                          <CreditCard className="w-2.5 h-2.5 text-purple-600" />
+                          <span>{acc.corporateCards.length} {acc.corporateCards.length === 1 ? 'Cartão' : 'Cartões'}:</span>
+                        </span>
+                        <span className="font-mono text-[8.5px] font-bold text-purple-900 bg-purple-50 px-1 py-0.2 rounded border border-purple-200">
+                          {formatCurrencyBRL(acc.corporateCards.reduce((s, c) => s + (c && typeof c.usedLimit === 'number' ? c.usedLimit : 0), 0))} util.
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Barra de Ações Integrada */}
                   <div className="flex items-center justify-between pt-0.5">
