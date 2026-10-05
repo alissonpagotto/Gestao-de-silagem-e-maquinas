@@ -382,6 +382,77 @@ export interface FrotasSubPermissions {
   pneus?: boolean;        // [ ] Rodízio de Pneus
 }
 
+export interface FinanceiroSubPermissions {
+  dre?: boolean;                  // [ ] Consolidado (DRE)
+  despesas?: boolean;             // [ ] Despesas
+  contas_bancarias?: boolean;     // [ ] Contas Bancárias
+  a_pagar?: boolean;              // [ ] A Pagar
+  a_receber?: boolean;            // [ ] A Receber
+  acertos_terceiros?: boolean;    // [ ] Acertos Terceiros
+  acertos_agenciadores?: boolean; // [ ] Acertos Agenciadores
+  exportar?: boolean;             // [ ] Exportar
+}
+
+export interface NotasSubPermissions {
+  historico?: boolean;            // [ ] Histórico de Notas e Entradas
+  importar_xml?: boolean;         // [ ] Importar XML (Carregar Arquivos)
+  nova_entrada?: boolean;         // [ ] Nova Entrada Manual
+  acoes_avancadas?: boolean;      // [ ] Ações Avançadas (Editar / Excluir)
+}
+
+export interface RhSubPermissions {
+  dashboard?: boolean;            // [ ] Dashboard RH
+  funcionarios?: boolean;         // [ ] Funcionários
+  folha?: boolean;                // [ ] Folha de Pagamento
+  ferias?: boolean;               // [ ] Férias
+  afastamentos?: boolean;         // [ ] Afastamentos
+  adiantamentos?: boolean;        // [ ] Adiantamentos
+  atestados?: boolean;            // [ ] Atestados
+  faltas?: boolean;               // [ ] Faltas
+  rescisao?: boolean;             // [ ] Rescisão
+}
+
+export interface RelatoriosSubPermissions {
+  dashboard?: boolean;            // [ ] Dashboard Consolidado
+  resumo_geral?: boolean;         // [ ] Resumo Geral
+  ativo_imobilizado?: boolean;    // [ ] Ativo Imobilizado
+  exportar_excel?: boolean;       // [ ] Exportar Excel
+  cortes?: boolean;               // [ ] Cortes
+  vendas?: boolean;               // [ ] Vendas
+  despesas?: boolean;             // [ ] Despesas
+  consumo?: boolean;              // [ ] Consumo
+}
+
+export interface ClientesSubPermissions {
+  lista?: boolean;                // [ ] Lista de Clientes (Tabela)
+  kanban?: boolean;               // [ ] Funil Kanban
+  novo_cliente?: boolean;         // [ ] + Novo Cliente (Cadastrar)
+  acoes_avancadas?: boolean;      // [ ] Ações Avançadas (Editar / Excluir)
+}
+
+export interface FornecedoresSubPermissions {
+  lista?: boolean;                // [ ] Lista de Fornecedores (Visualizar)
+  novo_fornecedor?: boolean;      // [ ] + Cadastrar Fornecedor
+  acoes_avancadas?: boolean;      // [ ] Ações Avançadas (Editar / Excluir)
+}
+
+export interface CadastrosBaseSubPermissions {
+  centros_custo?: boolean;        // [ ] Centros de Custo
+  plano_contas?: boolean;         // [ ] Plano de Contas & Formas
+  cargos_permissoes?: boolean;    // [ ] Cargos, Setores & Permissões
+}
+
+export interface EmpresaSubPermissions {
+  identificacao?: boolean;        // [ ] 1. Identificação (CNPJ/Razão)
+  localizacao?: boolean;          // [ ] 2. Localização & Endereço
+  contatos?: boolean;             // [ ] 3. Contatos & Representante Legal
+  enquadramento_fiscal?: boolean; // [ ] 4. Enquadramento Fiscal
+  chaves_pix?: boolean;           // [ ] 5. Chaves PIX Oficiais
+  gestao_socios?: boolean;        // [ ] 6. Gestão de Sócios & QSA
+  identidade_visual?: boolean;    // [ ] 7. Logos & Identidade Visual
+  bancarios?: boolean;            // compatibilidade com dados bancários anteriores
+}
+
 export interface RolePermissions {
   financeiro: boolean; // Acesso ao Módulo Financeiro (Bancos, Saldos, DRE)
   frotas: boolean;     // Acesso ao Módulo de Gestão de Frotas & Veículos
@@ -389,8 +460,23 @@ export interface RolePermissions {
   estoque: boolean;    // Acesso ao Módulo de Estoque / Almoxarifado / Notas Fiscais
   empresa: boolean;    // Acesso à tela "Minha Empresa" (Configurações cadastrais)
   servicos?: boolean;  // Acesso ao Módulo de Serviços Agrícolas (Agenda, Corte, Colheita, etc.)
-  sub_servicos?: ServicesSubPermissions; // Sub-permissões por aba de Serviços
-  sub_frotas?: FrotasSubPermissions;     // Sub-permissões por aba de Frotas
+  notas?: boolean;     // Acesso ao Módulo Notas e Entradas
+  relatorios?: boolean;// Acesso ao Módulo Relatórios
+  clientes?: boolean;  // Acesso ao Módulo Clientes
+  fornecedores?: boolean; // Acesso ao Módulo Fornecedores
+  cadastros_base?: boolean; // Acesso ao Módulo Cadastros Base
+
+  // Sub-permissões granulares
+  sub_servicos?: ServicesSubPermissions;
+  sub_frotas?: FrotasSubPermissions;
+  sub_financeiro?: FinanceiroSubPermissions;
+  sub_notas?: NotasSubPermissions;
+  sub_rh?: RhSubPermissions;
+  sub_relatorios?: RelatoriosSubPermissions;
+  sub_clientes?: ClientesSubPermissions;
+  sub_fornecedores?: FornecedoresSubPermissions;
+  sub_cadastros?: CadastrosBaseSubPermissions;
+  sub_empresa?: EmpresaSubPermissions;
 }
 
 export interface CargoPermissao {

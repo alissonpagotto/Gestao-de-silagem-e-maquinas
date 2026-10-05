@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users, 
   FileText, 
@@ -13,7 +13,8 @@ import {
   CalendarX2,
   UserX,
   Printer,
-  Plus
+  Plus,
+  Lock
 } from 'lucide-react';
 import { 
   Employee, 
@@ -64,6 +65,7 @@ import { FaltasTab } from './FaltasTab';
 import { RescisaoTab } from './RescisaoTab';
 import { PayslipModal } from './PayslipModal';
 import { EmployeesModule } from '../employees/EmployeesModule';
+import { hasRhSubPermission } from '../../lib/cadastrosBaseStorage';
 
 interface RHModuleProps {
   employees: Employee[];
@@ -119,7 +121,31 @@ export const RHModule: React.FC<RHModuleProps> = ({
   onSaveAbsences,
   onNavigateToEmployees,
 }) => {
-  const [activeTab, setActiveTab] = useState<RHTabType>(initialSubTab || 'dashboard');
+  const allowedRhTabs = useMemo<RHTabType[]>(() => {
+    const list: RHTabType[] = [];
+    if (hasRhSubPermission('dashboard')) list.push('dashboard');
+    if (hasRhSubPermission('funcionarios')) list.push('funcionarios');
+    if (hasRhSubPermission('folha')) list.push('folha');
+    if (hasRhSubPermission('ferias')) list.push('ferias');
+    if (hasRhSubPermission('afastamentos')) list.push('afastamentos');
+    if (hasRhSubPermission('adiantamentos')) list.push('adiantamentos');
+    if (hasRhSubPermission('atestados')) list.push('atestados');
+    if (hasRhSubPermission('faltas')) list.push('faltas');
+    if (hasRhSubPermission('rescisao')) list.push('rescisao');
+    return list.length > 0 ? list : ['dashboard'];
+  }, []);
+
+  const [activeTab, setActiveTab] = useState<RHTabType>(() => {
+    if (initialSubTab && allowedRhTabs.includes(initialSubTab)) return initialSubTab;
+    return allowedRhTabs[0] || 'dashboard';
+  });
+
+  useEffect(() => {
+    if (allowedRhTabs.length > 0 && !allowedRhTabs.includes(activeTab)) {
+      setActiveTab(allowedRhTabs[0]);
+    }
+  }, [allowedRhTabs, activeTab]);
+
   const [tabRefreshEpoch, setTabRefreshEpoch] = useState<number>(0);
   const [currentMonthRef, setCurrentMonthRef] = useState<string>('09/2026');
 
@@ -488,130 +514,193 @@ export const RHModule: React.FC<RHModuleProps> = ({
       <div className="no-print crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-xl border border-blue-200/80 dark:border-stone-800 p-1 sm:p-1.5 flex items-center space-x-1 sm:space-x-1.5 overflow-x-auto shadow-xs">
         
         {/* Aba 1: Dashboard */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('dashboard')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'dashboard'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-          <span>Dashboard</span>
-        </button>
+        {hasRhSubPermission('dashboard') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('dashboard')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'dashboard'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Dashboard</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Dashboard (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 2: Funcionários */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('funcionarios')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'funcionarios'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <UserSquare2 className="w-3.5 h-3.5" />
-          <span>Funcionários</span>
-        </button>
+        {hasRhSubPermission('funcionarios') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('funcionarios')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'funcionarios'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <UserSquare2 className="w-3.5 h-3.5" />
+            <span>Funcionários</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Funcionários (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 3: Folha de Pagamento */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('folha')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'folha'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Folha de Pagamento</span>
-        </button>
+        {hasRhSubPermission('folha') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('folha')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'folha'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Folha de Pagamento</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Folha (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 4: Férias */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('ferias')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'ferias'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Férias</span>
-        </button>
+        {hasRhSubPermission('ferias') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('ferias')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'ferias'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Férias</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Férias (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 5: Afastamentos */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('afastamentos')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'afastamentos'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <AlertCircle className="w-3.5 h-3.5" />
-          <span>Afastamentos</span>
-        </button>
+        {hasRhSubPermission('afastamentos') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('afastamentos')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'afastamentos'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>Afastamentos</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Afastamentos (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 6: Adiantamentos */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('adiantamentos')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'adiantamentos'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <DollarSign className="w-3.5 h-3.5" />
-          <span>Adiantamentos</span>
-        </button>
+        {hasRhSubPermission('adiantamentos') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('adiantamentos')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'adiantamentos'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <DollarSign className="w-3.5 h-3.5" />
+            <span>Adiantamentos</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Adiantamentos (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 7: Atestados (Nova Aba RH) */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('atestados')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'atestados'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <FileHeart className="w-3.5 h-3.5" />
-          <span>Atestados</span>
-        </button>
+        {hasRhSubPermission('atestados') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('atestados')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'atestados'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <FileHeart className="w-3.5 h-3.5" />
+            <span>Atestados</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Atestados (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 8: Faltas (Nova Aba RH) */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('faltas')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'faltas'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <CalendarX2 className="w-3.5 h-3.5" />
-          <span>Faltas</span>
-        </button>
+        {hasRhSubPermission('faltas') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('faltas')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'faltas'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <CalendarX2 className="w-3.5 h-3.5" />
+            <span>Faltas</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Faltas (Bloqueado)</span>
+          </div>
+        )}
 
         {/* Aba 9: Rescisão (Nova Aba RH) */}
-        <button
-          type="button"
-          onClick={() => handleTabChange('rescisao')}
-          className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'rescisao'
-              ? 'bg-sky-600 text-white shadow-xs'
-              : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
-          }`}
-        >
-          <UserX className="w-3.5 h-3.5" />
-          <span>Rescisão</span>
-        </button>
+        {hasRhSubPermission('rescisao') ? (
+          <button
+            type="button"
+            onClick={() => handleTabChange('rescisao')}
+            className={`inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'rescisao'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-blue-100/70 dark:bg-stone-800 text-black dark:text-stone-300 hover:bg-blue-100 dark:hover:bg-stone-700'
+            }`}
+          >
+            <UserX className="w-3.5 h-3.5" />
+            <span>Rescisão</span>
+          </button>
+        ) : (
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100/40 dark:bg-stone-850 text-slate-500 opacity-60 select-none">
+            <Lock className="w-3 h-3 text-slate-500" />
+            <span>Rescisão (Bloqueado)</span>
+          </div>
+        )}
 
       </div>
 

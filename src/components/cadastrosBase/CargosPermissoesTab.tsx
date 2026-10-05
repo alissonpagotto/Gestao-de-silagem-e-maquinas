@@ -30,9 +30,46 @@ import {
   Square,
   ShieldCheck,
   LayoutGrid,
-  List
+  List,
+  FileText,
+  FileSpreadsheet,
+  BarChart2,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Handshake,
+  Download,
+  Scissors,
+  ShoppingCart,
+  Fuel,
+  UserSquare2,
+  Calendar,
+  AlertCircle,
+  FileHeart,
+  CalendarX2,
+  UserX,
+  Database,
+  MapPin,
+  Phone,
+  CreditCard,
+  LayoutDashboard,
+  Receipt,
+  UserCheck
 } from 'lucide-react';
-import { CargoPermissao, RolePermissions, Employee, ServicesSubPermissions, FrotasSubPermissions } from '../../types';
+import { 
+  CargoPermissao, 
+  RolePermissions, 
+  Employee, 
+  ServicesSubPermissions, 
+  FrotasSubPermissions,
+  FinanceiroSubPermissions,
+  NotasSubPermissions,
+  RhSubPermissions,
+  RelatoriosSubPermissions,
+  ClientesSubPermissions,
+  FornecedoresSubPermissions,
+  CadastrosBaseSubPermissions,
+  EmpresaSubPermissions
+} from '../../types';
 import { 
   getStoredCargosPermissoes, 
   saveStoredCargosPermissoes, 
@@ -41,6 +78,7 @@ import {
 } from '../../lib/cadastrosBaseStorage';
 import { getStoredEmployees, saveStoredEmployees } from '../../lib/storage';
 import { CargoEmployeesModal } from './CargoEmployeesModal';
+import { CargoSubPermissionsEditor } from './CargoSubPermissionsEditor';
 
 const SETORES_DISPONIVEIS = [
   'DIRETORIA & ADMINISTRATIVO',
@@ -51,6 +89,19 @@ const SETORES_DISPONIVEIS = [
   'RECURSOS HUMANOS'
 ];
 
+export type ModuleKeyFocus = 
+  | 'financeiro'
+  | 'notas'
+  | 'rh'
+  | 'relatorios'
+  | 'clientes'
+  | 'fornecedores'
+  | 'cadastros'
+  | 'empresa'
+  | 'servicos'
+  | 'frotas'
+  | 'all';
+
 const DEFAULT_FORM_PERMISSOES: RolePermissions = {
   financeiro: false,
   frotas: true,
@@ -58,6 +109,11 @@ const DEFAULT_FORM_PERMISSOES: RolePermissions = {
   estoque: false,
   empresa: false,
   servicos: true,
+  notas: false,
+  relatorios: false,
+  clientes: false,
+  fornecedores: false,
+  cadastros_base: false,
   sub_servicos: {
     agenda: true,
     corte: true,
@@ -75,6 +131,69 @@ const DEFAULT_FORM_PERMISSOES: RolePermissions = {
     combustivel: true,
     manutencoes: true,
     pneus: true,
+  },
+  sub_financeiro: {
+    dre: true,
+    despesas: true,
+    contas_bancarias: true,
+    a_pagar: true,
+    a_receber: true,
+    acertos_terceiros: true,
+    acertos_agenciadores: true,
+    exportar: true,
+  },
+  sub_notas: {
+    historico: true,
+    importar_xml: true,
+    nova_entrada: true,
+    acoes_avancadas: true,
+  },
+  sub_rh: {
+    dashboard: true,
+    funcionarios: true,
+    folha: true,
+    ferias: true,
+    afastamentos: true,
+    adiantamentos: true,
+    atestados: true,
+    faltas: true,
+    rescisao: true,
+  },
+  sub_relatorios: {
+    dashboard: true,
+    resumo_geral: true,
+    ativo_imobilizado: true,
+    exportar_excel: true,
+    cortes: true,
+    vendas: true,
+    despesas: true,
+    consumo: true,
+  },
+  sub_clientes: {
+    lista: true,
+    kanban: true,
+    novo_cliente: true,
+    acoes_avancadas: true,
+  },
+  sub_fornecedores: {
+    lista: true,
+    novo_fornecedor: true,
+    acoes_avancadas: true,
+  },
+  sub_cadastros: {
+    centros_custo: true,
+    plano_contas: true,
+    cargos_permissoes: true,
+  },
+  sub_empresa: {
+    identificacao: true,
+    localizacao: true,
+    contatos: true,
+    enquadramento_fiscal: true,
+    chaves_pix: true,
+    gestao_socios: true,
+    identidade_visual: true,
+    bancarios: true,
   },
 };
 
@@ -95,6 +214,7 @@ export const CargosPermissoesTab: React.FC = () => {
   const [selectedCargoId, setSelectedCargoId] = useState<string | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [editorSearchTerm, setEditorSearchTerm] = useState('');
+  const [activeModuleFocus, setActiveModuleFocus] = useState<ModuleKeyFocus>('financeiro');
 
   // Modal Slim de Colaboradores
   const [selectedCargoForEmployees, setSelectedCargoForEmployees] = useState<CargoPermissao | null>(null);
@@ -220,24 +340,21 @@ export const CargosPermissoesTab: React.FC = () => {
       estoque: Boolean(cargo.permissoes?.estoque),
       empresa: Boolean(cargo.permissoes?.empresa),
       servicos: cargo.permissoes?.servicos !== undefined ? Boolean(cargo.permissoes.servicos) : true,
-      sub_servicos: cargo.permissoes?.sub_servicos || {
-        agenda: true,
-        corte: true,
-        colheita: true,
-        trator: true,
-        maquina: true,
-        frete: true,
-        orcamento: true,
-      },
-      sub_frotas: cargo.permissoes?.sub_frotas || {
-        painel: true,
-        veiculos: true,
-        motoristas: true,
-        equipes: true,
-        combustivel: true,
-        manutencoes: true,
-        pneus: true,
-      },
+      notas: cargo.permissoes?.notas !== undefined ? Boolean(cargo.permissoes.notas) : Boolean(cargo.permissoes?.estoque),
+      relatorios: cargo.permissoes?.relatorios !== undefined ? Boolean(cargo.permissoes.relatorios) : true,
+      clientes: cargo.permissoes?.clientes !== undefined ? Boolean(cargo.permissoes.clientes) : true,
+      fornecedores: cargo.permissoes?.fornecedores !== undefined ? Boolean(cargo.permissoes.fornecedores) : true,
+      cadastros_base: cargo.permissoes?.cadastros_base !== undefined ? Boolean(cargo.permissoes.cadastros_base) : true,
+      sub_servicos: cargo.permissoes?.sub_servicos || { ...DEFAULT_FORM_PERMISSOES.sub_servicos },
+      sub_frotas: cargo.permissoes?.sub_frotas || { ...DEFAULT_FORM_PERMISSOES.sub_frotas },
+      sub_financeiro: cargo.permissoes?.sub_financeiro || { ...DEFAULT_FORM_PERMISSOES.sub_financeiro },
+      sub_notas: cargo.permissoes?.sub_notas || { ...DEFAULT_FORM_PERMISSOES.sub_notas },
+      sub_rh: cargo.permissoes?.sub_rh || { ...DEFAULT_FORM_PERMISSOES.sub_rh },
+      sub_relatorios: cargo.permissoes?.sub_relatorios || { ...DEFAULT_FORM_PERMISSOES.sub_relatorios },
+      sub_clientes: cargo.permissoes?.sub_clientes || { ...DEFAULT_FORM_PERMISSOES.sub_clientes },
+      sub_fornecedores: cargo.permissoes?.sub_fornecedores || { ...DEFAULT_FORM_PERMISSOES.sub_fornecedores },
+      sub_cadastros: cargo.permissoes?.sub_cadastros || { ...DEFAULT_FORM_PERMISSOES.sub_cadastros },
+      sub_empresa: cargo.permissoes?.sub_empresa || { ...DEFAULT_FORM_PERMISSOES.sub_empresa },
     });
     setFormError('');
   };
@@ -266,44 +383,82 @@ export const CargosPermissoesTab: React.FC = () => {
     setFormError('');
   };
 
-  // Manipulador de Toggle de Permissão Principal
+  // Manipulador de Toggle de Permissão Principal com Foco Instantâneo na Coluna 3
   const atualizarPermissao = (modulo: keyof RolePermissions, valor: boolean) => {
     setPermissoes(prev => {
       const next = { ...prev, [modulo]: valor };
-      if (modulo === 'servicos' && valor && !next.sub_servicos) {
-        next.sub_servicos = {
-          agenda: true, corte: true, colheita: true, trator: true, maquina: true, frete: true, orcamento: true,
-        };
-      }
-      if (modulo === 'frotas' && valor && !next.sub_frotas) {
-        next.sub_frotas = {
-          painel: true, veiculos: true, motoristas: true, equipes: true, combustivel: true, manutencoes: true, pneus: true,
-        };
+      if (modulo === 'notas') {
+        next.estoque = valor;
+      } else if (modulo === 'estoque') {
+        next.notas = valor;
       }
       return next;
     });
+    // Foca instantaneamente o painel da Coluna 3 para exibir as sub-permissões daquele módulo
+    if (modulo === 'financeiro') setActiveModuleFocus('financeiro');
+    else if (modulo === 'notas' || modulo === 'estoque') setActiveModuleFocus('notas');
+    else if (modulo === 'rh') setActiveModuleFocus('rh');
+    else if (modulo === 'relatorios') setActiveModuleFocus('relatorios');
+    else if (modulo === 'clientes') setActiveModuleFocus('clientes');
+    else if (modulo === 'fornecedores') setActiveModuleFocus('fornecedores');
+    else if (modulo === 'cadastros_base') setActiveModuleFocus('cadastros');
+    else if (modulo === 'empresa') setActiveModuleFocus('empresa');
+    else if (modulo === 'servicos') setActiveModuleFocus('servicos');
+    else if (modulo === 'frotas') setActiveModuleFocus('frotas');
   };
 
-  // Manipulador de Sub-permissão de Serviços
+  // Manipulador universal de sub-permissão
+  const toggleSubPermissao = (
+    modulo: 'sub_financeiro' | 'sub_notas' | 'sub_rh' | 'sub_relatorios' | 'sub_clientes' | 'sub_fornecedores' | 'sub_cadastros' | 'sub_empresa' | 'sub_servicos' | 'sub_frotas',
+    subKey: string,
+    valor: boolean
+  ) => {
+    setPermissoes(prev => ({
+      ...prev,
+      [modulo]: {
+        ...(prev[modulo] as any || {}),
+        [subKey]: valor
+      }
+    }));
+  };
+
+  // Botões rápidos: Marcar Todas / Desmarcar
+  const setAllSubPermissionsForModule = (
+    modulo: 'sub_financeiro' | 'sub_notas' | 'sub_rh' | 'sub_relatorios' | 'sub_clientes' | 'sub_fornecedores' | 'sub_cadastros' | 'sub_empresa' | 'sub_servicos' | 'sub_frotas',
+    valor: boolean
+  ) => {
+    const keysMap: Record<string, string[]> = {
+      sub_financeiro: ['dre', 'despesas', 'contas_bancarias', 'a_pagar', 'a_receber', 'acertos_terceiros', 'acertos_agenciadores', 'exportar'],
+      sub_notas: ['historico', 'importar_xml', 'nova_entrada', 'acoes_avancadas'],
+      sub_rh: ['dashboard', 'funcionarios', 'folha', 'ferias', 'afastamentos', 'adiantamentos', 'atestados', 'faltas', 'rescisao'],
+      sub_relatorios: ['dashboard', 'resumo_geral', 'ativo_imobilizado', 'exportar_excel', 'cortes', 'vendas', 'despesas', 'consumo'],
+      sub_clientes: ['lista', 'kanban', 'novo_cliente', 'acoes_avancadas'],
+      sub_fornecedores: ['lista', 'novo_fornecedor', 'acoes_avancadas'],
+      sub_cadastros: ['centros_custo', 'plano_contas', 'cargos_permissoes'],
+      sub_empresa: ['identificacao', 'localizacao', 'contatos', 'enquadramento_fiscal', 'chaves_pix', 'gestao_socios', 'identidade_visual'],
+      sub_servicos: ['agenda', 'corte', 'colheita', 'trator', 'maquina', 'frete', 'orcamento'],
+      sub_frotas: ['painel', 'veiculos', 'motoristas', 'equipes', 'combustivel', 'manutencoes', 'pneus'],
+    };
+
+    const keys = keysMap[modulo] || [];
+    const updatedSub: Record<string, boolean> = {};
+    keys.forEach(k => {
+      updatedSub[k] = valor;
+    });
+
+    setPermissoes(prev => ({
+      ...prev,
+      [modulo]: updatedSub
+    }));
+  };
+
+  // Manipuladores de compatibilidade
   const atualizarSubServico = (subKey: keyof ServicesSubPermissions, valor: boolean) => {
-    setPermissoes(prev => ({
-      ...prev,
-      sub_servicos: {
-        ...(prev.sub_servicos || {}),
-        [subKey]: valor,
-      },
-    }));
+    toggleSubPermissao('sub_servicos', subKey, valor);
   };
 
-  // Manipulador de Sub-permissão de Frotas
   const atualizarSubFrota = (subKey: keyof FrotasSubPermissions, valor: boolean) => {
-    setPermissoes(prev => ({
-      ...prev,
-      sub_frotas: {
-        ...(prev.sub_frotas || {}),
-        [subKey]: valor,
-      },
-    }));
+    toggleSubPermissao('sub_frotas', subKey, valor);
   };
 
   // Salvar Cargo (Criação ou Edição) e Retornar à Tabela Geral
@@ -437,14 +592,54 @@ export const CargosPermissoesTab: React.FC = () => {
 
   // Contadores de sub-permissões ativas no editor
   const activeSubServicosCount = useMemo(() => {
-    if (!permissoes.servicos || !permissoes.sub_servicos) return 0;
+    if (!permissoes.sub_servicos) return 0;
     return Object.values(permissoes.sub_servicos).filter(Boolean).length;
-  }, [permissoes.servicos, permissoes.sub_servicos]);
+  }, [permissoes.sub_servicos]);
 
   const activeSubFrotasCount = useMemo(() => {
-    if (!permissoes.frotas || !permissoes.sub_frotas) return 0;
+    if (!permissoes.sub_frotas) return 0;
     return Object.values(permissoes.sub_frotas).filter(Boolean).length;
-  }, [permissoes.frotas, permissoes.sub_frotas]);
+  }, [permissoes.sub_frotas]);
+
+  const activeSubFinanceiroCount = useMemo(() => {
+    if (!permissoes.sub_financeiro) return 0;
+    return Object.values(permissoes.sub_financeiro).filter(Boolean).length;
+  }, [permissoes.sub_financeiro]);
+
+  const activeSubNotasCount = useMemo(() => {
+    if (!permissoes.sub_notas) return 0;
+    return Object.values(permissoes.sub_notas).filter(Boolean).length;
+  }, [permissoes.sub_notas]);
+
+  const activeSubRhCount = useMemo(() => {
+    if (!permissoes.sub_rh) return 0;
+    return Object.values(permissoes.sub_rh).filter(Boolean).length;
+  }, [permissoes.sub_rh]);
+
+  const activeSubRelatoriosCount = useMemo(() => {
+    if (!permissoes.sub_relatorios) return 0;
+    return Object.values(permissoes.sub_relatorios).filter(Boolean).length;
+  }, [permissoes.sub_relatorios]);
+
+  const activeSubClientesCount = useMemo(() => {
+    if (!permissoes.sub_clientes) return 0;
+    return Object.values(permissoes.sub_clientes).filter(Boolean).length;
+  }, [permissoes.sub_clientes]);
+
+  const activeSubFornecedoresCount = useMemo(() => {
+    if (!permissoes.sub_fornecedores) return 0;
+    return Object.values(permissoes.sub_fornecedores).filter(Boolean).length;
+  }, [permissoes.sub_fornecedores]);
+
+  const activeSubCadastrosCount = useMemo(() => {
+    if (!permissoes.sub_cadastros) return 0;
+    return Object.values(permissoes.sub_cadastros).filter(Boolean).length;
+  }, [permissoes.sub_cadastros]);
+
+  const activeSubEmpresaCount = useMemo(() => {
+    if (!permissoes.sub_empresa) return 0;
+    return Object.values(permissoes.sub_empresa).filter(Boolean).length;
+  }, [permissoes.sub_empresa]);
 
   // Estilo de badge do setor
   const getSectorBadgeStyle = (setorName?: string) => {
@@ -1176,6 +1371,7 @@ export const CargosPermissoesTab: React.FC = () => {
                       {/* 1. Módulo Serviços */}
                       <label 
                         htmlFor="modal-toggle-servicos"
+                        onClick={() => setActiveModuleFocus('servicos')}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.servicos
                             ? 'bg-teal-50/90 dark:bg-teal-950/40 border-teal-400 dark:border-teal-600 shadow-xs ring-1 ring-teal-400/30'
@@ -1218,6 +1414,7 @@ export const CargosPermissoesTab: React.FC = () => {
                       {/* 2. Módulo Frotas & Veículos */}
                       <label 
                         htmlFor="modal-toggle-frotas"
+                        onClick={() => setActiveModuleFocus('frotas')}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.frotas
                             ? 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 shadow-xs ring-1 ring-blue-400/30'
@@ -1260,6 +1457,7 @@ export const CargosPermissoesTab: React.FC = () => {
                       {/* 3. Módulo Financeiro */}
                       <label 
                         htmlFor="modal-toggle-financeiro"
+                        onClick={() => setActiveModuleFocus('financeiro')}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.financeiro
                             ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-400/30'
@@ -1299,9 +1497,53 @@ export const CargosPermissoesTab: React.FC = () => {
                         </div>
                       </label>
 
-                      {/* 4. Recursos Humanos */}
+                      {/* 4. Módulo Notas e Entradas */}
+                      <label 
+                        htmlFor="modal-toggle-notas"
+                        onClick={() => setActiveModuleFocus('notas')}
+                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                          permissoes.notas || permissoes.estoque
+                            ? 'bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-600 shadow-xs ring-1 ring-indigo-400/30'
+                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.notas || permissoes.estoque ? 'bg-indigo-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                            <Receipt className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                              <span className="truncate">Acesso ao Módulo Notas e Entradas</span>
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                                permissoes.notas || permissoes.estoque ? 'bg-indigo-200 text-indigo-900' : 'bg-zinc-200 text-zinc-600'
+                              }`}>
+                                {permissoes.notas || permissoes.estoque ? 'Liberado' : 'Bloqueado'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                              Histórico, Importação XML, Entradas Manuais e Ações
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative inline-flex items-center shrink-0">
+                          <input
+                            type="checkbox"
+                            id="modal-toggle-notas"
+                            checked={Boolean(permissoes.notas || permissoes.estoque)}
+                            onChange={(e) => atualizarPermissao('notas', e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.notas || permissoes.estoque ? 'bg-indigo-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.notas || permissoes.estoque ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* 5. Recursos Humanos - RH */}
                       <label 
                         htmlFor="modal-toggle-rh"
+                        onClick={() => setActiveModuleFocus('rh')}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.rh
                             ? 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-xs ring-1 ring-purple-400/30'
@@ -1322,7 +1564,7 @@ export const CargosPermissoesTab: React.FC = () => {
                               </span>
                             </div>
                             <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
-                              Folha de Pagamento, Férias, Faltas e Atestados
+                              Dashboard, Funcionários, Folha, Férias, Afastamentos, Rescisão
                             </div>
                           </div>
                         </div>
@@ -1341,30 +1583,31 @@ export const CargosPermissoesTab: React.FC = () => {
                         </div>
                       </label>
 
-                      {/* 5. Estoque & Almoxarifado */}
+                      {/* 6. Módulo Relatórios */}
                       <label 
-                        htmlFor="modal-toggle-estoque"
+                        htmlFor="modal-toggle-relatorios"
+                        onClick={() => setActiveModuleFocus('relatorios')}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
-                          permissoes.estoque
-                            ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600 shadow-xs ring-1 ring-amber-400/30'
+                          permissoes.relatorios
+                            ? 'bg-sky-50/90 dark:bg-sky-950/40 border-sky-400 dark:border-sky-600 shadow-xs ring-1 ring-sky-400/30'
                             : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 pr-2 min-w-0">
-                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.estoque ? 'bg-amber-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
-                            <Package className="w-3.5 h-3.5" />
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.relatorios ? 'bg-sky-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                            <FileSpreadsheet className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                              <span className="truncate">Estoque & Almoxarifado</span>
+                              <span className="truncate">Acesso ao Módulo Relatórios</span>
                               <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
-                                permissoes.estoque ? 'bg-amber-200 text-amber-900' : 'bg-zinc-200 text-zinc-600'
+                                permissoes.relatorios ? 'bg-sky-200 text-sky-900' : 'bg-zinc-200 text-zinc-600'
                               }`}>
-                                {permissoes.estoque ? 'Liberado' : 'Bloqueado'}
+                                {permissoes.relatorios ? 'Liberado' : 'Bloqueado'}
                               </span>
                             </div>
                             <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
-                              Produtos, Insumos e Lançamento de NF-e
+                              Dashboards, Resumo Geral, Ativo Imobilizado e Cortes
                             </div>
                           </div>
                         </div>
@@ -1372,20 +1615,150 @@ export const CargosPermissoesTab: React.FC = () => {
                         <div className="relative inline-flex items-center shrink-0">
                           <input
                             type="checkbox"
-                            id="modal-toggle-estoque"
-                            checked={Boolean(permissoes.estoque)}
-                            onChange={(e) => atualizarPermissao('estoque', e.target.checked)}
+                            id="modal-toggle-relatorios"
+                            checked={Boolean(permissoes.relatorios)}
+                            onChange={(e) => atualizarPermissao('relatorios', e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.estoque ? 'bg-amber-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
-                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.estoque ? 'translate-x-4' : 'translate-x-0'}`} />
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.relatorios ? 'bg-sky-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.relatorios ? 'translate-x-4' : 'translate-x-0'}`} />
                           </div>
                         </div>
                       </label>
 
-                      {/* 6. Dados da Empresa */}
+                      {/* 7. Módulo Clientes */}
+                      <label 
+                        htmlFor="modal-toggle-clientes"
+                        onClick={() => setActiveModuleFocus('clientes')}
+                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                          permissoes.clientes
+                            ? 'bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-400 dark:border-cyan-600 shadow-xs ring-1 ring-cyan-400/30'
+                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.clientes ? 'bg-cyan-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                            <Users className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                              <span className="truncate">Acesso ao Módulo Clientes</span>
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                                permissoes.clientes ? 'bg-cyan-200 text-cyan-900' : 'bg-zinc-200 text-zinc-600'
+                              }`}>
+                                {permissoes.clientes ? 'Liberado' : 'Bloqueado'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                              Lista de Clientes, Funil Kanban e Novos Cadastros
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative inline-flex items-center shrink-0">
+                          <input
+                            type="checkbox"
+                            id="modal-toggle-clientes"
+                            checked={Boolean(permissoes.clientes)}
+                            onChange={(e) => atualizarPermissao('clientes', e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.clientes ? 'bg-cyan-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.clientes ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* 8. Módulo Fornecedores */}
+                      <label 
+                        htmlFor="modal-toggle-fornecedores"
+                        onClick={() => setActiveModuleFocus('fornecedores')}
+                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                          permissoes.fornecedores
+                            ? 'bg-orange-50/90 dark:bg-orange-950/40 border-orange-400 dark:border-orange-600 shadow-xs ring-1 ring-orange-400/30'
+                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.fornecedores ? 'bg-orange-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                            <Truck className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                              <span className="truncate">Acesso ao Módulo Fornecedores</span>
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                                permissoes.fornecedores ? 'bg-orange-200 text-orange-900' : 'bg-zinc-200 text-zinc-600'
+                              }`}>
+                                {permissoes.fornecedores ? 'Liberado' : 'Bloqueado'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                              Lista de Fornecedores, Cadastros e Edições
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative inline-flex items-center shrink-0">
+                          <input
+                            type="checkbox"
+                            id="modal-toggle-fornecedores"
+                            checked={Boolean(permissoes.fornecedores)}
+                            onChange={(e) => atualizarPermissao('fornecedores', e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.fornecedores ? 'bg-orange-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.fornecedores ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* 9. Módulo Cadastros Base */}
+                      <label 
+                        htmlFor="modal-toggle-cadastros"
+                        onClick={() => setActiveModuleFocus('cadastros')}
+                        className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                          permissoes.cadastros_base
+                            ? 'bg-violet-50/90 dark:bg-violet-950/40 border-violet-400 dark:border-violet-600 shadow-xs ring-1 ring-violet-400/30'
+                            : 'bg-zinc-50 dark:bg-stone-850 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.cadastros_base ? 'bg-violet-600 text-white' : 'bg-zinc-200 dark:bg-stone-800 text-zinc-500'}`}>
+                            <Database className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                              <span className="truncate">Acesso ao Módulo Cadastros Base</span>
+                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                                permissoes.cadastros_base ? 'bg-violet-200 text-violet-900' : 'bg-zinc-200 text-zinc-600'
+                              }`}>
+                                {permissoes.cadastros_base ? 'Liberado' : 'Bloqueado'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                              Centros de Custo, Plano de Contas e Cargos
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative inline-flex items-center shrink-0">
+                          <input
+                            type="checkbox"
+                            id="modal-toggle-cadastros"
+                            checked={Boolean(permissoes.cadastros_base)}
+                            onChange={(e) => atualizarPermissao('cadastros_base', e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.cadastros_base ? 'bg-violet-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.cadastros_base ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* 10. Dados da Empresa */}
                       <label 
                         htmlFor="modal-toggle-empresa"
+                        onClick={() => setActiveModuleFocus('empresa')}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
                           permissoes.empresa
                             ? 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-400 dark:border-rose-600 shadow-xs ring-1 ring-rose-400/30'
@@ -1398,7 +1771,7 @@ export const CargosPermissoesTab: React.FC = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                              <span className="truncate">Dados da Empresa</span>
+                              <span className="truncate">Acesso a Dados da Empresa</span>
                               <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
                                 permissoes.empresa ? 'bg-rose-200 text-rose-900' : 'bg-zinc-200 text-zinc-600'
                               }`}>
@@ -1406,7 +1779,7 @@ export const CargosPermissoesTab: React.FC = () => {
                               </span>
                             </div>
                             <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
-                              Configurações cadastrais, CNPJ e Razão Social
+                              Identificação, Localização, Contatos, PIX e Sócios
                             </div>
                           </div>
                         </div>
@@ -1477,7 +1850,7 @@ export const CargosPermissoesTab: React.FC = () => {
                           3. Sub-permissões por Tela
                         </h4>
                         <p className="text-[11px] text-zinc-500 dark:text-stone-400 truncate">
-                          Controle granular por tela e aba interna
+                          Controle granular por tela e funcionalidade
                         </p>
                       </div>
                     </div>
@@ -1487,284 +1860,14 @@ export const CargosPermissoesTab: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="space-y-3.5 max-h-[66vh] overflow-y-auto pr-1 custom-scrollbar">
-                    {/* Bloco 1: Sub-permissões do Módulo Serviços */}
-                    {permissoes.servicos ? (
-                      <div className="rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50/30 dark:bg-teal-950/20 p-3 space-y-2.5 animate-in fade-in duration-150">
-                        <div className="flex items-center justify-between pb-1.5 border-b border-teal-200/80 dark:border-teal-800/60">
-                          <div className="flex items-center space-x-2">
-                            <Tractor className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                            <span className="text-xs font-black text-teal-950 dark:text-teal-200 uppercase">
-                              Módulo de Serviços
-                            </span>
-                          </div>
-
-                          <div className="flex items-center space-x-2 text-[10px] font-bold">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPermissoes(prev => ({
-                                  ...prev,
-                                  sub_servicos: {
-                                    agenda: true, corte: true, colheita: true, trator: true, maquina: true, frete: true, orcamento: true,
-                                  },
-                                }));
-                              }}
-                              className="text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
-                            >
-                              Marcar Todas
-                            </button>
-                            <span className="text-teal-400">|</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPermissoes(prev => ({
-                                  ...prev,
-                                  sub_servicos: {
-                                    agenda: false, corte: false, colheita: false, trator: false, maquina: false, frete: false, orcamento: false,
-                                  },
-                                }));
-                              }}
-                              className="text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
-                            >
-                              Desmarcar
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="text-[10px] text-teal-800 dark:text-teal-300 leading-tight">
-                          Selecione quais telas operacionais o cargo poderá visualizar e registrar:
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.agenda !== false}
-                              onChange={(e) => atualizarSubServico('agenda', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Agenda de Serviços</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.corte !== false}
-                              onChange={(e) => atualizarSubServico('corte', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Corte</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.colheita !== false}
-                              onChange={(e) => atualizarSubServico('colheita', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Colheita</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.trator !== false}
-                              onChange={(e) => atualizarSubServico('trator', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Serviço de Trator</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.maquina !== false}
-                              onChange={(e) => atualizarSubServico('maquina', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Serviço de Máquina</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.frete !== false}
-                              onChange={(e) => atualizarSubServico('frete', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Serviço de Frete</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 cursor-pointer select-none sm:col-span-2">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_servicos?.orcamento !== false}
-                              onChange={(e) => atualizarSubServico('orcamento', e.target.checked)}
-                              className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Orçamento</span>
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-3 rounded-xl border border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-850 text-zinc-500 dark:text-stone-400 text-xs flex items-start space-x-2.5">
-                        <Tractor className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-                        <div>
-                          <strong className="block text-zinc-700 dark:text-stone-300">Serviços Bloqueado</strong>
-                          <p className="text-[11px] text-zinc-500 mt-0.5">
-                            Ative a chave "Acesso ao Módulo Serviços" na coluna central para liberar e configurar as sub-telas operacionais.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Bloco 2: Sub-permissões do Módulo Frotas & Veículos */}
-                    {permissoes.frotas ? (
-                      <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-950/20 p-3 space-y-2.5 animate-in fade-in duration-150">
-                        <div className="flex items-center justify-between pb-1.5 border-b border-blue-200/80 dark:border-blue-800/60">
-                          <div className="flex items-center space-x-2">
-                            <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                            <span className="text-xs font-black text-blue-950 dark:text-blue-200 uppercase">
-                              Gestão de Frotas & Veículos
-                            </span>
-                          </div>
-
-                          <div className="flex items-center space-x-2 text-[10px] font-bold">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPermissoes(prev => ({
-                                  ...prev,
-                                  sub_frotas: {
-                                    painel: true, veiculos: true, motoristas: true, equipes: true, combustivel: true, manutencoes: true, pneus: true,
-                                  },
-                                }));
-                              }}
-                              className="text-blue-700 dark:text-blue-300 hover:underline cursor-pointer"
-                            >
-                              Marcar Todas
-                            </button>
-                            <span className="text-blue-400">|</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPermissoes(prev => ({
-                                  ...prev,
-                                  sub_frotas: {
-                                    painel: false, veiculos: false, motoristas: false, equipes: false, combustivel: false, manutencoes: false, pneus: false,
-                                  },
-                                }));
-                              }}
-                              className="text-blue-700 dark:text-blue-300 hover:underline cursor-pointer"
-                            >
-                              Desmarcar
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="text-[10px] text-blue-800 dark:text-blue-300 leading-tight">
-                          Selecione quais telas do módulo de frotas o cargo poderá operar:
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.painel !== false}
-                              onChange={(e) => atualizarSubFrota('painel', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Painel Frotas</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.veiculos !== false}
-                              onChange={(e) => atualizarSubFrota('veiculos', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Veículos</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.motoristas !== false}
-                              onChange={(e) => atualizarSubFrota('motoristas', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Motoristas</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.equipes !== false}
-                              onChange={(e) => atualizarSubFrota('equipes', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Equipes</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.combustivel !== false}
-                              onChange={(e) => atualizarSubFrota('combustivel', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Combustível</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.manutencoes !== false}
-                              onChange={(e) => atualizarSubFrota('manutencoes', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Manutenções</span>
-                          </label>
-
-                          <label className="flex items-center space-x-2 p-1.5 rounded-lg bg-white dark:bg-stone-900 border border-blue-200/80 dark:border-blue-900/60 hover:border-blue-400 cursor-pointer select-none sm:col-span-2">
-                            <input
-                              type="checkbox"
-                              checked={permissoes.sub_frotas?.pneus !== false}
-                              onChange={(e) => atualizarSubFrota('pneus', e.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className="text-[11px] font-semibold text-zinc-900 dark:text-stone-200">Rodízio de Pneus</span>
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-3 rounded-xl border border-zinc-200 dark:border-stone-800 bg-zinc-50 dark:bg-stone-850 text-zinc-500 dark:text-stone-400 text-xs flex items-start space-x-2.5">
-                        <Truck className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-                        <div>
-                          <strong className="block text-zinc-700 dark:text-stone-300">Frotas Bloqueado</strong>
-                          <p className="text-[11px] text-zinc-500 mt-0.5">
-                            Ative a chave "Acesso a Frotas & Veículos" na coluna central para liberar e configurar os itens de veículos e manutenções.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Resumo Granular */}
-                    <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 text-[11px] text-indigo-950 dark:text-indigo-300 space-y-1">
-                      <div className="font-extrabold flex items-center space-x-1.5">
-                        <Info className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                        <span>Resumo das Sub-telas Ativas:</span>
-                      </div>
-                      <p className="text-[10px] text-indigo-800/80 dark:text-indigo-300/80">
-                        • Serviços: <strong>{activeSubServicosCount}</strong> de 7 telas ativas.
-                        <br />
-                        • Frotas: <strong>{activeSubFrotasCount}</strong> de 7 telas ativas.
-                      </p>
-                    </div>
-                  </div>
+                  <CargoSubPermissionsEditor
+                    permissoes={permissoes}
+                    activeModuleFocus={activeModuleFocus}
+                    onSelectModuleFocus={setActiveModuleFocus}
+                    onToggleSubPermissao={toggleSubPermissao}
+                    onSetAllSubPermissions={setAllSubPermissionsForModule}
+                    onActivateModulo={(mod) => atualizarPermissao(mod, true)}
+                  />
                 </div>
 
               </div>

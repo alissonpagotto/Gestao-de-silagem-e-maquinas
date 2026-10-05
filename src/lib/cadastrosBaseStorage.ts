@@ -25,6 +25,11 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
   estoque: true,
   empresa: true,
   servicos: true,
+  notas: true,
+  relatorios: true,
+  clientes: true,
+  fornecedores: true,
+  cadastros_base: true,
   sub_servicos: {
     agenda: true,
     corte: true,
@@ -42,6 +47,69 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
     combustivel: true,
     manutencoes: true,
     pneus: true,
+  },
+  sub_financeiro: {
+    dre: true,
+    despesas: true,
+    contas_bancarias: true,
+    a_pagar: true,
+    a_receber: true,
+    acertos_terceiros: true,
+    acertos_agenciadores: true,
+    exportar: true,
+  },
+  sub_notas: {
+    historico: true,
+    importar_xml: true,
+    nova_entrada: true,
+    acoes_avancadas: true,
+  },
+  sub_rh: {
+    dashboard: true,
+    funcionarios: true,
+    folha: true,
+    ferias: true,
+    afastamentos: true,
+    adiantamentos: true,
+    atestados: true,
+    faltas: true,
+    rescisao: true,
+  },
+  sub_relatorios: {
+    dashboard: true,
+    resumo_geral: true,
+    ativo_imobilizado: true,
+    exportar_excel: true,
+    cortes: true,
+    vendas: true,
+    despesas: true,
+    consumo: true,
+  },
+  sub_clientes: {
+    lista: true,
+    kanban: true,
+    novo_cliente: true,
+    acoes_avancadas: true,
+  },
+  sub_fornecedores: {
+    lista: true,
+    novo_fornecedor: true,
+    acoes_avancadas: true,
+  },
+  sub_cadastros: {
+    centros_custo: true,
+    plano_contas: true,
+    cargos_permissoes: true,
+  },
+  sub_empresa: {
+    identificacao: true,
+    localizacao: true,
+    contatos: true,
+    enquadramento_fiscal: true,
+    chaves_pix: true,
+    gestao_socios: true,
+    identidade_visual: true,
+    bancarios: true,
   },
 };
 
@@ -704,6 +772,134 @@ export function hasFleetSubPermission(
   if (session.permissions && session.permissions.frotas === false) return false;
   if (session.permissions?.sub_frotas && typeof session.permissions.sub_frotas[subKey] === 'boolean') {
     return session.permissions.sub_frotas[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Financeiro
+ */
+export function hasFinanceiroSubPermission(
+  subKey: keyof import('../types').FinanceiroSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.financeiro === false) return false;
+  if (session.permissions?.sub_financeiro && typeof session.permissions.sub_financeiro[subKey] === 'boolean') {
+    return session.permissions.sub_financeiro[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Notas e Entradas
+ */
+export function hasNotasSubPermission(
+  subKey: keyof import('../types').NotasSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && (session.permissions.notas === false || session.permissions.estoque === false)) return false;
+  if (session.permissions?.sub_notas && typeof session.permissions.sub_notas[subKey] === 'boolean') {
+    return session.permissions.sub_notas[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo RH
+ */
+export function hasRhSubPermission(
+  subKey: keyof import('../types').RhSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.rh === false) return false;
+  if (session.permissions?.sub_rh && typeof session.permissions.sub_rh[subKey] === 'boolean') {
+    return session.permissions.sub_rh[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Relatórios
+ */
+export function hasRelatoriosSubPermission(
+  subKey: keyof import('../types').RelatoriosSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.relatorios === false) return false;
+  if (session.permissions?.sub_relatorios && typeof session.permissions.sub_relatorios[subKey] === 'boolean') {
+    return session.permissions.sub_relatorios[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Clientes
+ */
+export function hasClientesSubPermission(
+  subKey: keyof import('../types').ClientesSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.clientes === false) return false;
+  if (session.permissions?.sub_clientes && typeof session.permissions.sub_clientes[subKey] === 'boolean') {
+    return session.permissions.sub_clientes[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Fornecedores
+ */
+export function hasFornecedoresSubPermission(
+  subKey: keyof import('../types').FornecedoresSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.fornecedores === false) return false;
+  if (session.permissions?.sub_fornecedores && typeof session.permissions.sub_fornecedores[subKey] === 'boolean') {
+    return session.permissions.sub_fornecedores[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Cadastros Base
+ */
+export function hasCadastrosBaseSubPermission(
+  subKey: keyof import('../types').CadastrosBaseSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.cadastros_base === false) return false;
+  if (session.permissions?.sub_cadastros && typeof session.permissions.sub_cadastros[subKey] === 'boolean') {
+    return session.permissions.sub_cadastros[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão do Módulo Dados da Empresa
+ */
+export function hasEmpresaSubPermission(
+  subKey: keyof import('../types').EmpresaSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.empresa === false) return false;
+  if (session.permissions?.sub_empresa && typeof session.permissions.sub_empresa[subKey] === 'boolean') {
+    return session.permissions.sub_empresa[subKey] !== false;
   }
   return true;
 }
