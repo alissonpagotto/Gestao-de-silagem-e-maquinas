@@ -97,16 +97,18 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     return options;
   }, []);
 
-  const pendingExpenses = expenses.filter((e) => e.status === 'pendente');
-  const paidExpenses = expenses.filter((e) => e.status === 'pago');
+  const safeExpenses = Array.isArray(expenses) ? expenses.filter(Boolean) : [];
+  const pendingExpenses = safeExpenses.filter((e) => e.status === 'pendente');
+  const paidExpenses = safeExpenses.filter((e) => e.status === 'pago');
 
-  const totalPending = pendingExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const totalPaid = paidExpenses.reduce((acc, e) => acc + e.amount, 0);
-  const totalGeneral = expenses.reduce((acc, e) => acc + e.amount, 0);
+  const totalPending = pendingExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalPaid = paidExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalGeneral = safeExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const filteredExpenses = expenses.filter((e) => {
+  const filteredExpenses = safeExpenses.filter((e) => {
+    if (!e) return false;
     const matchesStatus = statusFilter === 'all' || e.status === statusFilter;
 
     // Monthly filter based on dueDate (or date as fallback)
@@ -126,13 +128,23 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
     if (startDate && targetDate && targetDate < startDate) matchesDateRange = false;
     if (endDate && targetDate && targetDate > endDate) matchesDateRange = false;
 
-    const q = searchTerm.toLowerCase();
+    const q = (searchTerm || '').trim().toLowerCase();
+    if (!q) {
+      return matchesStatus && matchesMonth && matchesDateRange;
+    }
+
+    const desc = (e.description || '').toLowerCase();
+    const supp = (e.supplier || '').toLowerCase();
+    const cat = (e.categoryName || e.category || '').toLowerCase();
+    const paid = (e.paidByEmployeeName || '').toLowerCase();
+    const bank = (e.bankAccountName || '').toLowerCase();
+
     const matchesSearch =
-      e.description.toLowerCase().includes(q) ||
-      (e.supplier && e.supplier.toLowerCase().includes(q)) ||
-      (e.categoryName && e.categoryName.toLowerCase().includes(q)) ||
-      (e.paidByEmployeeName && e.paidByEmployeeName.toLowerCase().includes(q)) ||
-      (e.bankAccountName && e.bankAccountName.toLowerCase().includes(q));
+      desc.includes(q) ||
+      supp.includes(q) ||
+      cat.includes(q) ||
+      paid.includes(q) ||
+      bank.includes(q);
 
     return matchesStatus && matchesMonth && matchesDateRange && matchesSearch;
   });
@@ -229,7 +241,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
               {formatCurrencyBRL(totalGeneral)}
             </div>
             <p className="text-[11px] text-black/70 font-medium">
-              {expenses.length} despesas no total
+              {safeExpenses.length} despesas no total
             </p>
           </div>
           <div className="p-2 rounded-lg bg-slate-100 text-black shrink-0 border border-slate-200">
@@ -250,7 +262,7 @@ export const PayablesTab: React.FC<PayablesTabProps> = ({
                 : 'bg-slate-100 text-black hover:bg-slate-200'
             }`}
           >
-            Todas ({expenses.length})
+            Todas ({safeExpenses.length})
           </button>
           <button
             type="button"

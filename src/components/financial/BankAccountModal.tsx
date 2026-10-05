@@ -1300,11 +1300,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                                   Bandeira
                                 </label>
                                 <select
-                                  value={card.brand || (card.name.toLowerCase().includes('visa') ? 'visa' : 'mastercard')}
+                                  value={card.brand || ((card.name || '').toLowerCase().includes('visa') ? 'visa' : 'mastercard')}
                                   onChange={(e) => {
                                     const newBrand = e.target.value as any;
                                     const brandLabel = newBrand === 'visa' ? 'Visa' : newBrand === 'elo' ? 'Elo' : 'Mastercard';
-                                    const digits = card.last4 || card.name.match(/\d{4}/)?.[0] || '4520';
+                                    const digits = card.last4 || (card.name ? card.name.match(/\d{4}/)?.[0] : null) || '4520';
                                     handleUpdateCard(card.id, {
                                       brand: newBrand,
                                       name: `${brandLabel} Final ${digits}`,
