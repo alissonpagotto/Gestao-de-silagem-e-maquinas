@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Sliders,
   ChevronRight,
+  ChevronDown,
   Check,
   X,
   Layers,
@@ -231,6 +232,10 @@ export const CargosPermissoesTab: React.FC = () => {
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const comboboxRef = useRef<HTMLDivElement>(null);
 
+  // Setor Dropdown State
+  const [isSetorDropdownOpen, setIsSetorDropdownOpen] = useState(false);
+  const setorDropdownRef = useRef<HTMLDivElement>(null);
+
   // Sincronização em tempo real de eventos locais
   useEffect(() => {
     const handleCargosSync = () => {
@@ -251,11 +256,14 @@ export const CargosPermissoesTab: React.FC = () => {
     };
   }, []);
 
-  // Fechar combobox ao clicar fora
+  // Fechar combobox e dropdown de setor ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
         setIsComboboxOpen(false);
+      }
+      if (setorDropdownRef.current && !setorDropdownRef.current.contains(e.target as Node)) {
+        setIsSetorDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -357,6 +365,8 @@ export const CargosPermissoesTab: React.FC = () => {
       sub_empresa: cargo.permissoes?.sub_empresa || { ...DEFAULT_FORM_PERMISSOES.sub_empresa },
     });
     setFormError('');
+    setIsComboboxOpen(false);
+    setIsSetorDropdownOpen(false);
   };
 
   // Abrir Modal de Edição a partir de uma linha da Tabela (Print 1 & 3)
@@ -374,6 +384,8 @@ export const CargosPermissoesTab: React.FC = () => {
     setDescricao('');
     setPermissoes({ ...DEFAULT_FORM_PERMISSOES });
     setFormError('');
+    setIsComboboxOpen(false);
+    setIsSetorDropdownOpen(false);
     setIsEditorOpen(true);
   };
 
@@ -381,6 +393,8 @@ export const CargosPermissoesTab: React.FC = () => {
   const handleCloseEditor = () => {
     setIsEditorOpen(false);
     setFormError('');
+    setIsComboboxOpen(false);
+    setIsSetorDropdownOpen(false);
   };
 
   // Manipulador de Toggle de Permissão Principal com Foco Instantâneo na Coluna 3
@@ -1153,7 +1167,7 @@ export const CargosPermissoesTab: React.FC = () => {
                                 : 'border-transparent hover:bg-zinc-50 dark:hover:bg-stone-800/50 text-zinc-800 dark:text-stone-200'
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-1.5">
+                            <div className="flex items-center justify-between gap-1.5">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center space-x-1.5">
                                   <span className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-zinc-900 dark:text-white'}`}>
@@ -1163,34 +1177,26 @@ export const CargosPermissoesTab: React.FC = () => {
                                     <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
                                   )}
                                 </div>
-                                <div className="text-[10px] text-zinc-500 dark:text-stone-400 uppercase tracking-tight truncate mt-0.5">
+                                <div className="text-[10px] text-zinc-500 dark:text-stone-400 uppercase tracking-tight truncate mt-0.5 font-semibold">
                                   {cargo.setor || 'Geral'}
                                 </div>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedCargoForEmployees(cargo);
-                                }}
-                                className="shrink-0 flex items-center space-x-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-1.5 py-0.5 rounded bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 transition cursor-pointer"
-                                title={`Colaboradores vinculados`}
-                              >
-                                <Users className="w-3 h-3 text-blue-500 shrink-0" />
-                                <span>{empCount}</span>
-                              </button>
-                            </div>
-
-                            <div className="mt-1.5 flex items-center space-x-1">
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${cargo.permissoes?.servicos ? 'bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-300' : 'bg-zinc-100 text-zinc-400'}`}>S</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${cargo.permissoes?.frotas ? 'bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300' : 'bg-zinc-100 text-zinc-400'}`}>F</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${cargo.permissoes?.financeiro ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-400'}`}>$</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${cargo.permissoes?.rh ? 'bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-300' : 'bg-zinc-100 text-zinc-400'}`}>RH</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${cargo.permissoes?.estoque ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300' : 'bg-zinc-100 text-zinc-400'}`}>Est</span>
-                              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${cargo.permissoes?.empresa ? 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300' : 'bg-zinc-100 text-zinc-400'}`}>Emp</span>
-                              <div className="flex-1" />
-                              <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-600' : 'text-zinc-300 dark:text-stone-600'}`} />
+                              <div className="flex items-center space-x-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCargoForEmployees(cargo);
+                                  }}
+                                  className="shrink-0 flex items-center space-x-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-1.5 py-0.5 rounded bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 transition cursor-pointer"
+                                  title={`Colaboradores vinculados`}
+                                >
+                                  <Users className="w-3 h-3 text-blue-500 shrink-0" />
+                                  <span>{empCount}</span>
+                                </button>
+                                <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-600' : 'text-zinc-300 dark:text-stone-600'}`} />
+                              </div>
                             </div>
                           </div>
                         );
@@ -1298,46 +1304,79 @@ export const CargosPermissoesTab: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Campo 2: Setor / Departamento (Textbox Interativo + Grade de Tags Clicáveis '+') */}
-                    <div>
+                    {/* Campo 2: Setor / Departamento (Dropdown Select/Combobox Inteligente Embutido) */}
+                    <div className="relative" ref={setorDropdownRef}>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
                           <span>Setor / Departamento</span>
                           <span className="text-rose-600">*</span>
                         </label>
-                        <span className="text-[10px] text-zinc-400">Clique nas tags abaixo para preencher</span>
+                        <span className="text-[10px] text-zinc-400">Selecione na lista oficial</span>
                       </div>
 
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ex: Transporte, Campo, Financeiro, Oficina..."
-                        value={setor}
-                        onChange={(e) => setSetor(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                      />
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsSetorDropdownOpen(prev => !prev)}
+                          className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs flex items-center justify-between text-left cursor-pointer"
+                        >
+                          <span className={setor ? 'text-zinc-900 dark:text-white font-bold' : 'text-zinc-400 font-normal'}>
+                            {setor || 'Selecione o setor oficial...'}
+                          </span>
+                          <div className="flex items-center space-x-1 shrink-0 text-zinc-400">
+                            {setor && (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSetor('');
+                                  setIsSetorDropdownOpen(true);
+                                }}
+                                className="p-0.5 hover:text-zinc-700 dark:hover:text-stone-200 cursor-pointer"
+                                title="Limpar seleção"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isSetorDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                          </div>
+                        </button>
 
-                      {/* GRADE DE SETORES COM SELEÇÃO DE TAGS CLICÁVEIS */}
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {SETORES_DISPONIVEIS.map((s) => {
-                          const isSelected = setor.trim().toUpperCase() === s.toUpperCase();
-                          return (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => setSetor(s)}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all duration-150 cursor-pointer flex items-center gap-1 ${
-                                isSelected
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-300 dark:ring-indigo-800 scale-102'
-                                  : 'bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-zinc-200 dark:border-stone-700 hover:bg-zinc-200 dark:hover:bg-stone-700 hover:border-zinc-400'
-                              }`}
-                              title={`Selecionar setor ${s}`}
-                            >
-                              <span>{isSelected ? '✓' : '+'}</span>
-                              <span>{s}</span>
-                            </button>
-                          );
-                        })}
+                        {/* Dropdown Embutido com os 6 Setores Oficiais */}
+                        {isSetorDropdownOpen && (
+                          <div className="absolute left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                            <div className="p-2 bg-zinc-50 dark:bg-stone-850 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                              <span>Setores Oficiais:</span>
+                              <span className="text-[9px] bg-zinc-200 dark:bg-stone-700 px-1.5 py-0.2 rounded font-bold">6 opções</span>
+                            </div>
+                            <div className="py-1 max-h-56 overflow-y-auto custom-scrollbar">
+                              {SETORES_DISPONIVEIS.map((s) => {
+                                const isSelected = setor.trim().toUpperCase() === s.toUpperCase();
+                                return (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => {
+                                      setSetor(s);
+                                      setIsSetorDropdownOpen(false);
+                                    }}
+                                    className={`w-full px-3 py-2 text-left text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                                        : 'text-zinc-800 dark:text-stone-200 hover:bg-zinc-50 dark:hover:bg-stone-700/60'
+                                    }`}
+                                  >
+                                    <span className="truncate">{s}</span>
+                                    {isSelected && (
+                                      <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 

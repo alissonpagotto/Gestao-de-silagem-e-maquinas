@@ -191,8 +191,8 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
 
   return (
     <div className="space-y-3 flex-1 flex flex-col min-h-0 w-full">
-      {/* 1. Barra de Seleção Rápida de Módulo (Pills) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none shrink-0 w-full">
+      {/* 1. Barra de Seleção Rápida de Módulo (Pills em Flex-Wrap Multilinha) */}
+      <div className="flex flex-row flex-wrap gap-2 shrink-0 w-full">
         {moduleTabs.map((tab) => {
           const isSelected = activeModuleFocus === tab.id;
           const TabIcon = tab.icon;
