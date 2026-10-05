@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut,
-  ChevronRight,
-  ChevronDown,
   Sprout,
   Bell,
   Sun,
   Moon,
   Lock,
   Building,
-  Building2,
-  FileSpreadsheet,
-  ShieldCheck,
   UserCheck,
   Shield
 } from 'lucide-react';
@@ -54,9 +49,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
-  const [isCadastrosBaseExpanded, setIsCadastrosBaseExpanded] = useState<boolean>(() => {
-    return activeTab.startsWith('cadastros_base') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab);
-  });
 
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
     if (propMenuOrder && propMenuOrder.length > 0) {
@@ -147,13 +139,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
-  // Abre submenu automaticamente se a tab ativa for de cadastros_base
-  useEffect(() => {
-    if (activeTab.startsWith('cadastros_base') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab)) {
-      setIsCadastrosBaseExpanded(true);
-    }
-  }, [activeTab]);
-
   useEffect(() => {
     const handleOrderSync = (e: any) => {
       if (e.detail && Array.isArray(e.detail)) {
@@ -197,13 +182,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // 4. TRAVA DE SEGURANÇA NA SIDEBAR (INTERCEPÇÃO VISUAL)
     if (isModuleRestricted(tabId)) {
       setActiveTab(`acesso_restrito_${tabId}`);
-      if (onCloseMobile) onCloseMobile();
-      return;
-    }
-
-    if (tabId === 'cadastros_base') {
-      setIsCadastrosBaseExpanded(prev => !prev);
-      setActiveTab('cadastros_base_cargos_permissoes');
       if (onCloseMobile) onCloseMobile();
       return;
     }
@@ -391,87 +369,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-1 shrink-0">
-                      {isRestricted && (
-                        <span title="Acesso Bloqueado para este Cargo">
-                          <Lock className="w-3.5 h-3.5 text-rose-500" />
-                        </span>
-                      )}
-
-                      {/* Apenas Cadastros Base possui dropdown/submenu expansível */}
-                      {item.id === 'cadastros_base' && (
-                        <div 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsCadastrosBaseExpanded(prev => !prev);
-                          }}
-                          className="p-1 hover:bg-zinc-200 dark:hover:bg-stone-700 rounded-md cursor-pointer transition"
-                        >
-                          {isCadastrosBaseExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-zinc-600 dark:text-stone-300" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-stone-400" />
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    {isRestricted && (
+                      <span title="Acesso Bloqueado para este Cargo">
+                        <Lock className="w-3.5 h-3.5 text-rose-500" />
+                      </span>
+                    )}
                   </button>
-
-                  {/* 1. ESTRUTURAÇÃO DO NOVO MENU "CADASTROS BASE" COM SUB-MENUS VINCULADOS A LOCALSTORAGE */}
-                  {item.id === 'cadastros_base' && isCadastrosBaseExpanded && (
-                    <div className="pl-6 pr-1 py-1 space-y-1 bg-zinc-300/40 dark:bg-stone-800/40 rounded-xl my-1 border border-zinc-300/50 dark:border-stone-700/50 animate-in slide-in-from-top-1 duration-150">
-                      {/* Sub-menu 1: Centros de Custo */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('cadastros_base_centros_custo');
-                          if (onCloseMobile) onCloseMobile();
-                        }}
-                        className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-left ${
-                          activeTab === 'cadastros_base_centros_custo' || activeTab === 'centros_custo'
-                            ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
-                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-200/80 dark:hover:bg-stone-700'
-                        }`}
-                      >
-                        <Building2 className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Centros de Custo</span>
-                      </button>
-
-                      {/* Sub-menu 2: Plano de Contas & Formas */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('cadastros_base_plano_contas');
-                          if (onCloseMobile) onCloseMobile();
-                        }}
-                        className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-left ${
-                          activeTab === 'cadastros_base_plano_contas' || activeTab === 'plano_contas'
-                            ? 'bg-teal-500 text-zinc-950 font-black shadow-xs'
-                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-200/80 dark:hover:bg-stone-700'
-                        }`}
-                      >
-                        <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Plano de Contas & Formas</span>
-                      </button>
-
-                      {/* Sub-menu 3: Cargos, Setores & Permissões */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('cadastros_base_cargos_permissoes');
-                          if (onCloseMobile) onCloseMobile();
-                        }}
-                        className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-left ${
-                          activeTab === 'cadastros_base_cargos_permissoes' || activeTab === 'cargos_permissoes' || activeTab === 'cadastros_base'
-                            ? 'bg-indigo-600 text-white font-black shadow-xs'
-                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-200/80 dark:hover:bg-stone-700'
-                        }`}
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Cargos, Setores & Permissões</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}

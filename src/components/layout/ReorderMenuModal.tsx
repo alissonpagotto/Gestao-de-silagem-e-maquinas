@@ -28,7 +28,6 @@ export interface MenuItemDef {
   id: string;
   label: string;
   icon: LucideIcon;
-  hasSubmenu?: boolean;
 }
 
 export const ALL_MENU_ITEMS: MenuItemDef[] = [
@@ -44,7 +43,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'fornecedores', label: 'Fornecedores', icon: Truck },
   { id: 'frotas', label: 'Gestão de Frotas', icon: Car },
-  { id: 'cadastros_base', label: 'Cadastros Base', icon: Database, hasSubmenu: true },
+  { id: 'cadastros_base', label: 'Cadastros Base', icon: Database },
   { id: 'configuracoes', label: 'Dados da Empresa', icon: Building },
 ];
 
