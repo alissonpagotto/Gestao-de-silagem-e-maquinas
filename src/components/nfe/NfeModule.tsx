@@ -70,7 +70,8 @@ import {
   DEFAULT_INVENTORY_CATEGORIES,
   getStoredInventoryCategories,
   saveStoredInventoryCategories,
-  getActiveCompanyId
+  getActiveCompanyId,
+  saveCompanyData
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -120,6 +121,8 @@ interface ParsedNfeItem {
   totalPrice: number;
   barcode?: string;
   linkedInventoryId?: string;
+  category?: string;              // Categoria no Estoque
+  categoria?: string;             // Alias em português
   markupPercent?: number;          // % Cálc. (% Margem/Markup de Lucro V. Final)
   salePrice?: number;              // V. Final (R$) - Preço de Venda Final
   wholesaleMarkupPercent?: number; // % Atac. (% Margem/Markup Atacado)
@@ -170,10 +173,27 @@ interface ParsedNfeData {
   installments?: ParsedNfeInstallment[];
   itemsSummary: string;
   suggestedCategory: string;
+  priorityCategory?: string;       // Categoria Prioritária da Nota Fiscal para aplicação em lote
+  categoriaPrioritaria?: string;   // Alias em português
   costCenterId?: string;
   costCenterName?: string;
   items?: ParsedNfeItem[];
 }
+
+export const normalizeToInventoryCategory = (cat?: string): string => {
+  if (!cat) return 'Outros Insumos';
+  const c = cat.toLowerCase().trim();
+  if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) return 'Combustível & Arla';
+  if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) return 'Lona & Embalagem';
+  if (c.includes('inocul') || c.includes('biol')) return 'Inoculante & Biológico';
+  if (c.includes('sement') || c.includes('milho') || c.includes('sorgo') || c.includes('soja')) return 'Sementes';
+  if (c.includes('adubo') || c.includes('fertiliz') || c.includes('ureia') || c.includes('npk')) return 'Adubo & Fertilizante';
+  if (c.includes('peca') || c.includes('peça') || c.includes('manuten') || c.includes('filtro') || c.includes('faca') || c.includes('oleo') || c.includes('óleo')) return 'Peças & Manutenção';
+  if (c.includes('outro')) return 'Outros Insumos';
+  const match = DEFAULT_INVENTORY_CATEGORIES.find(d => d.toLowerCase() === c);
+  if (match) return match;
+  return cat;
+};
 
 export const mapPaymentMethodCode = (code: string): PaymentMethod => {
   if (code === '02') return 'pix';
@@ -2970,15 +2990,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const custoComImpostoRound = round2(custoRealFinalCalc);
         const freteDiluidoRound = round2(freteDiluidoUnitario);
 
+        const itemDesc = getTag(prod, 'xProd') || 'Item NF-e';
+        const defaultCat = normalizeToInventoryCategory(deduceItemCategory(itemDesc));
+
         return {
           code: getTag(prod, 'cProd') || String(index + 1),
-          description: getTag(prod, 'xProd') || 'Item NF-e',
+          description: itemDesc,
           ncm: getTag(prod, 'NCM') || '',
           quantity: qCom,
           unit: getTag(prod, 'uCom') || getTag(prod, 'uTrib') || 'UN',
           unitPrice: vUnCom,
           totalPrice: vProd || round2(qCom * vUnCom),
           barcode,
+          category: defaultCat,
+          categoria: defaultCat,
           valorImpostosTotal: valorImpostosTotalRound,
           valor_impostos_total: valorImpostosTotalRound,
           custoSemImposto: custoSemImpostoRound,
@@ -2996,15 +3021,28 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         productsAmount = totalAmount;
       }
 
-      // 10. Sugestão automática de categoria
+      // 10. Sugestão automática de categoria e definição de Categoria Prioritária
       const allText = (supplierName + ' ' + items.map(i => i.description).join(' ')).toLowerCase();
       let suggestedCategory = 'cat_insumos';
+      let deducedPriorityCategory = 'Outros Insumos';
+
       if (allText.includes('diesel') || allText.includes('combustivel') || allText.includes('combustível') || allText.includes('s10') || allText.includes('arla')) {
         suggestedCategory = 'cat_combustivel';
-      } else if (allText.includes('peca') || allText.includes('peça') || allText.includes('faca') || allText.includes('filtro') || allText.includes('oleo') || allText.includes('óleo') || allText.includes('correia')) {
+        deducedPriorityCategory = 'Combustível & Arla';
+      } else if (allText.includes('peca') || allText.includes('peça') || allText.includes('faca') || allText.includes('filtro') || allText.includes('oleo') || allText.includes('óleo') || allText.includes('correia') || allText.includes('rolamento')) {
         suggestedCategory = 'cat_manutencao';
-      } else if (allText.includes('lona') || allText.includes('filme') || allText.includes('plastico') || allText.includes('plástico') || allText.includes('inoculante')) {
+        deducedPriorityCategory = 'Peças & Manutenção';
+      } else if (allText.includes('lona') || allText.includes('filme') || allText.includes('plastico') || allText.includes('plástico')) {
         suggestedCategory = 'cat_lona_embalagem';
+        deducedPriorityCategory = 'Lona & Embalagem';
+      } else if (allText.includes('inoculante') || allText.includes('biologico') || allText.includes('aditivo')) {
+        deducedPriorityCategory = 'Inoculante & Biológico';
+      } else if (allText.includes('semente') || allText.includes('milho') || allText.includes('sorgo') || allText.includes('soja')) {
+        deducedPriorityCategory = 'Sementes';
+      } else if (allText.includes('adubo') || allText.includes('fertilizante') || allText.includes('ureia') || allText.includes('npk')) {
+        deducedPriorityCategory = 'Adubo & Fertilizante';
+      } else if (items.length > 0 && items[0].categoria) {
+        deducedPriorityCategory = items[0].categoria;
       }
 
       return {
@@ -3032,6 +3070,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         installments,
         itemsSummary: items.length > 0 ? `${items.length} produto(s) listado(s)` : 'Sem detalhamento de itens',
         suggestedCategory,
+        priorityCategory: deducedPriorityCategory,
+        categoriaPrioritaria: deducedPriorityCategory,
         items
       };
     } catch (error) {
@@ -3098,8 +3138,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             calcPromoMarkup = Math.round(((match.promoPrice - item.unitPrice) / item.unitPrice) * 100 * 10) / 10;
           }
 
+          const resolvedCat = normalizeToInventoryCategory(
+            match?.categoria || 
+            match?.category || 
+            result.priorityCategory || 
+            item.categoria || 
+            item.category
+          );
+
           return {
             ...item,
+            category: resolvedCat,
+            categoria: resolvedCat,
             linkedInventoryId: match?.id,
             markupPercent: markup,
             salePrice: calculatedSale,
@@ -3109,6 +3159,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             promoPrice: match?.promoPrice,
           };
         });
+
+        // Persistência local imediata offline da lista de itens extraídos
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(result.items));
+            saveCompanyData('documentos_entrada_itens', result.items);
+          }
+        } catch (err) {
+          console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens no parse direto:', err);
+        }
       }
 
       // =========================================================================
@@ -3420,6 +3480,14 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     const profitMargin = 30;
     const salePrice = Math.round((unitCost * (1 + profitMargin / 100)) * 100) / 100;
 
+    const effectiveCategory = normalizeToInventoryCategory(
+      item.categoria ||
+      item.category ||
+      parsedData.priorityCategory ||
+      parsedData.categoriaPrioritaria ||
+      cat
+    );
+
     setNewProductModal({
       isOpen: true,
       rowIndex,
@@ -3428,7 +3496,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       fiscalName: item.description || '',
       barcode: item.barcode || '',
       unit: item.unit || 'UN',
-      category: cat,
+      category: effectiveCategory as any,
       unitCost,
       profitMargin,
       salePrice,
@@ -3474,6 +3542,21 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       ? item.salePrice
       : (existingProd?.salePrice ?? existingProd?.preco_venda_varejo ?? Math.round((unitCost * (1 + profitMargin / 100)) * 100) / 100);
 
+    // Prioridade da categoria (Conforme Projeto de Automação de Entrada):
+    // 1. Categoria individual definida no item da nota
+    // 2. Categoria prioritária fixada na Nota Fiscal inteira
+    // 3. Categoria do cadastro existente do produto no estoque
+    // 4. Dedução automática baseada na descrição
+    const effectiveCategory = normalizeToInventoryCategory(
+      item.categoria ||
+      item.category ||
+      parsedData.priorityCategory ||
+      parsedData.categoriaPrioritaria ||
+      existingProd?.categoria ||
+      existingProd?.category ||
+      deduceItemCategory(item.description)
+    );
+
     const initialData: Partial<InventoryItem> = {
       ...(existingProd || {}),
       id: targetId,
@@ -3488,8 +3571,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       codigo_ncm: item.ncm || existingProd?.codigo_ncm || existingProd?.ncm || '',
       unit: (item.unit || existingProd?.unidade_medida || existingProd?.unit || 'UN').toUpperCase(),
       unidade_medida: (item.unit || existingProd?.unidade_medida || existingProd?.unit || 'UN').toUpperCase(),
-      category: existingProd?.categoria || existingProd?.category || deduceItemCategory(item.description),
-      categoria: existingProd?.categoria || existingProd?.category || deduceItemCategory(item.description),
+      category: effectiveCategory,
+      categoria: effectiveCategory,
       valor_impostos_total: xmlValorImpostos || existingProd?.valor_impostos_total || 0,
       custo_sem_imposto: xmlCustoSemImposto || existingProd?.custo_sem_imposto || 0,
       custo_com_imposto: xmlCustoComImposto || existingProd?.custo_com_imposto || unitCost,
@@ -3592,11 +3675,20 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               ? Math.round(((updatedPromoPrice - updatedUnitPrice) / updatedUnitPrice) * 100 * 10) / 10
               : currentItem.promoMarkupPercent);
 
+        const updatedCategory = normalizeToInventoryCategory(
+          savedProduct.categoria || 
+          savedProduct.category || 
+          currentItem.categoria || 
+          currentItem.category
+        );
+
         return {
           ...currentItem,
           linkedInventoryId: savedProduct.id,
           code: savedProduct.code || currentItem.code,
           description: savedProduct.nome_comercial || savedProduct.name || currentItem.description,
+          category: updatedCategory,
+          categoria: updatedCategory,
           ncm: savedProduct.ncm || savedProduct.codigo_ncm || currentItem.ncm,
           barcode: (savedProduct.barcode && savedProduct.barcode !== 'SEM GTIN') ? savedProduct.barcode : currentItem.barcode,
           unit: (savedProduct.unidade_medida || savedProduct.unit || currentItem.unit || 'UN').toUpperCase(),
@@ -3632,6 +3724,15 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       setParsedData(updatedParsed);
       saveCachedNfe(updatedParsed, editingExpenseId || undefined);
+
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
+          saveCompanyData('documentos_entrada_itens', updatedItems);
+        }
+      } catch (err) {
+        console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens:', err);
+      }
     }
 
     // 2. Atualização Reativa caso a edição tenha partido da Entrada Manual
@@ -3838,6 +3939,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       if (currentItem.promoPrice !== undefined && unit > 0) {
         currentItem.promoMarkupPercent = Math.round(((currentItem.promoPrice - unit) / unit) * 100 * 10) / 10;
       }
+    } else if (field === 'category' || (field as string) === 'categoria') {
+      const normCat = normalizeToInventoryCategory(value);
+      currentItem.category = normCat;
+      currentItem.categoria = normCat;
     }
 
     updatedItems[index] = currentItem;
@@ -3892,13 +3997,98 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       updatedItems.reduce((acc, it) => acc + (it.totalPrice || 0), 0) * 100
     ) / 100;
 
-    setParsedData({
+    const updatedParsed: ParsedNfeData = {
       ...parsedData,
       items: updatedItems,
       productsAmount: newTotalAmount,
       totalAmount: newTotalAmount,
       itemsSummary: `${updatedItems.length} produto(s) listado(s)`
-    });
+    };
+
+    setParsedData(updatedParsed);
+    saveCachedNfe(updatedParsed, editingExpenseId || undefined);
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
+        saveCompanyData('documentos_entrada_itens', updatedItems);
+      }
+    } catch (err) {
+      console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens no handleItemChange:', err);
+    }
+  };
+
+  // =========================================================================
+  // AUTOMAÇÃO DE ENTRADA: DEFINIR CATEGORIA PRIORITÁRIA DA NOTA FISCAL (XML)
+  // =========================================================================
+
+  // 1. Aplica a Categoria Prioritária da Nota em lote para todos os itens extraídos daquele XML
+  const handlePriorityCategoryChange = (newCategory: string) => {
+    if (!parsedData) return;
+
+    const normalizedCat = newCategory ? normalizeToInventoryCategory(newCategory) : '';
+
+    // Varredura automática em todos os itens daquele XML: define 'categoria' e 'category' para a opção escolhida
+    const updatedItems = (parsedData.items || []).map((item) => ({
+      ...item,
+      categoria: normalizedCat,
+      category: normalizedCat,
+    }));
+
+    const updatedParsed: ParsedNfeData = {
+      ...parsedData,
+      priorityCategory: normalizedCat,
+      categoriaPrioritaria: normalizedCat,
+      items: updatedItems,
+    };
+
+    setParsedData(updatedParsed);
+    saveCachedNfe(updatedParsed, editingExpenseId || undefined);
+
+    // Persistência local (offline) imediata na chave 'colaca_silagem_documentos_entrada_itens'
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
+        saveCompanyData('documentos_entrada_itens', updatedItems);
+      }
+    } catch (err) {
+      console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens no lote:', err);
+    }
+
+    if (normalizedCat) {
+      setSuccessMessage(`Categoria prioritária "${normalizedCat}" aplicada com sucesso a todos os ${updatedItems.length} itens da nota!`);
+      setTimeout(() => setSuccessMessage(''), 3500);
+    }
+  };
+
+  // 2. Altera individualmente a categoria de um item específico na tabela de conferência
+  const handleItemCategoryChange = (index: number, newCategory: string) => {
+    if (!parsedData || !parsedData.items || !parsedData.items[index]) return;
+
+    const normalizedCat = normalizeToInventoryCategory(newCategory);
+    const updatedItems = [...parsedData.items];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      categoria: normalizedCat,
+      category: normalizedCat,
+    };
+
+    const updatedParsed: ParsedNfeData = {
+      ...parsedData,
+      items: updatedItems,
+    };
+
+    setParsedData(updatedParsed);
+    saveCachedNfe(updatedParsed, editingExpenseId || undefined);
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('colaca_silagem_documentos_entrada_itens', JSON.stringify(updatedItems));
+        saveCompanyData('documentos_entrada_itens', updatedItems);
+      }
+    } catch (err) {
+      console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens individual:', err);
+    }
   };
 
   // Validação para impedir o lançamento de nota duplicada
@@ -4104,7 +4294,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       } else {
         if (!editingExpenseId) {
           const dieselMatch = identificarTipoDiesel(item.description);
-          const autoCat = dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description);
+          const autoCat = normalizeToInventoryCategory(
+            item.categoria ||
+            item.category ||
+            parsedData.priorityCategory ||
+            parsedData.categoriaPrioritaria ||
+            (dieselMatch ? 'Combustível & Arla' : deduceItemCategory(item.description))
+          );
           const autoUnit = (item.unit || 'UN').toUpperCase();
           const autoQty = Number(item.quantity) || 1;
           const xmlCostComImposto = item.custoComImposto ?? item.custo_com_imposto ?? 0;

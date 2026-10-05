@@ -175,7 +175,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialName = initialData?.nome_comercial || initialData?.name || initialData?.nome || '';
       setNome(initialName);
 
-      const initialCat = initialData?.category || initialData?.categoria || storedCats[0] || 'Outros Insumos';
+      const rawCat = (initialData?.category || initialData?.categoria || '').trim();
+      let normalizedCat = rawCat;
+      const c = rawCat.toLowerCase();
+      if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) normalizedCat = 'Combustível & Arla';
+      else if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) normalizedCat = 'Lona & Embalagem';
+      else if (c.includes('inocul') || c.includes('biol')) normalizedCat = 'Inoculante & Biológico';
+      else if (c.includes('sement') || c.includes('milho') || c.includes('sorgo') || c.includes('soja')) normalizedCat = 'Sementes';
+      else if (c.includes('adubo') || c.includes('fertiliz') || c.includes('ureia') || c.includes('npk')) normalizedCat = 'Adubo & Fertilizante';
+      else if (c.includes('peca') || c.includes('peça') || c.includes('manuten') || c.includes('filtro') || c.includes('faca') || c.includes('oleo') || c.includes('óleo')) normalizedCat = 'Peças & Manutenção';
+      else if (c.includes('outro')) normalizedCat = 'Outros Insumos';
+
+      const matchedCat = storedCats.find(cat => cat.toLowerCase() === (normalizedCat || '').toLowerCase());
+      const initialCat = matchedCat || (normalizedCat && storedCats.includes(normalizedCat) ? normalizedCat : (storedCats[0] || 'Outros Insumos'));
       setCategoria(initialCat);
 
       const initialUnit = (initialData?.unit || initialData?.unidade_medida || 'UN').toUpperCase();
