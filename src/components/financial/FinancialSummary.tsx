@@ -251,7 +251,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({
 
     const handleLocalExpensesEvent = (ev: any) => {
       if (isMounted && Array.isArray(ev?.detail)) {
-        setLocalExpenses(ev.detail);
+        setLocalExpenses((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(ev.detail)) return prev;
+          return ev.detail;
+        });
       }
     };
     window.addEventListener('silagem_expenses_updated', handleLocalExpensesEvent);

@@ -2,18 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { 
   LogOut,
   ChevronRight,
+  ChevronDown,
   Sprout,
   Bell,
   Sun,
-  Moon
+  Moon,
+  Lock,
+  Building2,
+  FileSpreadsheet,
+  ShieldCheck,
+  UserCheck,
+  Shield
 } from 'lucide-react';
-import { CompanyProfile } from '../../types';
+import { CompanyProfile, SimulatedUserSession } from '../../types';
 import { 
   ALL_MENU_ITEMS, 
   DEFAULT_MENU_ORDER, 
   MenuItemDef 
 } from './ReorderMenuModal';
 import { SupabaseStatusControl } from './SupabaseStatusControl';
+import { 
+  getActiveUserSession, 
+  ModulePermissionKey 
+} from '../../lib/cadastrosBaseStorage';
+import { UserSessionModal } from '../cadastrosBase/UserSessionModal';
 
 export interface SidebarProps {
   activeTab: string;
@@ -39,6 +51,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsDarkMode,
   onLogout,
 }) => {
+  const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [isCadastrosBaseExpanded, setIsCadastrosBaseExpanded] = useState<boolean>(() => {
+    return activeTab.startsWith('cadastros_base') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab);
+  });
+
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
     if (propMenuOrder && propMenuOrder.length > 0) {
       return propMenuOrder;
@@ -74,6 +92,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               valid.push('almoxarifado');
             }
           }
+          if (!valid.includes('cadastros_base')) {
+            const frotaIndex = valid.indexOf('frotas');
+            if (frotaIndex !== -1) {
+              valid.splice(frotaIndex + 1, 0, 'cadastros_base');
+            } else {
+              valid.push('cadastros_base');
+            }
+          }
           const missing = ALL_MENU_ITEMS.filter(m => !valid.includes(m.id)).map(m => m.id);
           return [...valid, ...missing];
         }
@@ -89,6 +115,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setMenuOrder(propMenuOrder);
     }
   }, [propMenuOrder]);
+
+  // Sincroniza sessão ativa de permissões
+  useEffect(() => {
+    const handleSessionSync = (e: any) => {
+      if (e?.detail) {
+        setUserSession(e.detail);
+      } else {
+        setUserSession(getActiveUserSession());
+      }
+    };
+    window.addEventListener('colaca_silagem_session_updated', handleSessionSync);
+    window.addEventListener('storage', handleSessionSync);
+    return () => {
+      window.removeEventListener('colaca_silagem_session_updated', handleSessionSync);
+      window.removeEventListener('storage', handleSessionSync);
+    };
+  }, []);
+
+  // Abre submenu automaticamente se a tab ativa for de cadastros_base
+  useEffect(() => {
+    if (activeTab.startsWith('cadastros_base') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab)) {
+      setIsCadastrosBaseExpanded(true);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     const handleOrderSync = (e: any) => {
@@ -109,7 +159,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+  // Mapeamento de tab para a chave de permissão correspondente
+  const getModulePermissionKey = (id: string): ModulePermissionKey | null => {
+    if (id === 'financeiro' || id === 'despesas') return 'financeiro';
+    if (id === 'frotas') return 'frotas';
+    if (id === 'rh' || id === 'funcionarios') return 'rh';
+    if (id === 'estoque' || id === 'almoxarifado' || id === 'fiscal') return 'estoque';
+    if (id === 'configuracoes') return 'empresa';
+    return null;
+  };
+
+  const isModuleRestricted = (id: string): boolean => {
+    if (userSession.type === 'admin') return false;
+    const permKey = getModulePermissionKey(id);
+    if (!permKey) return false;
+    if (userSession.permissions && userSession.permissions[permKey] === false) {
+      return true;
+    }
+    return false;
+  };
+
   const handleSelect = (tabId: string) => {
+    // 4. TRAVA DE SEGURANÇA NA SIDEBAR (INTERCEPÇÃO VISUAL)
+    if (isModuleRestricted(tabId)) {
+      setActiveTab(`acesso_restrito_${tabId}`);
+      if (onCloseMobile) onCloseMobile();
+      return;
+    }
+
+    if (tabId === 'cadastros_base') {
+      setIsCadastrosBaseExpanded(prev => !prev);
+      setActiveTab('cadastros_base_cargos_permissoes');
+      if (onCloseMobile) onCloseMobile();
+      return;
+    }
+
     setActiveTab(tabId);
     if (onCloseMobile) onCloseMobile();
   };
@@ -161,11 +245,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Navigation Section Header: Título MENU PRINCIPAL com os botões rápidos alinhados horizontalmente à direita */}
+          {/* CHIP DE SESSÃO ATIVA & NÍVEL DE ACESSO */}
+          <div className="px-3 pt-3">
+            <button
+              type="button"
+              onClick={() => setIsSessionModalOpen(true)}
+              title="Clique para simular outro perfil ou cargo de acesso"
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left border transition cursor-pointer ${
+                userSession.type === 'admin'
+                  ? 'bg-white/80 dark:bg-stone-800/80 border-zinc-300 dark:border-stone-700 hover:border-indigo-400'
+                  : 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 hover:border-rose-400'
+              }`}
+            >
+              <div className="flex items-center space-x-2 truncate">
+                <div className={`p-1.5 rounded-lg shrink-0 ${userSession.type === 'admin' ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white'}`}>
+                  {userSession.type === 'admin' ? <Shield className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
+                    {userSession.type === 'admin' ? 'Perfil Ativo' : 'Sessão Restrita'}
+                  </div>
+                  <div className="text-xs font-extrabold text-zinc-900 dark:text-white truncate">
+                    {userSession.cargoNome}
+                  </div>
+                </div>
+              </div>
+
+              <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 underline shrink-0 pl-1">
+                Trocar
+              </span>
+            </button>
+          </div>
+
+          {/* Navigation Section Header: Título MENU PRINCIPAL com os botões rápidos */}
           <div className="px-3 sm:px-4 pt-3 pb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider">
             <span className="shrink-0">MENU PRINCIPAL</span>
 
-            {/* Grupo de botões de atalho rápidos realocados do cabeçalho */}
             <div className="flex items-center space-x-1 shrink-0 normal-case tracking-normal">
               {/* Notificações / Sininho */}
               <button
@@ -202,7 +317,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <nav className="p-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const isRestricted = isModuleRestricted(item.id);
+
+              const isCadastrosBaseActive = 
+                item.id === 'cadastros_base' && 
+                (activeTab === 'cadastros_base' || activeTab.startsWith('cadastros_base_') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab));
+
               const isActive = 
+                isCadastrosBaseActive ||
                 activeTab === item.id ||
                 (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
                 (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
@@ -211,38 +333,127 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 (item.id === 'rh' && activeTab === 'funcionarios');
 
               return (
-                <button
-                  key={item.id}
-                  id={`sidebar-nav-${item.id}`}
-                  onClick={() => handleSelect(item.id)}
-                  className={`
-                    w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
-                    ${
-                      isActive
-                        ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
-                        : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
-                    }
-                  `}
-                >
-                  <div className="flex items-center space-x-3 truncate">
-                    <Icon 
-                      className={`w-4 h-4 shrink-0 transition ${isActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'}`} 
-                    />
-                    <span 
-                      className={`truncate ${isActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'}`}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
+                <div key={item.id} className="space-y-0.5">
+                  <button
+                    id={`sidebar-nav-${item.id}`}
+                    onClick={() => handleSelect(item.id)}
+                    className={`
+                      w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
+                      ${
+                        isRestricted
+                          ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
+                          : isActive
+                            ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center space-x-3 truncate">
+                      <Icon 
+                        className={`w-4 h-4 shrink-0 transition ${
+                          isRestricted 
+                            ? 'text-rose-500' 
+                            : isActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'
+                        }`} 
+                      />
+                      <span 
+                        className={`truncate ${
+                          isRestricted
+                            ? 'text-zinc-500 dark:text-stone-400'
+                            : isActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
 
-                  {isActive && (
-                    <ChevronRight className="w-4 h-4 text-black dark:text-white shrink-0" />
-                  )}
+                    <div className="flex items-center space-x-1 shrink-0">
+                      {isRestricted && (
+                        <span title="Acesso Bloqueado para este Cargo">
+                          <Lock className="w-3.5 h-3.5 text-rose-500" />
+                        </span>
+                      )}
 
-                  {!isActive && item.hasSubmenu && (
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-700 dark:text-stone-500 group-hover:dark:text-white shrink-0" />
+                      {item.id === 'cadastros_base' ? (
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsCadastrosBaseExpanded(prev => !prev);
+                          }}
+                          className="p-1 hover:bg-zinc-200 dark:hover:bg-stone-700 rounded-md cursor-pointer transition"
+                        >
+                          {isCadastrosBaseExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-zinc-600 dark:text-stone-300" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-stone-400" />
+                          )}
+                        </div>
+                      ) : isActive ? (
+                        <ChevronRight className="w-4 h-4 text-black dark:text-white shrink-0" />
+                      ) : (
+                        item.hasSubmenu && (
+                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-700 dark:text-stone-500 group-hover:dark:text-white shrink-0" />
+                        )
+                      )}
+                    </div>
+                  </button>
+
+                  {/* 1. ESTRUTURAÇÃO DO NOVO MENU "CADASTROS BASE" COM SUB-MENUS VINCULADOS A LOCALSTORAGE */}
+                  {item.id === 'cadastros_base' && isCadastrosBaseExpanded && (
+                    <div className="pl-6 pr-1 py-1 space-y-1 bg-zinc-300/40 dark:bg-stone-800/40 rounded-xl my-1 border border-zinc-300/50 dark:border-stone-700/50 animate-in slide-in-from-top-1 duration-150">
+                      {/* Sub-menu 1: Centros de Custo */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('cadastros_base_centros_custo');
+                          if (onCloseMobile) onCloseMobile();
+                        }}
+                        className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-left ${
+                          activeTab === 'cadastros_base_centros_custo' || activeTab === 'centros_custo'
+                            ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
+                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-200/80 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Centros de Custo</span>
+                      </button>
+
+                      {/* Sub-menu 2: Plano de Contas & Formas */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('cadastros_base_plano_contas');
+                          if (onCloseMobile) onCloseMobile();
+                        }}
+                        className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-left ${
+                          activeTab === 'cadastros_base_plano_contas' || activeTab === 'plano_contas'
+                            ? 'bg-teal-500 text-zinc-950 font-black shadow-xs'
+                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-200/80 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Plano de Contas & Formas</span>
+                      </button>
+
+                      {/* Sub-menu 3: Cargos, Setores & Permissões */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('cadastros_base_cargos_permissoes');
+                          if (onCloseMobile) onCloseMobile();
+                        }}
+                        className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-left ${
+                          activeTab === 'cadastros_base_cargos_permissoes' || activeTab === 'cargos_permissoes' || activeTab === 'cadastros_base'
+                            ? 'bg-indigo-600 text-white font-black shadow-xs'
+                            : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-200/80 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Cargos, Setores & Permissões</span>
+                      </button>
+                    </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </nav>
@@ -268,13 +479,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Sair</span>
           </button>
 
-          {/* Botão Supabase posicionado no rodapé ao lado direito do botão Sair */}
           <div className="shrink-0">
             <SupabaseStatusControl dropdownPosition="up" />
           </div>
         </div>
 
       </aside>
+
+      {/* Modal de Simulação de Sessão / Troca de Perfil de Acesso */}
+      <UserSessionModal
+        isOpen={isSessionModalOpen}
+        onClose={() => setIsSessionModalOpen(false)}
+        onSessionChanged={(session) => {
+          setUserSession(session);
+        }}
+      />
     </>
   );
 };

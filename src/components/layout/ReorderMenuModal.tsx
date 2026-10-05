@@ -20,6 +20,7 @@ import {
   ReceiptText,
   ShoppingCart,
   Wrench,
+  Database,
   LucideIcon
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'fornecedores', label: 'Fornecedores', icon: Truck },
   { id: 'frotas', label: 'Gestão de Frotas', icon: Car, hasSubmenu: true },
+  { id: 'cadastros_base', label: 'Cadastros Base', icon: Database, hasSubmenu: true },
   { id: 'configuracoes', label: 'Configurações', icon: Settings },
 ];
 

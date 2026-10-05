@@ -325,9 +325,14 @@ export function saveStoredCategories(categories: ExpenseCategory[]): void {
 
 export function getStoredCostCenters(): CostCenter[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.COST_CENTERS);
+    let raw = localStorage.getItem('colaca_silagem_centros_custo');
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEYS.COST_CENTERS);
+    }
     if (!raw) return INITIAL_COST_CENTERS;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_COST_CENTERS;
+    return parsed;
   } catch (e) {
     return INITIAL_COST_CENTERS;
   }
@@ -335,7 +340,9 @@ export function getStoredCostCenters(): CostCenter[] {
 
 export function saveStoredCostCenters(centers: CostCenter[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.COST_CENTERS, JSON.stringify(centers));
+    const json = JSON.stringify(centers);
+    localStorage.setItem(STORAGE_KEYS.COST_CENTERS, json);
+    localStorage.setItem('colaca_silagem_centros_custo', json);
   } catch (e) {
     console.error('Failed to save cost centers', e);
   }
@@ -465,7 +472,10 @@ export function saveStoredSeasons(seasons: CropSeason[]): void {
 
 export function getStoredEmployees(): Employee[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    let raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    if (!raw) {
+      raw = localStorage.getItem('colaca_silagem_funcionarios');
+    }
     if (!raw) return INITIAL_EMPLOYEES;
     const parsed: Employee[] = JSON.parse(raw);
     if (!Array.isArray(parsed)) return INITIAL_EMPLOYEES;
@@ -496,7 +506,9 @@ export function getStoredEmployees(): Employee[] {
       return emp;
     });
     if (modified || cleaned.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(cleaned));
+      const cleanJson = JSON.stringify(cleaned);
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, cleanJson);
+      localStorage.setItem('colaca_silagem_funcionarios', cleanJson);
     }
     return cleaned;
   } catch (e) {
@@ -506,7 +518,9 @@ export function getStoredEmployees(): Employee[] {
 
 export function saveStoredEmployees(employees: Employee[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+    const json = JSON.stringify(employees);
+    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, json);
+    localStorage.setItem('colaca_silagem_funcionarios', json);
   } catch (e) {
     console.error('Failed to save employees', e);
   }

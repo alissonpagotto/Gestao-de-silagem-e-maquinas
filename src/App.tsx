@@ -128,6 +128,13 @@ import { AlmoxarifadoModule } from './components/inventory/AlmoxarifadoModule';
 import { SuppliersModule } from './components/suppliers/SuppliersModule';
 import { ReportsModule } from './components/reports/ReportsModule';
 import { CompanySettingsView } from './components/settings/CompanySettingsView';
+import { CadastrosBaseModule } from './components/cadastrosBase/CadastrosBaseModule';
+import { AccessDeniedView } from './components/cadastrosBase/AccessDeniedView';
+import { 
+  getActiveUserSession, 
+  SimulatedUserSession, 
+  ModulePermissionKey 
+} from './lib/cadastrosBaseStorage';
 
 import { QuickMemoModal } from './components/quick/QuickMemoModal';
 import { TrialInfoModal } from './components/quick/TrialInfoModal';
@@ -485,7 +492,6 @@ export default function App() {
               mappedExpenses.forEach(e => map.set(e.id, e));
               const merged = Array.from(map.values());
               lastSyncedState.current.rel_expenses = JSON.stringify(merged);
-              saveStoredExpenses(merged);
               return merged;
             });
           }
@@ -542,7 +548,6 @@ export default function App() {
               cloudModules.expenses!.forEach(e => map.set(e.id, e));
               const merged = Array.from(map.values());
               lastSyncedState.current.expenses = JSON.stringify(merged);
-              saveStoredExpenses(merged);
               return merged;
             });
           }
@@ -555,7 +560,6 @@ export default function App() {
               cloudModules.maintenanceLogs!.forEach(m => map.set(m.id, m));
               const merged = Array.from(map.values());
               lastSyncedState.current.maintenanceLogs = JSON.stringify(merged);
-              saveStoredMaintenanceLogs(merged);
               return merged;
             });
           }
@@ -565,7 +569,6 @@ export default function App() {
               cloudModules.vacations!.forEach(v => map.set(v.id, v));
               const merged = Array.from(map.values());
               lastSyncedState.current.vacations = JSON.stringify(merged);
-              saveStoredVacations(merged);
               return merged;
             });
           }
@@ -605,7 +608,6 @@ export default function App() {
             cloudVacs.forEach(v => map.set(v.id, v));
             const merged = Array.from(map.values());
             lastSyncedState.current.vacations = JSON.stringify(merged);
-            saveStoredVacations(merged);
             return merged;
           });
         }
@@ -1035,7 +1037,6 @@ export default function App() {
                 );
               });
               const merged = Array.from(map.values());
-              saveStoredExpenses(merged);
               return merged;
             });
           }
@@ -1107,7 +1108,6 @@ export default function App() {
                 const map = new Map(prev.map(e => [e.id, e]));
                 fresh.expenses!.forEach(e => map.set(e.id, e));
                 const merged = Array.from(map.values());
-                saveStoredExpenses(merged);
                 return merged;
               });
             }
@@ -1120,7 +1120,6 @@ export default function App() {
                 const map = new Map(prev.map(m => [m.id, m]));
                 fresh.maintenanceLogs!.forEach(m => map.set(m.id, m));
                 const merged = Array.from(map.values());
-                saveStoredMaintenanceLogs(merged);
                 return merged;
               });
             }
@@ -1133,7 +1132,6 @@ export default function App() {
                 const map = new Map(prev.map(v => [v.id, v]));
                 fresh.vacations!.forEach(v => map.set(v.id, v));
                 const merged = Array.from(map.values());
-                saveStoredVacations(merged);
                 return merged;
               });
             }
@@ -1464,6 +1462,37 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState<string>(getResolvedActiveTab);
+
+  // Sessão Ativa / Simulação de Cargo para Controle de Nível de Acesso (Modo Offline)
+  const [activeSession, setActiveSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+
+  useEffect(() => {
+    const handleSessionSync = (e: any) => {
+      if (e?.detail) {
+        setActiveSession(e.detail);
+      } else {
+        setActiveSession(getActiveUserSession());
+      }
+    };
+    window.addEventListener('colaca_silagem_session_updated', handleSessionSync);
+    window.addEventListener('storage', handleSessionSync);
+    return () => {
+      window.removeEventListener('colaca_silagem_session_updated', handleSessionSync);
+      window.removeEventListener('storage', handleSessionSync);
+    };
+  }, []);
+
+  const getRequiredModulePermission = (tab: string): ModulePermissionKey | null => {
+    if (tab === 'financeiro' || tab === 'despesas' || tab === 'contas' || tab === 'bancos' || tab === 'pagar' || tab === 'receber') return 'financeiro';
+    if (tab === 'frotas' || tab === 'frota' || tab === 'veiculos' || tab === 'manutencoes' || tab === 'combustivel' || tab === 'motoristas' || tab === 'equipe' || tab === 'rodizio' || tab === 'rodizio_pneus') return 'frotas';
+    if (tab === 'rh' || tab === 'funcionarios' || tab === 'folha' || tab === 'colaboradores') return 'rh';
+    if (tab === 'estoque' || tab === 'almoxarifado' || tab === 'fiscal' || tab === 'documentos_entrada' || tab === 'entradas' || tab === 'nfe_importar' || tab === 'nfe_notas') return 'estoque';
+    if (tab === 'configuracoes') return 'empresa';
+    return null;
+  };
+
+  const currentRestrictedPerm = getRequiredModulePermission(activeTab);
+  const isCurrentTabDenied = activeSession.type !== 'admin' && currentRestrictedPerm !== null && activeSession.permissions && activeSession.permissions[currentRestrictedPerm] === false;
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -2874,9 +2903,22 @@ export default function App() {
           id="crm-main-content"
           className="flex-1 p-2.5 sm:p-3 lg:p-3.5 pb-20 lg:pb-3.5 w-full max-w-none bg-zinc-100 dark:bg-stone-950"
         >
-          
-          {/* TAB 1: Main Dashboard (Matching Screenshot) */}
-          {activeTab === 'dashboard' && (
+          {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
+          {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (
+            <AccessDeniedView
+              moduleName={
+                (currentRestrictedPerm === 'financeiro' || activeTab.includes('financeiro') || activeTab.includes('despesas') || activeTab.includes('contas')) ? 'Financeiro (Bancos, Saldos, DRE)' :
+                (currentRestrictedPerm === 'frotas' || activeTab.includes('frotas') || activeTab.includes('veiculos')) ? 'Gestão de Frotas & Veículos' :
+                (currentRestrictedPerm === 'rh' || activeTab.includes('rh') || activeTab.includes('funcionarios')) ? 'Recursos Humanos (Folhas, Férias, Faltas)' :
+                (currentRestrictedPerm === 'estoque' || activeTab.includes('estoque') || activeTab.includes('fiscal') || activeTab.includes('almoxarifado')) ? 'Estoque / Almoxarifado / Notas Fiscais' :
+                (currentRestrictedPerm === 'empresa' || activeTab.includes('configuracoes')) ? 'Minha Empresa (Configurações cadastrais)' : 'este módulo'
+              }
+              onNavigateHome={() => setActiveTab('dashboard')}
+            />
+          ) : (
+            <>
+              {/* TAB 1: Main Dashboard (Matching Screenshot) */}
+              {activeTab === 'dashboard' && (
             <MainDashboard
               expenses={expenses}
               clients={clients}
@@ -3237,8 +3279,15 @@ export default function App() {
             />
           )}
 
+          {/* TAB 13: Cadastros Base (Centros de Custo, Plano de Contas, Cargos & Permissões) */}
+          {(activeTab === 'cadastros_base' || activeTab.startsWith('cadastros_base_') || ['centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab)) && (
+            <CadastrosBaseModule
+              initialSubTab={activeTab}
+            />
+          )}
+
           {/* Fallback Visual Seguro para MainDashboard se a aba não for reconhecida */}
-          {!['dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes'].includes(activeTab) && (
+          {!['dashboard', 'servicos', 'venda', 'vendas', 'clientes', 'crm', 'frotas', 'frota', 'veiculos', 'manutencoes', 'combustivel', 'motoristas', 'equipe', 'rodizio', 'rodizio_pneus', 'fornecedores', 'rh', 'folha', 'colaboradores', 'funcionarios', 'almoxarifado', 'estoque', 'financeiro', 'contas', 'pagar', 'receber', 'bancos', 'fiscal', 'nfe', 'relatorios', 'reports', 'configuracoes', 'cadastros_base', 'cadastros_base_centros_custo', 'cadastros_base_plano_contas', 'cadastros_base_cargos_permissoes', 'centros_custo', 'plano_contas', 'cargos_permissoes'].includes(activeTab) && (
             <MainDashboard
               expenses={expenses}
               clients={clients}
@@ -3258,6 +3307,8 @@ export default function App() {
               onOpenIntegration={() => setIsIntegrationModalOpen(true)}
               onExpensesChange={setExpenses}
             />
+          )}
+            </>
           )}
 
         </main>

@@ -45,6 +45,11 @@ import { PrintDocumentOptions } from '../../lib/printService';
 import { PrintableEmployeeSheet } from './PrintableEmployeeSheet';
 import { generateEmployeeSheetHtml, generateEmployeeWhatsAppText } from './employeePrintUtils';
 import { EmployeeAvatar, isBrokenAvatarUrl } from '../common/EmployeeAvatar';
+import { 
+  getStoredCargosPermissoes, 
+  attachCargoPermissionsToEmployee 
+} from '../../lib/cadastrosBaseStorage';
+import { CargoPermissao } from '../../types';
 
 
 const STORAGE_KEYS = {
@@ -658,13 +663,33 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [brokerCommissionValue, setBrokerCommissionValue] = useState<string>('5,00');
   const [actingRegion, setActingRegion] = useState<string>('');
 
+  const [cargosBase, setCargosBase] = useState<CargoPermissao[]>(() => getStoredCargosPermissoes());
+
+  useEffect(() => {
+    const handleCargosUpdated = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setCargosBase(e.detail);
+      } else {
+        setCargosBase(getStoredCargosPermissoes());
+      }
+    };
+    window.addEventListener('colaca_silagem_cargos_updated', handleCargosUpdated);
+    window.addEventListener('storage', handleCargosUpdated);
+    return () => {
+      window.removeEventListener('colaca_silagem_cargos_updated', handleCargosUpdated);
+      window.removeEventListener('storage', handleCargosUpdated);
+    };
+  }, []);
+
   const isBroker = useMemo(() => {
     return role1.trim().toLowerCase() === 'agenciador' || role2.trim().toLowerCase() === 'agenciador';
   }, [role1, role2]);
 
   const sortedRoleOptions = useMemo(() => {
-    return [...roleOptions].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [roleOptions]);
+    const cargoNames = cargosBase.map(c => c.nome);
+    const combined = Array.from(new Set([...DEFAULT_ROLES, ...roleOptions, ...cargoNames]));
+    return combined.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [roleOptions, cargosBase]);
 
   const [cpf, setCpf] = useState<string>('');
   const [rgNumero, setRgNumero] = useState<string>('');
@@ -1903,6 +1928,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const formattedBirthDate = birthDate ? (formatIsoDateOnly(birthDate) || birthDate.trim()) : undefined;
       const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
 
+      // Vincula permissões do cargo cadastrado em colaca_silagem_cargos_permissoes
+      const cargoInfo = attachCargoPermissionsToEmployee(finalRole, cargosBase);
+
       // 1. CARIMBO DE DONO OBRIGATÓRIO (user_id: activeUid)
       const employeeData: Employee = {
         id: finalId,
@@ -1913,6 +1941,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         registrationType: finalRegType,
         role: finalRole,
         roles: finalRoles,
+        cargoId: cargoInfo.cargoId,
+        cargo_setor: cargoInfo.setor,
+        permissions: cargoInfo.permissions,
+        permissoes: cargoInfo.permissions,
         brokerCommissionType: isBroker ? brokerCommissionType : undefined,
         brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
         actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,

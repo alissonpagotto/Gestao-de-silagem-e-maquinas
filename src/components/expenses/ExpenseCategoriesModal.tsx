@@ -51,12 +51,12 @@ export const ExpenseCategoriesModal: React.FC<ExpenseCategoriesModalProps> = ({
 
   // New Cost Center State
   const [newCCName, setNewCCName] = useState('');
-  const [newCCType, setNewCCType] = useState<'safra' | 'maquinario' | 'talhao' | 'instalacao' | 'geral'>('talhao');
+  const [newCCType, setNewCCType] = useState<string>('talhao');
 
   // Edit Cost Center State
   const [editingCCId, setEditingCCId] = useState<string | null>(null);
   const [editCCName, setEditCCName] = useState('');
-  const [editCCType, setEditCCType] = useState<'safra' | 'maquinario' | 'talhao' | 'instalacao' | 'geral'>('talhao');
+  const [editCCType, setEditCCType] = useState<string>('talhao');
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();

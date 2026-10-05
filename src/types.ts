@@ -54,7 +54,9 @@ export interface ExpenseCategory {
 export interface CostCenter {
   id: string;
   name: string;
-  type: 'safra' | 'maquinario' | 'talhao' | 'instalacao' | 'geral';
+  type: 'safra' | 'maquinario' | 'talhao' | 'instalacao' | 'geral' | string;
+  description?: string;
+  active?: boolean;
 }
 
 export interface Expense {
@@ -360,6 +362,59 @@ export type EmployeeRole =
 
 export type Cargo = EmployeeRole;
 
+export interface RolePermissions {
+  financeiro: boolean; // Acesso ao Módulo Financeiro (Bancos, Saldos, DRE)
+  frotas: boolean;     // Acesso ao Módulo de Gestão de Frotas & Veículos
+  rh: boolean;         // Acesso ao Módulo de Recursos Humanos (Folhas, Férias, Faltas)
+  estoque: boolean;    // Acesso ao Módulo de Estoque / Almoxarifado / Notas Fiscais
+  empresa: boolean;    // Acesso à tela "Minha Empresa" (Configurações cadastrais)
+}
+
+export interface CargoPermissao {
+  id: string;
+  nome: string;
+  setor: string;
+  descricao?: string;
+  permissoes: RolePermissions;
+  companyId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PlanoContaCategoria {
+  id: string;
+  codigo: string;
+  nome: string;
+  tipo: 'receita' | 'despesa' | 'ativo' | 'passivo';
+  descricao?: string;
+  ativo: boolean;
+}
+
+export interface FormaPagamentoItem {
+  id: string;
+  codigo: string;
+  nome: string;
+  tipo: 'dinheiro' | 'pix' | 'boleto' | 'cartao_credito' | 'cartao_debito' | 'transferencia' | 'cheque' | 'outro';
+  prazoDias?: number;
+  taxaPercentual?: number;
+  ativo: boolean;
+}
+
+export interface PlanoContasEFormasData {
+  categorias: PlanoContaCategoria[];
+  formasPagamento: FormaPagamentoItem[];
+}
+
+export interface SimulatedUserSession {
+  type: 'admin' | 'employee';
+  employeeId?: string;
+  cargoId?: string;
+  name: string;
+  cargoNome: string;
+  setor?: string;
+  permissions: RolePermissions;
+}
+
 export type EmployeeRegistrationType = 
   | 'Agenciador'
   | 'Auxiliar'
@@ -381,6 +436,10 @@ export interface Employee {
   registrationType?: EmployeeRegistrationType;
   role: EmployeeRole | string; // 'Operador de Ensiladeira', 'Tratorista', 'Motorista de Caminhão', 'Mecânico', etc.
   roles?: string[]; // Array de múltiplos cargos selecionados (suporte a multi-select)
+  cargoId?: string; // ID do Cargo em colaca_silagem_cargos_permissoes
+  cargo_setor?: string; // Setor do Cargo
+  permissions?: RolePermissions; // Permissões de Acesso herdadas do Cargo
+  permissoes?: RolePermissions; // Alias para permissões do cargo
   cpf?: string;
   rg?: string; // Número do RG
   numero_rg?: string; // Alias banco Supabase (numero_rg)
