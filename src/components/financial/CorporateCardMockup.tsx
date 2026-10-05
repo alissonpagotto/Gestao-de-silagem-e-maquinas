@@ -1,5 +1,6 @@
 import React from 'react';
 import { CorporateCard } from '../../types';
+import { identifyBankCode, BankLogoIcon } from './BankLogoIcon';
 
 interface CorporateCardMockupProps {
   card: CorporateCard;
@@ -11,7 +12,7 @@ interface CorporateCardMockupProps {
 
 /**
  * Renderiza um mockup fidedigno e tridimensional de cartão de crédito físico corporativo.
- * Respeita as cores oficiais do banco (ex: Verde Limão Sicredi #00a859) e a bandeira (Mastercard / Visa).
+ * Respeita as cores oficiais do banco (ex: Ailos #005f6a, Verde Limão Sicredi #00a859) e a bandeira (Mastercard / Visa).
  */
 export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
   card,
@@ -23,6 +24,8 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
   // Normalização de dados para detecção
   const bankLower = (bankName || '').toLowerCase();
   const cardNameLower = (card.name || '').toLowerCase();
+  const cardAny = card as any;
+  const detectedBankCode = identifyBankCode(bankCode, bankName) || (cardAny.bank ? identifyBankCode(undefined, cardAny.bank) : null);
 
   // Detecção da bandeira (Mastercard por padrão no Sicredi e conforme solicitado)
   let brand: 'mastercard' | 'visa' | 'elo' = 'mastercard';
@@ -34,7 +37,7 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
     brand = 'elo';
   } else if (cardNameLower.includes('master')) {
     brand = 'mastercard';
-  } else if (bankLower.includes('sicredi')) {
+  } else if (bankLower.includes('sicredi') || detectedBankCode === '748') {
     brand = 'mastercard';
   }
 
@@ -49,47 +52,76 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
   let bankDisplay = 'Sicredi';
   let chipTone: 'gold' | 'silver' = 'silver';
 
-  if (bankLower.includes('sicredi') || bankCode === '748') {
+  if (detectedBankCode === '085' || bankLower.includes('ailos') || bankLower.includes('viacredi') || bankCode === '085' || bankCode === '85') {
+    // Ailos / Viacredi - Azul Petróleo / Teal Escuro Oficial (#005f6a)
+    cardBgClass = 'bg-[#005f6a] bg-gradient-to-br from-[#007482] via-[#005f6a] to-[#004e57] shadow-teal-950/30';
+    bankDisplay = 'Ailos';
+    chipTone = 'silver';
+  } else if (detectedBankCode === '748' || bankLower.includes('sicredi') || bankCode === '748') {
     // Sicredi Verde Corporativo Oficial
     cardBgClass = 'bg-gradient-to-br from-[#00a859] via-[#008f4a] to-[#006836] shadow-emerald-950/20';
     bankDisplay = 'Sicredi';
     chipTone = 'silver';
-  } else if (bankLower.includes('nubank') || bankCode === '260') {
+  } else if (detectedBankCode === '260' || bankLower.includes('nubank') || bankCode === '260') {
     cardBgClass = 'bg-gradient-to-br from-[#820ad1] via-[#6d07b0] to-[#450275] shadow-purple-950/20';
     bankDisplay = 'Nu';
     chipTone = 'silver';
-  } else if (bankLower.includes('brasil') || bankCode === '001') {
+  } else if (detectedBankCode === '001' || bankLower.includes('brasil') || bankCode === '001') {
     cardBgClass = 'bg-gradient-to-br from-[#003882] via-[#00275d] to-[#001438] shadow-blue-950/20';
     bankDisplay = 'Banco do Brasil';
     chipTone = 'gold';
-  } else if (bankLower.includes('itau') || bankLower.includes('itaú') || bankCode === '341') {
+  } else if (detectedBankCode === '341' || bankLower.includes('itau') || bankLower.includes('itaú') || bankCode === '341') {
     cardBgClass = 'bg-gradient-to-br from-[#ec7000] via-[#cd5f00] to-[#8f3f00] shadow-orange-950/20';
     bankDisplay = 'Itaú Personnalité';
     chipTone = 'silver';
-  } else if (bankLower.includes('bradesco') || bankCode === '237') {
+  } else if (detectedBankCode === '237' || bankLower.includes('bradesco') || bankCode === '237') {
     cardBgClass = 'bg-gradient-to-br from-[#cc092f] via-[#b00828] to-[#700418] shadow-rose-950/20';
     bankDisplay = 'Bradesco';
     chipTone = 'silver';
-  } else if (bankLower.includes('santander') || bankCode === '033') {
+  } else if (detectedBankCode === '033' || bankLower.includes('santander') || bankCode === '033') {
     cardBgClass = 'bg-gradient-to-br from-[#ec0000] via-[#c00000] to-[#7a0000] shadow-rose-950/20';
     bankDisplay = 'Santander';
     chipTone = 'silver';
-  } else if (bankLower.includes('caixa') || bankCode === '104') {
+  } else if (detectedBankCode === '104' || bankLower.includes('caixa') || bankCode === '104') {
     cardBgClass = 'bg-gradient-to-br from-[#005ca9] via-[#004785] to-[#002f5a] shadow-blue-950/20';
     bankDisplay = 'CAIXA';
     chipTone = 'gold';
-  } else if (bankLower.includes('inter') || bankCode === '077') {
+  } else if (detectedBankCode === '077' || bankLower.includes('inter') || bankCode === '077') {
     cardBgClass = 'bg-gradient-to-br from-[#ff7a00] via-[#e06800] to-[#aa4c00] shadow-orange-950/20';
     bankDisplay = 'Inter Black';
     chipTone = 'silver';
-  } else if (bankLower.includes('cresol') || bankCode === '133') {
+  } else if (detectedBankCode === '133' || bankLower.includes('cresol') || bankCode === '133') {
     cardBgClass = 'bg-gradient-to-br from-zinc-900 via-neutral-950 to-black shadow-black/40';
     bankDisplay = 'Cresol';
     chipTone = 'gold';
-  } else if (bankLower.includes('sicoob') || bankCode === '756') {
+  } else if (detectedBankCode === '756' || bankLower.includes('sicoob') || bankCode === '756') {
     cardBgClass = 'bg-gradient-to-br from-[#003641] via-[#004e5f] to-[#00232a] shadow-teal-950/20';
     bankDisplay = 'Sicoob';
     chipTone = 'silver';
+  } else if (detectedBankCode === '041' || bankLower.includes('banrisul') || bankCode === '041') {
+    cardBgClass = 'bg-gradient-to-br from-[#004f9f] via-[#003875] to-[#00224b] shadow-blue-950/30';
+    bankDisplay = 'Banrisul';
+    chipTone = 'silver';
+  } else if (detectedBankCode === '336' || bankLower.includes('c6') || bankCode === '336') {
+    cardBgClass = 'bg-gradient-to-br from-zinc-900 via-zinc-950 to-black shadow-black/40';
+    bankDisplay = 'C6 Bank';
+    chipTone = 'silver';
+  } else if (detectedBankCode === '290' || bankLower.includes('pagbank') || bankLower.includes('pagseguro') || bankCode === '290') {
+    cardBgClass = 'bg-gradient-to-br from-[#00a868] via-[#008f58] to-[#00683f] shadow-emerald-950/20';
+    bankDisplay = 'PagBank';
+    chipTone = 'silver';
+  } else if (detectedBankCode === '422' || bankLower.includes('safra') || bankCode === '422') {
+    cardBgClass = 'bg-gradient-to-br from-[#001c3d] via-[#001228] to-[#000814] shadow-blue-950/40';
+    bankDisplay = 'Safra';
+    chipTone = 'gold';
+  } else if (detectedBankCode === '004' || bankLower.includes('nordeste') || bankLower.includes('bnb') || bankCode === '004') {
+    cardBgClass = 'bg-gradient-to-br from-[#ff6a00] via-[#d65500] to-[#a33c00] shadow-orange-950/20';
+    bankDisplay = 'Banco do Nordeste';
+    chipTone = 'gold';
+  } else if (detectedBankCode === '136' || bankLower.includes('unicred') || bankCode === '136') {
+    cardBgClass = 'bg-gradient-to-br from-[#004d38] via-[#003a2a] to-[#00261b] shadow-emerald-950/30';
+    bankDisplay = 'Unicred';
+    chipTone = 'gold';
   } else {
     // Padrão Executivo / Platinum Dark
     cardBgClass = 'bg-gradient-to-br from-slate-900 via-zinc-900 to-black shadow-black/30';
@@ -116,8 +148,16 @@ export const CorporateCardMockup: React.FC<CorporateCardMockupProps> = ({
       <div className="relative z-10 flex items-start justify-between">
         <div className="flex flex-col">
           <div className="flex items-center space-x-1">
-            {/* Ícone estilizado do Sicredi se for Sicredi */}
-            {bankDisplay === 'Sicredi' ? (
+            {detectedBankCode ? (
+              <div className="flex items-center space-x-1.5">
+                <div className="shrink-0 flex items-center justify-center">
+                  <BankLogoIcon code={detectedBankCode} size={16} />
+                </div>
+                <span className="font-extrabold text-xs sm:text-sm tracking-tight text-white font-['Outfit'] drop-shadow-xs truncate max-w-[120px]">
+                  {bankDisplay}
+                </span>
+              </div>
+            ) : bankDisplay === 'Sicredi' ? (
               <div className="flex items-center space-x-1">
                 <svg 
                   className="w-3.5 h-3.5 text-white shrink-0 fill-current drop-shadow-xs" 

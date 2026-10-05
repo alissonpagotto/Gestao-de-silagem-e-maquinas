@@ -20,7 +20,10 @@ import {
   User,
   RefreshCw,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Pencil,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { BankAccount, CorporateCard, Employee, Expense } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getStoredEmployees, getStoredExpenses, saveStoredExpenses, getStoredCompanyProfile } from '../../lib/storage';
@@ -177,6 +180,16 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   // Cartões Corporativos Vinculados
   const [corporateCards, setCorporateCards] = useState<CorporateCard[]>([]);
   const [cardNotification, setCardNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  
+  // Controle reativo de expansão dos formulários dos cartões (por padrão recolhidos/ocultos)
+  const [expandedCardIds, setExpandedCardIds] = useState<Record<string, boolean>>({});
+
+  const toggleCardExpansion = useCallback((cardKey: string) => {
+    setExpandedCardIds(prev => ({
+      ...prev,
+      [cardKey]: !prev[cardKey],
+    }));
+  }, []);
 
   // Perfil da Empresa (Razão Social e CNPJ padrão)
   const companyProfile = useMemo(() => getStoredCompanyProfile(), []);
@@ -480,6 +493,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       status: 'ativo',
     };
     setCorporateCards((prev) => [...prev, newCard]);
+    setExpandedCardIds((prev) => ({ ...prev, [newCardId]: true }));
   };
 
   // Totais agregados dos cartões corporativos
@@ -611,6 +625,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
     // Disparar badge temporário de sucesso no rodapé e MANTER modal aberto
     setSaveSuccessMessage(true);
+    setExpandedCardIds({});
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       setSaveSuccessMessage(false);
@@ -1134,10 +1149,12 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                     const usedPercent = card.totalLimit > 0 ? Math.min(100, Math.round((card.usedLimit / card.totalLimit) * 100)) : 0;
                     const availableLimit = Math.max(0, card.totalLimit - card.usedLimit);
                     const nextDueDate = calculateDueDate(card.dueDay || 10);
+                    const cardKey = card.id || `card_${index}`;
+                    const isExpanded = !!expandedCardIds[cardKey];
 
                     return (
                       <div
-                        key={card.id || index}
+                        key={cardKey}
                         className="bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl p-2 sm:p-2.5 space-y-1.5 shadow-xs hover:border-zinc-400 dark:hover:border-stone-500 transition animate-in fade-in"
                       >
                         {/* 1. MOCKUP FÍSICO REALISTA DO CARTÃO */}
@@ -1148,32 +1165,136 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                           accountHolderName={responsavelContaNome}
                         />
 
-                        {/* EXTRATO DESCRITIVO LOGO ABAIXO DO CARTÃO FÍSICO COM ÍCONE DE MOTORISTA */}
-                        <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-stone-900/90 border border-zinc-200 dark:border-stone-700 text-xs shadow-2xs">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <span className="font-extrabold text-zinc-900 dark:text-stone-100 uppercase text-[10.5px] tracking-wide">
-                              {card.brand === 'visa' ? 'Visa' : card.brand === 'elo' ? 'Elo' : 'Mastercard'} Final {card.last4 || '4520'}
-                            </span>
-                            <span className="text-zinc-300 dark:text-stone-600 font-bold">•</span>
-                            <div className="flex items-center gap-1 text-zinc-900 dark:text-stone-100 font-black text-[11px] truncate">
-                              <div className="w-4 h-4 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
-                                <User className="w-2.5 h-2.5" />
+                        {/* 2. RESUMO EXECUTIVO COMPACTO DO CARTÃO (SEMPRE VISÍVEL) */}
+                        <div className="rounded-lg bg-zinc-100 dark:bg-stone-900/90 border border-zinc-200 dark:border-stone-700 p-2 text-xs shadow-2xs space-y-1.5">
+                          {/* Linha Superior: Identificação, Portador e Status */}
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="font-extrabold text-zinc-900 dark:text-stone-100 uppercase text-[10.5px] tracking-wide shrink-0">
+                                {card.brand === 'visa' ? 'Visa' : card.brand === 'elo' ? 'Elo' : 'Mastercard'} Final {card.last4 || '4520'}
+                              </span>
+                              <span className="text-zinc-300 dark:text-stone-600 font-bold">•</span>
+                              <div className="flex items-center gap-1 text-zinc-900 dark:text-stone-100 font-bold text-[10.5px] truncate">
+                                <div className="w-3.5 h-3.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
+                                  <User className="w-2.5 h-2.5" />
+                                </div>
+                                <span className="truncate">
+                                  {(card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase()}
+                                </span>
+                                <span className="text-zinc-500 dark:text-stone-400 font-normal shrink-0">
+                                  ({card.responsavel_funcao || 'Motorista'})
+                                </span>
                               </div>
-                              <span className="truncate">
-                                {(card.titular_nome || card.responsibleEmployeeName || 'AUDIRLEI REOLAN').toUpperCase()} ({card.responsavel_funcao || 'Motorista'})
+                            </div>
+                            
+                            <span className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0 px-1 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800">
+                              Ativo
+                            </span>
+                          </div>
+
+                          {/* Linha Central: Resumo de Limites, Vencimento e Barra Fina */}
+                          <div className="space-y-1 pt-1 border-t border-zinc-200/60 dark:border-stone-800">
+                            <div className="flex items-center justify-between text-[10px] text-zinc-600 dark:text-stone-400">
+                              <span>
+                                Utilizado: <strong className="text-zinc-900 dark:text-stone-100 font-bold font-mono">{formatCurrencyBRL(card.usedLimit)}</strong> de <span className="font-mono">{formatCurrencyBRL(card.totalLimit)}</span> <span className="text-[9px] font-semibold text-zinc-500">({usedPercent}%)</span>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-2.5 h-2.5 text-zinc-400" />
+                                <span>Venc.: <strong className="text-zinc-800 dark:text-stone-200 font-bold font-mono">Dia {String(card.dueDay || 10).padStart(2, '0')}</strong></span>
                               </span>
                             </div>
+
+                            {/* Barra de Progresso Fina */}
+                            <div className="w-full h-1 bg-zinc-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 rounded-full ${
+                                  usedPercent > 90
+                                    ? 'bg-rose-500'
+                                    : usedPercent > 70
+                                    ? 'bg-amber-500'
+                                    : 'bg-emerald-500'
+                                }`}
+                                style={{ width: `${usedPercent}%` }}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between text-[9.5px] text-zinc-500 dark:text-stone-400">
+                              <span>
+                                Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-bold">{formatCurrencyBRL(availableLimit)}</strong>
+                              </span>
+                              {cardExpenses > 0 && (
+                                <span className="text-[9px] text-amber-700 dark:text-amber-400 font-medium">
+                                  {formatCurrencyBRL(cardExpenses)} despesas em aberto
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0 ml-1">
-                            Ativo
-                          </span>
+
+                          {/* Linha Inferior: Botão "Editar Informações do Cartão", Fechar Fatura e Excluir */}
+                          <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-zinc-200/60 dark:border-stone-800">
+                            <button
+                              type="button"
+                              onClick={() => toggleCardExpansion(cardKey)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer active:scale-98 ${
+                                isExpanded
+                                  ? 'bg-zinc-900 text-white dark:bg-stone-100 dark:text-stone-900'
+                                  : 'bg-white dark:bg-stone-800 hover:bg-zinc-50 dark:hover:bg-stone-700 text-zinc-800 dark:text-stone-200 border border-zinc-300 dark:border-stone-600'
+                              }`}
+                              title={isExpanded ? 'Recolher formulário de edição' : 'Editar informações detalhadas deste cartão'}
+                            >
+                              <Pencil className="w-3 h-3 stroke-[2.5]" />
+                              <span>{isExpanded ? 'Recolher Edição' : 'Editar Informações do Cartão'}</span>
+                              {isExpanded ? (
+                                <ChevronUp className="w-3 h-3 text-zinc-400" />
+                              ) : (
+                                <ChevronDown className="w-3 h-3 text-zinc-400" />
+                              )}
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                              {card.usedLimit > 0 && !isExpanded && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCloseAndProvisionInvoice(card)}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white transition shadow-2xs cursor-pointer"
+                                  title={`Provisionar fatura de ${formatCurrencyBRL(card.usedLimit)} no Contas a Pagar`}
+                                >
+                                  <Zap className="w-2.5 h-2.5 text-amber-300" />
+                                  <span>Fechar Fatura</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCard(card.id)}
+                                className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                                title="Excluir este Cartão"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
-                        {/* 2. CONTROLES E CAMPOS DE GESTÃO DO CARTÃO */}
-                        <div className="space-y-1.5 pt-0.5">
-                          {/* Linha: Identificador/Final e Bandeira + Botão Excluir */}
-                          <div className="flex items-center justify-between gap-1.5">
-                            <div className="grid grid-cols-2 gap-1.5 flex-1">
+                        {/* 3. FORMULÁRIO COMPLETO EXPANSÍVEL (EXIBIDO APENAS AO CLICAR EM "EDITAR INFORMAÇÕES") */}
+                        {isExpanded && (
+                          <div className="p-2 sm:p-2.5 rounded-lg bg-zinc-50 dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 space-y-1.5 animate-in fade-in duration-150">
+                            <div className="flex items-center justify-between pb-1 border-b border-zinc-200 dark:border-stone-700">
+                              <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider flex items-center gap-1">
+                                <Pencil className="w-3 h-3 text-zinc-500" />
+                                <span>Parâmetros de Gestão do Cartão</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleCardExpansion(cardKey)}
+                                className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 dark:text-stone-400 hover:underline cursor-pointer"
+                              >
+                                Recolher
+                              </button>
+                            </div>
+
+                            {/* Linha: Identificador/Final e Bandeira */}
+                            <div className="grid grid-cols-2 gap-1.5">
                               <div>
                                 <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
                                   Bandeira
@@ -1218,212 +1339,188 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1 shrink-0 pt-2.5">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCard(card.id)}
-                                className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                                title="Excluir este Cartão"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Funcionário Responsável: Dropdown com Módulo RH */}
-                          <div>
-                            <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center gap-1">
-                              <UserCheck className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
-                              <span>Funcionário Responsável / Módulo RH</span>
-                            </label>
-                            <select
-                              value={card.responsibleEmployeeId}
-                              onChange={(e) => {
-                                const emp = availableEmployees.find((x) => x.id === e.target.value);
-                                const empName = emp?.name || '';
-                                const empRole = emp?.role || 'Motorista';
-                                handleUpdateCard(card.id, {
-                                  responsibleEmployeeId: e.target.value,
-                                  responsibleEmployeeName: empName,
-                                  responsavel_cartao_id: e.target.value,
-                                  titular_nome: empName.toUpperCase(),
-                                  responsavel_funcao: empRole,
-                                });
-                              }}
-                              className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
-                            >
-                              <option value="">-- Selecione o Funcionário Responsável --</option>
-                              {availableEmployees.map((emp) => (
-                                <option key={emp.id} value={emp.id}>
-                                  {emp.name} {emp.role ? `(${emp.role})` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Nome no Plástico do Cartão (Titularidade) e Função / Cargo */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {/* Funcionário Responsável: Dropdown com Módulo RH */}
                             <div>
-                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
-                                <span>Nome no Plástico (Titularidade)</span>
-                                <span className="text-[9px] text-zinc-400 font-normal">Ao vivo</span>
+                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center gap-1">
+                                <UserCheck className="w-3 h-3 text-zinc-600 dark:text-stone-400" />
+                                <span>Funcionário Responsável / Módulo RH</span>
                               </label>
-                              <input
-                                type="text"
-                                value={card.titular_nome || card.responsibleEmployeeName || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  handleUpdateCard(card.id, {
-                                    titular_nome: val.toUpperCase(),
-                                    responsibleEmployeeName: val,
-                                  });
-                                }}
-                                placeholder="Ex: AUDIRLEI REOLAN"
-                                className="w-full px-2 py-1 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs uppercase font-mono tracking-wide"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
-                                Função / Cargo do Portador
-                              </label>
-                              <input
-                                type="text"
-                                value={card.responsavel_funcao || 'Motorista'}
-                                onChange={(e) => {
-                                  handleUpdateCard(card.id, {
-                                    responsavel_funcao: e.target.value,
-                                  });
-                                }}
-                                placeholder="Ex: Motorista"
-                                className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Grid: Limite Total e Limite Utilizado */}
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <div>
-                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
-                                Limite Total (R$)
-                              </label>
-                              <div className="relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
-                                  R$
-                                </span>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={card.totalLimit > 0 ? formatarMoeda(Math.round(card.totalLimit * 100)) : '0,00'}
-                                  onChange={(e) => {
-                                    const val = desformatarMoeda(e.target.value);
-                                    handleUpdateCard(card.id, { totalLimit: val });
-                                  }}
-                                  placeholder="0,00"
-                                  className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                                />
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
-                                <span>Limite Utilizado (R$)</span>
-                                {cardExpenses > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateCard(card.id, { usedLimit: cardExpenses })}
-                                    className="text-[9px] text-zinc-700 dark:text-stone-300 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                                    title="Copiar soma de despesas abertas no sistema"
-                                  >
-                                    <RefreshCw className="w-2.5 h-2.5" />
-                                    <span>{formatCurrencyBRL(cardExpenses)}</span>
-                                  </button>
-                                )}
-                              </label>
-                              <div className="relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
-                                  R$
-                                </span>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={card.usedLimit > 0 ? formatarMoeda(Math.round(card.usedLimit * 100)) : '0,00'}
-                                  onChange={(e) => {
-                                    const val = desformatarMoeda(e.target.value);
-                                    handleUpdateCard(card.id, { usedLimit: val });
-                                  }}
-                                  placeholder="0,00"
-                                  className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Vencimento e Botão de Provisionamento */}
-                          <div className="pt-1 border-t border-zinc-100 dark:border-stone-700 flex items-center justify-between gap-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 flex items-center gap-1 shrink-0">
-                                <Calendar className="w-3 h-3 text-zinc-500" />
-                                <span>Venc.:</span>
-                              </span>
                               <select
-                                value={card.dueDay || 10}
-                                onChange={(e) => handleUpdateCard(card.id, { dueDay: Number(e.target.value) })}
-                                className="px-1.5 py-0.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-md focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer font-mono"
+                                value={card.responsibleEmployeeId}
+                                onChange={(e) => {
+                                  const emp = availableEmployees.find((x) => x.id === e.target.value);
+                                  const empName = emp?.name || '';
+                                  const empRole = emp?.role || 'Motorista';
+                                  handleUpdateCard(card.id, {
+                                    responsibleEmployeeId: e.target.value,
+                                    responsibleEmployeeName: empName,
+                                    responsavel_cartao_id: e.target.value,
+                                    titular_nome: empName.toUpperCase(),
+                                    responsavel_funcao: empRole,
+                                  });
+                                }}
+                                className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer truncate"
                               >
-                                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                  <option key={day} value={day}>
-                                    Dia {String(day).padStart(2, '0')}
+                                <option value="">-- Selecione o Funcionário Responsável --</option>
+                                {availableEmployees.map((emp) => (
+                                  <option key={emp.id} value={emp.id}>
+                                    {emp.name} {emp.role ? `(${emp.role})` : ''}
                                   </option>
                                 ))}
                               </select>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => handleCloseAndProvisionInvoice(card)}
-                              disabled={card.usedLimit <= 0}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 ${
-                                card.usedLimit > 0
-                                  ? 'bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white'
-                                  : 'bg-zinc-100 text-zinc-400 dark:bg-stone-800 dark:text-stone-500 border border-zinc-200 dark:border-stone-700 cursor-not-allowed'
-                              }`}
-                              title={
-                                card.usedLimit > 0
-                                  ? `Provisionar fatura de ${formatCurrencyBRL(card.usedLimit)} no Contas a Pagar`
-                                  : 'Não há limite utilizado para provisionar fatura'
-                              }
-                            >
-                              <Zap className="w-3 h-3" />
-                              <span>Fechar Fatura</span>
-                            </button>
-                          </div>
+                            {/* Nome no Plástico do Cartão (Titularidade) e Função / Cargo */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
+                                  <span>Nome no Plástico (Titularidade)</span>
+                                  <span className="text-[9px] text-zinc-400 font-normal">Ao vivo</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={card.titular_nome || card.responsibleEmployeeName || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    handleUpdateCard(card.id, {
+                                      titular_nome: val.toUpperCase(),
+                                      responsibleEmployeeName: val,
+                                    });
+                                  }}
+                                  placeholder="Ex: AUDIRLEI REOLAN"
+                                  className="w-full px-2 py-1 text-xs font-black bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs uppercase font-mono tracking-wide"
+                                />
+                              </div>
 
-                          {/* Barra de Consumo do Limite */}
-                          <div className="space-y-0.5 pt-0.5">
-                            <div className="flex justify-between items-center text-[10px] text-zinc-600 dark:text-stone-400">
-                              <span>
-                                Utilizado: <strong className="text-zinc-900 dark:text-stone-100 font-bold font-mono">{formatCurrencyBRL(card.usedLimit)}</strong> ({usedPercent}%)
-                              </span>
-                              <span>
-                                Disponível: <strong className="text-emerald-700 dark:text-emerald-400 font-bold font-mono">{formatCurrencyBRL(availableLimit)}</strong>
-                              </span>
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                  Função / Cargo do Portador
+                                </label>
+                                <input
+                                  type="text"
+                                  value={card.responsavel_funcao || 'Motorista'}
+                                  onChange={(e) => {
+                                    handleUpdateCard(card.id, {
+                                      responsavel_funcao: e.target.value,
+                                    });
+                                  }}
+                                  placeholder="Ex: Motorista"
+                                  className="w-full px-2 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+                                />
+                              </div>
                             </div>
-                            <div className="w-full h-1 bg-zinc-100 dark:bg-stone-700 rounded-full overflow-hidden border border-zinc-200 dark:border-stone-600">
-                              <div
-                                className={`h-full transition-all duration-300 rounded-full ${
-                                  usedPercent > 90
-                                    ? 'bg-rose-500'
-                                    : usedPercent > 70
-                                    ? 'bg-amber-500'
-                                    : 'bg-emerald-500'
-                                }`}
-                                style={{ width: `${usedPercent}%` }}
-                              />
-                            </div>
-                          </div>
 
-                        </div>
+                            {/* Grid: Limite Total e Limite Utilizado */}
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5">
+                                  Limite Total (R$)
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
+                                    R$
+                                  </span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={card.totalLimit > 0 ? formatarMoeda(Math.round(card.totalLimit * 100)) : '0,00'}
+                                    onChange={(e) => {
+                                      const val = desformatarMoeda(e.target.value);
+                                      handleUpdateCard(card.id, { totalLimit: val });
+                                    }}
+                                    placeholder="0,00"
+                                    className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-700 dark:text-stone-300 mb-0.5 flex items-center justify-between">
+                                  <span>Limite Utilizado (R$)</span>
+                                  {cardExpenses > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateCard(card.id, { usedLimit: cardExpenses })}
+                                      className="text-[9px] text-zinc-700 dark:text-stone-300 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                                      title="Copiar soma de despesas abertas no sistema"
+                                    >
+                                      <RefreshCw className="w-2.5 h-2.5" />
+                                      <span>{formatCurrencyBRL(cardExpenses)}</span>
+                                    </button>
+                                  )}
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px] pointer-events-none select-none">
+                                    R$
+                                  </span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={card.usedLimit > 0 ? formatarMoeda(Math.round(card.usedLimit * 100)) : '0,00'}
+                                    onChange={(e) => {
+                                      const val = desformatarMoeda(e.target.value);
+                                      handleUpdateCard(card.id, { usedLimit: val });
+                                    }}
+                                    placeholder="0,00"
+                                    className="w-full pl-6 pr-1.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs font-mono"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Vencimento e Botão de Provisionamento */}
+                            <div className="pt-1 border-t border-zinc-200 dark:border-stone-700 flex items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 flex items-center gap-1 shrink-0">
+                                  <Calendar className="w-3 h-3 text-zinc-500" />
+                                  <span>Venc.:</span>
+                                </span>
+                                <select
+                                  value={card.dueDay || 10}
+                                  onChange={(e) => handleUpdateCard(card.id, { dueDay: Number(e.target.value) })}
+                                  className="px-1.5 py-0.5 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-md focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs cursor-pointer font-mono"
+                                >
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <option key={day} value={day}>
+                                      Dia {String(day).padStart(2, '0')}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCloseAndProvisionInvoice(card)}
+                                  disabled={card.usedLimit <= 0}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer active:scale-98 ${
+                                    card.usedLimit > 0
+                                      ? 'bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white'
+                                      : 'bg-zinc-100 text-zinc-400 dark:bg-stone-800 dark:text-stone-500 border border-zinc-200 dark:border-stone-700 cursor-not-allowed'
+                                  }`}
+                                  title={
+                                    card.usedLimit > 0
+                                      ? `Provisionar fatura de ${formatCurrencyBRL(card.usedLimit)} no Contas a Pagar`
+                                      : 'Não há limite utilizado para provisionar fatura'
+                                  }
+                                >
+                                  <Zap className="w-3 h-3 text-amber-300" />
+                                  <span>Fechar Fatura</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCardExpansion(cardKey)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white transition shadow-xs cursor-pointer"
+                                >
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                  <span>Concluir</span>
+                                </button>
+                              </div>
+                            </div>
+
+                          </div>
+                        )}
                       </div>
                     );
                   })}
