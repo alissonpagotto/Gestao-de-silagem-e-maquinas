@@ -144,11 +144,15 @@ export const CargosPermissoesTab: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleTogglePermission = (key: keyof RolePermissions) => {
+  const atualizarPermissao = (key: keyof RolePermissions, checked?: boolean) => {
     setPermissoes(prev => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: typeof checked === 'boolean' ? checked : !prev[key],
     }));
+  };
+
+  const handleTogglePermission = (key: keyof RolePermissions) => {
+    atualizarPermissao(key);
   };
 
   const handleSaveCargo = (e: React.FormEvent) => {
@@ -608,18 +612,18 @@ export const CargosPermissoesTab: React.FC = () => {
 
       {/* MODAL DE CADASTRO / EDIÇÃO DE CARGO COM FORMULÁRIO DIVIDIDO EM DUAS SEÇÕES */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-3xl max-w-4xl w-full p-6 sm:p-7 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-stone-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl max-w-4xl w-full p-4 sm:p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-y-hidden max-h-[96vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-stone-800 shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
                   <Shield className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white tracking-tight">
+                  <h3 className="text-base font-extrabold text-zinc-900 dark:text-white tracking-tight">
                     {editingCargo ? `Editar Cargo: ${editingCargo.nome}` : 'Cadastrar Novo Cargo'}
                   </h3>
-                  <p className="text-xs text-zinc-500 dark:text-stone-400">
+                  <p className="text-[11px] text-zinc-500 dark:text-stone-400">
                     Defina os dados cadastrais no lado esquerdo e configure a grade de permissões no lado direito.
                   </p>
                 </div>
@@ -627,103 +631,116 @@ export const CargosPermissoesTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg transition"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg transition cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             {formError && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center space-x-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+              <div className="mt-2.5 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center space-x-2 text-xs font-bold text-rose-700 dark:text-rose-300 shrink-0">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSaveCargo} className="mt-5 space-y-6">
+            <form onSubmit={handleSaveCargo} className="mt-3.5 space-y-3.5 flex-1 flex flex-col overflow-y-hidden">
               {/* LAYOUT DIVIDIDO EM DUAS SEÇÕES: LADO ESQUERDO E LADO DIREITO */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                 
                 {/* LADO ESQUERDO: IDENTIFICAÇÃO DO CARGO */}
-                <div className="bg-zinc-50 dark:bg-stone-800/50 p-5 rounded-2xl border border-zinc-200 dark:border-stone-800 space-y-4">
-                  <div className="flex items-center space-x-2 pb-2 border-b border-zinc-200 dark:border-stone-700">
-                    <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-900 dark:text-white">
-                      1. Identificação do Cargo
-                    </h4>
-                  </div>
+                <div className="bg-zinc-50 dark:bg-stone-800/50 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2 pb-1.5 border-b border-zinc-200 dark:border-stone-700">
+                      <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-900 dark:text-white">
+                        1. Identificação do Cargo
+                      </h4>
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
-                      Nome do Cargo <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Motorista de Caminhão, Mecânico, etc."
-                      value={nome}
-                      onChange={(e) => setNome(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                        Nome do Cargo <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Motorista de Caminhão, Mecânico, etc."
+                        value={nome}
+                        onChange={(e) => setNome(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
-                      Setor / Departamento <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Transporte, Campo, Financeiro, Oficina..."
-                      value={setor}
-                      onChange={(e) => setSetor(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                    />
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {[
-                        'DIRETORIA & ADMINISTRATIVO',
-                        'FINANCEIRO & CONTABILIDADE',
-                        'TRANSPORTE & LOGÍSTICA',
-                        'CAMPO & SILAGEM',
-                        'OFICINA & MANUTENÇÃO',
-                        'RECURSOS HUMANOS'
-                      ].map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setSetor(s)}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-indigo-100 hover:text-indigo-800 dark:hover:bg-indigo-900/60 dark:hover:text-indigo-300 transition cursor-pointer"
-                        >
-                          + {s}
-                        </button>
-                      ))}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                        Setor / Departamento <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Transporte, Campo, Financeiro, Oficina..."
+                        value={setor}
+                        onChange={(e) => setSetor(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                      />
+
+                      {/* GRADE DE SETORES COM SELEÇÃO DE TAGS CLICÁVEIS */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {[
+                          'DIRETORIA & ADMINISTRATIVO',
+                          'FINANCEIRO & CONTABILIDADE',
+                          'TRANSPORTE & LOGÍSTICA',
+                          'CAMPO & SILAGEM',
+                          'OFICINA & MANUTENÇÃO',
+                          'RECURSOS HUMANOS'
+                        ].map((s) => {
+                          const isSelected = setor.trim().toUpperCase() === s.toUpperCase();
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setSetor(s)}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all duration-150 cursor-pointer flex items-center gap-1 ${
+                                isSelected
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-300 dark:ring-indigo-800 scale-105'
+                                  : 'bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-zinc-200 dark:border-stone-700 hover:bg-zinc-200 dark:hover:bg-stone-700 hover:border-zinc-400'
+                              }`}
+                              title={`Selecionar setor ${s}`}
+                            >
+                              <span>{isSelected ? '✓' : '+'}</span>
+                              <span>{s}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                        Descrição básica do Cargo
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Resumo das atribuições, responsabilidades e escopo..."
+                        value={descricao}
+                        onChange={(e) => setDescricao(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs resize-none"
+                      />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
-                      Descrição básica do Cargo
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Resumo das atribuições, responsabilidades e escopo..."
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                    />
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-[11px] text-blue-900 dark:text-blue-300 flex items-start space-x-2">
-                    <Info className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="p-2 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-[10px] sm:text-[11px] text-blue-900 dark:text-blue-300 flex items-start space-x-2">
+                    <Info className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
                     <span>
                       Ao vincular este cargo a um colaborador, estas permissões serão anexadas à sua ficha cadastral no módulo RH.
                     </span>
                   </div>
                 </div>
 
-                {/* LADO DIREITO: GRADE DE PERMISSÕES DE ACESSO (TOGGLE SWITCHES) */}
-                <div className="bg-zinc-50 dark:bg-stone-800/50 p-5 rounded-2xl border border-zinc-200 dark:border-stone-800 space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-stone-700">
+                {/* LADO DIREITO: GRADE DE PERMISSÕES DE ACESSO (TOGGLE SWITCHES EDITÁVEIS) */}
+                <div className="bg-zinc-50 dark:bg-stone-800/50 p-3.5 sm:p-4 rounded-xl border border-zinc-200 dark:border-stone-800 space-y-2 flex flex-col justify-between">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200 dark:border-stone-700">
                     <div className="flex items-center space-x-2">
                       <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-900 dark:text-white">
@@ -735,163 +752,233 @@ export const CargosPermissoesTab: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Toggle 1: Financeiro */}
-                  <div 
-                    onClick={() => handleTogglePermission('financeiro')}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                      permissoes.financeiro
-                        ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 shadow-2xs'
-                        : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3 pr-2">
-                      <div className={`p-2 rounded-lg shrink-0 ${permissoes.financeiro ? 'bg-emerald-500 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
-                        <DollarSign className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold text-zinc-900 dark:text-white">
-                          Acesso ao Módulo Financeiro
+                  <div className="space-y-2">
+                    {/* Toggle 1: Financeiro */}
+                    <label 
+                      htmlFor="toggle-financeiro"
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        permissoes.financeiro
+                          ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-400/30'
+                          : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                        <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.financeiro ? 'bg-emerald-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
+                          <DollarSign className="w-3.5 h-3.5" />
                         </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
-                          Bancos, Saldos, DRE, Contas a Pagar e Receber
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <span className="truncate">Acesso ao Módulo Financeiro</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                              permissoes.financeiro ? 'bg-emerald-200 text-emerald-900' : 'bg-zinc-200 text-zinc-600'
+                            }`}>
+                              {permissoes.financeiro ? 'Liberado' : 'Bloqueado'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            Bancos, Saldos, DRE, Contas a Pagar e Receber
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Toggle Switch */}
-                    <div className={`w-11 h-6 flex items-center rounded-full p-1 duration-300 cursor-pointer shrink-0 ${permissoes.financeiro ? 'bg-emerald-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${permissoes.financeiro ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </div>
+                      <div className="relative inline-flex items-center shrink-0">
+                        <input
+                          type="checkbox"
+                          id="toggle-financeiro"
+                          checked={Boolean(permissoes.financeiro)}
+                          onChange={(e) => atualizarPermissao('financeiro', e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.financeiro ? 'bg-emerald-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.financeiro ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Toggle 2: Frotas & Veículos */}
+                    <label 
+                      htmlFor="toggle-frotas"
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        permissoes.frotas
+                          ? 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 shadow-xs ring-1 ring-blue-400/30'
+                          : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                        <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.frotas ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
+                          <Truck className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <span className="truncate">Acesso a Frotas & Veículos</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                              permissoes.frotas ? 'bg-blue-200 text-blue-900' : 'bg-zinc-200 text-zinc-600'
+                            }`}>
+                              {permissoes.frotas ? 'Liberado' : 'Bloqueado'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            Veículos, Manutenções, Abastecimento, Pneus
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative inline-flex items-center shrink-0">
+                        <input
+                          type="checkbox"
+                          id="toggle-frotas"
+                          checked={Boolean(permissoes.frotas)}
+                          onChange={(e) => atualizarPermissao('frotas', e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.frotas ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.frotas ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Toggle 3: Recursos Humanos */}
+                    <label 
+                      htmlFor="toggle-rh"
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        permissoes.rh
+                          ? 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-xs ring-1 ring-purple-400/30'
+                          : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                        <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.rh ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
+                          <HeartHandshake className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <span className="truncate">Acesso a Recursos Humanos</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                              permissoes.rh ? 'bg-purple-200 text-purple-900' : 'bg-zinc-200 text-zinc-600'
+                            }`}>
+                              {permissoes.rh ? 'Liberado' : 'Bloqueado'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            Folha de Pagamento, Férias, Faltas e Atestados
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative inline-flex items-center shrink-0">
+                        <input
+                          type="checkbox"
+                          id="toggle-rh"
+                          checked={Boolean(permissoes.rh)}
+                          onChange={(e) => atualizarPermissao('rh', e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.rh ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.rh ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Toggle 4: Estoque / Almoxarifado / NF-e */}
+                    <label 
+                      htmlFor="toggle-estoque"
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        permissoes.estoque
+                          ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600 shadow-xs ring-1 ring-amber-400/30'
+                          : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                        <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.estoque ? 'bg-amber-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
+                          <Package className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <span className="truncate">Estoque & Almoxarifado</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                              permissoes.estoque ? 'bg-amber-200 text-amber-900' : 'bg-zinc-200 text-zinc-600'
+                            }`}>
+                              {permissoes.estoque ? 'Liberado' : 'Bloqueado'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            Produtos, Insumos e Lançamento de NF-e
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative inline-flex items-center shrink-0">
+                        <input
+                          type="checkbox"
+                          id="toggle-estoque"
+                          checked={Boolean(permissoes.estoque)}
+                          onChange={(e) => atualizarPermissao('estoque', e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.estoque ? 'bg-amber-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.estoque ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Toggle 5: Dados da Empresa */}
+                    <label 
+                      htmlFor="toggle-empresa"
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        permissoes.empresa
+                          ? 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-400 dark:border-rose-600 shadow-xs ring-1 ring-rose-400/30'
+                          : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 pr-2 min-w-0">
+                        <div className={`p-1.5 rounded-lg shrink-0 transition-colors ${permissoes.empresa ? 'bg-rose-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
+                          <Building className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                            <span className="truncate">Dados da Empresa</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                              permissoes.empresa ? 'bg-rose-200 text-rose-900' : 'bg-zinc-200 text-zinc-600'
+                            }`}>
+                              {permissoes.empresa ? 'Liberado' : 'Bloqueado'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-500 dark:text-stone-400 leading-tight truncate">
+                            Configurações cadastrais, CNPJ e Razão Social
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative inline-flex items-center shrink-0">
+                        <input
+                          type="checkbox"
+                          id="toggle-empresa"
+                          checked={Boolean(permissoes.empresa)}
+                          onChange={(e) => atualizarPermissao('empresa', e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${permissoes.empresa ? 'bg-rose-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${permissoes.empresa ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </div>
+                      </div>
+                    </label>
                   </div>
-
-                  {/* Toggle 2: Frotas & Veículos */}
-                  <div 
-                    onClick={() => handleTogglePermission('frotas')}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                      permissoes.frotas
-                        ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700 shadow-2xs'
-                        : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3 pr-2">
-                      <div className={`p-2 rounded-lg shrink-0 ${permissoes.frotas ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
-                        <Truck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold text-zinc-900 dark:text-white">
-                          Acesso ao Módulo de Gestão de Frotas & Veículos
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
-                          Veículos, Manutenções, Abastecimento, Rodízio de Pneus
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`w-11 h-6 flex items-center rounded-full p-1 duration-300 cursor-pointer shrink-0 ${permissoes.frotas ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${permissoes.frotas ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </div>
-                  </div>
-
-                  {/* Toggle 3: Recursos Humanos */}
-                  <div 
-                    onClick={() => handleTogglePermission('rh')}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                      permissoes.rh
-                        ? 'bg-purple-50/80 dark:bg-purple-950/30 border-purple-300 dark:border-purple-700 shadow-2xs'
-                        : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3 pr-2">
-                      <div className={`p-2 rounded-lg shrink-0 ${permissoes.rh ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
-                        <HeartHandshake className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold text-zinc-900 dark:text-white">
-                          Acesso ao Módulo de Recursos Humanos
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
-                          Folhas de Pagamento, Férias, Faltas e Atestados
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`w-11 h-6 flex items-center rounded-full p-1 duration-300 cursor-pointer shrink-0 ${permissoes.rh ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${permissoes.rh ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </div>
-                  </div>
-
-                  {/* Toggle 4: Estoque / Almoxarifado / NF-e */}
-                  <div 
-                    onClick={() => handleTogglePermission('estoque')}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                      permissoes.estoque
-                        ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 shadow-2xs'
-                        : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3 pr-2">
-                      <div className={`p-2 rounded-lg shrink-0 ${permissoes.estoque ? 'bg-amber-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
-                        <Package className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold text-zinc-900 dark:text-white">
-                          Acesso ao Módulo de Estoque / Almoxarifado / Notas Fiscais
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
-                          Produtos, Insumos, Almoxarifado e Lançamento de NF-e
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`w-11 h-6 flex items-center rounded-full p-1 duration-300 cursor-pointer shrink-0 ${permissoes.estoque ? 'bg-amber-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${permissoes.estoque ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </div>
-                  </div>
-
-                  {/* Toggle 5: Dados da Empresa / Minha Empresa (Configurações cadastrais) */}
-                  <div 
-                    onClick={() => handleTogglePermission('empresa')}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                      permissoes.empresa
-                        ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-700 shadow-2xs'
-                        : 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-3 pr-2">
-                      <div className={`p-2 rounded-lg shrink-0 ${permissoes.empresa ? 'bg-rose-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
-                        <Building className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-extrabold text-zinc-900 dark:text-white">
-                          Acesso à tela "Dados da Empresa"
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
-                          Configurações cadastrais, CNPJ, Logotipo e Razão Social
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`w-11 h-6 flex items-center rounded-full p-1 duration-300 cursor-pointer shrink-0 ${permissoes.empresa ? 'bg-rose-600' : 'bg-zinc-300 dark:bg-stone-700'}`}>
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${permissoes.empresa ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </div>
-                  </div>
-
                 </div>
 
               </div>
 
               {/* Botões do Rodapé */}
-              <div className="pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end space-x-3">
+              <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-end space-x-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-100 dark:hover:bg-stone-800 font-bold text-xs sm:text-sm transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-zinc-300 dark:border-stone-700 text-zinc-700 dark:text-stone-300 hover:bg-zinc-100 dark:hover:bg-stone-800 font-bold text-xs sm:text-sm transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
                 >
                   {editingCargo ? 'Salvar Alterações' : 'Cadastrar Cargo'}
                 </button>
