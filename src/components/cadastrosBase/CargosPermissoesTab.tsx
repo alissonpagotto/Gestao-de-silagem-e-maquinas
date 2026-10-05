@@ -598,15 +598,15 @@ export const CargosPermissoesTab: React.FC = () => {
       {/* ======================================================== */}
       {viewMode === 'list' ? (
         <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-290px)] overflow-y-auto scrollbar-none">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-zinc-50 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-700 text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
-                  <th className="py-3 px-4">Cargo / Função</th>
-                  <th className="py-3 px-4">Setor / Área</th>
-                  <th className="py-3 px-4">Módulos Liberados</th>
-                  <th className="py-3 px-4">Status de Uso</th>
-                  <th className="py-3 px-4 text-right">Ações</th>
+              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-stone-800 shadow-2xs">
+                <tr className="border-b border-zinc-200 dark:border-stone-700 text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-stone-400">
+                  <th className="py-2 px-4 whitespace-nowrap">Cargo / Função</th>
+                  <th className="py-2 px-4 whitespace-nowrap">Setor / Área</th>
+                  <th className="py-2 px-4 w-full">Módulos Liberados</th>
+                  <th className="py-2 px-4 whitespace-nowrap">Status de Uso</th>
+                  <th className="py-2 px-4 text-right whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-stone-800 text-xs">
@@ -625,36 +625,31 @@ export const CargosPermissoesTab: React.FC = () => {
                         key={cargo.id} 
                         className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/50 transition-colors group"
                       >
-                        {/* 1. Coluna Cargo / Função */}
-                        <td className="py-3 px-4">
+                        {/* 1. Coluna Cargo / Função (Exibindo estritamente apenas o Nome Principal em destaque) */}
+                        <td className="py-1.5 px-4 whitespace-nowrap">
                           <div className="font-extrabold text-zinc-900 dark:text-white text-xs sm:text-sm">
                             {cargo.nome}
                           </div>
-                          {cargo.descricao && (
-                            <div className="text-[11px] text-zinc-500 dark:text-stone-400 truncate max-w-xs mt-0.5">
-                              {cargo.descricao}
-                            </div>
-                          )}
                         </td>
 
                         {/* 2. Coluna Setor / Área */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className={`inline-block text-[10px] font-extrabold px-2.5 py-1 rounded-md border uppercase tracking-wider ${getSectorBadgeStyle(cargo.setor)}`}>
+                        <td className="py-1.5 px-4 whitespace-nowrap">
+                          <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border uppercase tracking-wider ${getSectorBadgeStyle(cargo.setor)}`}>
                             {cargo.setor || 'GERAL'}
                           </span>
                         </td>
 
-                        {/* 3. Coluna Módulos Liberados */}
-                        <td className="py-3 px-4">
-                          <div className="flex flex-wrap items-center gap-1.5 max-w-md">
+                        {/* 3. Coluna Módulos Liberados (Alinhados horizontalmente em linha única flexível) */}
+                        <td className="py-1.5 px-4">
+                          <div className="flex flex-row items-center justify-start gap-1.5 flex-wrap">
                             {/* Serviços */}
                             {cargo.permissoes?.servicos ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Serviços</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Serviços</span>
                               </span>
@@ -662,12 +657,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Frotas */}
                             {cargo.permissoes?.frotas ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Frotas</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Frotas</span>
                               </span>
@@ -675,12 +670,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Financeiro */}
                             {cargo.permissoes?.financeiro ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Financeiro</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Financeiro</span>
                               </span>
@@ -688,12 +683,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* RH */}
                             {cargo.permissoes?.rh ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>RH</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>RH</span>
                               </span>
@@ -701,12 +696,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Estoque */}
                             {cargo.permissoes?.estoque ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Estoque</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Estoque</span>
                               </span>
@@ -714,12 +709,12 @@ export const CargosPermissoesTab: React.FC = () => {
 
                             {/* Minha Empresa */}
                             {cargo.permissoes?.empresa ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 whitespace-nowrap shrink-0">
                                 <CheckCircle2 className="w-3 h-3 shrink-0" />
                                 <span>Empresa</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-65 whitespace-nowrap shrink-0">
                                 <XCircle className="w-3 h-3 shrink-0" />
                                 <span>Empresa</span>
                               </span>
@@ -728,7 +723,7 @@ export const CargosPermissoesTab: React.FC = () => {
                         </td>
 
                         {/* 4. Coluna Status de Uso (Botão Reativo com Modal Slim - Print 1) */}
-                        <td className="py-3 px-4 whitespace-nowrap">
+                        <td className="py-1.5 px-4 whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setSelectedCargoForEmployees(cargo)}
@@ -744,7 +739,7 @@ export const CargosPermissoesTab: React.FC = () => {
                         </td>
 
                         {/* 5. Coluna Ações (Editar com Lápis aciona o Modal Expandido de 3 Colunas) */}
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <td className="py-1.5 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1.5">
                             {/* BOTÃO EDITAR: ABRE O PAINEL DE 3 COLUNAS */}
                             <button
