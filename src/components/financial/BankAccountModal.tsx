@@ -746,34 +746,10 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                 </div>
               </div>
 
-              {/* BLOCO 2 (NOVA POSIÇÃO): Identificação da Conta e Responsável */}
+              {/* BLOCO 2: Responsável pela Conta e Identificação */}
               <div className="bg-white dark:bg-stone-800 rounded-xl p-2 sm:p-2.5 border border-zinc-200 dark:border-stone-700 shadow-2xs space-y-1">
+                {/* 1. Responsável pela Conta (Titularidade / Razão Social) */}
                 <div className="w-full">
-                  <label 
-                    htmlFor="input-conta-nome" 
-                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
-                  >
-                    <span>
-                      Nome Identificador da Conta <span className="text-rose-600">*</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
-                  </label>
-                  <input
-                    id="input-conta-nome"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => {
-                      setValidationError('');
-                      setName(e.target.value);
-                    }}
-                    placeholder="Ex: Sicredi - Fazenda Sede"
-                    className="w-full px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
-                  />
-                </div>
-
-                {/* NOVO CAMPO (PROJETO DE VINCULAÇÃO): Responsável pela Conta (Painel da Esquerda) */}
-                <div className="pt-1 border-t border-zinc-100 dark:border-stone-700/60">
                   <label 
                     htmlFor="select-responsavel-conta" 
                     className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
@@ -818,6 +794,31 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* 2. Nome Identificador da Conta */}
+                <div className="w-full pt-1 border-t border-zinc-100 dark:border-stone-700/60">
+                  <label 
+                    htmlFor="input-conta-nome" 
+                    className="block text-xs font-bold text-zinc-900 dark:text-stone-100 mb-0.5 flex items-center justify-between"
+                  >
+                    <span>
+                      Nome Identificador da Conta <span className="text-rose-600">*</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-stone-400 font-semibold">Ex: Conta Principal Agro, Caixa Sede</span>
+                  </label>
+                  <input
+                    id="input-conta-nome"
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => {
+                      setValidationError('');
+                      setName(e.target.value);
+                    }}
+                    placeholder="Ex: Sicredi - Fazenda Sede"
+                    className="w-full px-2.5 py-1 text-xs font-bold bg-white dark:bg-stone-900 text-zinc-900 dark:text-stone-100 border border-zinc-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-zinc-900/20 outline-hidden shadow-2xs"
+                  />
                 </div>
               </div>
 
