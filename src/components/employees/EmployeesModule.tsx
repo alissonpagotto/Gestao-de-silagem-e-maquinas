@@ -83,21 +83,25 @@ const EXCLUDED_FROM_REG_TYPES = [
   'Operador de trator'
 ];
 
-// Opções estritas de Cargo / Função em ordem alfabética exata
+// Opções estritas de Cargo / Função consolidadas e higienizadas
 const DEFAULT_ROLES = [
+  'Administrador Geral',
   'Administrador',
-  'Agenciador',
-  'Auxiliar de produção',
-  'Escritorio',
+  'Recepcionista',
   'Financeiro',
-  'Mecanico',
-  'Mecanico especialista',
-  'Mecanico interno',
+  'Auxiliar Financeiro',
+  'Analista de RH',
   'Motorista',
+  'Motorista de Caminhão',
+  'Agenciador',
+  'Gerente Operacional',
   'Operador de Forrageira',
-  'Operador de maquinas',
   'Operador de trator',
-  'Recepcionista'
+  'Operador de Máquinas',
+  'Auxiliar de produção',
+  'Mecanico',
+  'Mecanico interno',
+  'Mecânico Especialista'
 ];
 
 const DEFAULT_CONTRACT_TYPES = [
@@ -689,21 +693,66 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   }, [role1, role2]);
 
   // Opções dinâmicas de cargos lidas do LocalStorage (colaca_silagem_cargos_permissoes)
+  // Agrupadas, sanitizadas e com setor obrigatório para 100% dos itens!
   const cargosDropdownOptions = useMemo(() => {
-    const fromCargosBase = cargosBase.map(c => ({
-      id: c.id,
-      name: c.nome,
-      setor: c.setor,
-      descricao: c.descricao,
-    }));
+    const norm = (s: string) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    const baseNames = new Set(cargosBase.map(c => c.nome.trim().toLowerCase()));
-    const extras = [...DEFAULT_ROLES, ...roleOptions]
-      .filter(r => r && !baseNames.has(r.trim().toLowerCase()))
-      .map(r => ({ name: r }));
+    const mapSetor = (nomeCargo: string, setorOriginal?: string): string => {
+      if (setorOriginal && setorOriginal.trim() && setorOriginal.toUpperCase() !== 'GERAL') {
+        return setorOriginal.trim().toUpperCase();
+      }
+      const k = norm(nomeCargo);
+      if (k.includes('admin') || k.includes('recepc') || k.includes('diretor')) return 'DIRETORIA & ADMINISTRATIVO';
+      if (k.includes('finan') || k.includes('contab')) return 'FINANCEIRO & CONTABILIDADE';
+      if (k.includes('rh') || k.includes('recursos') || k.includes('pessoal')) return 'RECURSOS HUMANOS';
+      if (k.includes('motor') || k.includes('agenc') || k.includes('transp') || k.includes('caminh')) return 'TRANSPORTE & LOGÍSTICA';
+      if (k.includes('mecan') || k.includes('oficina') || k.includes('manuten')) return 'OFICINA & MANUTENÇÃO';
+      return 'CAMPO & SILAGEM';
+    };
 
-    const combined = [...fromCargosBase, ...extras];
-    return combined.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const seen = new Set<string>();
+    const options: { id?: string; name: string; setor: string; descricao?: string }[] = [];
+
+    // 1. Prioriza todos os cargos cadastrados oficialmente em colaca_silagem_cargos_permissoes
+    cargosBase.forEach(c => {
+      const cleanNome = (c.nome || '').trim();
+      if (!cleanNome) return;
+      const key = norm(cleanNome);
+      if (key === 'escritorio') return; // Sanitiza termo obsoleto
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        options.push({
+          id: c.id,
+          name: cleanNome,
+          setor: mapSetor(cleanNome, c.setor),
+          descricao: c.descricao,
+        });
+      }
+    });
+
+    // 2. Cargos adicionais padrão ou cadastrados pelo usuário (se houver)
+    [...DEFAULT_ROLES, ...roleOptions].forEach(r => {
+      if (!r || typeof r !== 'string') return;
+      const cleanNome = r.trim();
+      const key = norm(cleanNome);
+      if (key === 'escritorio') return;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        options.push({
+          name: cleanNome,
+          setor: mapSetor(cleanNome),
+        });
+      }
+    });
+
+    // 3. Ordenação profissional por Setor e depois pelo Nome do Cargo
+    return options.sort((a, b) => {
+      const setorDiff = (a.setor || '').localeCompare(b.setor || '', 'pt-BR');
+      if (setorDiff !== 0) return setorDiff;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
   }, [cargosBase, roleOptions]);
 
   // Herança reativa de permissões para exibição em tempo real na tela

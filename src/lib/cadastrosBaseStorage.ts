@@ -26,12 +26,13 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
   empresa: true,
 };
 
-// Cargos iniciais de referência
+// Cargos oficiais consolidados e categorizados por Setor
 export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
+  // 1. DIRETORIA & ADMINISTRATIVO
   {
     id: 'cargo-admin',
     nome: 'Administrador Geral',
-    setor: 'Diretoria & Administrativo',
+    setor: 'DIRETORIA & ADMINISTRATIVO',
     descricao: 'Acesso irrestrito a todas as operações, dados financeiros e cadastrais.',
     permissoes: {
       financeiro: true,
@@ -43,9 +44,113 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
+    id: 'cargo-administrador',
+    nome: 'Administrador',
+    setor: 'DIRETORIA & ADMINISTRATIVO',
+    descricao: 'Acesso corporativo às configurações da empresa e cadastros base.',
+    permissoes: {
+      financeiro: false,
+      frotas: false,
+      rh: false,
+      estoque: false,
+      empresa: true,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'cargo-recepcionista',
+    nome: 'Recepcionista',
+    setor: 'DIRETORIA & ADMINISTRATIVO',
+    descricao: 'Atendimento geral, recepção e parametrizações cadastrais.',
+    permissoes: {
+      financeiro: false,
+      frotas: false,
+      rh: false,
+      estoque: false,
+      empresa: true,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+
+  // 2. FINANCEIRO & CONTABILIDADE
+  {
+    id: 'cargo-financeiro',
+    nome: 'Financeiro',
+    setor: 'FINANCEIRO & CONTABILIDADE',
+    descricao: 'Contas a pagar/receber, conciliação bancária, fluxo de caixa e DRE.',
+    permissoes: {
+      financeiro: true,
+      frotas: false,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'cargo-aux-fin',
+    nome: 'Auxiliar Financeiro',
+    setor: 'FINANCEIRO & CONTABILIDADE',
+    descricao: 'Contas a pagar, a receber, conciliação, notas e apoio fiscal.',
+    permissoes: {
+      financeiro: true,
+      frotas: false,
+      rh: false,
+      estoque: true,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+
+  // 3. TRANSPORTE & LOGÍSTICA
+  {
+    id: 'cargo-motorista',
+    nome: 'Motorista',
+    setor: 'TRANSPORTE & LOGÍSTICA',
+    descricao: 'Condução de caminhões e veículos, registros de viagem e frota.',
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'cargo-motorista-caminhao',
+    nome: 'Motorista de Caminhão',
+    setor: 'TRANSPORTE & LOGÍSTICA',
+    descricao: 'Transporte pesado de forragem, transbordo e fretes rodoviários.',
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'cargo-agenciador',
+    nome: 'Agenciador',
+    setor: 'TRANSPORTE & LOGÍSTICA',
+    descricao: 'Intermediação e agenciamento de transporte e frentes de silagem.',
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+
+  // 4. CAMPO & SILAGEM
+  {
     id: 'cargo-gerente-op',
     nome: 'Gerente Operacional',
-    setor: 'Operações de Campo',
+    setor: 'CAMPO & SILAGEM',
     descricao: 'Gestão de equipes de colheita, máquinas, estoques e recursos humanos operacionais.',
     permissoes: {
       financeiro: false,
@@ -57,10 +162,24 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
-    id: 'cargo-motorista',
-    nome: 'Motorista de Caminhão',
-    setor: 'Transporte & Logística',
-    descricao: 'Acesso restrito ao módulo de frotas e apontamentos de veículos e viagens.',
+    id: 'cargo-op-forrageira',
+    nome: 'Operador de Forrageira',
+    setor: 'CAMPO & SILAGEM',
+    descricao: 'Operação de colhedoras e ensiladeiras autopropelidas de forragem.',
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'cargo-op-trator',
+    nome: 'Operador de trator',
+    setor: 'CAMPO & SILAGEM',
+    descricao: 'Operação de tratores agrícolas para compactação e apoio de silagem.',
     permissoes: {
       financeiro: false,
       frotas: true,
@@ -73,7 +192,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
   {
     id: 'cargo-operador',
     nome: 'Operador de Máquinas',
-    setor: 'Campo & Silagem',
+    setor: 'CAMPO & SILAGEM',
     descricao: 'Operação de colhedoras, tratores e acompanhamento de manutenção de frota.',
     permissoes: {
       financeiro: false,
@@ -85,24 +204,26 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
-    id: 'cargo-aux-fin',
-    nome: 'Auxiliar Financeiro',
-    setor: 'Financeiro & Contabilidade',
-    descricao: 'Contas a pagar, a receber, fluxo de caixa, conciliação e DRE.',
+    id: 'cargo-aux-producao',
+    nome: 'Auxiliar de produção',
+    setor: 'CAMPO & SILAGEM',
+    descricao: 'Apoio operacional no campo, fechamento de silos e lonamento.',
     permissoes: {
-      financeiro: true,
-      frotas: false,
+      financeiro: false,
+      frotas: true,
       rh: false,
-      estoque: true,
+      estoque: false,
       empresa: false,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
+
+  // 5. OFICINA & MANUTENÇÃO
   {
     id: 'cargo-mecanico',
-    nome: 'Mecânico Especialista',
-    setor: 'Oficina & Manutenção',
-    descricao: 'Ordens de serviço de veículos, solicitações de peças e almoxarifado.',
+    nome: 'Mecanico',
+    setor: 'OFICINA & MANUTENÇÃO',
+    descricao: 'Manutenção preventiva e corretiva de máquinas agrícolas e frotas.',
     permissoes: {
       financeiro: false,
       frotas: true,
@@ -113,9 +234,39 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
+    id: 'cargo-mecanico-interno',
+    nome: 'Mecanico interno',
+    setor: 'OFICINA & MANUTENÇÃO',
+    descricao: 'Serviços mecânicos internos e manutenção de pátio na oficina mecânica.',
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: true,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'cargo-mecanico-especialista',
+    nome: 'Mecânico Especialista',
+    setor: 'OFICINA & MANUTENÇÃO',
+    descricao: 'Ordens de serviço de veículos, solicitações de peças e almoxarifado.',
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: true,
+      empresa: false,
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+
+  // 6. RECURSOS HUMANOS
+  {
     id: 'cargo-rh',
     nome: 'Analista de RH',
-    setor: 'Recursos Humanos',
+    setor: 'RECURSOS HUMANOS',
     descricao: 'Gestão da folha de pagamento, férias, atestados, faltas e fichas cadastrais.',
     permissoes: {
       financeiro: false,
@@ -166,21 +317,82 @@ export const INITIAL_PLANO_CONTAS_E_FORMAS: PlanoContasEFormasData = {
    1. CARGOS, SETORES & PERMISSÕES
    ========================================================= */
 
+/**
+ * Consolida e higieniza a lista de cargos:
+ * 1. Remove duplicidades exatas e aliases obsoletos (como 'Escritorio').
+ * 2. Garante a inclusão de todos os cargos oficiais da INITIAL_CARGOS_PERMISSOES.
+ * 3. Garante que TODO cargo possua setor oficial em caixa alta mapeado.
+ */
+export function consolidateCargosList(existingList: CargoPermissao[]): CargoPermissao[] {
+  const norm = (s: string) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const result: CargoPermissao[] = [];
+  const seenKeys = new Set<string>();
+
+  // 1. Processa registros já salvos no LocalStorage (mantém IDs e permissões personalizadas)
+  (existingList || []).forEach(item => {
+    if (!item || !item.nome) return;
+    const cleanNome = item.nome.trim();
+    const key = norm(cleanNome);
+
+    // Elimina explicitamente o termo obsoleto 'escritorio'
+    if (key === 'escritorio') return;
+
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      result.push({
+        ...item,
+        nome: cleanNome,
+        setor: (item.setor || 'CAMPO & SILAGEM').trim().toUpperCase(),
+        permissoes: item.permissoes || {
+          financeiro: false,
+          frotas: true,
+          rh: false,
+          estoque: false,
+          empresa: false,
+        },
+      });
+    }
+  });
+
+  // 2. Insere automaticamente todos os cargos oficiais complementares faltantes
+  INITIAL_CARGOS_PERMISSOES.forEach(official => {
+    const key = norm(official.nome);
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      result.push({ ...official });
+    } else {
+      // Se já existia, atualiza o setor para o padrão formal caso estivesse vazio ou genérico
+      const existingIdx = result.findIndex(r => norm(r.nome) === key);
+      if (existingIdx !== -1 && (!result[existingIdx].setor || result[existingIdx].setor === 'Geral')) {
+        result[existingIdx].setor = official.setor;
+      }
+    }
+  });
+
+  return result;
+}
+
 export function getStoredCargosPermissoes(): CargoPermissao[] {
   try {
     const raw = localStorage.getItem(CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES);
-    if (!raw) {
-      saveStoredCargosPermissoes(INITIAL_CARGOS_PERMISSOES);
-      return INITIAL_CARGOS_PERMISSOES;
+    let parsed: CargoPermissao[] = [];
+    if (raw) {
+      try {
+        const json = JSON.parse(raw);
+        if (Array.isArray(json)) parsed = json;
+      } catch {}
     }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      saveStoredCargosPermissoes(INITIAL_CARGOS_PERMISSOES);
-      return INITIAL_CARGOS_PERMISSOES;
+
+    const consolidated = consolidateCargosList(parsed);
+    const jsonStr = JSON.stringify(consolidated);
+    if (!raw || raw !== jsonStr) {
+      saveStoredCargosPermissoes(consolidated);
     }
-    return parsed;
+    return consolidated;
   } catch (err) {
     console.error('Erro ao ler cargos_permissoes do localStorage:', err);
+    saveStoredCargosPermissoes(INITIAL_CARGOS_PERMISSOES);
     return INITIAL_CARGOS_PERMISSOES;
   }
 }

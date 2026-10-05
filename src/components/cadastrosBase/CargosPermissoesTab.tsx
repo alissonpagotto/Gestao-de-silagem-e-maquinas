@@ -118,7 +118,7 @@ export const CargosPermissoesTab: React.FC = () => {
   const handleOpenCreateModal = () => {
     setEditingCargo(null);
     setNome('');
-    setSetor('Operações');
+    setSetor('CAMPO & SILAGEM');
     setDescricao('');
     setPermissoes({
       financeiro: false,
@@ -683,7 +683,14 @@ export const CargosPermissoesTab: React.FC = () => {
                       className="w-full px-3.5 py-2.5 bg-white dark:bg-stone-900 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
                     />
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {['Operações', 'Transporte', 'Oficina', 'Financeiro', 'Recursos Humanos', 'Diretoria'].map((s) => (
+                      {[
+                        'DIRETORIA & ADMINISTRATIVO',
+                        'FINANCEIRO & CONTABILIDADE',
+                        'TRANSPORTE & LOGÍSTICA',
+                        'CAMPO & SILAGEM',
+                        'OFICINA & MANUTENÇÃO',
+                        'RECURSOS HUMANOS'
+                      ].map((s) => (
                         <button
                           key={s}
                           type="button"

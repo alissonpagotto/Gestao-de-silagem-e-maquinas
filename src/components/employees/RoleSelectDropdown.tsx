@@ -82,6 +82,8 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
     onChange('');
   };
 
+  const selectedOption = normalizedOptions.find(opt => opt.name.toLowerCase() === (value || '').toLowerCase());
+
   return (
     <div className={`relative ${className}`} ref={dropdownRef} id={id}>
       {label && (
@@ -98,13 +100,20 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span className="truncate pr-2">
+        <div className="truncate pr-2 flex items-center space-x-2">
           {value ? (
-            <span className="font-semibold text-stone-900">{value}</span>
+            <>
+              <span className="font-semibold text-stone-900 truncate">{value}</span>
+              {selectedOption?.setor && (
+                <span className="text-[9px] font-bold text-stone-500 uppercase tracking-wider bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded shrink-0">
+                  {selectedOption.setor}
+                </span>
+              )}
+            </>
           ) : (
             <span className="text-stone-400 font-normal">{placeholder}</span>
           )}
-        </span>
+        </div>
 
         <div className="flex items-center space-x-1 shrink-0 ml-1">
           {isOptional && value && (
@@ -128,10 +137,10 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
 
       {/* Menu Suspenso */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[260px]">
+        <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[280px]">
           
           {/* Lista de Opções */}
-          <div className="max-h-60 overflow-y-auto divide-y divide-stone-100 no-scrollbar">
+          <div className="max-h-80 overflow-y-auto divide-y divide-stone-100 no-scrollbar">
             {/* Opção de limpar / Nenhuma para o campo opcional */}
             {isOptional && (
               <div
@@ -156,7 +165,7 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
                 <div
                   key={optName}
                   onClick={() => handleSelect(optName)}
-                  className={`group flex items-center justify-between px-3 py-2.5 text-xs sm:text-sm cursor-pointer transition ${
+                  className={`group flex items-center justify-between px-3 py-2 text-xs sm:text-sm cursor-pointer transition ${
                     isSelected
                       ? 'bg-sky-50 text-[#0963cb] font-bold'
                       : 'text-stone-800 hover:bg-stone-50 font-medium'
@@ -172,7 +181,7 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
                       )}
                     </div>
                     {opt.setor && (
-                      <span className="text-[10px] text-stone-400 font-normal">
+                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mt-0.5">
                         Setor: {opt.setor}
                       </span>
                     )}
