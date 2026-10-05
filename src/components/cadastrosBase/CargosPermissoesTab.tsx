@@ -22,6 +22,7 @@ import {
   Sliders,
   ChevronRight,
   ChevronDown,
+  Pencil,
   Check,
   X,
   Layers,
@@ -236,6 +237,9 @@ export const CargosPermissoesTab: React.FC = () => {
   const [isSetorDropdownOpen, setIsSetorDropdownOpen] = useState(false);
   const setorDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Modo de Edição Inline na Coluna 2 (Leitura por padrão, ativação por clique no lápis)
+  const [isEditingInline, setIsEditingInline] = useState(false);
+
   // Sincronização em tempo real de eventos locais
   useEffect(() => {
     const handleCargosSync = () => {
@@ -367,11 +371,13 @@ export const CargosPermissoesTab: React.FC = () => {
     setFormError('');
     setIsComboboxOpen(false);
     setIsSetorDropdownOpen(false);
+    setIsEditingInline(false);
   };
 
   // Abrir Modal de Edição a partir de uma linha da Tabela (Print 1 & 3)
   const handleOpenEditModal = (cargo: CargoPermissao) => {
     handleSelectCargo(cargo);
+    setIsEditingInline(false);
     setIsEditorOpen(true);
   };
 
@@ -386,6 +392,7 @@ export const CargosPermissoesTab: React.FC = () => {
     setFormError('');
     setIsComboboxOpen(false);
     setIsSetorDropdownOpen(false);
+    setIsEditingInline(true);
     setIsEditorOpen(true);
   };
 
@@ -395,6 +402,7 @@ export const CargosPermissoesTab: React.FC = () => {
     setFormError('');
     setIsComboboxOpen(false);
     setIsSetorDropdownOpen(false);
+    setIsEditingInline(false);
   };
 
   // Manipulador de Toggle de Permissão Principal com Foco Instantâneo na Coluna 3
@@ -1187,6 +1195,18 @@ export const CargosPermissoesTab: React.FC = () => {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    handleSelectCargo(cargo);
+                                    setIsEditingInline(true);
+                                  }}
+                                  className="p-1 rounded-md text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-stone-800 transition cursor-pointer"
+                                  title={`Editar ${cargo.nome}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedCargoForEmployees(cargo);
                                   }}
                                   className="shrink-0 flex items-center space-x-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline px-1.5 py-0.5 rounded bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 transition cursor-pointer"
@@ -1235,164 +1255,242 @@ export const CargosPermissoesTab: React.FC = () => {
                   {/* Formulário com Autocomplete e Chaves Principais */}
                   <form onSubmit={handleSaveCargo} className="flex-1 flex flex-col min-h-0 justify-between">
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0 space-y-3.5">
-                      {/* Campo 1: Nome do Cargo (Textbox Inteligente / Combobox com Busca) */}
-                    <div className="relative" ref={comboboxRef}>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
-                          <span>Nome do Cargo</span>
-                          <span className="text-rose-600">*</span>
-                        </label>
-                        <span className="text-[10px] text-zinc-400">Sugestões inteligentes ativas</span>
-                      </div>
-
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required
-                          placeholder="Ex: Motorista de Caminhão, Mecânico, etc."
-                          value={nome}
-                          onFocus={() => setIsComboboxOpen(true)}
-                          onChange={(e) => {
-                            setNome(e.target.value);
-                            setIsComboboxOpen(true);
-                          }}
-                          className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                        />
-
-                        {nome && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNome('');
-                              setIsComboboxOpen(true);
-                            }}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-stone-200 cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Dropdown de Sugestões de Nomes de Cargos */}
-                      {isComboboxOpen && existingCargoSuggestions.length > 0 && (
-                        <div className="absolute left-0 right-0 z-30 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100">
-                          <div className="p-1.5 bg-zinc-50 dark:bg-stone-800 text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
-                            <span>Cargos já cadastrados:</span>
-                            <button 
-                              type="button" 
-                              onClick={() => setIsComboboxOpen(false)}
-                              className="text-zinc-400 hover:text-zinc-700"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          {existingCargoSuggestions.map((suggestion) => (
-                            <button
-                              key={suggestion}
-                              type="button"
-                              onClick={() => {
-                                setNome(suggestion);
-                                setIsComboboxOpen(false);
-                              }}
-                              className="w-full px-3 py-1.5 text-left text-xs font-semibold text-zinc-800 dark:text-stone-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 hover:text-indigo-600 transition flex items-center justify-between cursor-pointer"
-                            >
-                              <span>{suggestion}</span>
-                              <Sparkles className="w-3 h-3 text-indigo-400 opacity-60" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Campo 2: Setor / Departamento (Dropdown Select/Combobox Inteligente Embutido) */}
-                    <div className="relative" ref={setorDropdownRef}>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
-                          <span>Setor / Departamento</span>
-                          <span className="text-rose-600">*</span>
-                        </label>
-                        <span className="text-[10px] text-zinc-400">Selecione na lista oficial</span>
-                      </div>
-
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setIsSetorDropdownOpen(prev => !prev)}
-                          className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs flex items-center justify-between text-left cursor-pointer"
-                        >
-                          <span className={setor ? 'text-zinc-900 dark:text-white font-bold' : 'text-zinc-400 font-normal'}>
-                            {setor || 'Selecione o setor oficial...'}
-                          </span>
-                          <div className="flex items-center space-x-1 shrink-0 text-zinc-400">
-                            {setor && (
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSetor('');
-                                  setIsSetorDropdownOpen(true);
-                                }}
-                                className="p-0.5 hover:text-zinc-700 dark:hover:text-stone-200 cursor-pointer"
-                                title="Limpar seleção"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </span>
-                            )}
-                            <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isSetorDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
-                          </div>
-                        </button>
-
-                        {/* Dropdown Embutido com os 6 Setores Oficiais */}
-                        {isSetorDropdownOpen && (
-                          <div className="absolute left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
-                            <div className="p-2 bg-zinc-50 dark:bg-stone-850 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
-                              <span>Setores Oficiais:</span>
-                              <span className="text-[9px] bg-zinc-200 dark:bg-stone-700 px-1.5 py-0.2 rounded font-bold">6 opções</span>
+                      {!isEditingInline && !isCreatingNew ? (
+                        /* ======================================================== */
+                        /* 1. MODO DE LEITURA (READ-ONLY TEXT COMPACTO E SLIM)     */
+                        /* ======================================================== */
+                        <div className="p-3 bg-zinc-50 dark:bg-stone-850/80 border border-zinc-200/80 dark:border-stone-800 rounded-xl space-y-1.5 transition-all shadow-2xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                                <h3 className="text-base font-black text-zinc-900 dark:text-white truncate">
+                                  {nome || selectedCargo?.nome || 'Cargo sem nome'}
+                                </h3>
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 uppercase tracking-wide shrink-0">
+                                  {setor || selectedCargo?.setor || 'GERAL'}
+                                </span>
+                              </div>
                             </div>
-                            <div className="py-1 max-h-56 overflow-y-auto custom-scrollbar">
-                              {SETORES_DISPONIVEIS.map((s) => {
-                                const isSelected = setor.trim().toUpperCase() === s.toUpperCase();
-                                return (
+
+                            {/* Ícone de Lápis para Ativação de Edição Inline */}
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingInline(true)}
+                              className="px-2.5 py-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/80 transition cursor-pointer flex items-center space-x-1.5 shrink-0 shadow-2xs active:scale-95"
+                              title="Editar identificação do cargo (Nome, Setor, Descrição)"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span className="text-xs font-bold">Editar</span>
+                            </button>
+                          </div>
+
+                          {descricao ? (
+                            <p className="text-xs text-zinc-600 dark:text-stone-300 leading-snug line-clamp-2">
+                              {descricao}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-zinc-400 dark:text-stone-500 italic">
+                              Sem descrição informada. Clique em 'Editar' para adicionar atribuições.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        /* ======================================================== */
+                        /* 2. MODO DE EDIÇÃO INLINE ATIVO (INPUTS HABILITADOS)       */
+                        /* ======================================================== */
+                        <div className="p-3 bg-zinc-50/90 dark:bg-stone-850/90 border border-indigo-200 dark:border-indigo-900/60 rounded-xl space-y-3 transition-all shadow-xs">
+                          <div className="flex items-center justify-between pb-1 border-b border-zinc-200/80 dark:border-stone-800">
+                            <span className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>{isCreatingNew ? 'Identificação do Novo Cargo' : 'Editando Identificação'}</span>
+                            </span>
+
+                            {!isCreatingNew && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditingInline(false);
+                                  setIsComboboxOpen(false);
+                                  setIsSetorDropdownOpen(false);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1 shadow-2xs cursor-pointer transition active:scale-95"
+                                title="Confirmar e voltar ao modo leitura"
+                              >
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span>Concluir</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Campo 1: Nome do Cargo (Textbox Inteligente / Combobox com Busca) */}
+                          <div className="relative" ref={comboboxRef}>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
+                                <span>Nome do Cargo</span>
+                                <span className="text-rose-600">*</span>
+                              </label>
+                              <span className="text-[10px] text-zinc-400">Sugestões inteligentes ativas</span>
+                            </div>
+
+                            <div className="relative">
+                              <input
+                                type="text"
+                                required
+                                placeholder="Ex: Motorista de Caminhão, Mecânico, etc."
+                                value={nome}
+                                onFocus={() => setIsComboboxOpen(true)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (!isCreatingNew) {
+                                      setIsEditingInline(false);
+                                      setIsComboboxOpen(false);
+                                    }
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  setNome(e.target.value);
+                                  setIsComboboxOpen(true);
+                                }}
+                                className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                              />
+
+                              {nome && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNome('');
+                                    setIsComboboxOpen(true);
+                                  }}
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-stone-200 cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Dropdown de Sugestões de Nomes de Cargos */}
+                            {isComboboxOpen && existingCargoSuggestions.length > 0 && (
+                              <div className="absolute left-0 right-0 z-30 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100">
+                                <div className="p-1.5 bg-zinc-50 dark:bg-stone-800 text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                                  <span>Cargos já cadastrados:</span>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setIsComboboxOpen(false)}
+                                    className="text-zinc-400 hover:text-zinc-700"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                {existingCargoSuggestions.map((suggestion) => (
                                   <button
-                                    key={s}
+                                    key={suggestion}
                                     type="button"
                                     onClick={() => {
-                                      setSetor(s);
-                                      setIsSetorDropdownOpen(false);
+                                      setNome(suggestion);
+                                      setIsComboboxOpen(false);
                                     }}
-                                    className={`w-full px-3 py-2 text-left text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
-                                        : 'text-zinc-800 dark:text-stone-200 hover:bg-zinc-50 dark:hover:bg-stone-700/60'
-                                    }`}
+                                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-zinc-800 dark:text-stone-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 hover:text-indigo-600 transition flex items-center justify-between cursor-pointer"
                                   >
-                                    <span className="truncate">{s}</span>
-                                    {isSelected && (
-                                      <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                                    )}
+                                    <span>{suggestion}</span>
+                                    <Sparkles className="w-3 h-3 text-indigo-400 opacity-60" />
                                   </button>
-                                );
-                              })}
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Campo 2: Setor / Departamento (Dropdown Select/Combobox Inteligente Embutido) */}
+                          <div className="relative" ref={setorDropdownRef}>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
+                                <span>Setor / Departamento</span>
+                                <span className="text-rose-600">*</span>
+                              </label>
+                              <span className="text-[10px] text-zinc-400">Selecione na lista oficial</span>
+                            </div>
+
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setIsSetorDropdownOpen(prev => !prev)}
+                                className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs flex items-center justify-between text-left cursor-pointer"
+                              >
+                                <span className={setor ? 'text-zinc-900 dark:text-white font-bold' : 'text-zinc-400 font-normal'}>
+                                  {setor || 'Selecione o setor oficial...'}
+                                </span>
+                                <div className="flex items-center space-x-1 shrink-0 text-zinc-400">
+                                  {setor && (
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSetor('');
+                                        setIsSetorDropdownOpen(true);
+                                      }}
+                                      className="p-0.5 hover:text-zinc-700 dark:hover:text-stone-200 cursor-pointer"
+                                      title="Limpar seleção"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                  <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isSetorDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                                </div>
+                              </button>
+
+                              {/* Dropdown Embutido com os 6 Setores Oficiais */}
+                              {isSetorDropdownOpen && (
+                                <div className="absolute left-0 right-0 z-30 mt-1 bg-white dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl shadow-xl divide-y divide-zinc-100 dark:divide-stone-700 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                                  <div className="p-2 bg-zinc-50 dark:bg-stone-850 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                                    <span>Setores Oficiais:</span>
+                                    <span className="text-[9px] bg-zinc-200 dark:bg-stone-700 px-1.5 py-0.2 rounded font-bold">6 opções</span>
+                                  </div>
+                                  <div className="py-1 max-h-56 overflow-y-auto custom-scrollbar">
+                                    {SETORES_DISPONIVEIS.map((s) => {
+                                      const isSelected = setor.trim().toUpperCase() === s.toUpperCase();
+                                      return (
+                                        <button
+                                          key={s}
+                                          type="button"
+                                          onClick={() => {
+                                            setSetor(s);
+                                            setIsSetorDropdownOpen(false);
+                                          }}
+                                          className={`w-full px-3 py-2 text-left text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                                            isSelected
+                                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                                              : 'text-zinc-800 dark:text-stone-200 hover:bg-zinc-50 dark:hover:bg-stone-700/60'
+                                          }`}
+                                        >
+                                          <span className="truncate">{s}</span>
+                                          {isSelected && (
+                                            <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Campo 3: Descrição Básica do Cargo */}
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
-                        Descrição básica do Cargo
-                      </label>
-                      <textarea
-                        rows={2}
-                        placeholder="Resumo das atribuições, responsabilidades e escopo..."
-                        value={descricao}
-                        onChange={(e) => setDescricao(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs resize-none"
-                      />
-                    </div>
+                          {/* Campo 3: Descrição Básica do Cargo */}
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-700 dark:text-stone-300 mb-1">
+                              Descrição básica do Cargo
+                            </label>
+                            <textarea
+                              rows={2}
+                              placeholder="Resumo das atribuições, responsabilidades e escopo..."
+                              value={descricao}
+                              onChange={(e) => setDescricao(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs resize-none"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                     {/* Chaves Centrais Liga/Desliga */}
                     <div className="pt-2 border-t border-zinc-200 dark:border-stone-800 space-y-2">
