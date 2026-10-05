@@ -3,6 +3,7 @@ import {
   Building,
   Building2, 
   UploadCloud, 
+  Camera,
   MapPin, 
   ShieldCheck, 
   Save, 
@@ -416,14 +417,26 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
           </div>
 
           <div className="grid grid-cols-12 gap-2.5 items-center">
-            {/* Logotipo da Empresa */}
-            <div className="col-span-12 sm:col-span-3 lg:col-span-2 flex flex-col items-center justify-center p-1.5 bg-white dark:bg-stone-800/80 rounded-lg border border-zinc-200 dark:border-stone-700">
-              <div className="w-full h-20 max-h-20 sm:h-24 sm:max-h-24 rounded-md bg-zinc-50 dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 flex items-center justify-center p-1 overflow-hidden relative group">
+            {/* Logotipo da Empresa (Padrão Avatar Component com Botão Flutuante) */}
+            <div className="col-span-12 sm:col-span-3 lg:col-span-2 flex items-center justify-center">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload} 
+                accept="image/*" 
+                className="hidden" 
+              />
+              
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                title="Clique para alterar o logotipo da empresa"
+                className="relative group cursor-pointer w-full h-20 max-h-20 rounded-2xl bg-white dark:bg-stone-800/90 border border-slate-200 dark:border-stone-700 shadow-sm flex items-center justify-center overflow-hidden transition-all duration-200 hover:border-slate-300 dark:hover:border-stone-600 hover:shadow-md"
+              >
                 {formData.logoUrl && !logoError ? (
                   <img 
                     src={formData.logoUrl} 
                     alt="COLACA SILAGEM" 
-                    className="max-h-20 sm:max-h-24 max-w-full object-contain drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
+                    className="w-full h-full object-contain p-2 drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
                     referrerPolicy="no-referrer"
                     onError={() => setLogoError(true)}
                   />
@@ -433,33 +446,32 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     <span className="text-[9px] font-bold tracking-tight uppercase">COLACA SILAGEM</span>
                   </div>
                 )}
-              </div>
 
-              <div className="mt-1 flex items-center space-x-1 w-full justify-center">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center space-x-1 px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-700 dark:text-stone-200 border border-zinc-300 dark:border-stone-600 rounded-md text-[10px] font-bold shadow-2xs transition cursor-pointer"
-                >
-                  <UploadCloud className="w-3 h-3 text-zinc-600 dark:text-stone-300" />
-                  <span>Alterar</span>
-                </button>
+                {/* Overlay sutil ao passar o mouse */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors duration-200 pointer-events-none" />
 
-                <button
-                  type="button"
-                  onClick={handleResetToDefaultLogo}
-                  title="Remover logotipo"
-                  className="p-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 dark:bg-stone-700 dark:text-stone-400 border border-zinc-300 dark:border-stone-600 rounded-md text-[10px] transition cursor-pointer"
+                {/* Botão Flutuante de Ação (Alterar Logo) - Canto Inferior Direito */}
+                <div 
+                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-white hover:bg-slate-50 dark:bg-stone-900 dark:hover:bg-stone-800 text-slate-700 dark:text-stone-200 rounded-full shadow-sm border border-slate-200 dark:border-stone-700 transition transform group-hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer"
+                  title="Alterar Logotipo"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
+                  <Camera className="w-3.5 h-3.5 text-slate-600 dark:text-stone-300" />
+                </div>
+
+                {/* Botão Discreto de Reset / Restaurar Logotipo Padrão (Canto Superior Direito ao Hover) */}
+                {formData.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleResetToDefaultLogo();
+                    }}
+                    title="Restaurar logotipo padrão"
+                    className="absolute top-1.5 right-1.5 p-1 bg-white/95 hover:bg-rose-50 text-zinc-500 hover:text-rose-600 dark:bg-stone-900/90 dark:text-stone-400 dark:hover:text-rose-400 rounded-full shadow-xs border border-zinc-200 dark:border-stone-700 opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                  </button>
+                )}
               </div>
             </div>
 
