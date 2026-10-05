@@ -28,7 +28,9 @@ import {
   Paperclip,
   MapPin,
   Loader2,
-  ShieldCheck
+  ShieldCheck,
+  Check,
+  Lock
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
@@ -3354,9 +3356,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                   {/* Card Reativo de Níveis de Acesso Herdados do Cargo Selecionado */}
                   {selectedCargoPermissions && (
-                    <div className="sm:col-span-2 p-3 bg-zinc-50 dark:bg-stone-800/70 border border-zinc-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                    <div className="sm:col-span-2 p-2.5 bg-zinc-50 dark:bg-stone-800/70 border border-zinc-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1.5">
                           <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                           <span className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
                             Níveis de Acesso Herdados ({role1}):
@@ -3366,19 +3368,58 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           {selectedCargoPermissions.setor ? `Setor: ${selectedCargoPermissions.setor}` : 'Sincronizado com Cadastros Base'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px]">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.financeiro ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
-                          Financeiro: {selectedCargoPermissions.permissions.financeiro ? 'Liberado' : 'Bloqueado'}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.frotas ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
-                          Frotas: {selectedCargoPermissions.permissions.frotas ? 'Liberado' : 'Bloqueado'}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.rh ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
-                          RH: {selectedCargoPermissions.permissions.rh ? 'Liberado' : 'Bloqueado'}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.estoque ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
-                          Estoque: {selectedCargoPermissions.permissions.estoque ? 'Liberado' : 'Bloqueado'}
-                        </span>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {/* Financeiro */}
+                        {selectedCargoPermissions.permissions.financeiro ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Financeiro: Liberado</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
+                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                            <span>Financeiro: Bloqueado</span>
+                          </span>
+                        )}
+
+                        {/* Frotas */}
+                        {selectedCargoPermissions.permissions.frotas ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Frotas: Liberado</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
+                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                            <span>Frotas: Bloqueado</span>
+                          </span>
+                        )}
+
+                        {/* RH */}
+                        {selectedCargoPermissions.permissions.rh ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>RH: Liberado</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
+                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                            <span>RH: Bloqueado</span>
+                          </span>
+                        )}
+
+                        {/* Estoque */}
+                        {selectedCargoPermissions.permissions.estoque ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Estoque: Liberado</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
+                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                            <span>Estoque: Bloqueado</span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
