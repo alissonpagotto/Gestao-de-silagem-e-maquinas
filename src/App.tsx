@@ -1709,6 +1709,25 @@ export default function App() {
     };
   }, []);
 
+  // Sincronização em tempo real de Centros de Custo (atualizados pelo Cadastros Base ou Notas)
+  useEffect(() => {
+    const handleCostCentersUpdate = (e: any) => {
+      const current = (e?.detail && Array.isArray(e.detail)) ? e.detail : getStoredCostCenters();
+      setCostCenters(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(current)) return prev;
+        return current;
+      });
+    };
+    window.addEventListener('colaca_silagem_centros_updated', handleCostCentersUpdate);
+    window.addEventListener('silagem_cost_centers_updated', handleCostCentersUpdate);
+    window.addEventListener('storage', handleCostCentersUpdate);
+    return () => {
+      window.removeEventListener('colaca_silagem_centros_updated', handleCostCentersUpdate);
+      window.removeEventListener('silagem_cost_centers_updated', handleCostCentersUpdate);
+      window.removeEventListener('storage', handleCostCentersUpdate);
+    };
+  }, []);
+
   // Reload everything when imported from backup
   const handleDataReload = () => {
     setExpenses(getStoredExpenses());
@@ -3107,6 +3126,7 @@ export default function App() {
                 costCenters={costCenters}
                 onSaveCostCenters={(updatedCostCenters) => setCostCenters(updatedCostCenters)}
                 categories={categories}
+                onNavigate={(tab) => setActiveTab(tab)}
                 onDeleteExpense={(idOrNumber) => {
                   setExpenses((prev) => prev.filter((e) => e.id !== idOrNumber && e.invoiceNumber !== idOrNumber));
                 }}

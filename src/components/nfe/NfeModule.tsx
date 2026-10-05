@@ -1009,6 +1009,7 @@ export interface NfeModuleProps {
   costCenters?: CostCenter[];
   onSaveCostCenters?: (costCenters: CostCenter[]) => void;
   categories?: ExpenseCategory[];
+  onNavigate?: (tab: string) => void;
 }
 
 export const NfeModule: React.FC<NfeModuleProps> = ({
@@ -1024,6 +1025,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   costCenters,
   onSaveCostCenters,
   categories,
+  onNavigate,
 }) => {
   // Estado dedicado reativo para Notas Fiscais Lançadas (NF-e) - Unicidade estrita de 1 linha por NF
   const [notasLancadas, setNotasLancadas] = useState<Expense[]>(() => {
@@ -2467,6 +2469,40 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
     saveStoredCostCenters(updated);
   };
+
+  // Redireciona diretamente para o módulo Cadastros Base na aba Centros de Custo
+  const handleNavigateToCadastrosBaseCentrosCusto = () => {
+    if (onNavigate) {
+      onNavigate('cadastros_base_centros_custo');
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: 'cadastros_base_centros_custo' }));
+      window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'cadastros_base_centros_custo' }));
+    }
+  };
+
+  // Sincronização reativa com alterações feitas na aba de Centros de Custo dos Cadastros Base
+  useEffect(() => {
+    const handleCostCenterSync = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setLocalCostCenters(e.detail);
+      } else {
+        const stored = getStoredCostCenters();
+        if (stored && stored.length > 0) {
+          setLocalCostCenters(stored);
+        }
+      }
+    };
+
+    window.addEventListener('colaca_silagem_centros_updated', handleCostCenterSync);
+    window.addEventListener('silagem_cost_centers_updated', handleCostCenterSync);
+    window.addEventListener('storage', handleCostCenterSync);
+    return () => {
+      window.removeEventListener('colaca_silagem_centros_updated', handleCostCenterSync);
+      window.removeEventListener('silagem_cost_centers_updated', handleCostCenterSync);
+      window.removeEventListener('storage', handleCostCenterSync);
+    };
+  }, []);
 
   // Seleção e validação de Centro de Custo obrigatório
   const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>('');
@@ -5494,67 +5530,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           >
                             Centro de Custo <span className="text-rose-600 font-black">*</span>
                           </label>
-                          
-                          {/* Ações de Gerenciamento: + Novo Centro, Lápis (Editar) e Lixeira (Excluir) */}
-                          <div className="flex items-center space-x-1">
-                            <button
-                              type="button"
-                              id="btn-novo-centro-custo"
-                              onClick={handleOpenCreateCostCenter}
-                              className="text-[11px] font-black text-zinc-800 dark:text-stone-200 hover:text-zinc-950 bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 px-2 py-0.5 rounded-lg border border-zinc-300 dark:border-stone-600 shadow-2xs transition cursor-pointer inline-flex items-center gap-1"
-                              title="Cadastrar novo Centro de Custo"
-                            >
-                              <Plus className="w-3 h-3 text-zinc-700 dark:text-stone-300" />
-                              <span>+ Novo Centro</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              id="btn-editar-centro-topo"
-                              onClick={() => {
-                                const cc = localCostCenters.find(c => c.id === selectedCostCenterId);
-                                if (cc) {
-                                  handleOpenEditCostCenter(cc);
-                                } else {
-                                  setIsManageCostCentersListOpen(true);
-                                }
-                              }}
-                              className={`p-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                                selectedCostCenterId
-                                  ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-950 shadow-2xs'
-                                  : 'bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border-zinc-200 dark:border-stone-700 text-zinc-800 dark:text-stone-200'
-                              }`}
-                              title={selectedCostCenterId ? `Editar ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Gerenciar e Editar Centros de Custo"}
-                            >
-                              <Pencil className="w-3.5 h-3.5 text-amber-800" />
-                              <span className="text-[10px] font-black">Editar</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              id="btn-excluir-centro-topo"
-                              onClick={() => {
-                                const cc = localCostCenters.find(c => c.id === selectedCostCenterId);
-                                if (cc) {
-                                  handleRequestDeleteCostCenter(cc);
-                                } else {
-                                  setIsManageCostCentersListOpen(true);
-                                }
-                              }}
-                              className={`p-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                                selectedCostCenterId
-                                  ? 'bg-rose-100 hover:bg-rose-200 border-rose-300 text-rose-950 shadow-2xs'
-                                  : 'bg-white dark:bg-stone-800 hover:bg-zinc-100 dark:hover:bg-stone-700 border-zinc-200 dark:border-stone-700 text-zinc-800 dark:text-stone-200'
-                              }`}
-                              title={selectedCostCenterId ? `Excluir ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Gerenciar e Excluir Centros de Custo"}
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-800" />
-                              <span className="text-[10px] font-black">Excluir</span>
-                            </button>
-                          </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <select
                             id="select-centro-de-custo-nfe"
                             value={selectedCostCenterId}
@@ -5562,7 +5540,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                               setSelectedCostCenterId(e.target.value);
                               if (e.target.value) setCostCenterError(false);
                             }}
-                            className={`w-full px-3 py-2 text-xs font-bold rounded-xl border bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 focus:outline-hidden transition cursor-pointer shadow-2xs ${
+                            className={`w-full flex-1 px-3 py-2 text-xs font-bold rounded-xl border bg-white dark:bg-stone-800 text-zinc-900 dark:text-stone-100 focus:outline-hidden transition cursor-pointer shadow-2xs ${
                               costCenterError 
                                 ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/30' 
                                 : 'border-zinc-300 dark:border-stone-700 focus:ring-2 focus:ring-zinc-500/20'
@@ -5576,42 +5554,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             ))}
                           </select>
 
-                          {/* Ícone de Lápis (Editar) Inline */}
+                          {/* Botão/ícone do Lápis ('Editar') - Redireciona diretamente para o Cadastros Base na aba Centros de Custo */}
                           <button
                             type="button"
-                            id="btn-editar-centro-inline"
-                            onClick={() => {
-                              const cc = localCostCenters.find(c => c.id === selectedCostCenterId);
-                              if (cc) handleOpenEditCostCenter(cc);
-                            }}
-                            disabled={!selectedCostCenterId}
-                            className={`p-2 rounded-xl border transition shrink-0 cursor-pointer ${
-                              selectedCostCenterId 
-                                ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-950 shadow-2xs' 
-                                : 'bg-zinc-100 dark:bg-stone-800 border-zinc-200 dark:border-stone-700 text-zinc-400 opacity-40 cursor-not-allowed'
-                            }`}
-                            title={selectedCostCenterId ? `Editar ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Selecione um centro para editar"}
+                            id="btn-editar-centro-nfe"
+                            onClick={handleNavigateToCadastrosBaseCentrosCusto}
+                            className="p-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-950 dark:text-amber-200 shadow-2xs transition shrink-0 cursor-pointer flex items-center justify-center"
+                            title="Gerenciar e Editar Centros de Custo no Cadastros Base"
+                            aria-label="Gerenciar Centros de Custo no Cadastros Base"
                           >
-                            <Pencil className="w-3.5 h-3.5 text-amber-800" />
-                          </button>
-
-                          {/* Ícone de Lixeira (Excluir) Inline */}
-                          <button
-                            type="button"
-                            id="btn-excluir-centro-inline"
-                            onClick={() => {
-                              const cc = localCostCenters.find(c => c.id === selectedCostCenterId);
-                              if (cc) handleRequestDeleteCostCenter(cc);
-                            }}
-                            disabled={!selectedCostCenterId}
-                            className={`p-2 rounded-xl border transition shrink-0 cursor-pointer ${
-                              selectedCostCenterId 
-                                ? 'bg-rose-100 hover:bg-rose-200 border-rose-300 text-rose-950 shadow-2xs' 
-                                : 'bg-zinc-100 dark:bg-stone-800 border-zinc-200 dark:border-stone-700 text-zinc-400 opacity-40 cursor-not-allowed'
-                            }`}
-                            title={selectedCostCenterId ? `Excluir ${localCostCenters.find(c => c.id === selectedCostCenterId)?.name}` : "Selecione um centro para excluir"}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-800" />
+                            <Pencil className="w-3.5 h-3.5 text-amber-800 dark:text-amber-300" />
                           </button>
                         </div>
 
