@@ -89,40 +89,43 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
     return (
       <div 
         key={id}
-        className={`rounded-xl border transition-all duration-150 p-3 space-y-2.5 shadow-2xs ${
+        className={`rounded-xl border transition-all duration-150 p-3 space-y-2.5 shadow-2xs w-full ${
           isModuloActive
             ? 'bg-white dark:bg-stone-900 border-zinc-200 dark:border-stone-800'
             : 'bg-zinc-50/80 dark:bg-stone-900/60 border-zinc-200/70 dark:border-stone-800/60 opacity-80'
         }`}
       >
         {/* Topo do Bloco Branco com Botões Rápidos e Badge */}
-        <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-stone-800">
-          <div className="flex items-center space-x-2">
-            <div className="p-1 rounded-md bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-stone-800 gap-2">
+          <div className="flex items-center space-x-2 min-w-0 pr-2">
+            <div className="p-1 rounded-md bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 shrink-0">
               {icon}
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                 <span className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-tight">
                   {title}
                 </span>
-                <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase ${
+                <span className={`text-[9px] font-black px-1.5 py-0.2 rounded uppercase shrink-0 ${
                   isModuloActive 
                     ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800' 
                     : 'bg-zinc-200 text-zinc-600 dark:bg-stone-800 dark:text-stone-400'
                 }`}>
                   {isModuloActive ? 'Liberado' : 'Bloqueado'}
                 </span>
+                <span className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 shrink-0">
+                  ({items.filter(it => subValues?.[it.key] !== false).length}/{items.length} ativas)
+                </span>
               </div>
             </div>
           </div>
 
           {/* Botões Rápidos: Marcar Todas | Desmarcar */}
-          <div className="flex items-center space-x-1.5 text-[11px] font-bold">
+          <div className="flex items-center space-x-1.5 text-[11px] font-bold shrink-0">
             <button
               type="button"
               onClick={() => onSetAllSubPermissions(subModuloKey, true)}
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline px-1 py-0.5 rounded cursor-pointer"
+              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline px-1 py-0.5 rounded cursor-pointer whitespace-nowrap"
             >
               Marcar Todas
             </button>
@@ -130,7 +133,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
             <button
               type="button"
               onClick={() => onSetAllSubPermissions(subModuloKey, false)}
-              className="text-zinc-500 dark:text-stone-400 hover:text-zinc-800 dark:hover:text-white hover:underline px-1 py-0.5 rounded cursor-pointer"
+              className="text-zinc-500 dark:text-stone-400 hover:text-zinc-800 dark:hover:text-white hover:underline px-1 py-0.5 rounded cursor-pointer whitespace-nowrap"
             >
               Desmarcar
             </button>
@@ -155,7 +158,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
         )}
 
         {/* Grade de Checkboxes */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-1.5 text-xs">
           {items.map((item) => {
             const isChecked = subValues?.[item.key] !== false;
             return (
@@ -187,9 +190,9 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 flex-1 flex flex-col min-h-0 w-full">
       {/* 1. Barra de Seleção Rápida de Módulo (Pills) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none shrink-0 w-full">
         {moduleTabs.map((tab) => {
           const isSelected = activeModuleFocus === tab.id;
           const TabIcon = tab.icon;
@@ -222,7 +225,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
       </div>
 
       {/* 2. Container dos Cards de Sub-permissões */}
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="space-y-3 flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0 w-full">
         
         {/* 1. MÓDULO FINANCEIRO */}
         {(activeModuleFocus === 'financeiro' || activeModuleFocus === 'all') &&
@@ -426,7 +429,7 @@ export const CargoSubPermissionsEditor: React.FC<CargoSubPermissionsEditorProps>
       </div>
 
       {/* 3. Rodapé Resumo Granular */}
-      <div className="p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 text-[11px] text-indigo-950 dark:text-indigo-300 flex items-center justify-between">
+      <div className="p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 text-[11px] text-indigo-950 dark:text-indigo-300 flex items-center justify-between shrink-0 w-full">
         <div className="flex items-center space-x-2">
           <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
           <span>Total de Telas e Abas Ativas:</span>

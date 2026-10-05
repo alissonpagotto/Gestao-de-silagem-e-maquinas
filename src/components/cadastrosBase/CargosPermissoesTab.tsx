@@ -1040,7 +1040,7 @@ export const CargosPermissoesTab: React.FC = () => {
       {/* ========================================================================= */}
       {isEditorOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150 overflow-hidden">
-          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl w-full max-w-7xl max-h-[96vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl w-[95vw] max-w-[95%] h-[92vh] max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
             
             {/* Header Amplo do Modal de 3 Colunas */}
             <div className="px-4 sm:px-5 py-3.5 bg-zinc-50 dark:bg-stone-850 border-b border-zinc-200 dark:border-stone-800 flex items-center justify-between shrink-0">
@@ -1092,14 +1092,14 @@ export const CargosPermissoesTab: React.FC = () => {
             </div>
 
             {/* CORPO DO MODAL: AS 3 COLUNAS PARALELAS */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-zinc-100/60 dark:bg-stone-950/40">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+            <div className="flex-1 overflow-y-hidden overflow-x-hidden p-3 sm:p-4 bg-zinc-100/60 dark:bg-stone-950/40 min-h-0">
+              <div className="flex flex-col lg:flex-row gap-3.5 items-stretch h-full min-h-0 w-full">
                 
                 {/* ======================================================== */}
                 {/* COLUNA 1 (EXTREMIDADE ESQUERDA - LISTAGEM FIXA A-Z)      */}
                 {/* ======================================================== */}
-                <div className="lg:col-span-4 xl:col-span-3 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs overflow-hidden">
-                  <div className="p-3 bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 space-y-2">
+                <div className="w-full lg:w-[310px] xl:w-[320px] shrink-0 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs overflow-hidden h-full min-h-0">
+                  <div className="p-3 bg-zinc-50 dark:bg-stone-800/60 border-b border-zinc-200 dark:border-stone-800 space-y-2 shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -1133,7 +1133,7 @@ export const CargosPermissoesTab: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="divide-y divide-zinc-100 dark:divide-stone-800 max-h-[66vh] overflow-y-auto custom-scrollbar">
+                  <div className="divide-y divide-zinc-100 dark:divide-stone-800 flex-1 overflow-y-auto custom-scrollbar min-h-0">
                     {editorFilteredCargos.length === 0 ? (
                       <div className="p-4 text-center text-xs text-zinc-500">
                         Nenhum cargo encontrado.
@@ -1202,7 +1202,7 @@ export const CargosPermissoesTab: React.FC = () => {
                 {/* ======================================================== */}
                 {/* COLUNA 2 (CENTRAL - PAINEL DE IDENTIFICAÇÃO E CHAVES)    */}
                 {/* ======================================================== */}
-                <div className="lg:col-span-4 xl:col-span-5 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs p-3.5 sm:p-4 space-y-3.5">
+                <div className="w-full lg:w-[480px] xl:w-[500px] shrink-0 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs p-3.5 sm:p-4 h-full min-h-0 overflow-hidden">
                   <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200 dark:border-stone-800 shrink-0">
                     <div className="flex items-center space-x-2.5 min-w-0 pr-2">
                       <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
@@ -1220,15 +1220,16 @@ export const CargosPermissoesTab: React.FC = () => {
                   </div>
 
                   {formError && (
-                    <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center space-x-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+                    <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center space-x-2 text-xs font-bold text-rose-700 dark:text-rose-300 shrink-0">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
                       <span>{formError}</span>
                     </div>
                   )}
 
                   {/* Formulário com Autocomplete e Chaves Principais */}
-                  <form onSubmit={handleSaveCargo} className="space-y-3.5">
-                    {/* Campo 1: Nome do Cargo (Textbox Inteligente / Combobox com Busca) */}
+                  <form onSubmit={handleSaveCargo} className="flex-1 flex flex-col min-h-0 justify-between">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0 space-y-3.5">
+                      {/* Campo 1: Nome do Cargo (Textbox Inteligente / Combobox com Busca) */}
                     <div className="relative" ref={comboboxRef}>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-bold text-zinc-700 dark:text-stone-300 flex items-center gap-1">
@@ -1799,8 +1800,10 @@ export const CargosPermissoesTab: React.FC = () => {
                       </label>
                     </div>
 
+                    </div>
+
                     {/* Botões de Ação na Base da Coluna 2 */}
-                    <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-2">
+                    <div className="pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-2 shrink-0">
                       <div>
                         {!isCreatingNew && selectedCargoId && (
                           <button
@@ -1839,7 +1842,7 @@ export const CargosPermissoesTab: React.FC = () => {
                 {/* ======================================================== */}
                 {/* COLUNA 3 (EXTREMIDADE DIREITA - SUB-PERMISSÕES POR TELA)  */}
                 {/* ======================================================== */}
-                <div className="lg:col-span-4 xl:col-span-4 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs p-3.5 sm:p-4 space-y-3.5">
+                <div className="w-full flex-1 min-w-0 flex flex-col bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl shadow-xs p-3.5 sm:p-4 space-y-3.5 h-full min-h-0 overflow-hidden">
                   <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200 dark:border-stone-800 shrink-0">
                     <div className="flex items-center space-x-2 min-w-0 pr-2">
                       <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800 shrink-0">
