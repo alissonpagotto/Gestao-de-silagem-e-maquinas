@@ -17,7 +17,8 @@ import {
   Clock,
   AlertCircle,
   Truck,
-  ClipboardList
+  ClipboardList,
+  Lock
 } from 'lucide-react';
 import { ServiceOrder, Machinery, Employee, Client, CompanyProfile, ServiceAppointment } from '../../types';
 import { formatCurrencyBRL, formatDateBR, getActiveCompanyId } from '../../lib/storage';
@@ -27,6 +28,7 @@ import { ServiceAgendaModule } from './ServiceAgendaModule';
 import { FieldFormsView } from './FieldFormsView';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchAllClientModulesFromSupabase, isSupabaseConfigured } from '../../lib/supabaseService';
+import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 
 export type ServiceTab = 'agenda' | 'corte' | 'colheita' | 'trator' | 'maquina' | 'frete' | 'orcamento' | 'formularios';
 
@@ -159,6 +161,53 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
     { id: 'orcamento' as ServiceTab, label: 'Orçamento', icon: FileText },
     { id: 'formularios' as ServiceTab, label: 'Formulários', icon: ClipboardList },
   ];
+
+  // Controle de Sessão e Sub-permissões por Aba
+  const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+
+  useEffect(() => {
+    const handleSessionSync = (e: any) => {
+      if (e?.detail) {
+        setUserSession(e.detail);
+      } else {
+        setUserSession(getActiveUserSession());
+      }
+    };
+    window.addEventListener('colaca_silagem_session_updated', handleSessionSync);
+    window.addEventListener('storage', handleSessionSync);
+    return () => {
+      window.removeEventListener('colaca_silagem_session_updated', handleSessionSync);
+      window.removeEventListener('storage', handleSessionSync);
+    };
+  }, []);
+
+  const isServiceTabAllowed = (tabId: ServiceTab): boolean => {
+    if (userSession.type === 'admin') return true;
+    if (userSession.permissions && userSession.permissions.servicos === false) return false;
+    if (userSession.permissions?.sub_servicos) {
+      const ss = userSession.permissions.sub_servicos;
+      if (tabId === 'agenda') return ss.agenda !== false;
+      if (tabId === 'corte') return ss.corte !== false;
+      if (tabId === 'colheita') return ss.colheita !== false;
+      if (tabId === 'trator') return ss.trator !== false;
+      if (tabId === 'maquina') return ss.maquina !== false;
+      if (tabId === 'frete') return ss.frete !== false;
+      if (tabId === 'orcamento') return ss.orcamento !== false;
+      if (tabId === 'formularios') return true;
+    }
+    return true;
+  };
+
+  const allowedTabs = useMemo(() => {
+    return tabs.filter(t => isServiceTabAllowed(t.id));
+  }, [userSession]);
+
+  // Se a aba ativa estiver bloqueada pelo perfil do cargo, redireciona para a primeira permitida
+  useEffect(() => {
+    if (allowedTabs.length > 0 && !isServiceTabAllowed(activeTab)) {
+      setActiveTab(allowedTabs[0].id);
+    }
+  }, [userSession, activeTab, allowedTabs]);
 
   // Configurações Dinâmicas por Aba
   const tabConfig = useMemo(() => {
@@ -411,7 +460,7 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         aria-label="Abas de Serviços" 
         className="flex items-center gap-1.5 p-1.5 bg-zinc-200 dark:bg-stone-900 rounded-xl border border-zinc-400 dark:border-stone-700 overflow-x-auto scrollbar-none shadow-2xs"
       >
-        {tabs.map((tab) => {
+        {allowedTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
 
@@ -439,8 +488,31 @@ export const ServicesModule: React.FC<ServicesModuleProps> = ({
         })}
       </nav>
 
-      {/* RENDERIZAÇÃO DA ABA ATIVA: AGENDA DE SERVIÇOS, FORMULÁRIOS DE CAMPO OU LISTAGEM DE SERVIÇOS */}
-      {activeTab === 'agenda' ? (
+      {/* RENDERIZAÇÃO DA ABA ATIVA: FUNÇÃO RESTRITA, AGENDA DE SERVIÇOS, FORMULÁRIOS DE CAMPO OU LISTAGEM DE SERVIÇOS */}
+      {!isServiceTabAllowed(activeTab) ? (
+        <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">
+          <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+              Função Restrita para o seu Cargo
+            </h3>
+            <p className="text-xs text-zinc-600 dark:text-stone-400 leading-relaxed">
+              O cargo <strong>{userSession.cargoNome}</strong> possui acesso ao módulo de Serviços, porém a sub-permissão para esta tela está desativada no cadastro do seu cargo.
+            </p>
+          </div>
+          {allowedTabs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab(allowedTabs[0].id)}
+              className="inline-flex items-center px-4 py-2 rounded-xl bg-[#0963cb] text-white text-xs font-bold hover:bg-[#074ea3] transition shadow-xs cursor-pointer"
+            >
+              Ir para {allowedTabs[0].label}
+            </button>
+          )}
+        </div>
+      ) : activeTab === 'agenda' ? (
         <ServiceAgendaModule
           machineries={machineries}
           employees={employees}

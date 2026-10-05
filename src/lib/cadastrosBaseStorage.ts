@@ -24,6 +24,25 @@ export const DEFAULT_ADMIN_PERMISSIONS: RolePermissions = {
   rh: true,
   estoque: true,
   empresa: true,
+  servicos: true,
+  sub_servicos: {
+    agenda: true,
+    corte: true,
+    colheita: true,
+    trator: true,
+    maquina: true,
+    frete: true,
+    orcamento: true,
+  },
+  sub_frotas: {
+    painel: true,
+    veiculos: true,
+    motoristas: true,
+    equipes: true,
+    combustivel: true,
+    manutencoes: true,
+    pneus: true,
+  },
 };
 
 // Cargos oficiais consolidados e categorizados por Setor
@@ -138,10 +157,29 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
     descricao: 'Intermediação e agenciamento de transporte e frentes de silagem.',
     permissoes: {
       financeiro: false,
-      frotas: true,
+      frotas: false,
       rh: false,
       estoque: false,
       empresa: false,
+      servicos: true,
+      sub_servicos: {
+        agenda: true,
+        corte: false,
+        colheita: false,
+        trator: false,
+        maquina: false,
+        frete: false,
+        orcamento: false,
+      },
+      sub_frotas: {
+        painel: false,
+        veiculos: false,
+        motoristas: false,
+        equipes: false,
+        combustivel: false,
+        manutencoes: false,
+        pneus: false,
+      },
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -158,6 +196,7 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: true,
       estoque: true,
       empresa: false,
+      servicos: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -172,6 +211,25 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
       rh: false,
       estoque: false,
       empresa: false,
+      servicos: true,
+      sub_frotas: {
+        painel: false,
+        veiculos: false,
+        motoristas: false,
+        equipes: false,
+        combustivel: true,
+        manutencoes: false,
+        pneus: false,
+      },
+      sub_servicos: {
+        agenda: false,
+        corte: true,
+        colheita: true,
+        trator: false,
+        maquina: false,
+        frete: false,
+        orcamento: false,
+      },
     },
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -597,7 +655,7 @@ export function setActiveUserSession(session: SimulatedUserSession): void {
   }
 }
 
-export type ModulePermissionKey = 'financeiro' | 'frotas' | 'rh' | 'estoque' | 'empresa';
+export type ModulePermissionKey = 'financeiro' | 'frotas' | 'rh' | 'estoque' | 'empresa' | 'servicos';
 
 /**
  * Validação rigorosa de permissão do usuário ativo na sessão:
@@ -611,7 +669,41 @@ export function hasModulePermission(
   if (session.type === 'admin') return true;
 
   if (session.permissions && typeof session.permissions[moduleKey] === 'boolean') {
-    return session.permissions[moduleKey];
+    return session.permissions[moduleKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão por tela interna do Módulo de Serviços:
+ * Se o módulo serviços estiver desligado (false), ou a subtela for false, bloqueia.
+ */
+export function hasServiceSubPermission(
+  subKey: keyof import('../types').ServicesSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.servicos === false) return false;
+  if (session.permissions?.sub_servicos && typeof session.permissions.sub_servicos[subKey] === 'boolean') {
+    return session.permissions.sub_servicos[subKey] !== false;
+  }
+  return true;
+}
+
+/**
+ * Validação de sub-permissão por tela interna do Módulo de Frotas & Veículos:
+ * Se o módulo frotas estiver desligado (false), ou a subtela for false, bloqueia.
+ */
+export function hasFleetSubPermission(
+  subKey: keyof import('../types').FrotasSubPermissions,
+  customSession?: SimulatedUserSession
+): boolean {
+  const session = customSession || getActiveUserSession();
+  if (session.type === 'admin') return true;
+  if (session.permissions && session.permissions.frotas === false) return false;
+  if (session.permissions?.sub_frotas && typeof session.permissions.sub_frotas[subKey] === 'boolean') {
+    return session.permissions.sub_frotas[subKey] !== false;
   }
   return true;
 }

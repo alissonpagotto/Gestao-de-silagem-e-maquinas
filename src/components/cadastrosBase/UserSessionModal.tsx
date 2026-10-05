@@ -84,15 +84,18 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
       cleanRole.includes(c.nome.trim().toLowerCase())
     );
 
-    const permissions: RolePermissions = matchedCargo?.permissoes || emp.permissoes || emp.permissions || {
-      financeiro: false,
-      frotas: true,
-      rh: false,
-      estoque: false,
-      empresa: false,
-    };
+    const isAdm = cleanRole.includes('admin') || cleanRole.includes('diretor') || (matchedCargo?.nome || '').toLowerCase().includes('admin');
 
-    const isAdm = cleanRole.includes('admin') || (matchedCargo?.nome || '').toLowerCase().includes('admin');
+    const permissions: RolePermissions = isAdm
+      ? { ...DEFAULT_ADMIN_PERMISSIONS }
+      : (matchedCargo?.permissoes || emp.permissoes || emp.permissions || {
+          financeiro: false,
+          frotas: true,
+          rh: false,
+          estoque: false,
+          empresa: false,
+          servicos: true,
+        });
 
     const session: SimulatedUserSession = {
       type: isAdm ? 'admin' : 'employee',

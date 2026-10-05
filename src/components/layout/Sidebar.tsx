@@ -160,6 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Mapeamento de tab para a chave de permissão correspondente
   const getModulePermissionKey = (id: string): ModulePermissionKey | null => {
+    if (id === 'servicos') return 'servicos';
     if (id === 'financeiro' || id === 'despesas') return 'financeiro';
     if (id === 'frotas') return 'frotas';
     if (id === 'rh' || id === 'funcionarios') return 'rh';

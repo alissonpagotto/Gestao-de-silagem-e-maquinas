@@ -8,9 +8,11 @@ import {
   Wrench, 
   Layers,
   TrendingUp,
-  RotateCcw
+  RotateCcw,
+  Lock
 } from 'lucide-react';
 import { Machinery, Employee, FleetTeam, FuelLog, MaintenanceLog, Expense, CompanyProfile, ServiceOrder, SilageOrder, VehicleTypeDefinition, TireRotationLog, InventoryItem, Supplier, MaintenancePurchaseRequest, BankAccount } from '../../types';
+import { getActiveUserSession, SimulatedUserSession } from '../../lib/cadastrosBaseStorage';
 import { FleetDashboard } from './FleetDashboard';
 import { FleetVehiclesView } from './FleetVehiclesView';
 import { FleetDriversView } from './FleetDriversView';
@@ -122,6 +124,46 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<FleetSubTab>(initialSubTab || 'painel');
+  const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      if (e?.detail) setUserSession(e.detail);
+      else setUserSession(getActiveUserSession());
+    };
+    window.addEventListener('colaca_silagem_session_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('colaca_silagem_session_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  const isFleetSubTabAllowed = (tab: FleetSubTab): boolean => {
+    if (userSession.type === 'admin') return true;
+    if (userSession.permissions && userSession.permissions.frotas === false) return false;
+    if (userSession.permissions?.sub_frotas) {
+      const sf = userSession.permissions.sub_frotas;
+      if (tab === 'painel') return sf.painel !== false;
+      if (tab === 'veiculos') return sf.veiculos !== false;
+      if (tab === 'motoristas') return sf.motoristas !== false;
+      if (tab === 'equipe') return sf.equipes !== false;
+      if (tab === 'combustivel') return sf.combustivel !== false;
+      if (tab === 'manutencoes') return sf.manutencoes !== false;
+      if (tab === 'rodizio') return sf.pneus !== false;
+    }
+    return true;
+  };
+
+  const ALL_FLEET_TABS: FleetSubTab[] = ['painel', 'veiculos', 'motoristas', 'equipe', 'combustivel', 'manutencoes', 'rodizio'];
+  const allowedFleetTabs = ALL_FLEET_TABS.filter(isFleetSubTabAllowed);
+
+  // Redireciona caso a sub-aba atual não seja permitida para o cargo
+  useEffect(() => {
+    if (allowedFleetTabs.length > 0 && !isFleetSubTabAllowed(activeSubTab)) {
+      setActiveSubTab(allowedFleetTabs[0]);
+    }
+  }, [userSession, activeSubTab, allowedFleetTabs]);
 
   // Referência atualizada para callbacks reativos e listeners Realtime
   const maintenanceLogsRef = useRef(maintenanceLogs);
@@ -1009,143 +1051,183 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-xl border border-slate-400 dark:border-stone-800 p-1.5 shadow-xs flex items-center overflow-x-auto gap-1.5 scrollbar-none text-black dark:text-white">
         
         {/* Tab 1: PAINEL */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('painel')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'painel'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Gauge className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Painel Frotas</span>
-        </button>
+        {isFleetSubTabAllowed('painel') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('painel')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'painel'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Gauge className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Painel Frotas</span>
+          </button>
+        )}
 
         {/* Tab 2: VEÍCULOS */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('veiculos')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'veiculos'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Car className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Veículos</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
-            activeSubTab === 'veiculos'
-              ? 'bg-white/20 text-white border border-white/30'
-              : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
-          }`}>
-            {machineries.length}
-          </span>
-        </button>
+        {isFleetSubTabAllowed('veiculos') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('veiculos')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'veiculos'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Car className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Veículos</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
+              activeSubTab === 'veiculos'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
+            }`}>
+              {machineries.length}
+            </span>
+          </button>
+        )}
 
         {/* Tab 3: MOTORISTAS */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('motoristas')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'motoristas'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <UserCheck className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Motoristas</span>
-        </button>
+        {isFleetSubTabAllowed('motoristas') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('motoristas')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'motoristas'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <UserCheck className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Motoristas</span>
+          </button>
+        )}
 
         {/* Tab 4: EQUIPE */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('equipe')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'equipe'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Users className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Equipe</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
-            activeSubTab === 'equipe'
-              ? 'bg-white/20 text-white border border-white/30'
-              : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
-          }`}>
-            {employees.length}
-          </span>
-        </button>
+        {isFleetSubTabAllowed('equipe') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('equipe')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'equipe'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Users className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Equipe</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
+              activeSubTab === 'equipe'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
+            }`}>
+              {employees.length}
+            </span>
+          </button>
+        )}
 
         {/* Tab 5: COMBUSTÍVEL */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('combustivel')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'combustivel'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Fuel className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Combustível</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
-            activeSubTab === 'combustivel'
-              ? 'bg-white/20 text-white border border-white/30'
-              : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
-          }`}>
-            {fuelLogs.length}
-          </span>
-        </button>
+        {isFleetSubTabAllowed('combustivel') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('combustivel')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'combustivel'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Fuel className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Combustível</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
+              activeSubTab === 'combustivel'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
+            }`}>
+              {fuelLogs.length}
+            </span>
+          </button>
+        )}
 
         {/* Tab 6: MANUTENÇÕES */}
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('manutencoes')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'manutencoes'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Wrench className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Manutenções</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
-            activeSubTab === 'manutencoes'
-              ? 'bg-white/20 text-white border border-white/30'
-              : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
-          }`}>
-            {maintenanceLogs.length}
-          </span>
-        </button>
+        {isFleetSubTabAllowed('manutencoes') && (
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('manutencoes')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'manutencoes'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Wrench className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Manutenções</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
+              activeSubTab === 'manutencoes'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
+            }`}>
+              {maintenanceLogs.length}
+            </span>
+          </button>
+        )}
 
         {/* Tab 7: RODÍZIO DE PNEUS */}
-        <button
-          type="button"
-          id="fleet-subtab-rodizio"
-          onClick={() => setActiveSubTab('rodizio')}
-          className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
-            activeSubTab === 'rodizio'
-              ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
-              : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
-          }`}
-        >
-          <RotateCcw className="w-4 h-4 shrink-0" strokeWidth={2} />
-          <span>Rodízio de Pneus</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
-            activeSubTab === 'rodizio'
-              ? 'bg-white/20 text-white border border-white/30'
-              : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
-          }`}>
-            {tireRotationLogs.length}
-          </span>
-        </button>
+        {isFleetSubTabAllowed('rodizio') && (
+          <button
+            type="button"
+            id="fleet-subtab-rodizio"
+            onClick={() => setActiveSubTab('rodizio')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'rodizio'
+                ? 'bg-sky-600 text-white shadow-xs shadow-sky-600/30'
+                : 'text-black dark:text-stone-300 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-slate-700'
+            }`}
+          >
+            <RotateCcw className="w-4 h-4 shrink-0" strokeWidth={2} />
+            <span>Rodízio de Pneus</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition ${
+              activeSubTab === 'rodizio'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/80 dark:bg-slate-800 text-black dark:text-white border border-slate-300 dark:border-slate-600'
+            }`}>
+              {tireRotationLogs.length}
+            </span>
+          </button>
+        )}
 
       </div>
 
+      {/* Trava Visual de Segurança para Sub-abas Bloqueadas */}
+      {!isFleetSubTabAllowed(activeSubTab) && (
+        <div className="py-12 px-6 text-center bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl space-y-4 max-w-lg mx-auto shadow-xs my-6">
+          <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+              Função Restrita para o seu Cargo
+            </h3>
+            <p className="text-xs text-zinc-600 dark:text-stone-400 leading-relaxed">
+              O cargo <strong>{userSession.cargoNome}</strong> possui acesso ao módulo de Gestão de Frotas, porém a sub-permissão para esta tela está desativada no seu perfil.
+            </p>
+          </div>
+          {allowedFleetTabs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab(allowedFleetTabs[0])}
+              className="inline-flex items-center px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+            >
+              Ir para aba liberada ({allowedFleetTabs[0]})
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Subtab Contents */}
-      {activeSubTab === 'painel' && (
+      {isFleetSubTabAllowed('painel') && activeSubTab === 'painel' && (
         <FleetDashboard
           machineries={machineries}
           employees={employees}
@@ -1159,7 +1241,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         />
       )}
 
-      {activeSubTab === 'veiculos' && (
+      {isFleetSubTabAllowed('veiculos') && activeSubTab === 'veiculos' && (
         <FleetVehiclesView
           machineries={machineries}
           fuelLogs={fuelLogs}
@@ -1178,7 +1260,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         />
       )}
 
-      {activeSubTab === 'motoristas' && (
+      {isFleetSubTabAllowed('motoristas') && activeSubTab === 'motoristas' && (
         <FleetDriversView
           employees={employees}
           machineries={machineries}
@@ -1191,7 +1273,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         />
       )}
 
-      {activeSubTab === 'equipe' && (
+      {isFleetSubTabAllowed('equipe') && activeSubTab === 'equipe' && (
         <FleetTeamView
           employees={employees}
           machineries={machineries}
@@ -1202,7 +1284,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         />
       )}
 
-      {activeSubTab === 'combustivel' && (
+      {isFleetSubTabAllowed('combustivel') && activeSubTab === 'combustivel' && (
         <FleetFuelView
           fuelLogs={fuelLogs}
           machineries={machineries}
@@ -1213,7 +1295,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         />
       )}
 
-      {activeSubTab === 'manutencoes' && (
+      {isFleetSubTabAllowed('manutencoes') && activeSubTab === 'manutencoes' && (
         <FleetMaintenanceView
           maintenanceLogs={maintenanceLogs}
           machineries={machineries}
@@ -1227,7 +1309,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         />
       )}
 
-      {activeSubTab === 'rodizio' && (
+      {isFleetSubTabAllowed('rodizio') && activeSubTab === 'rodizio' && (
         <FleetTireRotationView
           machineries={machineries}
           vehicleTypes={vehicleTypes}

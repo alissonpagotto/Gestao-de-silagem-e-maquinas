@@ -362,12 +362,35 @@ export type EmployeeRole =
 
 export type Cargo = EmployeeRole;
 
+export interface ServicesSubPermissions {
+  agenda?: boolean;     // [ ] Agenda de Serviços
+  corte?: boolean;      // [ ] Corte
+  colheita?: boolean;   // [ ] Colheita
+  trator?: boolean;     // [ ] Serviço de Trator
+  maquina?: boolean;    // [ ] Serviço de Máquina
+  frete?: boolean;      // [ ] Serviço de Frete
+  orcamento?: boolean;  // [ ] Orçamento
+}
+
+export interface FrotasSubPermissions {
+  painel?: boolean;       // [ ] Painel Frotas
+  veiculos?: boolean;     // [ ] Veículos
+  motoristas?: boolean;   // [ ] Motoristas
+  equipes?: boolean;      // [ ] Equipes
+  combustivel?: boolean;  // [ ] Combustível (Abastecimentos)
+  manutencoes?: boolean;  // [ ] Manutenções
+  pneus?: boolean;        // [ ] Rodízio de Pneus
+}
+
 export interface RolePermissions {
   financeiro: boolean; // Acesso ao Módulo Financeiro (Bancos, Saldos, DRE)
   frotas: boolean;     // Acesso ao Módulo de Gestão de Frotas & Veículos
   rh: boolean;         // Acesso ao Módulo de Recursos Humanos (Folhas, Férias, Faltas)
   estoque: boolean;    // Acesso ao Módulo de Estoque / Almoxarifado / Notas Fiscais
   empresa: boolean;    // Acesso à tela "Minha Empresa" (Configurações cadastrais)
+  servicos?: boolean;  // Acesso ao Módulo de Serviços Agrícolas (Agenda, Corte, Colheita, etc.)
+  sub_servicos?: ServicesSubPermissions; // Sub-permissões por aba de Serviços
+  sub_frotas?: FrotasSubPermissions;     // Sub-permissões por aba de Frotas
 }
 
 export interface CargoPermissao {
