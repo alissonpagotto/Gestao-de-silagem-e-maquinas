@@ -43,7 +43,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'relatorios', label: 'Relatórios', icon: FileSpreadsheet },
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'fornecedores', label: 'Fornecedores', icon: Truck },
-  { id: 'frotas', label: 'Gestão de Frotas', icon: Car, hasSubmenu: true },
+  { id: 'frotas', label: 'Gestão de Frotas', icon: Car },
   { id: 'cadastros_base', label: 'Cadastros Base', icon: Database, hasSubmenu: true },
   { id: 'configuracoes', label: 'Dados da Empresa', icon: Building },
 ];

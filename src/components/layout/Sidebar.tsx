@@ -293,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
               </button>
 
-              {/* Configurações / Tema / Atualizar */}
+              {/* Alternar Tema Claro / Escuro */}
               {setIsDarkMode && (
                 <button
                   id="btn-theme-toggle"
@@ -326,6 +326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               const isActive = 
                 isCadastrosBaseActive ||
                 activeTab === item.id ||
+                (item.id === 'configuracoes' && (activeTab === 'configuracoes' || activeTab === 'empresa')) ||
                 (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
                 (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
                 (item.id === 'financeiro' && activeTab === 'despesas') ||
@@ -374,7 +375,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </span>
                       )}
 
-                      {item.id === 'cadastros_base' ? (
+                      {/* Apenas Cadastros Base possui dropdown/submenu expansível */}
+                      {item.id === 'cadastros_base' && (
                         <div 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -388,12 +390,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-stone-400" />
                           )}
                         </div>
-                      ) : isActive ? (
-                        <ChevronRight className="w-4 h-4 text-black dark:text-white shrink-0" />
-                      ) : (
-                        item.hasSubmenu && (
-                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-700 dark:text-stone-500 group-hover:dark:text-white shrink-0" />
-                        )
                       )}
                     </div>
                   </button>

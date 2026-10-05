@@ -3260,8 +3260,8 @@ export default function App() {
             />
           )}
 
-          {/* TAB 12: Configurações da Empresa & Lovable Sync */}
-          {activeTab === 'configuracoes' && (
+          {/* TAB 12: Dados da Empresa */}
+          {(activeTab === 'configuracoes' || activeTab === 'empresa') && (
             <CompanySettingsView
               companyProfile={companyProfile}
               onSaveCompanyProfile={(updated) => {
