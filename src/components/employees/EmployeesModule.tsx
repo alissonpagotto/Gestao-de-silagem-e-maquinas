@@ -53,7 +53,8 @@ import {
   getStoredCargosPermissoes, 
   attachCargoPermissionsToEmployee,
   getActiveUserSession,
-  setActiveUserSession
+  setActiveUserSession,
+  DEFAULT_ADMIN_PERMISSIONS
 } from '../../lib/cadastrosBaseStorage';
 import { CargoPermissao } from '../../types';
 
@@ -762,8 +763,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   // Herança reativa de permissões para exibição em tempo real na tela
   const selectedCargoPermissions = useMemo(() => {
     if (!role1) return null;
+    const clean = role1.trim().toLowerCase();
+    const isAdmin = clean.includes('admin') || clean.includes('diretor');
+    const directMatch = cargosDropdownOptions.find(opt => opt.name.trim().toLowerCase() === clean);
+    if (directMatch && directMatch.permissoes) {
+      return {
+        cargoId: directMatch.id,
+        permissions: isAdmin ? { ...DEFAULT_ADMIN_PERMISSIONS, ...directMatch.permissoes } : directMatch.permissoes,
+        setor: directMatch.setor,
+      };
+    }
     return attachCargoPermissionsToEmployee(role1, cargosBase);
-  }, [role1, cargosBase]);
+  }, [role1, cargosDropdownOptions, cargosBase]);
 
   const sortedRoleOptions = useMemo(() => {
     const cargoNames = cargosBase.map(c => c.nome);
@@ -3370,53 +3381,53 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         {/* Financeiro */}
-                        {selectedCargoPermissions.permissions.financeiro ? (
+                        {Boolean(selectedCargoPermissions.permissions?.financeiro) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
                             <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>Financeiro: Liberado</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
-                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-rose-50/80 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60">
+                            <Lock className="w-3 h-3 text-rose-500 shrink-0" />
                             <span>Financeiro: Bloqueado</span>
                           </span>
                         )}
 
                         {/* Frotas */}
-                        {selectedCargoPermissions.permissions.frotas ? (
+                        {Boolean(selectedCargoPermissions.permissions?.frotas) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
                             <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>Frotas: Liberado</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
-                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-rose-50/80 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60">
+                            <Lock className="w-3 h-3 text-rose-500 shrink-0" />
                             <span>Frotas: Bloqueado</span>
                           </span>
                         )}
 
                         {/* RH */}
-                        {selectedCargoPermissions.permissions.rh ? (
+                        {Boolean(selectedCargoPermissions.permissions?.rh) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
                             <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>RH: Liberado</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
-                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-rose-50/80 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60">
+                            <Lock className="w-3 h-3 text-rose-500 shrink-0" />
                             <span>RH: Bloqueado</span>
                           </span>
                         )}
 
                         {/* Estoque */}
-                        {selectedCargoPermissions.permissions.estoque ? (
+                        {Boolean(selectedCargoPermissions.permissions?.estoque) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
                             <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>Estoque: Liberado</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700">
-                            <Lock className="w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-rose-50/80 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60">
+                            <Lock className="w-3 h-3 text-rose-500 shrink-0" />
                             <span>Estoque: Bloqueado</span>
                           </span>
                         )}

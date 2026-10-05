@@ -49,10 +49,10 @@ export const INITIAL_CARGOS_PERMISSOES: CargoPermissao[] = [
     setor: 'DIRETORIA & ADMINISTRATIVO',
     descricao: 'Acesso corporativo às configurações da empresa e cadastros base.',
     permissoes: {
-      financeiro: false,
-      frotas: false,
-      rh: false,
-      estoque: false,
+      financeiro: true,
+      frotas: true,
+      rh: true,
+      estoque: true,
       empresa: true,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -627,29 +627,35 @@ export function attachCargoPermissionsToEmployee(
   const cleanRole = (employeeRole || '').trim().toLowerCase();
   const primaryRole = cleanRole.split(',')[0].trim();
 
-  const found = cargos.find(c => {
+  // 1. Prioriza correspondência EXATA por nome ou ID
+  let found = cargos.find(c => {
     const cNome = c.nome.trim().toLowerCase();
     const cId = c.id.toLowerCase();
-    return (
-      cNome === cleanRole || 
-      cId === cleanRole ||
-      cNome === primaryRole ||
-      cId === primaryRole ||
-      cleanRole.includes(cNome)
-    );
+    return cNome === cleanRole || cId === cleanRole || cNome === primaryRole || cId === primaryRole;
   });
+
+  // 2. Se não encontrar exato, busca pelo nome mais específico (ordem decrescente de caracteres)
+  if (!found) {
+    const sortedByLen = [...cargos].sort((a, b) => b.nome.length - a.nome.length);
+    found = sortedByLen.find(c => {
+      const cNome = c.nome.trim().toLowerCase();
+      return cleanRole === cNome || cleanRole.includes(cNome) || cNome.includes(cleanRole);
+    });
+  }
+
+  const isAdminRole = cleanRole.includes('admin') || cleanRole.includes('diretor') || (found && found.nome.toLowerCase().includes('admin'));
 
   if (found) {
     return {
       cargoId: found.id,
-      permissions: { ...found.permissoes },
+      permissions: isAdminRole ? { ...DEFAULT_ADMIN_PERMISSIONS, ...found.permissoes } : { ...found.permissoes },
       setor: found.setor,
     };
   }
 
   // Fallback para cargos comuns se não encontrar o registro exato
-  if (cleanRole.includes('admin') || cleanRole.includes('diretor')) {
-    return { permissions: { ...DEFAULT_ADMIN_PERMISSIONS }, setor: 'Administrativo' };
+  if (isAdminRole) {
+    return { permissions: { ...DEFAULT_ADMIN_PERMISSIONS }, setor: 'DIRETORIA & ADMINISTRATIVO' };
   }
   if (cleanRole.includes('motorista') || cleanRole.includes('caminhão') || cleanRole.includes('caminhao')) {
     return {
