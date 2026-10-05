@@ -1476,9 +1476,21 @@ export default function App() {
     };
     window.addEventListener('colaca_silagem_session_updated', handleSessionSync);
     window.addEventListener('storage', handleSessionSync);
+
+    const handleAppNavigate = (e: any) => {
+      const target = typeof e?.detail === 'string' ? e.detail : e?.detail?.tab;
+      if (target && typeof target === 'string') {
+        setActiveTab(target);
+      }
+    };
+    window.addEventListener('app:navigate', handleAppNavigate);
+    window.addEventListener('navigate-tab', handleAppNavigate);
+
     return () => {
       window.removeEventListener('colaca_silagem_session_updated', handleSessionSync);
       window.removeEventListener('storage', handleSessionSync);
+      window.removeEventListener('app:navigate', handleAppNavigate);
+      window.removeEventListener('navigate-tab', handleAppNavigate);
     };
   }, []);
 
@@ -3257,6 +3269,8 @@ export default function App() {
                 });
                 handleSaveExpense(createdList.length === 1 ? createdList[0] : createdList);
               }}
+              onNavigate={(tab) => setActiveTab(tab)}
+              onNavigateToFiscal={() => setActiveTab('fiscal')}
             />
           )}
 

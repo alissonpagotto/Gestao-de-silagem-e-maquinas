@@ -50,7 +50,8 @@ import {
   PaymentMethod, 
   DocumentoEntradaRecord,
   TipoDocumentoEntrada,
-  DocumentoEntradaItem
+  DocumentoEntradaItem,
+  TireItem
 } from '../../types';
 import { 
   formatCurrencyBRL, 
@@ -71,7 +72,9 @@ import {
   getStoredInventoryCategories,
   saveStoredInventoryCategories,
   getActiveCompanyId,
-  saveCompanyData
+  saveCompanyData,
+  getStoredTireInventory,
+  saveStoredTireInventory
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -3708,6 +3711,17 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           custo_com_imposto: savedProduct.custo_com_imposto ?? currentItem.custo_com_imposto,
           freteDiluidoItem: savedProduct.frete_diluido_item ?? currentItem.freteDiluidoItem,
           frete_diluido_item: savedProduct.frete_diluido_item ?? currentItem.frete_diluido_item,
+          // Propriedades Técnicas de Pneu
+          tireParameters: savedProduct.tireParameters,
+          fireNumber: savedProduct.fireNumber || savedProduct.tireParameters?.fireNumber,
+          treadDepthMm: savedProduct.treadDepthMm ?? savedProduct.tireParameters?.treadDepthMm,
+          originalTreadDepthMm: savedProduct.originalTreadDepthMm ?? savedProduct.tireParameters?.originalTreadDepthMm,
+          retreadCount: savedProduct.retreadCount ?? savedProduct.tireParameters?.retreadCount,
+          pressurePsi: savedProduct.pressurePsi ?? savedProduct.tireParameters?.pressurePsi,
+          currentKm: savedProduct.currentKm ?? savedProduct.tireParameters?.currentKm,
+          tireModel: savedProduct.tireModel || savedProduct.tireParameters?.model,
+          tireSize: savedProduct.tireSize || savedProduct.tireParameters?.size,
+          tireNotes: savedProduct.tireNotes || savedProduct.tireParameters?.notes,
         };
       });
 
@@ -3732,6 +3746,52 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         }
       } catch (err) {
         console.warn('Aviso ao sincronizar colaca_silagem_documentos_entrada_itens:', err);
+      }
+    }
+
+    // Sincronização automática com a Frota (Pneus Disponíveis - Estoque)
+    if (
+      (savedProduct.categoria?.toLowerCase().includes('pneu') || 
+       savedProduct.category?.toLowerCase().includes('pneu') ||
+       savedProduct.tireParameters) &&
+      (savedProduct.fireNumber || savedProduct.tireParameters?.fireNumber)
+    ) {
+      try {
+        const currentTireInv = getStoredTireInventory();
+        const fireNum = (savedProduct.fireNumber || savedProduct.tireParameters?.fireNumber || '').trim();
+        if (fireNum) {
+          const existingIdx = currentTireInv.findIndex(
+            (t) => (t.fireNumber || '').trim().toLowerCase() === fireNum.toLowerCase() || t.id === `tire_${savedProduct.id}`
+          );
+          const tireItemToSave: TireItem = {
+            id: existingIdx >= 0 ? currentTireInv[existingIdx].id : `tire_inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            position: 'estoque',
+            positionName: 'Estoque / Disponível',
+            fireNumber: fireNum,
+            brand: savedProduct.tireParameters?.brand || savedProduct.marca || savedProduct.brand || 'Michelin',
+            model: savedProduct.tireParameters?.model || savedProduct.tireModel || savedProduct.nome_comercial || savedProduct.name,
+            size: savedProduct.tireParameters?.size || savedProduct.tireSize || '295/80 R22.5',
+            treadDepthMm: savedProduct.tireParameters?.treadDepthMm ?? savedProduct.treadDepthMm ?? 12.0,
+            originalTreadDepthMm: savedProduct.tireParameters?.originalTreadDepthMm ?? 18.0,
+            pressurePsi: savedProduct.tireParameters?.pressurePsi ?? savedProduct.pressurePsi ?? 110,
+            status: 'estoque',
+            retreadCount: savedProduct.tireParameters?.retreadCount ?? savedProduct.retreadCount ?? 0,
+            currentKm: savedProduct.tireParameters?.currentKm ?? savedProduct.currentKm ?? 0,
+            notes: savedProduct.tireParameters?.notes || savedProduct.tireNotes || undefined,
+          };
+
+          let updatedTireInv: TireItem[];
+          if (existingIdx >= 0) {
+            updatedTireInv = [...currentTireInv];
+            updatedTireInv[existingIdx] = { ...updatedTireInv[existingIdx], ...tireItemToSave };
+          } else {
+            updatedTireInv = [tireItemToSave, ...currentTireInv];
+          }
+          saveStoredTireInventory(updatedTireInv);
+          window.dispatchEvent(new CustomEvent('tire_inventory_updated', { detail: updatedTireInv }));
+        }
+      } catch (errTire) {
+        console.warn('Aviso ao sincronizar pneu com estoque de frotas em NfeModule:', errTire);
       }
     }
 

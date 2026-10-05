@@ -10,17 +10,33 @@ import {
   Loader2,
   Droplets,
   Printer,
-  MapPin
+  MapPin,
+  CircleDot
 } from 'lucide-react';
-import { InventoryItem } from '../../types';
+import { InventoryItem, TireItem } from '../../types';
 import { 
   getStoredInventoryCategories, 
   saveStoredInventoryCategories, 
-  DEFAULT_INVENTORY_CATEGORIES 
+  DEFAULT_INVENTORY_CATEGORIES,
+  getStoredTireInventory,
+  saveStoredTireInventory
 } from '../../lib/storage';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 import { cadastrarProduto, parseNumericFloat } from '../../lib/supabaseService';
 import { ProductLabelPrintModal } from './ProductLabelPrintModal';
+
+export const TIRE_BRAND_OPTIONS = [
+  'Michelin',
+  'Pirelli',
+  'Bridgestone',
+  'Goodyear',
+  'Firestone',
+  'Continental',
+  'Dunlop',
+  'Trelleborg',
+  'Alliance',
+  'Outro',
+];
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -87,6 +103,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [codigoBarras, setCodigoBarras] = useState('');
   const [semGtin, setSemGtin] = useState(false);
   const [refFabrica, setRefFabrica] = useState('');
+
+  // BLOCO TÉCNICO: PARÂMETROS DO PNEU (GESTÃO DE FROTAS)
+  const [tireFireNumber, setTireFireNumber] = useState('');
+  const [tireBrand, setTireBrand] = useState('');
+  const [tireModel, setTireModel] = useState('');
+  const [tireSize, setTireSize] = useState('');
+  const [tireTreadDepthMm, setTireTreadDepthMm] = useState('12.0');
+  const [tireRetreadCount, setTireRetreadCount] = useState<number>(0);
+  const [tirePressurePsi, setTirePressurePsi] = useState('110');
+  const [tireCurrentKm, setTireCurrentKm] = useState('');
+  const [tireNotes, setTireNotes] = useState('');
+
+  // Identifica dinamicamente se a categoria selecionada é 'Pneus'
+  const isPneuCategory = useMemo(() => {
+    const catNorm = (categoria || '').trim().toLowerCase();
+    return catNorm === 'pneus' || catNorm === 'pneu' || catNorm.includes('pneu');
+  }, [categoria]);
 
   // COLUNA 2: FISCAL E VALORES
   const [codigoNcm, setCodigoNcm] = useState('');
@@ -178,7 +211,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const rawCat = (initialData?.category || initialData?.categoria || '').trim();
       let normalizedCat = rawCat;
       const c = rawCat.toLowerCase();
-      if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) normalizedCat = 'Combustível & Arla';
+      if (c.includes('pneu')) normalizedCat = 'Pneus';
+      else if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) normalizedCat = 'Combustível & Arla';
       else if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) normalizedCat = 'Lona & Embalagem';
       else if (c.includes('inocul') || c.includes('biol')) normalizedCat = 'Inoculante & Biológico';
       else if (c.includes('sement') || c.includes('milho') || c.includes('sorgo') || c.includes('soja')) normalizedCat = 'Sementes';
@@ -326,6 +360,28 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
       const initialGallonCap = initialData?.gallonSizeLiters ?? initialData?.volume_litros_embalagem;
       setCapacidadeGalao(initialGallonCap !== undefined && initialGallonCap !== null ? Number(initialGallonCap) : 20);
+
+      // Inicialização dos parâmetros técnicos do pneu (Gestão de Frotas)
+      const tireParams = initialData?.tireParameters;
+      const initialFire = tireParams?.fireNumber || initialData?.fireNumber || '';
+      const initialTireBrand = tireParams?.brand || initialData?.brand || initialData?.marca || '';
+      const initialTireModel = tireParams?.model || initialData?.tireModel || '';
+      const initialTireSize = tireParams?.size || initialData?.tireSize || '';
+      const initialTread = tireParams?.treadDepthMm ?? initialData?.treadDepthMm ?? 12.0;
+      const initialRetread = tireParams?.retreadCount ?? initialData?.retreadCount ?? 0;
+      const initialPressure = tireParams?.pressurePsi ?? initialData?.pressurePsi ?? 110;
+      const initialKm = tireParams?.currentKm ?? initialData?.currentKm ?? '';
+      const initialTireNotes = tireParams?.notes || initialData?.tireNotes || '';
+
+      setTireFireNumber(initialFire);
+      setTireBrand(initialTireBrand);
+      setTireModel(initialTireModel);
+      setTireSize(initialTireSize);
+      setTireTreadDepthMm(String(initialTread));
+      setTireRetreadCount(initialRetread);
+      setTirePressurePsi(String(initialPressure));
+      setTireCurrentKm(initialKm !== '' ? String(initialKm) : '');
+      setTireNotes(initialTireNotes);
     }
   }, [isOpen, initialData]);
 
@@ -480,6 +536,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       return;
     }
 
+    if (isPneuCategory && !tireFireNumber.trim()) {
+      setFormError('Para produtos da categoria Pneus, o Nº de Fogo / Matrícula é obrigatório.');
+      return;
+    }
+
     const custoNominalFloat = parseCurrencyPtBr(custoNominalDisplay);
     const precoVendaFloat = parseCurrencyPtBr(precoVendaDisplay);
     const margemFloat = parseFloat(margemLucroSugerida.replace(',', '.')) || (
@@ -580,11 +641,74 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         localizacao_fisica: enderecoFormatado || 'Depósito Principal',
         gallonSizeLiters: parsedGallonLiters,
         volume_litros_embalagem: parsedGallonLiters,
+        // Parâmetros Técnicos do Pneu (Gestão de Frotas)
+        tireParameters: isPneuCategory ? {
+          fireNumber: tireFireNumber.trim(),
+          brand: tireBrand.trim() || marca.trim() || 'Michelin',
+          model: tireModel.trim() || undefined,
+          size: tireSize.trim() || undefined,
+          treadDepthMm: parseFloat(tireTreadDepthMm) || 12.0,
+          originalTreadDepthMm: 18.0,
+          retreadCount: tireRetreadCount,
+          pressurePsi: parseFloat(tirePressurePsi) || 110,
+          currentKm: parseFloat(tireCurrentKm) || 0,
+          notes: tireNotes.trim() || undefined,
+        } : undefined,
+        fireNumber: isPneuCategory ? tireFireNumber.trim() : undefined,
+        treadDepthMm: isPneuCategory ? (parseFloat(tireTreadDepthMm) || 12.0) : undefined,
+        originalTreadDepthMm: isPneuCategory ? 18.0 : undefined,
+        retreadCount: isPneuCategory ? tireRetreadCount : undefined,
+        pressurePsi: isPneuCategory ? (parseFloat(tirePressurePsi) || 110) : undefined,
+        currentKm: isPneuCategory ? (parseFloat(tireCurrentKm) || 0) : undefined,
+        tireModel: isPneuCategory ? (tireModel.trim() || undefined) : undefined,
+        tireSize: isPneuCategory ? (tireSize.trim() || undefined) : undefined,
+        tireNotes: isPneuCategory ? (tireNotes.trim() || undefined) : undefined,
         createdAt: initialData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       await cadastrarProduto(newProduct, companyId);
+
+      // Sincronização automática com a Frota (Pneus Disponíveis - Estoque)
+      if (isPneuCategory && tireFireNumber.trim()) {
+        try {
+          const currentTireInv = getStoredTireInventory();
+          const cleanFire = tireFireNumber.trim();
+          const existingIdx = currentTireInv.findIndex(
+            (t) => (t.fireNumber || '').trim().toLowerCase() === cleanFire.toLowerCase() || t.id === `tire_${prodId}`
+          );
+
+          const tireItemToSave: TireItem = {
+            id: existingIdx >= 0 ? currentTireInv[existingIdx].id : `tire_inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            position: 'estoque',
+            positionName: 'Estoque / Disponível',
+            fireNumber: cleanFire,
+            brand: tireBrand.trim() || marca.trim() || 'Michelin',
+            model: tireModel.trim() || cleanNome,
+            size: tireSize.trim() || '295/80 R22.5',
+            treadDepthMm: parseFloat(tireTreadDepthMm) || 12.0,
+            originalTreadDepthMm: 18.0,
+            pressurePsi: parseFloat(tirePressurePsi) || 110,
+            status: 'estoque',
+            retreadCount: tireRetreadCount,
+            currentKm: parseFloat(tireCurrentKm) || 0,
+            notes: tireNotes.trim() || undefined,
+          };
+
+          let updatedTireInv: TireItem[];
+          if (existingIdx >= 0) {
+            updatedTireInv = [...currentTireInv];
+            updatedTireInv[existingIdx] = { ...updatedTireInv[existingIdx], ...tireItemToSave };
+          } else {
+            updatedTireInv = [tireItemToSave, ...currentTireInv];
+          }
+
+          saveStoredTireInventory(updatedTireInv);
+          window.dispatchEvent(new CustomEvent('tire_inventory_updated', { detail: updatedTireInv }));
+        } catch (errTire) {
+          console.warn('Aviso ao sincronizar pneu com estoque de frotas:', errTire);
+        }
+      }
 
       onSuccess(newProduct);
       onClose();
@@ -924,6 +1048,162 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         />
                       </div>
                     </div>
+
+                    {/* ============================================================== */}
+                    {/* BLOCO DINÂMICO CONDICIONAL: PARÂMETROS TÉCNICOS DO PNEU        */}
+                    {/* (Visível apenas se Categoria == 'Pneus')                       */}
+                    {/* ============================================================== */}
+                    {isPneuCategory && (
+                      <div className="mt-3 p-3 rounded-xl border border-rose-300 dark:border-rose-900/80 bg-rose-50/70 dark:bg-rose-950/30 space-y-2.5 transition-all animate-in fade-in duration-200 shadow-2xs">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-rose-200/90 dark:border-rose-900/60">
+                          <div className="flex items-center space-x-1.5 text-[11px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                            <CircleDot className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                            <span>Parâmetros Técnicos do Pneu</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-200/70 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200">
+                            Gestão de Frotas
+                          </span>
+                        </div>
+
+                        {/* Linha 1: [Nome: Nº de Fogo / Matrícula *] | [Seletor: Marca (Dropdown)] */}
+                        <div className="grid grid-cols-12 gap-2">
+                          <div className="col-span-6 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Nº de Fogo / Matrícula <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={tireFireNumber}
+                              onChange={(e) => setTireFireNumber(e.target.value)}
+                              placeholder="Ex: #0920 ou P-115"
+                              required={isPneuCategory}
+                              className="w-full h-8 px-2.5 py-1 text-xs font-bold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                            />
+                          </div>
+                          <div className="col-span-6 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Marca
+                            </label>
+                            <select
+                              value={tireBrand}
+                              onChange={(e) => {
+                                setTireBrand(e.target.value);
+                                if (!marca) setMarca(e.target.value);
+                              }}
+                              className="w-full h-8 px-2 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+                            >
+                              <option value="">Selecione a Marca...</option>
+                              {TIRE_BRAND_OPTIONS.map((b) => (
+                                <option key={b} value={b}>{b}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Linha 2: [Nome: Modelo da Banda] | [Nome: Medida / Dimensão] */}
+                        <div className="grid grid-cols-12 gap-2">
+                          <div className="col-span-6 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Modelo da Banda
+                            </label>
+                            <input
+                              type="text"
+                              value={tireModel}
+                              onChange={(e) => setTireModel(e.target.value)}
+                              placeholder="Ex: X Multi Z / KMAX"
+                              className="w-full h-8 px-2.5 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                            />
+                          </div>
+                          <div className="col-span-6 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Medida / Dimensão
+                            </label>
+                            <input
+                              type="text"
+                              value={tireSize}
+                              onChange={(e) => setTireSize(e.target.value)}
+                              placeholder="Ex: 295/80 R22.5"
+                              className="w-full h-8 px-2.5 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Linha 3: [Nome: Sulco Atual (mm) *] | [Seletor: Recapagens (0 Novo, 1, 2, 3)] | [Nome: Pressão (PSI)] */}
+                        <div className="grid grid-cols-12 gap-2">
+                          <div className="col-span-4 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Sulco Atual (mm) <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="30"
+                              value={tireTreadDepthMm}
+                              onChange={(e) => setTireTreadDepthMm(e.target.value)}
+                              placeholder="12.0"
+                              required={isPneuCategory}
+                              className="w-full h-8 px-2 py-1 text-xs font-black text-rose-700 dark:text-rose-400 rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                            />
+                          </div>
+                          <div className="col-span-4 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Recapagens
+                            </label>
+                            <select
+                              value={tireRetreadCount}
+                              onChange={(e) => setTireRetreadCount(parseInt(e.target.value) || 0)}
+                              className="w-full h-8 px-1.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+                            >
+                              <option value={0}>0 (Novo)</option>
+                              <option value={1}>1ª Recap.</option>
+                              <option value={2}>2ª Recap.</option>
+                              <option value={3}>3ª Recap.</option>
+                            </select>
+                          </div>
+                          <div className="col-span-4 flex flex-col justify-end">
+                            <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1 truncate">
+                              Pressão (PSI)
+                            </label>
+                            <input
+                              type="number"
+                              value={tirePressurePsi}
+                              onChange={(e) => setTirePressurePsi(e.target.value)}
+                              placeholder="110"
+                              className="w-full h-8 px-2 py-1 text-xs font-bold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Linha 4: [Nome: KM Rodado Estimado] */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
+                            KM Rodado Estimado
+                          </label>
+                          <input
+                            type="number"
+                            value={tireCurrentKm}
+                            onChange={(e) => setTireCurrentKm(e.target.value)}
+                            placeholder="0"
+                            className="w-full h-8 px-2.5 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                          />
+                        </div>
+
+                        {/* Campo Adicional: Observações específicas do pneu */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
+                            Observações específicas do pneu
+                          </label>
+                          <textarea
+                            value={tireNotes}
+                            onChange={(e) => setTireNotes(e.target.value)}
+                            rows={2}
+                            placeholder="Ex: Pneu novo adquirido na nota fiscal, armazenado no estoque para substituição..."
+                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 resize-none transition"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

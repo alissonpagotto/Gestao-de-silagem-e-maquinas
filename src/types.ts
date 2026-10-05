@@ -755,6 +755,28 @@ export interface InventoryItem {
   estante?: string;
   nivel?: string;
   box?: string;
+  // Parâmetros Técnicos do Pneu (para itens com categoria 'Pneus' / Gestão de Frotas)
+  fireNumber?: string;
+  treadDepthMm?: number;
+  originalTreadDepthMm?: number;
+  retreadCount?: number;
+  pressurePsi?: number;
+  currentKm?: number;
+  tireModel?: string;
+  tireSize?: string;
+  tireNotes?: string;
+  tireParameters?: {
+    fireNumber?: string;
+    brand?: string;
+    model?: string;
+    size?: string;
+    treadDepthMm?: number;
+    originalTreadDepthMm?: number;
+    retreadCount?: number;
+    pressurePsi?: number;
+    currentKm?: number;
+    notes?: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }

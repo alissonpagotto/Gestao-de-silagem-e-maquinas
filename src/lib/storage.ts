@@ -1337,6 +1337,7 @@ export const DEFAULT_INVENTORY_CATEGORIES = [
   'Sementes',
   'Adubo & Fertilizante',
   'Peças & Manutenção',
+  'Pneus',
   'Outros Insumos'
 ];
 
@@ -1413,7 +1414,13 @@ function saveStoredList<T = any>(key: string, list: T[]): void {
 export const getStoredSupplierCategories = () => getStoredList(STORAGE_KEYS.SUPPLIER_CATEGORIES, DEFAULT_SUPPLIER_CATEGORIES);
 export const saveStoredSupplierCategories = (list: string[]) => saveStoredList(STORAGE_KEYS.SUPPLIER_CATEGORIES, list);
 
-export const getStoredInventoryCategories = () => getStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, DEFAULT_INVENTORY_CATEGORIES);
+export const getStoredInventoryCategories = () => {
+  const list = getStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, DEFAULT_INVENTORY_CATEGORIES);
+  if (!list.some(c => c.toLowerCase() === 'pneus' || c.toLowerCase() === 'pneu')) {
+    return ['Pneus', ...list];
+  }
+  return list;
+};
 export const saveStoredInventoryCategories = (list: string[]) => saveStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, list);
 
 export const getStoredServiceTypes = () => getStoredList(STORAGE_KEYS.SERVICE_TYPES, DEFAULT_SERVICE_TYPES);

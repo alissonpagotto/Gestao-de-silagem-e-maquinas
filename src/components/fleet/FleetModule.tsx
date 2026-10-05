@@ -92,6 +92,8 @@ interface FleetModuleProps {
   onAddExpense?: (expense: any) => void;
   bankAccounts?: BankAccount[];
   onSaveBankAccounts?: (accounts: BankAccount[]) => void;
+  onNavigate?: (tab: string) => void;
+  onNavigateToFiscal?: () => void;
 }
 
 export const FleetModule: React.FC<FleetModuleProps> = ({
@@ -120,6 +122,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   onAddExpense,
   bankAccounts = [],
   onSaveBankAccounts,
+  onNavigate,
+  onNavigateToFiscal,
 }) => {
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
@@ -1321,6 +1325,8 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
             handleSaveMaintenance(newLog as MaintenanceLog, { createExpense: false });
           }}
           onAddExpense={onAddExpense}
+          onNavigateToFiscal={onNavigateToFiscal}
+          onNavigate={onNavigate}
         />
       )}
 

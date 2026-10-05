@@ -386,6 +386,8 @@ interface FleetTireRotationViewProps {
   onSaveTireRotationLogs: (logs: TireRotationLog[]) => void;
   onAddMaintenanceLog?: (log: any) => void;
   onAddExpense?: (expense: any) => void;
+  onNavigateToFiscal?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 interface DraggedTirePayload {
@@ -405,6 +407,8 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
   onSaveTireRotationLogs,
   onAddMaintenanceLog,
   onAddExpense,
+  onNavigateToFiscal,
+  onNavigate,
 }) => {
   // ----------------------------------------------------
   // ESTADO DE SELEÇÃO DE VEÍCULO E FILTROS DINÂMICOS
@@ -663,6 +667,23 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
   useEffect(() => {
     saveStoredTireInventory(tireInventory);
   }, [tireInventory]);
+
+  // Sincronização reativa quando novos pneus são cadastrados via Notas e Entradas
+  useEffect(() => {
+    const handleTireInvUpdated = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setTireInventory(e.detail);
+      } else {
+        setTireInventory(getStoredTireInventory());
+      }
+    };
+    window.addEventListener('tire_inventory_updated', handleTireInvUpdated);
+    window.addEventListener('storage', handleTireInvUpdated);
+    return () => {
+      window.removeEventListener('tire_inventory_updated', handleTireInvUpdated);
+      window.removeEventListener('storage', handleTireInvUpdated);
+    };
+  }, []);
 
   useEffect(() => {
     saveStoredTiresInReform(tiresInReform);
@@ -1492,8 +1513,18 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsNewInventoryModalOpen(true)}
-                className="inline-flex items-center space-x-1 px-2 py-1 text-[10px] font-extrabold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-2xs transition cursor-pointer"
+                onClick={() => {
+                  if (onNavigateToFiscal) {
+                    onNavigateToFiscal();
+                  } else if (onNavigate) {
+                    onNavigate('fiscal');
+                  } else {
+                    window.dispatchEvent(new CustomEvent('app:navigate', { detail: 'fiscal' }));
+                    window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'fiscal' }));
+                  }
+                }}
+                className="inline-flex items-center space-x-1 px-2.5 py-1 text-[10px] font-extrabold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-2xs transition cursor-pointer"
+                title="Entrada obrigatória de pneus via documento (XML / Nota Fiscal em Notas e Entradas)"
               >
                 <Plus className="w-3 h-3" />
                 <span>+ Novo</span>
@@ -1506,7 +1537,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                 <div className="h-full flex flex-col items-center justify-center text-center p-3 border border-dashed border-stone-300 dark:border-stone-700 rounded-xl">
                   <Archive className="w-5 h-5 text-stone-300 dark:text-stone-600 mb-1" />
                   <span className="text-[11px] font-bold text-stone-500">Estoque vazio</span>
-                  <span className="text-[10px] text-stone-400">Arraste pneus do caminhão para cá ou clique em + Novo</span>
+                  <span className="text-[10px] text-stone-400">Arraste pneus do caminhão para cá ou cadastre novos pneus via Notas e Entradas</span>
                 </div>
               ) : (
                 tireInventory.map((item) => {
@@ -1724,15 +1755,6 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
         fromSource={discardModalData?.source || 'vehicle'}
         vehiclePlate={selectedVehicle?.licensePlateOrSerial || selectedVehicle?.name}
         onConfirmDiscard={handleConfirmDiscard}
-      />
-
-      {/* ========================================================
-          MODAL DE CADASTRO DE NOVO PNEU NO ESTOQUE (CAIXA 1)
-          ======================================================== */}
-      <NewInventoryTireModal
-        isOpen={isNewInventoryModalOpen}
-        onClose={() => setIsNewInventoryModalOpen(false)}
-        onSave={handleSaveNewInventoryTire}
       />
 
       {/* ========================================================
