@@ -169,6 +169,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   const [color, setColor] = useState('#009688');
   const [validationError, setValidationError] = useState('');
 
+  // ID da conta ativa (permite salvar repetidamente mantendo o modal aberto sem criar duplicatas)
+  const [currentAccountId, setCurrentAccountId] = useState<string | undefined>(editingAccount?.id);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Cartões Corporativos Vinculados
   const [corporateCards, setCorporateCards] = useState<CorporateCard[]>([]);
   const [cardNotification, setCardNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
@@ -320,6 +325,8 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       initializedKeyRef.current = null;
+      setSaveSuccessMessage(false);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       return;
     }
 
@@ -331,6 +338,8 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
 
     setValidationError('');
     setCardNotification(null);
+    setSaveSuccessMessage(false);
+    setCurrentAccountId(editingAccount?.id);
 
     const holders = accountHoldersRef.current;
 
@@ -571,8 +580,11 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       return;
     }
 
+    const accountId = currentAccountId || editingAccount?.id || `bank_${Date.now()}`;
+    setCurrentAccountId(accountId);
+
     onSave({
-      ...(editingAccount ? { id: editingAccount.id } : {}),
+      id: accountId,
       name: name.trim(),
       bankName: bankName.trim(),
       bankCode: bankCode || undefined,
@@ -597,7 +609,12 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       responsavel_conta_documento: responsavelContaDoc || undefined,
     });
 
-    onClose();
+    // Disparar badge temporário de sucesso no rodapé e MANTER modal aberto
+    setSaveSuccessMessage(true);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      setSaveSuccessMessage(false);
+    }, 3000);
   };
 
   if (!isOpen) return null;
@@ -1426,7 +1443,27 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               <span>Cartões: <strong className="text-zinc-900 dark:text-stone-100 font-bold">{corporateCards.length}</strong></span>
             </div>
 
-            <div className="flex items-center space-x-2 ml-auto">
+            <div className="flex items-center justify-end gap-2 ml-auto">
+              {saveSuccessMessage && (
+                <div 
+                  id="badge-sucesso-salvamento-conta"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-xs font-bold animate-in fade-in zoom-in-95 duration-150 shadow-2xs"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Alterações Salvas com Sucesso!</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                id="btn-sair-modal-conta"
+                onClick={onClose}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-gray-300 dark:border-stone-700 text-gray-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-50 dark:hover:bg-stone-700 cursor-pointer transition shadow-2xs min-h-[34px]"
+                title="Fechar janela"
+              >
+                Sair
+              </button>
+
               <button
                 type="button"
                 id="btn-cancelar-modal-conta"
@@ -1435,13 +1472,14 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
               >
                 Cancelar
               </button>
+
               <button
                 type="submit"
                 id="btn-salvar-conta-bancaria"
                 className="px-5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-zinc-900 hover:bg-black dark:bg-stone-700 dark:hover:bg-stone-600 text-white shadow-md cursor-pointer transition active:scale-98 flex items-center space-x-1.5 min-h-[34px]"
               >
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>{editingAccount ? 'Atualizar Conta' : 'Salvar Conta'}</span>
+                <span>Salvar Alterações</span>
               </button>
             </div>
           </div>

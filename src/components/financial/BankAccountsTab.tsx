@@ -178,9 +178,14 @@ export const BankAccountsTab: React.FC<BankAccountsTabProps> = ({
       let updated: BankAccount[] = [];
       if (accountData.id) {
         const updatedAccount: BankAccount = { ...accountData, id: accountData.id } as BankAccount;
-        updated = effectiveAccounts.map((a) =>
-          a.id === accountData.id ? updatedAccount : a
-        );
+        const exists = effectiveAccounts.some((a) => a.id === accountData.id);
+        if (exists) {
+          updated = effectiveAccounts.map((a) =>
+            a.id === accountData.id ? updatedAccount : a
+          );
+        } else {
+          updated = [...effectiveAccounts, updatedAccount];
+        }
       } else {
         const newAcc: BankAccount = {
           ...accountData,
