@@ -86,6 +86,14 @@ export const ReorderMenuModal: React.FC<ReorderMenuModalProps> = ({
           validOrder.push('fiscal');
         }
       }
+      if (!validOrder.includes('frotas')) {
+        const fornIndex = validOrder.indexOf('fornecedores');
+        if (fornIndex !== -1) {
+          validOrder.splice(fornIndex + 1, 0, 'frotas');
+        } else {
+          validOrder.push('frotas');
+        }
+      }
       const missing = ALL_MENU_ITEMS.filter(m => !validOrder.includes(m.id)).map(m => m.id);
       setOrder([...validOrder, ...missing]);
     }

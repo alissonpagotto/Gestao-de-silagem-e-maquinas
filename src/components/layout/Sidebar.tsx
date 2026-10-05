@@ -8,6 +8,7 @@ import {
   Sun,
   Moon,
   Lock,
+  Building,
   Building2,
   FileSpreadsheet,
   ShieldCheck,
@@ -90,6 +91,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               valid.splice(estIndex + 1, 0, 'almoxarifado');
             } else {
               valid.push('almoxarifado');
+            }
+          }
+          if (!valid.includes('frotas')) {
+            const fornIndex = valid.indexOf('fornecedores');
+            if (fornIndex !== -1) {
+              valid.splice(fornIndex + 1, 0, 'frotas');
+            } else {
+              const baseIndex = valid.indexOf('cadastros_base');
+              if (baseIndex !== -1) {
+                valid.splice(baseIndex, 0, 'frotas');
+              } else {
+                valid.push('frotas');
+              }
             }
           }
           if (!valid.includes('cadastros_base')) {
@@ -206,17 +220,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .map(id => ALL_MENU_ITEMS.find(m => m.id === id))
     .filter((item): item is MenuItemDef => Boolean(item));
 
+  // 1. Menus principais (Dashboard até Cadastros Base) que ficam na lista com rolagem flexível
+  const middleNavItems = navItems.filter(item => item.id !== 'configuracoes' && item.id !== 'empresa');
+
+  // 2. Estado de acesso do botão Dados da Empresa (fixado obrigatoriamente no rodapé)
+  const isEmpresaRestricted = isModuleRestricted('configuracoes');
+  const isEmpresaActive = activeTab === 'configuracoes' || activeTab === 'empresa';
+
   return (
     <>
       <aside 
         id="main-sidebar"
         className={`
-          no-print fixed inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r border-zinc-300 dark:border-stone-800 flex flex-col justify-between transition-transform duration-300 ease-in-out
+          no-print fixed inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r border-zinc-300 dark:border-stone-800 flex flex-col transition-transform duration-300 ease-in-out h-screen max-h-screen overflow-hidden
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* Top Section: Logo & Brand */}
-        <div className="flex flex-col flex-1 overflow-y-auto bg-zinc-200 dark:bg-stone-900 scrollbar-none">
+        {/* Top Section: Cabeçalho da Empresa, Sessão Ativa & Título do Menu (Fixo) */}
+        <div className="shrink-0 bg-zinc-200 dark:bg-stone-900">
           
           {/* Brand Header */}
           <div className="p-4 sm:p-5 border-b border-zinc-300 dark:border-stone-800 flex items-center space-x-3 cursor-pointer bg-zinc-200/90 dark:bg-stone-900" onClick={() => handleSelect('dashboard')}>
@@ -246,7 +267,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* CHIP DE SESSÃO ATIVA & NÍVEL DE ACESSO */}
-          <div className="px-3 pt-3">
+          <div className="px-3 pt-3 h-[50px]">
             <button
               type="button"
               onClick={() => setIsSessionModalOpen(true)}
@@ -312,10 +333,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
           </div>
+        </div>
 
-          {/* Navigation List */}
-          <nav className="p-3 space-y-1">
-            {navItems.map((item) => {
+        {/* 1. ATIVAR ROLAGEM EXCLUSIVA NA LISTA DE MENUS (NAV):
+            flex-1 overflow-y-auto scrollbar-none max-h-[calc(100vh-180px)] */}
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none max-h-[calc(100vh-180px)] px-3 py-1 space-y-1">
+          <nav className="space-y-1">
+            {middleNavItems.map((item) => {
               const Icon = item.icon;
               const isRestricted = isModuleRestricted(item.id);
 
@@ -326,7 +350,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               const isActive = 
                 isCadastrosBaseActive ||
                 activeTab === item.id ||
-                (item.id === 'configuracoes' && (activeTab === 'configuracoes' || activeTab === 'empresa')) ||
                 (item.id === 'venda' && (activeTab === 'venda' || activeTab === 'vendas')) ||
                 (item.id === 'fiscal' && (activeTab === 'nfe_notas' || activeTab === 'nfe_importar' || activeTab === 'documentos_entrada' || activeTab === 'entradas')) ||
                 (item.id === 'financeiro' && activeTab === 'despesas') ||
@@ -453,30 +476,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
               );
             })}
           </nav>
-
         </div>
 
-        {/* Bottom Section: Logout & Supabase */}
-        <div className="p-3 border-t border-zinc-300 dark:border-stone-800 bg-zinc-200/90 dark:bg-stone-900 flex items-center justify-between gap-2">
+        {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA E SAIR):
+            Container fixado no rodapé absoluto da barra lateral com Dados da Empresa e Logout */}
+        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-stone-800 bg-zinc-200 dark:bg-stone-900 p-3 space-y-2 shrink-0">
+          {/* Botão Fixo: Dados da Empresa (Single Link, sem sub-menus e sem seta >) */}
           <button
-            id="btn-sidebar-logout"
-            onClick={() => {
-              if (onLogout) {
-                onLogout();
-              } else {
-                setActiveTab('dashboard');
+            id="sidebar-nav-configuracoes"
+            type="button"
+            onClick={() => handleSelect('configuracoes')}
+            className={`
+              w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
+              ${
+                isEmpresaRestricted
+                  ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
+                  : isEmpresaActive
+                    ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
+                    : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
               }
-            }}
-            className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-100/70 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
+            `}
           >
-            <LogOut 
-              className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" 
-            />
-            <span>Sair</span>
+            <div className="flex items-center space-x-3 truncate">
+              <Building 
+                className={`w-4 h-4 shrink-0 transition ${
+                  isEmpresaRestricted 
+                    ? 'text-rose-500' 
+                    : isEmpresaActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'
+                }`} 
+              />
+              <span 
+                className={`truncate ${
+                  isEmpresaRestricted
+                    ? 'text-zinc-500 dark:text-stone-400'
+                    : isEmpresaActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'
+                }`}
+              >
+                Dados da Empresa
+              </span>
+            </div>
+
+            {isEmpresaRestricted && (
+              <span title="Acesso Bloqueado para este Cargo">
+                <Lock className="w-3.5 h-3.5 text-rose-500" />
+              </span>
+            )}
           </button>
 
-          <div className="shrink-0">
-            <SupabaseStatusControl dropdownPosition="up" />
+          {/* Linha de Logout e Controle do Supabase */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-300/70 dark:border-stone-800/80">
+            <button
+              id="btn-sidebar-logout"
+              type="button"
+              onClick={() => {
+                if (onLogout) {
+                  onLogout();
+                } else {
+                  setActiveTab('dashboard');
+                }
+              }}
+              className="flex items-center space-x-2.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-100/70 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
+            >
+              <LogOut 
+                className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" 
+              />
+              <span>Sair</span>
+            </button>
+
+            <div className="shrink-0">
+              <SupabaseStatusControl dropdownPosition="up" />
+            </div>
           </div>
         </div>
 
