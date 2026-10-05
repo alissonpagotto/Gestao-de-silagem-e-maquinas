@@ -368,97 +368,113 @@ export const CargosPermissoesTab: React.FC = () => {
 
       {/* Renderização Condicional: Modo Lista Compacta vs Modo Grade */}
       {viewMode === 'list' ? (
-        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl divide-y divide-zinc-200 dark:divide-stone-800 shadow-xs overflow-hidden">
-          {filteredCargos.map((cargo) => {
-            const empCount = employeeCountByCargo[cargo.id] || 0;
-            return (
-              <div 
-                key={cargo.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between px-3.5 py-1.5 sm:py-2 hover:bg-zinc-50/80 dark:hover:bg-stone-800/50 transition gap-2 sm:gap-3"
-              >
-                {/* Coluna 1: Nome do Cargo & Selo do Setor */}
-                <div className="flex items-center space-x-2 min-w-[200px] sm:min-w-[240px] max-w-[290px] shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />
-                  <span className="text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-white truncate">
-                    {cargo.nome}
-                  </span>
-                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-stone-800 text-zinc-600 dark:text-stone-300 border border-zinc-200 dark:border-stone-700 shrink-0">
-                    {cargo.setor || 'Geral'}
-                  </span>
-                </div>
+        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl shadow-xs overflow-hidden">
+          {/* 1. LINHA DE CABEÇALHO DA LISTA (TÍTULOS DE COLUNA) */}
+          <div className="bg-zinc-100/70 dark:bg-stone-800/80 border-b border-zinc-200 dark:border-stone-800 grid grid-cols-[minmax(200px,1.5fr)_minmax(140px,1.1fr)_minmax(260px,2fr)_minmax(130px,0.9fr)_64px] items-center px-4 py-2 gap-2 text-[11px] font-bold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
+            <div>CARGO</div>
+            <div>SETOR / ÁREA</div>
+            <div>MÓDULOS LIBERADOS</div>
+            <div>STATUS DE USO</div>
+            <div className="text-right">AÇÕES</div>
+          </div>
 
-                {/* Coluna 2: Módulos Liberados (Badges coloridos e compactos) */}
-                <div className="flex items-center space-x-1.5 flex-1 min-w-0 flex-wrap py-0.5">
-                  {cargo.permissoes?.financeiro && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                      <span>Financeiro</span>
-                    </span>
-                  )}
-                  {cargo.permissoes?.frotas && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-                      <span>Frotas</span>
-                    </span>
-                  )}
-                  {cargo.permissoes?.rh && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0"></span>
-                      <span>RH</span>
-                    </span>
-                  )}
-                  {cargo.permissoes?.estoque && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
-                      <span>Estoque/NF-e</span>
-                    </span>
-                  )}
-                  {cargo.permissoes?.empresa && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
-                      <span>Empresa</span>
-                    </span>
-                  )}
-                  {!cargo.permissoes?.financeiro && !cargo.permissoes?.frotas && !cargo.permissoes?.rh && !cargo.permissoes?.estoque && !cargo.permissoes?.empresa && (
-                    <span className="text-[11px] text-zinc-400 italic">Sem módulos liberados</span>
-                  )}
-                </div>
-
-                {/* Coluna 3: Contadores */}
-                <div className="flex items-center space-x-2 text-xs text-zinc-500 dark:text-stone-400 shrink-0">
-                  <div className="flex items-center space-x-1">
-                    <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    <span className="text-zinc-700 dark:text-stone-300 font-semibold">
-                      ({empCount} colaboradores)
+          {/* LINHAS DE CARGOS */}
+          <div className="divide-y divide-zinc-200 dark:divide-stone-800">
+            {filteredCargos.map((cargo) => {
+              const empCount = employeeCountByCargo[cargo.id] || 0;
+              return (
+                <div 
+                  key={cargo.id}
+                  className="grid grid-cols-[minmax(200px,1.5fr)_minmax(140px,1.1fr)_minmax(260px,2fr)_minmax(130px,0.9fr)_64px] items-center px-4 py-1.5 sm:py-2 hover:bg-zinc-50/80 dark:hover:bg-stone-800/50 transition gap-2"
+                >
+                  {/* Coluna 1: CARGO (Texto completo sem reticências prematuras) */}
+                  <div className="flex items-center space-x-2 min-w-0 pr-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />
+                    <span className="text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-white whitespace-nowrap">
+                      {cargo.nome}
                     </span>
                   </div>
-                  <span className="text-[10px] text-zinc-400 font-mono hidden lg:inline">
-                    {cargo.id.slice(0, 10)}
-                  </span>
-                </div>
 
-                {/* Coluna 4: Ações */}
-                <div className="flex items-center space-x-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditModal(cargo)}
-                    title="Editar Cargo e Permissões"
-                    className="p-1.5 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-indigo-400 dark:hover:bg-stone-800 transition cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteCargo(cargo)}
-                    title="Excluir Cargo"
-                    className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {/* Coluna 2: SETOR / ÁREA */}
+                  <div className="min-w-0">
+                    <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700 whitespace-nowrap">
+                      {cargo.setor || 'Geral'}
+                    </span>
+                  </div>
+
+                  {/* Coluna 3: MÓDULOS LIBERADOS */}
+                  <div className="flex items-center space-x-1.5 min-w-0 flex-wrap py-0.5">
+                    {cargo.permissoes?.financeiro && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span>Financeiro</span>
+                      </span>
+                    )}
+                    {cargo.permissoes?.frotas && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                        <span>Frotas</span>
+                      </span>
+                    )}
+                    {cargo.permissoes?.rh && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0"></span>
+                        <span>RH</span>
+                      </span>
+                    )}
+                    {cargo.permissoes?.estoque && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span>Estoque/NF-e</span>
+                      </span>
+                    )}
+                    {cargo.permissoes?.empresa && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                        <span>Empresa</span>
+                      </span>
+                    )}
+                    {!cargo.permissoes?.financeiro && !cargo.permissoes?.frotas && !cargo.permissoes?.rh && !cargo.permissoes?.estoque && !cargo.permissoes?.empresa && (
+                      <span className="text-[11px] text-zinc-400 italic">Sem módulos liberados</span>
+                    )}
+                  </div>
+
+                  {/* Coluna 4: STATUS DE USO */}
+                  <div className="flex items-center space-x-2 text-xs text-zinc-500 dark:text-stone-400 min-w-0">
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      <span className="text-zinc-700 dark:text-stone-300 font-semibold whitespace-nowrap">
+                        {empCount} colaboradores
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 font-mono hidden xl:inline">
+                      {cargo.id.slice(0, 8)}
+                    </span>
+                  </div>
+
+                  {/* Coluna 5: AÇÕES */}
+                  <div className="flex items-center justify-end space-x-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(cargo)}
+                      title="Editar Cargo e Permissões"
+                      className="p-1.5 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-indigo-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCargo(cargo)}
+                      title="Excluir Cargo"
+                      className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : (
         /* Grid de Cards / Tabela de Cargos (Modo Grade) */
