@@ -629,7 +629,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
       >
         {/* CABEÇALHO */}
         <div 
-          className="px-4 sm:px-5 py-2 flex items-center justify-between shrink-0 bg-slate-800 dark:bg-slate-900 text-white shadow-xs"
+          className="px-4 sm:px-5 py-2 flex items-center justify-between shrink-0 bg-[#454545] dark:bg-slate-900 text-white shadow-xs"
         >
           <div className="flex items-center space-x-2.5">
             <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
@@ -664,7 +664,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             {/* ======================================================== */}
             {/* COLUNA DA ESQUERDA (60% da Largura): DADOS DA CONTA */}
             {/* ======================================================== */}
-            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-stone-800">
+            <div className="lg:col-span-7 flex flex-col overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-2 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-stone-800 bg-[#cdcdcd] dark:bg-transparent">
               
               {/* Mensagem de Erro de Validação */}
               {validationError && (
@@ -1029,7 +1029,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
             {/* ======================================================== */}
             <div 
               id="painel-cartoes-corporativos"
-              className="lg:col-span-5 flex flex-col bg-zinc-50/70 dark:bg-stone-900/50 overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-1.5"
+              className="lg:col-span-5 flex flex-col bg-[#cdcdcd] dark:bg-stone-900/50 overflow-y-hidden scrollbar-none p-2 sm:p-2.5 gap-1.5"
             >
               {/* Cabeçalho do Painel Lateral de Cartões */}
               <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200 dark:border-stone-700 shrink-0">
@@ -1434,7 +1434,7 @@ export const BankAccountModal: React.FC<BankAccountModalProps> = ({
           </div>
 
           {/* RODAPÉ DO MODAL: Ações e Resumo Geral */}
-          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-stone-800 bg-white dark:bg-stone-900 shrink-0">
+          <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-stone-800 bg-[#dcd8d8] dark:bg-stone-900 shrink-0">
             <div className="hidden sm:flex items-center space-x-3 text-xs text-zinc-500 dark:text-stone-400 font-medium">
               <span>Saldo: <strong className={numericBalance < 0 ? 'text-rose-600 font-bold' : 'text-zinc-900 dark:text-stone-100 font-bold'}>{formatCurrencyBRL(numericBalance)}</strong></span>
               <span>•</span>
