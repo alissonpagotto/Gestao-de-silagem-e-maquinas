@@ -335,16 +335,24 @@ export function attachCargoPermissionsToEmployee(
 ): { cargoId?: string; permissions: RolePermissions; setor?: string } {
   const cargos = cargosList || getStoredCargosPermissoes();
   const cleanRole = (employeeRole || '').trim().toLowerCase();
+  const primaryRole = cleanRole.split(',')[0].trim();
 
-  const found = cargos.find(c => 
-    c.nome.trim().toLowerCase() === cleanRole || 
-    c.id.toLowerCase() === cleanRole
-  );
+  const found = cargos.find(c => {
+    const cNome = c.nome.trim().toLowerCase();
+    const cId = c.id.toLowerCase();
+    return (
+      cNome === cleanRole || 
+      cId === cleanRole ||
+      cNome === primaryRole ||
+      cId === primaryRole ||
+      cleanRole.includes(cNome)
+    );
+  });
 
   if (found) {
     return {
       cargoId: found.id,
-      permissions: found.permissoes,
+      permissions: { ...found.permissoes },
       setor: found.setor,
     };
   }

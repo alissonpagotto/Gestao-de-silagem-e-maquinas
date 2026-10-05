@@ -411,6 +411,7 @@ export interface SimulatedUserSession {
   cargoId?: string;
   name: string;
   cargoNome: string;
+  photoUrl?: string;
   setor?: string;
   permissions: RolePermissions;
 }

@@ -8,7 +8,7 @@ import {
   Lock,
   Briefcase
 } from 'lucide-react';
-import { CargoPermissao, Employee, SimulatedUserSession } from '../../types';
+import { CargoPermissao, Employee, SimulatedUserSession, RolePermissions } from '../../types';
 import { 
   getActiveUserSession, 
   setActiveUserSession, 
@@ -31,7 +31,7 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
   const [currentSession, setCurrentSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
   const [cargos, setCargos] = useState<CargoPermissao[]>(() => getStoredCargosPermissoes());
   const [employees, setEmployees] = useState<Employee[]>(() => getStoredEmployees());
-  const [activeTab, setActiveTab] = useState<'cargos' | 'colaboradores'>('cargos');
+  const [activeTab, setActiveTab] = useState<'colaboradores' | 'cargos'>('colaboradores');
 
   useEffect(() => {
     if (isOpen) {
@@ -58,8 +58,9 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
   };
 
   const handleSelectCargo = (cargo: CargoPermissao) => {
+    const isAdm = cargo.nome.toLowerCase().includes('admin');
     const session: SimulatedUserSession = {
-      type: cargo.nome.toLowerCase().includes('admin') ? 'admin' : 'employee',
+      type: isAdm ? 'admin' : 'employee',
       cargoId: cargo.id,
       name: `Usuário (${cargo.nome})`,
       cargoNome: cargo.nome,
@@ -73,12 +74,17 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
   };
 
   const handleSelectEmployee = (emp: Employee) => {
+    const cleanRole = (emp.role || '').trim().toLowerCase();
+    const primaryRole = cleanRole.split(',')[0].trim();
+
     const matchedCargo = cargos.find(c => 
       c.id === emp.cargoId || 
-      c.nome.trim().toLowerCase() === (emp.role || '').trim().toLowerCase()
+      c.nome.trim().toLowerCase() === cleanRole ||
+      c.nome.trim().toLowerCase() === primaryRole ||
+      cleanRole.includes(c.nome.trim().toLowerCase())
     );
 
-    const permissions = matchedCargo?.permissoes || emp.permissions || emp.permissoes || {
+    const permissions: RolePermissions = matchedCargo?.permissoes || emp.permissoes || emp.permissions || {
       financeiro: false,
       frotas: true,
       rh: false,
@@ -86,15 +92,16 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
       empresa: false,
     };
 
-    const isAdm = (emp.role || '').toLowerCase().includes('admin');
+    const isAdm = cleanRole.includes('admin') || (matchedCargo?.nome || '').toLowerCase().includes('admin');
 
     const session: SimulatedUserSession = {
       type: isAdm ? 'admin' : 'employee',
       employeeId: emp.id,
-      cargoId: matchedCargo?.id,
+      cargoId: matchedCargo?.id || emp.cargoId,
       name: emp.name,
-      cargoNome: emp.role || matchedCargo?.nome || 'Colaborador',
-      setor: matchedCargo?.setor || 'Operações',
+      cargoNome: matchedCargo?.nome || emp.role || 'Colaborador',
+      photoUrl: emp.photoUrl || (emp as any).foto_url,
+      setor: matchedCargo?.setor || emp.cargo_setor || 'Operações',
       permissions,
     };
 
@@ -271,27 +278,66 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
               ) : (
                 employees.map(emp => {
                   const isSelected = currentSession.employeeId === emp.id;
+                  const cleanRole = (emp.role || '').trim().toLowerCase();
+                  const primaryRole = cleanRole.split(',')[0].trim();
+                  const matchedCargo = cargos.find(c => 
+                    c.id === emp.cargoId || 
+                    c.nome.trim().toLowerCase() === cleanRole ||
+                    c.nome.trim().toLowerCase() === primaryRole ||
+                    cleanRole.includes(c.nome.trim().toLowerCase())
+                  );
+                  const perms = matchedCargo?.permissoes || emp.permissoes || emp.permissions || {
+                    financeiro: false,
+                    frotas: true,
+                    rh: false,
+                    estoque: false,
+                    empresa: false,
+                  };
+
                   return (
                     <div
                       key={emp.id}
                       onClick={() => handleSelectEmployee(emp)}
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
+                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
                         isSelected
                           ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700'
                           : 'bg-white dark:bg-stone-800/80 border-zinc-200 dark:border-stone-700 hover:border-indigo-400'
                       }`}
                     >
-                      <div>
-                        <div className="text-xs font-extrabold text-zinc-900 dark:text-white uppercase">
-                          {emp.name}
+                      <div className="flex items-center space-x-3 min-w-0">
+                        {/* Avatar do Colaborador */}
+                        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-stone-700 bg-zinc-100 dark:bg-stone-700 flex items-center justify-center">
+                          {emp.photoUrl ? (
+                            <img src={emp.photoUrl} alt={emp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-bold text-zinc-700 dark:text-stone-300">
+                              {emp.name.charAt(0)}
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-stone-400">
-                          Cargo: <strong className="text-zinc-700 dark:text-stone-300">{emp.role || 'Sem cargo'}</strong>
+
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-zinc-900 dark:text-white uppercase truncate">
+                            {emp.name}
+                          </div>
+                          <div className="text-[11px] text-zinc-500 dark:text-stone-400 truncate">
+                            Cargo: <strong className="text-zinc-700 dark:text-stone-300">{emp.role || matchedCargo?.nome || 'Colaborador'}</strong>
+                            {matchedCargo?.setor && <span className="ml-1 text-zinc-400">({matchedCargo.setor})</span>}
+                          </div>
+                          <div className="flex items-center space-x-1.5 mt-1 text-[10px]">
+                            <span className={perms.financeiro ? 'text-emerald-600 font-bold' : 'line-through text-zinc-400'}>Financeiro</span>
+                            <span className="text-zinc-300">•</span>
+                            <span className={perms.frotas ? 'text-blue-600 font-bold' : 'line-through text-zinc-400'}>Frotas</span>
+                            <span className="text-zinc-300">•</span>
+                            <span className={perms.rh ? 'text-purple-600 font-bold' : 'line-through text-zinc-400'}>RH</span>
+                            <span className="text-zinc-300">•</span>
+                            <span className={perms.estoque ? 'text-amber-600 font-bold' : 'line-through text-zinc-400'}>Estoque</span>
+                          </div>
                         </div>
                       </div>
 
                       {isSelected && (
-                        <CheckCircle2 className="w-5 h-5 text-indigo-600" />
+                        <CheckCircle2 className="w-5 h-5 text-indigo-600 shrink-0" />
                       )}
                     </div>
                   );

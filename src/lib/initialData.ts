@@ -143,7 +143,37 @@ export const INITIAL_SEASONS: CropSeason[] = [];
 
 // Clean Zeroed Arrays for Manual Entry
 export const INITIAL_MACHINERIES: Machinery[] = [];
-export const INITIAL_EMPLOYEES: Employee[] = [];
+export const INITIAL_EMPLOYEES: Employee[] = [
+  {
+    id: 'emp-alisson-pagotto',
+    name: 'ALISSON PAGOTTO',
+    role: 'Motorista de Caminhão',
+    roles: ['Motorista de Caminhão'],
+    cargoId: 'cargo-motorista',
+    cargo_setor: 'Transporte & Logística',
+    permissions: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    permissoes: {
+      financeiro: false,
+      frotas: true,
+      rh: false,
+      estoque: false,
+      empresa: false,
+    },
+    phone: '(19) 99876-5432',
+    cpf: '123.456.789-00',
+    registrationType: 'Funcionário',
+    contractType: 'Registrado (CLT)',
+    regime_contratacao: 'Registrado (CLT)',
+    active: true,
+    status: 'ativo',
+  },
+];
 export const INITIAL_FLEET_TEAMS: FleetTeam[] = [];
 export const INITIAL_SUPPLIERS: Supplier[] = [];
 export const INITIAL_INVENTORY: InventoryItem[] = [

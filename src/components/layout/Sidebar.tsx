@@ -168,7 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return null;
   };
 
-  const isModuleRestricted = (id: string): boolean => {
+  // Ocultação estrita das abas conforme permissões do cargo na sessão ativa
+  const isModuleHidden = (id: string): boolean => {
     if (userSession.type === 'admin') return false;
     const permKey = getModulePermissionKey(id);
     if (!permKey) return false;
@@ -178,9 +179,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return false;
   };
 
+  const isModuleRestricted = isModuleHidden;
+
+  // Redireciona caso a tela ativa seja ocultada pelo perfil selecionado
+  useEffect(() => {
+    if (isModuleHidden(activeTab)) {
+      setActiveTab('dashboard');
+    }
+  }, [userSession, activeTab]);
+
   const handleSelect = (tabId: string) => {
     // 4. TRAVA DE SEGURANÇA NA SIDEBAR (INTERCEPÇÃO VISUAL)
-    if (isModuleRestricted(tabId)) {
+    if (isModuleHidden(tabId)) {
       setActiveTab(`acesso_restrito_${tabId}`);
       if (onCloseMobile) onCloseMobile();
       return;
@@ -199,10 +209,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .filter((item): item is MenuItemDef => Boolean(item));
 
   // 1. Menus principais (Dashboard até Cadastros Base) que ficam na lista com rolagem flexível
-  const middleNavItems = navItems.filter(item => item.id !== 'configuracoes' && item.id !== 'empresa');
+  // Oculta imediatamente abas não permitidas para o cargo/colaborador selecionado
+  const middleNavItems = navItems
+    .filter(item => item.id !== 'configuracoes' && item.id !== 'empresa')
+    .filter(item => !isModuleHidden(item.id));
 
   // 2. Estado de acesso do botão Dados da Empresa (fixado obrigatoriamente no rodapé)
-  const isEmpresaRestricted = isModuleRestricted('configuracoes');
+  const isEmpresaRestricted = isModuleHidden('configuracoes');
   const isEmpresaActive = activeTab === 'configuracoes' || activeTab === 'empresa';
 
   return (
@@ -242,38 +255,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 GESTÃO AGRÍCOLA
               </p>
             </div>
-          </div>
-
-          {/* CHIP DE SESSÃO ATIVA & NÍVEL DE ACESSO */}
-          <div className="px-3 pt-3 h-[50px]">
-            <button
-              type="button"
-              onClick={() => setIsSessionModalOpen(true)}
-              title="Clique para simular outro perfil ou cargo de acesso"
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left border transition cursor-pointer ${
-                userSession.type === 'admin'
-                  ? 'bg-white/80 dark:bg-stone-800/80 border-zinc-300 dark:border-stone-700 hover:border-indigo-400'
-                  : 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 hover:border-rose-400'
-              }`}
-            >
-              <div className="flex items-center space-x-2 truncate">
-                <div className={`p-1.5 rounded-lg shrink-0 ${userSession.type === 'admin' ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white'}`}>
-                  {userSession.type === 'admin' ? <Shield className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold text-zinc-500 dark:text-stone-400 uppercase tracking-wider">
-                    {userSession.type === 'admin' ? 'Perfil Ativo' : 'Sessão Restrita'}
-                  </div>
-                  <div className="text-xs font-extrabold text-zinc-900 dark:text-white truncate">
-                    {userSession.cargoNome}
-                  </div>
-                </div>
-              </div>
-
-              <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 underline shrink-0 pl-1">
-                Trocar
-              </span>
-            </button>
           </div>
 
           {/* Navigation Section Header: Título MENU PRINCIPAL com os botões rápidos */}
@@ -381,53 +362,91 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA E SAIR):
-            Container fixado no rodapé absoluto da barra lateral com Dados da Empresa e Logout */}
-        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-stone-800 bg-zinc-200 dark:bg-stone-900 p-3 space-y-2 shrink-0">
-          {/* Botão Fixo: Dados da Empresa (Single Link, sem sub-menus e sem seta >) */}
-          <button
-            id="sidebar-nav-configuracoes"
-            type="button"
-            onClick={() => handleSelect('configuracoes')}
-            className={`
-              w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
-              ${
-                isEmpresaRestricted
-                  ? 'bg-rose-50/60 text-zinc-600 dark:bg-rose-950/20 dark:text-stone-400 hover:bg-rose-100/70 border border-dashed border-rose-300/70'
-                  : isEmpresaActive
+        {/* 2. FIXAR O RODAPÉ DA SIDEBAR (PERFIL ATIVO, DADOS DA EMPRESA E SAIR):
+            Container fixado no rodapé absoluto da barra lateral com Perfil Ativo, Dados da Empresa e Logout */}
+        <div className="mt-auto pt-3 border-t border-zinc-300 dark:border-stone-800 bg-zinc-200/90 dark:bg-stone-900 p-3 space-y-2 shrink-0">
+          
+          {/* PERFIL DE USUÁRIO ATIVO NA SESSÃO COM FOTO E BOTÃO TROCAR */}
+          <div className="p-2.5 rounded-xl bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                {/* Foto do Usuário / Avatar */}
+                <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-zinc-300 dark:border-stone-600 bg-zinc-100 dark:bg-stone-700 flex items-center justify-center">
+                  {userSession.photoUrl ? (
+                    <img 
+                      src={userSession.photoUrl} 
+                      alt={userSession.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : userSession.type === 'admin' ? (
+                    <div className="w-full h-full bg-slate-800 text-white flex items-center justify-center">
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
+                      {userSession.name?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  {/* Status dot */}
+                  <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-stone-800 ${userSession.type === 'admin' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                </div>
+
+                {/* Textos: Nome e Cargo */}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-extrabold text-zinc-900 dark:text-white truncate">
+                    {userSession.name || 'Administrador Geral'}
+                  </div>
+                  <div className="text-[10px] font-medium text-zinc-500 dark:text-stone-400 truncate">
+                    {userSession.cargoNome || 'Administrador'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão Trocar */}
+              <button
+                type="button"
+                onClick={() => setIsSessionModalOpen(true)}
+                className="px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer shrink-0 border border-indigo-200 dark:border-indigo-800"
+              >
+                Trocar
+              </button>
+            </div>
+          </div>
+
+          {/* Botão Fixo: Dados da Empresa (se não estiver restrito/oculto para o cargo) */}
+          {!isEmpresaRestricted && (
+            <button
+              id="sidebar-nav-configuracoes"
+              type="button"
+              onClick={() => handleSelect('configuracoes')}
+              className={`
+                w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer group
+                ${
+                  isEmpresaActive
                     ? 'bg-white text-black font-black shadow-xs border border-zinc-300/80 dark:bg-stone-800 dark:text-white dark:border-stone-700'
                     : 'text-zinc-700 dark:text-stone-300 hover:bg-zinc-300/60 dark:hover:bg-stone-800 hover:text-zinc-900 dark:hover:text-white'
-              }
-            `}
-          >
-            <div className="flex items-center space-x-3 truncate">
-              <Building 
-                className={`w-4 h-4 shrink-0 transition ${
-                  isEmpresaRestricted 
-                    ? 'text-rose-500' 
-                    : isEmpresaActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'
-                }`} 
-              />
-              <span 
-                className={`truncate ${
-                  isEmpresaRestricted
-                    ? 'text-zinc-500 dark:text-stone-400'
-                    : isEmpresaActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'
-                }`}
-              >
-                Dados da Empresa
-              </span>
-            </div>
-
-            {isEmpresaRestricted && (
-              <span title="Acesso Bloqueado para este Cargo">
-                <Lock className="w-3.5 h-3.5 text-rose-500" />
-              </span>
-            )}
-          </button>
+                }
+              `}
+            >
+              <div className="flex items-center space-x-3 truncate">
+                <Building 
+                  className={`w-4 h-4 shrink-0 transition ${
+                    isEmpresaActive ? 'text-black dark:text-white' : 'text-zinc-600 group-hover:text-zinc-900 dark:text-stone-400 dark:group-hover:text-white'
+                  }`} 
+                />
+                <span 
+                  className={`truncate ${
+                    isEmpresaActive ? 'text-black font-black dark:text-white' : 'text-zinc-700 group-hover:text-zinc-900 dark:text-stone-300 dark:group-hover:text-white'
+                  }`}
+                >
+                  Dados da Empresa
+                </span>
+              </div>
+            </button>
+          )}
 
           {/* Linha de Logout e Controle do Supabase */}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-300/70 dark:border-stone-800/80">
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-300/70 dark:border-stone-800/80">
             <button
               id="btn-sidebar-logout"
               type="button"

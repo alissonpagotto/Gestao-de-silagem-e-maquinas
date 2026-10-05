@@ -27,7 +27,8 @@ import {
   FileCheck,
   Paperclip,
   MapPin,
-  Loader2
+  Loader2,
+  ShieldCheck
 } from 'lucide-react';
 import { Employee, CompanyProfile, EmployeeAttachment, Cargo, EmployeeRole, EmployeeRegistrationType, VacationRecord } from '../../types';
 import { formatDateBR, checkCnhStatus, formatCurrencyBRL, getStoredCompanyProfile, saveStoredEmployees, getActiveCompanyId, getStoredVacations, saveStoredVacations } from '../../lib/storage';
@@ -47,7 +48,9 @@ import { generateEmployeeSheetHtml, generateEmployeeWhatsAppText } from './emplo
 import { EmployeeAvatar, isBrokenAvatarUrl } from '../common/EmployeeAvatar';
 import { 
   getStoredCargosPermissoes, 
-  attachCargoPermissionsToEmployee 
+  attachCargoPermissionsToEmployee,
+  getActiveUserSession,
+  setActiveUserSession
 } from '../../lib/cadastrosBaseStorage';
 import { CargoPermissao } from '../../types';
 
@@ -684,6 +687,30 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const isBroker = useMemo(() => {
     return role1.trim().toLowerCase() === 'agenciador' || role2.trim().toLowerCase() === 'agenciador';
   }, [role1, role2]);
+
+  // Opções dinâmicas de cargos lidas do LocalStorage (colaca_silagem_cargos_permissoes)
+  const cargosDropdownOptions = useMemo(() => {
+    const fromCargosBase = cargosBase.map(c => ({
+      id: c.id,
+      name: c.nome,
+      setor: c.setor,
+      descricao: c.descricao,
+    }));
+
+    const baseNames = new Set(cargosBase.map(c => c.nome.trim().toLowerCase()));
+    const extras = [...DEFAULT_ROLES, ...roleOptions]
+      .filter(r => r && !baseNames.has(r.trim().toLowerCase()))
+      .map(r => ({ name: r }));
+
+    const combined = [...fromCargosBase, ...extras];
+    return combined.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [cargosBase, roleOptions]);
+
+  // Herança reativa de permissões para exibição em tempo real na tela
+  const selectedCargoPermissions = useMemo(() => {
+    if (!role1) return null;
+    return attachCargoPermissionsToEmployee(role1, cargosBase);
+  }, [role1, cargosBase]);
 
   const sortedRoleOptions = useMemo(() => {
     const cargoNames = cargosBase.map(c => c.nome);
@@ -1929,7 +1956,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       const formattedCnhExpiration = cnhExpiration ? (formatIsoDateOnly(cnhExpiration) || cnhExpiration.trim()) : undefined;
 
       // Vincula permissões do cargo cadastrado em colaca_silagem_cargos_permissoes
-      const cargoInfo = attachCargoPermissionsToEmployee(finalRole, cargosBase);
+      const cargoInfo = attachCargoPermissionsToEmployee(role1.trim() || finalRole, cargosBase);
 
       // 1. CARIMBO DE DONO OBRIGATÓRIO (user_id: activeUid)
       const employeeData: Employee = {
@@ -1943,8 +1970,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         roles: finalRoles,
         cargoId: cargoInfo.cargoId,
         cargo_setor: cargoInfo.setor,
-        permissions: cargoInfo.permissions,
-        permissoes: cargoInfo.permissions,
+        permissions: { ...cargoInfo.permissions },
+        permissoes: { ...cargoInfo.permissions },
         brokerCommissionType: isBroker ? brokerCommissionType : undefined,
         brokerCommissionValue: isBroker ? (Number(parseFloat(String(parsedBrokerCommission))) || 0) : 0,
         actingRegion: isBroker && actingRegion.trim() ? actingRegion.trim().toUpperCase() : undefined,
@@ -2037,6 +2064,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       }
       setLocalEmployees(prelimUpdatedList);
       saveStoredEmployees(prelimUpdatedList);
+      // Persistência explícita na chave colaca_silagem_funcionarios
+      try {
+        localStorage.setItem('colaca_silagem_funcionarios', JSON.stringify(prelimUpdatedList));
+        // Sincroniza sessão ativa caso este colaborador seja o selecionado atualmente
+        const currentActive = getActiveUserSession();
+        if (currentActive.employeeId === employeeData.id) {
+          setActiveUserSession({
+            ...currentActive,
+            name: employeeData.name,
+            cargoNome: employeeData.role,
+            photoUrl: employeeData.photoUrl,
+            permissions: { ...cargoInfo.permissions },
+          });
+        }
+      } catch (err) {}
 
       // Dispara persistência com carimbo obrigatório do assinante no Supabase
       if (isSupabaseConfigured && activeUid) {
@@ -3200,39 +3242,70 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Linha 1: Função 1 (Obrigatório) & Função 2 (Opcional) */}
+                  {/* Linha 1: Cargo Principal (Obrigatório) & Cargo Secundário (Opcional) */}
                   <div>
                     <RoleSelectDropdown
-                      id="employee-role-1"
-                      label="Função 1"
+                      id="employee-cargo-principal"
+                      label="Cargo Principal"
                       required
                       value={role1}
                       onChange={setRole1}
-                      options={sortedRoleOptions}
+                      options={cargosDropdownOptions}
                       onOpenManager={() => {
                         setRoleManagerTarget('role1');
                         setIsRoleManagerOpen(true);
                       }}
-                      placeholder="Selecione a função principal..."
+                      placeholder="Selecione o cargo principal..."
                     />
                   </div>
 
                   <div>
                     <RoleSelectDropdown
-                      id="employee-role-2"
-                      label="Função 2 (Opcional)"
+                      id="employee-cargo-secundario"
+                      label="Cargo Secundário (Opcional)"
                       isOptional
                       value={role2}
                       onChange={setRole2}
-                      options={sortedRoleOptions}
+                      options={cargosDropdownOptions}
                       disabledOption={role1}
                       onOpenManager={() => {
                         setRoleManagerTarget('role2');
                         setIsRoleManagerOpen(true);
                       }}
-                      placeholder="Selecione (se houver acúmulo)..."
+                      placeholder="Selecione (se houver acúmulo de cargo)..."
                     />
                   </div>
+
+                  {/* Card Reativo de Níveis de Acesso Herdados do Cargo Selecionado */}
+                  {selectedCargoPermissions && (
+                    <div className="sm:col-span-2 p-3 bg-zinc-50 dark:bg-stone-800/70 border border-zinc-200 dark:border-stone-700 rounded-xl space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <span className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+                            Níveis de Acesso Herdados ({role1}):
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-zinc-500 dark:text-stone-400">
+                          {selectedCargoPermissions.setor ? `Setor: ${selectedCargoPermissions.setor}` : 'Sincronizado com Cadastros Base'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px]">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.financeiro ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
+                          Financeiro: {selectedCargoPermissions.permissions.financeiro ? 'Liberado' : 'Bloqueado'}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.frotas ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
+                          Frotas: {selectedCargoPermissions.permissions.frotas ? 'Liberado' : 'Bloqueado'}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.rh ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
+                          RH: {selectedCargoPermissions.permissions.rh ? 'Liberado' : 'Bloqueado'}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold ${selectedCargoPermissions.permissions.estoque ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-stone-800 dark:text-stone-500'}`}>
+                          Estoque: {selectedCargoPermissions.permissions.estoque ? 'Liberado' : 'Bloqueado'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* BLOCO CONDICIONAL: CONFIGURAÇÃO DE COMISSÃO DO AGENCIADOR */}
                   {isBroker && (
