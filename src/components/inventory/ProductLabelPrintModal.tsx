@@ -293,11 +293,15 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
 
     const barcodeNarrowWidth = isA4FourCols ? 0.95 : metrics.narrowWidth;
     const barcodeHeight = isA4FourCols ? Math.min(metrics.barcodeHeight, 13) : (isCompact ? Math.min(metrics.barcodeHeight, 11) : metrics.barcodeHeight);
-    const barcodeDigitsFontPt = isA4FourCols ? 7.0 : (isCompact ? 8.0 : Math.max(9.5, metrics.codeFontSizePt * 1.3));
-    const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 9.0) : Math.min(metrics.addressCodeFontSizePt, 12.5);
+    const barcodeDigitsFontPt = isA4FourCols ? 6.8 : (isCompact ? 7.8 : Math.max(9.0, metrics.codeFontSizePt * 1.3));
+    const addressNumFontPt = isA4FourCols ? Math.min(metrics.addressCodeFontSizePt, 8.8) : Math.min(metrics.addressCodeFontSizePt, 12.0);
     const addressLegendFontPt = isA4FourCols ? 3.3 : metrics.addressLegendFontSizePt;
-    const priceMainFontPt = isA4FourCols ? 6.8 : (isCompact ? 7.8 : (preset.widthMm >= 80 ? 11.5 : 9.2));
-    const priceUnitFontPt = isA4FourCols ? 5.0 : (isCompact ? 5.5 : 6.5);
+    const descFontPt = isA4FourCols ? 5.8 : (isCompact ? 6.2 : (preset.widthMm >= 80 ? 8.2 : 7.2));
+    const priceMainFontPt = isA4FourCols ? 7.2 : (isCompact ? 7.8 : (preset.widthMm >= 80 ? 11.5 : 9.2));
+    const priceUnitFontPt = isA4FourCols ? 4.8 : (isCompact ? 5.2 : 6.2);
+
+    const formattedPriceStr = formatCurrencyBRL(salePrice);
+    const priceNumericStr = formattedPriceStr.replace(/^R\$\s*/, '') || '0,00';
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       height: barcodeHeight,
@@ -379,42 +383,47 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         border: 0.5px dashed #999999;
         background: #ffffff;
         color: #000000;
-        padding: ${isSmallPad ? '1mm 1.5mm' : '1.2mm 2mm'};
+        padding: ${isA4FourCols ? '0.7mm 1.2mm' : (isSmallPad ? '0.9mm 1.2mm' : '1.2mm 1.6mm')};
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         position: relative;
         overflow: hidden;
       ">
-        <!-- Topo: Linha superior inteira dedicada exclusivamente ao Nome/Descrição do Produto em fundo branco e texto preto -->
+        <!-- Topo: Linha superior dedicada à Descrição do Produto (até 2 linhas automáticas, font slim) -->
         <div class="label-header" style="
           display: flex;
           align-items: center;
           justify-content: center;
-          line-height: 1.1;
+          line-height: 1.15;
           background: #ffffff;
           color: #000000;
           border-bottom: 0.5px solid #000000;
-          padding-bottom: 1px;
-          margin-bottom: 0.5px;
+          padding-bottom: 0.8px;
+          margin-bottom: 0.8px;
           width: 100%;
           max-width: 100%;
+          min-height: ${isA4FourCols ? '4.8mm' : (isCompact ? '5.0mm' : '5.8mm')};
+          max-height: ${isA4FourCols ? '5.4mm' : (isCompact ? '5.6mm' : '6.8mm')};
           overflow: hidden;
           box-sizing: border-box;
         ">
           <div class="label-product-name" style="
-            font-size: ${isA4FourCols ? Math.min(metrics.nameFontSizePt + 0.5, 7.5) : metrics.nameFontSizePt + 0.5}pt;
-            font-weight: 800;
+            font-size: ${descFontPt}pt;
+            font-weight: 500;
             color: #000000;
             background: #ffffff;
             text-transform: uppercase;
             text-align: center;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            word-break: break-word;
+            line-height: 1.15;
+            max-height: 2.3em;
             width: 100%;
             min-width: 0;
-            line-height: 1.15;
           " title="${prodName}">
             ${prodName}${prodBrand}
           </div>
@@ -532,7 +541,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
             </div>
           ` : ''}
 
-          <!-- Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado verticalmente em relação ao bloco de endereçamento -->
+          <!-- Coluna Direita (~27%): Cifrão R$ acima e Preço numérico logo abaixo, com unidade na base -->
           ${showPrice ? `
             <div class="label-right-price-col" style="
               flex: 1;
@@ -556,11 +565,21 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                 text-align: center;
                 border: 0.5px solid #000000;
                 border-radius: 2px;
-                padding: 2px 1.5px;
+                padding: ${isA4FourCols ? '1px 1px' : '1.5px 1.5px'};
                 background: #ffffff;
                 color: #000000;
                 box-sizing: border-box;
               ">
+                <div class="label-price-symbol" style="
+                  font-size: ${isA4FourCols ? 4.8 : (isCompact ? 5.2 : 6.0)}pt;
+                  font-weight: 700;
+                  color: #000000;
+                  background: #ffffff;
+                  line-height: 0.95;
+                  letter-spacing: 0.2px;
+                ">
+                  R$
+                </div>
                 <div class="label-price-value" style="
                   font-size: ${priceMainFontPt}pt;
                   font-weight: 900;
@@ -569,7 +588,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   line-height: 1.05;
                   white-space: nowrap;
                 ">
-                  ${formatCurrencyBRL(salePrice)}
+                  ${priceNumericStr}
                 </div>
                 <div class="label-price-unit" style="
                   font-size: ${priceUnitFontPt}pt;
@@ -577,7 +596,7 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
                   color: #000000;
                   background: #ffffff;
                   line-height: 1;
-                  margin-top: 1px;
+                  margin-top: 0.5px;
                   white-space: nowrap;
                 ">
                   / ${unit}
@@ -930,10 +949,13 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
         <div 
           className="w-full bg-white text-black border-2 border-dashed border-stone-400 rounded-lg p-3 shadow-md space-y-2 font-sans select-none"
         >
-          {/* Topo da Etiqueta: Linha inteira dedicada exclusivamente ao Nome/Descrição do Produto */}
-          <div className="flex items-center justify-center bg-white text-black border-b border-black pb-1.5 leading-tight w-full">
+          {/* Topo da Etiqueta: Linha inteira dedicada exclusivamente ao Nome/Descrição do Produto (até 2 linhas, font slim) */}
+          <div className="flex items-center justify-center bg-white text-black border-b border-black pb-1 leading-tight w-full min-h-[34px] sm:min-h-[38px] max-h-[38px] sm:max-h-[42px] overflow-hidden">
             <div className="text-center w-full min-w-0">
-              <div className="font-black text-xs sm:text-sm uppercase text-black truncate" title={item.nome_comercial || item.name}>
+              <div 
+                className="font-medium text-[11px] sm:text-xs uppercase text-black line-clamp-2 leading-snug break-words" 
+                title={item.nome_comercial || item.name}
+              >
                 {item.nome_comercial || item.name}
                 {(item.brand || item.marca) ? ` • ${item.brand || item.marca}` : ''}
               </div>
@@ -1005,14 +1027,17 @@ export const ProductLabelPrintModal: React.FC<ProductLabelPrintModalProps> = ({
               </div>
             )}
 
-            {/* Coluna Direita (~27%): Preço em destaque e Unidade logo abaixo, centralizado em relação ao bloco de endereçamento */}
+            {/* Coluna Direita (~27%): Cifrão R$ acima e Preço numérico logo abaixo, com unidade na base */}
             {showPrice && (
               <div className={`flex-1 min-w-0 flex flex-col ${showBarcode ? 'justify-end' : 'justify-center'} items-center`}>
-                <div className={`w-full border border-black rounded px-1.5 ${showBarcode ? 'py-2' : 'py-2.5 h-full'} bg-white text-black flex flex-col items-center justify-center text-center`}>
-                  <span className="text-xs sm:text-sm font-black text-black leading-tight whitespace-nowrap">
-                    {formatCurrencyBRL(resolveProductPrice(item))}
+                <div className={`w-full border border-black rounded px-1 ${showBarcode ? 'py-1 sm:py-1.5' : 'py-2 h-full'} bg-white text-black flex flex-col items-center justify-center text-center`}>
+                  <span className="text-[9px] sm:text-[10px] font-bold text-black leading-none tracking-tight">
+                    R$
                   </span>
-                  <span className="text-[9.5px] font-bold text-black leading-none mt-1 uppercase">
+                  <span className="text-xs sm:text-sm font-black text-black leading-tight whitespace-nowrap">
+                    {resolveProductPrice(item).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-black leading-none mt-0.5 uppercase">
                     / {(item.unidade_medida || item.unit || 'UN').toUpperCase()}
                   </span>
                 </div>
