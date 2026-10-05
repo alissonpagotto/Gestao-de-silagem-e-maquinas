@@ -149,8 +149,8 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     name: 'ALISSON PAGOTTO',
     role: 'Motorista de Caminhão',
     roles: ['Motorista de Caminhão'],
-    cargoId: 'cargo-motorista',
-    cargo_setor: 'Transporte & Logística',
+    cargoId: 'cargo-motorista-caminhao',
+    cargo_setor: 'TRANSPORTE & LOGÍSTICA',
     permissions: {
       financeiro: false,
       frotas: true,

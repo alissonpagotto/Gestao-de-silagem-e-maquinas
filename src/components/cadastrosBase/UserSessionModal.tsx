@@ -227,11 +227,11 @@ export const UserSessionModal: React.FC<UserSessionModalProps> = ({
               </div>
 
               {/* Lista de Cargos */}
-              {cargos.filter(c => !c.nome.toLowerCase().includes('admin')).map(cargo => {
+              {cargos.filter(c => !c.nome.toLowerCase().includes('admin')).map((cargo, index) => {
                 const isSelected = currentSession.cargoId === cargo.id;
                 return (
                   <div
-                    key={cargo.id}
+                    key={`${cargo.id}-${index}`}
                     onClick={() => handleSelectCargo(cargo)}
                     className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
                       isSelected

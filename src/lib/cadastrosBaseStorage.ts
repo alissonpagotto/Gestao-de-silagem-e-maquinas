@@ -322,14 +322,73 @@ export const INITIAL_PLANO_CONTAS_E_FORMAS: PlanoContasEFormasData = {
  * 1. Remove duplicidades exatas e aliases obsoletos (como 'Escritorio').
  * 2. Garante a inclusão de todos os cargos oficiais da INITIAL_CARGOS_PERMISSOES.
  * 3. Garante que TODO cargo possua setor oficial em caixa alta mapeado.
+ * 4. Resolve IDs canônicos para evitar colisões herdadas do LocalStorage (ex: cargo-motorista, cargo-mecanico).
+ * 5. Garante unicidade estrita de IDs e nomes.
  */
 export function consolidateCargosList(existingList: CargoPermissao[]): CargoPermissao[] {
   const norm = (s: string) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   const result: CargoPermissao[] = [];
   const seenKeys = new Set<string>();
+  const seenIds = new Set<string>();
 
-  // 1. Processa registros já salvos no LocalStorage (mantém IDs e permissões personalizadas)
+  // Mapeia nomes para seus IDs canônicos oficiais e resolve colisões herdadas do localStorage
+  const getCanonicalId = (cleanNome: string, currentId?: string): string => {
+    const k = norm(cleanNome);
+    if (k === 'administrador geral') return 'cargo-admin';
+    if (k === 'administrador') return 'cargo-administrador';
+    if (k === 'recepcionista') return 'cargo-recepcionista';
+    if (k === 'financeiro') return 'cargo-financeiro';
+    if (k === 'auxiliar financeiro') return 'cargo-aux-fin';
+    if (k === 'motorista de caminhao') return 'cargo-motorista-caminhao';
+    if (k === 'motorista') return 'cargo-motorista';
+    if (k === 'agenciador') return 'cargo-agenciador';
+    if (k === 'gerente operacional') return 'cargo-gerente-op';
+    if (k === 'operador de forrageira') return 'cargo-op-forrageira';
+    if (k === 'operador de trator') return 'cargo-op-trator';
+    if (k === 'operador de maquinas') return 'cargo-operador';
+    if (k === 'auxiliar de producao') return 'cargo-aux-producao';
+    if (k === 'mecanico especialista') return 'cargo-mecanico-especialista';
+    if (k === 'mecanico interno') return 'cargo-mecanico-interno';
+    if (k === 'mecanico') return 'cargo-mecanico';
+    if (k === 'analista de rh') return 'cargo-rh';
+
+    if (currentId) {
+      if (currentId === 'cargo-motorista' && k !== 'motorista') {
+        return k.includes('caminh') ? 'cargo-motorista-caminhao' : 'cargo-motorista-outro';
+      }
+      if (currentId === 'cargo-mecanico' && k !== 'mecanico') {
+        return k.includes('especial') ? 'cargo-mecanico-especialista' : (k.includes('intern') ? 'cargo-mecanico-interno' : 'cargo-mecanico-outro');
+      }
+      return currentId;
+    }
+    return `cargo-${k.replace(/[^a-z0-9]+/g, '-')}`;
+  };
+
+  const getCanonicalSetor = (name: string, currentSetor?: string): string => {
+    if (currentSetor && currentSetor.trim() && currentSetor.toUpperCase() !== 'GERAL') {
+      return currentSetor.trim().toUpperCase();
+    }
+    const k = norm(name);
+    if (k.includes('admin') || k.includes('recepc') || k.includes('diretor')) return 'DIRETORIA & ADMINISTRATIVO';
+    if (k.includes('finan') || k.includes('contab')) return 'FINANCEIRO & CONTABILIDADE';
+    if (k.includes('rh') || k.includes('recursos') || k.includes('pessoal')) return 'RECURSOS HUMANOS';
+    if (k.includes('motor') || k.includes('agenc') || k.includes('transp') || k.includes('caminh')) return 'TRANSPORTE & LOGÍSTICA';
+    if (k.includes('mecan') || k.includes('oficina') || k.includes('manuten')) return 'OFICINA & MANUTENÇÃO';
+    return 'CAMPO & SILAGEM';
+  };
+
+  const ensureUniqueId = (candidateId: string): string => {
+    let id = candidateId;
+    let counter = 1;
+    while (seenIds.has(id)) {
+      id = `${candidateId}-${counter++}`;
+    }
+    seenIds.add(id);
+    return id;
+  };
+
+  // 1. Processa registros já salvos no LocalStorage (mantém dados e permissões personalizadas)
   (existingList || []).forEach(item => {
     if (!item || !item.nome) return;
     const cleanNome = item.nome.trim();
@@ -340,10 +399,15 @@ export function consolidateCargosList(existingList: CargoPermissao[]): CargoPerm
 
     if (!seenKeys.has(key)) {
       seenKeys.add(key);
+
+      const candidateId = getCanonicalId(cleanNome, item.id);
+      const uniqueId = ensureUniqueId(candidateId);
+
       result.push({
         ...item,
+        id: uniqueId,
         nome: cleanNome,
-        setor: (item.setor || 'CAMPO & SILAGEM').trim().toUpperCase(),
+        setor: getCanonicalSetor(cleanNome, item.setor),
         permissoes: item.permissoes || {
           financeiro: false,
           frotas: true,
@@ -360,14 +424,24 @@ export function consolidateCargosList(existingList: CargoPermissao[]): CargoPerm
     const key = norm(official.nome);
     if (!seenKeys.has(key)) {
       seenKeys.add(key);
-      result.push({ ...official });
+      const uniqueId = ensureUniqueId(official.id);
+      result.push({ ...official, id: uniqueId });
     } else {
       // Se já existia, atualiza o setor para o padrão formal caso estivesse vazio ou genérico
-      const existingIdx = result.findIndex(r => norm(r.nome) === key);
-      if (existingIdx !== -1 && (!result[existingIdx].setor || result[existingIdx].setor === 'Geral')) {
-        result[existingIdx].setor = official.setor;
+      const existing = result.find(r => norm(r.nome) === key);
+      if (existing && (!existing.setor || existing.setor === 'Geral')) {
+        existing.setor = official.setor;
       }
     }
+  });
+
+  // 3. Garantia final de unicidade absoluta de IDs
+  const finalSeenIds = new Set<string>();
+  result.forEach((item, idx) => {
+    if (finalSeenIds.has(item.id)) {
+      item.id = `${item.id}-${idx}`;
+    }
+    finalSeenIds.add(item.id);
   });
 
   return result;
@@ -387,7 +461,9 @@ export function getStoredCargosPermissoes(): CargoPermissao[] {
     const consolidated = consolidateCargosList(parsed);
     const jsonStr = JSON.stringify(consolidated);
     if (!raw || raw !== jsonStr) {
-      saveStoredCargosPermissoes(consolidated);
+      try {
+        localStorage.setItem(CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES, jsonStr);
+      } catch {}
     }
     return consolidated;
   } catch (err) {
@@ -399,9 +475,10 @@ export function getStoredCargosPermissoes(): CargoPermissao[] {
 
 export function saveStoredCargosPermissoes(cargos: CargoPermissao[]): void {
   try {
-    localStorage.setItem(CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES, JSON.stringify(cargos));
+    const consolidated = consolidateCargosList(cargos);
+    localStorage.setItem(CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES, JSON.stringify(consolidated));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('colaca_silagem_cargos_updated', { detail: cargos }));
+      window.dispatchEvent(new CustomEvent('colaca_silagem_cargos_updated', { detail: consolidated }));
     }
   } catch (err) {
     console.error('Erro ao salvar cargos_permissoes no localStorage:', err);

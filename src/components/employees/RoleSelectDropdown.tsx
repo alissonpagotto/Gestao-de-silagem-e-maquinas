@@ -38,13 +38,20 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Normaliza opções
-  const normalizedOptions: RoleOptionItem[] = options.map(opt => {
-    if (typeof opt === 'string') {
-      return { name: opt };
+  // Normaliza e deduplica opções de cargos
+  const normalizedOptions: RoleOptionItem[] = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: RoleOptionItem[] = [];
+    for (const opt of options) {
+      const item: RoleOptionItem = typeof opt === 'string' ? { name: opt } : opt;
+      const normKey = (item.name || '').trim().toLowerCase();
+      if (normKey && !seen.has(normKey)) {
+        seen.add(normKey);
+        list.push(item);
+      }
     }
-    return opt;
-  });
+    return list;
+  }, [options]);
 
   // Fecha o dropdown ao clicar fora do componente
   useEffect(() => {
@@ -156,14 +163,14 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
               </div>
             )}
 
-            {normalizedOptions.map((opt) => {
+            {normalizedOptions.map((opt, index) => {
               const optName = opt.name;
               const isSelected = value.toLowerCase() === optName.toLowerCase();
               const isAlreadyChosen = disabledOption && disabledOption.toLowerCase() === optName.toLowerCase();
 
               return (
                 <div
-                  key={optName}
+                  key={`${optName}-${index}`}
                   onClick={() => handleSelect(optName)}
                   className={`group flex items-center justify-between px-3 py-2 text-xs sm:text-sm cursor-pointer transition ${
                     isSelected

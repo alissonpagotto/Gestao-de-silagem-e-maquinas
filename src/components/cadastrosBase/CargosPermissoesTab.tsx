@@ -60,12 +60,8 @@ export const CargosPermissoesTab: React.FC = () => {
 
   // Sincronização em tempo real de eventos locais
   useEffect(() => {
-    const handleCargosSync = (e: any) => {
-      if (e.detail && Array.isArray(e.detail)) {
-        setCargos(e.detail);
-      } else {
-        setCargos(getStoredCargosPermissoes());
-      }
+    const handleCargosSync = () => {
+      setCargos(getStoredCargosPermissoes());
     };
     const handleEmployeesSync = () => {
       setEmployees(getStoredEmployees());
@@ -380,11 +376,11 @@ export const CargosPermissoesTab: React.FC = () => {
 
           {/* LINHAS DE CARGOS */}
           <div className="divide-y divide-zinc-200 dark:divide-stone-800">
-            {filteredCargos.map((cargo) => {
+            {filteredCargos.map((cargo, index) => {
               const empCount = employeeCountByCargo[cargo.id] || 0;
               return (
                 <div 
-                  key={cargo.id}
+                  key={`${cargo.id}-${index}`}
                   className="grid grid-cols-[minmax(200px,1.5fr)_minmax(140px,1.1fr)_minmax(260px,2fr)_minmax(130px,0.9fr)_64px] items-center px-4 py-1.5 sm:py-2 hover:bg-zinc-50/80 dark:hover:bg-stone-800/50 transition gap-2"
                 >
                   {/* Coluna 1: CARGO (Texto completo sem reticências prematuras) */}
@@ -479,11 +475,11 @@ export const CargosPermissoesTab: React.FC = () => {
       ) : (
         /* Grid de Cards / Tabela de Cargos (Modo Grade) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredCargos.map((cargo) => {
+          {filteredCargos.map((cargo, index) => {
             const empCount = employeeCountByCargo[cargo.id] || 0;
             return (
               <div 
-                key={cargo.id}
+                key={`${cargo.id}-${index}`}
                 className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-4 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700 transition flex flex-col justify-between"
               >
                 <div>
