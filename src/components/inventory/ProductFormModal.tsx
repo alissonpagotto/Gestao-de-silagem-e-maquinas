@@ -108,6 +108,78 @@ export function parseCurrencyPtBr(value: string): number {
   return isNaN(num) ? 0 : Math.max(0, num);
 }
 
+// Máscara de Digitação Automática Inteligente para Medida / Dimensão de Pneu (Padrão: 295/80 R 22.5)
+export function applyTireSizeMask(val: string, prevVal: string = ''): string {
+  if (!val) return '';
+
+  const isDeleting = val.length < prevVal.length;
+
+  if (isDeleting) {
+    // Quando o usuário apaga com Backspace, remove os delimitadores suavemente sem travar
+    if (val.endsWith(' R') || val.endsWith(' R ') || val.endsWith(' ')) {
+      return val.replace(/\s*R?\s*$/, '');
+    }
+    if (val.endsWith('/')) {
+      return val.slice(0, -1);
+    }
+    return val;
+  }
+
+  // Normalização de vírgula para ponto decimal
+  const normalized = val.replace(',', '.');
+
+  // Extrai dígitos numéricos limpos
+  const rawDigits = normalized.replace(/[^0-9]/g, '');
+  if (!rawDigits) return '';
+
+  // 1. Largura (primeiros 3 dígitos, ex: 295, 275, 315)
+  const width = rawDigits.slice(0, 3);
+  if (rawDigits.length < 3) {
+    return width;
+  }
+
+  // 2. Perfil (próximos 2 dígitos, ex: 80, 70, 75)
+  const profile = rawDigits.slice(3, 5);
+  if (rawDigits.length === 3) {
+    return `${width}/`;
+  }
+  if (rawDigits.length === 4) {
+    return `${width}/${profile}`;
+  }
+
+  // Com largura (3 dígitos) e perfil (2 dígitos) completos, insere " R "
+  // 3. Aro (ex: 22, 22.5, 17.5, 24)
+  const rimDigits = rawDigits.slice(5);
+
+  // Verifica se o usuário digitou ponto explicitamente após o perfil/letra R
+  const rIndex = normalized.lastIndexOf('R');
+  const afterProfile = normalized.slice(rIndex !== -1 ? rIndex + 1 : 5);
+  const userTypedDot = afterProfile.includes('.');
+
+  let rim = '';
+  if (userTypedDot) {
+    const dotIndex = afterProfile.indexOf('.');
+    const beforeDot = afterProfile.slice(0, dotIndex).replace(/[^0-9]/g, '').slice(0, 2);
+    const afterDot = afterProfile.slice(dotIndex + 1).replace(/[^0-9]/g, '').slice(0, 1);
+    if (afterProfile.endsWith('.') && !afterDot) {
+      rim = `${beforeDot}.`;
+    } else if (afterDot) {
+      rim = `${beforeDot}.${afterDot}`;
+    } else {
+      rim = beforeDot;
+    }
+  } else {
+    if (rimDigits.length <= 2) {
+      rim = rimDigits;
+    } else {
+      // Formata automaticamente 3 dígitos de aro comercial (ex: 225 -> 22.5)
+      rim = `${rimDigits.slice(0, 2)}.${rimDigits.slice(2, 3)}`;
+    }
+  }
+
+  return `${width}/${profile} R ${rim}`;
+}
+
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   isOpen,
   onClose,
@@ -147,6 +219,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [tireBrandOptions, setTireBrandOptions] = useState<string[]>(() => getStoredTireBrands());
   const [isBrandManagerOpen, setIsBrandManagerOpen] = useState(false);
   const [newBrandInput, setNewBrandInput] = useState('');
+  const [brandToDeleteConfirm, setBrandToDeleteConfirm] = useState<string | null>(null);
 
   const handleAddBrand = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -164,25 +237,55 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       if (!marca) setMarca(existing);
     }
     setNewBrandInput('');
-    setIsBrandManagerOpen(false);
+    setBrandToDeleteConfirm(null);
   };
 
-  const handleDeleteSelectedBrand = () => {
-    if (!tireBrand) return;
-    const toDelete = tireBrand;
-    const updated = tireBrandOptions.filter((b) => b !== toDelete);
-    setTireBrandOptions(updated);
-    saveStoredTireBrands(updated);
-    setTireBrand('');
-  };
-
-  const handleRemoveBrandFromList = (brandToRemove: string) => {
+  const executeRemoveBrand = (brandToRemove: string) => {
     const updated = tireBrandOptions.filter((b) => b !== brandToRemove);
     setTireBrandOptions(updated);
     saveStoredTireBrands(updated);
     if (tireBrand === brandToRemove) {
       setTireBrand('');
     }
+  };
+
+  const handleRequestRemoveBrand = (brandToRemove: string) => {
+    // Tenta primeiro o window.confirm nativo leve
+    try {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        const ok = window.confirm(`Tem certeza que deseja excluir esta marca? (${brandToRemove})`);
+        if (ok) {
+          executeRemoveBrand(brandToRemove);
+          setBrandToDeleteConfirm(null);
+          return;
+        } else {
+          return;
+        }
+      }
+    } catch {
+      // Se window.confirm não for suportado no ambiente, prossegue com confirmação visual
+    }
+    setBrandToDeleteConfirm(brandToRemove);
+  };
+
+  const handleDeleteSelectedBrand = () => {
+    if (!tireBrand) return;
+    try {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        const ok = window.confirm(`Tem certeza que deseja excluir esta marca? (${tireBrand})`);
+        if (ok) {
+          executeRemoveBrand(tireBrand);
+          setBrandToDeleteConfirm(null);
+          return;
+        } else {
+          return;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    setIsBrandManagerOpen(true);
+    setBrandToDeleteConfirm(tireBrand);
   };
 
   // Identifica dinamicamente se a categoria selecionada é 'Pneus'
@@ -1179,14 +1282,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 )}
                               </div>
 
-                              {/* Mini-popover para cadastro/gestão rápida de marca */}
+                              {/* Mini-popover para cadastro/gestão rápida de marca com confirmação segura */}
                               {isBrandManagerOpen && (
-                                <div className="absolute right-0 top-full mt-1 z-30 w-52 p-2 bg-white dark:bg-stone-850 rounded-xl shadow-xl border border-rose-200 dark:border-rose-800 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100">
+                                <div className="absolute right-0 top-full mt-1 z-30 w-56 p-2 bg-white dark:bg-stone-850 rounded-xl shadow-xl border border-rose-200 dark:border-rose-800 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100">
                                   <div className="flex items-center justify-between pb-1 mb-1 border-b border-stone-200 dark:border-stone-700">
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Nova Marca de Pneu</span>
                                     <button 
                                       type="button" 
-                                      onClick={() => setIsBrandManagerOpen(false)}
+                                      onClick={() => {
+                                        setIsBrandManagerOpen(false);
+                                        setBrandToDeleteConfirm(null);
+                                      }}
                                       className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
                                     >
                                       <X className="w-3 h-3" />
@@ -1210,19 +1316,61 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleAddBrand()}
-                                      className="h-6.5 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition flex items-center justify-center cursor-pointer"
+                                      className="h-6.5 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition flex items-center justify-center cursor-pointer active:scale-95"
+                                      title="Adicionar nova marca"
                                     >
-                                      <Check className="w-3 h-3" />
+                                      <Check className="w-3 h-3 stroke-[2.5]" />
                                     </button>
                                   </div>
-                                  <div className="max-h-24 overflow-y-auto space-y-0.5 custom-scrollbar">
+
+                                  {/* Mini-badge de Confirmação Local de Exclusão */}
+                                  {brandToDeleteConfirm && (
+                                    <div className="mb-1.5 p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 animate-in fade-in">
+                                      <p className="text-[10px] font-bold leading-tight mb-1">
+                                        Tem certeza que deseja excluir esta marca?
+                                      </p>
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="text-[10.5px] font-extrabold text-rose-700 dark:text-rose-300 truncate max-w-[110px]" title={brandToDeleteConfirm}>
+                                          "{brandToDeleteConfirm}"
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              executeRemoveBrand(brandToDeleteConfirm);
+                                              setBrandToDeleteConfirm(null);
+                                            }}
+                                            className="px-2 py-0.5 text-[9.5px] font-bold rounded bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition cursor-pointer active:scale-95"
+                                          >
+                                            Sim
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setBrandToDeleteConfirm(null)}
+                                            className="px-2 py-0.5 text-[9.5px] font-semibold rounded bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-300 transition cursor-pointer"
+                                          >
+                                            Não
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div className="max-h-28 overflow-y-auto space-y-0.5 custom-scrollbar">
                                     {tireBrandOptions.map((b) => (
-                                      <div key={b} className="flex items-center justify-between px-1.5 py-0.5 text-[11px] rounded hover:bg-stone-100 dark:hover:bg-stone-800">
+                                      <div 
+                                        key={b} 
+                                        className={`flex items-center justify-between px-1.5 py-0.5 text-[11px] rounded transition ${
+                                          brandToDeleteConfirm === b 
+                                            ? 'bg-rose-100/80 dark:bg-rose-900/50 font-bold text-rose-700 dark:text-rose-300' 
+                                            : 'hover:bg-stone-100 dark:hover:bg-stone-800'
+                                        }`}
+                                      >
                                         <span className="truncate">{b}</span>
                                         <button
                                           type="button"
-                                          onClick={() => handleRemoveBrandFromList(b)}
-                                          className="text-stone-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                                          onClick={() => handleRequestRemoveBrand(b)}
+                                          className="text-stone-400 hover:text-rose-600 p-0.5 cursor-pointer transition"
                                           title={`Excluir ${b}`}
                                         >
                                           <Trash2 className="w-2.5 h-2.5" />
@@ -1257,9 +1405,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <input
                               type="text"
                               value={tireSize}
-                              onChange={(e) => setTireSize(e.target.value)}
-                              placeholder="Ex: 295/80 R22.5"
-                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                              onChange={(e) => {
+                                const masked = applyTireSizeMask(e.target.value, tireSize);
+                                setTireSize(masked);
+                              }}
+                              placeholder="Ex: 295/80 R 22.5"
+                              maxLength={16}
+                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition font-mono font-bold"
                             />
                           </div>
                         </div>
