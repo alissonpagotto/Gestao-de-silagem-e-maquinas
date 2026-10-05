@@ -102,9 +102,10 @@ export const CargosPermissoesTab: React.FC = () => {
   }, [employees, cargos]);
 
   const filteredCargos = useMemo(() => {
+    const sorted = [...cargos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return cargos;
-    return cargos.filter(c => 
+    if (!term) return sorted;
+    return sorted.filter(c => 
       c.nome.toLowerCase().includes(term) ||
       c.setor.toLowerCase().includes(term) ||
       (c.descricao && c.descricao.toLowerCase().includes(term))

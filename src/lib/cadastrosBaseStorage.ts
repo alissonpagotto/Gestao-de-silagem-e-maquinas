@@ -444,7 +444,8 @@ export function consolidateCargosList(existingList: CargoPermissao[]): CargoPerm
     finalSeenIds.add(item.id);
   });
 
-  return result;
+  // 4. ORDEM ALFABÉTICA COMPULSÓRIA (PADRÃO DO SISTEMA): De A a Z pelo nome
+  return result.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 export function getStoredCargosPermissoes(): CargoPermissao[] {

@@ -1,11 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, X, SlidersHorizontal, Shield } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { 
+  Search, 
+  X, 
+  ChevronRight, 
+  Check, 
+  Briefcase,
+  SlidersHorizontal,
+  Building2 
+} from 'lucide-react';
 
 export interface RoleOptionItem {
   id?: string;
   name: string;
   setor?: string;
   descricao?: string;
+  permissoes?: {
+    financeiro?: boolean;
+    frotas?: boolean;
+    rh?: boolean;
+    estoque?: boolean;
+    empresa?: boolean;
+  };
 }
 
 interface RoleSelectDropdownProps {
@@ -20,6 +35,10 @@ interface RoleSelectDropdownProps {
   isOptional?: boolean;
   disabledOption?: string;
   className?: string;
+  onOpenSidePanel?: () => void;
+  isSidePanelOpen?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }
 
 export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
@@ -30,16 +49,21 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
   onChange,
   options = [],
   onOpenManager,
-  placeholder = 'Selecione a função...',
+  placeholder = 'Clique ou digite para buscar cargo...',
   isOptional = false,
   disabledOption,
   className = '',
+  onOpenSidePanel,
+  isSidePanelOpen = false,
+  searchQuery,
+  onSearchQueryChange,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Normaliza e deduplica opções de cargos
-  const normalizedOptions: RoleOptionItem[] = React.useMemo(() => {
+  // Normalização e ORDEM ALFABÉTICA COMPULSÓRIA (A-Z)
+  const normalizedOptions: RoleOptionItem[] = useMemo(() => {
     const seen = new Set<string>();
     const list: RoleOptionItem[] = [];
     for (const opt of options) {
@@ -50,183 +74,134 @@ export const RoleSelectDropdown: React.FC<RoleSelectDropdownProps> = ({
         list.push(item);
       }
     }
-    return list;
+    // Ordem alfabética obrigatória (Padrão do Sistema)
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }, [options]);
 
-  // Fecha o dropdown ao clicar fora do componente
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+  const selectedOption = useMemo(() => {
+    return normalizedOptions.find(opt => opt.name.toLowerCase() === (value || '').trim().toLowerCase());
+  }, [normalizedOptions, value]);
+
+  // Se o usuário está digitando ativamente no input
+  const displayInputValue = isFocused && searchQuery !== undefined ? searchQuery : (value || '');
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.target.value;
+    if (onSearchQueryChange) {
+      onSearchQueryChange(text);
     }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
+    if (!isSidePanelOpen && onOpenSidePanel) {
+      onOpenSidePanel();
+    }
+  };
 
-  // Fecha com a tecla Escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  const handleInputFocus = () => {
+    setIsFocused(true);
+    if (onOpenSidePanel) {
+      onOpenSidePanel();
+    }
+    if (onSearchQueryChange && !searchQuery) {
+      onSearchQueryChange(value || '');
+    }
+  };
 
-  const handleSelect = (optName: string) => {
-    onChange(optName);
-    setIsOpen(false);
+  const handleInputBlur = () => {
+    setIsFocused(false);
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange('');
+    if (onSearchQueryChange) {
+      onSearchQueryChange('');
+    }
+    inputRef.current?.focus();
   };
 
-  const selectedOption = normalizedOptions.find(opt => opt.name.toLowerCase() === (value || '').toLowerCase());
+  const handleToggleSidePanel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOpenSidePanel) {
+      onOpenSidePanel();
+    }
+    inputRef.current?.focus();
+  };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef} id={id}>
+    <div className={`space-y-1 ${className}`} ref={containerRef} id={id}>
       {label && (
-        <label className="block text-xs font-bold text-black mb-1">
-          {label} {required && <span className="text-rose-600 ml-0.5">*</span>}
-        </label>
-      )}
-
-      {/* Botão Gatilho do Dropdown */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full min-h-[38px] flex items-center justify-between px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-black text-xs sm:text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#0963cb] transition cursor-pointer text-left shadow-2xs"
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-      >
-        <div className="truncate pr-2 flex items-center space-x-2">
-          {value ? (
-            <>
-              <span className="font-semibold text-stone-900 truncate">{value}</span>
-              {selectedOption?.setor && (
-                <span className="text-[9px] font-bold text-stone-500 uppercase tracking-wider bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded shrink-0">
-                  {selectedOption.setor}
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="text-stone-400 font-normal">{placeholder}</span>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-1 shrink-0 ml-1">
-          {isOptional && value && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={handleClear}
-              className="p-1 text-stone-400 hover:text-rose-600 hover:bg-stone-100 rounded-full transition cursor-pointer"
-              title="Remover função secundária"
-            >
-              <X className="w-3.5 h-3.5" />
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-bold text-black">
+            {label} {required && <span className="text-rose-600 ml-0.5">*</span>}
+          </label>
+          {isSidePanelOpen && (
+            <span className="text-[10px] font-bold text-[#0963cb] bg-sky-100/70 px-1.5 py-0.5 rounded">
+              Painel Lateral Ativo
             </span>
           )}
-          <ChevronDown
-            className={`w-4 h-4 text-stone-500 transition-transform duration-150 ${
-              isOpen ? 'rotate-180' : ''
-            }`}
-          />
-        </div>
-      </button>
-
-      {/* Menu Suspenso */}
-      {isOpen && (
-        <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[280px]">
-          
-          {/* Lista de Opções */}
-          <div className="max-h-80 overflow-y-auto divide-y divide-stone-100 no-scrollbar">
-            {/* Opção de limpar / Nenhuma para o campo opcional */}
-            {isOptional && (
-              <div
-                onClick={() => handleSelect('')}
-                className={`px-3 py-2 text-xs sm:text-sm cursor-pointer transition flex items-center justify-between ${
-                  !value
-                    ? 'bg-sky-50/80 text-[#0963cb] font-bold'
-                    : 'text-stone-500 hover:bg-stone-50 italic'
-                }`}
-              >
-                <span>— Nenhuma (sem acúmulo de função) —</span>
-                {!value && <Check className="w-4 h-4 text-[#0963cb] shrink-0 mr-1" />}
-              </div>
-            )}
-
-            {normalizedOptions.map((opt, index) => {
-              const optName = opt.name;
-              const isSelected = value.toLowerCase() === optName.toLowerCase();
-              const isAlreadyChosen = disabledOption && disabledOption.toLowerCase() === optName.toLowerCase();
-
-              return (
-                <div
-                  key={`${optName}-${index}`}
-                  onClick={() => handleSelect(optName)}
-                  className={`group flex items-center justify-between px-3 py-2 text-xs sm:text-sm cursor-pointer transition ${
-                    isSelected
-                      ? 'bg-sky-50 text-[#0963cb] font-bold'
-                      : 'text-stone-800 hover:bg-stone-50 font-medium'
-                  }`}
-                >
-                  <div className="flex flex-col truncate pr-2">
-                    <div className="flex items-center space-x-1.5 truncate">
-                      <span className="truncate">{optName}</span>
-                      {isAlreadyChosen && (
-                        <span className="text-[10px] font-semibold text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
-                          Principal
-                        </span>
-                      )}
-                    </div>
-                    {opt.setor && (
-                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mt-0.5">
-                        Setor: {opt.setor}
-                      </span>
-                    )}
-                  </div>
-
-                  {isSelected && (
-                    <Check className="w-4 h-4 text-[#0963cb] shrink-0 mr-1 stroke-[2.5]" />
-                  )}
-                </div>
-              );
-            })}
-
-            {normalizedOptions.length === 0 && (
-              <div className="px-3 py-3 text-xs text-stone-400 italic text-center">
-                Nenhum cargo disponível.
-              </div>
-            )}
-          </div>
-
-          {/* Rodapé: Opção para abrir o Gerenciador da Lista */}
-          {onOpenManager && (
-            <div className="p-2 border-t border-stone-200 bg-stone-50">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsOpen(false);
-                  onOpenManager();
-                }}
-                className="w-full flex items-center justify-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-700 hover:text-black hover:bg-stone-200/70 transition cursor-pointer"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-stone-500" />
-                <span>Gerenciar lista de cargos</span>
-              </button>
-            </div>
-          )}
         </div>
       )}
+
+      {/* Input Interativo com Busca por Digitação (Searchable Combobox) */}
+      <div 
+        className={`relative flex items-center bg-white border rounded-lg transition-all duration-150 ${
+          isSidePanelOpen
+            ? 'border-[#0963cb] ring-2 ring-[#0963cb]/25 bg-sky-50/20 shadow-sm'
+            : 'border-stone-300 hover:border-stone-400 focus-within:border-[#0963cb] focus-within:ring-1 focus-within:ring-[#0963cb]'
+        }`}
+      >
+        {/* Ícone de Busca / Briefcase */}
+        <div className="pl-2.5 pr-1.5 flex items-center justify-center shrink-0 text-stone-400">
+          <Search className="w-4 h-4 text-stone-400" />
+        </div>
+
+        {/* Campo de Input Real para Digitação Direta */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={displayInputValue}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          placeholder={placeholder}
+          className="w-full py-2 text-xs sm:text-sm font-semibold text-stone-900 bg-transparent focus:outline-none placeholder:text-stone-400 placeholder:font-normal"
+        />
+
+        {/* Badge do Setor do Cargo Selecionado */}
+        {selectedOption?.setor && !isFocused && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-[9px] font-black text-stone-600 uppercase tracking-wider bg-stone-100 border border-stone-200 px-1.5 py-0.5 rounded mr-1.5 shrink-0">
+            <Building2 className="w-2.5 h-2.5 opacity-60" />
+            <span className="max-w-[120px] truncate">{selectedOption.setor}</span>
+          </span>
+        )}
+
+        {/* Ações: Limpar (X) & Botão Abrir Painel Lateral */}
+        <div className="flex items-center space-x-1 pr-1.5 shrink-0">
+          {(value || (isFocused && searchQuery)) && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-1 text-stone-400 hover:text-rose-600 hover:bg-stone-100 rounded-full transition cursor-pointer"
+              title="Limpar seleção"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleToggleSidePanel}
+            className={`flex items-center space-x-1 px-2 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
+              isSidePanelOpen
+                ? 'bg-[#0963cb] text-white shadow-2xs'
+                : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            }`}
+            title="Abrir painel lateral de seleção de cargos em ordem alfabética"
+          >
+            <span>Cargos A-Z</span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSidePanelOpen ? 'rotate-90' : ''}`} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

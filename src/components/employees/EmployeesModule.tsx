@@ -39,6 +39,7 @@ import { useAuth } from '../../context/AuthContext';
 import { EmployeePhotoCropModal } from './EmployeePhotoCropModal';
 import { ManageableDropdown } from '../common/ManageableDropdown';
 import { RoleSelectDropdown } from './RoleSelectDropdown';
+import { RoleSidePanel } from './RoleSidePanel';
 import { CategoryOptionsManagerModal } from '../common/CategoryOptionsManagerModal';
 import { useConfirm } from '../../context/ConfirmContext';
 import { PrintPreviewModal } from '../common/PrintPreviewModal';
@@ -665,6 +666,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [isRoleManagerOpen, setIsRoleManagerOpen] = useState<boolean>(false);
   const [roleManagerTarget, setRoleManagerTarget] = useState<'role1' | 'role2' | null>(null);
 
+  // Controle do Painel Lateral Expansível de Seleção de Cargos
+  const [roleSidePanelTarget, setRoleSidePanelTarget] = useState<'role1' | 'role2' | null>(null);
+  const [roleSearchQuery, setRoleSearchQuery] = useState<string>('');
+
   // Broker Commission State (Agenciador)
   const [brokerCommissionType, setBrokerCommissionType] = useState<string>('Porcentagem (%) sobre o valor do pedido');
   const [brokerCommissionValue, setBrokerCommissionValue] = useState<string>('5,00');
@@ -711,7 +716,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     };
 
     const seen = new Set<string>();
-    const options: { id?: string; name: string; setor: string; descricao?: string }[] = [];
+    const options: { id?: string; name: string; setor: string; descricao?: string; permissoes?: any }[] = [];
 
     // 1. Prioriza todos os cargos cadastrados oficialmente em colaca_silagem_cargos_permissoes
     cargosBase.forEach(c => {
@@ -727,6 +732,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           name: cleanNome,
           setor: mapSetor(cleanNome, c.setor),
           descricao: c.descricao,
+          permissoes: c.permissoes,
         });
       }
     });
@@ -747,12 +753,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       }
     });
 
-    // 3. Ordenação profissional por Setor e depois pelo Nome do Cargo
-    return options.sort((a, b) => {
-      const setorDiff = (a.setor || '').localeCompare(b.setor || '', 'pt-BR');
-      if (setorDiff !== 0) return setorDiff;
-      return a.name.localeCompare(b.name, 'pt-BR');
-    });
+    // 3. ORDEM ALFABÉTICA COMPULSÓRIA (PADRÃO DO SISTEMA): De A a Z pelo Nome do Cargo
+    return options.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }, [cargosBase, roleOptions]);
 
   // Herança reativa de permissões para exibição em tempo real na tela
@@ -2428,6 +2430,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   const handleCloseModal = () => {
+    setRoleSidePanelTarget(null);
+    setRoleSearchQuery('');
     setAsoFile(null);
     setContratoFile(null);
     setCnhFile(null);
@@ -3011,8 +3015,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
       {/* Modal Cadastro/Edição de Colaborador */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 no-print">
-          <div className="bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print">
+          <div className={`bg-[#b0d2ed] border border-[#0963cb]/30 rounded-2xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh] ${
+            roleSidePanelTarget ? 'max-w-6xl' : 'max-w-4xl'
+          } transition-all duration-300`}>
             
             {/* Header - Solid Blue Bar */}
             <div className="px-5 py-3 bg-[#0963cb] text-white flex items-center justify-between shrink-0">
@@ -3115,7 +3121,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 no-scrollbar bg-[#b0d2ed]">
+            <div className="flex-1 flex overflow-hidden relative">
+              <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 no-scrollbar bg-[#b0d2ed]">
               
               {/* SECTION 1: DADOS BÁSICOS & FOTO */}
               <div className="space-y-3">
@@ -3300,11 +3307,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       value={role1}
                       onChange={setRole1}
                       options={cargosDropdownOptions}
+                      onOpenSidePanel={() => {
+                        setRoleSidePanelTarget('role1');
+                        setRoleSearchQuery(role1 || '');
+                      }}
+                      isSidePanelOpen={roleSidePanelTarget === 'role1'}
+                      searchQuery={roleSidePanelTarget === 'role1' ? roleSearchQuery : ''}
+                      onSearchQueryChange={(q) => {
+                        setRoleSidePanelTarget('role1');
+                        setRoleSearchQuery(q);
+                      }}
                       onOpenManager={() => {
                         setRoleManagerTarget('role1');
                         setIsRoleManagerOpen(true);
                       }}
-                      placeholder="Selecione o cargo principal..."
+                      placeholder="Digite ou selecione o cargo principal..."
                     />
                   </div>
 
@@ -3317,11 +3334,21 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       onChange={setRole2}
                       options={cargosDropdownOptions}
                       disabledOption={role1}
+                      onOpenSidePanel={() => {
+                        setRoleSidePanelTarget('role2');
+                        setRoleSearchQuery(role2 || '');
+                      }}
+                      isSidePanelOpen={roleSidePanelTarget === 'role2'}
+                      searchQuery={roleSidePanelTarget === 'role2' ? roleSearchQuery : ''}
+                      onSearchQueryChange={(q) => {
+                        setRoleSidePanelTarget('role2');
+                        setRoleSearchQuery(q);
+                      }}
                       onOpenManager={() => {
                         setRoleManagerTarget('role2');
                         setIsRoleManagerOpen(true);
                       }}
-                      placeholder="Selecione (se houver acúmulo de cargo)..."
+                      placeholder="Digite ou selecione (se houver acúmulo)..."
                     />
                   </div>
 
@@ -4133,9 +4160,35 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
 
             </form>
+
+            {/* Painel Lateral Expansível à Direita para Seleção de Cargos */}
+            {roleSidePanelTarget && (
+              <RoleSidePanel
+                isOpen={Boolean(roleSidePanelTarget)}
+                onClose={() => setRoleSidePanelTarget(null)}
+                targetRole={roleSidePanelTarget}
+                currentValue={roleSidePanelTarget === 'role1' ? role1 : role2}
+                disabledValue={roleSidePanelTarget === 'role2' ? role1 : undefined}
+                onSelectRole={(selectedRole) => {
+                  if (roleSidePanelTarget === 'role1') {
+                    setRole1(selectedRole);
+                  } else {
+                    setRole2(selectedRole);
+                  }
+                }}
+                options={cargosDropdownOptions}
+                searchQuery={roleSearchQuery}
+                onSearchQueryChange={setRoleSearchQuery}
+                onOpenManager={() => {
+                  setRoleManagerTarget(roleSidePanelTarget);
+                  setIsRoleManagerOpen(true);
+                }}
+              />
+            )}
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Print Preview Modal with Company Logo & Cadastral Data (Full Staff Roster) */}
       <PrintPreviewModal
