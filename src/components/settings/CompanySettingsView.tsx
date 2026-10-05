@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
+  Building,
   Building2, 
   UploadCloud, 
   MapPin, 
@@ -321,11 +322,11 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
   };
 
   return (
-    <div id="company-settings-view" className="w-full max-w-none space-y-4 animate-in fade-in duration-200">
+    <div id="company-settings-view" className="w-full h-full max-h-[calc(100vh-120px)] overflow-hidden flex flex-col justify-between space-y-2.5 animate-in fade-in duration-200">
       
       {/* Toast Notification */}
       {savedSuccess && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 text-xs font-bold border border-emerald-500 animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-4 py-2 rounded-xl shadow-2xl flex items-center space-x-2 text-xs font-bold border border-emerald-500 animate-in slide-in-from-bottom-4">
           <Check className="w-4 h-4 text-emerald-200" />
           <span>Alterações da empresa salvas com sucesso!</span>
         </div>
@@ -333,7 +334,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
       {/* Lookup Feedback Toast */}
       {lookupFeedback && (
-        <div className={`fixed top-16 right-6 z-50 text-white px-3.5 py-2 rounded-xl shadow-2xl flex items-center space-x-2 text-xs font-bold border animate-in slide-in-from-top-3 ${
+        <div className={`fixed top-16 right-6 z-50 text-white px-3 py-1.5 rounded-xl shadow-2xl flex items-center space-x-2 text-xs font-bold border animate-in slide-in-from-top-3 ${
           lookupFeedback.type === 'success' ? 'bg-emerald-700 border-emerald-500' : 'bg-rose-700 border-rose-500'
         }`}>
           <span>{lookupFeedback.message}</span>
@@ -341,34 +342,39 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
       )}
 
       {/* Top Header Compact */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xs">
-        <div>
-          <h1 className="text-base font-black text-stone-900 dark:text-cyan-400 tracking-tight font-['Outfit'] leading-tight">
-            Configurações da Empresa
-          </h1>
-          <p className="text-[11px] text-black dark:text-stone-400 font-bold">
-            Defina os dados da sua empresa, identificação cadastral, localização e dados de pagamento para documentos
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-stone-900 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-stone-800 shadow-2xs shrink-0">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <Building className="w-4 h-4" />
+          </div>
+          <div>
+            <h1 className="text-sm font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
+              Dados da Empresa
+            </h1>
+            <p className="text-[11px] text-zinc-500 dark:text-stone-400 font-medium leading-none mt-0.5">
+              Identificação cadastral, localização e dados de recebimento oficial da Colaca Silagem Ltda
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center space-x-1.5 shrink-0">
           {onOpenReorderMenu && (
             <button
               type="button"
               id="btn-settings-organize-menu"
               onClick={onOpenReorderMenu}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#b0d2ed] hover:bg-[#9cc4e4] text-black rounded-xl text-xs font-bold border border-[#0963cb]/30 shadow-xs transition cursor-pointer"
+              className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs font-semibold border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
               title="Personalizar Ordem do Menu Lateral"
             >
-              <ArrowUpDown className="w-3.5 h-3.5 text-black" />
-              <span className="text-black font-bold">Organizar Menu</span>
+              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-600 dark:text-stone-400" />
+              <span>Organizar Menu</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setIsTestPrintOpen(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-200 rounded-xl text-xs font-bold border border-stone-200 dark:border-stone-700 transition cursor-pointer"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs font-semibold border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-emerald-600" />
             <span>Testar Impressão</span>
@@ -376,52 +382,60 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
           <button
             type="button"
+            onClick={() => setIsPasswordModalOpen(true)}
+            className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs font-semibold border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Senha</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleSave()}
-            className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
+            disabled={isSavingCloud}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>Salvar Alterações</span>
+            <span>{isSavingCloud ? 'Salvando...' : 'Salvar Alterações'}</span>
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-3.5">
+      <form onSubmit={handleSave} className="flex-1 flex flex-col justify-between gap-2.5 overflow-hidden">
         
-        {/* BLOCO 1: Identificação da Empresa & Logotipo */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-800 p-4 shadow-xs text-black dark:text-white">
-          <div className="flex items-center justify-between mb-3 border-b border-slate-400/60 dark:border-stone-800 pb-2">
-            <div className="flex items-center space-x-2 text-black dark:text-cyan-400">
-              <Building2 className="w-4 h-4 text-black dark:text-cyan-400" />
-              <h2 className="text-xs font-black uppercase tracking-wider">1. Identificação da Empresa & Logotipo</h2>
+        {/* BLOCO 1: IDENTIFICAÇÃO DA EMPRESA & LOGOTIPO */}
+        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
+          <div className="flex items-center justify-between mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
+            <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400">
+              <Building2 className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+              <h2 className="text-xs font-extrabold uppercase tracking-wider">1. IDENTIFICAÇÃO</h2>
             </div>
-            <span className="text-[10px] font-black text-black dark:text-cyan-300 bg-white/80 dark:bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-cyan-800">
+            <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
               Auto-Preenchimento CNPJ Ativo
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          <div className="grid grid-cols-12 gap-2.5 items-center">
             {/* Logotipo da Empresa */}
-            <div className="lg:col-span-4 flex flex-col items-center justify-center p-3 bg-white/70 dark:bg-stone-800/60 rounded-xl border border-slate-300 dark:border-stone-700">
-              <span className="text-[11px] font-black text-black dark:text-stone-300 mb-2 self-start">Logotipo da Empresa</span>
-              
-              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl bg-white dark:bg-stone-900 border-2 border-slate-300 dark:border-stone-700 flex items-center justify-center p-2 overflow-hidden shadow-inner relative group">
+            <div className="col-span-12 sm:col-span-3 lg:col-span-2 flex flex-col items-center justify-center p-1.5 bg-white dark:bg-stone-800/80 rounded-lg border border-zinc-200 dark:border-stone-700">
+              <div className="w-full h-20 max-h-20 sm:h-24 sm:max-h-24 rounded-md bg-zinc-50 dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 flex items-center justify-center p-1 overflow-hidden relative group">
                 {formData.logoUrl && !logoError ? (
                   <img 
                     src={formData.logoUrl} 
-                    alt="Logotipo da Empresa" 
-                    className="max-w-full max-h-full object-contain drop-shadow-sm transition-transform duration-200 group-hover:scale-105"
+                    alt="COLACA SILAGEM" 
+                    className="max-h-20 sm:max-h-24 max-w-full object-contain drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
                     referrerPolicy="no-referrer"
                     onError={() => setLogoError(true)}
                   />
                 ) : (
-                  <div className="text-center text-black/70 dark:text-stone-400 p-2">
-                    <ImageIcon className="w-8 h-8 mx-auto opacity-50 mb-1 text-black dark:text-stone-400" />
-                    <span className="text-[10px] font-bold">Sem logotipo</span>
+                  <div className="text-center text-zinc-400 dark:text-stone-500 p-1">
+                    <ImageIcon className="w-6 h-6 mx-auto opacity-50 mb-0.5 text-zinc-400" />
+                    <span className="text-[9px] font-bold tracking-tight uppercase">COLACA SILAGEM</span>
                   </div>
                 )}
               </div>
 
-              <div className="mt-2.5 flex items-center space-x-1.5 w-full justify-center">
+              <div className="mt-1 flex items-center space-x-1 w-full justify-center">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -432,35 +446,35 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 hover:bg-stone-50 text-black dark:text-stone-200 border border-slate-300 dark:border-stone-700 rounded-xl text-xs font-black shadow-xs transition cursor-pointer"
+                  className="inline-flex items-center space-x-1 px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-stone-700 dark:text-stone-200 border border-zinc-300 dark:border-stone-600 rounded-md text-[10px] font-bold shadow-2xs transition cursor-pointer"
                 >
-                  <UploadCloud className="w-3.5 h-3.5 text-black dark:text-cyan-400" />
-                  <span>Selecionar Imagem</span>
+                  <UploadCloud className="w-3 h-3 text-zinc-600 dark:text-stone-300" />
+                  <span>Alterar</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleResetToDefaultLogo}
-                  title="Remover logotipo (deixar campo limpo)"
-                  className="p-1.5 bg-white dark:bg-stone-800 hover:bg-stone-50 text-black dark:text-stone-400 border border-slate-300 dark:border-stone-700 rounded-xl text-xs transition cursor-pointer"
+                  title="Remover logotipo"
+                  className="p-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 dark:bg-stone-700 dark:text-stone-400 border border-zinc-300 dark:border-stone-600 rounded-md text-[10px] transition cursor-pointer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-3 h-3" />
                 </button>
               </div>
             </div>
 
             {/* Campos Cadastrais */}
-            <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="col-span-12 sm:col-span-9 lg:col-span-10 grid grid-cols-1 sm:grid-cols-4 gap-2">
               {/* CNPJ / CPF */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-black text-black dark:text-stone-300">
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300">
                     CNPJ / CPF
                   </label>
                   {isLoadingCnpj && (
-                    <span className="text-[10px] text-black font-bold flex items-center space-x-1">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Consultando...</span>
+                    <span className="text-[10px] text-zinc-500 font-bold flex items-center space-x-1">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                      <span>Buscando...</span>
                     </span>
                   )}
                 </div>
@@ -469,21 +483,21 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                     type="text"
                     value={formData.cnpjCpf || ''}
                     onChange={(e) => handleCnpjCpfChange(e.target.value)}
-                    placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                    placeholder="00.000.000/0000-00"
                     maxLength={18}
-                    className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition pr-9"
+                    className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition pr-8"
                   />
                   <button
                     type="button"
                     onClick={() => handleSearchCnpj()}
                     disabled={isLoadingCnpj}
-                    title="Buscar dados cadastrais deste CNPJ na Receita Federal"
-                    className="absolute right-1.5 top-1 p-1 text-black hover:bg-black/10 dark:text-stone-400 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer"
+                    title="Buscar dados na Receita"
+                    className="absolute right-1 top-0.5 p-1 text-zinc-500 hover:bg-zinc-100 dark:text-stone-400 dark:hover:bg-stone-700 rounded transition cursor-pointer"
                   >
                     {isLoadingCnpj ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                      <Loader2 className="w-3 h-3 animate-spin text-zinc-700" />
                     ) : (
-                      <Search className="w-3.5 h-3.5" />
+                      <Search className="w-3 h-3" />
                     )}
                   </button>
                 </div>
@@ -491,50 +505,50 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
 
               {/* Inscrição Estadual */}
               <div>
-                <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                   Inscrição Estadual
                 </label>
                 <input
                   type="text"
                   value={formData.stateRegistration || ''}
                   onChange={(e) => handleChange('stateRegistration', formatIE(e.target.value))}
-                  placeholder="Isento ou nº IE (ex: 959.584.721.1)"
+                  placeholder="Isento ou nº IE"
                   maxLength={18}
-                  className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
               {/* Razão Social */}
               <div>
-                <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                   Razão Social
                 </label>
                 <input
                   type="text"
                   value={formData.corporateName || ''}
                   onChange={(e) => handleChange('corporateName', e.target.value)}
-                  placeholder="Ex: Silagem Sao Paulo Ltda"
-                  className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                  placeholder="Razão Social Ltda"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
               {/* Nome Fantasia */}
               <div>
-                <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                   Nome Fantasia
                 </label>
                 <input
                   type="text"
                   value={formData.tradeName || ''}
                   onChange={(e) => handleChange('tradeName', e.target.value)}
-                  placeholder="Ex: Silagem Sao Paulo"
-                  className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                  placeholder="Nome Fantasia"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
 
-              {/* Ramo / Setor de Atividade */}
-              <div className="sm:col-span-2">
-                <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+              {/* Setor / Ramo de Atividade */}
+              <div className="sm:col-span-4">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                   Setor / Ramo de Atividade
                 </label>
                 <input
@@ -542,36 +556,35 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   value={formData.activitySector || 'GESTÃO AGRÍCOLA & PRESTAÇÃO DE SERVIÇOS DE SILAGEM'}
                   onChange={(e) => handleChange('activitySector', e.target.value)}
                   placeholder="Ex: Gestão Agrícola & Produção de Silagem"
-                  className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* BLOCO 2: Localização & Endereço */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-800 p-4 shadow-xs text-black dark:text-white">
-          <div className="flex items-center justify-between mb-3 border-b border-slate-400/60 dark:border-stone-800 pb-2">
-            <div className="flex items-center space-x-2 text-black dark:text-cyan-400">
-              <MapPin className="w-4 h-4 text-black dark:text-cyan-400" />
-              <h2 className="text-xs font-black uppercase tracking-wider">2. Localização & Endereço</h2>
+        {/* BLOCO 2: LOCALIZAÇÃO & ENDEREÇO */}
+        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
+          <div className="flex items-center justify-between mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
+            <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400">
+              <MapPin className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+              <h2 className="text-xs font-extrabold uppercase tracking-wider">2. LOCALIZAÇÃO</h2>
             </div>
-            <span className="text-[10px] font-black text-black dark:text-emerald-300 bg-white/80 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-emerald-800">
+            <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
               Auto-Preenchimento CEP Ativo
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2.5">
-            {/* CEP with auto-mask and lookup button */}
-            <div className="md:col-span-2">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-black text-black dark:text-stone-300">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+            {/* CEP */}
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300">
                   CEP
                 </label>
                 {isLoadingCep && (
-                  <span className="text-[10px] text-black font-bold flex items-center space-x-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Buscando...</span>
+                  <span className="text-[10px] text-zinc-500 font-bold flex items-center space-x-1">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
                   </span>
                 )}
               </div>
@@ -582,27 +595,27 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                   onChange={(e) => handleCepChange(e.target.value)}
                   placeholder="00000-000"
                   maxLength={9}
-                  className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition pr-9"
+                  className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition pr-8"
                 />
                 <button
                   type="button"
                   onClick={() => handleSearchCep()}
                   disabled={isLoadingCep}
-                  title="Buscar endereço deste CEP automaticamente"
-                  className="absolute right-1.5 top-1 p-1 text-black hover:bg-black/10 dark:text-stone-400 dark:hover:bg-stone-700 rounded-lg transition cursor-pointer"
+                  title="Buscar CEP"
+                  className="absolute right-1 top-0.5 p-1 text-zinc-500 hover:bg-zinc-100 dark:text-stone-400 dark:hover:bg-stone-700 rounded transition cursor-pointer"
                 >
                   {isLoadingCep ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                    <Loader2 className="w-3 h-3 animate-spin text-zinc-700" />
                   ) : (
-                    <Search className="w-3.5 h-3.5" />
+                    <Search className="w-3 h-3" />
                   )}
                 </button>
               </div>
             </div>
 
             {/* Endereço */}
-            <div className="md:col-span-3">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div className="sm:col-span-4">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Endereço / Logradouro
               </label>
               <input
@@ -610,55 +623,55 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.address || ''}
                 onChange={(e) => handleChange('address', e.target.value)}
                 placeholder="Ex: Rodovia PR 473 ou Av. Brasil"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Número */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div className="sm:col-span-1">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Número
               </label>
               <input
                 type="text"
                 value={formData.number || ''}
                 onChange={(e) => handleChange('number', e.target.value)}
-                placeholder="Ex: sn, 1050"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                placeholder="sn, 105"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Bairro */}
-            <div className="md:col-span-2">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Bairro
               </label>
               <input
                 type="text"
                 value={formData.neighborhood || ''}
                 onChange={(e) => handleChange('neighborhood', e.target.value)}
-                placeholder="Ex: Centro ou Zona Rural"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                placeholder="Centro ou Zona Rural"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Cidade */}
-            <div className="md:col-span-3">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Cidade
               </label>
               <input
                 type="text"
                 value={formData.city || ''}
                 onChange={(e) => handleChange('city', e.target.value)}
-                placeholder="Ex: Boa Esperança do Iguaçu"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                placeholder="Cidade"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Estado (UF) */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div className="sm:col-span-1">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 UF
               </label>
               <input
@@ -667,66 +680,66 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('state', e.target.value.toUpperCase())}
                 placeholder="PR"
                 maxLength={2}
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold uppercase focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium uppercase focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
         </div>
 
-        {/* BLOCO 3: Contatos & Representante Responsável */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-800 p-4 shadow-xs text-black dark:text-white">
-          <div className="flex items-center space-x-2 text-black dark:text-cyan-400 mb-3 border-b border-slate-400/60 dark:border-stone-800 pb-2">
-            <PhoneCall className="w-4 h-4 text-black dark:text-cyan-400" />
-            <h2 className="text-xs font-black uppercase tracking-wider">3. Contatos & Representante Responsável</h2>
+        {/* BLOCO 3: CONTATOS & REPRESENTANTE RESPONSÁVEL */}
+        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
+          <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400 mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
+            <PhoneCall className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+            <h2 className="text-xs font-extrabold uppercase tracking-wider">3. CONTATOS & REPRESENTANTE RESPONSÁVEL</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
             {/* Telefone de Contato */}
             <div>
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Telefone Comercial / WhatsApp
               </label>
               <input
                 type="text"
                 value={formData.phone || ''}
                 onChange={(e) => handleChange('phone', formatPhone(e.target.value))}
-                placeholder="Ex: (22) 22222-2888"
+                placeholder="(00) 00000-0000"
                 maxLength={15}
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* E-mail Comercial */}
             <div>
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 E-mail Comercial
               </label>
               <input
                 type="email"
                 value={formData.email || ''}
                 onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="Ex: contato@silagemsaopaulo.com.br"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                placeholder="contato@empresa.com.br"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Representante Responsável */}
             <div>
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Representante Responsável
               </label>
               <input
                 type="text"
                 value={formData.representativeName || ''}
                 onChange={(e) => handleChange('representativeName', e.target.value)}
-                placeholder="Ex: Carlos Eduardo de Oliveira"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                placeholder="Nome do Representante"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* CPF do Representante */}
             <div>
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 CPF do Representante
               </label>
               <input
@@ -735,23 +748,23 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 onChange={(e) => handleChange('representativeCpf', formatCpfCnpj(e.target.value))}
                 placeholder="000.000.000-00"
                 maxLength={14}
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
         </div>
 
-        {/* BLOCO 4: Dados Bancários & PIX para Recebimento */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-800 p-4 shadow-xs text-black dark:text-white">
-          <div className="flex items-center space-x-2 text-black dark:text-cyan-400 mb-3 border-b border-slate-400/60 dark:border-stone-800 pb-2">
-            <CreditCard className="w-4 h-4 text-black dark:text-cyan-400" />
-            <h2 className="text-xs font-black uppercase tracking-wider">4. Dados Bancários & PIX para Recebimento</h2>
+        {/* BLOCO 4: DADOS BANCÁRIOS & PIX */}
+        <div className="bg-zinc-100 dark:bg-stone-900 rounded-xl border border-zinc-300 dark:border-stone-800 p-2.5 shadow-2xs text-zinc-900 dark:text-white shrink-0">
+          <div className="flex items-center space-x-2 text-zinc-900 dark:text-emerald-400 mb-1.5 border-b border-zinc-200 dark:border-stone-800 pb-1">
+            <CreditCard className="w-3.5 h-3.5 text-zinc-700 dark:text-emerald-400" />
+            <h2 className="text-xs font-extrabold uppercase tracking-wider">4. DADOS BANCÁRIOS & PIX</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
             {/* Banco */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Banco
               </label>
               <input
@@ -759,13 +772,13 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.bankName || ''}
                 onChange={(e) => handleChange('bankName', e.target.value)}
                 placeholder="Ex: Banco do Brasil (001)"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Agência */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Agência
               </label>
               <input
@@ -773,13 +786,13 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.bankAgency || ''}
                 onChange={(e) => handleChange('bankAgency', e.target.value)}
                 placeholder="Ex: 1234-5"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Conta Corrente */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Conta Corrente
               </label>
               <input
@@ -787,19 +800,19 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
                 value={formData.bankAccount || ''}
                 onChange={(e) => handleChange('bankAccount', e.target.value)}
                 placeholder="Ex: 56789-0"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
 
             {/* Tipo de Chave PIX */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Tipo Chave PIX
               </label>
               <select
                 value={formData.pixKeyType || 'cnpj'}
                 onChange={(e) => handleChange('pixKeyType', e.target.value)}
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition cursor-pointer"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition cursor-pointer"
               >
                 <option value="cnpj">CNPJ</option>
                 <option value="cpf">CPF</option>
@@ -810,193 +823,64 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({
             </div>
 
             {/* Chave PIX */}
-            <div className="md:col-span-1">
-              <label className="block text-[11px] font-black text-black dark:text-stone-300 mb-1">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-800 dark:text-stone-300 mb-0.5">
                 Chave PIX
               </label>
               <input
                 type="text"
                 value={formData.pixKey || ''}
                 onChange={(e) => handleChange('pixKey', e.target.value)}
-                placeholder="Ex: 57.872.222/0001-22"
-                className="w-full px-3 py-1.5 bg-white/90 dark:bg-stone-800/80 border border-slate-300 dark:border-stone-700 rounded-xl text-xs text-black dark:text-stone-100 font-bold focus:ring-2 focus:ring-cyan-500 focus:outline-hidden transition"
+                placeholder="Chave PIX"
+                className="w-full px-2.5 py-1 bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 rounded-lg text-xs text-zinc-900 dark:text-stone-100 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-hidden transition"
               />
             </div>
           </div>
         </div>
 
-        {/* BLOCO 5: Personalização da Interface & Navegação */}
-        <div className="crm-card bg-[#87AFE3] dark:bg-stone-900 rounded-2xl border border-slate-400 dark:border-stone-800 p-4 shadow-xs text-black dark:text-white">
-          <div className="flex items-center justify-between mb-3 border-b border-slate-400/60 dark:border-stone-800 pb-2">
-            <div className="flex items-center space-x-2 text-black dark:text-cyan-400">
-              <SlidersHorizontal className="w-4 h-4 text-black dark:text-cyan-400" />
-              <h2 className="text-xs font-black uppercase tracking-wider">
-                5. PERSONALIZAÇÃO DA INTERFACE &amp; NAVEGAÇÃO
-              </h2>
-            </div>
-            <span className="text-[10px] font-black text-black dark:text-cyan-300 bg-white/80 dark:bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-cyan-800">
-              Ajustes de Navegação
+        {/* Barra de Rodapé Compacta: Status Offline Resiliente & Sincronização */}
+        <div className="flex items-center justify-between px-3 py-1 bg-white dark:bg-stone-900 rounded-lg border border-zinc-200 dark:border-stone-800 text-[11px] shrink-0">
+          <div className="flex items-center space-x-2 text-zinc-500 dark:text-stone-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="font-semibold text-zinc-700 dark:text-stone-300">
+              Modo Local Resiliente (LocalStorage Ativo)
             </span>
+            {lastSyncedAt && (
+              <span className="hidden sm:inline text-zinc-400">
+                • Sincronizado às {lastSyncedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            {syncFeedback && (
+              <span className="text-emerald-600 font-bold ml-2">{syncFeedback}</span>
+            )}
           </div>
 
-          <p className="text-xs text-black font-semibold mb-3">
-            Configure a disposição dos módulos e atalhos rápidos do sistema para acelerar a sua rotina operacional:
-          </p>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsSqlModalOpen(true)}
+              className="inline-flex items-center space-x-1 px-2 py-0.5 text-zinc-700 dark:text-stone-300 hover:text-emerald-700 dark:hover:text-emerald-400 font-semibold transition cursor-pointer"
+              title="Visualizar script SQL"
+            >
+              <Database className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span>Script SQL</span>
+            </button>
 
-          <div className="grid grid-cols-1 gap-3">
-            {/* Card Ordem do Menu Lateral */}
-            <div className="p-3.5 bg-white rounded-xl border border-slate-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center space-x-2 mb-1">
-                  <ArrowUpDown className="w-4 h-4 text-[#0963cb]" />
-                  <h3 className="text-xs font-bold text-black">Ordem do Menu Lateral</h3>
-                </div>
-                <p className="text-[11px] text-stone-600">
-                  Reorganize a sequência dos módulos no menu lateral esquerdo conforme sua preferência de acesso e fluxo de trabalho operacional.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={onOpenReorderMenu}
-                className="inline-flex items-center justify-center space-x-2 px-4 py-2 bg-[#b0d2ed] hover:bg-[#9cc4e4] text-black font-bold text-xs rounded-xl border border-[#0963cb]/30 shadow-xs transition cursor-pointer shrink-0"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5 text-black" />
-                <span className="text-black font-bold">Organizar Menu</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Segurança e Acesso */}
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-cyan-100 dark:border-stone-800 p-3.5 shadow-xs">
-          <div className="flex items-center space-x-2 text-cyan-700 dark:text-cyan-400 mb-2">
-            <ShieldCheck className="w-4 h-4" />
-            <h2 className="text-xs font-bold">Segurança e Acesso</h2>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex-1 max-w-md">
-              <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300 mb-1">
-                E-mail de Login
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  disabled
-                  value={formData.loginEmail || formData.email || 'silagemteste02@gmail.com'}
-                  className="w-full px-3 py-1.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-500 dark:text-stone-400 font-medium cursor-not-allowed pr-9"
-                />
-                <Lock className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-2.5" />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => setIsPasswordModalOpen(true)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white dark:bg-stone-800 hover:bg-stone-50 text-cyan-700 dark:text-cyan-400 border border-cyan-300 dark:border-cyan-800 rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Alterar Senha</span>
-              </button>
-
-              <button
-                type="submit"
-                className="inline-flex items-center space-x-1.5 px-4 py-1.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>Salvar Tudo</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 5: Banco de Dados na Nuvem (Supabase PostgreSQL) */}
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-emerald-100 dark:border-stone-800 p-3.5 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2 text-emerald-700 dark:text-emerald-400">
-              <Database className="w-4 h-4" />
-              <h2 className="text-xs font-bold">Banco de Dados Supabase (PostgreSQL Relacional)</h2>
-            </div>
-            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-              <span className={`w-1.5 h-1.5 rounded-full ${isConnectedToSupabase || isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-stone-400'}`}></span>
-              <span>{isConfigured ? 'Supabase Conectado' : 'Modo Local / Pronto'}</span>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mb-3">
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200/60 dark:border-stone-700/60 space-y-1">
-              <p className="text-[11px] font-bold text-stone-700 dark:text-stone-300">Infraestrutura Relacional</p>
-              <p className="text-stone-500 dark:text-stone-400 text-[11px]">
-                <strong className="text-stone-700 dark:text-stone-300">Provedor:</strong> Supabase (PostgreSQL 15+)
-              </p>
-              <p className="text-stone-500 dark:text-stone-400 text-[11px]">
-                <strong className="text-stone-700 dark:text-stone-300">Tabelas Estruturadas:</strong> clientes, fornecedores, estoque, notas_fiscais, parcelas_financeiras, rh_funcionarios, gestao_frotas
-              </p>
-              <p className="text-stone-500 dark:text-stone-400 text-[11px]">
-                <strong className="text-stone-700 dark:text-stone-300">Variáveis:</strong> SUPABASE_URL & SUPABASE_ANON_KEY
-              </p>
-            </div>
-
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/60 rounded-xl border border-stone-200/60 dark:border-stone-700/60 flex flex-col justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-stone-700 dark:text-stone-300">Status da Conexão</p>
-                <div className="mt-1 text-[11px]">
-                  <p className="font-semibold text-stone-800 dark:text-stone-200">
-                    {isConfigured ? 'Pronto para Sincronização em Tempo Real' : 'Armazenamento Local Ativo (Configuração Supabase Opcional)'}
-                  </p>
-                  <p className="text-stone-400 text-[10px] mt-0.5">
-                    {currentUser ? `Autenticado: ${currentUser.email || currentUser.displayName}` : 'Operando em modo seguro local'}
-                  </p>
-                </div>
-              </div>
-
-              {lastSyncedAt && (
-                <p className="text-[10px] text-stone-400 mt-2">
-                  Última sincronização: {lastSyncedAt.toLocaleString('pt-BR')}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
-            <div>
-              {syncFeedback && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center space-x-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{syncFeedback}</span>
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => setIsSqlModalOpen(true)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
-                title="Visualizar e copiar script SQL de criação das tabelas no Supabase"
-              >
-                <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Script SQL (PostgreSQL)</span>
-              </button>
-
+            {onSyncSupabase && (
               <button
                 type="button"
                 disabled={isSyncing}
                 onClick={async () => {
-                  if (onSyncSupabase) {
-                    await onSyncSupabase();
-                    setSyncFeedback('Dados sincronizados com o Supabase com sucesso!');
-                    setTimeout(() => setSyncFeedback(null), 4000);
-                  }
+                  await onSyncSupabase();
+                  setSyncFeedback('Sincronizado!');
+                  setTimeout(() => setSyncFeedback(null), 3000);
                 }}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center space-x-1 px-2 py-0.5 text-zinc-700 dark:text-stone-300 hover:text-emerald-700 dark:hover:text-emerald-400 font-semibold transition cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar com Supabase'}</span>
+                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Nuvem'}</span>
               </button>
-            </div>
+            )}
           </div>
         </div>
 

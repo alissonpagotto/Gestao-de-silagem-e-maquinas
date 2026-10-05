@@ -15,6 +15,7 @@ import {
   HeartHandshake,
   Package,
   Settings,
+  Building,
   AlertTriangle,
   RotateCcw
 } from 'lucide-react';
@@ -684,7 +685,7 @@ export const CargosPermissoesTab: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Toggle 5: Minha Empresa (Configurações cadastrais) */}
+                  {/* Toggle 5: Dados da Empresa / Minha Empresa (Configurações cadastrais) */}
                   <div 
                     onClick={() => handleTogglePermission('empresa')}
                     className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
@@ -695,11 +696,11 @@ export const CargosPermissoesTab: React.FC = () => {
                   >
                     <div className="flex items-start space-x-3 pr-2">
                       <div className={`p-2 rounded-lg shrink-0 ${permissoes.empresa ? 'bg-rose-600 text-white' : 'bg-zinc-100 dark:bg-stone-800 text-zinc-500'}`}>
-                        <Settings className="w-4 h-4" />
+                        <Building className="w-4 h-4" />
                       </div>
                       <div>
                         <div className="text-xs font-extrabold text-zinc-900 dark:text-white">
-                          Acesso à tela "Minha Empresa"
+                          Acesso à tela "Dados da Empresa"
                         </div>
                         <div className="text-[11px] text-zinc-500 dark:text-stone-400 leading-tight mt-0.5">
                           Configurações cadastrais, CNPJ, Logotipo e Razão Social

@@ -16,7 +16,7 @@ import {
   Users, 
   Truck, 
   Car, 
-  Settings,
+  Building,
   ReceiptText,
   ShoppingCart,
   Wrench,
@@ -45,7 +45,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'fornecedores', label: 'Fornecedores', icon: Truck },
   { id: 'frotas', label: 'Gestão de Frotas', icon: Car, hasSubmenu: true },
   { id: 'cadastros_base', label: 'Cadastros Base', icon: Database, hasSubmenu: true },
-  { id: 'configuracoes', label: 'Configurações', icon: Settings },
+  { id: 'configuracoes', label: 'Dados da Empresa', icon: Building },
 ];
 
 export const DEFAULT_MENU_ORDER = ALL_MENU_ITEMS.map(item => item.id);

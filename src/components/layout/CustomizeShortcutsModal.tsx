@@ -15,7 +15,7 @@ import {
   UserSquare2, 
   UploadCloud, 
   FileSpreadsheet, 
-  Settings,
+  Building,
   ReceiptText,
   ShoppingCart,
   ArrowUp,
@@ -56,7 +56,7 @@ export const ALL_SHORTCUTS: ShortcutDefinition[] = [
   { id: 'funcionarios', label: 'Funcionários', icon: UserSquare2, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-500' },
   { id: 'nfe_importar', label: 'Importar NF-e', icon: UploadCloud, color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },
   { id: 'relatorios', label: 'Relatórios', icon: FileSpreadsheet, color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/40', iconColor: 'text-teal-500' },
-  { id: 'configuracoes', label: 'Ajustes', icon: Settings, color: 'text-stone-600 bg-stone-100 dark:bg-stone-800', iconColor: 'text-stone-500' },
+  { id: 'configuracoes', label: 'Dados da Empresa', icon: Building, color: 'text-stone-600 bg-stone-100 dark:bg-stone-800', iconColor: 'text-stone-500' },
 ];
 
 export const DEFAULT_SHORTCUT_IDS = [

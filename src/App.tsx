@@ -2901,7 +2901,7 @@ export default function App() {
         {/* Dynamic Page Content (100% Full Width across all modules) */}
         <main 
           id="crm-main-content"
-          className="flex-1 p-2.5 sm:p-3 lg:p-3.5 pb-20 lg:pb-3.5 w-full max-w-none bg-zinc-100 dark:bg-stone-950"
+          className={`flex-1 p-2 sm:p-2.5 lg:p-3 ${activeTab === 'configuracoes' ? 'pb-2 lg:pb-2 overflow-hidden' : 'pb-20 lg:pb-3.5'} w-full max-w-none bg-zinc-100 dark:bg-stone-950`}
         >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (
@@ -2911,7 +2911,7 @@ export default function App() {
                 (currentRestrictedPerm === 'frotas' || activeTab.includes('frotas') || activeTab.includes('veiculos')) ? 'Gestão de Frotas & Veículos' :
                 (currentRestrictedPerm === 'rh' || activeTab.includes('rh') || activeTab.includes('funcionarios')) ? 'Recursos Humanos (Folhas, Férias, Faltas)' :
                 (currentRestrictedPerm === 'estoque' || activeTab.includes('estoque') || activeTab.includes('fiscal') || activeTab.includes('almoxarifado')) ? 'Estoque / Almoxarifado / Notas Fiscais' :
-                (currentRestrictedPerm === 'empresa' || activeTab.includes('configuracoes')) ? 'Minha Empresa (Configurações cadastrais)' : 'este módulo'
+                (currentRestrictedPerm === 'empresa' || activeTab.includes('configuracoes')) ? 'Dados da Empresa (Configurações cadastrais)' : 'este módulo'
               }
               onNavigateHome={() => setActiveTab('dashboard')}
             />
