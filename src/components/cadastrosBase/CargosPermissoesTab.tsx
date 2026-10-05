@@ -17,7 +17,9 @@ import {
   Settings,
   Building,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { CargoPermissao, RolePermissions, Employee } from '../../types';
 import { 
@@ -32,6 +34,13 @@ export const CargosPermissoesTab: React.FC = () => {
   const [cargos, setCargos] = useState<CargoPermissao[]>(() => getStoredCargosPermissoes());
   const [employees, setEmployees] = useState<Employee[]>(() => getStoredEmployees());
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    try {
+      const saved = localStorage.getItem('silagem_cargos_view_mode');
+      if (saved === 'grid' || saved === 'list') return saved;
+    } catch {}
+    return 'list'; // PADRÃO ATIVO
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCargo, setEditingCargo] = useState<CargoPermissao | null>(null);
 
@@ -309,146 +318,280 @@ export const CargosPermissoesTab: React.FC = () => {
               placeholder="Buscar por nome do cargo, setor ou descrição..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-4 py-1.5 bg-zinc-50 dark:bg-stone-800/80 border border-zinc-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
-          <div className="text-xs font-bold text-zinc-500 dark:text-stone-400 shrink-0">
-            Total: <span className="text-zinc-900 dark:text-white font-extrabold">{filteredCargos.length}</span> cargo(s)
+          <div className="flex items-center space-x-3 shrink-0">
+            <div className="text-xs font-bold text-zinc-500 dark:text-stone-400">
+              Total: <span className="text-zinc-900 dark:text-white font-extrabold">{filteredCargos.length}</span> cargo(s)
+            </div>
+
+            {/* Seletor de Visualização (Toggle Group: Lista / Grade) */}
+            <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-lg">
+              <button
+                type="button"
+                id="btn-cargos-view-list"
+                onClick={() => {
+                  setViewMode('list');
+                  try { localStorage.setItem('silagem_cargos_view_mode', 'list'); } catch {}
+                }}
+                title="Visualização em Lista Compacta"
+                className={`p-1.5 rounded-md transition cursor-pointer ${
+                  viewMode === 'list'
+                    ? 'bg-white dark:bg-stone-900 text-indigo-600 dark:text-white shadow-2xs font-bold'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white'
+                }`}
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                id="btn-cargos-view-grid"
+                onClick={() => {
+                  setViewMode('grid');
+                  try { localStorage.setItem('silagem_cargos_view_mode', 'grid'); } catch {}
+                }}
+                title="Visualização em Grade de Cards"
+                className={`p-1.5 rounded-md transition cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-white dark:bg-stone-900 text-indigo-600 dark:text-white shadow-2xs font-bold'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Grid de Cards / Tabela de Cargos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCargos.map((cargo) => {
-          const empCount = employeeCountByCargo[cargo.id] || 0;
-          return (
-            <div 
-              key={cargo.id}
-              className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700 transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
-                      {cargo.setor || 'Geral'}
-                    </span>
-                    <h4 className="text-base font-extrabold text-zinc-900 dark:text-white mt-1.5 tracking-tight">
-                      {cargo.nome}
-                    </h4>
-                  </div>
-
-                  <div className="flex items-center space-x-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(cargo)}
-                      title="Editar Cargo e Permissões"
-                      className="p-1.5 rounded-lg text-zinc-600 hover:text-indigo-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-indigo-400 dark:hover:bg-stone-800 transition cursor-pointer"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCargo(cargo)}
-                      title="Excluir Cargo"
-                      className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {cargo.descricao && (
-                  <p className="text-xs text-zinc-600 dark:text-stone-400 mt-2 line-clamp-2">
-                    {cargo.descricao}
-                  </p>
-                )}
-
-                {/* Grade de Badges de Permissões */}
-                <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-stone-800/80 space-y-1.5">
-                  <div className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider">
-                    Módulos Liberados:
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {cargo.permissoes?.financeiro ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                        <span>Financeiro</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
-                        <XCircle className="w-3 h-3 shrink-0" />
-                        <span>Financeiro</span>
-                      </span>
-                    )}
-
-                    {cargo.permissoes?.frotas ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                        <span>Frotas</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
-                        <XCircle className="w-3 h-3 shrink-0" />
-                        <span>Frotas</span>
-                      </span>
-                    )}
-
-                    {cargo.permissoes?.rh ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                        <span>RH</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
-                        <XCircle className="w-3 h-3 shrink-0" />
-                        <span>RH</span>
-                      </span>
-                    )}
-
-                    {cargo.permissoes?.estoque ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                        <span>Estoque/NF-e</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
-                        <XCircle className="w-3 h-3 shrink-0" />
-                        <span>Estoque/NF-e</span>
-                      </span>
-                    )}
-
-                    {cargo.permissoes?.empresa ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                        <span>Minha Empresa</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
-                        <XCircle className="w-3 h-3 shrink-0" />
-                        <span>Minha Empresa</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Rodapé com contagem de colaboradores vinculados */}
-              <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-stone-800 flex items-center justify-between text-xs text-zinc-500 dark:text-stone-400">
-                <div className="flex items-center space-x-1.5">
-                  <Users className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>
-                    <strong className="text-zinc-800 dark:text-white">{empCount}</strong> colaborador(es)
+      {/* Renderização Condicional: Modo Lista Compacta vs Modo Grade */}
+      {viewMode === 'list' ? (
+        <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl divide-y divide-zinc-200 dark:divide-stone-800 shadow-xs overflow-hidden">
+          {filteredCargos.map((cargo) => {
+            const empCount = employeeCountByCargo[cargo.id] || 0;
+            return (
+              <div 
+                key={cargo.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between px-3.5 py-1.5 sm:py-2 hover:bg-zinc-50/80 dark:hover:bg-stone-800/50 transition gap-2 sm:gap-3"
+              >
+                {/* Coluna 1: Nome do Cargo & Selo do Setor */}
+                <div className="flex items-center space-x-2 min-w-[200px] sm:min-w-[240px] max-w-[290px] shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />
+                  <span className="text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-white truncate">
+                    {cargo.nome}
+                  </span>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-stone-800 text-zinc-600 dark:text-stone-300 border border-zinc-200 dark:border-stone-700 shrink-0">
+                    {cargo.setor || 'Geral'}
                   </span>
                 </div>
-                <span className="text-[10px] text-zinc-400">ID: {cargo.id.slice(0, 12)}</span>
+
+                {/* Coluna 2: Módulos Liberados (Badges coloridos e compactos) */}
+                <div className="flex items-center space-x-1.5 flex-1 min-w-0 flex-wrap py-0.5">
+                  {cargo.permissoes?.financeiro && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                      <span>Financeiro</span>
+                    </span>
+                  )}
+                  {cargo.permissoes?.frotas && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                      <span>Frotas</span>
+                    </span>
+                  )}
+                  {cargo.permissoes?.rh && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0"></span>
+                      <span>RH</span>
+                    </span>
+                  )}
+                  {cargo.permissoes?.estoque && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                      <span>Estoque/NF-e</span>
+                    </span>
+                  )}
+                  {cargo.permissoes?.empresa && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                      <span>Empresa</span>
+                    </span>
+                  )}
+                  {!cargo.permissoes?.financeiro && !cargo.permissoes?.frotas && !cargo.permissoes?.rh && !cargo.permissoes?.estoque && !cargo.permissoes?.empresa && (
+                    <span className="text-[11px] text-zinc-400 italic">Sem módulos liberados</span>
+                  )}
+                </div>
+
+                {/* Coluna 3: Contadores */}
+                <div className="flex items-center space-x-2 text-xs text-zinc-500 dark:text-stone-400 shrink-0">
+                  <div className="flex items-center space-x-1">
+                    <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span className="text-zinc-700 dark:text-stone-300 font-semibold">
+                      ({empCount} colaboradores)
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-mono hidden lg:inline">
+                    {cargo.id.slice(0, 10)}
+                  </span>
+                </div>
+
+                {/* Coluna 4: Ações */}
+                <div className="flex items-center space-x-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(cargo)}
+                    title="Editar Cargo e Permissões"
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-indigo-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCargo(cargo)}
+                    title="Excluir Cargo"
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Grid de Cards / Tabela de Cargos (Modo Grade) */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredCargos.map((cargo) => {
+            const empCount = employeeCountByCargo[cargo.id] || 0;
+            return (
+              <div 
+                key={cargo.id}
+                className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-4 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700 transition flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border border-zinc-200 dark:border-stone-700">
+                        {cargo.setor || 'Geral'}
+                      </span>
+                      <h4 className="text-base font-extrabold text-zinc-900 dark:text-white mt-1.5 tracking-tight">
+                        {cargo.nome}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(cargo)}
+                        title="Editar Cargo e Permissões"
+                        className="p-1.5 rounded-lg text-zinc-600 hover:text-indigo-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-indigo-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCargo(cargo)}
+                        title="Excluir Cargo"
+                        className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-600 hover:bg-zinc-100 dark:text-stone-400 dark:hover:text-rose-400 dark:hover:bg-stone-800 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {cargo.descricao && (
+                    <p className="text-xs text-zinc-600 dark:text-stone-400 mt-2 line-clamp-2">
+                      {cargo.descricao}
+                    </p>
+                  )}
+
+                  {/* Grade de Badges de Permissões */}
+                  <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-stone-800/80 space-y-1.5">
+                    <div className="text-[10px] font-bold text-zinc-600 dark:text-stone-400 uppercase tracking-wider">
+                      Módulos Liberados:
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {cargo.permissoes?.financeiro ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>Financeiro</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
+                          <XCircle className="w-3 h-3 shrink-0" />
+                          <span>Financeiro</span>
+                        </span>
+                      )}
+
+                      {cargo.permissoes?.frotas ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>Frotas</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
+                          <XCircle className="w-3 h-3 shrink-0" />
+                          <span>Frotas</span>
+                        </span>
+                      )}
+
+                      {cargo.permissoes?.rh ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>RH</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
+                          <XCircle className="w-3 h-3 shrink-0" />
+                          <span>RH</span>
+                        </span>
+                      )}
+
+                      {cargo.permissoes?.estoque ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>Estoque/NF-e</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
+                          <XCircle className="w-3 h-3 shrink-0" />
+                          <span>Estoque/NF-e</span>
+                        </span>
+                      )}
+
+                      {cargo.permissoes?.empresa ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>Minha Empresa</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-stone-800 dark:text-stone-400 opacity-70">
+                          <XCircle className="w-3 h-3 shrink-0" />
+                          <span>Minha Empresa</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rodapé com contagem de colaboradores vinculados */}
+                <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-stone-800 flex items-center justify-between text-xs text-zinc-500 dark:text-stone-400">
+                  <div className="flex items-center space-x-1.5">
+                    <Users className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>
+                      <strong className="text-zinc-800 dark:text-white">{empCount}</strong> colaborador(es)
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400">ID: {cargo.id.slice(0, 12)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* MODAL DE CADASTRO / EDIÇÃO DE CARGO COM FORMULÁRIO DIVIDIDO EM DUAS SEÇÕES */}
       {isModalOpen && (
