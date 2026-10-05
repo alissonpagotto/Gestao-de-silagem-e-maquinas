@@ -157,7 +157,7 @@ export const CentrosCustoTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 animate-bounce">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -166,28 +166,28 @@ export const CentrosCustoTab: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 sm:p-4 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-              <Building className="w-6 h-6 stroke-[2.2]" />
+            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+              <Building className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-zinc-900 dark:text-white tracking-tight">
+              <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
                 Centros de Custo & Talhões
               </h3>
-              <p className="text-xs text-zinc-600 dark:text-stone-400">
+              <p className="text-xs text-zinc-500 dark:text-stone-400">
                 Segmentação de custos operacionais e administrativos gravados localmente em <code>{CADASTROS_STORAGE_KEYS.CENTROS_CUSTO}</code>.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={handleResetDefaults}
               title="Restaurar padrão inicial"
-              className="p-2.5 rounded-xl text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+              className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -195,7 +195,7 @@ export const CentrosCustoTab: React.FC = () => {
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>+ Novo Centro de Custo</span>
@@ -204,7 +204,7 @@ export const CentrosCustoTab: React.FC = () => {
         </div>
 
         {/* Busca */}
-        <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-3">
+        <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input

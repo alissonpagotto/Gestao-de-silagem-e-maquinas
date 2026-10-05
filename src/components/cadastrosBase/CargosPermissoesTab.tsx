@@ -251,7 +251,7 @@ export const CargosPermissoesTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 animate-bounce">
@@ -261,30 +261,30 @@ export const CargosPermissoesTab: React.FC = () => {
       )}
 
       {/* Header com Ações e Busca */}
-      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 sm:p-4 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                <Shield className="w-6 h-6 stroke-[2.2]" />
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                <Shield className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-zinc-900 dark:text-white tracking-tight">
+                <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tight">
                   Cargos, Setores & Permissões de Acesso
                 </h3>
-                <p className="text-xs text-zinc-600 dark:text-stone-400">
+                <p className="text-xs text-zinc-500 dark:text-stone-400">
                   Gerenciamento de níveis de acesso por função com persistência local em <code>{CADASTROS_STORAGE_KEYS.CARGOS_PERMISSOES}</code>.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={handleResetDefaults}
               title="Restaurar padrão inicial"
-              className="p-2.5 rounded-xl text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
+              className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-stone-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-stone-800 border border-zinc-300 dark:border-stone-700 transition cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -292,7 +292,7 @@ export const CargosPermissoesTab: React.FC = () => {
             <button
               type="button"
               onClick={handleOpenCreateModal}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>+ Novo Cargo</span>
@@ -301,7 +301,7 @@ export const CargosPermissoesTab: React.FC = () => {
         </div>
 
         {/* Barra de Busca e Filtros */}
-        <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-3">
+        <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-stone-800 flex items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input
