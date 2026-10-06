@@ -2849,6 +2849,8 @@ export const getStoredDocumentosEntradaItens = (documentoEntradaId?: string): Do
   if (all.length === 0) {
     all = getStoredList<DocumentoEntradaItem>(LEGACY_STORAGE_KEY_DOCUMENTOS_ENTRADA_ITENS, []);
   }
+  // Elimina itens fantasmas (mock data 'Item de Entrada' ou registros vazios)
+  all = all.filter(i => i && i.descricao && i.descricao !== 'Item de Entrada' && i.descricao.trim() !== '');
   if (documentoEntradaId) {
     return all.filter(i => i.documento_entrada_id === documentoEntradaId);
   }

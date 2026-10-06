@@ -69,6 +69,7 @@ import {
   getStoredDocumentosEntrada,
   getStoredDocumentosEntradaItens,
   saveStoredDocumentosEntradaItens,
+  saveLocalDocumentoEntradaItem,
   getStoredManualEntryDocumentTypes,
   saveStoredManualEntryDocumentTypes,
   DEFAULT_INVENTORY_CATEGORIES,
@@ -117,7 +118,9 @@ import {
   sincronizarEntradaCombustivelSupabase,
   isSupabaseConfigured,
   subscribeToCloudTable,
-  notifyDocumentosEntradaSync
+  notifyDocumentosEntradaSync,
+  generateUUID,
+  toValidUUID
 } from '../../lib/supabaseService';
 import { TireReformOrderView, getStoredReformOrders, getStoredPendingReformTires } from './TireReformOrderView';
 import { DevolucaoNotasView, getStoredNotasDevolucao } from './DevolucaoNotasView';
@@ -1644,13 +1647,18 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const filtered = prev.filter(d => d.id !== savedDoc.id);
           return [savedDoc, ...filtered];
         });
+
+        // Nova entrada manual: OBRIGATORIAMENTE nasce limpa com array vazia de produtos
+        setManualDocItems([]);
       }
 
-      // Carrega os itens já salvos desta entrada
-      setIsLoadingDocItems(true);
-      const items = await fetchDocumentosEntradaItens(savedDoc.id);
-      setManualDocItems(items || []);
-      setIsLoadingDocItems(false);
+      // Se for edição de documento existente, carrega os itens já salvos sem dados fantasmas
+      if (currentManualDoc) {
+        setIsLoadingDocItems(true);
+        const items = await fetchDocumentosEntradaItens(savedDoc.id);
+        setManualDocItems((items || []).filter(i => i.descricao && i.descricao !== 'Item de Entrada'));
+        setIsLoadingDocItems(false);
+      }
 
       // Avança para o Passo 2
       setManualEntryStep(2);
@@ -1970,7 +1978,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
   };
 
-  // Adiciona item na entrada: POST em 'documentos_entrada_itens' e SOMA automática no estoque
+  // Adiciona item na entrada: atualiza manualDocItems reativamente, persiste localmente e sincroniza estoque
   const handleAddItemToManualDoc = async (e: React.FormEvent) => {
     e.preventDefault();
     setItemFormError('');
@@ -1980,63 +1988,102 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       return;
     }
 
-    const description = (selectedProduct?.name || itemSearchQuery).trim();
-    if (!description) {
-      setItemFormError('Por favor, selecione ou digite o nome do produto.');
+    // 1. Captura o objeto do produto real selecionado no Combobox de busca ou pesquisa por correspondência no estoque
+    const query = itemSearchQuery.trim();
+    const matchedStockProduct = selectedProduct || localInventory.find(p => {
+      if (!query) return false;
+      const qLower = query.toLowerCase();
+      const nc = (p.nome_comercial || '').trim().toLowerCase();
+      const nm = (p.name || '').trim().toLowerCase();
+      const no = (p.nome || '').trim().toLowerCase();
+      const cd = (p.code || p.codigo_produto || '').trim().toLowerCase();
+      return nc === qLower || nm === qLower || no === qLower || (cd && cd === qLower);
+    });
+
+    // Nome exato vindo do estoque (Ex: 'PNEU MICHELAN', 'FILTRO DE ÓLEO') em vez de texto estático
+    const realProductName = (
+      matchedStockProduct?.nome_comercial ||
+      matchedStockProduct?.name ||
+      matchedStockProduct?.nome ||
+      query
+    ).trim();
+
+    if (!realProductName) {
+      setItemFormError('Por favor, selecione ou digite o nome do produto no campo de busca.');
       return;
     }
 
+    // 2. Captura Quantidade
     const qty = parseFloat(itemQuantity.replace(',', '.'));
     if (isNaN(qty) || qty <= 0) {
       setItemFormError('Informe uma quantidade válida maior que zero.');
       return;
     }
 
+    // 3. Captura Valor Unitário (R$)
     const unitPrice = parseCurrencyInput(itemUnitCostDisplay);
     if (unitPrice < 0) {
       setItemFormError('O valor unitário não pode ser negativo.');
       return;
     }
 
-    const unit = (itemUnit || selectedProduct?.unit || 'UN').toUpperCase().trim();
+    // 4. Unidade e Cálculo Matemático correto: Subtotal = Quantidade * Valor Unitário
+    const rawUnit = (itemUnit || matchedStockProduct?.unidade_medida || matchedStockProduct?.unit || 'UN').trim();
+    const unit = rawUnit.toUpperCase();
     const totalPrice = Math.round(qty * unitPrice * 100) / 100;
 
+    // Cria registro de item real com identificador único
+    const newItemId = generateUUID();
+    const newItem: DocumentoEntradaItem = {
+      id: newItemId,
+      documento_entrada_id: currentManualDoc.id,
+      produto_id: matchedStockProduct?.id ? toValidUUID(matchedStockProduct.id) : undefined,
+      descricao: realProductName,
+      quantidade: qty,
+      unidade: unit,
+      valor_unitario: unitPrice,
+      valor_total: totalPrice,
+    };
+
+    // ATUALIZAÇÃO REATIVA IMEDIATA: Adiciona na tabela e atualiza os totais em tempo real
+    setManualDocItems(prev => [...prev, newItem]);
+
+    // Limpa imediatamente os campos do formulário para o próximo item
+    setSelectedProduct(null);
+    setItemSearchQuery('');
+    setItemQuantity('1');
+    setItemUnit('UN');
+    setItemUnitCostDisplay('');
+    setIsItemSearchOpen(false);
+
+    // Persistência local imediata offline-first
+    saveLocalDocumentoEntradaItem(newItem);
+
+    // Sincronização em segundo plano no Supabase e no Saldo de Estoque
     setIsAddingItem(true);
     try {
-      // 1. Grava POST na tabela 'documentos_entrada_itens'
-      const savedItem = await insertDocumentoEntradaItem({
-        documento_entrada_id: currentManualDoc.id,
-        produto_id: selectedProduct?.id || undefined,
-        descricao: description,
-        quantidade: qty,
-        unidade: unit,
-        valor_unitario: unitPrice,
-        valor_total: totalPrice,
-      });
+      // 1. Grava no Supabase (se configurado)
+      await insertDocumentoEntradaItem(newItem);
 
       // 2. SOMAR automaticamente no saldo atual da tabela de 'Estoque' (estoque_produtos)
-      let targetProduct = selectedProduct || localInventory.find(p => 
-        (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === description.toLowerCase().trim()) ||
-        p.name.toLowerCase().trim() === description.toLowerCase().trim()
+      let targetProduct = matchedStockProduct || localInventory.find(p => 
+        (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === realProductName.toLowerCase()) ||
+        (p.name && p.name.toLowerCase().trim() === realProductName.toLowerCase())
       );
 
-      const descLower = description.toLowerCase();
+      const descLower = realProductName.toLowerCase();
       const isCombustivel = 
         (targetProduct?.categoria || targetProduct?.category) === 'Combustível & Arla' ||
         descLower.includes('diesel') ||
         descLower.includes('arla') ||
-        identificarTipoDiesel(description, targetProduct?.category) !== null;
+        identificarTipoDiesel(realProductName, targetProduct?.category) !== null;
 
       let updatedInventory: InventoryItem[];
 
       if (isCombustivel) {
-        // CORREÇÃO DO FLUXO DE ENTRADA (Alimentar o Tanque e o Estoque em Conjunto):
-        // Executa dois UPDATES em conjunto no Supabase:
-        // 1. Soma na coluna 'quantidade_atual' de 'public.estoque_produtos'
-        // 2. Soma a mesma quantidade na coluna 'quantidade_atual' de 'public.tanques_combustivel' usando o 'produto_id'
         const syncResult = await sincronizarEntradaCombustivelSupabase({
           produtoId: targetProduct?.id,
-          descricao: description,
+          descricao: realProductName,
           categoria: 'Combustível & Arla',
           quantidadeLitros: qty,
           custoUnitario: unitPrice,
@@ -2058,8 +2105,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
           const newProdId = syncResult.produtoId || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
           const newProduct: InventoryItem = {
             id: newProdId,
-            name: description,
-            nome_comercial: description,
+            name: realProductName,
+            nome_comercial: realProductName,
             unit: 'L',
             unidade_medida: 'L',
             category: 'Combustível & Arla',
@@ -2092,8 +2139,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         const newProdId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         const newProduct: InventoryItem = {
           id: newProdId,
-          name: description,
-          nome_comercial: description,
+          name: realProductName,
+          nome_comercial: realProductName,
           unit: unit,
           unidade_medida: unit,
           category: 'outro',
@@ -2111,19 +2158,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         saveInventory(updatedInventory);
         await upsertEstoqueItem(newProduct);
       }
-
-      setManualDocItems(prev => [...prev, savedItem]);
-
-      // Limpa campos do item
-      setSelectedProduct(null);
-      setItemSearchQuery('');
-      setItemQuantity('1');
-      setItemUnit('UN');
-      setItemUnitCostDisplay('');
-      setIsItemSearchOpen(false);
     } catch (err) {
-      console.error('Erro ao adicionar item:', err);
-      setItemFormError('Erro ao gravar item na entrada. Tente novamente.');
+      console.warn('Aviso ao sincronizar produto no estoque/supabase:', err);
     } finally {
       setIsAddingItem(false);
     }
@@ -5265,7 +5301,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       {/* 2. PAINEL DADOS EXTRAÍDOS DA NOTA - APARECE DINAMICAMENTE LOGO ACIMA DA TABELA DE HISTÓRICO */}
       {parsedData && (
-        <div id="painel-itens-nfe-aberta" className="w-full bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4 animate-in fade-in duration-200 text-zinc-900 dark:text-stone-100">
+        <div id="painel-itens-nfe-aberta" className="w-full bg-[#e6e6e6] dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4 animate-in fade-in duration-200 text-zinc-900 dark:text-stone-100">
           
           {/* Banner de Modo de Edição ou Importação Ativo */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-zinc-100 dark:bg-stone-800 border border-zinc-200 dark:border-stone-700 rounded-xl animate-in fade-in text-zinc-900 dark:text-stone-100">
@@ -7259,9 +7295,30 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           type="text"
                           value={itemSearchQuery}
                           onChange={(e) => {
-                            setItemSearchQuery(e.target.value);
+                            const val = e.target.value;
+                            setItemSearchQuery(val);
                             setIsItemSearchOpen(true);
-                            if (selectedProduct && (selectedProduct.nome_comercial || selectedProduct.name) !== e.target.value) {
+                            const match = localInventory.find(p => {
+                              const q = val.trim().toLowerCase();
+                              if (!q) return false;
+                              const nc = (p.nome_comercial || '').trim().toLowerCase();
+                              const nm = (p.name || '').trim().toLowerCase();
+                              const no = (p.nome || '').trim().toLowerCase();
+                              const cd = (p.code || p.codigo_produto || '').trim().toLowerCase();
+                              return nc === q || nm === q || no === q || (cd && cd === q);
+                            });
+                            if (match) {
+                              setSelectedProduct(match);
+                              const cost = Number(match.preco_custo_inicial ?? match.unitCost ?? 0);
+                              if (cost > 0 && !itemUnitCostDisplay) {
+                                setItemUnitCostDisplay(formatCurrencyInputDisplay(cost));
+                              }
+                              const rawUnit = String(match.unidade_medida || match.unit || 'un').trim();
+                              const cleanUnit = rawUnit.toLowerCase() === 'l' || rawUnit.toLowerCase() === 'litro' || rawUnit.toLowerCase() === 'litros' || rawUnit.toLowerCase() === 'lt'
+                                ? 'L'
+                                : (rawUnit.toLowerCase() === 'un' || rawUnit.toLowerCase() === 'und' || rawUnit.toLowerCase() === 'unidade' ? 'un' : rawUnit);
+                              setItemUnit(cleanUnit.toUpperCase());
+                            } else if (selectedProduct && (selectedProduct.nome_comercial || selectedProduct.name || selectedProduct.nome) !== val) {
                               setSelectedProduct(null);
                             }
                           }}
@@ -7504,7 +7561,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                         <div className="p-6 text-center text-xs text-stone-400 dark:text-stone-500 space-y-1">
                           <Package className="w-7 h-7 text-stone-300 dark:text-stone-700 mx-auto" />
                           <p className="font-semibold text-stone-600 dark:text-stone-400">
-                            Nenhum produto adicionado ainda.
+                            Nenhum produto adicionado à entrada.
                           </p>
                           <p className="text-[11px]">
                             Utilize o campo acima para buscar no estoque ou cadastrar um novo produto.

@@ -765,11 +765,12 @@ export interface DocumentoEntradaItemInput {
  * Normaliza um item retornado pelo Supabase
  */
 function normalizeDocumentoEntradaItemFromRow(i: any): DocumentoEntradaItem {
+  const desc = (i.descricao || i.produto_nome || i.nome_produto || i.name || '').trim();
   return {
     id: i.id,
     documento_entrada_id: i.documento_entrada_id,
     produto_id: i.produto_id || undefined,
-    descricao: i.produto_nome || i.descricao || 'Item de Entrada',
+    descricao: desc,
     quantidade: Number(i.quantidade) || 1,
     unidade: i.unidade || 'UN',
     valor_unitario: Number(i.valor_unitario) || 0,
@@ -792,7 +793,7 @@ export async function insertDocumentoEntradaItem(
   const docUuid = toValidUUID(item.documento_entrada_id || '');
   const uuid = toValidUUID(item.id || generateUUID());
   const now = new Date().toISOString();
-  const prodDesc = (item.descricao || (item as any).produto_nome || 'Item de Entrada').trim();
+  const prodDesc = (item.descricao || (item as any).produto_nome || (item as any).name || '').trim();
 
   const record: DocumentoEntradaItem = {
     id: uuid,
@@ -813,12 +814,14 @@ export async function insertDocumentoEntradaItem(
   }
 
   try {
-    // Alinha com as colunas reais da tabela public.documentos_entrada_itens: produto_nome
+    // Alinha com as colunas reais da tabela public.documentos_entrada_itens: produto_nome e descricao
     const payload: Record<string, any> = {
       id: uuid,
       documento_entrada_id: docUuid,
       produto_id: item.produto_id ? toValidUUID(item.produto_id) : null,
       produto_nome: prodDesc,
+      descricao: prodDesc,
+      unidade: item.unidade || 'UN',
       quantidade: Number(item.quantidade) || 0,
       valor_unitario: Number(item.valor_unitario) || 0,
       valor_total: Number(item.valor_total) || 0,
@@ -831,11 +834,16 @@ export async function insertDocumentoEntradaItem(
       .select();
 
     if (error) {
-      // Fallback com descricao e unidade caso a tabela suporte
+      // Fallback simplificado se a tabela não tiver alguma coluna específica
       const fallbackPayload: Record<string, any> = {
-        ...payload,
-        descricao: prodDesc,
-        unidade: item.unidade || 'UN'
+        id: uuid,
+        documento_entrada_id: docUuid,
+        produto_id: item.produto_id ? toValidUUID(item.produto_id) : null,
+        produto_nome: prodDesc,
+        quantidade: Number(item.quantidade) || 0,
+        valor_unitario: Number(item.valor_unitario) || 0,
+        valor_total: Number(item.valor_total) || 0,
+        created_at: now
       };
 
       const retry = await supabase
@@ -845,15 +853,19 @@ export async function insertDocumentoEntradaItem(
 
       if (!retry.error && retry.data && retry.data[0]) {
         const returned = normalizeDocumentoEntradaItemFromRow(retry.data[0]);
+        if (returned.descricao) {
+          saveLocalDocumentoEntradaItem(returned);
+          notifyDocumentosEntradaSync();
+          return returned;
+        }
+      }
+    } else if (data && data[0]) {
+      const returned = normalizeDocumentoEntradaItemFromRow(data[0]);
+      if (returned.descricao) {
         saveLocalDocumentoEntradaItem(returned);
         notifyDocumentosEntradaSync();
         return returned;
       }
-    } else if (data && data[0]) {
-      const returned = normalizeDocumentoEntradaItemFromRow(data[0]);
-      saveLocalDocumentoEntradaItem(returned);
-      notifyDocumentosEntradaSync();
-      return returned;
     }
   } catch (err) {
     console.warn('insertDocumentoEntradaItem err:', err);
@@ -866,7 +878,9 @@ export async function insertDocumentoEntradaItem(
  * Busca itens de um documento de entrada.
  */
 export async function fetchDocumentosEntradaItens(documentoEntradaId: string): Promise<DocumentoEntradaItem[]> {
-  const localList = getStoredDocumentosEntradaItens(documentoEntradaId);
+  const localList = getStoredDocumentosEntradaItens(documentoEntradaId).filter(
+    i => i.descricao && i.descricao !== 'Item de Entrada'
+  );
   if (!isSupabaseConfigured) return localList;
 
   try {
@@ -878,8 +892,12 @@ export async function fetchDocumentosEntradaItens(documentoEntradaId: string): P
       .order('created_at', { ascending: true });
 
     if (!error && data && Array.isArray(data)) {
-      const items = (data as any[]).map(i => normalizeDocumentoEntradaItemFromRow(i));
-      const otherItems = getStoredDocumentosEntradaItens().filter(i => i.documento_entrada_id !== documentoEntradaId);
+      const items = (data as any[])
+        .map(i => normalizeDocumentoEntradaItemFromRow(i))
+        .filter(i => i.descricao && i.descricao !== 'Item de Entrada');
+      const otherItems = getStoredDocumentosEntradaItens().filter(
+        i => i.documento_entrada_id !== documentoEntradaId && i.descricao && i.descricao !== 'Item de Entrada'
+      );
       saveStoredDocumentosEntradaItens([...items, ...otherItems]);
       return items;
     }
