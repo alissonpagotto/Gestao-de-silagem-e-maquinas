@@ -220,6 +220,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [orderSavedToast, setOrderSavedToast] = useState<boolean>(false);
 
   const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
 
@@ -559,6 +560,102 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     }
 
     setTimeout(() => {
+      setSuccessMessage('');
+    }, 4000);
+  };
+
+  // Atualiza o serviço de um pneu diretamente na ordem visualizada
+  const handleUpdateViewedOrderTireService = (tireId: string, newService: string) => {
+    if (!selectedOrderForView) return;
+    const upperService = normalizeStockServiceName(newService).toUpperCase();
+    const matchedStockItem = borrachariaServicesList.find(s => s.name.toUpperCase() === upperService);
+    const autoPrice = matchedStockItem !== undefined ? (matchedStockItem.price ?? 0) : undefined;
+
+    const updatedTires = selectedOrderForView.tires.map(t => {
+      if (t.id === tireId) {
+        return {
+          ...t,
+          servico: upperService,
+          valorUnitario: autoPrice !== undefined ? autoPrice : t.valorUnitario,
+        };
+      }
+      return t;
+    });
+
+    const newTotalValor = updatedTires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+    setSelectedOrderForView({
+      ...selectedOrderForView,
+      tires: updatedTires,
+      totalValor: newTotalValor,
+    });
+  };
+
+  // Atualiza o valor unitário de um pneu diretamente na ordem visualizada
+  const handleUpdateViewedOrderTireValor = (tireId: string, rawValue: string) => {
+    if (!selectedOrderForView) return;
+    const cleanDigits = rawValue.replace(/\D/g, '');
+    const floatVal = cleanDigits ? Number(cleanDigits) / 100 : 0;
+
+    const updatedTires = selectedOrderForView.tires.map(t => {
+      if (t.id === tireId) {
+        return {
+          ...t,
+          valorUnitario: floatVal,
+        };
+      }
+      return t;
+    });
+
+    const newTotalValor = updatedTires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+    setSelectedOrderForView({
+      ...selectedOrderForView,
+      tires: updatedTires,
+      totalValor: newTotalValor,
+    });
+  };
+
+  // Atualiza o motivo/observação do pneu diretamente na ordem visualizada
+  const handleUpdateViewedOrderTireMotivo = (tireId: string, newMotivo: string) => {
+    if (!selectedOrderForView) return;
+    const upperMotivo = newMotivo.toUpperCase();
+    const updatedTires = selectedOrderForView.tires.map(t => {
+      if (t.id === tireId) {
+        return {
+          ...t,
+          motivo_reforma: upperMotivo,
+        };
+      }
+      return t;
+    });
+
+    setSelectedOrderForView({
+      ...selectedOrderForView,
+      tires: updatedTires,
+    });
+  };
+
+  // Salva a ordem visualizada consolidando alterações na grade de pneus na chave 'colaca_silagem_pedidos_reforma_ativos' (Requisito 1)
+  const handleSaveViewedOrder = () => {
+    if (!selectedOrderForView) return;
+
+    const newTotalValor = selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+    const orderToSave: TireReformOrder = {
+      ...selectedOrderForView,
+      totalValor: newTotalValor,
+    };
+
+    const updatedOrders = orders.map(o => o.id === orderToSave.id ? orderToSave : o);
+    setOrders(updatedOrders);
+    saveStoredReformOrders(updatedOrders);
+
+    if (onOrderSaved) {
+      onOrderSaved(orderToSave);
+    }
+
+    setOrderSavedToast(true);
+    setSuccessMessage('Ordem salva com sucesso!');
+    setTimeout(() => {
+      setOrderSavedToast(false);
       setSuccessMessage('');
     }, 4000);
   };
@@ -1470,10 +1567,45 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         <td className="py-2 px-2.5 font-semibold text-stone-800 dark:text-stone-200">{t.brand} {t.model || ''}</td>
                         <td className="py-2 px-2.5 font-mono text-amber-700 dark:text-amber-400 font-bold">{t.size || '295/80 R 22.5'}</td>
                         <td className="py-2 px-2.5 text-stone-600 dark:text-stone-400">{t.vehiclePlate || t.vehicleName || 'Frota'}</td>
-                        <td className="py-2 px-2.5 text-stone-700 dark:text-stone-300 font-medium">{(t.motivo_reforma || t.notes || '-').toUpperCase()}</td>
-                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">{normalizeStockServiceName(t.servico || DEFAULT_STOCK_SERVICES[0]).toUpperCase()}</td>
+                        <td className="py-2 px-2.5 text-stone-700 dark:text-stone-300 font-medium">
+                          <input
+                            type="text"
+                            value={t.motivo_reforma || t.notes || ''}
+                            onChange={(e) => handleUpdateViewedOrderTireMotivo(t.id, e.target.value)}
+                            placeholder="Problema / Motivo..."
+                            className="w-full px-2 py-1 text-xs border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-500 uppercase"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">
+                          <select
+                            value={normalizeStockServiceName(t.servico || borrachariaServicesList[0]?.name || DEFAULT_STOCK_SERVICES[0])}
+                            onChange={(e) => handleUpdateViewedOrderTireService(t.id, e.target.value)}
+                            className="w-full px-2 py-1 text-xs font-bold border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-500 uppercase cursor-pointer truncate"
+                          >
+                            {borrachariaServicesList.map((srv) => (
+                              <option key={srv.id} value={srv.name}>{srv.name}</option>
+                            ))}
+                            {t.servico && !borrachariaServicesList.some(s => s.name === normalizeStockServiceName(t.servico)) && (
+                              <option value={normalizeStockServiceName(t.servico)}>
+                                {normalizeStockServiceName(t.servico)}
+                              </option>
+                            )}
+                          </select>
+                        </td>
                         <td className="py-2 px-2.5 text-right font-mono font-black text-stone-900 dark:text-stone-100">
-                          {t.valorUnitario !== undefined && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
+                          <div className="relative">
+                            <span className="absolute inset-y-0 left-0 pl-1.5 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                              R$
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={t.valorUnitario !== undefined && t.valorUnitario !== null && t.valorUnitario > 0 ? formatCurrencyPtBr(t.valorUnitario) : ''}
+                              onChange={(e) => handleUpdateViewedOrderTireValor(t.id, e.target.value)}
+                              placeholder="0,00"
+                              className="w-full pl-6 pr-1.5 py-1 text-xs font-mono font-bold text-right border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1487,7 +1619,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         TOTAL EM R$:
                       </td>
                       <td className="py-2 px-2.5 text-right font-mono font-black text-sm text-stone-950 dark:text-white">
-                        R$ ${formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}
+                        R$ {formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}
                       </td>
                     </tr>
                   </tfoot>
@@ -1503,36 +1635,63 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             </div>
 
             {/* Footer do Modal */}
-            <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/50 flex items-center justify-between">
-              <span className="text-xs text-stone-500">
-                Total Acumulado: <strong className="font-mono text-stone-900 dark:text-stone-100">R$ {formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}</strong>
-              </span>
-
+            <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/50 flex flex-row items-center justify-between gap-2 overflow-y-hidden shrink-0">
               <div className="flex items-center space-x-2">
+                <span className="text-xs text-stone-500">
+                  Total Acumulado: <strong className="font-mono text-stone-900 dark:text-stone-100">R$ {formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}</strong>
+                </span>
+                {orderSavedToast && (
+                  <span className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Ordem salva com sucesso!</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-row items-center justify-end gap-2 shrink-0">
+                {/* Botão Sair (Requisito 2) */}
                 <button
                   type="button"
+                  id="btn-sair-ordem-reforma"
                   onClick={() => setSelectedOrderForView(null)}
-                  className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-bold transition cursor-pointer"
+                  className="border border-gray-300 dark:border-stone-700 text-gray-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-50 dark:hover:bg-stone-700 px-4 py-1.5 rounded-lg text-sm font-medium transition cursor-pointer"
                 >
-                  Fechar
+                  Sair
                 </button>
+
+                {/* Botão Salvar Ordem (Requisito 1) */}
                 <button
                   type="button"
+                  id="btn-salvar-ordem-reforma"
+                  onClick={handleSaveViewedOrder}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-medium px-4 py-1.5 rounded-lg text-sm shadow-xs transition cursor-pointer inline-flex items-center space-x-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Salvar Ordem</span>
+                </button>
+
+                {/* Botão Editar Pedido */}
+                <button
+                  type="button"
+                  id="btn-editar-pedido-reforma"
                   onClick={() => {
                     const toEdit = selectedOrderForView;
                     setSelectedOrderForView(null);
                     handleStartEditOrder(toEdit);
                   }}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-black transition cursor-pointer"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-sm font-bold transition cursor-pointer"
                   title="Editar dados e valores deste pedido"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   <span>Editar Pedido</span>
                 </button>
+
+                {/* Botão Imprimir Pedido */}
                 <button
                   type="button"
+                  id="btn-imprimir-pedido-reforma-modal"
                   onClick={() => handlePrintOrder(selectedOrderForView)}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black shadow-xs transition cursor-pointer"
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-sm font-bold shadow-xs transition cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir Pedido (A4)</span>
