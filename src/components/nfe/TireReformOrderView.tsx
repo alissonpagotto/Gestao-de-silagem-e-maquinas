@@ -16,7 +16,8 @@ import {
   Check, 
   Search,
   Filter,
-  X
+  X,
+  Pencil
 } from 'lucide-react';
 import { TireItem, Supplier, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
@@ -164,6 +165,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 }) => {
   const [orders, setOrders] = useState<TireReformOrder[]>(() => getStoredReformOrders());
   const [isCreatingNewOrder, setIsCreatingNewOrder] = useState<boolean>(initialCreateMode);
+  const [editingOrder, setEditingOrder] = useState<TireReformOrder | null>(null);
   const [selectedOrderForView, setSelectedOrderForView] = useState<TireReformOrder | null>(null);
 
   // Fornecedores
@@ -243,7 +245,80 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const handleRemoveTireFromPending = (tireId: string) => {
     const updated = pendingTires.filter(t => t.id !== tireId);
     setPendingTires(updated);
-    localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+    if (!editingOrder) {
+      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+    }
+  };
+
+  // Reabrir pedido para edição (Requisito 2)
+  const handleStartEditOrder = (orderToEdit: TireReformOrder) => {
+    // 1. Recupera o objeto atualizado diretamente do LocalStorage para consistência
+    const stored = getStoredReformOrders();
+    const targetOrder = stored.find(o => o.id === orderToEdit.id) || orderToEdit;
+
+    setEditingOrder(targetOrder);
+
+    // 2. Injeta fornecedor
+    if (targetOrder.supplierId) {
+      setSelectedSupplierId(targetOrder.supplierId);
+      setCustomSupplierName('');
+    } else {
+      const match = suppliers.find(s => (s.tradeName || s.name).toUpperCase() === targetOrder.supplierName.toUpperCase());
+      if (match) {
+        setSelectedSupplierId(match.id);
+        setCustomSupplierName('');
+      } else {
+        setSelectedSupplierId('outro');
+        setCustomSupplierName(targetOrder.supplierName);
+      }
+    }
+
+    // 3. Injeta motorista, previsão e notas
+    setDriverName(targetOrder.driverName || '');
+    setExpectedReturnDate(targetOrder.expectedReturnDate || '');
+    setOrderNotes(targetOrder.notes || '');
+
+    // 4. Injeta lista de pneus reativamente com serviços e valores
+    const mappedTires: TireItem[] = targetOrder.tires.map((t, idx) => ({
+      id: t.id || `pneu_edit_${idx}_${Date.now()}`,
+      fireNumber: t.fireNumber,
+      brand: t.brand,
+      model: t.model,
+      size: t.size || '295/80 R 22.5',
+      position: 'reforma',
+      positionName: 'Em Reforma / Recapagem',
+      status: 'reforma',
+      treadDepthMm: t.treadDepthMm || 0,
+      vehiclePlate: t.vehiclePlate,
+      vehicleName: t.vehicleName,
+      notes: t.notes || t.motivo_reforma || '',
+      motivo_reforma: t.motivo_reforma || t.notes || '',
+      servico_reforma: (t.servico || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      valor_reforma: t.valorUnitario !== undefined ? t.valorUnitario : 0,
+      reformCost: t.valorUnitario !== undefined ? t.valorUnitario : 0,
+    }));
+
+    setPendingTires(mappedTires);
+    setIsCreatingNewOrder(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  // Cancela formulário e volta ao histórico
+  const handleCancelForm = () => {
+    setIsCreatingNewOrder(false);
+    setEditingOrder(null);
+    setDriverName('');
+    setExpectedReturnDate('');
+    setOrderNotes('');
+    setCustomSupplierName('');
+    // Reseta pendingTires para os pneus realmente pendentes no LocalStorage
+    const rawTires = getStoredPendingReformTires();
+    setPendingTires(rawTires.map(t => ({
+      ...t,
+      servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
+    })));
   };
 
   // Atualiza o serviço selecionado para um pneu específico
@@ -251,9 +326,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const upperServico = servico.toUpperCase();
     const updated = pendingTires.map(t => t.id === tireId ? { ...t, servico_reforma: upperServico } : t);
     setPendingTires(updated);
-    try {
-      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
-    } catch {}
+    if (!editingOrder) {
+      try {
+        localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+      } catch {}
+    }
   };
 
   // Atualiza o valor unitário digitado para um pneu específico
@@ -262,9 +339,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const floatVal = cleanDigits ? Number(cleanDigits) / 100 : 0;
     const updated = pendingTires.map(t => t.id === tireId ? { ...t, valor_reforma: floatVal, reformCost: floatVal } : t);
     setPendingTires(updated);
-    try {
-      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
-    } catch {}
+    if (!editingOrder) {
+      try {
+        localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+      } catch {}
+    }
   };
 
   // Atualiza o motivo/problema relatado
@@ -272,9 +351,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const upperMotivo = motivo.toUpperCase();
     const updated = pendingTires.map(t => t.id === tireId ? { ...t, motivo_reforma: upperMotivo } : t);
     setPendingTires(updated);
-    try {
-      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
-    } catch {}
+    if (!editingOrder) {
+      try {
+        localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+      } catch {}
+    }
   };
 
   // Aplica serviço em lote para todos os pneus pendentes
@@ -283,15 +364,17 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const upper = serviceToApply.toUpperCase();
     const updated = pendingTires.map(t => ({ ...t, servico_reforma: upper }));
     setPendingTires(updated);
-    try {
-      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
-    } catch {}
+    if (!editingOrder) {
+      try {
+        localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+      } catch {}
+    }
   };
 
-  // Salvar Ordem de Envio de Reforma
+  // Salvar Ordem de Envio de Reforma (Criação ou Edição)
   const handleSaveOrder = () => {
     if (pendingTires.length === 0) {
-      setErrorMessage('Nenhum pneu acumulado para gerar a ordem de reforma.');
+      setErrorMessage('Nenhum pneu acumulado para a ordem de reforma.');
       return;
     }
 
@@ -303,9 +386,61 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       return;
     }
 
+    const totalValor = pendingTires.reduce((acc, t) => acc + (t.valor_reforma || t.reformCost || 0), 0);
+
+    const tiresPayload = pendingTires.map(t => ({
+      id: t.id,
+      fireNumber: t.fireNumber.toUpperCase(),
+      brand: t.brand.toUpperCase(),
+      model: t.model ? t.model.toUpperCase() : undefined,
+      size: (t.size || '295/80 R 22.5').toUpperCase(),
+      vehiclePlate: t.vehiclePlate ? t.vehiclePlate.toUpperCase() : undefined,
+      vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
+      notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
+      motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
+      servico: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
+    }));
+
+    if (editingOrder) {
+      // MODO EDIÇÃO: Atualiza o registro existente mantendo número, status e data originais
+      const updatedOrder: TireReformOrder = {
+        ...editingOrder,
+        supplierId: selectedSupplierId || undefined,
+        supplierName: finalSupplierName.toUpperCase(),
+        supplierCnpj: selectedSupplier?.cnpjOrCpf,
+        supplierPhone: selectedSupplier?.phone,
+        driverName: driverName.trim() ? driverName.trim().toUpperCase() : undefined,
+        expectedReturnDate: expectedReturnDate || undefined,
+        tires: tiresPayload,
+        totalTires: pendingTires.length,
+        totalValor,
+        notes: orderNotes.trim() ? orderNotes.trim().toUpperCase() : undefined,
+      };
+
+      const updatedOrders = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
+      setOrders(updatedOrders);
+      saveStoredReformOrders(updatedOrders);
+
+      setEditingOrder(null);
+      setIsCreatingNewOrder(false);
+      setSelectedOrderForView(updatedOrder);
+      setSuccessMessage(`Pedido ${editingOrder.orderNumber} atualizado com sucesso! Total: R$ ${formatCurrencyPtBr(totalValor)}`);
+      setErrorMessage('');
+
+      if (onOrderSaved) {
+        onOrderSaved(updatedOrder);
+      }
+
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 4000);
+      return;
+    }
+
+    // MODO CRIAÇÃO: Novo pedido
     const nextNumber = String(orders.length + 1).padStart(3, '0');
     const orderNumber = `REF-${new Date().getFullYear()}-${nextNumber}`;
-    const totalValor = pendingTires.reduce((acc, t) => acc + (t.valor_reforma || t.reformCost || 0), 0);
 
     const newOrder: TireReformOrder = {
       id: `ped_ref_${Date.now()}`,
@@ -318,19 +453,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       driverName: driverName.trim() ? driverName.trim().toUpperCase() : undefined,
       expectedReturnDate: expectedReturnDate || undefined,
       status: 'Aguardando Retorno / Nota',
-      tires: pendingTires.map(t => ({
-        id: t.id,
-        fireNumber: t.fireNumber.toUpperCase(),
-        brand: t.brand.toUpperCase(),
-        model: t.model ? t.model.toUpperCase() : undefined,
-        size: (t.size || '295/80 R 22.5').toUpperCase(),
-        vehiclePlate: t.vehiclePlate ? t.vehiclePlate.toUpperCase() : undefined,
-        vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
-        notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
-        motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
-        servico: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
-        valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
-      })),
+      tires: tiresPayload,
       totalTires: pendingTires.length,
       totalValor,
       notes: orderNotes.trim() ? orderNotes.trim().toUpperCase() : undefined,
@@ -694,10 +817,13 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
               </div>
               <div>
                 <h3 className="text-sm sm:text-base font-black text-stone-900 dark:text-stone-100 font-['Outfit']">
-                  Pedido de Entrada de Reforma (Envio à Recapadora)
+                  {editingOrder ? `Editar Pedido de Reforma (${editingOrder.orderNumber})` : 'Pedido de Entrada de Reforma (Envio à Recapadora)'}
                 </h3>
                 <p className="text-[11px] text-stone-500 font-medium">
-                  {pendingTires.length} {pendingTires.length === 1 ? 'pneu selecionado' : 'pneus selecionados'} da frota aguardando emissão da ordem
+                  {editingOrder
+                    ? `Editando dados e valores dos ${pendingTires.length} pneus do pedido ${editingOrder.orderNumber}`
+                    : `${pendingTires.length} ${pendingTires.length === 1 ? 'pneu selecionado' : 'pneus selecionados'} da frota aguardando emissão da ordem`
+                  }
                 </p>
               </div>
             </div>
@@ -705,7 +831,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 type="button"
-                onClick={() => setIsCreatingNewOrder(false)}
+                onClick={handleCancelForm}
                 className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold transition cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -994,7 +1120,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-black rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-md transition cursor-pointer disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                <span>Salvar Pedido de Reforma</span>
+                <span>{editingOrder ? 'Salvar Alterações' : 'Salvar Pedido de Reforma'}</span>
               </button>
 
             </div>
@@ -1033,7 +1159,20 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsCreatingNewOrder(true)}
+                onClick={() => {
+                  setEditingOrder(null);
+                  setDriverName('');
+                  setExpectedReturnDate('');
+                  setOrderNotes('');
+                  setCustomSupplierName('');
+                  const rawTires = getStoredPendingReformTires();
+                  setPendingTires(rawTires.map(t => ({
+                    ...t,
+                    servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+                    valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
+                  })));
+                  setIsCreatingNewOrder(true);
+                }}
                 className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black shadow-xs transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1107,7 +1246,15 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right">
-                            <div className="flex items-center justify-end space-x-1">
+                            <div className="flex flex-row items-center justify-end gap-1.5 sm:gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditOrder(order)}
+                                className="p-1.5 text-stone-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
+                                title="Editar Pedido de Reforma"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setSelectedOrderForView(order)}
@@ -1280,6 +1427,19 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-bold transition cursor-pointer"
                 >
                   Fechar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toEdit = selectedOrderForView;
+                    setSelectedOrderForView(null);
+                    handleStartEditOrder(toEdit);
+                  }}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-black transition cursor-pointer"
+                  title="Editar dados e valores deste pedido"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Editar Pedido</span>
                 </button>
                 <button
                   type="button"

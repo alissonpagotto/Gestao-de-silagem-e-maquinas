@@ -2039,9 +2039,13 @@ export function formatCurrencyBRL(value: number): string {
 export function formatDateBR(dateStr?: string): string {
   if (!dateStr) return '-';
   try {
-    const [year, month, day] = dateStr.split('-');
-    if (year && month && day) {
-      return `${day}/${month}/${year}`;
+    const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      if (year.length === 4) {
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+      }
     }
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('pt-BR');
