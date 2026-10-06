@@ -119,6 +119,7 @@ const STORAGE_KEYS = {
   CLIENTE_CREDITOS: 'silagem_facil_clean_v1_cliente_creditos',
   DRAFT_NOTA_ATIVA: 'colaca_silagem_rascunho_nota_ativa',
   STOCK_SERVICES: 'colaca_silagem_servicos_estoque',
+  STOCK_PRODUCTS: 'colaca_silagem_estoque_produtos',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -978,20 +979,167 @@ export function ensureDieselProductsInInventory(items: InventoryItem[]): Invento
 
 export const ensureFuelAndArlaProductsInInventory = ensureDieselProductsInInventory;
 
+// ========================================================
+// SERVIÇOS E MÃOS DE OBRA NO ESTOQUE (MANDATÓRIO EM CAIXA ALTA)
+// Chave LocalStorage solicitada: 'colaca_silagem_servicos_estoque'
+// Tabela principal de produtos: 'colaca_silagem_estoque_produtos'
+// ========================================================
+
+export const STOCK_SERVICES_STORAGE_KEY = 'colaca_silagem_servicos_estoque';
+export const STOCK_PRODUCTS_STORAGE_KEY = 'colaca_silagem_estoque_produtos';
+
+export interface CanonicalStockServiceDefinition {
+  id: string;
+  code: string;
+  name: string;
+  unit: string;
+  group: 'PNEUS' | 'MAO_DE_OBRA' | 'PREDIAL';
+}
+
+export const CANONICAL_STOCK_SERVICES: CanonicalStockServiceDefinition[] = [
+  // GRUPO DE MANUTENÇÃO DE PNEUS:
+  { id: 'srv_recapagem_pneu', code: 'SRV-REC-PNEU', name: 'SERVIÇO DE RECAPAGEM DE PNEU', unit: 'UN', group: 'PNEUS' },
+  { id: 'srv_recauchutagem_pneu', code: 'SRV-RECAUCH-PNEU', name: 'SERVIÇO DE RECAUCHUTAGEM DE PNEU', unit: 'UN', group: 'PNEUS' },
+  { id: 'srv_remoldagem_pneu', code: 'SRV-REMOLD-PNEU', name: 'SERVIÇO DE REMOLDAGEM DE PNEU (REMOLD)', unit: 'UN', group: 'PNEUS' },
+  { id: 'srv_vulcanizacao_pneu', code: 'SRV-VULC-PNEU', name: 'SERVIÇO DE VULCANIZAÇÃO DE PNEU', unit: 'UN', group: 'PNEUS' },
+  { id: 'srv_grooving_pneu', code: 'SRV-GROOVING', name: 'SERVIÇO DE GROOVING (FRISAGEM / SULCAMENTO DE PNEU)', unit: 'UN', group: 'PNEUS' },
+  { id: 'srv_conserto_camara', code: 'SRV-CONS-CAMARA', name: 'SERVIÇO DE CONSERTO DE CÂMARA DE AR', unit: 'UN', group: 'PNEUS' },
+  { id: 'srv_troca_valvula', code: 'SRV-TROCA-VALV', name: 'SERVIÇO DE TROCA DE VÁLVULA / COMPLEMENTO', unit: 'UN', group: 'PNEUS' },
+
+  // GRUPO DE MÃO DE OBRA E MANUTENÇÃO OPERACIONAL:
+  { id: 'srv_mo_mecanico', code: 'SRV-MO-MEC', name: 'SERVIÇO DE MÃO DE OBRA MECÂNICO', unit: 'HR', group: 'MAO_DE_OBRA' },
+  { id: 'srv_mo_eletricista_auto', code: 'SRV-MO-ELET-AUTO', name: 'SERVIÇO DE MÃO DE OBRA ELETRICISTA (AUTOMOTIVO)', unit: 'HR', group: 'MAO_DE_OBRA' },
+  { id: 'srv_mo_funileiro', code: 'SRV-MO-FUNILEIRO', name: 'SERVIÇO DE MÃO DE OBRA FUNILEIRO / LANTERNAGEM', unit: 'HR', group: 'MAO_DE_OBRA' },
+  { id: 'srv_mo_estofaria', code: 'SRV-MO-ESTOFARIA', name: 'SERVIÇO DE MÃO DE OBRA ESTOFARIA / INTERIOR', unit: 'HR', group: 'MAO_DE_OBRA' },
+
+  // GRUPO DE MANUTENÇÃO DE INFRAESTRUTURA E PREDIAL:
+  { id: 'srv_mo_civil_pedreiro', code: 'SRV-MO-CIVIL', name: 'SERVIÇO DE MÃO DE OBRA CIVIL (REFORMA TIPO PEDREIRO)', unit: 'HR', group: 'PREDIAL' },
+  { id: 'srv_mo_eletricista_predial', code: 'SRV-MO-ELET-PRED', name: 'SERVIÇO DE MÃO DE OBRA ELETRICISTA PREDIAL E RESIDENCIAL', unit: 'HR', group: 'PREDIAL' },
+];
+
+export const DEFAULT_STOCK_SERVICES: string[] = CANONICAL_STOCK_SERVICES.map(s => s.name);
+
+export function normalizeStockServiceName(serviceName?: string): string {
+  if (!serviceName) return DEFAULT_STOCK_SERVICES[0];
+  const s = serviceName.trim().toUpperCase();
+
+  // Mapeamento estrito de legados (sem prefixo SERVIÇO) para a nomenclatura padronizada
+  if (s === 'RECAPAGEM DE PNEU') return 'SERVIÇO DE RECAPAGEM DE PNEU';
+  if (s === 'RECAUCHUTAGEM DE PNEU') return 'SERVIÇO DE RECAUCHUTAGEM DE PNEU';
+  if (s === 'REMOLDAGEM DE PNEU (REMOLD)' || s === 'REMOLDAGEM DE PNEU' || s === 'REMOLD') return 'SERVIÇO DE REMOLDAGEM DE PNEU (REMOLD)';
+  if (s === 'VULCANIZAÇÃO DE PNEU' || s === 'VULCANIZACAO DE PNEU') return 'SERVIÇO DE VULCANIZAÇÃO DE PNEU';
+  if (s === 'GROOVING (FRISAGEM / SULCAMENTO DE PNEU)' || s === 'GROOVING') return 'SERVIÇO DE GROOVING (FRISAGEM / SULCAMENTO DE PNEU)';
+  if (s === 'CONSERTO DE CÂMARA DE AR' || s === 'CONSERTO DE CAMARA DE AR') return 'SERVIÇO DE CONSERTO DE CÂMARA DE AR';
+  if (s === 'TROCA DE VÁLVULA / COMPLEMENTO' || s === 'TROCA DE VALVULA / COMPLEMENTO') return 'SERVIÇO DE TROCA DE VÁLVULA / COMPLEMENTO';
+
+  return s;
+}
+
+export function ensureServicesInInventory(currentList: InventoryItem[]): InventoryItem[] {
+  const result = [...currentList];
+
+  for (const def of CANONICAL_STOCK_SERVICES) {
+    const matchIdx = result.findIndex(item => {
+      if (item.id === def.id) return true;
+      if (item.code && item.code.toUpperCase() === def.code) return true;
+      if (item.codigo_produto && item.codigo_produto.toUpperCase() === def.code) return true;
+      const itemName = (item.nome_comercial || item.name || item.nome || '').trim().toUpperCase();
+      if (itemName === def.name) return true;
+      if (normalizeStockServiceName(itemName) === def.name) return true;
+      return false;
+    });
+
+    if (matchIdx >= 0) {
+      const existing = result[matchIdx];
+      result[matchIdx] = {
+        ...existing,
+        name: def.name,
+        nome: def.name,
+        nome_comercial: def.name,
+        category: 'SERVIÇO',
+        categoria: 'SERVIÇO',
+        tipo_item: 'SERVIÇO',
+        unit: existing.unit || def.unit,
+        unidade_medida: existing.unidade_medida || def.unit,
+        code: existing.code || def.code,
+        codigo_produto: existing.codigo_produto || def.code,
+      };
+    } else {
+      result.push({
+        id: def.id,
+        code: def.code,
+        codigo_produto: def.code,
+        name: def.name,
+        nome: def.name,
+        nome_comercial: def.name,
+        category: 'SERVIÇO',
+        categoria: 'SERVIÇO',
+        tipo_item: 'SERVIÇO',
+        unit: def.unit,
+        unidade_medida: def.unit,
+        quantity: 0,
+        quantidade_atual: 0,
+        minQuantity: 0,
+        unitCost: 0,
+        preco_custo_inicial: 0,
+        custo_nominal: 0,
+        salePrice: 0,
+        preco_venda_varejo: 0,
+        preco_venda: 0,
+        profitMargin: 0,
+        location: 'PRESTAÇÃO DE SERVIÇOS',
+        localizacao_fisica: 'PRESTAÇÃO DE SERVIÇOS',
+        fiscalGroup: 'ISENTO',
+        grupo_fiscal: 'ISENTO',
+        ipiGroup: 'NAO TRIBUTADO',
+        grupo_ipi: 'NAO TRIBUTADO',
+        sem_gtin: true,
+        hasNoGtin: true,
+        barcode: 'SEM GTIN',
+        codigo_barras: 'SEM GTIN',
+      } as InventoryItem);
+    }
+  }
+
+  return result;
+}
+
 export function getStoredInventory(): InventoryItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
-    if (!raw) return ensureDieselProductsInInventory(INITIAL_INVENTORY);
-    const parsed = JSON.parse(raw);
-    return ensureDieselProductsInInventory(Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_INVENTORY);
+    const raw = localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    const parsed = raw ? JSON.parse(raw) : INITIAL_INVENTORY;
+    const baseList = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_INVENTORY;
+    const withDiesel = ensureDieselProductsInInventory(baseList);
+    const finalized = ensureServicesInInventory(withDiesel);
+
+    try {
+      localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
+    } catch (_) {}
+
+    return finalized;
   } catch (e) {
-    return ensureDieselProductsInInventory(INITIAL_INVENTORY);
+    const fallback = ensureServicesInInventory(ensureDieselProductsInInventory(INITIAL_INVENTORY));
+    return fallback;
   }
 }
 
 export function saveStoredInventory(items: InventoryItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(items));
+    const withDiesel = ensureDieselProductsInInventory(items);
+    const finalized = ensureServicesInInventory(withDiesel);
+    localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
+    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: finalized }));
+    
+    // Sincroniza também a lista de serviços do estoque
+    const serviceNames = finalized
+      .filter(i => (i.tipo_item === 'SERVIÇO' || i.category === 'SERVIÇO' || i.categoria === 'SERVIÇO'))
+      .map(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase())
+      .filter(Boolean);
+    if (serviceNames.length > 0) {
+      window.dispatchEvent(new CustomEvent('colaca_silagem_servicos_estoque_updated', { detail: serviceNames }));
+    }
   } catch (e) {
     console.error('Failed to save inventory', e);
   }
@@ -1371,6 +1519,7 @@ export const DEFAULT_INVENTORY_CATEGORIES = [
   'Adubo & Fertilizante',
   'Peças & Manutenção',
   'Pneus',
+  'SERVIÇO',
   'Outros Insumos'
 ];
 
@@ -1458,65 +1607,109 @@ export const saveStoredInventoryCategories = (list: string[]) => saveStoredList(
 
 // ========================================================
 // SERVIÇOS E MÃOS DE OBRA NO ESTOQUE (MANDATÓRIO EM CAIXA ALTA)
-// Chave LocalStorage solicitada: 'colaca_silagem_servicos_estoque'
 // ========================================================
-
-export const STOCK_SERVICES_STORAGE_KEY = 'colaca_silagem_servicos_estoque';
-
-export const DEFAULT_STOCK_SERVICES: string[] = [
-  // GRUPO DE MANUTENÇÃO DE PNEUS:
-  'RECAPAGEM DE PNEU',
-  'RECAUCHUTAGEM DE PNEU',
-  'REMOLDAGEM DE PNEU (REMOLD)',
-  'VULCANIZAÇÃO DE PNEU',
-  'GROOVING (FRISAGEM / SULCAMENTO DE PNEU)',
-  'CONSERTO DE CÂMARA DE AR',
-  'TROCA DE VÁLVULA / COMPLEMENTO',
-
-  // GRUPO DE MÃO DE OBRA E MANUTENÇÃO OPERACIONAL:
-  'SERVIÇO DE MÃO DE OBRA MECÂNICO',
-  'SERVIÇO DE MÃO DE OBRA ELETRICISTA (AUTOMOTIVO)',
-  'SERVIÇO DE MÃO DE OBRA FUNILEIRO / LANTERNAGEM',
-  'SERVIÇO DE MÃO DE OBRA ESTOFARIA / INTERIOR',
-
-  // GRUPO DE MANUTENÇÃO DE INFRAESTRUTURA E PREDIAL:
-  'SERVIÇO DE MÃO DE OBRA CIVIL (REFORMA TIPO PEDREIRO)',
-  'SERVIÇO DE MÃO DE OBRA ELETRICISTA PREDIAL E RESIDENCIAL',
-];
 
 export function getStoredStockServices(): string[] {
   try {
+    // 1. Busca os serviços cadastrados diretamente na tabela de produtos do estoque (LocalStorage)
+    const inventory = getStoredInventory();
+    const serviceItemsFromStock = inventory
+      .filter(item => (
+        item.tipo_item === 'SERVIÇO' || 
+        item.category === 'SERVIÇO' || 
+        item.categoria === 'SERVIÇO' ||
+        (item.category || '').toLowerCase().includes('servi') ||
+        (item.categoria || '').toLowerCase().includes('servi')
+      ))
+      .map(item => normalizeStockServiceName((item.nome_comercial || item.name || item.nome || '').trim().toUpperCase()))
+      .filter(Boolean);
+
+    // 2. Busca também do armazenamento complementar se existir
     const raw = localStorage.getItem(STOCK_SERVICES_STORAGE_KEY) || localStorage.getItem('colaca_silagem_servicos_padrao_reforma');
+    let rawList: string[] = [];
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const stringList = parsed.map((item: any) => {
-          if (typeof item === 'string') return item.trim().toUpperCase();
-          if (item && typeof item === 'object') return (item.name || item.nome || item.descricao || '').trim().toUpperCase();
+      if (Array.isArray(parsed)) {
+        rawList = parsed.map((item: any) => {
+          if (typeof item === 'string') return normalizeStockServiceName(item);
+          if (item && typeof item === 'object') return normalizeStockServiceName(item.name || item.nome || item.descricao || '');
           return '';
         }).filter(Boolean);
-
-        const merged = Array.from(new Set([...DEFAULT_STOCK_SERVICES, ...stringList]));
-        return merged;
       }
     }
+
+    const consolidated = Array.from(new Set([
+      ...DEFAULT_STOCK_SERVICES,
+      ...serviceItemsFromStock,
+      ...rawList
+    ])).map(s => s.trim().toUpperCase());
+
+    try {
+      localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(consolidated));
+      localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(consolidated));
+    } catch (_) {}
+
+    return consolidated;
   } catch (e) {
     console.warn('Erro ao carregar serviços de estoque:', e);
+    return DEFAULT_STOCK_SERVICES;
   }
-
-  try {
-    localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(DEFAULT_STOCK_SERVICES));
-    localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(DEFAULT_STOCK_SERVICES));
-  } catch (_) {}
-  return DEFAULT_STOCK_SERVICES;
 }
 
 export function saveStoredStockServices(services: string[]): void {
   try {
-    const upperList = Array.from(new Set(services.map(s => s.trim().toUpperCase()).filter(Boolean)));
+    const upperList = Array.from(new Set(services.map(s => normalizeStockServiceName(s.trim().toUpperCase())).filter(Boolean)));
     localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(upperList));
     localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(upperList));
     window.dispatchEvent(new CustomEvent('colaca_silagem_servicos_estoque_updated', { detail: upperList }));
+
+    // Garante que novos serviços fiquem também registrados na tabela principal de produtos do estoque
+    const currentInv = getStoredInventory();
+    let changed = false;
+    const updatedInv = [...currentInv];
+    for (const srvName of upperList) {
+      const exists = updatedInv.some(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase() === srvName);
+      if (!exists) {
+        changed = true;
+        const codeSuffix = srvName.replace(/[^A-Z0-9]/g, '').slice(0, 8);
+        updatedInv.push({
+          id: `srv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          code: `SRV-${codeSuffix}`,
+          codigo_produto: `SRV-${codeSuffix}`,
+          name: srvName,
+          nome: srvName,
+          nome_comercial: srvName,
+          category: 'SERVIÇO',
+          categoria: 'SERVIÇO',
+          tipo_item: 'SERVIÇO',
+          unit: 'UN',
+          unidade_medida: 'UN',
+          quantity: 0,
+          quantidade_atual: 0,
+          minQuantity: 0,
+          unitCost: 0,
+          preco_custo_inicial: 0,
+          custo_nominal: 0,
+          salePrice: 0,
+          preco_venda_varejo: 0,
+          preco_venda: 0,
+          profitMargin: 0,
+          location: 'PRESTAÇÃO DE SERVIÇOS',
+          localizacao_fisica: 'PRESTAÇÃO DE SERVIÇOS',
+          fiscalGroup: 'ISENTO',
+          grupo_fiscal: 'ISENTO',
+          ipiGroup: 'NAO TRIBUTADO',
+          grupo_ipi: 'NAO TRIBUTADO',
+          sem_gtin: true,
+          hasNoGtin: true,
+          barcode: 'SEM GTIN',
+          codigo_barras: 'SEM GTIN',
+        } as InventoryItem);
+      }
+    }
+    if (changed) {
+      saveStoredInventory(updatedInv);
+    }
   } catch (e) {
     console.warn('Erro ao salvar serviços de estoque:', e);
   }
@@ -1990,7 +2183,11 @@ export function getStoredVehicleTypes(): VehicleTypeDefinition[] {
     if (!raw) return INITIAL_VEHICLE_TYPES;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_VEHICLE_TYPES;
-    return parsed;
+    return parsed.map((t: any) => ({
+      ...t,
+      name: t.name || 'Tipo de Veículo',
+      categoryKey: t.categoryKey || 'personalizado',
+    }));
   } catch (e) {
     console.error('Failed to load vehicle types', e);
     return INITIAL_VEHICLE_TYPES;

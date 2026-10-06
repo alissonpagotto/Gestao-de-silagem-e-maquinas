@@ -117,9 +117,11 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
     // Busca correspondência de configuração de eixos por código, nome ou (eixos + pneus)
     const matched = axleConfigsList.find(
       (p) =>
-        p.key === t.defaultAxleConfig.code ||
-        p.label.toLowerCase() === (t.defaultAxleConfig.name || '').toLowerCase() ||
-        (p.totalAxles === t.defaultAxleConfig.totalAxles && p.totalTires === t.defaultAxleConfig.totalTires)
+        p && t?.defaultAxleConfig && (
+          p.key === t.defaultAxleConfig.code ||
+          String(p.label || '').toLowerCase() === String(t.defaultAxleConfig.name || '').toLowerCase() ||
+          (p.totalAxles === t.defaultAxleConfig.totalAxles && p.totalTires === t.defaultAxleConfig.totalTires)
+        )
     );
     if (matched) {
       setSelectedPresetKey(matched.key);
@@ -154,6 +156,7 @@ export const VehicleTypesConfigModal: React.FC<VehicleTypesConfigModalProps> = (
           return {
             ...t,
             name: typeName.trim(),
+            categoryKey: t.categoryKey || 'personalizado',
             description: typeDescription.trim(),
             defaultAxleConfig: chosenPreset.config,
           };

@@ -705,6 +705,7 @@ export interface InventoryItem {
   ipiGroup?: 'NAO TRIBUTADO' | 'TRIBUTADO' | string; // Grupo IPI
   gallonSizeLiters?: number; // Tamanho do galão em litros (padrão: 20L)
   volume_litros_embalagem?: number; // Volume por embalagem em litros para conversão automática
+  tipo_item?: 'PRODUTO' | 'SERVIÇO' | string; // Tipo do item (PRODUTO físico ou SERVIÇO) para classificação contábil e fiscal
   // Aliases em português para integração direta com a tabela 'estoque' / 'estoque_produtos'
   codigo_produto?: string; // Coluna real da tabela estoque_produtos
   nome_comercial?: string; // Coluna real da tabela estoque_produtos

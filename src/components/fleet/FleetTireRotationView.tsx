@@ -335,14 +335,15 @@ function resolveVehicleAxleConfig(
   const combined = `${tipoStr} ${nomeStr} ${modeloStr}`;
 
   // 3. Prioridade C: Cruzamento com as configurações cadastradas na janela "Configurar Eixos" (tabela de tipos)
-  const matchedType = vTypes.find((vt) => {
-    const vtName = vt.name.toLowerCase();
-    const vtCat = vt.categoryKey.toLowerCase();
+  const matchedType = (vTypes || []).find((vt) => {
+    if (!vt) return false;
+    const vtName = String(vt.name || '').toLowerCase();
+    const vtCat = String(vt.categoryKey || '').toLowerCase();
     return (
       (vehicleRow.vehicleTypeId && vt.id === vehicleRow.vehicleTypeId) ||
-      tipoStr.includes(vtCat) ||
-      vtName.includes(tipoStr) ||
-      tipoStr.includes(vtName) ||
+      (vtCat && tipoStr.includes(vtCat)) ||
+      (vtName && tipoStr.includes(vtName)) ||
+      (vtName && vtName.includes(tipoStr) && tipoStr.length > 2) ||
       (isEnsiladeira(vehicleRow) && (vtName.includes('ensilad') || vtCat.includes('ensilad'))) ||
       (isReboque(vehicleRow) && (vtName.includes('reboque') || vtCat.includes('reboque'))) ||
       (isTratorAgricola(vehicleRow) && (vtName.includes('trator') || vtCat.includes('trator'))) ||
@@ -482,10 +483,10 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
               typeConfigFromDb = tData.find((tc: any) => 
                 (vTipoId && (tc.id === vTipoId || tc.tipo_id === vTipoId)) ||
-                (tc.nome && vTipo && tc.nome.toLowerCase() === vTipo) ||
-                (tc.tipo && vTipo && tc.tipo.toLowerCase() === vTipo) ||
-                (tc.categoria && vCat && tc.categoria.toLowerCase() === vCat) ||
-                (tc.name && vTipo && tc.name.toLowerCase() === vTipo)
+                (tc.nome && vTipo && String(tc.nome).toLowerCase() === vTipo) ||
+                (tc.tipo && vTipo && String(tc.tipo).toLowerCase() === vTipo) ||
+                (tc.categoria && vCat && String(tc.categoria).toLowerCase() === vCat) ||
+                (tc.name && vTipo && String(tc.name).toLowerCase() === vTipo)
               );
             }
           } catch (err) {
@@ -819,13 +820,14 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     const baseSource = (dbVehicles.length > 0 ? dbVehicles : machineries).filter((m) =>
       matchVehicleCategory(m, categoryFilter)
     );
+    const q = String(searchQuery || '').trim().toLowerCase();
     return baseSource.filter((m) => {
-      const matchSearch = 
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (m.model && m.model.toLowerCase().includes(searchQuery.toLowerCase()));
+      if (!m) return false;
+      const mName = String(m.name || '').toLowerCase();
+      const mPlate = String(m.licensePlateOrSerial || '').toLowerCase();
+      const mModel = String(m.model || '').toLowerCase();
 
-      return matchSearch;
+      return !q || mName.includes(q) || mPlate.includes(q) || mModel.includes(q);
     });
   }, [dbVehicles, machineries, categoryFilter, searchQuery]);
 

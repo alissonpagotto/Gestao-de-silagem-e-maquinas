@@ -32,9 +32,9 @@ interface FleetVehiclesViewProps {
 }
 
 export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
-  machineries,
-  fuelLogs,
-  maintenanceLogs,
+  machineries = [],
+  fuelLogs = [],
+  maintenanceLogs = [],
   employees = [],
   services = [],
   orders = [],
@@ -71,29 +71,31 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   // Filter machineries
   const availableCategories = useMemo(() => {
     const fromStorage = getStoredVehicleSystemCategories();
-    const fromMachines = machineries.map(m => m.categoryType).filter(Boolean) as string[];
+    const fromMachines = (machineries || []).filter(Boolean).map(m => m.categoryType).filter(Boolean) as string[];
     const set = new Set([...fromStorage, ...fromMachines]);
     return Array.from(set);
   }, [machineries]);
 
   const availableRegimes = useMemo(() => {
     const fromStorage = getStoredVehicleOwnershipRegimes();
-    const fromMachines = machineries.map(m => m.ownership).filter(Boolean) as string[];
+    const fromMachines = (machineries || []).filter(Boolean).map(m => m.ownership).filter(Boolean) as string[];
     const set = new Set([
       ...fromStorage,
       ...fromMachines.map(o => {
-        if (o === 'proprio') return 'Próprio';
-        if (o === 'terceirizado') return 'De Terceiros';
-        if (o === 'alugado') return 'Alugado / Locação';
-        if (o === 'arrendado') return 'Arrendado / Financiado';
-        return o;
+        if (!o) return 'Próprio';
+        const oLower = String(o).toLowerCase();
+        if (oLower === 'proprio' || oLower.includes('próprio')) return 'Próprio';
+        if (oLower === 'terceirizado' || oLower.includes('terceir')) return 'De Terceiros';
+        if (oLower === 'alugado' || oLower.includes('alug')) return 'Alugado / Locação';
+        if (oLower === 'arrendado' || oLower.includes('arrend')) return 'Arrendado / Financiado';
+        return String(o);
       })
     ]);
     return Array.from(set);
   }, [machineries]);
 
   const getOwnershipBadge = (ownership?: string) => {
-    const own = ownership || 'Próprio';
+    const own = String(ownership || 'Próprio');
     const ownLower = own.toLowerCase();
     
     if (ownLower === 'proprio' || ownLower.includes('próprio') || ownLower.includes('proprio')) {
@@ -128,10 +130,16 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
 
   // Helper para identificar a Categoria do Veículo e formatar a tag visual verde/destaque
   const getVehicleCategoryTag = (vehicle: Machinery) => {
-    const raw = (vehicle.categoryType || '').trim();
-    const detailed = (vehicle.vehicleTypeDetailed || '').trim();
-    const trailerType = (vehicle.trailerType || '').trim();
-    const compType = vehicle.compositionType || '';
+    if (!vehicle) {
+      return {
+        label: 'EQUIPAMENTO',
+        style: 'bg-emerald-100 text-emerald-950 dark:bg-emerald-950/70 dark:text-emerald-200 border-emerald-300/90 dark:border-emerald-700'
+      };
+    }
+    const raw = String(vehicle.categoryType || '').trim();
+    const detailed = String(vehicle.vehicleTypeDetailed || '').trim();
+    const trailerType = String(vehicle.trailerType || '').trim();
+    const compType = String(vehicle.compositionType || '');
 
     // Se possui reboque detalhado
     if (trailerType && (raw.toLowerCase().includes('reboque') || compType === 'reboque')) {
@@ -236,23 +244,42 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
   };
 
   const filteredVehicles = useMemo(() => {
-    return machineries.filter((m) => {
-      const matchSearch =
-        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (m.fleetNumber && m.fleetNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.licensePlateOrSerial && m.licensePlateOrSerial.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.serialNumber && m.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.categoryType && m.categoryType.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.operatorOrDriver && m.operatorOrDriver.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.renavam && m.renavam.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.brand && m.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.ownerName && m.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.ownerDocument && m.ownerDocument.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.vehicleTypeDetailed && m.vehicleTypeDetailed.toLowerCase().includes(searchTerm.toLowerCase()));
+    const list = Array.isArray(machineries) ? machineries : [];
+    const term = (searchTerm || '').trim().toLowerCase();
 
-      const catLower = (m.categoryType || '').toLowerCase();
-      const selLower = selectedCategory.toLowerCase();
+    return list.filter((m) => {
+      if (!m) return false;
+
+      const mName = String(m.name || '').toLowerCase();
+      const mModel = String(m.model || '').toLowerCase();
+      const mFleet = String(m.fleetNumber || '').toLowerCase();
+      const mPlate = String(m.licensePlateOrSerial || '').toLowerCase();
+      const mSerial = String(m.serialNumber || '').toLowerCase();
+      const mCategory = String(m.categoryType || '').toLowerCase();
+      const mDriver = String(m.operatorOrDriver || '').toLowerCase();
+      const mRenavam = String(m.renavam || '').toLowerCase();
+      const mBrand = String(m.brand || '').toLowerCase();
+      const mOwner = String(m.ownerName || '').toLowerCase();
+      const mDoc = String(m.ownerDocument || '').toLowerCase();
+      const mDetailed = String(m.vehicleTypeDetailed || '').toLowerCase();
+
+      const matchSearch =
+        !term ||
+        mName.includes(term) ||
+        mModel.includes(term) ||
+        mFleet.includes(term) ||
+        mPlate.includes(term) ||
+        mSerial.includes(term) ||
+        mCategory.includes(term) ||
+        mDriver.includes(term) ||
+        mRenavam.includes(term) ||
+        mBrand.includes(term) ||
+        mOwner.includes(term) ||
+        mDoc.includes(term) ||
+        mDetailed.includes(term);
+
+      const catLower = String(m.categoryType || '').toLowerCase();
+      const selLower = String(selectedCategory || 'todos').toLowerCase();
       const matchCategory =
         selectedCategory === 'todos' ||
         m.categoryType === selectedCategory ||
@@ -266,8 +293,8 @@ export const FleetVehiclesView: React.FC<FleetVehiclesViewProps> = ({
         (selectedCategory === 'onibus' && (catLower.includes('onibus') || catLower.includes('ônibus') || catLower.includes('van')));
       const matchStatus = selectedStatus === 'todos' || m.status === selectedStatus;
       
-      const ownLower = (m.ownership || 'próprio').toLowerCase();
-      const selOwnLower = selectedOwnership.toLowerCase();
+      const ownLower = String(m.ownership || 'próprio').toLowerCase();
+      const selOwnLower = String(selectedOwnership || 'todos').toLowerCase();
       const matchOwnership = 
         selectedOwnership === 'todos' || 
         m.ownership === selectedOwnership ||

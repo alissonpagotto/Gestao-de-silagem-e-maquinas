@@ -391,6 +391,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       else if (c.includes('sement') || c.includes('milho') || c.includes('sorgo') || c.includes('soja')) normalizedCat = 'Sementes';
       else if (c.includes('adubo') || c.includes('fertiliz') || c.includes('ureia') || c.includes('npk')) normalizedCat = 'Adubo & Fertilizante';
       else if (c.includes('peca') || c.includes('peça') || c.includes('manuten') || c.includes('filtro') || c.includes('faca') || c.includes('oleo') || c.includes('óleo')) normalizedCat = 'Peças & Manutenção';
+      else if (c.includes('servi') || initialData?.tipo_item === 'SERVIÇO') normalizedCat = 'SERVIÇO';
       else if (c.includes('outro')) normalizedCat = 'Outros Insumos';
 
       const matchedCat = storedCats.find(cat => cat.toLowerCase() === (normalizedCat || '').toLowerCase());
@@ -752,6 +753,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         nome_comercial: cleanNome,
         category: categoria || 'outro',
         categoria: categoria || 'outro',
+        tipo_item: (categoria === 'SERVIÇO' || (categoria || '').toUpperCase() === 'SERVIÇO') ? 'SERVIÇO' : (initialData?.tipo_item || 'PRODUTO'),
         unit: unidadeMedida.trim() || 'UN',
         unidade_medida: unidadeMedida.trim() || 'UN',
         brand: marca.trim() || undefined,

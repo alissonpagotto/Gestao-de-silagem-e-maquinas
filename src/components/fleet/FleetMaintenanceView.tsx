@@ -329,13 +329,22 @@ export const FleetMaintenanceView: React.FC<FleetMaintenanceViewProps> = ({
 
   // Filtered maintenance logs
   const filteredLogs = useMemo(() => {
+    const term = (searchTerm || '').trim().toLowerCase();
     return localLogs.filter((log) => {
+      if (!log) return false;
+      const plateOrName = String(log.machineryPlateOrName || '').toLowerCase();
+      const desc = String(log.description || '').toLowerCase();
+      const os = String(log.osNumber || '').toLowerCase();
+      const workshop = String(log.workshopOrMechanic || '').toLowerCase();
+      const cat = String(log.serviceCategory || '').toLowerCase();
+
       const matchSearch =
-        log.machineryPlateOrName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.osNumber && log.osNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        log.workshopOrMechanic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.serviceCategory.toLowerCase().includes(searchTerm.toLowerCase());
+        !term ||
+        plateOrName.includes(term) ||
+        desc.includes(term) ||
+        os.includes(term) ||
+        workshop.includes(term) ||
+        cat.includes(term);
 
       const matchVehicle = selectedVehicle === 'todos' || log.machineryId === selectedVehicle;
       const matchStatus = selectedStatus === 'todos' || log.status === selectedStatus;

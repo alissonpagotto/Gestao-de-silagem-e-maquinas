@@ -26,6 +26,7 @@ import {
   getStoredCompanyProfile,
   getStoredStockServices,
   saveStoredStockServices,
+  normalizeStockServiceName,
   DEFAULT_STOCK_SERVICES,
   STOCK_SERVICES_STORAGE_KEY
 } from '../../lib/storage';
@@ -172,7 +173,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const rawTires = getStoredPendingReformTires();
     return rawTires.map(t => ({
       ...t,
-      servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+      servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
       valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     }));
   });
@@ -198,7 +199,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       if (tires && tires.length > 0) {
         setPendingTires(tires.map(t => ({
           ...t,
-          servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+          servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
           valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
         })));
       }
@@ -207,7 +208,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
     const handleServicesSync = (e: any) => {
       if (e?.detail && Array.isArray(e.detail)) {
-        setStandardServices(e.detail);
+        setStandardServices(e.detail.map((s: string) => normalizeStockServiceName(s)));
       } else {
         setStandardServices(getStoredStockServices());
       }
@@ -221,7 +222,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       if (pTires.length > 0) {
         setPendingTires(pTires.map(t => ({
           ...t,
-          servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+          servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
           valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
         })));
       }
@@ -229,10 +230,12 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
     window.addEventListener('colaca_silagem_abrir_pedido_reforma', handleTrigger);
     window.addEventListener('colaca_silagem_servicos_estoque_updated', handleServicesSync);
+    window.addEventListener('colaca_silagem_estoque_produtos_updated', handleServicesSync);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('colaca_silagem_abrir_pedido_reforma', handleTrigger);
       window.removeEventListener('colaca_silagem_servicos_estoque_updated', handleServicesSync);
+      window.removeEventListener('colaca_silagem_estoque_produtos_updated', handleServicesSync);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -297,7 +300,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       vehicleName: t.vehicleName,
       notes: t.notes || t.motivo_reforma || '',
       motivo_reforma: t.motivo_reforma || t.notes || '',
-      servico_reforma: (t.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+      servico_reforma: normalizeStockServiceName(t.servico || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
       valor_reforma: t.valorUnitario !== undefined ? t.valorUnitario : 0,
       reformCost: t.valorUnitario !== undefined ? t.valorUnitario : 0,
     }));
@@ -320,7 +323,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const rawTires = getStoredPendingReformTires();
     setPendingTires(rawTires.map(t => ({
       ...t,
-      servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+      servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
       valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     })));
   };
@@ -411,7 +414,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
       notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
       motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
-      servico: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+      servico: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
       valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     }));
 
@@ -697,7 +700,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <td style="font-family: monospace; font-weight: bold;">${t.size || '295/80 R 22.5'}</td>
                 <td>${t.vehiclePlate || t.vehicleName || 'Frota Geral'}</td>
                 <td style="font-size: 8pt; color: #1e293b; font-weight: 600;">${(t.motivo_reforma || t.notes || 'REFORMA').toUpperCase()}</td>
-                <td style="font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: uppercase;">${(t.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase()}</td>
+                <td style="font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: uppercase;">${normalizeStockServiceName(t.servico || DEFAULT_STOCK_SERVICES[0]).toUpperCase()}</td>
                 <td style="text-align: right; font-family: monospace; font-weight: 900; font-size: 9pt; white-space: nowrap;">
                   ${t.valorUnitario !== undefined && t.valorUnitario !== null && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
                 </td>
@@ -958,7 +961,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       <th className="py-2.5 px-3 w-28">Medida</th>
                       <th className="py-2.5 px-3 w-28">Veículo / Placa</th>
                       <th className="py-2.5 px-3 min-w-[140px]">Problema / Observação</th>
-                      <th className="py-2.5 px-3 w-56 min-w-[200px] max-w-[250px]">Serviço a Fazer</th>
+                      <th className="py-2.5 px-3 w-64 min-w-[220px] max-w-[280px]">Serviço a Fazer</th>
                       <th className="py-2.5 px-3 w-36 text-right">Valor Unitário (R$)</th>
                       <th className="py-2.5 px-3 w-12 text-right">Ação</th>
                     </tr>
@@ -997,10 +1000,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               className="w-full px-2 py-1 text-xs border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase"
                             />
                           </td>
-                          <td className="py-2 px-3 w-56 min-w-[200px] max-w-[250px]">
+                          <td className="py-2 px-3 w-64 min-w-[220px] max-w-[280px]">
                             <select
-                              value={t.servico_reforma || DEFAULT_STOCK_SERVICES[0]}
+                              value={normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0])}
                               onChange={(e) => handleUpdateTireService(t.id, e.target.value)}
+                              title={normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0])}
                               className="w-full px-2 py-1 text-xs font-bold border border-amber-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase cursor-pointer truncate"
                             >
                               {standardServices.map((srv) => (
@@ -1109,7 +1113,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
                       notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
                       motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
-                      servico: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+                      servico: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
                       valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
                     })),
                     totalTires: pendingTires.length,
@@ -1182,7 +1186,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   const rawTires = getStoredPendingReformTires();
                   setPendingTires(rawTires.map(t => ({
                     ...t,
-                    servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
+                    servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
                     valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
                   })));
                   setIsCreatingNewOrder(true);
@@ -1397,7 +1401,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         <td className="py-2 px-2.5 font-mono text-amber-700 dark:text-amber-400 font-bold">{t.size || '295/80 R 22.5'}</td>
                         <td className="py-2 px-2.5 text-stone-600 dark:text-stone-400">{t.vehiclePlate || t.vehicleName || 'Frota'}</td>
                         <td className="py-2 px-2.5 text-stone-700 dark:text-stone-300 font-medium">{(t.motivo_reforma || t.notes || '-').toUpperCase()}</td>
-                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">{(t.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase()}</td>
+                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">{normalizeStockServiceName(t.servico || DEFAULT_STOCK_SERVICES[0]).toUpperCase()}</td>
                         <td className="py-2 px-2.5 text-right font-mono font-black text-stone-900 dark:text-stone-100">
                           {t.valorUnitario !== undefined && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
                         </td>
