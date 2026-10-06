@@ -1648,6 +1648,10 @@ export interface TireItem {
   installationHourMeter?: number;
   installationDate?: string;
   notes?: string;
+  // Veículo Vinculado
+  vehicleId?: string;
+  vehiclePlate?: string;
+  vehicleName?: string;
   // Informações de Reforma / Recape
   reformWorkshop?: string;
   reformSentDate?: string;

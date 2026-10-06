@@ -31,9 +31,10 @@ import {
   Landmark,
   CheckCircle,
   HelpCircle,
-  Lock
+  Lock,
+  CircleDot
 } from 'lucide-react';
-import { Machinery, Employee, FuelLog, MaintenanceLog, Expense, ServiceOrder, SilageOrder, PaymentMethod } from '../../types';
+import { Machinery, Employee, FuelLog, MaintenanceLog, Expense, ServiceOrder, SilageOrder, PaymentMethod, TireItem } from '../../types';
 import { 
   formatCurrencyBRL, 
   formatDateBR, 
@@ -48,6 +49,7 @@ import {
 import { calculateVehicleConsumptionMetrics } from '../../lib/fleetMetrics';
 import { toValidUUID, isSupabaseConfigured, supabase, upsertVeiculoMaquina } from '../../lib/supabaseService';
 import { VehicleCategoriesModal } from './VehicleCategoriesModal';
+import { VehicleTireSetupModal } from './VehicleTireSetupModal';
 
 function isCandidateTrailer(v: any): boolean {
   if (!v) return false;
@@ -277,6 +279,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
     numero_eixos: '',
     quantidade_pneus: '',
   });
+
+  // Controle e Configuração de Pneus Atuais no Veículo
+  const [isTireSetupModalOpen, setIsTireSetupModalOpen] = useState(false);
+  const [configuredTires, setConfiguredTires] = useState<TireItem[]>([]);
 
   // Serial Number (especially tractors/machines without renavam)
   const [serialNumber, setSerialNumber] = useState('');
@@ -834,6 +840,38 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         quantidade_pneus: initPneus,
       }));
 
+      // Carregamento de Pneus já configurados no Veículo
+      let initTires: TireItem[] = [];
+      if (editingVehicle.installedTires && Array.isArray(editingVehicle.installedTires) && editingVehicle.installedTires.length > 0) {
+        initTires = editingVehicle.installedTires;
+      } else {
+        try {
+          const raw = localStorage.getItem('colaca_silagem_frotas_pneus_estoque');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const targetId = editingVehicle.id;
+              const targetPlate = (editingVehicle.licensePlateOrSerial || (editingVehicle as any).placa || '').toUpperCase().trim();
+              const found = parsed.filter((t: any) => 
+                (targetId && t.vehicleId === targetId) ||
+                (targetPlate && (t.vehiclePlate || '').toUpperCase().trim() === targetPlate)
+              );
+              if (found.length > 0) {
+                initTires = found;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Erro ao carregar pneus vinculados:', err);
+        }
+      }
+      setConfiguredTires(initTires);
+      if (initTires.length > 0 && (!initPneus || initPneus === '0')) {
+        const countStr = String(initTires.length);
+        setQuantidadePneus(countStr);
+        setFormData(prev => ({ ...prev, quantidade_pneus: countStr }));
+      }
+
       // Serial
       setSerialNumber(editingVehicle.serialNumber || '');
 
@@ -970,6 +1008,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         numero_eixos: '',
         quantidade_pneus: '',
       });
+      setConfiguredTires([]);
 
       setSerialNumber('');
 
@@ -1391,6 +1430,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       quantidade_pneus: (quantidadePneus || formData.quantidade_pneus) ? parseInt(quantidadePneus || formData.quantidade_pneus, 10) : undefined,
       numeroEixos: (numeroEixos || formData.numero_eixos) ? parseInt(numeroEixos || formData.numero_eixos, 10) : undefined,
       quantidadePneus: (quantidadePneus || formData.quantidade_pneus) ? parseInt(quantidadePneus || formData.quantidade_pneus, 10) : undefined,
+      installedTires: configuredTires.length > 0 ? configuredTires : (editingVehicle?.installedTires || []),
 
       // Serial
       serialNumber: serialNumber.trim() || undefined,
@@ -2458,8 +2498,8 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                 </div>
               </div>
 
-              {/* Linha Técnica: Número de Eixos e Quantidade de Pneus organizados lado a lado na coluna da esquerda */}
-              <div className="pt-2 border-t border-zinc-100 flex flex-col sm:flex-row items-stretch gap-2.5">
+              {/* Linha Técnica: Número de Eixos e Quantidade de Pneus + Botão Interativo Configurar Pneus Atuais (Quadrado Azul) */}
+              <div className="pt-2 border-t border-zinc-100 flex flex-col sm:flex-row sm:items-end justify-between gap-2.5">
                 <div className="grid grid-cols-2 gap-2.5 sm:max-w-md w-full">
                   {/* 1. Número de Eixos */}
                   <div>
@@ -2504,6 +2544,30 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* 3. Botão de Engajamento e Status de Pneus (Quadrado Azul no print do cliente) */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    id="btn-configurar-pneus-atuais"
+                    onClick={() => setIsTireSetupModalOpen(true)}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-black rounded-lg bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white shadow-xs hover:shadow-md transition cursor-pointer select-none"
+                    title="Abrir o painel visual do rodízio de pneus para configurar os pneus deste veículo"
+                  >
+                    <span>⚙️ Configurar Pneus Atuais</span>
+                  </button>
+                  {configuredTires.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs whitespace-nowrap">
+                      <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-600" />
+                      Pneus Configurados ({configuredTires.length})
+                    </span>
+                  ) : (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                      <CircleDot className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                      Pneus Não Configurados
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -3205,6 +3269,28 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
         invoiceNumber={purchaseInvoiceNumber.trim()}
         financialInstitution={financialInstitution.trim()}
         onConfirmAndSave={handleConfirmPurchaseInstallments}
+      />
+
+      {/* Modal de Configuração de Pneus Atuais e Rodízio de Eixos */}
+      <VehicleTireSetupModal
+        isOpen={isTireSetupModalOpen}
+        onClose={() => setIsTireSetupModalOpen(false)}
+        vehicleName={`${brand.trim() || 'Veículo'} ${model.trim() || plate.trim() || 'Frota'}`.trim()}
+        vehiclePlate={(plate.trim() || serialNumber.trim() || fleetNumber.trim()).toUpperCase()}
+        vehicleType={categoryType || 'Caminhão'}
+        numeroEixos={numeroEixos || 2}
+        quantidadePneus={quantidadePneus || (configuredTires.length > 0 ? configuredTires.length : 4)}
+        vehicleKm={currentKm || hourMeter || 0}
+        vehicleId={editingVehicle?.id}
+        initialTires={configuredTires}
+        onSaveTires={(savedTires) => {
+          setConfiguredTires(savedTires);
+          if (savedTires.length > 0) {
+            const countStr = String(savedTires.length);
+            setQuantidadePneus(countStr);
+            setFormData(prev => ({ ...prev, quantidade_pneus: countStr }));
+          }
+        }}
       />
     </div>
   );

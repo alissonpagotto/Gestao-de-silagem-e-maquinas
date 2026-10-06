@@ -1949,7 +1949,10 @@ export function saveStoredTireRotationLogs(logs: TireRotationLog[]): void {
 
 export function getStoredTireInventory(): TireItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
+    let raw = localStorage.getItem('colaca_silagem_frotas_pneus_estoque');
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
+    }
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -1967,7 +1970,14 @@ export function getStoredTireInventory(): TireItem[] {
 
 export function saveStoredTireInventory(items: TireItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TIRE_INVENTORY, JSON.stringify(items));
+    const json = JSON.stringify(items);
+    localStorage.setItem(STORAGE_KEYS.TIRE_INVENTORY, json);
+    localStorage.setItem('colaca_silagem_frotas_pneus_estoque', json);
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('silagem_tire_inventory_updated', { detail: items }));
+      }, 0);
+    }
   } catch (e) {
     console.error('Failed to save tire inventory', e);
   }
