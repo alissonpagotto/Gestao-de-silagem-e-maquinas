@@ -116,17 +116,17 @@ export function applyTireSizeMask(val: string, prevVal: string = ''): string {
 
   if (isDeleting) {
     // Quando o usuário apaga com Backspace, remove os delimitadores suavemente sem travar
-    if (val.endsWith(' R') || val.endsWith(' R ') || val.endsWith(' ')) {
-      return val.replace(/\s*R?\s*$/, '');
+    if (val.endsWith(' R') || val.endsWith(' R ') || val.endsWith(' ') || val.endsWith(' r') || val.endsWith(' r ')) {
+      return val.replace(/\s*[Rr]?\s*$/, '').toUpperCase();
     }
     if (val.endsWith('/')) {
       return val.slice(0, -1);
     }
-    return val;
+    return val.toUpperCase();
   }
 
-  // Normalização de vírgula para ponto decimal
-  const normalized = val.replace(',', '.');
+  // Normalização de vírgula para ponto decimal e maiúsculas
+  const normalized = val.toUpperCase().replace(',', '.');
 
   // Extrai dígitos numéricos limpos
   const rawDigits = normalized.replace(/[^0-9]/g, '');
@@ -223,16 +223,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const handleAddBrand = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const clean = newBrandInput.trim();
+    const clean = newBrandInput.trim().toUpperCase();
     if (!clean) return;
-    if (!tireBrandOptions.some((b) => b.toLowerCase() === clean.toLowerCase())) {
+    if (!tireBrandOptions.some((b) => b.toUpperCase() === clean)) {
       const updated = [...tireBrandOptions, clean];
       setTireBrandOptions(updated);
       saveStoredTireBrands(updated);
       setTireBrand(clean);
       if (!marca) setMarca(clean);
     } else {
-      const existing = tireBrandOptions.find((b) => b.toLowerCase() === clean.toLowerCase()) || clean;
+      const existing = tireBrandOptions.find((b) => b.toUpperCase() === clean) || clean;
       setTireBrand(existing);
       if (!marca) setMarca(existing);
     }
@@ -378,7 +378,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const storedCats = getStoredInventoryCategories();
       setCategories(storedCats);
 
-      const initialName = initialData?.nome_comercial || initialData?.name || initialData?.nome || '';
+      const initialName = (initialData?.nome_comercial || initialData?.name || initialData?.nome || '').toUpperCase();
       setNome(initialName);
 
       const rawCat = (initialData?.category || initialData?.categoria || '').trim();
@@ -400,16 +400,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialUnit = (initialData?.unit || initialData?.unidade_medida || 'UN').toUpperCase();
       setUnidadeMedida(initialUnit);
 
-      setMarca(initialData?.brand || initialData?.marca || '');
+      setMarca((initialData?.brand || initialData?.marca || '').toUpperCase());
 
       const initialNoGtin = Boolean(initialData?.hasNoGtin ?? initialData?.sem_gtin ?? (initialData?.barcode === 'SEM GTIN'));
       setSemGtin(initialNoGtin);
 
-      const initialBar = initialNoGtin ? '' : (initialData?.barcode || initialData?.codigo_barras || '');
+      const initialBar = initialNoGtin ? '' : (initialData?.barcode || initialData?.codigo_barras || '').toUpperCase();
       setCodigoBarras(initialBar);
 
-      setRefFabrica(initialData?.factoryRef || initialData?.ref_fabrica || '');
-      setCodigoInterno(initialData?.code || (initialData as any)?.codigo_produto || '');
+      setRefFabrica((initialData?.factoryRef || initialData?.ref_fabrica || '').toUpperCase());
+      setCodigoInterno((initialData?.code || (initialData as any)?.codigo_produto || '').toUpperCase());
 
       // Fiscal
       const initialNcm = initialData?.ncm || initialData?.codigo_ncm || '';
@@ -512,21 +512,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialSetor = initialData?.estoque_setor || initialData?.setor || '';
       const initialRua = initialData?.estoque_rua || initialData?.rua || '';
       const initialEstante = initialData?.estoque_estante || initialData?.estante || '';
-      const initialNivel = initialData?.estoque_nivel || initialData?.nivel || '';
-      const initialBox = initialData?.estoque_box || initialData?.box || '';
+      const initialNivel = (initialData?.estoque_nivel || initialData?.nivel || '').toUpperCase();
+      const initialBox = (initialData?.estoque_box || initialData?.box || '').toUpperCase();
 
-      const rawAddr = (initialData?.endereco_formatado || initialData?.localizacao_fisica || initialData?.location || '').trim();
+      const rawAddr = (initialData?.endereco_formatado || initialData?.localizacao_fisica || initialData?.location || '').trim().toUpperCase();
       if (!initialSetor && !initialRua && rawAddr && rawAddr.includes('.')) {
         const splitted = rawAddr.split('.');
-        setSetor(splitted[0] || '');
-        setRua(splitted[1] || '');
-        setEstante(splitted[2] || '');
-        setNivel(splitted[3] || '');
-        setBox(splitted[4] || '');
+        setSetor(splitted[0]?.toUpperCase() || '');
+        setRua(splitted[1]?.toUpperCase() || '');
+        setEstante(splitted[2]?.toUpperCase() || '');
+        setNivel(splitted[3]?.toUpperCase() || '');
+        setBox(splitted[4]?.toUpperCase() || '');
       } else {
-        setSetor(initialSetor);
-        setRua(initialRua);
-        setEstante(initialEstante);
+        setSetor((initialData?.estoque_setor || initialData?.setor || '').toUpperCase());
+        setRua((initialData?.estoque_rua || initialData?.rua || '').toUpperCase());
+        setEstante((initialData?.estoque_estante || initialData?.estante || '').toUpperCase());
         setNivel(initialNivel);
         setBox(initialBox);
       }
@@ -536,15 +536,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
       // Inicialização dos parâmetros técnicos do pneu (Gestão de Frotas)
       const tireParams = initialData?.tireParameters;
-      const initialFire = tireParams?.fireNumber || initialData?.fireNumber || '';
-      const initialTireBrand = tireParams?.brand || initialData?.brand || initialData?.marca || '';
-      const initialTireModel = tireParams?.model || initialData?.tireModel || '';
-      const initialTireSize = tireParams?.size || initialData?.tireSize || '';
+      const initialFire = (tireParams?.fireNumber || initialData?.fireNumber || '').toUpperCase();
+      const initialTireBrand = (tireParams?.brand || initialData?.brand || initialData?.marca || '').toUpperCase();
+      const initialTireModel = (tireParams?.model || initialData?.tireModel || '').toUpperCase();
+      const initialTireSize = (tireParams?.size || initialData?.tireSize || '').toUpperCase();
       const initialTread = tireParams?.treadDepthMm ?? initialData?.treadDepthMm ?? 12.0;
       const initialRetread = tireParams?.retreadCount ?? initialData?.retreadCount ?? 0;
       const initialPressure = tireParams?.pressurePsi ?? initialData?.pressurePsi ?? 110;
       const initialKm = tireParams?.currentKm ?? initialData?.currentKm ?? '';
-      const initialTireNotes = tireParams?.notes || initialData?.tireNotes || '';
+      const initialTireNotes = (tireParams?.notes || initialData?.tireNotes || '').toUpperCase();
 
       setTireFireNumber(initialFire);
       setTireBrand(initialTireBrand);
@@ -562,7 +562,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   // Gerenciamento de NCM com máscara 0000.00.00
   const handleNcmChange = (raw: string) => {
-    setCodigoNcm(formatNcmMask(raw));
+    setCodigoNcm(formatNcmMask(raw.toUpperCase()));
   };
 
   // Tratamento e cálculo dinâmico de Custo Nominal (R$)
@@ -816,26 +816,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         volume_litros_embalagem: parsedGallonLiters,
         // Parâmetros Técnicos do Pneu (Gestão de Frotas)
         tireParameters: isPneuCategory ? {
-          fireNumber: tireFireNumber.trim(),
-          brand: tireBrand.trim() || marca.trim() || 'Michelin',
-          model: tireModel.trim() || undefined,
-          size: tireSize.trim() || undefined,
+          fireNumber: tireFireNumber.trim().toUpperCase(),
+          brand: (tireBrand.trim() || marca.trim() || 'Michelin').toUpperCase(),
+          model: tireModel.trim() ? tireModel.trim().toUpperCase() : undefined,
+          size: tireSize.trim() ? tireSize.trim().toUpperCase() : undefined,
           treadDepthMm: parseFloat(tireTreadDepthMm) || 12.0,
           originalTreadDepthMm: 18.0,
           retreadCount: tireRetreadCount,
           pressurePsi: parseFloat(tirePressurePsi) || 110,
           currentKm: parseFloat(tireCurrentKm) || 0,
-          notes: tireNotes.trim() || undefined,
+          notes: tireNotes.trim() ? tireNotes.trim().toUpperCase() : undefined,
         } : undefined,
-        fireNumber: isPneuCategory ? tireFireNumber.trim() : undefined,
+        fireNumber: isPneuCategory ? tireFireNumber.trim().toUpperCase() : undefined,
         treadDepthMm: isPneuCategory ? (parseFloat(tireTreadDepthMm) || 12.0) : undefined,
         originalTreadDepthMm: isPneuCategory ? 18.0 : undefined,
         retreadCount: isPneuCategory ? tireRetreadCount : undefined,
         pressurePsi: isPneuCategory ? (parseFloat(tirePressurePsi) || 110) : undefined,
         currentKm: isPneuCategory ? (parseFloat(tireCurrentKm) || 0) : undefined,
-        tireModel: isPneuCategory ? (tireModel.trim() || undefined) : undefined,
-        tireSize: isPneuCategory ? (tireSize.trim() || undefined) : undefined,
-        tireNotes: isPneuCategory ? (tireNotes.trim() || undefined) : undefined,
+        tireModel: isPneuCategory ? (tireModel.trim() ? tireModel.trim().toUpperCase() : undefined) : undefined,
+        tireSize: isPneuCategory ? (tireSize.trim() ? tireSize.trim().toUpperCase() : undefined) : undefined,
+        tireNotes: isPneuCategory ? (tireNotes.trim() ? tireNotes.trim().toUpperCase() : undefined) : undefined,
         createdAt: initialData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -846,7 +846,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       if (isPneuCategory && tireFireNumber.trim()) {
         try {
           const currentTireInv = getStoredTireInventory();
-          const cleanFire = tireFireNumber.trim();
+          const cleanFire = tireFireNumber.trim().toUpperCase();
           const existingIdx = currentTireInv.findIndex(
             (t) => (t.fireNumber || '').trim().toLowerCase() === cleanFire.toLowerCase() || t.id === `tire_${prodId}`
           );
@@ -855,17 +855,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             id: existingIdx >= 0 ? currentTireInv[existingIdx].id : `tire_inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             position: 'estoque',
             positionName: 'Estoque / Disponível',
-            fireNumber: cleanFire,
-            brand: tireBrand.trim() || marca.trim() || 'Michelin',
-            model: tireModel.trim() || cleanNome,
-            size: tireSize.trim() || '295/80 R22.5',
+            fireNumber: cleanFire.toUpperCase(),
+            brand: (tireBrand.trim() || marca.trim() || 'Michelin').toUpperCase(),
+            model: (tireModel.trim() || cleanNome).toUpperCase(),
+            size: (tireSize.trim() || '295/80 R 22.5').toUpperCase(),
             treadDepthMm: parseFloat(tireTreadDepthMm) || 12.0,
             originalTreadDepthMm: 18.0,
             pressurePsi: parseFloat(tirePressurePsi) || 110,
             status: 'estoque',
             retreadCount: tireRetreadCount,
             currentKm: parseFloat(tireCurrentKm) || 0,
-            notes: tireNotes.trim() || undefined,
+            notes: tireNotes.trim() ? tireNotes.trim().toUpperCase() : undefined,
           };
 
           let updatedTireInv: TireItem[];
@@ -1043,9 +1043,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           type="text"
                           required
                           value={nome}
-                          onChange={(e) => setNome(e.target.value)}
-                          placeholder="Ex: Óleo Diesel S10, Pneu 295/80..."
-                          className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          onChange={(e) => setNome(e.target.value.toUpperCase())}
+                          placeholder="EX: ÓLEO DIESEL S10, PNEU 295/80..."
+                          className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
 
@@ -1056,9 +1056,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         <input
                           type="text"
                           value={codigoInterno}
-                          onChange={(e) => setCodigoInterno(e.target.value)}
+                          onChange={(e) => setCodigoInterno(e.target.value.toUpperCase())}
                           placeholder="PRD-001"
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
                     </div>
@@ -1150,9 +1150,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         <input
                           type="text"
                           value={marca}
-                          onChange={(e) => setMarca(e.target.value)}
-                          placeholder="Ex: Michelin, Pirelli..."
-                          className="w-full h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          onChange={(e) => setMarca(e.target.value.toUpperCase())}
+                          placeholder="EX: MICHELIN, PIRELLI..."
+                          className="w-full h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
                     </div>
@@ -1187,9 +1187,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             inputMode="numeric"
                             disabled={semGtin}
                             value={semGtin ? 'SEM GTIN' : codigoBarras}
-                            onChange={(e) => setCodigoBarras(e.target.value.replace(/\D/g, '').slice(0, 14))}
-                            placeholder={semGtin ? 'Sem GTIN' : '7891234567890'}
-                            className={`w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono rounded-lg border transition ${
+                            onChange={(e) => setCodigoBarras(e.target.value.toUpperCase().replace(/\D/g, '').slice(0, 14))}
+                            placeholder={semGtin ? 'SEM GTIN' : '7891234567890'}
+                            className={`w-full h-7.5 pl-7 pr-2 py-1 text-xs font-mono rounded-lg border transition uppercase ${
                               semGtin 
                                 ? 'bg-stone-100 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 text-stone-400 cursor-not-allowed italic'
                                 : 'bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none font-semibold'
@@ -1205,9 +1205,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         <input
                           type="text"
                           value={refFabrica}
-                          onChange={(e) => setRefFabrica(e.target.value)}
-                          placeholder="Ex: 2AT-06"
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          onChange={(e) => setRefFabrica(e.target.value.toUpperCase())}
+                          placeholder="EX: 2AT-06"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
                     </div>
@@ -1237,10 +1237,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <input
                               type="text"
                               value={tireFireNumber}
-                              onChange={(e) => setTireFireNumber(e.target.value)}
-                              placeholder="Ex: #0920 ou P-115"
+                              onChange={(e) => setTireFireNumber(e.target.value.toUpperCase())}
+                              placeholder="EX: #0920 OU P-115"
                               required={isPneuCategory}
-                              className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                              className="w-full h-7.5 px-2 py-1 text-xs font-bold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition uppercase"
                             />
                           </div>
                           <div className="col-span-6 flex flex-col justify-end">
@@ -1254,7 +1254,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                   setTireBrand(e.target.value);
                                   if (!marca) setMarca(e.target.value);
                                 }}
-                                className="flex-1 min-w-0 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+                                className="flex-1 min-w-0 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition uppercase"
                               >
                                 <option value="">Selecione...</option>
                                 {tireBrandOptions.map((b) => (
@@ -1301,16 +1301,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                   <div className="flex gap-1 mb-1.5">
                                     <input
                                       type="text"
-                                      placeholder="Nome da marca..."
+                                      placeholder="NOME DA MARCA..."
                                       value={newBrandInput}
-                                      onChange={(e) => setNewBrandInput(e.target.value)}
+                                      onChange={(e) => setNewBrandInput(e.target.value.toUpperCase())}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                           e.preventDefault();
                                           handleAddBrand();
                                         }
                                       }}
-                                      className="flex-1 h-6.5 px-1.5 text-xs rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-rose-500"
+                                      className="flex-1 h-6.5 px-1.5 text-xs rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-rose-500 uppercase"
                                       autoFocus
                                     />
                                     <button
@@ -1393,9 +1393,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <input
                               type="text"
                               value={tireModel}
-                              onChange={(e) => setTireModel(e.target.value)}
-                              placeholder="Ex: X Multi Z / KMAX"
-                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                              onChange={(e) => setTireModel(e.target.value.toUpperCase())}
+                              placeholder="EX: X MULTI Z / KMAX"
+                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition uppercase"
                             />
                           </div>
                           <div className="col-span-6 flex flex-col justify-end">
@@ -1406,12 +1406,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               type="text"
                               value={tireSize}
                               onChange={(e) => {
-                                const masked = applyTireSizeMask(e.target.value, tireSize);
-                                setTireSize(masked);
+                                const masked = applyTireSizeMask(e.target.value.toUpperCase(), tireSize);
+                                setTireSize(masked.toUpperCase());
                               }}
-                              placeholder="Ex: 295/80 R 22.5"
+                              placeholder="EX: 295/80 R 22.5"
                               maxLength={16}
-                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition font-mono font-bold"
+                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition font-mono font-bold uppercase"
                             />
                           </div>
                         </div>
@@ -1441,7 +1441,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <select
                               value={tireRetreadCount}
                               onChange={(e) => setTireRetreadCount(parseInt(e.target.value) || 0)}
-                              className="w-full h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+                              className="w-full h-7.5 px-1.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer transition uppercase"
                             >
                               <option value={0}>0 (Novo)</option>
                               <option value={1}>1ª Recap.</option>
@@ -1484,9 +1484,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             <input
                               type="text"
                               value={tireNotes}
-                              onChange={(e) => setTireNotes(e.target.value)}
-                              placeholder="Ex: Pneu novo adquirido na NF..."
-                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition"
+                              onChange={(e) => setTireNotes(e.target.value.toUpperCase())}
+                              placeholder="EX: PNEU NOVO ADQUIRIDO NA NF..."
+                              className="w-full h-7.5 px-2 py-1 text-xs rounded-lg border border-rose-200 dark:border-rose-900/70 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-rose-500 transition uppercase"
                             />
                           </div>
                         </div>
@@ -1523,7 +1523,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           onChange={(e) => handleNcmChange(e.target.value)}
                           placeholder="0000.00.00"
                           maxLength={10}
-                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
+                          className="w-full h-7.5 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition uppercase"
                         />
                       </div>
 
