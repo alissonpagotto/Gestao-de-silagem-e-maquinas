@@ -2296,19 +2296,145 @@ export function saveStoredTireRotationLogs(logs: TireRotationLog[]): void {
 
 export function getStoredTireInventory(): TireItem[] {
   try {
-    let raw = localStorage.getItem('colaca_silagem_frotas_pneus_estoque');
-    if (!raw) {
-      raw = localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
+    const installedTireIds = new Set<string>();
+    const installedFireNumbers = new Set<string>();
+
+    // 1. Identifica pneus já montados em eixos da frota
+    try {
+      const machineries = getStoredMachineries();
+      for (const m of machineries) {
+        if (m && Array.isArray(m.installedTires)) {
+          for (const t of m.installedTires) {
+            if (t?.id) installedTireIds.add(t.id);
+            const fn = (t?.fireNumber || '').trim().toUpperCase();
+            if (fn) installedFireNumbers.add(fn);
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Pneus em reforma ou descartados não devem nascer disponíveis no estoque livre
+    try {
+      const inReform = getStoredTiresInReform();
+      for (const t of inReform) {
+        if (t?.id) installedTireIds.add(t.id);
+        const fn = (t?.fireNumber || '').trim().toUpperCase();
+        if (fn) installedFireNumbers.add(fn);
+      }
+      const discarded = getStoredTiresDiscarded();
+      for (const t of discarded) {
+        if (t?.id) installedTireIds.add(t.id);
+        const fn = (t?.fireNumber || '').trim().toUpperCase();
+        if (fn) installedFireNumbers.add(fn);
+      }
+    } catch (_) {}
+
+    const result: TireItem[] = [];
+    const seenIds = new Set<string>();
+    const seenFireNumbers = new Set<string>();
+
+    // 2. Lê produtos da tabela global de Estoque ('colaca_silagem_estoque_produtos')
+    const rawStock = localStorage.getItem('colaca_silagem_estoque_produtos') || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    if (rawStock) {
+      try {
+        const stockItems = JSON.parse(rawStock);
+        if (Array.isArray(stockItems)) {
+          // 1. CORRIGIR A CONDIÇÃO DE FILTRAGEM DO ESTOQUE (case-insensitive):
+          const tireProducts = stockItems.filter((item: any) => {
+            if (!item) return false;
+            const cat = item.categoria || item.category;
+            return cat?.toUpperCase() === "PNEUS" || cat === "Pneus";
+          });
+
+          for (const item of tireProducts) {
+            // 2. LEITURA REATIVA DE QUANTIDADE DISPONÍVEL (UNIDADES):
+            const saldo = Number(
+              item.quantidade_atual !== undefined ? item.quantidade_atual :
+              item.quantity !== undefined ? item.quantity :
+              item.unidades !== undefined ? item.unidades :
+              item.quantidade !== undefined ? item.quantidade : 0
+            ) || 0;
+
+            if (saldo <= 0) continue;
+
+            const rawName = (item.nome_comercial || item.name || item.nome || 'PNEU').trim();
+            const rawCode = (item.codigo_produto || item.code || item.ref_fabrica || item.fireNumber || item.id || '').trim();
+            const cleanFire = (rawCode || `#${rawName.replace(/\D/g, '').slice(-4) || 'PNEU'}`).toUpperCase();
+            const rawBrand = (item.brand || item.marca || '').trim() || (rawName.toUpperCase().includes('MICHEL') ? 'MICHELIN' : (rawName.toUpperCase().includes('GOOD') ? 'GOODYEAR' : rawName));
+            const rawSize = (item.size || item.medida || item.dimensao || item.tireSize || '').trim() || '295/80 R 22.5';
+            const rawTread = Number(item.treadDepthMm ?? item.tireTreadDepthMm) || 14.0;
+
+            const unitsCount = Math.max(1, Math.floor(saldo));
+            for (let u = 0; u < unitsCount; u++) {
+              const tireId = unitsCount > 1 ? `${item.id || rawCode}_u${u + 1}` : (item.id || `tire_${rawCode}`);
+              const fireNumber = unitsCount > 1 ? `${cleanFire}-${u + 1}` : cleanFire;
+              const fireUpper = fireNumber.toUpperCase();
+
+              // Se já está montado em veículo, em reforma ou descarte, não exibe
+              if (installedTireIds.has(tireId) || installedFireNumbers.has(fireUpper)) continue;
+              if (seenIds.has(tireId) || seenFireNumbers.has(fireUpper)) continue;
+
+              seenIds.add(tireId);
+              seenFireNumbers.add(fireUpper);
+
+              result.push({
+                id: tireId,
+                position: 'estoque',
+                positionName: 'Estoque / Disponível',
+                fireNumber: fireNumber,
+                brand: rawBrand,
+                model: rawName,
+                size: rawSize,
+                treadDepthMm: rawTread,
+                originalTreadDepthMm: 18.0,
+                pressurePsi: 110,
+                status: 'estoque',
+                retreadCount: Number(item.retreadCount) || 0,
+                currentKm: 0,
+                notes: item.notes || item.tireNotes,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao processar produtos de estoque de pneus:', err);
+      }
     }
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(t => 
-      t && 
-      !['#0329', '#0294', '0329', '0294'].includes(t.fireNumber) &&
-      !(t.model && ['X Multi Z', 'G:81', 'KMAX'].some(m => (t.model || '').toLowerCase().includes(m.toLowerCase()))) &&
-      !t.id?.includes('mock')
-    );
+
+    // 3. Mescla pneus desmontados / avulsos no estoque de frotas
+    const rawFleet = localStorage.getItem('colaca_silagem_frotas_pneus_estoque') || localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
+    if (rawFleet) {
+      try {
+        const fleetItems = JSON.parse(rawFleet);
+        if (Array.isArray(fleetItems)) {
+          for (const t of fleetItems) {
+            if (!t || !t.id) continue;
+            // Ignora pneus com vínculo ativo de veículo
+            if (t.vehicleId || t.vehiclePlate) {
+              installedTireIds.add(t.id);
+              if (t.fireNumber) installedFireNumbers.add(t.fireNumber.trim().toUpperCase());
+              continue;
+            }
+            if (t.position && t.position !== 'estoque') continue;
+            if (t.status && t.status !== 'estoque') continue;
+
+            const fn = (t.fireNumber || '').trim().toUpperCase();
+            if (fn && (installedFireNumbers.has(fn) || seenFireNumbers.has(fn))) continue;
+            if (seenIds.has(t.id) || installedTireIds.has(t.id)) continue;
+            if (['#0329', '#0294', '0329', '0294'].includes(fn)) continue;
+            if (t.id.includes('mock')) continue;
+
+            seenIds.add(t.id);
+            if (fn) seenFireNumbers.add(fn);
+            result.push(t);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar pneus de frotas:', err);
+      }
+    }
+
+    return result;
   } catch (e) {
     console.error('Failed to load tire inventory', e);
     return [];

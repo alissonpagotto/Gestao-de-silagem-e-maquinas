@@ -692,19 +692,23 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     saveStoredTireInventory(tireInventory);
   }, [tireInventory]);
 
-  // Sincronização reativa quando novos pneus são cadastrados via Notas e Entradas
+  // Sincronização reativa quando novos pneus são cadastrados via Estoque ou Notas e Entradas
   useEffect(() => {
-    const handleTireInvUpdated = (e: any) => {
-      if (e.detail && Array.isArray(e.detail)) {
+    const handleTireInvUpdated = (e?: any) => {
+      if (e?.detail && Array.isArray(e.detail) && e.detail.length > 0 && e.detail[0]?.fireNumber) {
         setTireInventory(e.detail);
       } else {
         setTireInventory(getStoredTireInventory());
       }
     };
     window.addEventListener('tire_inventory_updated', handleTireInvUpdated);
+    window.addEventListener('silagem_tire_inventory_updated', handleTireInvUpdated);
+    window.addEventListener('colaca_silagem_estoque_produtos_updated', handleTireInvUpdated);
     window.addEventListener('storage', handleTireInvUpdated);
     return () => {
       window.removeEventListener('tire_inventory_updated', handleTireInvUpdated);
+      window.removeEventListener('silagem_tire_inventory_updated', handleTireInvUpdated);
+      window.removeEventListener('colaca_silagem_estoque_produtos_updated', handleTireInvUpdated);
       window.removeEventListener('storage', handleTireInvUpdated);
     };
   }, []);
@@ -1779,8 +1783,10 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                             <span className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">
                               {item.fireNumber}
                             </span>
-                            <span className="text-[10px] text-stone-500 truncate">
-                              • {item.brand} {item.model || ''}
+                            <span className="text-[10px] text-stone-500 truncate" title={`${item.brand || ''} ${item.model || ''}`}>
+                              • {item.brand && item.model && item.model.trim().toLowerCase() !== item.brand.trim().toLowerCase()
+                                  ? `${item.brand} ${item.model}`
+                                  : (item.brand || item.model || 'Pneu')}
                             </span>
                           </div>
                           <p className="text-[10px] text-stone-400 truncate">
