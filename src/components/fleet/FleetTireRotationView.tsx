@@ -1001,7 +1001,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       reformSentDate: new Date().toISOString().split('T')[0],
       reformWorkshop: 'Recapadora Credenciada',
       reformCost: 0,
-      motivo_reforma: tire.motivo_reforma || '',
+      motivo_reforma: (tire.motivo_reforma || '').toUpperCase(),
+      servico_reforma: tire.servico_reforma || 'RECAPAGEM / REPROMISSÃO DE BANDA',
+      valor_reforma: tire.valor_reforma || 0,
       vehicleId: selectedVehicle?.id,
       vehiclePlate: selectedVehicle?.licensePlateOrSerial,
       vehicleName: selectedVehicle?.name,
@@ -1019,8 +1021,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
   // 3.0.1 Atualizar Motivo da Reforma digitado pelo operador
   const handleUpdateMotivoReforma = (tireId: string, motivo: string) => {
+    const upper = motivo.toUpperCase();
     setTiresInReform((prev) => {
-      const updated = prev.map((t) => (t.id === tireId ? { ...t, motivo_reforma: motivo, notes: motivo } : t));
+      const updated = prev.map((t) => (t.id === tireId ? { ...t, motivo_reforma: upper, notes: upper } : t));
       try {
         localStorage.setItem('colaca_silagem_pneus_aguardando_pedido', JSON.stringify(updated));
       } catch {}
@@ -1119,8 +1122,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
   // 4.1 Atualizar Motivo do Descarte / Sucata digitado pelo operador
   const handleUpdateMotivoDescarte = (tireId: string, motivo: string) => {
+    const upper = motivo.toUpperCase();
     setTiresPendingDiscard((prev) => {
-      const updated = prev.map((t) => (t.id === tireId ? { ...t, motivo_descarte: motivo, discardReason: motivo, discardNotes: motivo } : t));
+      const updated = prev.map((t) => (t.id === tireId ? { ...t, motivo_descarte: upper, discardReason: upper, discardNotes: upper } : t));
       try {
         localStorage.setItem('colaca_silagem_pneus_aguardando_descarte', JSON.stringify(updated));
       } catch {}
@@ -1921,9 +1925,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                       <input
                         type="text"
                         value={item.motivo_reforma || ''}
-                        onChange={(e) => handleUpdateMotivoReforma(item.id, e.target.value)}
+                        onChange={(e) => handleUpdateMotivoReforma(item.id, e.target.value.toUpperCase())}
                         placeholder="Ex: Descolou a banda, sulco baixo, etc..."
-                        className="py-1 px-2 text-xs border border-gray-200 dark:border-stone-700 rounded w-full mt-1.5 focus:ring-1 focus:ring-amber-500 focus:outline-none bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400"
+                        className="py-1 px-2 text-xs border border-gray-200 dark:border-stone-700 rounded w-full mt-1.5 focus:ring-1 focus:ring-amber-500 focus:outline-none bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 uppercase"
                       />
                     </div>
                   </div>
@@ -2087,9 +2091,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                       <input
                         type="text"
                         value={item.motivo_descarte || ''}
-                        onChange={(e) => handleUpdateMotivoDescarte(item.id, e.target.value)}
+                        onChange={(e) => handleUpdateMotivoDescarte(item.id, e.target.value.toUpperCase())}
                         placeholder="Ex: Corte lateral, estouro de carcaça..."
-                        className="py-1 px-2 text-xs border border-gray-200 dark:border-stone-700 rounded w-full mt-1.5 focus:ring-1 focus:ring-rose-500 focus:outline-none bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400"
+                        className="py-1 px-2 text-xs border border-gray-200 dark:border-stone-700 rounded w-full mt-1.5 focus:ring-1 focus:ring-rose-500 focus:outline-none bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 uppercase"
                       />
                     </div>
                   </div>

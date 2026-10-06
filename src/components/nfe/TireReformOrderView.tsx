@@ -15,7 +15,8 @@ import {
   Eye, 
   Check, 
   Search,
-  Filter
+  Filter,
+  X
 } from 'lucide-react';
 import { TireItem, Supplier, CompanyProfile } from '../../types';
 import { formatDateBR, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
@@ -42,9 +43,49 @@ export interface TireReformOrder {
     vehicleName?: string;
     notes?: string;
     motivo_reforma?: string;
+    servico?: string;
+    valorUnitario?: number;
   }[];
   totalTires: number;
+  totalValor?: number;
   notes?: string;
+}
+
+export const DEFAULT_TIRE_REFORM_SERVICES = [
+  'SERVIÇO DE VULCANIZAÇÃO',
+  'RECAPAGEM / REPROMISSÃO DE BANDA',
+  'CONSERTO DE CÂMARA DE AR',
+  'TROCA DE VÁLVULA / COMPLEMENTO',
+];
+
+export const TIRE_REFORM_SERVICES_STORAGE_KEY = 'colaca_silagem_servicos_padrao_reforma';
+
+export function getStoredReformServices(): string[] {
+  try {
+    const raw = localStorage.getItem(TIRE_REFORM_SERVICES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar serviços padrão de reforma:', e);
+  }
+  return DEFAULT_TIRE_REFORM_SERVICES;
+}
+
+export function saveStoredReformServices(services: string[]): void {
+  try {
+    localStorage.setItem(TIRE_REFORM_SERVICES_STORAGE_KEY, JSON.stringify(services));
+  } catch (e) {
+    console.warn('Erro ao salvar serviços padrão de reforma:', e);
+  }
+}
+
+export function formatCurrencyPtBr(value: number): string {
+  return (value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export const REFORM_ORDERS_STORAGE_KEY = 'colaca_silagem_pedidos_reforma_ativos';
@@ -131,7 +172,15 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const [customSupplierName, setCustomSupplierName] = useState<string>('');
 
   // Pneus em buffer para a nova ordem
-  const [pendingTires, setPendingTires] = useState<TireItem[]>(() => getStoredPendingReformTires());
+  const [pendingTires, setPendingTires] = useState<TireItem[]>(() => {
+    const rawTires = getStoredPendingReformTires();
+    return rawTires.map(t => ({
+      ...t,
+      servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
+    }));
+  });
+  const [standardServices, setStandardServices] = useState<string[]>(() => getStoredReformServices());
   const [driverName, setDriverName] = useState<string>('');
   const [expectedReturnDate, setExpectedReturnDate] = useState<string>('');
   const [orderNotes, setOrderNotes] = useState<string>('');
@@ -141,12 +190,21 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
   const company = useMemo(() => companyProfile || getStoredCompanyProfile(), [companyProfile]);
 
+  // Soma automática em lote de todos os valores unitários preenchidos nos pneus da lista
+  const totalPendingValue = useMemo(() => {
+    return pendingTires.reduce((acc, t) => acc + (t.valor_reforma || t.reformCost || 0), 0);
+  }, [pendingTires]);
+
   // Sincroniza quando houver gatilho de novo pedido vindo da frota
   useEffect(() => {
     const handleTrigger = (e: any) => {
-      const tires = e?.detail?.tires || getStoredPendingReformTires();
+      const tires: TireItem[] = e?.detail?.tires || getStoredPendingReformTires();
       if (tires && tires.length > 0) {
-        setPendingTires(tires);
+        setPendingTires(tires.map(t => ({
+          ...t,
+          servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+          valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
+        })));
       }
       setIsCreatingNewOrder(true);
     };
@@ -154,9 +212,14 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const handleStorage = () => {
       setOrders(getStoredReformOrders());
       setSuppliers(getStoredReformSuppliers());
+      setStandardServices(getStoredReformServices());
       const pTires = getStoredPendingReformTires();
       if (pTires.length > 0) {
-        setPendingTires(pTires);
+        setPendingTires(pTires.map(t => ({
+          ...t,
+          servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+          valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
+        })));
       }
     };
 
@@ -183,6 +246,48 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
   };
 
+  // Atualiza o serviço selecionado para um pneu específico
+  const handleUpdateTireService = (tireId: string, servico: string) => {
+    const upperServico = servico.toUpperCase();
+    const updated = pendingTires.map(t => t.id === tireId ? { ...t, servico_reforma: upperServico } : t);
+    setPendingTires(updated);
+    try {
+      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  // Atualiza o valor unitário digitado para um pneu específico
+  const handleUpdateTireValor = (tireId: string, raw: string) => {
+    const cleanDigits = raw.replace(/\D/g, '');
+    const floatVal = cleanDigits ? Number(cleanDigits) / 100 : 0;
+    const updated = pendingTires.map(t => t.id === tireId ? { ...t, valor_reforma: floatVal, reformCost: floatVal } : t);
+    setPendingTires(updated);
+    try {
+      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  // Atualiza o motivo/problema relatado
+  const handleUpdateTireMotivo = (tireId: string, motivo: string) => {
+    const upperMotivo = motivo.toUpperCase();
+    const updated = pendingTires.map(t => t.id === tireId ? { ...t, motivo_reforma: upperMotivo } : t);
+    setPendingTires(updated);
+    try {
+      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  // Aplica serviço em lote para todos os pneus pendentes
+  const handleApplyBatchService = (serviceToApply: string) => {
+    if (!serviceToApply) return;
+    const upper = serviceToApply.toUpperCase();
+    const updated = pendingTires.map(t => ({ ...t, servico_reforma: upper }));
+    setPendingTires(updated);
+    try {
+      localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
   // Salvar Ordem de Envio de Reforma
   const handleSaveOrder = () => {
     if (pendingTires.length === 0) {
@@ -200,32 +305,35 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
     const nextNumber = String(orders.length + 1).padStart(3, '0');
     const orderNumber = `REF-${new Date().getFullYear()}-${nextNumber}`;
+    const totalValor = pendingTires.reduce((acc, t) => acc + (t.valor_reforma || t.reformCost || 0), 0);
 
     const newOrder: TireReformOrder = {
       id: `ped_ref_${Date.now()}`,
       orderNumber,
       createdAt: new Date().toISOString(),
       supplierId: selectedSupplierId || undefined,
-      supplierName: finalSupplierName,
+      supplierName: finalSupplierName.toUpperCase(),
       supplierCnpj: selectedSupplier?.cnpjOrCpf,
       supplierPhone: selectedSupplier?.phone,
-      driverName: driverName.trim() || undefined,
+      driverName: driverName.trim() ? driverName.trim().toUpperCase() : undefined,
       expectedReturnDate: expectedReturnDate || undefined,
       status: 'Aguardando Retorno / Nota',
       tires: pendingTires.map(t => ({
         id: t.id,
-        fireNumber: t.fireNumber,
-        brand: t.brand,
-        model: t.model,
-        size: t.size || '295/80 R 22.5',
-        treadDepthMm: t.treadDepthMm,
-        vehiclePlate: t.vehiclePlate,
-        vehicleName: t.vehicleName,
-        notes: t.motivo_reforma || t.notes,
-        motivo_reforma: t.motivo_reforma,
+        fireNumber: t.fireNumber.toUpperCase(),
+        brand: t.brand.toUpperCase(),
+        model: t.model ? t.model.toUpperCase() : undefined,
+        size: (t.size || '295/80 R 22.5').toUpperCase(),
+        vehiclePlate: t.vehiclePlate ? t.vehiclePlate.toUpperCase() : undefined,
+        vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
+        notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
+        motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
+        servico: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+        valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
       })),
       totalTires: pendingTires.length,
-      notes: orderNotes.trim() || undefined,
+      totalValor,
+      notes: orderNotes.trim() ? orderNotes.trim().toUpperCase() : undefined,
     };
 
     const updatedOrders = [newOrder, ...orders];
@@ -239,7 +347,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
     setIsCreatingNewOrder(false);
     setSelectedOrderForView(newOrder);
-    setSuccessMessage(`Pedido ${orderNumber} registrado com sucesso com status "Aguardando Retorno / Nota"!`);
+    setSuccessMessage(`Pedido ${orderNumber} registrado com sucesso com status "Aguardando Retorno / Nota"! Total: R$ ${formatCurrencyPtBr(totalValor)}`);
     setErrorMessage('');
 
     if (onOrderSaved) {
@@ -251,18 +359,22 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     }, 4000);
   };
 
-  // Impressão da Ficha A4 com Logotipo e Assinatura
+  // Impressão da Ficha A4 com Logotipo, Assinatura e Total em R$
   const handlePrintOrder = (orderToPrint: TireReformOrder) => {
+    const totalOrderValue = orderToPrint.totalValor !== undefined && orderToPrint.totalValor !== null
+      ? orderToPrint.totalValor
+      : orderToPrint.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+
     const printHtml = `
       <!DOCTYPE html>
       <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <title>Ordem de Envio de Reforma - ${orderToPrint.orderNumber}</title>
+        <title>Ordem de Envio de Pneus para Reforma - ${orderToPrint.orderNumber}</title>
         <style>
           @page {
             size: A4 portrait;
-            margin: 12mm 15mm;
+            margin: 10mm 12mm;
           }
           * {
             box-sizing: border-box;
@@ -272,25 +384,25 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
           body {
             margin: 0;
             padding: 0;
-            font-size: 11pt;
-            line-height: 1.35;
+            font-size: 9.5pt;
+            line-height: 1.25;
           }
           .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 2px solid #0f172a;
-            padding-bottom: 8px;
-            margin-bottom: 14px;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
           }
           .company-logo {
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: 900;
             color: #0369a1;
             letter-spacing: -0.5px;
           }
           .company-sub {
-            font-size: 8.5pt;
+            font-size: 8pt;
             color: #4b5563;
             font-weight: 600;
           }
@@ -298,104 +410,97 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             text-align: right;
           }
           .order-number {
-            font-size: 14pt;
+            font-size: 13pt;
             font-weight: 900;
             color: #d97706;
           }
           .order-date {
-            font-size: 9pt;
+            font-size: 8pt;
             color: #6b7280;
           }
           .title-section {
             background-color: #f1f5f9;
             border: 1px solid #cbd5e1;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
             text-align: center;
-            font-size: 12pt;
-            font-weight: 800;
+            font-size: 11pt;
+            font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
           }
           .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 14px;
+            gap: 8px;
+            margin-bottom: 10px;
           }
           .info-card {
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            padding: 8px 10px;
+            padding: 6px 8px;
             background: #fafafa;
           }
           .info-title {
-            font-size: 8pt;
+            font-size: 7.5pt;
             font-weight: 800;
             text-transform: uppercase;
             color: #64748b;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
           }
           .info-val {
-            font-size: 9.5pt;
+            font-size: 9pt;
             font-weight: 700;
           }
           table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
+            page-break-inside: auto;
+          }
+          tr {
+            page-break-inside: avoid;
           }
           th {
             background: #0f172a;
             color: #ffffff;
-            font-size: 8.5pt;
+            font-size: 7.5pt;
             font-weight: 800;
             text-transform: uppercase;
-            padding: 6px 8px;
+            padding: 5px 6px;
             text-align: left;
             border: 1px solid #0f172a;
           }
           td {
-            padding: 6px 8px;
+            padding: 4px 6px;
             border: 1px solid #cbd5e1;
-            font-size: 9pt;
+            font-size: 8pt;
           }
           tr:nth-child(even) {
             background-color: #f8fafc;
           }
-          .total-box {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin-bottom: 24px;
-            font-weight: 800;
-            font-size: 10pt;
-          }
           .signatures {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 40px;
-            padding-top: 20px;
+            gap: 24px;
+            margin-top: 20px;
+            padding-top: 10px;
+            page-break-inside: avoid;
           }
           .signature-line {
             border-top: 1px solid #000;
             text-align: center;
-            padding-top: 6px;
-            font-size: 8.5pt;
+            padding-top: 4px;
+            font-size: 8pt;
           }
           .footer-note {
-            margin-top: 24px;
-            font-size: 7.5pt;
+            margin-top: 12px;
+            font-size: 7pt;
             color: #94a3b8;
             text-align: center;
             border-top: 1px dashed #cbd5e1;
-            padding-top: 8px;
+            padding-top: 5px;
           }
           @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -417,57 +522,69 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
         </div>
 
         <div class="title-section">
-          Ordem de Envio de Pneus para Reforma (Recapagem)
+          ORDEM DE ENVIO DE PNEUS PARA REFORMA
         </div>
 
         <div class="info-grid">
           <div class="info-card">
             <div class="info-title">Destinatário / Recapadora</div>
             <div class="info-val">${orderToPrint.supplierName}</div>
-            ${orderToPrint.supplierCnpj ? `<div style="font-size: 8.5pt; color: #4b5563;">CNPJ: ${orderToPrint.supplierCnpj}</div>` : ''}
-            ${orderToPrint.supplierPhone ? `<div style="font-size: 8.5pt; color: #4b5563;">Tel: ${orderToPrint.supplierPhone}</div>` : ''}
+            ${orderToPrint.supplierCnpj ? `<div style="font-size: 8pt; color: #4b5563;">CNPJ: ${orderToPrint.supplierCnpj}</div>` : ''}
+            ${orderToPrint.supplierPhone ? `<div style="font-size: 8pt; color: #4b5563;">Tel: ${orderToPrint.supplierPhone}</div>` : ''}
           </div>
           <div class="info-card">
             <div class="info-title">Responsável pelo Transporte / Motorista</div>
             <div class="info-val">${orderToPrint.driverName || 'Motorista da Frota'}</div>
-            ${orderToPrint.expectedReturnDate ? `<div style="font-size: 8.5pt; color: #4b5563;">Previsão de Retorno: ${formatDateBR(orderToPrint.expectedReturnDate)}</div>` : ''}
+            ${orderToPrint.expectedReturnDate ? `<div style="font-size: 8pt; color: #4b5563;">Previsão de Retorno: ${formatDateBR(orderToPrint.expectedReturnDate)}</div>` : ''}
           </div>
         </div>
 
         <table>
           <thead>
             <tr>
-              <th style="width: 35px; text-align: center;">Item</th>
-              <th style="width: 95px;">Nº de Fogo</th>
+              <th style="width: 32px; text-align: center;">Item</th>
+              <th style="width: 85px;">Nº de Fogo</th>
               <th>Marca / Modelo</th>
-              <th style="width: 110px;">Medida</th>
-              <th style="width: 100px;">Veículo Origem</th>
-              <th style="width: 75px; text-align: center;">Sulco</th>
+              <th style="width: 105px;">Medida</th>
+              <th style="width: 95px;">Veículo Origem</th>
               <th>Problema Relatado / Observação</th>
+              <th style="width: 165px;">Serviço a Fazer</th>
+              <th style="width: 100px; text-align: right;">Valor Unitário (R$)</th>
             </tr>
           </thead>
           <tbody>
             ${orderToPrint.tires.map((t, idx) => `
               <tr>
                 <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-                <td style="font-family: monospace; font-weight: 900; font-size: 10pt;">${t.fireNumber}</td>
+                <td style="font-family: monospace; font-weight: 900; font-size: 9.5pt;">${t.fireNumber}</td>
                 <td>${t.brand} ${t.model || ''}</td>
                 <td style="font-family: monospace; font-weight: bold;">${t.size || '295/80 R 22.5'}</td>
                 <td>${t.vehiclePlate || t.vehicleName || 'Frota Geral'}</td>
-                <td style="text-align: center; font-weight: bold;">${t.treadDepthMm ? `${t.treadDepthMm.toFixed(1)} mm` : '-'}</td>
-                <td style="font-size: 8.5pt; color: #1e293b; font-weight: 600;">${t.motivo_reforma || t.notes || 'Reforma / Recape'}</td>
+                <td style="font-size: 8pt; color: #1e293b; font-weight: 600;">${(t.motivo_reforma || t.notes || 'REFORMA').toUpperCase()}</td>
+                <td style="font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: uppercase;">${(t.servico || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase()}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 900; font-size: 9pt; white-space: nowrap;">
+                  ${t.valorUnitario !== undefined && t.valorUnitario !== null && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
+                </td>
               </tr>
             `).join('')}
           </tbody>
+          <tfoot>
+            <tr style="background: #fffbeb; font-weight: 800; border-top: 2px solid #0f172a;">
+              <td colspan="5" style="padding: 6px 8px; font-size: 8pt; text-transform: uppercase; border: 1px solid #cbd5e1;">
+                QUANTIDADE TOTAL DE PNEUS ENVIADOS: <strong style="font-size: 8.5pt; color: #0f172a;">${orderToPrint.totalTires} PNEU(S)</strong>
+              </td>
+              <td colspan="2" style="text-align: right; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; font-weight: 900; color: #78350f; border: 1px solid #cbd5e1;">
+                TOTAL EM R$:
+              </td>
+              <td style="text-align: right; padding: 6px 8px; font-size: 9.5pt; font-family: monospace; font-weight: 900; color: #0f172a; white-space: nowrap; border: 1px solid #cbd5e1;">
+                R$ ${formatCurrencyPtBr(totalOrderValue)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
 
-        <div class="total-box">
-          <span>QUANTIDADE TOTAL DE PNEUS ENVIADOS:</span>
-          <span>${orderToPrint.totalTires} PNEU(S)</span>
-        </div>
-
         ${orderToPrint.notes ? `
-          <div style="font-size: 8.5pt; color: #4b5563; margin-bottom: 20px; padding: 6px; border-left: 3px solid #cbd5e1;">
+          <div style="font-size: 8pt; color: #4b5563; margin-bottom: 12px; padding: 5px 8px; border-left: 3px solid #cbd5e1; background: #f8fafc;">
             <strong>Observações do Pedido:</strong> ${orderToPrint.notes}
           </div>
         ` : ''}
@@ -476,13 +593,13 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
           <div>
             <div class="signature-line">
               <strong>${orderToPrint.driverName || 'Motorista / Entregador'}</strong><br/>
-              Assinatura do Motorista • Data: ___/___/______
+              Assinatura do Motorista / Entregador • Data: ___/___/______
             </div>
           </div>
           <div>
             <div class="signature-line">
               <strong>${orderToPrint.supplierName}</strong><br/>
-              Recebido na Recapadora (Nome Legível / Carimbo)
+              Recepção (Nome Legível / Carimbo)
             </div>
           </div>
         </div>
@@ -624,10 +741,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <div className="mt-2">
                   <input
                     type="text"
-                    placeholder="Digite a Razão Social da Recapadora..."
+                    placeholder="DIGITE A RAZÃO SOCIAL DA RECAPADORA..."
                     value={customSupplierName}
-                    onChange={(e) => setCustomSupplierName(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-amber-300 bg-white text-stone-900 outline-none focus:ring-2 focus:ring-amber-500"
+                    onChange={(e) => setCustomSupplierName(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-amber-300 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-500 uppercase"
                   />
                 </div>
               )}
@@ -639,10 +756,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
               </label>
               <input
                 type="text"
-                placeholder="Ex: João da Silva"
+                placeholder="EX: JOÃO DA SILVA"
                 value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-500"
+                onChange={(e) => setDriverName(e.target.value.toUpperCase())}
+                className="w-full px-3 py-2 text-xs rounded-lg border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-500 uppercase"
               />
             </div>
 
@@ -662,29 +779,49 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
 
           {/* Corpo: Tabela indexada listando todos os pneus que o usuário arrastou da frota */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider">
-                Relação Indexada de Pneus para Reforma ({pendingTires.length})
-              </h4>
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                Pneus fixos capturados da Gestão de Frotas
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-black text-stone-800 dark:text-stone-200 uppercase tracking-wider">
+                  Relação Indexada de Pneus para Reforma ({pendingTires.length})
+                </h4>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+                  Selecione o serviço a fazer e informe o valor unitário individual de cada carcaça
+                </p>
+              </div>
+
+              {pendingTires.length > 0 && (
+                <div className="flex items-center space-x-1.5 self-end sm:self-auto">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase">Aplicar serviço a todos:</span>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) handleApplyBatchService(e.target.value);
+                    }}
+                    defaultValue=""
+                    className="text-[10px] font-bold py-1 px-2 rounded-lg border border-amber-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none uppercase cursor-pointer"
+                  >
+                    <option value="" disabled>SELECIONAR EM LOTE...</option>
+                    {standardServices.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden shadow-2xs">
-              <div className="max-h-[300px] overflow-y-auto">
+              <div className="max-h-[340px] overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[11px] font-black uppercase sticky top-0 z-10 border-b border-stone-200 dark:border-stone-700">
                     <tr>
-                      <th className="py-2.5 px-3 w-12 text-center">#</th>
-                      <th className="py-2.5 px-3">Nº de Fogo</th>
-                      <th className="py-2.5 px-3">Marca</th>
-                      <th className="py-2.5 px-3">Modelo da Banda</th>
-                      <th className="py-2.5 px-3">Medida (Fixa)</th>
-                      <th className="py-2.5 px-3">Veículo / Placa</th>
-                      <th className="py-2.5 px-3 text-center">Sulco</th>
-                      <th className="py-2.5 px-3">Problema / Motivo Relatado</th>
-                      <th className="py-2.5 px-3 text-right">Ação</th>
+                      <th className="py-2.5 px-3 w-10 text-center">#</th>
+                      <th className="py-2.5 px-3 w-24">Nº de Fogo</th>
+                      <th className="py-2.5 px-3">Marca / Modelo</th>
+                      <th className="py-2.5 px-3 w-28">Medida</th>
+                      <th className="py-2.5 px-3 w-28">Veículo / Placa</th>
+                      <th className="py-2.5 px-3">Problema / Observação</th>
+                      <th className="py-2.5 px-3 w-56">Serviço a Fazer</th>
+                      <th className="py-2.5 px-3 w-36 text-right">Valor Unitário (R$)</th>
+                      <th className="py-2.5 px-3 w-12 text-right">Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -704,10 +841,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                             {t.fireNumber}
                           </td>
                           <td className="py-2 px-3 font-semibold text-stone-700 dark:text-stone-300">
-                            {t.brand}
-                          </td>
-                          <td className="py-2 px-3 text-stone-600 dark:text-stone-400">
-                            {t.model || 'Padrão'}
+                            {t.brand} {t.model || ''}
                           </td>
                           <td className="py-2 px-3 font-mono font-black text-amber-700 dark:text-amber-400">
                             {t.size || '295/80 R 22.5'}
@@ -715,17 +849,40 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                           <td className="py-2 px-3 font-bold text-stone-700 dark:text-stone-300">
                             {t.vehiclePlate || t.vehicleName || 'Frota Geral'}
                           </td>
-                          <td className="py-2 px-3 text-center font-bold text-stone-600 dark:text-stone-400">
-                            {t.treadDepthMm ? `${t.treadDepthMm.toFixed(1)} mm` : '-'}
+                          <td className="py-2 px-3 text-xs">
+                            <input
+                              type="text"
+                              value={t.motivo_reforma || ''}
+                              onChange={(e) => handleUpdateTireMotivo(t.id, e.target.value)}
+                              placeholder="Ex: Descolou a banda..."
+                              className="w-full px-2 py-1 text-xs border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase"
+                            />
                           </td>
-                          <td className="py-2 px-3 text-xs text-amber-800 dark:text-amber-300 font-medium">
-                            {t.motivo_reforma ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold text-amber-950 dark:text-amber-200">
-                                ⚠️ {t.motivo_reforma}
+                          <td className="py-2 px-3">
+                            <select
+                              value={t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1]}
+                              onChange={(e) => handleUpdateTireService(t.id, e.target.value)}
+                              className="w-full px-2 py-1 text-xs font-bold border border-amber-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase cursor-pointer"
+                            >
+                              {standardServices.map((srv) => (
+                                <option key={srv} value={srv}>{srv}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-stone-400 font-bold text-xs">
+                                R$
                               </span>
-                            ) : (
-                              <span className="text-stone-400 text-[11px] italic">Não informado</span>
-                            )}
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={t.valor_reforma !== undefined && t.valor_reforma !== null && t.valor_reforma > 0 ? formatCurrencyPtBr(t.valor_reforma) : (t.reformCost ? formatCurrencyPtBr(t.reformCost) : '')}
+                                onChange={(e) => handleUpdateTireValor(t.id, e.target.value)}
+                                placeholder="0,00"
+                                className="w-full pl-7 pr-2 py-1 text-xs font-mono font-bold text-right border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500"
+                              />
+                            </div>
                           </td>
                           <td className="py-2 px-3 text-right">
                             <button
@@ -741,6 +898,22 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       ))
                     )}
                   </tbody>
+                  {pendingTires.length > 0 && (
+                    <tfoot className="bg-amber-50/70 dark:bg-amber-950/40 border-t-2 border-stone-200 dark:border-stone-700 font-black text-xs">
+                      <tr>
+                        <td colSpan={5} className="py-2.5 px-3 uppercase text-stone-700 dark:text-stone-300">
+                          QUANTIDADE TOTAL: <span className="font-black text-amber-800 dark:text-amber-300">{pendingTires.length} PNEU(S)</span>
+                        </td>
+                        <td colSpan={2} className="py-2.5 px-3 text-right uppercase text-amber-900 dark:text-amber-200 font-black">
+                          TOTAL EM R$:
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-black text-sm text-stone-950 dark:text-white">
+                          R$ {formatCurrencyPtBr(totalPendingValue)}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -753,10 +926,10 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
             </label>
             <input
               type="text"
-              placeholder="Instruções para a recapadora (ex: tipo de desenho da banda, prazo de entrega urgente)..."
+              placeholder="INSTRUÇÕES PARA A RECAPADORA (EX: TIPO DE DESENHO DA BANDA, PRAZO DE ENTREGA URGENTE)..."
               value={orderNotes}
-              onChange={(e) => setOrderNotes(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-500"
+              onChange={(e) => setOrderNotes(e.target.value.toUpperCase())}
+              className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-2 focus:ring-amber-500 uppercase"
             />
           </div>
 
@@ -775,30 +948,33 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 id="btn-imprimir-pedido-envio"
                 onClick={() => {
                   const selSup = suppliers.find(s => s.id === selectedSupplierId);
+                  const totalValor = pendingTires.reduce((acc, t) => acc + (t.valor_reforma || t.reformCost || 0), 0);
                   const tempOrder: TireReformOrder = {
                     id: 'temp_print',
                     orderNumber: `REF-${new Date().getFullYear()}-PRÉVIA`,
                     createdAt: new Date().toISOString(),
-                    supplierName: selSup ? (selSup.tradeName || selSup.name) : (customSupplierName || 'Recapadora'),
+                    supplierName: selSup ? (selSup.tradeName || selSup.name).toUpperCase() : (customSupplierName ? customSupplierName.toUpperCase() : 'RECAPADORA'),
                     supplierCnpj: selSup?.cnpjOrCpf,
                     supplierPhone: selSup?.phone,
-                    driverName,
+                    driverName: driverName.trim() ? driverName.trim().toUpperCase() : undefined,
                     expectedReturnDate,
                     status: 'Aguardando Retorno / Nota',
                     tires: pendingTires.map(t => ({
                       id: t.id,
-                      fireNumber: t.fireNumber,
-                      brand: t.brand,
-                      model: t.model,
-                      size: t.size || '295/80 R 22.5',
-                      treadDepthMm: t.treadDepthMm,
-                      vehiclePlate: t.vehiclePlate,
-                      vehicleName: t.vehicleName,
-                      notes: t.motivo_reforma || t.notes,
-                      motivo_reforma: t.motivo_reforma,
+                      fireNumber: t.fireNumber.toUpperCase(),
+                      brand: t.brand.toUpperCase(),
+                      model: t.model ? t.model.toUpperCase() : undefined,
+                      size: (t.size || '295/80 R 22.5').toUpperCase(),
+                      vehiclePlate: t.vehiclePlate ? t.vehiclePlate.toUpperCase() : undefined,
+                      vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
+                      notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
+                      motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
+                      servico: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+                      valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
                     })),
                     totalTires: pendingTires.length,
-                    notes: orderNotes,
+                    totalValor,
+                    notes: orderNotes.trim() ? orderNotes.trim().toUpperCase() : undefined,
                   };
                   handlePrintOrder(tempOrder);
                 }}
@@ -876,6 +1052,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                     <th className="py-2.5 px-3">Data de Envio</th>
                     <th className="py-2.5 px-3">Fornecedor / Recapadora</th>
                     <th className="py-2.5 px-3 text-center">Qtd. Pneus</th>
+                    <th className="py-2.5 px-3 text-right">Valor Total (R$)</th>
                     <th className="py-2.5 px-3">Pneus (Nº de Fogo)</th>
                     <th className="py-2.5 px-3">Motorista</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
@@ -885,76 +1062,237 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-xs text-stone-400 font-medium">
+                      <td colSpan={9} className="py-8 text-center text-xs text-stone-400 font-medium">
                         Nenhum pedido de reforma registrado. Use a Gestão de Frotas para arrastar pneus e gerar uma nova ordem.
                       </td>
                     </tr>
                   ) : (
-                    filteredOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition">
-                        <td className="py-2.5 px-3 font-mono font-black text-amber-700 dark:text-amber-400">
-                          {order.orderNumber}
-                        </td>
-                        <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
-                          {formatDateBR(order.createdAt)}
-                        </td>
-                        <td className="py-2.5 px-3 font-bold text-stone-800 dark:text-stone-200">
-                          {order.supplierName}
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-black">
-                          <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-[11px]">
-                            {order.totalTires}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-stone-700 dark:text-stone-300 max-w-[200px] truncate" title={order.tires.map(t => t.fireNumber).join(', ')}>
-                          {order.tires.map(t => t.fireNumber).join(', ')}
-                        </td>
-                        <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
-                          {order.driverName || '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            order.status === 'Concluído'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-amber-100 text-amber-900 border border-amber-300'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <div className="flex items-center justify-end space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => handlePrintOrder(order)}
-                              className="p-1.5 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
-                              title="Imprimir Pedido de Envio (Ficha A4)"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-                            {order.status !== 'Concluído' && (
+                    filteredOrders.map((order) => {
+                      const orderSum = order.totalValor !== undefined && order.totalValor !== null
+                        ? order.totalValor
+                        : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+
+                      return (
+                        <tr key={order.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/60 transition">
+                          <td className="py-2.5 px-3 font-mono font-black text-amber-700 dark:text-amber-400">
+                            {order.orderNumber}
+                          </td>
+                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
+                            {formatDateBR(order.createdAt)}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-stone-800 dark:text-stone-200">
+                            {order.supplierName}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-black">
+                            <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-[11px]">
+                              {order.totalTires}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-stone-900 dark:text-stone-100 text-xs">
+                            {orderSum > 0 ? `R$ ${formatCurrencyPtBr(orderSum)}` : '-'}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-stone-700 dark:text-stone-300 max-w-[180px] truncate" title={order.tires.map(t => t.fireNumber).join(', ')}>
+                            {order.tires.map(t => t.fireNumber).join(', ')}
+                          </td>
+                          <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
+                            {order.driverName || '-'}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
+                              order.status === 'Concluído'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-amber-100 text-amber-900 border border-amber-300'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end space-x-1">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const updated = orders.map(o => o.id === order.id ? { ...o, status: 'Concluído' as const } : o);
-                                  setOrders(updated);
-                                  saveStoredReformOrders(updated);
-                                }}
-                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-black rounded-lg transition cursor-pointer"
-                                title="Marcar como Concluído / Retornado"
+                                onClick={() => setSelectedOrderForView(order)}
+                                className="p-1.5 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+                                title="Visualizar Detalhes do Pedido"
                               >
-                                ✓ Concluir
+                                <Eye className="w-3.5 h-3.5" />
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              <button
+                                type="button"
+                                onClick={() => handlePrintOrder(order)}
+                                className="p-1.5 text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition cursor-pointer"
+                                title="Imprimir Pedido de Envio (Ficha A4)"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                              {order.status !== 'Concluído' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = orders.map(o => o.id === order.id ? { ...o, status: 'Concluído' as const } : o);
+                                    setOrders(updated);
+                                    saveStoredReformOrders(updated);
+                                  }}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-black rounded-lg transition cursor-pointer"
+                                  title="Marcar como Concluído / Retornado"
+                                >
+                                  ✓ Concluir
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Modal de Visualização da Ordem de Envio de Reforma */}
+      {selectedOrderForView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/50">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold shrink-0">
+                  <FileText className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-sm font-black text-stone-900 dark:text-stone-100 uppercase tracking-wide">
+                      ORDEM DE ENVIO DE PNEUS PARA REFORMA
+                    </h3>
+                    <span className="font-mono text-xs font-black text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md">
+                      {selectedOrderForView.orderNumber}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Emissão: {formatDateBR(selectedOrderForView.createdAt)} • Status: <strong className="text-amber-600">{selectedOrderForView.status}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedOrderForView(null)}
+                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Informações da Ordem */}
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase block mb-0.5">Destinatário / Recapadora</span>
+                  <p className="font-black text-stone-900 dark:text-stone-100">{selectedOrderForView.supplierName}</p>
+                  {selectedOrderForView.supplierCnpj && (
+                    <p className="text-[11px] text-stone-500">CNPJ: {selectedOrderForView.supplierCnpj}</p>
+                  )}
+                  {selectedOrderForView.supplierPhone && (
+                    <p className="text-[11px] text-stone-500">Tel: {selectedOrderForView.supplierPhone}</p>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase block mb-0.5">Transporte & Retorno</span>
+                  <p className="font-bold text-stone-900 dark:text-stone-100">
+                    Motorista: {selectedOrderForView.driverName || 'Motorista da Frota'}
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    Previsão de Retorno: {formatDateBR(selectedOrderForView.expectedReturnDate)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tabela de Itens Enviados */}
+              <div className="border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[10px] font-black uppercase border-b border-stone-200 dark:border-stone-800">
+                    <tr>
+                      <th className="py-2 px-2.5 w-10 text-center">#</th>
+                      <th className="py-2 px-2.5 w-24">Nº de Fogo</th>
+                      <th className="py-2 px-2.5">Marca / Modelo</th>
+                      <th className="py-2 px-2.5 w-24">Medida</th>
+                      <th className="py-2 px-2.5 w-24">Veículo Origem</th>
+                      <th className="py-2 px-2.5">Problema / Observação</th>
+                      <th className="py-2 px-2.5 w-44">Serviço a Fazer</th>
+                      <th className="py-2 px-2.5 w-28 text-right">Valor Unitário</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                    {selectedOrderForView.tires.map((t, idx) => (
+                      <tr key={t.id || idx} className="hover:bg-stone-50 dark:hover:bg-stone-800/40">
+                        <td className="py-2 px-2.5 text-center font-bold text-stone-400">{idx + 1}</td>
+                        <td className="py-2 px-2.5 font-mono font-black text-stone-900 dark:text-stone-100">{t.fireNumber}</td>
+                        <td className="py-2 px-2.5 font-semibold text-stone-800 dark:text-stone-200">{t.brand} {t.model || ''}</td>
+                        <td className="py-2 px-2.5 font-mono text-amber-700 dark:text-amber-400 font-bold">{t.size || '295/80 R 22.5'}</td>
+                        <td className="py-2 px-2.5 text-stone-600 dark:text-stone-400">{t.vehiclePlate || t.vehicleName || 'Frota'}</td>
+                        <td className="py-2 px-2.5 text-stone-700 dark:text-stone-300 font-medium">{(t.motivo_reforma || t.notes || '-').toUpperCase()}</td>
+                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">{(t.servico || DEFAULT_TIRE_REFORM_SERVICES[1]).toUpperCase()}</td>
+                        <td className="py-2 px-2.5 text-right font-mono font-black text-stone-900 dark:text-stone-100">
+                          {t.valorUnitario !== undefined && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-amber-50/70 dark:bg-amber-950/40 border-t-2 border-stone-200 dark:border-stone-800 font-black text-xs">
+                    <tr>
+                      <td colSpan={5} className="py-2 px-2.5 uppercase text-stone-700 dark:text-stone-300">
+                        QUANTIDADE TOTAL: <strong className="text-amber-800 dark:text-amber-300">{selectedOrderForView.totalTires} PNEU(S)</strong>
+                      </td>
+                      <td colSpan={2} className="py-2 px-2.5 text-right uppercase text-amber-900 dark:text-amber-200 font-black">
+                        TOTAL EM R$:
+                      </td>
+                      <td className="py-2 px-2.5 text-right font-mono font-black text-sm text-stone-950 dark:text-white">
+                        R$ ${formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {selectedOrderForView.notes && (
+                <div className="p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 text-xs">
+                  <span className="font-bold text-stone-500 uppercase text-[10px] block mb-0.5">Observações da Ordem:</span>
+                  <p className="text-stone-800 dark:text-stone-200">{selectedOrderForView.notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-800/50 flex items-center justify-between">
+              <span className="text-xs text-stone-500">
+                Total Acumulado: <strong className="font-mono text-stone-900 dark:text-stone-100">R$ {formatCurrencyPtBr(selectedOrderForView.totalValor !== undefined ? selectedOrderForView.totalValor : selectedOrderForView.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0))}</strong>
+              </span>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderForView(null)}
+                  className="px-3 py-1.5 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-bold transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrintOrder(selectedOrderForView)}
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black shadow-xs transition cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir Pedido (A4)</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 

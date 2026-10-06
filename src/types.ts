@@ -1657,6 +1657,8 @@ export interface TireItem {
   reformSentDate?: string;
   reformCost?: number;
   motivo_reforma?: string; // Relato do problema ao enviar para reforma
+  servico_reforma?: string; // Serviço a ser executado na recapagem/reforma
+  valor_reforma?: number; // Custo unitário estimado/negociado para o serviço do pneu
   // Informações de Descarte / Baixa
   discardReason?: string;
   discardDate?: string;
