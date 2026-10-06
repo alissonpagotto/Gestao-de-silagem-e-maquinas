@@ -1072,13 +1072,16 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
 
     if (matchIdx >= 0) {
       const existing = result[matchIdx];
+      // Preserva estritamente a categoria se o usuário reclassificou o serviço no estoque
+      const userCategory = (existing.categoria || existing.category || '').trim();
+      const finalCategory = userCategory || 'SERVIÇO';
       result[matchIdx] = {
         ...existing,
         name: def.name,
         nome: def.name,
         nome_comercial: def.name,
-        category: 'SERVIÇO',
-        categoria: 'SERVIÇO',
+        category: finalCategory,
+        categoria: finalCategory,
         tipo_item: 'SERVIÇO',
         unit: existing.unit || def.unit,
         unidade_medida: existing.unidade_medida || def.unit,

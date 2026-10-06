@@ -902,6 +902,33 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       }
 
+      // Atualização imediata da categoria na chave 'colaca_silagem_estoque_produtos' no LocalStorage
+      try {
+        const rawStock = localStorage.getItem('colaca_silagem_estoque_produtos');
+        if (rawStock) {
+          const stockList = JSON.parse(rawStock);
+          if (Array.isArray(stockList)) {
+            const idx = stockList.findIndex((p: any) => 
+              p.id === newProduct.id || 
+              (p.name && p.name.toUpperCase() === newProduct.name.toUpperCase()) ||
+              (p.nome_comercial && p.nome_comercial.toUpperCase() === newProduct.name.toUpperCase())
+            );
+            if (idx >= 0) {
+              stockList[idx] = {
+                ...stockList[idx],
+                ...newProduct,
+                categoria: newProduct.categoria,
+                category: newProduct.category,
+              };
+              localStorage.setItem('colaca_silagem_estoque_produtos', JSON.stringify(stockList));
+              window.dispatchEvent(new CustomEvent('colaca_silagem_estoque_produtos_updated', { detail: stockList }));
+            }
+          }
+        }
+      } catch (errStock) {
+        console.warn('Aviso ao persistir produto no LocalStorage:', errStock);
+      }
+
       onSuccess(newProduct);
       onClose();
     } catch (err: any) {
@@ -1101,15 +1128,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <select
+                          id="product-form-categoria-select"
+                          name="categoria"
+                          disabled={false}
                           value={categoria}
                           onChange={(e) => {
-                            if (e.target.value === '__manage__') {
+                            const val = e.target.value;
+                            if (val === '__manage__') {
                               setIsCategoryManagerOpen(true);
                             } else {
-                              setCategoria(e.target.value);
+                              setCategoria(val);
                             }
                           }}
-                          className="flex-1 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
+                          className="flex-1 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer select-auto pointer-events-auto"
                         >
                           {!categories.includes(categoria) && categoria && (
                             <option value={categoria}>{categoria}</option>

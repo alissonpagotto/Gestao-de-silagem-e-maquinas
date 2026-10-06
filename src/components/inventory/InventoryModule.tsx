@@ -643,9 +643,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
                       {/* 2. CATEGORIA (Compacta) */}
                       <td className="py-1 px-2">
-                        <div className="flex items-center space-x-1 capitalize font-bold text-[11px] text-black dark:text-stone-200">
+                        <div className="flex items-center space-x-1 font-bold text-[11px] text-black dark:text-stone-200">
                           {getCategoryIcon(displayCat)}
-                          <span className="truncate max-w-[90px]">{displayCat.replace('_', ' ')}</span>
+                          <span className="truncate max-w-[140px]" title={displayCat}>{displayCat.replace('_', ' ')}</span>
                         </div>
                       </td>
 
@@ -849,13 +849,16 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             const updated = allItems.map(i => {
               const iNameNorm = (i.nome_comercial || i.name || '').toLowerCase().trim();
               const isSameId = i.id === updatedProduct.id || i.id === editingItem.id;
+              const isSameName = (i.nome_comercial || i.name || '').trim().toUpperCase() === (updatedProduct.nome_comercial || updatedProduct.name || '').trim().toUpperCase();
               const isSameFuel = (targetNameNorm === 'diesel s10' || targetNameNorm === 'diesel s500' || targetNameNorm.includes('arla 32')) &&
                 (iNameNorm === targetNameNorm || iNameNorm === origNameNorm);
-              if (isSameId || isSameFuel) {
+              if (isSameId || isSameName || isSameFuel) {
                 foundMatch = true;
                 return {
                   ...i,
                   ...updatedProduct,
+                  categoria: updatedProduct.categoria || updatedProduct.category,
+                  category: updatedProduct.category || updatedProduct.categoria,
                   quantity: Number(updatedProduct.quantidade_atual ?? updatedProduct.quantity ?? 0),
                   quantidade_atual: Number(updatedProduct.quantidade_atual ?? updatedProduct.quantity ?? 0),
                 };
@@ -865,6 +868,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             if (!foundMatch) {
               updated.push(updatedProduct);
             }
+            setLocalInventory(updated);
             onSaveInventory(updated);
             setEditingItem(null);
           }}
