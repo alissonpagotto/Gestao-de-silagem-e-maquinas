@@ -74,7 +74,10 @@ import {
   getActiveCompanyId,
   saveCompanyData,
   getStoredTireInventory,
-  saveStoredTireInventory
+  saveStoredTireInventory,
+  saveActiveNfeDraft,
+  clearActiveNfeDraft,
+  getActiveNfeDraft
 } from '../../lib/storage';
 import { supabase } from '../../lib/supabaseClient';
 import { formatCpfCnpj, formatPhone, formatCep, cleanDigits, parseCurrencyInput, formatCurrencyInputDisplay } from '../../lib/formatters';
@@ -1044,13 +1047,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     return buildUnifiedFiscalRecords(expenses && expenses.length > 0 ? expenses : notasLancadas);
   }, [expenses, notasLancadas]);
 
-  const [xmlContent, setXmlContent] = useState('');
-  const [parsedData, setParsedData] = useState<ParsedNfeData | null>(null);
+  const [xmlContent, setXmlContent] = useState(() => {
+    const draft = getActiveNfeDraft();
+    return draft?.xmlContent || '';
+  });
+  const [parsedData, setParsedData] = useState<ParsedNfeData | null>(() => {
+    const draft = getActiveNfeDraft();
+    const p = draft?.parsedData || (draft?.invoiceNumber ? draft : null);
+    return p || null;
+  });
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [searchNfeNumber, setSearchNfeNumber] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(() => {
+    const draft = getActiveNfeDraft();
+    return draft?.editingExpenseId || null;
+  });
   const [showExtraPrices, setShowExtraPrices] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -2472,6 +2485,24 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Redireciona diretamente para o módulo Cadastros Base na aba Centros de Custo
   const handleNavigateToCadastrosBaseCentrosCusto = () => {
+    // 1. Captura TODO o estado atual da nota preenchida na tela e salva em cache LocalStorage
+    if (parsedData) {
+      const draftData: ParsedNfeData = {
+        ...parsedData,
+        costCenterId: selectedCostCenterId || parsedData.costCenterId,
+      };
+      const fullDraft = {
+        ...draftData,
+        parsedData: draftData,
+        selectedCostCenterId: selectedCostCenterId || parsedData.costCenterId || '',
+        xmlContent,
+        editingExpenseId,
+        userInstallmentCount,
+        savedAt: new Date().toISOString(),
+      };
+      saveActiveNfeDraft(fullDraft);
+    }
+
     if (onNavigate) {
       onNavigate('cadastros_base_centros_custo');
     }
@@ -2480,6 +2511,29 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'cadastros_base_centros_custo' }));
     }
   };
+
+  // Restaura automaticamente rascunho de nota ativa caso o operador tenha saído da tela (ex: ida a Cadastros Base)
+  useEffect(() => {
+    const draft = getActiveNfeDraft();
+    if (draft) {
+      const pData: ParsedNfeData = draft.parsedData || (draft.invoiceNumber ? draft : null);
+      if (pData && pData.invoiceNumber) {
+        setParsedData(pData);
+        if (draft.selectedCostCenterId || pData.costCenterId) {
+          setSelectedCostCenterId(draft.selectedCostCenterId || pData.costCenterId || '');
+        }
+        if (draft.xmlContent) {
+          setXmlContent(draft.xmlContent);
+        }
+        if (draft.editingExpenseId !== undefined) {
+          setEditingExpenseId(draft.editingExpenseId);
+        }
+        if (draft.userInstallmentCount) {
+          setUserInstallmentCount(draft.userInstallmentCount);
+        }
+      }
+    }
+  }, []);
 
   // Sincronização reativa com alterações feitas na aba de Centros de Custo dos Cadastros Base
   useEffect(() => {
@@ -2505,7 +2559,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   }, []);
 
   // Seleção e validação de Centro de Custo obrigatório
-  const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>('');
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>(() => {
+    const draft = getActiveNfeDraft();
+    return draft?.selectedCostCenterId || draft?.parsedData?.costCenterId || draft?.costCenterId || '';
+  });
   const [costCenterError, setCostCenterError] = useState<boolean>(false);
 
   // Modal e estados para gerenciamento de Centro de Custo (Criação, Edição e Exclusão)
@@ -2528,7 +2585,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Estados para Janela 2 (Detalhamento de Parcelas Geradas com Base no XML)
   const [isInstallmentsModalOpen, setIsInstallmentsModalOpen] = useState<boolean>(false);
-  const [userInstallmentCount, setUserInstallmentCount] = useState<number>(1);
+  const [userInstallmentCount, setUserInstallmentCount] = useState<number>(() => {
+    const draft = getActiveNfeDraft();
+    return draft?.userInstallmentCount || 1;
+  });
 
   // Sincroniza quantidade inicial de parcelas ao carregar nota
   useEffect(() => {
@@ -4675,6 +4735,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       });
     }
 
+    clearActiveNfeDraft();
     setParsedData(null);
     setXmlContent('');
     setSearchNfeNumber('');
@@ -4843,6 +4904,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     // 6. Se a nota excluída for a que estava aberta para edição, limpa e fecha o formulário
     if (editingExpenseId === notaId || (parsedData && (parsedData.invoiceNumber === notaId || parsedData.accessKey === notaId))) {
+      clearActiveNfeDraft();
       setParsedData(null);
       setEditingExpenseId(null);
     }
@@ -4857,8 +4919,11 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
   // Cancela ou retorna da visualização de detalhes
   const handleBackToList = () => {
+    clearActiveNfeDraft();
     setParsedData(null);
     setEditingExpenseId(null);
+    setSelectedCostCenterId('');
+    setXmlContent('');
     setErrorMessage('');
   };
 
@@ -5036,10 +5101,12 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                 type="button"
                 id="btn-limpar-dados-painel"
                 onClick={() => {
+                  clearActiveNfeDraft();
                   setParsedData(null);
                   setXmlContent('');
                   setSearchNfeNumber('');
                   setEditingExpenseId(null);
+                  setSelectedCostCenterId('');
                 }}
                 className="inline-flex items-center space-x-1 text-xs text-zinc-700 dark:text-stone-300 hover:text-rose-800 transition cursor-pointer font-bold px-2.5 py-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-stone-700"
               >

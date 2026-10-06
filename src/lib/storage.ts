@@ -114,6 +114,7 @@ const STORAGE_KEYS = {
   TANQUES_COMBUSTIVEL: 'silagem_facil_clean_v1_tanques_combustivel',
   FINANCEIRO_CHEQUES: 'silagem_facil_clean_v1_financeiro_cheques',
   CLIENTE_CREDITOS: 'silagem_facil_clean_v1_cliente_creditos',
+  DRAFT_NOTA_ATIVA: 'colaca_silagem_rascunho_nota_ativa',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -345,6 +346,34 @@ export function saveStoredCostCenters(centers: CostCenter[]): void {
     localStorage.setItem('colaca_silagem_centros_custo', json);
   } catch (e) {
     console.error('Failed to save cost centers', e);
+  }
+}
+
+export function saveActiveNfeDraft(draft: any): void {
+  try {
+    if (!draft) return;
+    localStorage.setItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA, JSON.stringify(draft));
+  } catch (e) {
+    console.error('Failed to save active NFe draft', e);
+  }
+}
+
+export function clearActiveNfeDraft(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA);
+  } catch (e) {
+    console.error('Failed to clear active NFe draft', e);
+  }
+}
+
+export function getActiveNfeDraft(): any | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DRAFT_NOTA_ATIVA);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to get active NFe draft', e);
+    return null;
   }
 }
 
