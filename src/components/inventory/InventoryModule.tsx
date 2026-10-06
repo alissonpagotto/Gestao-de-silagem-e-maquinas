@@ -518,70 +518,70 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
             <thead className="bg-zinc-100 dark:bg-stone-800 border-b border-zinc-200 dark:border-stone-800 text-zinc-700 dark:text-stone-300 uppercase text-[10px] font-black tracking-wider whitespace-nowrap">
               <tr>
                 {/* 1. ITEM & LOCAL */}
-                <th className="py-1.5 px-2 text-zinc-800 dark:text-white font-black w-[15%] min-w-[120px]">
+                <th className={`py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[22%] min-w-[180px]' : 'w-[28%] min-w-[200px]'}`}>
                   ITEM & LOCAL
                 </th>
 
                 {/* 2. CATEGORIA */}
-                <th className="py-1.5 px-2 text-zinc-800 dark:text-white font-black w-[10%] min-w-[90px]">
+                <th className={`py-1.5 px-2.5 text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[18%] min-w-[150px]' : 'w-[24%] min-w-[180px]'}`}>
                   CATEGORIA
                 </th>
 
                 {/* 3. QUANTIDADE */}
-                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[8%] min-w-[70px]">
+                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[6%] min-w-[60px]' : 'w-[8%] min-w-[65px]'}`}>
                   QUANTIDADE
                 </th>
 
                 {/* 4. CUSTO UNITÁRIO (R$) */}
-                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[9%] min-w-[75px]">
+                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[8%] min-w-[75px]' : 'w-[10%] min-w-[80px]'}`}>
                   CUSTO UNIT. (R$)
                 </th>
 
                 {/* 5. VALOR TOTAL (R$) */}
-                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[9%] min-w-[80px]">
+                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[8%] min-w-[80px]' : 'w-[10%] min-w-[85px]'}`}>
                   VALOR TOTAL (R$)
                 </th>
 
                 {/* 6. % CÁLC. */}
-                <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                <th className={`py-1.5 px-1 text-right bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800 ${showSpecialPrices ? 'w-[5%] min-w-[50px]' : 'w-[6%] min-w-[55px]'}`}>
                   % CÁLC.
                 </th>
 
                 {/* 7. V. FINAL (R$) */}
-                <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                <th className={`py-1.5 px-1.5 text-right bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 ${showSpecialPrices ? 'w-[6%] min-w-[65px]' : 'w-[7%] min-w-[70px]'}`}>
                   V. FINAL (R$)
                 </th>
 
                 {/* 8. % ATAC. */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                  <th className="py-1.5 px-1 text-right w-[5%] min-w-[50px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                     % ATAC.
                   </th>
                 )}
 
                 {/* 9. V. ATACADO (R$) */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                  <th className="py-1.5 px-1.5 text-right w-[6%] min-w-[65px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
                     V. ATACADO (R$)
                   </th>
                 )}
 
                 {/* 10. % PROMO. */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1 text-right w-[6%] min-w-[55px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
+                  <th className="py-1.5 px-1 text-right w-[5%] min-w-[50px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300 border-l border-zinc-200 dark:border-stone-800">
                     % PROMO.
                   </th>
                 )}
 
                 {/* 11. V. PROMO (R$) */}
                 {showSpecialPrices && (
-                  <th className="py-1.5 px-1.5 text-right w-[8%] min-w-[75px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
+                  <th className="py-1.5 px-1.5 text-right w-[6%] min-w-[65px] bg-zinc-100 dark:bg-stone-800 text-zinc-700 dark:text-stone-300">
                     V. PROMO (R$)
                   </th>
                 )}
 
                 {/* 12. AÇÕES */}
-                <th className="py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black w-[7%] min-w-[75px]">
+                <th className={`py-1.5 px-2 text-right text-zinc-800 dark:text-white font-black ${showSpecialPrices ? 'w-[5%] min-w-[65px]' : 'w-[7%] min-w-[70px]'}`}>
                   AÇÕES
                 </th>
               </tr>
@@ -631,26 +631,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
 
                   return (
                     <tr key={item.id} className="hover:bg-blue-300/30 dark:hover:bg-stone-800/40 transition">
-                      {/* 1. ITEM & LOCAL (Enxuto) */}
-                      <td className="py-1 px-2">
-                        <div className="font-black text-black dark:text-stone-100 text-xs truncate max-w-[170px]" title={displayName}>
+                      {/* 1. ITEM & LOCAL (Expandido sem cortes) */}
+                      <td className="py-1.5 px-2.5 align-middle">
+                        <div className="font-black text-black dark:text-stone-100 text-xs leading-snug whitespace-normal break-words" title={displayName}>
                           {displayName}
                         </div>
-                        <span className="text-[9.5px] font-bold text-black/70 dark:text-stone-400 block truncate max-w-[170px]">
+                        <span className="text-[9.5px] font-bold text-black/70 dark:text-stone-400 block whitespace-normal leading-tight">
                           {item.location || 'Geral'}
                         </span>
                       </td>
 
-                      {/* 2. CATEGORIA (Compacta) */}
-                      <td className="py-1 px-2">
-                        <div className="flex items-center space-x-1 font-bold text-[11px] text-black dark:text-stone-200">
-                          {getCategoryIcon(displayCat)}
-                          <span className="truncate max-w-[140px]" title={displayCat}>{displayCat.replace('_', ' ')}</span>
+                      {/* 2. CATEGORIA (Expandida sem cortes) */}
+                      <td className="py-1.5 px-2.5 align-middle">
+                        <div className="flex items-center space-x-1.5 font-bold text-[11px] text-black dark:text-stone-200 whitespace-normal">
+                          <span className="shrink-0">{getCategoryIcon(displayCat)}</span>
+                          <span className="whitespace-normal leading-snug break-words" title={displayCat}>
+                            {displayCat.replace('_', ' ')}
+                          </span>
                         </div>
                       </td>
 
                       {/* 3. QUANTIDADE */}
-                      <td className="py-1 px-2 text-right">
+                      <td className="py-1.5 px-2 text-right align-middle whitespace-nowrap">
                         <span className={`font-black font-mono text-xs ${isLow ? 'text-rose-950 dark:text-rose-400' : 'text-black dark:text-stone-100'}`}>
                           {effectiveQty} {item.unidade_medida || item.unit}
                         </span>
@@ -662,12 +664,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
                       </td>
 
                       {/* 4. CUSTO UNITÁRIO (R$) */}
-                      <td className="py-1 px-2 text-right font-black text-black dark:text-stone-300 font-mono text-xs">
+                      <td className="py-1.5 px-2 text-right align-middle font-black text-black dark:text-stone-300 font-mono text-xs whitespace-nowrap">
                         {formatCurrencyBRL(effectiveCost)}
                       </td>
 
                       {/* 5. VALOR TOTAL (R$) */}
-                      <td className="py-1 px-2 text-right font-black text-black dark:text-stone-100 font-mono text-xs">
+                      <td className="py-1.5 px-2 text-right align-middle font-black text-black dark:text-stone-100 font-mono text-xs whitespace-nowrap">
                         {formatCurrencyBRL(itemTotal)}
                       </td>
 
