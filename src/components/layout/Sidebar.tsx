@@ -6,9 +6,7 @@ import {
   Sun,
   Moon,
   Lock,
-  Building,
-  UserCheck,
-  Shield
+  Building
 } from 'lucide-react';
 import { CompanyProfile, SimulatedUserSession } from '../../types';
 import { 
@@ -21,7 +19,6 @@ import {
   getActiveUserSession, 
   ModulePermissionKey 
 } from '../../lib/cadastrosBaseStorage';
-import { UserSessionModal } from '../cadastrosBase/UserSessionModal';
 
 export interface SidebarProps {
   activeTab: string;
@@ -48,7 +45,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
 }) => {
   const [userSession, setUserSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
-  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
     if (propMenuOrder && propMenuOrder.length > 0) {
@@ -295,9 +291,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* 1. ATIVAR ROLAGEM EXCLUSIVA NA LISTA DE MENUS (NAV):
-            flex-1 overflow-y-auto scrollbar-none max-h-[calc(100vh-180px)] */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none max-h-[calc(100vh-180px)] px-3 py-1 space-y-1">
+        {/* 1. ATIVAR ROLAGEM EXCLUSIVA NA LISTA DE MENUS (NAV): */}
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-3 py-1 space-y-1">
           <nav className="space-y-1">
             {middleNavItems.map((item) => {
               const Icon = item.icon;
@@ -363,57 +358,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* 2. FIXAR O RODAPÉ DA SIDEBAR (PERFIL ATIVO, DADOS DA EMPRESA E SAIR):
-            Container fixado no rodapé absoluto da barra lateral com Perfil Ativo, Dados da Empresa e Logout */}
-        <div className="mt-auto pt-3 border-t border-zinc-300 dark:border-stone-800 bg-zinc-200/90 dark:bg-stone-900 p-3 space-y-2 shrink-0">
+        {/* 2. FIXAR O RODAPÉ DA SIDEBAR (DADOS DA EMPRESA E SAIR):
+            Container fixado no rodapé absoluto da barra lateral com Dados da Empresa e Logout */}
+        <div className="mt-auto pt-2.5 border-t border-zinc-300 dark:border-stone-800 bg-zinc-200/90 dark:bg-stone-900 p-3 space-y-2 shrink-0">
           
-          {/* PERFIL DE USUÁRIO ATIVO NA SESSÃO COM FOTO E BOTÃO TROCAR */}
-          <div className="p-2.5 rounded-xl bg-white dark:bg-stone-800 border border-zinc-300 dark:border-stone-700 shadow-2xs">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center space-x-2.5 min-w-0">
-                {/* Foto do Usuário / Avatar */}
-                <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-zinc-300 dark:border-stone-600 bg-zinc-100 dark:bg-stone-700 flex items-center justify-center">
-                  {userSession.photoUrl ? (
-                    <img 
-                      src={userSession.photoUrl} 
-                      alt={userSession.name} 
-                      className="w-full h-full object-cover" 
-                    />
-                  ) : userSession.type === 'admin' ? (
-                    <div className="w-full h-full bg-slate-800 text-white flex items-center justify-center">
-                      <Shield className="w-4 h-4 text-emerald-400" />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
-                      {userSession.name?.charAt(0) || 'U'}
-                    </div>
-                  )}
-                  {/* Status dot */}
-                  <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-stone-800 ${userSession.type === 'admin' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-                </div>
-
-                {/* Textos: Nome e Cargo */}
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-extrabold text-zinc-900 dark:text-white truncate">
-                    {userSession.name || 'Administrador Geral'}
-                  </div>
-                  <div className="text-[10px] font-medium text-zinc-500 dark:text-stone-400 truncate">
-                    {userSession.cargoNome || 'Administrador'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Botão Trocar */}
-              <button
-                type="button"
-                onClick={() => setIsSessionModalOpen(true)}
-                className="px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer shrink-0 border border-indigo-200 dark:border-indigo-800"
-              >
-                Trocar
-              </button>
-            </div>
-          </div>
-
           {/* Botão Fixo: Dados da Empresa (se não estiver restrito/oculto para o cargo) */}
           {!isEmpresaRestricted && (
             <button
@@ -473,15 +421,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
       </aside>
-
-      {/* Modal de Simulação de Sessão / Troca de Perfil de Acesso */}
-      <UserSessionModal
-        isOpen={isSessionModalOpen}
-        onClose={() => setIsSessionModalOpen(false)}
-        onSessionChanged={(session) => {
-          setUserSession(session);
-        }}
-      />
     </>
   );
 };

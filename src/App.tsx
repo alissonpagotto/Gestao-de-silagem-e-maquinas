@@ -103,10 +103,10 @@ import { useConfirm } from './context/ConfirmContext';
 
 
 import { Sidebar } from './components/layout/Sidebar';
-import { TopBar } from './components/layout/TopBar';
 import { MainDashboard } from './components/dashboard/MainDashboard';
 
-import { PlusCircle, Sparkles, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu } from 'lucide-react';
+import { UserSessionModal } from './components/cadastrosBase/UserSessionModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
 import { ExpenseReceiptViewer } from './components/expenses/ExpenseReceiptViewer';
 import { ExpenseCategoriesModal } from './components/expenses/ExpenseCategoriesModal';
@@ -1474,6 +1474,7 @@ export default function App() {
 
   // Sessão Ativa / Simulação de Cargo para Controle de Nível de Acesso (Modo Offline)
   const [activeSession, setActiveSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
   useEffect(() => {
     const handleSessionSync = (e: any) => {
@@ -2877,47 +2878,114 @@ export default function App() {
         {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
         <header
           id="desktop-window-titlebar"
-          className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 px-2.5 sm:px-3 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200"
+          className="h-8 min-h-[32px] max-h-[32px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 px-2 sm:px-3 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2"
         >
           {/* Lado Esquerdo: Ícone + Título e Versão em Caixa Alta */}
-          <div className="flex items-center space-x-2 text-[10.5px] sm:text-[11px] font-bold tracking-wider truncate">
+          <div className="flex items-center space-x-2 text-[10.5px] sm:text-[11px] font-bold tracking-wider truncate shrink-0">
+            {/* Botão de menu mobile */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-0.5 rounded text-slate-700 dark:text-stone-300 hover:bg-slate-300/80 dark:hover:bg-stone-700 transition cursor-pointer shrink-0"
+              aria-label="Abrir Menu"
+            >
+              <Menu className="w-3.5 h-3.5" />
+            </button>
             <div className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-[8px] font-black text-white shrink-0 shadow-2xs">
               C
             </div>
             <span className="font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">
-              SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 5.5.1.0 - BUILD: 2026.10.06
+              SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 1.0.3 - BUILD: 2026.10.06
             </span>
           </div>
 
-          {/* Lado Direito: Trio Clássico de Mini-Botões de Controle Simulados */}
-          <div className="flex items-center space-x-1 shrink-0 -mr-1">
-            {/* Minimizar */}
-            <button
-              type="button"
-              tabIndex={-1}
-              className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
-              title="Minimizar Janela"
-            >
-              <span className="leading-none pb-1 font-bold text-[12px]">—</span>
-            </button>
-            {/* Maximizar */}
-            <button
-              type="button"
-              tabIndex={-1}
-              className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
-              title="Maximizar Janela"
-            >
-              <span className="border border-slate-600 dark:border-stone-400 w-2.5 h-2.5 rounded-[1px] inline-block"></span>
-            </button>
-            {/* Fechar */}
-            <button
-              type="button"
-              tabIndex={-1}
-              className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-500 hover:text-white rounded text-xs transition cursor-default"
-              title="Fechar Janela"
-            >
-              <span className="leading-none font-bold text-[11px]">✕</span>
-            </button>
+          {/* Miolo Central: Badges Minimalistas de Status da Assinatura */}
+          <div className="hidden md:flex items-center space-x-2 shrink-0">
+            {/* Badge 1: Fundo verde micro com texto verde escuro */}
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-800/60 flex items-center gap-1 shadow-2xs whitespace-nowrap">
+              <span className="text-[7px] text-emerald-600 dark:text-emerald-400">●</span>
+              ASSINATURA ATIVA - PRODUTOR ESSENCIAL
+            </span>
+            {/* Badge 2: Texto dourado/laranja discreto */}
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1 shadow-2xs whitespace-nowrap">
+              <span className="text-[10px]">⚡</span>
+              SILAGEM FÁCIL PRO • MODO COMPLETO
+            </span>
+          </div>
+
+          {/* Lado Direito: Perfil do Usuário Slim + Trio Clássico de Botões de Controle */}
+          <div className="flex items-center space-x-2 shrink-0">
+            {/* Bloco de Perfil do Usuário Slim Horizontal */}
+            <div className="flex items-center space-x-1.5 bg-slate-200/60 dark:bg-stone-800/60 px-1.5 py-0.5 rounded-md border border-slate-300/70 dark:border-stone-700/60 shadow-2xs">
+              {/* Foto / Avatar redondo (w-7 h-7 rounded-full) */}
+              <div className="relative w-7 h-7 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
+                {activeSession?.photoUrl ? (
+                  <img 
+                    src={activeSession.photoUrl} 
+                    alt={activeSession.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : activeSession?.type === 'admin' ? (
+                  <div className="w-full h-full bg-slate-800 text-white flex items-center justify-center">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">
+                    {activeSession?.name?.charAt(0) || 'U'}
+                  </div>
+                )}
+                <span className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full border border-white dark:border-stone-800 ${activeSession?.type === 'admin' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+              </div>
+
+              {/* Nome em text-xs font-semibold */}
+              <span className="text-xs font-semibold text-slate-800 dark:text-stone-200 tracking-tight whitespace-nowrap hidden sm:inline">
+                {activeSession?.type === 'admin' ? 'ADMINISTRADOR GERAL' : (activeSession?.cargoNome || activeSession?.name || 'ADMINISTRADOR GERAL').toUpperCase()}
+              </span>
+
+              {/* Botão Trocar */}
+              <button
+                type="button"
+                onClick={() => setIsSessionModalOpen(true)}
+                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline transition cursor-pointer px-1 py-0.5"
+                title="Simular outro Cargo ou Usuário"
+              >
+                Trocar
+              </button>
+            </div>
+
+            {/* Separador sutil */}
+            <div className="h-4 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
+
+            {/* Trio Clássico de Mini-Botões de Controle Simulados */}
+            <div className="flex items-center space-x-0.5 shrink-0 -mr-1">
+              {/* Minimizar */}
+              <button
+                type="button"
+                tabIndex={-1}
+                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
+                title="Minimizar Janela"
+              >
+                <span className="leading-none pb-1 font-bold text-[12px]">—</span>
+              </button>
+              {/* Maximizar */}
+              <button
+                type="button"
+                tabIndex={-1}
+                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
+                title="Maximizar Janela"
+              >
+                <span className="border border-slate-600 dark:border-stone-400 w-2.5 h-2.5 rounded-[1px] inline-block"></span>
+              </button>
+              {/* Fechar */}
+              <button
+                type="button"
+                tabIndex={-1}
+                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-500 hover:text-white rounded text-xs transition cursor-default"
+                title="Fechar Janela"
+              >
+                <span className="leading-none font-bold text-[11px]">✕</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -2977,22 +3045,6 @@ export default function App() {
           <div 
             className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-zinc-100 dark:bg-stone-950"
           >
-            {/* Top Bar with Trial Notice and Horizontal Pill Carousel */}
-            <TopBar
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              isDarkMode={isDarkMode}
-              setIsDarkMode={setIsDarkMode}
-              onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
-              onOpenQuickMemo={() => setIsQuickMemoOpen(true)}
-              onOpenTrialInfo={() => setIsTrialInfoOpen(true)}
-              selectedShortcuts={selectedShortcuts}
-              onOpenCustomizeShortcuts={() => setIsCustomizeShortcutsOpen(true)}
-              trialDaysRemaining={subscriptionCheck.daysRemaining}
-              subscriptionStatus={subscriptionCheck.status}
-              subscriptionPlanName={subscriptionCheck.planName || companyProfile?.planName}
-            />
-
             {/* Dynamic Page Content (100% Full Width across all modules) */}
             <main 
               id="crm-main-content"
@@ -3428,6 +3480,15 @@ export default function App() {
 
       {/* Global Modals */}
       
+      {/* Modal de Simulação de Sessão / Troca de Perfil de Acesso */}
+      <UserSessionModal
+        isOpen={isSessionModalOpen}
+        onClose={() => setIsSessionModalOpen(false)}
+        onSessionChanged={(session) => {
+          setActiveSession(session);
+        }}
+      />
+
       {/* Expense Modal (Create & Edit) */}
       <ExpenseModal
         isOpen={isExpenseModalOpen}
