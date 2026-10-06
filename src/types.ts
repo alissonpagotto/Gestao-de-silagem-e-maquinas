@@ -1629,7 +1629,7 @@ export interface VehicleTypeDefinition {
 
 export type TireCondition = 'novo' | 'excelente' | 'bom' | 'atencao' | 'critico' | 'descarte';
 
-export type TireStatus = 'em_uso' | 'estoque' | 'estepe' | 'reforma' | 'descartado';
+export type TireStatus = 'em_uso' | 'estoque' | 'estepe' | 'reforma' | 'descartado' | 'Disponível (Estoque)';
 
 export interface TireItem {
   id: string;
@@ -1643,8 +1643,10 @@ export interface TireItem {
   originalTreadDepthMm?: number; // Sulco original novo em mm (ex: 18.0)
   pressurePsi?: number; // Pressão em PSI (ex: 110)
   status: TireStatus;
+  statusName?: string;
   currentKm?: number;
   retreadCount?: number; // 0 = Novo, 1 = 1ª Recapagem, 2 = 2ª Recapagem
+  reformedCount?: number;
   installationKm?: number;
   installationHourMeter?: number;
   installationDate?: string;
@@ -1666,6 +1668,8 @@ export interface TireItem {
   discardNotes?: string;
   discardedBy?: string;
   motivo_descarte?: string; // Motivo do descarte / sucata
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type RotationPatternType = 

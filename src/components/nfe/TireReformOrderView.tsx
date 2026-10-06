@@ -19,7 +19,7 @@ import {
   X,
   Pencil
 } from 'lucide-react';
-import { TireItem, Supplier, CompanyProfile, InventoryItem } from '../../types';
+import { TireItem, Supplier, CompanyProfile, InventoryItem, Expense } from '../../types';
 import { 
   formatDateBR, 
   formatCurrencyBRL, 
@@ -31,7 +31,14 @@ import {
   normalizeStockServiceName,
   DEFAULT_STOCK_SERVICES,
   STOCK_SERVICES_STORAGE_KEY,
-  STOCK_PRODUCTS_STORAGE_KEY
+  STOCK_PRODUCTS_STORAGE_KEY,
+  getStoredTireInventory,
+  saveStoredTireInventory,
+  getStoredTiresInReform,
+  saveStoredTiresInReform,
+  getStoredInventory,
+  saveStoredInventory,
+  STORAGE_KEYS
 } from '../../lib/storage';
 
 export interface TireReformOrder {
@@ -66,7 +73,8 @@ export interface TireReformOrder {
 
 export { 
   DEFAULT_STOCK_SERVICES,
-  STOCK_SERVICES_STORAGE_KEY
+  STOCK_SERVICES_STORAGE_KEY,
+  normalizeStockServiceName
 };
 
 export const DEFAULT_TIRE_REFORM_SERVICES = DEFAULT_STOCK_SERVICES;
@@ -150,16 +158,230 @@ export function getStoredReformSuppliers(): Supplier[] {
   ];
 }
 
-interface TireReformOrderViewProps {
+/**
+ * AÇÃO 2: ATUALIZAR O STATUS DO PNEU NA FROTA E RETORNAR AO ESTOQUE
+ * - Varre a chave 'colaca_silagem_frotas_pneus_estoque' e muda o status dos pneus vinculados
+ *   a este pedido de "Em Reforma" para "Disponível (Estoque)".
+ * - Incrementa a quantidade física destes pneus no estoque global para que eles "brotem"
+ *   reativamente na tela de frotas prontos para serem montados novamente nos eixos do caminhão ou da forrageira.
+ */
+export function efetivarRetornoPneusEstoque(order: TireReformOrder): void {
+  try {
+    const orderTireIds = new Set(order.tires.map(t => t.id));
+    const orderFireNumbers = new Set(order.tires.map(t => (t.fireNumber || '').trim().toUpperCase()).filter(Boolean));
+
+    // 1. Atualiza pneus na chave 'colaca_silagem_frotas_pneus_estoque'
+    let fleetTires: TireItem[] = [];
+    try {
+      const raw = localStorage.getItem('colaca_silagem_frotas_pneus_estoque') || localStorage.getItem(STORAGE_KEYS.TIRE_INVENTORY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) fleetTires = parsed;
+      }
+    } catch (_) {}
+
+    fleetTires = fleetTires.map(tire => {
+      const fn = (tire.fireNumber || '').trim().toUpperCase();
+      if (orderTireIds.has(tire.id) || (fn && orderFireNumbers.has(fn))) {
+        return {
+          ...tire,
+          status: 'Disponível (Estoque)' as any,
+          statusName: 'Disponível (Estoque)',
+          position: 'estoque' as const,
+          positionName: 'Estoque Geral',
+          vehicleId: undefined,
+          vehiclePlate: undefined,
+          vehicleName: undefined,
+          motivo_reforma: undefined,
+          servico_reforma: undefined,
+          retreadCount: ((tire.retreadCount || tire.reformedCount || 0) + 1),
+          reformedCount: ((tire.reformedCount || tire.retreadCount || 0) + 1),
+          treadDepthMm: tire.treadDepthMm && tire.treadDepthMm > 0 ? tire.treadDepthMm : 15,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return tire;
+    });
+
+    // Garante que todos os pneus da ordem estejam presentes no estoque
+    for (const ot of order.tires) {
+      const fn = (ot.fireNumber || '').trim().toUpperCase();
+      const alreadyPresent = fleetTires.some(t => t.id === ot.id || (fn && (t.fireNumber || '').trim().toUpperCase() === fn));
+      if (!alreadyPresent) {
+        fleetTires.push({
+          id: ot.id || `pneu_ret_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          fireNumber: ot.fireNumber || `#${Math.floor(1000 + Math.random() * 9000)}`,
+          brand: ot.brand || 'Michelin',
+          model: ot.model || 'X MultiWay 3D',
+          size: ot.size || '295/80 R 22.5',
+          treadDepthMm: ot.treadDepthMm && ot.treadDepthMm > 0 ? ot.treadDepthMm : 15,
+          position: 'estoque',
+          positionName: 'Estoque Geral',
+          status: 'Disponível (Estoque)',
+          statusName: 'Disponível (Estoque)',
+          retreadCount: 1,
+          reformedCount: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+
+    // Salva o estoque de pneus no LocalStorage
+    saveStoredTireInventory(fleetTires);
+
+    // 2. Remove os pneus retornados da lista de pendentes e em reforma
+    try {
+      const rawPending = localStorage.getItem(PENDING_REFORM_TIRES_KEY);
+      if (rawPending) {
+        const list = JSON.parse(rawPending);
+        if (Array.isArray(list)) {
+          const remaining = list.filter(t => !orderTireIds.has(t.id) && !orderFireNumbers.has((t.fireNumber || '').trim().toUpperCase()));
+          localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(remaining));
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const inReform = getStoredTiresInReform();
+      const remainingInReform = inReform.filter(t => !orderTireIds.has(t.id) && !orderFireNumbers.has((t.fireNumber || '').trim().toUpperCase()));
+      saveStoredTiresInReform(remainingInReform);
+    } catch (_) {}
+
+    // 3. Incrementa a quantidade física no estoque global de produtos
+    try {
+      const inventory = getStoredInventory();
+      let inventoryChanged = false;
+      for (const tire of order.tires) {
+        const tireBrand = (tire.brand || '').toLowerCase().trim();
+        const tireSize = (tire.size || '').toLowerCase().trim();
+        let matchedProd = inventory.find(p => {
+          const pName = (p.nome_comercial || p.name || p.nome || '').toLowerCase();
+          const isTireCat = p.category?.toLowerCase() === 'pneus' || p.categoria?.toLowerCase() === 'pneus';
+          return isTireCat && (pName.includes(tireBrand) || (tireSize && pName.includes(tireSize)));
+        });
+        if (!matchedProd) {
+          matchedProd = inventory.find(p => p.category?.toLowerCase() === 'pneus' || p.categoria?.toLowerCase() === 'pneus');
+        }
+        if (matchedProd) {
+          matchedProd.quantity = (Number(matchedProd.quantity) || 0) + 1;
+          inventoryChanged = true;
+        }
+      }
+      if (inventoryChanged) {
+        saveStoredInventory(inventory);
+      }
+    } catch (errInv) {
+      console.warn('Erro ao incrementar produtos no estoque global:', errInv);
+    }
+
+    // 4. Dispara eventos para atualização instantânea na interface
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tire_inventory_updated', { detail: fleetTires }));
+      window.dispatchEvent(new CustomEvent('silagem_tire_inventory_updated', { detail: fleetTires }));
+      window.dispatchEvent(new CustomEvent('colaca_silagem_frotas_pneus_updated', { detail: fleetTires }));
+    }
+  } catch (err) {
+    console.error('Erro ao efetivar retorno de pneus no estoque:', err);
+  }
+}
+
+/**
+ * AÇÃO 3: LANÇAMENTO AUTOMÁTICO NO CONTAS A PAGAR (FINANCEIRO)
+ * - Gera o registro de despesa correspondente na chave 'colaca_silagem_financeiro_contas_pagar',
+ *   jogando o valor total como uma duplicata provisionada em nome do Fornecedor/Recapadora
+ *   com base na data atual de fechamento.
+ */
+export function lancarContasPagarRetornoReforma(order: TireReformOrder): void {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const orderSum = order.totalValor !== undefined && order.totalValor !== null && order.totalValor > 0
+      ? order.totalValor
+      : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+
+    const payableRecord = {
+      id: `pagar_reforma_${order.id}_${Date.now()}`,
+      pedido_reforma_id: order.id,
+      numero_ordem: order.orderNumber,
+      numero_documento: order.orderNumber,
+      fornecedor: order.supplierName,
+      fornecedor_nome: order.supplierName,
+      fornecedor_id: order.supplierId,
+      descricao: `Retorno Pedido de Reforma ${order.orderNumber} - ${order.supplierName}`,
+      valor: orderSum,
+      valor_total: orderSum,
+      valor_parcela: orderSum,
+      numero_parcela: '01/01',
+      tipo_documento: 'NOTA',
+      data_emissao: today,
+      data_vencimento: order.expectedReturnDate || today,
+      status: 'provisionada', // Duplicata provisionada em nome do Fornecedor/Recapadora
+      status_pago: false,
+      centro_custo: 'Recapagem e Reforma de Pneus',
+      categoria: 'Manutenção de Frotas / Pneus',
+      tipo_despesa: 'Manutenção de Frotas / Pneus',
+      created_at: new Date().toISOString(),
+    };
+
+    // 1. Salva na chave solicitada 'colaca_silagem_financeiro_contas_pagar'
+    try {
+      const rawPayables = localStorage.getItem('colaca_silagem_financeiro_contas_pagar');
+      const list = rawPayables ? JSON.parse(rawPayables) : [];
+      const filtered = Array.isArray(list) ? list.filter((p: any) => p.pedido_reforma_id !== order.id && p.numero_ordem !== order.orderNumber) : [];
+      const updatedPayables = [payableRecord, ...filtered];
+      localStorage.setItem('colaca_silagem_financeiro_contas_pagar', JSON.stringify(updatedPayables));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('financeiro_contas_pagar_updated', { detail: updatedPayables }));
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar em colaca_silagem_financeiro_contas_pagar:', e);
+    }
+
+    // 2. Sincroniza também na chave de despesas gerais para relatórios e dashboards
+    try {
+      const rawExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+      const expenses: Expense[] = rawExpenses ? JSON.parse(rawExpenses) : [];
+      const expenseItem: Expense = {
+        id: payableRecord.id,
+        description: payableRecord.descricao,
+        amount: orderSum,
+        categoryId: 'cat_frotas_pneus',
+        categoryName: 'Manutenção de Frotas / Pneus',
+        categoryColor: '#f59e0b',
+        dueDate: payableRecord.data_vencimento,
+        status: 'pendente',
+        paymentMethod: 'boleto',
+        supplier: order.supplierName,
+        invoiceNumber: order.orderNumber,
+        notes: `Duplicata provisionada ref. fechamento ${order.orderNumber} (${order.supplierName})`,
+        createdAt: new Date().toISOString()
+      };
+      const filteredExp = expenses.filter(e => e.id !== payableRecord.id && (!e.invoiceNumber || e.invoiceNumber !== order.orderNumber));
+      const newExpenses = [expenseItem, ...filteredExp];
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(newExpenses));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('expenses_updated', { detail: newExpenses }));
+      }
+    } catch (e) {
+      console.warn('Erro ao sincronizar despesa no EXPENSES:', e);
+    }
+  } catch (err) {
+    console.error('Erro ao lançar contas a pagar do retorno de reforma:', err);
+  }
+}
+
+export interface TireReformOrderViewProps {
   companyProfile?: CompanyProfile;
   initialCreateMode?: boolean;
   onOrderSaved?: (order: TireReformOrder) => void;
+  onEfetivarRetorno?: (order: TireReformOrder) => void;
 }
 
 export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   companyProfile,
   initialCreateMode = false,
   onOrderSaved,
+  onEfetivarRetorno,
 }) => {
   const [orders, setOrders] = useState<TireReformOrder[]>(() => getStoredReformOrders());
   const [isCreatingNewOrder, setIsCreatingNewOrder] = useState<boolean>(initialCreateMode);
@@ -275,14 +497,37 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     window.addEventListener('colaca_silagem_abrir_pedido_reforma', handleTrigger);
     window.addEventListener('colaca_silagem_servicos_estoque_updated', handleServicesSync);
     window.addEventListener('colaca_silagem_estoque_produtos_updated', handleServicesSync);
+    window.addEventListener('colaca_silagem_pedidos_reforma_updated', handleStorage);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('colaca_silagem_abrir_pedido_reforma', handleTrigger);
       window.removeEventListener('colaca_silagem_servicos_estoque_updated', handleServicesSync);
       window.removeEventListener('colaca_silagem_estoque_produtos_updated', handleServicesSync);
+      window.removeEventListener('colaca_silagem_pedidos_reforma_updated', handleStorage);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
+
+  // Efetivar retorno do pedido de reforma (Regra de Negócio 2 e 3)
+  const handleEfetivarRetorno = (order: TireReformOrder) => {
+    // 1. AÇÃO 2: Atualizar pneus na frota e estoque
+    efetivarRetornoPneusEstoque(order);
+
+    // 2. AÇÃO 3: Lançamento automático no Contas a Pagar (Financeiro)
+    lancarContasPagarRetornoReforma(order);
+
+    // 3. AÇÃO 1: Redirecionar e popular o modal de Nova Entrada Manual
+    if (onEfetivarRetorno) {
+      onEfetivarRetorno(order);
+    } else {
+      // Fallback local: Marca como Concluído caso chamado isoladamente
+      const updated = orders.map(o => o.id === order.id ? { ...o, status: 'Concluído' as const } : o);
+      setOrders(updated);
+      saveStoredReformOrders(updated);
+      setSuccessMessage(`Retorno de ${order.orderNumber} efetivado com sucesso! Pneus devolvidos ao estoque.`);
+      setTimeout(() => setSuccessMessage(''), 4000);
+    }
+  };
 
   // Seleção automática do primeiro fornecedor de recapagem se disponível
   useEffect(() => {
@@ -1432,14 +1677,25 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex flex-row items-center justify-end gap-1.5 sm:gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleStartEditOrder(order)}
-                                className="p-1.5 text-stone-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
-                                title="Editar Pedido de Reforma"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
+                              {order.status === 'Concluído' ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="p-1.5 text-stone-300 dark:text-stone-600 cursor-not-allowed opacity-40 rounded-lg"
+                                  title="Pedido Concluído - Bloqueado contra novas edições"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditOrder(order)}
+                                  className="p-1.5 text-stone-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
+                                  title="Editar Pedido de Reforma"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setSelectedOrderForView(order)}
@@ -1456,19 +1712,22 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               >
                                 <Printer className="w-3.5 h-3.5" />
                               </button>
-                              {order.status !== 'Concluído' && (
+                              {order.status !== 'Concluído' ? (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const updated = orders.map(o => o.id === order.id ? { ...o, status: 'Concluído' as const } : o);
-                                    setOrders(updated);
-                                    saveStoredReformOrders(updated);
-                                  }}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-black rounded-lg transition cursor-pointer"
-                                  title="Marcar como Concluído / Retornado"
+                                  id={`btn-efetivar-retorno-${order.id}`}
+                                  onClick={() => handleEfetivarRetorno(order)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-md transition cursor-pointer whitespace-nowrap shadow-2xs hover:shadow-xs"
+                                  title="Efetivar retorno do pedido de reforma"
                                 >
-                                  ✓ Concluir
+                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Efetivar retorno do pedido de reforma</span>
                                 </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Concluído</span>
+                                </span>
                               )}
                             </div>
                           </td>
@@ -1670,21 +1929,51 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   <span>Salvar Ordem</span>
                 </button>
 
+                {/* Botão Efetivar Retorno no Modal */}
+                {selectedOrderForView.status !== 'Concluído' && (
+                  <button
+                    type="button"
+                    id="btn-efetivar-retorno-modal"
+                    onClick={() => {
+                      const toReturn = selectedOrderForView;
+                      setSelectedOrderForView(null);
+                      handleEfetivarRetorno(toReturn);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-bold shadow-xs transition cursor-pointer"
+                    title="Efetivar retorno do pedido de reforma"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Efetivar Retorno</span>
+                  </button>
+                )}
+
                 {/* Botão Editar Pedido */}
-                <button
-                  type="button"
-                  id="btn-editar-pedido-reforma"
-                  onClick={() => {
-                    const toEdit = selectedOrderForView;
-                    setSelectedOrderForView(null);
-                    handleStartEditOrder(toEdit);
-                  }}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-sm font-bold transition cursor-pointer"
-                  title="Editar dados e valores deste pedido"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  <span>Editar Pedido</span>
-                </button>
+                {selectedOrderForView.status === 'Concluído' ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-800 text-stone-400 dark:text-stone-600 text-sm font-bold cursor-not-allowed opacity-50"
+                    title="Pedido Concluído - Bloqueado contra edições"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Editar Pedido</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    id="btn-editar-pedido-reforma"
+                    onClick={() => {
+                      const toEdit = selectedOrderForView;
+                      setSelectedOrderForView(null);
+                      handleStartEditOrder(toEdit);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-sm font-bold transition cursor-pointer"
+                    title="Editar dados e valores deste pedido"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Editar Pedido</span>
+                  </button>
+                )}
 
                 {/* Botão Imprimir Pedido */}
                 <button

@@ -122,7 +122,17 @@ import {
   generateUUID,
   toValidUUID
 } from '../../lib/supabaseService';
-import { TireReformOrderView, getStoredReformOrders, getStoredPendingReformTires } from './TireReformOrderView';
+import { 
+  TireReformOrderView, 
+  TireReformOrder,
+  getStoredReformOrders, 
+  saveStoredReformOrders,
+  getStoredPendingReformTires,
+  efetivarRetornoPneusEstoque,
+  lancarContasPagarRetornoReforma,
+  normalizeStockServiceName,
+  DEFAULT_STOCK_SERVICES
+} from './TireReformOrderView';
 import { DevolucaoNotasView, getStoredNotasDevolucao } from './DevolucaoNotasView';
 
 interface ParsedNfeItem {
@@ -1319,6 +1329,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [manualEntryStep, setManualEntryStep] = useState<1 | 2>(1);
   const [currentManualDoc, setCurrentManualDoc] = useState<DocumentoEntradaRecord | null>(null);
+  const [linkedReformOrderId, setLinkedReformOrderId] = useState<string | null>(null);
   // Janela 2 (Entrada Manual): Forma de Pagamento e Condições de Lançamento Financeiro
   const [isManualInstallmentsModalOpen, setIsManualInstallmentsModalOpen] = useState(false);
 
@@ -1539,6 +1550,116 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
     setManualEntryStep(1);
     setIsManualEntryModalOpen(true);
+  };
+
+  // INTEGRAÇÃO DE RETORNO DO PEDIDO DE REFORMA (3 AÇÕES EM LOTE)
+  const handleEfetivarRetornoPedidoReforma = (order: TireReformOrder) => {
+    // AÇÃO 2: Atualizar o status do pneu na frota e retornar ao estoque
+    efetivarRetornoPneusEstoque(order);
+
+    // AÇÃO 3: Lançamento automático no Contas a Pagar (Financeiro)
+    lancarContasPagarRetornoReforma(order);
+
+    // Registra vínculo do pedido de reforma para conclusão após salvar definitivamente
+    setLinkedReformOrderId(order.id);
+    try {
+      localStorage.setItem('colaca_silagem_ordem_reforma_em_retorno', order.id);
+    } catch (_) {}
+
+    // AÇÃO 1: Redirecionar e popular o modal de "Nova Entrada Manual"
+    setActiveFiscalSubTab('notas');
+
+    const today = new Date().toISOString().split('T')[0];
+    const orderSum = order.totalValor !== undefined && order.totalValor !== null && order.totalValor > 0
+      ? order.totalValor
+      : order.tires.reduce((acc, t) => acc + (t.valorUnitario || 0), 0);
+
+    setIsManualInstallmentsModalOpen(false);
+    setManualSupplier(order.supplierName);
+    setManualDocumentType('NOTA');
+    setManualDate(today);
+    setManualDueDate(order.expectedReturnDate || calculateDefaultDueDate(today));
+    setManualAmountDisplay(formatCurrencyInputDisplay(orderSum));
+    setManualNotes(`Retorno do Pedido de Reforma ${order.orderNumber} - ${order.supplierName}`);
+    setManualFormError('');
+
+    const newDocId = `doc_retorno_${order.id}_${Date.now()}`;
+    const newDoc: DocumentoEntradaRecord = {
+      id: newDocId,
+      fornecedor: order.supplierName,
+      data: today,
+      data_vencimento: order.expectedReturnDate || calculateDefaultDueDate(today),
+      tipo_documento: 'NOTA',
+      valor_total: orderSum,
+      observacoes: `Retorno do Pedido de Reforma ${order.orderNumber} - ${order.supplierName}`,
+      status: 'Rascunho'
+    };
+    setCurrentManualDoc(newDoc);
+    setDocumentosEntrada(prev => [newDoc, ...prev.filter(d => d.id !== newDocId)]);
+
+    // Linhas de serviços de borracharia com quantidades e valores de forma idêntica
+    const serviceGroups = new Map<string, { srv: string; count: number; unitPrice: number; total: number }>();
+    if (order.tires && order.tires.length > 0) {
+      for (const tire of order.tires) {
+        const srvName = normalizeStockServiceName(tire.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM / REFORMA').toUpperCase();
+        const unitVal = tire.valorUnitario !== undefined && tire.valorUnitario !== null && tire.valorUnitario > 0
+          ? tire.valorUnitario
+          : (orderSum > 0 ? orderSum / order.tires.length : 0);
+        const key = `${srvName}__${unitVal}`;
+        const existing = serviceGroups.get(key);
+        if (existing) {
+          existing.count += 1;
+          existing.total += unitVal;
+        } else {
+          serviceGroups.set(key, { srv: srvName, count: 1, unitPrice: unitVal, total: unitVal });
+        }
+      }
+    }
+
+    let itemsList: DocumentoEntradaItem[] = [];
+    if (serviceGroups.size > 0) {
+      let idx = 0;
+      for (const [, grp] of serviceGroups.entries()) {
+        itemsList.push({
+          id: `item_ret_${order.id}_${idx}_${Date.now()}`,
+          documento_entrada_id: newDocId,
+          descricao: grp.srv,
+          quantidade: grp.count,
+          unidade: 'UN',
+          valor_unitario: grp.unitPrice,
+          valor_total: grp.total,
+          created_at: new Date().toISOString()
+        });
+        idx++;
+      }
+    } else {
+      itemsList = [{
+        id: `item_ret_${order.id}_0_${Date.now()}`,
+        documento_entrada_id: newDocId,
+        descricao: 'SERVIÇO DE RECAPAGEM / REFORMA DE PNEUS',
+        quantidade: order.totalTires || 1,
+        unidade: 'UN',
+        valor_unitario: orderSum,
+        valor_total: orderSum,
+        created_at: new Date().toISOString()
+      }];
+    }
+
+    setManualDocItems(itemsList);
+    try {
+      const existingItems = getStoredDocumentosEntradaItens();
+      const otherItems = existingItems.filter(i => i.documento_entrada_id !== newDocId);
+      saveStoredDocumentosEntradaItens([...itemsList, ...otherItems]);
+    } catch (e) {
+      console.warn('Erro ao salvar itens no storage:', e);
+    }
+
+    // Avança automaticamente para o Passo 2: Inserção de Produtos
+    setManualEntryStep(2);
+    setIsManualEntryModalOpen(true);
+
+    setSuccessMessage(`Retorno de ${order.orderNumber} iniciado! Serviços carregados com sucesso no Passo 2.`);
+    setTimeout(() => setSuccessMessage(''), 5000);
   };
 
   const handleManualAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2432,6 +2553,27 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
 
       setIsManualInstallmentsModalOpen(false);
       setIsManualEntryModalOpen(false);
+
+      // 3. CONCLUIR O STATUS NA TABELA HISTÓRICA:
+      // Após o usuário salvar definitivamente essa Nota de Entrada gerada pelo retorno, mude de forma permanente o badge de STATUS do pedido para "Concluído"
+      const reformOrderIdToClose = linkedReformOrderId || localStorage.getItem('colaca_silagem_ordem_reforma_em_retorno');
+      if (reformOrderIdToClose) {
+        try {
+          const currentOrders = getStoredReformOrders();
+          const updatedOrders = currentOrders.map(o => 
+            (o.id === reformOrderIdToClose || o.orderNumber === reformOrderIdToClose)
+              ? { ...o, status: 'Concluído' as const }
+              : o
+          );
+          saveStoredReformOrders(updatedOrders);
+          setReformOrdersCount(updatedOrders.length);
+          setLinkedReformOrderId(null);
+          localStorage.removeItem('colaca_silagem_ordem_reforma_em_retorno');
+        } catch (err) {
+          console.warn('Erro ao atualizar status do pedido de reforma para Concluído:', err);
+        }
+      }
+
       setSuccessMessage(
         `Entrada manual concluída com sucesso! ${totalParcs} parcela(s) lançada(s) no Contas a Pagar (${formatCurrencyBRL(finalAmount)}).`
       );
@@ -5198,6 +5340,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             setReformOrdersCount(getStoredReformOrders().length);
             setPendingReformCount(getStoredPendingReformTires().length);
           }}
+          onEfetivarRetorno={handleEfetivarRetornoPedidoReforma}
         />
       ) : activeFiscalSubTab === 'devolucao' ? (
         <DevolucaoNotasView companyProfile={companyProfile} />

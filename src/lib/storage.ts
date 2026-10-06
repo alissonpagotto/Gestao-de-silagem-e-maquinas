@@ -68,7 +68,7 @@ import {
 import { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber } from './defaultAppointments';
 export { DEFAULT_INITIAL_APPOINTMENTS, findAppointmentByIdOrNumber };
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   EXPENSES: 'silagem_facil_clean_v1_expenses',
   CATEGORIES: 'silagem_facil_clean_v1_categories',
   COST_CENTERS: 'silagem_facil_clean_v1_cost_centers',
@@ -2568,7 +2568,7 @@ export function getStoredTireInventory(): TireItem[] {
               continue;
             }
             if (t.position && t.position !== 'estoque') continue;
-            if (t.status && t.status !== 'estoque') continue;
+            if (t.status && t.status !== 'estoque' && t.status !== 'Disponível (Estoque)' && t.status !== 'disponivel') continue;
 
             const fn = (t.fireNumber || '').trim().toUpperCase();
             if (fn && (installedFireNumbers.has(fn) || seenFireNumbers.has(fn))) continue;
