@@ -41,7 +41,10 @@ import {
   INITIAL_VEHICLE_TYPES, 
   INITIAL_TIRE_INVENTORY, 
   INITIAL_TIRES_IN_REFORM, 
-  INITIAL_TIRES_DISCARDED 
+  INITIAL_TIRES_DISCARDED,
+  getStoredAxleConfigurations,
+  saveStoredAxleConfigurations,
+  StoredAxleConfigOption
 } from './tireAndAxlePresets';
 import {
   INITIAL_EXPENSES,
@@ -1909,7 +1912,7 @@ export function saveStoredTerminations(terminations: TerminationRecord[]): void 
 
 export function getStoredVehicleTypes(): VehicleTypeDefinition[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.VEHICLE_TYPES);
+    const raw = localStorage.getItem('colaca_silagem_tipos_veiculos') || localStorage.getItem(STORAGE_KEYS.VEHICLE_TYPES);
     if (!raw) return INITIAL_VEHICLE_TYPES;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_VEHICLE_TYPES;
@@ -1922,11 +1925,18 @@ export function getStoredVehicleTypes(): VehicleTypeDefinition[] {
 
 export function saveStoredVehicleTypes(types: VehicleTypeDefinition[]): void {
   try {
+    localStorage.setItem('colaca_silagem_tipos_veiculos', JSON.stringify(types));
     localStorage.setItem(STORAGE_KEYS.VEHICLE_TYPES, JSON.stringify(types));
   } catch (e) {
     console.error('Failed to save vehicle types', e);
   }
 }
+
+export { 
+  getStoredAxleConfigurations, 
+  saveStoredAxleConfigurations, 
+  type StoredAxleConfigOption 
+};
 
 export function getStoredTireRotationLogs(): TireRotationLog[] {
   try {

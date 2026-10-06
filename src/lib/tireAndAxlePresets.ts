@@ -185,7 +185,7 @@ export function buildDynamicAxleConfig(
   vehicleTypeOrCat?: string,
   vehicleName?: string
 ): VehicleAxleConfig {
-  const totalAxles = Math.max(1, Math.min(6, Number(numAxles) || 2));
+  const totalAxles = Math.max(1, Math.min(12, Number(numAxles) || 2));
   const totalTires = Math.max(totalAxles * 2, Number(numTires) || totalAxles * 2);
 
   const lowerType = String(vehicleTypeOrCat || '').toLowerCase();
@@ -216,8 +216,6 @@ export function buildDynamicAxleConfig(
   const axles = [];
 
   for (let i = 1; i <= totalAxles; i++) {
-    // Se for reboque e todos forem duplos, singleCount é 0
-    // Em caminhões (ex: 3 eixos 10 pneus), o 1º é simples (direcional) e os 2 traseiros são duplos
     const isSingle = i <= singleCount;
     const axleType = isSingle ? ('single' as const) : ('dual' as const);
 
@@ -306,6 +304,60 @@ export const AXLE_CONFIG_BITRUCK_4E_12R: VehicleAxleConfig = {
     },
   ],
 };
+
+// ========================================================
+// CONFIGURAÇÕES BASE DE EIXOS E PNEUS (DINÂMICO / LOCALSTORAGE)
+// Chave LocalStorage solicitada: 'colaca_silagem_configuracoes_eixos_base'
+// ========================================================
+
+export const STORAGE_KEY_AXLE_CONFIGS = 'colaca_silagem_configuracoes_eixos_base';
+
+export interface StoredAxleConfigOption {
+  key: string;
+  label: string;
+  totalAxles: number;
+  totalTires: number;
+  config: VehicleAxleConfig;
+  isCustom?: boolean;
+}
+
+export const INITIAL_AXLE_CONFIG_OPTIONS: StoredAxleConfigOption[] = [
+  { key: 'caminhao_trucado_3e_10r', label: 'Caminhão Trucado (3 Eixos / 10 Rodas)', totalAxles: 3, totalTires: 10, config: AXLE_CONFIG_CAMINHAO_TRUCADO_3E_10R },
+  { key: 'caminhao_toco_2e_6r', label: 'Caminhão Toco (2 Eixos / 6 Rodas)', totalAxles: 2, totalTires: 6, config: AXLE_CONFIG_CAMINHAO_TOCO_2E_6R },
+  { key: 'utilitario_2e_4r', label: 'Utilitário / Carro / Picape (2 Eixos / 4 Rodas)', totalAxles: 2, totalTires: 4, config: AXLE_CONFIG_UTILITARIO_2E_4R },
+  { key: 'trator_agricola_2e_4r', label: 'Trator Agrícola (2 Eixos / 4 Rodas)', totalAxles: 2, totalTires: 4, config: AXLE_CONFIG_TRATOR_AGRICOLA_2E_4R },
+  { key: 'ensiladeira_autopropelida_2e_4r', label: 'Ensiladeira Autopropelida (2 Eixos / 4 Rodas)', totalAxles: 2, totalTires: 4, config: AXLE_CONFIG_ENSILADEIRA_AUTOPROPELIDA_2E_4R },
+  { key: 'transbordo_reboque_2e_4r', label: 'Transbordo / Reboque Silagem (2 Eixos / 4 Rodas)', totalAxles: 2, totalTires: 4, config: AXLE_CONFIG_TRANSBORDO_REBOQUE_2E_4R },
+  { key: 'reboque_prancha_3e_12r', label: 'Reboque / Treminhão Prancha (3 Eixos / 12 Rodas)', totalAxles: 3, totalTires: 12, config: AXLE_CONFIG_REBOQUE_PRANCHA_3E_12R },
+  { key: 'bitruck_4e_12r', label: 'Caminhão Bitruck (4 Eixos / 12 Rodas)', totalAxles: 4, totalTires: 12, config: AXLE_CONFIG_BITRUCK_4E_12R },
+];
+
+export function getStoredAxleConfigurations(): StoredAxleConfigOption[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_AXLE_CONFIGS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEY_AXLE_CONFIGS, JSON.stringify(INITIAL_AXLE_CONFIG_OPTIONS));
+      return INITIAL_AXLE_CONFIG_OPTIONS;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+    return INITIAL_AXLE_CONFIG_OPTIONS;
+  } catch (e) {
+    console.error('Falha ao carregar configurações de eixos', e);
+    return INITIAL_AXLE_CONFIG_OPTIONS;
+  }
+}
+
+export function saveStoredAxleConfigurations(configs: StoredAxleConfigOption[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_AXLE_CONFIGS, JSON.stringify(configs));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_configuracoes_eixos_updated', { detail: configs }));
+  } catch (e) {
+    console.error('Falha ao salvar configurações de eixos', e);
+  }
+}
 
 // ========================================================
 // PRESETS DE ESTOQUE, REFORMA E DESCARTE DE PNEUS (INICIALMENTE ZERADOS)
