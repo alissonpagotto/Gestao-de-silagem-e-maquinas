@@ -6772,19 +6772,19 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
       {isManualEntryModalOpen && (
         <div 
           id="modal-nova-entrada-manual"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
+          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in"
           onClick={() => {
             if (!isSavingManualEntry && !isAddingItem) setIsManualEntryModalOpen(false);
           }}
         >
           <div 
-            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-2xl sm:max-w-3xl w-full shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[90vh]"
+            className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl w-[90vw] max-w-[90vw] shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 1. Cabeçalho Principal com Título e Botão Fechar */}
-            <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/90 dark:bg-stone-800/60 shrink-0">
+            <div className="px-5 py-3.5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/90 dark:bg-stone-800/60 shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
                   <Package className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
@@ -6810,38 +6810,38 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
               </button>
             </div>
 
-            {/* 2. Barra Visual de Progresso do Stepper */}
-            <div className="px-5 py-3 bg-[#cdcdcd] dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-3 sm:space-x-6 w-full">
+            {/* 2. Barra Visual de Progresso do Stepper Slim Minimalista */}
+            <div className="px-6 py-2 bg-stone-100/90 dark:bg-stone-800/90 border-b border-stone-200 dark:border-stone-800 flex items-center justify-center shrink-0">
+              <div className="flex items-center space-x-4 sm:space-x-8 w-full max-w-3xl">
                 {/* Passo 1 */}
                 <button
                   type="button"
                   onClick={() => {
                     if (manualEntryStep === 2) setManualEntryStep(1);
                   }}
-                  className={`flex items-center space-x-2.5 text-left transition ${
+                  className={`flex items-center space-x-2 text-left transition select-none ${
                     manualEntryStep === 1 
                       ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer'
                   }`}
                 >
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
                     manualEntryStep === 1
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : currentManualDoc || manualDocItems.length > 0
                       ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                       : 'bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
                   }`}>
-                    {manualEntryStep === 2 ? <Check className="w-4 h-4 stroke-[3]" /> : '1'}
+                    {manualEntryStep === 2 ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : '1'}
                   </div>
-                  <div>
-                    <span className="text-xs block leading-tight font-bold">1. Dados do Documento</span>
-                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal">Fornecedor & Cabeçalho</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold">1. Dados do Documento</span>
+                    <span className="text-[10px] text-stone-400 font-normal hidden sm:inline">(Fornecedor & Cabeçalho)</span>
                   </div>
                 </button>
 
-                {/* Linha divisória */}
-                <div className="flex-1 h-0.5 bg-stone-200 dark:bg-stone-700">
+                {/* Linha divisória fina */}
+                <div className="flex-1 h-0.5 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
                   <div className={`h-full bg-emerald-500 transition-all duration-300 ${manualEntryStep === 2 ? 'w-full' : 'w-0'}`} />
                 </div>
 
@@ -6854,7 +6854,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     }
                   }}
                   disabled={!currentManualDoc && !manualSupplier.trim()}
-                  className={`flex items-center space-x-2.5 text-left transition ${
+                  className={`flex items-center space-x-2 text-left transition select-none ${
                     manualEntryStep === 2 
                       ? 'text-emerald-700 dark:text-emerald-400 font-bold' 
                       : (currentManualDoc || manualSupplier.trim())
@@ -6862,23 +6862,23 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       : 'text-stone-400 cursor-not-allowed opacity-60'
                   }`}
                 >
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition ${
                     manualEntryStep === 2
-                      ? 'bg-emerald-600 text-white shadow-xs ring-4 ring-emerald-500/15'
+                      ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-500/20'
                       : 'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400'
                   }`}>
                     2
                   </div>
-                  <div>
-                    <span className="text-xs block leading-tight font-bold">2. Inserção de Produtos</span>
-                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-normal">Itens & Saldo de Estoque</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold">2. Inserção de Produtos</span>
+                    <span className="text-[10px] text-stone-400 font-normal hidden sm:inline">(Itens & Saldo de Estoque)</span>
                   </div>
                 </button>
               </div>
             </div>
 
             {/* 3. Corpo do Modal (Passo 1 ou Passo 2) */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
+            <div className="p-4 sm:p-5 overflow-y-auto scrollbar-none flex-1 space-y-4">
               
               {/* =============================================================== */}
               {/* PASSO 1: DADOS DO DOCUMENTO (FORNECEDOR E CABEÇALHO) */}
@@ -7196,16 +7196,16 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           </div>
                         </div>
 
-                        {/* Indicador de Status e Sincronização Automática */}
-                        <div className="pt-2 border-t border-stone-200/70 dark:border-stone-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        {/* Indicador de Status e Sincronização Automática com Tipografia Compacta */}
+                        <div className="pt-2 border-t border-stone-200/70 dark:border-stone-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium">
                           {isBalanced ? (
-                            <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <div className="flex items-center space-x-1.5 text-emerald-700 dark:text-emerald-400">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                               <span>Valores conferem perfeitamente ({formatCurrencyBRL(itemsTotal)}).</span>
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
-                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <div className="flex items-center space-x-1.5 text-amber-700 dark:text-amber-400">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                               <span>
                                 Diferença de {formatCurrencyBRL(diff)} entre o cabeçalho ({formatCurrencyBRL(headerTotal)}) e a soma dos itens ({formatCurrencyBRL(itemsTotal)}).
                               </span>
@@ -7219,7 +7219,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                                 handleSyncHeaderToItemsTotal();
                                 setManualFormError('');
                               }}
-                              className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 underline cursor-pointer self-start sm:self-auto"
+                              className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 underline cursor-pointer self-start sm:self-auto shrink-0"
                             >
                               Atualizar total do documento para {formatCurrencyBRL(itemsTotal)}
                             </button>
@@ -7229,9 +7229,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                     );
                   })()}
 
-                  {/* Formulário de Adição de Produtos */}
-                  <form onSubmit={handleAddItemToManualDoc} className="p-4 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl shadow-xs space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-stone-800">
+                  {/* Formulário Cirúrgico de Adição de Produtos */}
+                  <form onSubmit={handleAddItemToManualDoc} className="p-3.5 bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl shadow-xs space-y-2.5">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-stone-100 dark:border-stone-800">
                       <div className="flex items-center space-x-1.5 text-xs font-bold text-stone-900 dark:text-stone-100">
                         <Plus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
                         <span>Adicionar Produto à Entrada</span>
@@ -7390,10 +7390,10 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </div>
                     )}
 
-                    {/* Grid com Quantidade, Unidade, Valor Unitário e Subtotal */}
-                    <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 items-end">
+                    {/* Linha Horizontal Ampla Contínua: Quantidade, Unidade, Valor Unitário, Subtotal e Botão Adicionar Item */}
+                    <div className="flex flex-wrap lg:flex-nowrap items-end gap-3 pt-1">
                       {/* Quantidade */}
-                      <div className="sm:col-span-3">
+                      <div className="w-28 sm:w-32 shrink-0">
                         <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                           Quantidade <span className="text-rose-500">*</span>
                         </label>
@@ -7411,7 +7411,7 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       </div>
 
                       {/* Unidade */}
-                      <div className="sm:col-span-2">
+                      <div className="w-24 sm:w-28 shrink-0">
                         <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                           Unidade
                         </label>
@@ -7420,13 +7420,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                           type="text"
                           value={itemUnit}
                           onChange={(e) => setItemUnit(e.target.value.toUpperCase())}
-                          placeholder="UN, KG, LT..."
-                          className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="UN, KG..."
+                          className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
                         />
                       </div>
 
                       {/* Valor Unitário (R$) */}
-                      <div className="sm:col-span-3">
+                      <div className="w-36 sm:w-44 shrink-0">
                         <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
                           Valor Unitário (R$)
                         </label>
@@ -7441,46 +7441,46 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                             value={itemUnitCostDisplay}
                             onChange={handleItemUnitCostChange}
                             placeholder="0,00"
-                            className="w-full pl-8 pr-2.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            className="w-full pl-8 pr-2.5 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl text-xs sm:text-sm font-mono font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right"
                           />
                         </div>
                       </div>
 
-                      {/* Subtotal Previsto */}
-                      <div className="sm:col-span-4 flex flex-col justify-end">
-                        <div className="flex items-center justify-between pb-1 text-[11px] text-stone-500 font-bold">
-                          <span>Subtotal:</span>
-                          <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xs font-black">
-                            {formatCurrencyBRL(
-                              (parseFloat(itemQuantity.replace(',', '.')) || 0) * parseCurrencyInput(itemUnitCostDisplay)
-                            )}
-                          </span>
-                        </div>
-                        <button
-                          type="submit"
-                          id="btn-adicionar-produto-entrada"
-                          disabled={isAddingItem}
-                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-50"
-                        >
-                          {isAddingItem ? (
-                            <>
-                              <Clock className="w-3.5 h-3.5 animate-spin" />
-                              <span>Somando Estoque...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                              <span>+ Adicionar Item</span>
-                            </>
+                      {/* Indicador de Subtotal */}
+                      <div className="flex-1 min-w-[130px] px-3.5 py-1.5 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl flex items-center justify-between h-[38px]">
+                        <span className="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider">Subtotal:</span>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm font-black">
+                          {formatCurrencyBRL(
+                            (parseFloat(itemQuantity.replace(',', '.')) || 0) * parseCurrencyInput(itemUnitCostDisplay)
                           )}
-                        </button>
+                        </span>
                       </div>
+
+                      {/* Botão verde [+ Adicionar Item] */}
+                      <button
+                        type="submit"
+                        id="btn-adicionar-produto-entrada"
+                        disabled={isAddingItem}
+                        className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 h-[38px]"
+                      >
+                        {isAddingItem ? (
+                          <>
+                            <Clock className="w-3.5 h-3.5 animate-spin" />
+                            <span>Somando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>+ Adicionar Item</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </form>
 
-                  {/* Tabela com a Lista dos Itens Adicionados nesta Entrada */}
+                  {/* Tabela com a Lista dos Itens Adicionados nesta Entrada (Totalmente Expandida) */}
                   <div className="border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden bg-white dark:bg-stone-900 shadow-2xs">
-                    <div className="p-3 bg-stone-50 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                    <div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800/80 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between shrink-0">
                       <div className="flex items-center space-x-2">
                         <Package className="w-4 h-4 text-emerald-600" />
                         <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
@@ -7494,98 +7494,100 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
                       )}
                     </div>
 
-                    {isLoadingDocItems ? (
-                      <div className="p-8 text-center text-xs text-stone-500 flex items-center justify-center space-x-2">
-                        <Clock className="w-4 h-4 animate-spin text-emerald-600" />
-                        <span>Carregando itens...</span>
-                      </div>
-                    ) : manualDocItems.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-stone-400 dark:text-stone-500 space-y-1">
-                        <Package className="w-8 h-8 text-stone-300 dark:text-stone-700 mx-auto" />
-                        <p className="font-semibold text-stone-600 dark:text-stone-400">
-                          Nenhum produto adicionado ainda.
-                        </p>
-                        <p className="text-[11px]">
-                          Utilize o campo acima para buscar no estoque ou cadastrar um novo produto.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-stone-100/60 dark:bg-stone-800/60 text-[11px] font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800">
-                            <tr>
-                              <th className="px-3.5 py-2.5">Produto</th>
-                              <th className="px-3.5 py-2.5 text-center">Quantidade</th>
-                              <th className="px-3.5 py-2.5 text-right">Valor Unitário</th>
-                              <th className="px-3.5 py-2.5 text-right">Subtotal</th>
-                              <th className="px-3.5 py-2.5 text-center">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">
-                            {manualDocItems.map((item) => (
-                              <tr key={item.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition">
-                                <td className="px-3.5 py-2.5">
-                                  <div className="font-bold text-stone-900 dark:text-stone-100">
-                                    {item.descricao}
-                                  </div>
-                                  <div className="text-[10px] text-stone-500 font-mono">
-                                    Unidade: {item.unidade || 'UN'}
-                                  </div>
-                                </td>
-                                <td className="px-3.5 py-2.5 text-center font-mono font-bold text-stone-800 dark:text-stone-200">
-                                  {item.quantidade} {item.unidade || 'UN'}
-                                </td>
-                                <td className="px-3.5 py-2.5 text-right font-mono font-medium text-stone-700 dark:text-stone-300">
-                                  {formatCurrencyBRL(item.valor_unitario)}
-                                </td>
-                                <td className="px-3.5 py-2.5 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
-                                  {formatCurrencyBRL(item.valor_total)}
-                                </td>
-                                <td className="px-3.5 py-2.5 text-center">
-                                  <div className="flex items-center justify-center space-x-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const matchedProd = localInventory.find(p =>
-                                          (item.produto_id && p.id === item.produto_id) ||
-                                          (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.descricao.toLowerCase().trim()) ||
-                                          p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
-                                        ) || {
-                                          id: item.produto_id || `inv_${Date.now()}`,
-                                          name: item.descricao,
-                                          nome_comercial: item.descricao,
-                                          unit: item.unidade || 'UN',
-                                          unidade_medida: item.unidade || 'UN',
-                                          category: deduceItemCategory(item.descricao),
-                                          unitCost: Number(item.valor_unitario) || 0,
-                                          salePrice: Math.round((Number(item.valor_unitario) || 0) * 1.3 * 100) / 100,
-                                          quantity: Number(item.quantidade) || 0,
-                                          minQuantity: 0,
-                                          location: 'Depósito Principal',
-                                        };
-                                        handleOpenEditProductFromManualEntry(matchedProd, item.id);
-                                      }}
-                                      className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
-                                      title="Editar Produto no Estoque"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteItemFromManualDoc(item)}
-                                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                                      title="Excluir item da entrada e estornar quantidade do estoque"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </td>
+                    <div className="max-h-[220px] overflow-y-auto scrollbar-none">
+                      {isLoadingDocItems ? (
+                        <div className="p-6 text-center text-xs text-stone-500 flex items-center justify-center space-x-2">
+                          <Clock className="w-4 h-4 animate-spin text-emerald-600" />
+                          <span>Carregando itens...</span>
+                        </div>
+                      ) : manualDocItems.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-stone-400 dark:text-stone-500 space-y-1">
+                          <Package className="w-7 h-7 text-stone-300 dark:text-stone-700 mx-auto" />
+                          <p className="font-semibold text-stone-600 dark:text-stone-400">
+                            Nenhum produto adicionado ainda.
+                          </p>
+                          <p className="text-[11px]">
+                            Utilize o campo acima para buscar no estoque ou cadastrar um novo produto.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-stone-100/60 dark:bg-stone-800/60 text-[11px] font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10 backdrop-blur-xs">
+                              <tr>
+                                <th className="px-4 py-2">Produto</th>
+                                <th className="px-4 py-2 text-center w-36">Quantidade</th>
+                                <th className="px-4 py-2 text-right w-36">Valor Unitário</th>
+                                <th className="px-4 py-2 text-right w-36">Subtotal</th>
+                                <th className="px-4 py-2 text-center w-24">Ações</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                            </thead>
+                            <tbody className="divide-y divide-stone-200 dark:divide-stone-800 font-medium">
+                              {manualDocItems.map((item) => (
+                                <tr key={item.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/40 transition">
+                                  <td className="px-4 py-2">
+                                    <div className="font-bold text-stone-900 dark:text-stone-100">
+                                      {item.descricao}
+                                    </div>
+                                    <div className="text-[10px] text-stone-500 font-mono">
+                                      Unidade: {item.unidade || 'UN'}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2 text-center font-mono font-bold text-stone-800 dark:text-stone-200">
+                                    {item.quantidade} {item.unidade || 'UN'}
+                                  </td>
+                                  <td className="px-4 py-2 text-right font-mono font-medium text-stone-700 dark:text-stone-300">
+                                    {formatCurrencyBRL(item.valor_unitario)}
+                                  </td>
+                                  <td className="px-4 py-2 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                                    {formatCurrencyBRL(item.valor_total)}
+                                  </td>
+                                  <td className="px-4 py-2 text-center">
+                                    <div className="flex items-center justify-center space-x-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const matchedProd = localInventory.find(p =>
+                                            (item.produto_id && p.id === item.produto_id) ||
+                                            (p.nome_comercial && p.nome_comercial.toLowerCase().trim() === item.descricao.toLowerCase().trim()) ||
+                                            p.name.toLowerCase().trim() === item.descricao.toLowerCase().trim()
+                                          ) || {
+                                            id: item.produto_id || `inv_${Date.now()}`,
+                                            name: item.descricao,
+                                            nome_comercial: item.descricao,
+                                            unit: item.unidade || 'UN',
+                                            unidade_medida: item.unidade || 'UN',
+                                            category: deduceItemCategory(item.descricao),
+                                            unitCost: Number(item.valor_unitario) || 0,
+                                            salePrice: Math.round((Number(item.valor_unitario) || 0) * 1.3 * 100) / 100,
+                                            quantity: Number(item.quantidade) || 0,
+                                            minQuantity: 0,
+                                            location: 'Depósito Principal',
+                                          };
+                                          handleOpenEditProductFromManualEntry(matchedProd, item.id);
+                                        }}
+                                        className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-lg transition cursor-pointer"
+                                        title="Editar Produto no Estoque"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteItemFromManualDoc(item)}
+                                        className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                                        title="Excluir item da entrada e estornar quantidade do estoque"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Rodapé do Passo 2: Finalização da Entrada */}
