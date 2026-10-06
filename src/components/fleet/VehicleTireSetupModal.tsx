@@ -295,7 +295,7 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
     const posName = getPositionReadableLabel(selectedPosition);
     const existing = tiresByPosition.get(selectedPosition);
 
-    const confirmedTire: TireItem = {
+    const confirmedTire: TireItem & Record<string, any> = {
       id: existing?.id || `tire_${Date.now()}_${selectedPosition}_${Math.random().toString(36).slice(2, 6)}`,
       position: selectedPosition,
       positionName: posName,
@@ -315,6 +315,13 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
       vehicleId: vehicleId || undefined,
       vehiclePlate: vehiclePlate || undefined,
       vehicleName: vehicleName || undefined,
+      // Trava Estrita de Negócio Financeiro: Caráter estritamente patrimonial/descritivo (sem custo/sem financeiro/sem DRE)
+      unitCost: 0,
+      purchasePrice: 0,
+      fiscalValue: 0,
+      cost: 0,
+      isInitialInventory: true,
+      generateExpense: false,
     };
 
     setTiresByPosition((prev) => {
@@ -349,6 +356,13 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
       vehicleId: vehicleId || vehiclePlate || vehicleName,
       vehiclePlate: vehiclePlate,
       vehicleName: vehicleName,
+      // Trava Estrita de Negócio Financeiro: Caráter estritamente patrimonial/descritivo (sem custo/sem financeiro/sem DRE)
+      unitCost: 0,
+      purchasePrice: 0,
+      fiscalValue: 0,
+      cost: 0,
+      isInitialInventory: true,
+      generateExpense: false,
     }));
 
     // 1. Atualiza e sincroniza o armazenamento global de inventário de pneus
@@ -578,6 +592,13 @@ export const VehicleTireSetupModal: React.FC<VehicleTireSetupModalProps> = ({
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+
+                {/* Feedback Visual Discreto de Regra de Negócio */}
+                <div className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700/70 flex items-center space-x-1.5">
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium leading-tight">
+                    ℹ️ Inventário inicial do veículo (Não gera lançamentos financeiros)
+                  </span>
                 </div>
 
                 {formError && (
