@@ -75,6 +75,7 @@ import {
 import { 
   getStoredCargosPermissoes, 
   saveStoredCargosPermissoes, 
+  consolidateCargosList,
   INITIAL_CARGOS_PERMISSOES,
   CADASTROS_STORAGE_KEYS 
 } from '../../lib/cadastrosBaseStorage';
@@ -535,12 +536,13 @@ export const CargosPermissoesTab: React.FC = () => {
         permissoes: { ...permissoes },
         createdAt: new Date().toISOString(),
       };
-      updatedList = [...cargos, newCargo];
+      updatedList = consolidateCargosList([...cargos, newCargo]);
       showToast(`Novo cargo "${cleanNome}" cadastrado com sucesso!`);
     }
 
-    setCargos(updatedList);
-    saveStoredCargosPermissoes(updatedList);
+    const finalConsolidated = consolidateCargosList(updatedList);
+    setCargos(finalConsolidated);
+    saveStoredCargosPermissoes(finalConsolidated);
     setFormError('');
 
     // Propaga atualização de permissões aos colaboradores associados a este cargo
@@ -606,8 +608,9 @@ export const CargosPermissoesTab: React.FC = () => {
   // Restaurar padrão
   const handleResetDefaults = () => {
     if (confirm('Deseja restaurar a matriz padrão de cargos e permissões do sistema?')) {
-      setCargos(INITIAL_CARGOS_PERMISSOES);
-      saveStoredCargosPermissoes(INITIAL_CARGOS_PERMISSOES);
+      const resetList = consolidateCargosList(INITIAL_CARGOS_PERMISSOES);
+      setCargos(resetList);
+      saveStoredCargosPermissoes(resetList);
       showToast('Cargos e permissões restaurados para o padrão.');
     }
   };
@@ -834,12 +837,12 @@ export const CargosPermissoesTab: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredCargos.map((cargo) => {
+                  filteredCargos.map((cargo, idx) => {
                     const empCount = employeeCountByCargo[cargo.id] || 0;
 
                     return (
                       <tr 
-                        key={cargo.id} 
+                        key={`${cargo.id}-${idx}`} 
                         className="hover:bg-zinc-50/80 dark:hover:bg-stone-800/50 transition-colors group"
                       >
                         {/* 1. Coluna Cargo / Função (Exibindo estritamente apenas o Nome Principal em destaque) */}
@@ -990,12 +993,12 @@ export const CargosPermissoesTab: React.FC = () => {
       ) : (
         /* Visualização Alternativa em Grade de Cards */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filteredCargos.map((cargo) => {
+          {filteredCargos.map((cargo, idx) => {
             const empCount = employeeCountByCargo[cargo.id] || 0;
 
             return (
               <div
-                key={cargo.id}
+                key={`${cargo.id}-${idx}`}
                 className="bg-white dark:bg-stone-900 border border-zinc-200 dark:border-stone-800 rounded-xl p-3.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-800 transition flex flex-col justify-between"
               >
                 <div>
@@ -1161,13 +1164,13 @@ export const CargosPermissoesTab: React.FC = () => {
                         Nenhum cargo encontrado.
                       </div>
                     ) : (
-                      editorFilteredCargos.map((cargo) => {
+                      editorFilteredCargos.map((cargo, idx) => {
                         const isSelected = !isCreatingNew && selectedCargoId === cargo.id;
                         const empCount = employeeCountByCargo[cargo.id] || 0;
 
                         return (
                           <div
-                            key={cargo.id}
+                            key={`${cargo.id}-${idx}`}
                             onClick={() => handleSelectCargo(cargo)}
                             className={`p-2.5 transition-all duration-150 cursor-pointer border-l-4 text-left select-none relative group ${
                               isSelected

@@ -201,6 +201,7 @@ export const DEFAULT_TANQUES_COMBUSTIVEL: TanqueCombustivel[] = [
 
 export function getStoredTanquesCombustivel(): TanqueCombustivel[] {
   try {
+    if (typeof localStorage === 'undefined') return DEFAULT_TANQUES_COMBUSTIVEL;
     const raw = localStorage.getItem(STORAGE_KEYS.TANQUES_COMBUSTIVEL);
     if (!raw) return DEFAULT_TANQUES_COMBUSTIVEL;
     const parsed = JSON.parse(raw);
@@ -1020,6 +1021,22 @@ export const CANONICAL_STOCK_SERVICES: CanonicalStockServiceDefinition[] = [
 
 export const DEFAULT_STOCK_SERVICES: string[] = CANONICAL_STOCK_SERVICES.map(s => s.name);
 
+export const DEFAULT_SERVICE_PRICES: Record<string, number> = {
+  srv_recapagem_pneu: 780,
+  srv_recauchutagem_pneu: 650,
+  srv_remoldagem_pneu: 450,
+  srv_vulcanizacao_pneu: 120,
+  srv_grooving_pneu: 80,
+  srv_conserto_camara: 45,
+  srv_troca_valvula: 25,
+  srv_mo_mecanico: 150,
+  srv_mo_eletricista_auto: 160,
+  srv_mo_funileiro: 140,
+  srv_mo_estofaria: 130,
+  srv_mo_civil_pedreiro: 120,
+  srv_mo_eletricista_predial: 130,
+};
+
 export function normalizeStockServiceName(serviceName?: any): string {
   if (!serviceName) return DEFAULT_STOCK_SERVICES[0];
   if (typeof serviceName !== 'string') {
@@ -1054,7 +1071,8 @@ export function normalizeStockServiceName(serviceName?: any): string {
 
 /**
  * Injeta em lote os 13 serviços oficiais no estoque caso ainda não constem,
- * garantindo tipo_item: 'SERVIÇO', categoria: 'SERVIÇO' e nomes padronizados em CAIXA ALTA.
+ * garantindo tipo_item: 'SERVIÇO', categorias padronizadas e nomes em CAIXA ALTA.
+ * Serviços de pneus recebem compulsoriamente a categoria 'SERVIÇOS MÃO DE OBRA BORRACHARIA'.
  */
 export function ensureServicesInInventory(currentList: InventoryItem[]): InventoryItem[] {
   const result = Array.isArray(currentList) ? [...currentList] : [];
@@ -1070,11 +1088,27 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
       return false;
     });
 
+    const isBorracharia = def.group === 'PNEUS';
+    const canonicalCategory = isBorracharia 
+      ? 'SERVIÇOS MÃO DE OBRA BORRACHARIA' 
+      : (def.group === 'PREDIAL' ? 'SERVIÇOS MÃO DE OBRA ELÉTRICA PREDIAL' : 'SERVIÇOS MÃO DE OBRA MECÂNICA');
+
+    const defaultPrice = DEFAULT_SERVICE_PRICES[def.id] || 0;
+
     if (matchIdx >= 0) {
       const existing = result[matchIdx];
-      // Preserva estritamente a categoria se o usuário reclassificou o serviço no estoque
-      const userCategory = (existing.categoria || existing.category || '').trim();
-      const finalCategory = userCategory || 'SERVIÇO';
+      const userCategory = (existing.categoria || existing.category || '').trim().toUpperCase();
+      // Se for serviço de pneu/borracharia e estiver com categoria genérica 'SERVIÇO' ou vazia, padroniza para 'SERVIÇOS MÃO DE OBRA BORRACHARIA'
+      const finalCategory = (userCategory && userCategory !== 'SERVIÇO' && userCategory !== 'SERVICO') 
+        ? (isBorracharia && (userCategory.includes('PNEU') || userCategory.includes('BORRACH')) ? 'SERVIÇOS MÃO DE OBRA BORRACHARIA' : (existing.categoria || existing.category || canonicalCategory)) 
+        : canonicalCategory;
+
+      const existingPrice = existing.salePrice !== undefined && existing.salePrice > 0 
+        ? existing.salePrice 
+        : (existing.preco_venda_varejo !== undefined && existing.preco_venda_varejo > 0 
+          ? existing.preco_venda_varejo 
+          : (existing.preco_venda !== undefined && existing.preco_venda > 0 ? existing.preco_venda : defaultPrice));
+
       result[matchIdx] = {
         ...existing,
         name: def.name,
@@ -1087,6 +1121,9 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
         unidade_medida: existing.unidade_medida || def.unit,
         code: existing.code || def.code,
         codigo_produto: existing.codigo_produto || def.code,
+        salePrice: existingPrice,
+        preco_venda_varejo: existingPrice,
+        preco_venda: existingPrice,
       };
     } else {
       result.push({
@@ -1096,8 +1133,8 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
         name: def.name,
         nome: def.name,
         nome_comercial: def.name,
-        category: 'SERVIÇO',
-        categoria: 'SERVIÇO',
+        category: canonicalCategory,
+        categoria: canonicalCategory,
         tipo_item: 'SERVIÇO',
         unit: def.unit,
         unidade_medida: def.unit,
@@ -1107,9 +1144,9 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
         unitCost: 0,
         preco_custo_inicial: 0,
         custo_nominal: 0,
-        salePrice: 0,
-        preco_venda_varejo: 0,
-        preco_venda: 0,
+        salePrice: defaultPrice,
+        preco_venda_varejo: defaultPrice,
+        preco_venda: defaultPrice,
         profitMargin: 0,
         location: 'PRESTAÇÃO DE SERVIÇOS',
         localizacao_fisica: 'PRESTAÇÃO DE SERVIÇOS',
@@ -1126,6 +1163,18 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
   }
 
   return result;
+}
+
+/**
+ * Lê exclusivamente os serviços de borracharia da chave 'colaca_silagem_estoque_produtos',
+ * filtrando estritamente onde categoria === 'SERVIÇOS MÃO DE OBRA BORRACHARIA'.
+ */
+export function getBorrachariaServicesFromStock(): InventoryItem[] {
+  const inventory = getStoredInventory();
+  return inventory.filter(item => {
+    const cat = (item.categoria || item.category || '').trim().toUpperCase();
+    return cat === 'SERVIÇOS MÃO DE OBRA BORRACHARIA' || cat === 'SERVICOS MAO DE OBRA BORRACHARIA';
+  });
 }
 
 /**

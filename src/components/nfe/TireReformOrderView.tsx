@@ -19,13 +19,14 @@ import {
   X,
   Pencil
 } from 'lucide-react';
-import { TireItem, Supplier, CompanyProfile } from '../../types';
+import { TireItem, Supplier, CompanyProfile, InventoryItem } from '../../types';
 import { 
   formatDateBR, 
   formatCurrencyBRL, 
   getStoredCompanyProfile,
   getStoredStockServices,
   getServicesFromStockLocalStorage,
+  getBorrachariaServicesFromStock,
   saveStoredStockServices,
   normalizeStockServiceName,
   DEFAULT_STOCK_SERVICES,
@@ -170,16 +171,49 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [customSupplierName, setCustomSupplierName] = useState<string>('');
 
-  // Pneus em buffer para a nova ordem
+  // Estoque unificado: Filtra EXCLUSIVAMENTE serviços de borracharia da chave 'colaca_silagem_estoque_produtos'
+  const [borrachariaStockItems, setBorrachariaStockItems] = useState<InventoryItem[]>(() => getBorrachariaServicesFromStock());
+
+  const borrachariaServicesList = useMemo(() => {
+    return borrachariaStockItems.map(item => {
+      const name = normalizeStockServiceName(item.nome_comercial || item.name || item.nome || '');
+      const price = 
+        item.salePrice !== undefined && item.salePrice > 0 ? item.salePrice :
+        item.preco_venda_varejo !== undefined && item.preco_venda_varejo > 0 ? item.preco_venda_varejo :
+        item.preco_venda !== undefined && item.preco_venda > 0 ? item.preco_venda :
+        (item as any).valorFinal !== undefined && (item as any).valorFinal > 0 ? (item as any).valorFinal :
+        (item as any).precoVenda !== undefined && (item as any).precoVenda > 0 ? (item as any).precoVenda :
+        (item.unitCost !== undefined && item.profitMargin !== undefined && item.unitCost > 0
+          ? Math.round(item.unitCost * (1 + item.profitMargin / 100) * 100) / 100
+          : (item.unitCost || 0));
+      return {
+        id: item.id,
+        name,
+        price,
+      };
+    });
+  }, [borrachariaStockItems]);
+
+  // Pneus em buffer para a nova ordem com serviço de borracharia e preço automático puxado do estoque
   const [pendingTires, setPendingTires] = useState<TireItem[]>(() => {
     const rawTires = getStoredPendingReformTires();
-    return rawTires.map(t => ({
-      ...t,
-      servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
-      valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
-    }));
+    const stockItems = getBorrachariaServicesFromStock();
+    const defaultSrv = stockItems[0] ? normalizeStockServiceName(stockItems[0].nome_comercial || stockItems[0].name || '') : 'SERVIÇO DE RECAPAGEM DE PNEU';
+
+    return rawTires.map(t => {
+      const srvName = normalizeStockServiceName(t.servico_reforma || defaultSrv).toUpperCase();
+      const matched = stockItems.find(s => normalizeStockServiceName(s.nome_comercial || s.name || s.nome || '').toUpperCase() === srvName);
+      const stockPrice = matched ? (matched.salePrice || matched.preco_venda_varejo || matched.preco_venda || (matched as any).valorFinal || (matched as any).precoVenda || 0) : 0;
+      const finalPrice = t.valor_reforma !== undefined && t.valor_reforma > 0 ? t.valor_reforma : (t.reformCost && t.reformCost > 0 ? t.reformCost : stockPrice);
+
+      return {
+        ...t,
+        servico_reforma: srvName,
+        valor_reforma: finalPrice,
+        reformCost: finalPrice,
+      };
+    });
   });
-  const [standardServices, setStandardServices] = useState<string[]>(() => getServicesFromStockLocalStorage());
   const [driverName, setDriverName] = useState<string>('');
   const [expectedReturnDate, setExpectedReturnDate] = useState<string>('');
   const [orderNotes, setOrderNotes] = useState<string>('');
@@ -198,47 +232,35 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
   useEffect(() => {
     const handleTrigger = (e: any) => {
       const tires: TireItem[] = e?.detail?.tires || getStoredPendingReformTires();
+      const stockItems = getBorrachariaServicesFromStock();
+      const defaultSrv = stockItems[0] ? normalizeStockServiceName(stockItems[0].nome_comercial || stockItems[0].name || '') : 'SERVIÇO DE RECAPAGEM DE PNEU';
+
       if (tires && tires.length > 0) {
-        setPendingTires(tires.map(t => ({
-          ...t,
-          servico_reforma: normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0]).toUpperCase(),
-          valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
-        })));
+        setPendingTires(tires.map(t => {
+          const srvName = normalizeStockServiceName(t.servico_reforma || defaultSrv).toUpperCase();
+          const matched = stockItems.find(s => normalizeStockServiceName(s.nome_comercial || s.name || s.nome || '').toUpperCase() === srvName);
+          const stockPrice = matched ? (matched.salePrice || matched.preco_venda_varejo || matched.preco_venda || (matched as any).valorFinal || (matched as any).precoVenda || 0) : 0;
+          const finalPrice = t.valor_reforma !== undefined && t.valor_reforma > 0 ? t.valor_reforma : (t.reformCost && t.reformCost > 0 ? t.reformCost : stockPrice);
+
+          return {
+            ...t,
+            servico_reforma: srvName,
+            valor_reforma: finalPrice,
+            reformCost: finalPrice,
+          };
+        }));
       }
       setIsCreatingNewOrder(true);
     };
 
-    const handleServicesSync = (e?: any) => {
-      if (e?.detail && Array.isArray(e.detail)) {
-        const fromDetail = e.detail
-          .filter((item: any) => {
-            if (typeof item === 'string') return true;
-            return item && (
-              item.tipo_item === 'SERVIÇO' || 
-              item.categoria === 'SERVIÇO' || 
-              item.category === 'SERVIÇO' ||
-              String(item.tipo_item || '').toUpperCase() === 'SERVIÇO'
-            );
-          })
-          .map((item: any) => {
-            if (typeof item === 'string') return normalizeStockServiceName(item);
-            return normalizeStockServiceName(item.nome_comercial || item.name || item.nome || '');
-          })
-          .filter(Boolean);
-
-        if (fromDetail.length > 0) {
-          setStandardServices(Array.from(new Set(fromDetail)));
-          return;
-        }
-      }
-
-      setStandardServices(getServicesFromStockLocalStorage());
+    const handleServicesSync = () => {
+      setBorrachariaStockItems(getBorrachariaServicesFromStock());
     };
 
     const handleStorage = (event?: StorageEvent) => {
       setOrders(getStoredReformOrders());
       setSuppliers(getStoredReformSuppliers());
-      setStandardServices(getServicesFromStockLocalStorage());
+      setBorrachariaStockItems(getBorrachariaServicesFromStock());
       const pTires = getStoredPendingReformTires();
       if (pTires.length > 0) {
         setPendingTires(pTires.map(t => ({
@@ -349,10 +371,25 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     })));
   };
 
-  // Atualiza o serviço selecionado para um pneu específico e move o foco para o Valor Unitário (R$)
+  // Atualiza o serviço selecionado para um pneu específico e puxa automaticamente o preço do estoque (V. FINAL)
   const handleUpdateTireService = (tireId: string, servico: string) => {
-    const upperServico = servico.toUpperCase();
-    const updated = pendingTires.map(t => t.id === tireId ? { ...t, servico_reforma: upperServico } : t);
+    const upperServico = normalizeStockServiceName(servico).toUpperCase();
+
+    // Localiza o serviço de borracharia na lista de estoque e captura o preço de venda configurado
+    const matchedStockItem = borrachariaServicesList.find(s => s.name.toUpperCase() === upperServico);
+    const autoPrice = matchedStockItem && matchedStockItem.price > 0 ? matchedStockItem.price : undefined;
+
+    const updated = pendingTires.map(t => {
+      if (t.id === tireId) {
+        return {
+          ...t,
+          servico_reforma: upperServico,
+          ...(autoPrice !== undefined ? { valor_reforma: autoPrice, reformCost: autoPrice } : {})
+        };
+      }
+      return t;
+    });
+
     setPendingTires(updated);
     if (!editingOrder) {
       try {
@@ -395,11 +432,18 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     }
   };
 
-  // Aplica serviço em lote para todos os pneus pendentes
+  // Aplica serviço em lote para todos os pneus pendentes e puxa o preço automático do estoque
   const handleApplyBatchService = (serviceToApply: string) => {
     if (!serviceToApply) return;
-    const upper = serviceToApply.toUpperCase();
-    const updated = pendingTires.map(t => ({ ...t, servico_reforma: upper }));
+    const upper = normalizeStockServiceName(serviceToApply).toUpperCase();
+    const matchedStockItem = borrachariaServicesList.find(s => s.name.toUpperCase() === upper);
+    const autoPrice = matchedStockItem && matchedStockItem.price > 0 ? matchedStockItem.price : undefined;
+
+    const updated = pendingTires.map(t => ({
+      ...t,
+      servico_reforma: upper,
+      ...(autoPrice !== undefined ? { valor_reforma: autoPrice, reformCost: autoPrice } : {})
+    }));
     setPendingTires(updated);
     if (!editingOrder) {
       try {
@@ -963,8 +1007,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                     className="text-[10px] font-bold py-1 px-2 max-w-[240px] truncate rounded-lg border border-amber-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none uppercase cursor-pointer"
                   >
                     <option value="" disabled>SELECIONAR EM LOTE...</option>
-                    {standardServices.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                    {borrachariaServicesList.map((s) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1023,15 +1067,15 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                           </td>
                           <td className="py-2 px-3 w-64 min-w-[220px] max-w-[280px]">
                             <select
-                              value={normalizeStockServiceName(t.servico_reforma || standardServices[0] || DEFAULT_STOCK_SERVICES[0])}
+                              value={normalizeStockServiceName(t.servico_reforma || borrachariaServicesList[0]?.name || DEFAULT_STOCK_SERVICES[0])}
                               onChange={(e) => handleUpdateTireService(t.id, e.target.value)}
-                              title={normalizeStockServiceName(t.servico_reforma || standardServices[0] || DEFAULT_STOCK_SERVICES[0])}
+                              title={normalizeStockServiceName(t.servico_reforma || borrachariaServicesList[0]?.name || DEFAULT_STOCK_SERVICES[0])}
                               className="w-full px-2 py-1 text-xs font-bold border border-amber-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase cursor-pointer truncate"
                             >
-                              {standardServices.map((srv) => (
-                                <option key={srv} value={srv} className="py-1 text-xs">{srv}</option>
+                              {borrachariaServicesList.map((srv) => (
+                                <option key={srv.id} value={srv.name} className="py-1 text-xs">{srv.name}</option>
                               ))}
-                              {t.servico_reforma && !standardServices.includes(normalizeStockServiceName(t.servico_reforma)) && (
+                              {t.servico_reforma && !borrachariaServicesList.some(s => s.name === normalizeStockServiceName(t.servico_reforma)) && (
                                 <option value={normalizeStockServiceName(t.servico_reforma)} className="py-1 text-xs">
                                   {normalizeStockServiceName(t.servico_reforma)}
                                 </option>
