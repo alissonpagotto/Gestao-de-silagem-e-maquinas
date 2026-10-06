@@ -1617,11 +1617,13 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
     }
 
     let itemsList: DocumentoEntradaItem[] = [];
+    let idx = 0;
+
+    // PASSO A: Linhas de serviços de borracharia com quantidades e valores de forma idêntica
     if (serviceGroups.size > 0) {
-      let idx = 0;
       for (const [, grp] of serviceGroups.entries()) {
         itemsList.push({
-          id: `item_ret_${order.id}_${idx}_${Date.now()}`,
+          id: `item_ret_srv_${order.id}_${idx}_${Date.now()}`,
           documento_entrada_id: newDocId,
           descricao: grp.srv,
           quantidade: grp.count,
@@ -1633,8 +1635,8 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         idx++;
       }
     } else {
-      itemsList = [{
-        id: `item_ret_${order.id}_0_${Date.now()}`,
+      itemsList.push({
+        id: `item_ret_srv_${order.id}_0_${Date.now()}`,
         documento_entrada_id: newDocId,
         descricao: 'SERVIÇO DE RECAPAGEM / REFORMA DE PNEUS',
         quantidade: order.totalTires || 1,
@@ -1642,7 +1644,34 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         valor_unitario: orderSum,
         valor_total: orderSum,
         created_at: new Date().toISOString()
-      }];
+      });
+      idx++;
+    }
+
+    // PASSO B: Retorno Físico do Pneu ao Estoque (linhas de produto físico a R$ 0,00 para não duplicar o total da nota)
+    if (order.tires && order.tires.length > 0) {
+      for (const tire of order.tires) {
+        const brandStr = (tire.brand || 'PNEU').trim().toUpperCase();
+        const modelStr = (tire.model || '').trim().toUpperCase();
+        const fnStr = (tire.fireNumber || '').trim().toUpperCase();
+        
+        let descPneu = `${brandStr} ${modelStr}`.trim();
+        if (fnStr) {
+          descPneu += ` (Nº DE FOGO: ${fnStr})`;
+        }
+
+        itemsList.push({
+          id: `item_ret_pneu_${order.id}_${tire.id || idx}_${Date.now()}`,
+          documento_entrada_id: newDocId,
+          descricao: descPneu,
+          quantidade: 1,
+          unidade: 'UN',
+          valor_unitario: 0,
+          valor_total: 0,
+          created_at: new Date().toISOString()
+        });
+        idx++;
+      }
     }
 
     setManualDocItems(itemsList);

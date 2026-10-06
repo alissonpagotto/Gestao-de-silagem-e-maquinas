@@ -905,6 +905,26 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     }, 4000);
   };
 
+  // Excluir permanentemente pedido de reforma
+  const handleDeleteOrder = (orderToDelete: TireReformOrder) => {
+    const confirmed = window.confirm('Deseja excluir permanentemente este pedido de reforma?');
+    if (!confirmed) return;
+
+    const updatedOrders = orders.filter(o => o.id !== orderToDelete.id);
+    setOrders(updatedOrders);
+    saveStoredReformOrders(updatedOrders);
+
+    // Se estiver visualizando a ordem excluída, fecha o modal
+    if (selectedOrderForView?.id === orderToDelete.id) {
+      setSelectedOrderForView(null);
+    }
+
+    setSuccessMessage(`Pedido ${orderToDelete.orderNumber} excluído com sucesso!`);
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 4000);
+  };
+
   // Impressão da Ficha A4 com Logotipo, Assinatura e Total em R$
   const handlePrintOrder = (orderToPrint: TireReformOrder) => {
     const totalOrderValue = orderToPrint.totalValor !== undefined && orderToPrint.totalValor !== null
@@ -1712,6 +1732,18 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               >
                                 <Printer className="w-3.5 h-3.5" />
                               </button>
+
+                              {/* Botão de Excluir Pedido com ícone de Lixeira (Trash2) */}
+                              <button
+                                type="button"
+                                id={`btn-excluir-pedido-${order.id}`}
+                                onClick={() => handleDeleteOrder(order)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition cursor-pointer"
+                                title="Excluir permanentemente este pedido de reforma"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+
                               {order.status !== 'Concluído' ? (
                                 <button
                                   type="button"
