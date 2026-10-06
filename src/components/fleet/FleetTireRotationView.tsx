@@ -673,6 +673,18 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     return getStoredTiresInReform();
   });
   const [tiresDiscarded, setTiresDiscarded] = useState<TireItem[]>(() => getStoredTiresDiscarded());
+  const [tiresPendingDiscard, setTiresPendingDiscard] = useState<TireItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('colaca_silagem_pneus_aguardando_descarte');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Erro ao ler pneus aguardando descarte:', e);
+    }
+    return [];
+  });
 
   // Salvar alterações nos arrays de suporte
   useEffect(() => {
@@ -706,6 +718,12 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
   useEffect(() => {
     saveStoredTiresDiscarded(tiresDiscarded);
   }, [tiresDiscarded]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('colaca_silagem_pneus_aguardando_descarte', JSON.stringify(tiresPendingDiscard));
+    } catch {}
+  }, [tiresPendingDiscard]);
 
   // ----------------------------------------------------
   // ESTADO DRAG AND DROP
@@ -983,6 +1001,7 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       reformSentDate: new Date().toISOString().split('T')[0],
       reformWorkshop: 'Recapadora Credenciada',
       reformCost: 0,
+      motivo_reforma: tire.motivo_reforma || '',
       vehicleId: selectedVehicle?.id,
       vehiclePlate: selectedVehicle?.licensePlateOrSerial,
       vehicleName: selectedVehicle?.name,
@@ -996,6 +1015,40 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       return updated;
     });
     setDraggedItem(null);
+  };
+
+  // 3.0.1 Atualizar Motivo da Reforma digitado pelo operador
+  const handleUpdateMotivoReforma = (tireId: string, motivo: string) => {
+    setTiresInReform((prev) => {
+      const updated = prev.map((t) => (t.id === tireId ? { ...t, motivo_reforma: motivo, notes: motivo } : t));
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_pedido', JSON.stringify(updated));
+      } catch {}
+      saveStoredTiresInReform(updated);
+      return updated;
+    });
+  };
+
+  // 3.0.2 Cancelar / Devolver pneu da reforma para o estoque
+  const handleCancelPendingReform = (tireId: string) => {
+    const target = tiresInReform.find((t) => t.id === tireId);
+    if (!target) return;
+
+    const restoredTire: TireItem = {
+      ...target,
+      position: 'estoque',
+      positionName: 'Estoque / Disponível',
+      status: 'estoque',
+    };
+    setTireInventory((prev) => [restoredTire, ...prev.filter((t) => t.id !== tireId)]);
+    setTiresInReform((prev) => {
+      const remaining = prev.filter((t) => t.id !== tireId);
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_pedido', JSON.stringify(remaining));
+      } catch {}
+      saveStoredTiresInReform(remaining);
+      return remaining;
+    });
   };
 
   // 3.1 GERAÇÃO DE PEDIDO DE REFORMA NO MÓDULO NOTAS E ENTRADAS
@@ -1031,15 +1084,106 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
     setHoveredDropZone(null);
     if (!draggedItem) return;
 
-    // Abre o modal para coletar motivo da baixa
-    setDiscardModalData({
-      tire: draggedItem.tire,
-      source: draggedItem.source,
+    const { source, position: sourcePos, tire } = draggedItem;
+
+    if (source === 'vehicle' && sourcePos) {
+      const updatedVehicleTires = currentTires.filter((t) => t.id !== tire.id);
+      updateCurrentVehicleTires(updatedVehicleTires);
+    } else if (source === 'inventory') {
+      setTireInventory((prev) => prev.filter((t) => t.id !== tire.id));
+    }
+
+    const pendingDiscardTire: TireItem = {
+      ...tire,
+      position: 'descarte',
+      positionName: 'Descarte / Sucata',
+      status: 'descartado',
+      discardDate: new Date().toISOString().split('T')[0],
+      motivo_descarte: tire.motivo_descarte || '',
+      discardReason: tire.motivo_descarte || '',
+      vehicleId: selectedVehicle?.id,
+      vehiclePlate: selectedVehicle?.licensePlateOrSerial,
+      vehicleName: selectedVehicle?.name,
+    };
+
+    setTiresPendingDiscard((prev) => {
+      const updated = [pendingDiscardTire, ...prev.filter((t) => t.id !== tire.id)];
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_descarte', JSON.stringify(updated));
+      } catch {}
+      return updated;
     });
+
     setDraggedItem(null);
   };
 
-  // Confirmação do Descarte no Modal
+  // 4.1 Atualizar Motivo do Descarte / Sucata digitado pelo operador
+  const handleUpdateMotivoDescarte = (tireId: string, motivo: string) => {
+    setTiresPendingDiscard((prev) => {
+      const updated = prev.map((t) => (t.id === tireId ? { ...t, motivo_descarte: motivo, discardReason: motivo, discardNotes: motivo } : t));
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_descarte', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // 4.2 Consolidar Baixa Definitiva (salva no histórico de descartados)
+  const handleConsolidarBaixa = (tireId?: string) => {
+    const toConsolidate = tireId
+      ? tiresPendingDiscard.filter((t) => t.id === tireId)
+      : tiresPendingDiscard;
+
+    if (toConsolidate.length === 0) return;
+
+    const finalizedList: TireItem[] = toConsolidate.map((t) => ({
+      ...t,
+      position: 'descarte',
+      positionName: 'Descartado / Sucata',
+      status: 'descartado',
+      discardReason: t.motivo_descarte?.trim() || t.discardReason || 'Baixa definitiva / Sucata',
+      discardNotes: t.motivo_descarte?.trim() || t.discardNotes || '',
+      motivo_descarte: t.motivo_descarte?.trim() || t.discardReason || 'Baixa definitiva / Sucata',
+      discardDate: t.discardDate || new Date().toISOString().split('T')[0],
+    }));
+
+    setTiresDiscarded((prev) => {
+      const updated = [...finalizedList, ...prev.filter((d) => !toConsolidate.some((c) => c.id === d.id))];
+      saveStoredTiresDiscarded(updated);
+      return updated;
+    });
+
+    setTiresPendingDiscard((prev) => {
+      const remaining = prev.filter((p) => !toConsolidate.some((c) => c.id === p.id));
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_descarte', JSON.stringify(remaining));
+      } catch {}
+      return remaining;
+    });
+  };
+
+  // 4.3 Cancelar / Devolver pneu da lixeira pendente para o estoque
+  const handleCancelPendingDiscard = (tireId: string) => {
+    const target = tiresPendingDiscard.find((t) => t.id === tireId);
+    if (!target) return;
+
+    const restoredTire: TireItem = {
+      ...target,
+      position: 'estoque',
+      positionName: 'Estoque / Disponível',
+      status: 'estoque',
+    };
+    setTireInventory((prev) => [restoredTire, ...prev.filter((t) => t.id !== tireId)]);
+    setTiresPendingDiscard((prev) => {
+      const remaining = prev.filter((t) => t.id !== tireId);
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_descarte', JSON.stringify(remaining));
+      } catch {}
+      return remaining;
+    });
+  };
+
+  // Confirmação do Descarte no Modal (Fallback)
   const handleConfirmDiscard = (
     tire: TireItem,
     reason: string,
@@ -1060,9 +1204,14 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       discardReason: reason,
       discardDate: new Date().toISOString().split('T')[0],
       discardNotes: notes,
+      motivo_descarte: reason,
     };
 
-    setTiresDiscarded((prev) => [discardedItem, ...prev]);
+    setTiresDiscarded((prev) => {
+      const updated = [discardedItem, ...prev];
+      saveStoredTiresDiscarded(updated);
+      return updated;
+    });
     setDiscardModalData(null);
   };
 
@@ -1692,9 +1841,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           </div>
 
           {/* ========================================================
-              CAIXA 3: PNEUS EM REFORMA (LISTA COM BOTÃO "GERAR PEDIDO DE REFORMA")
+              CAIXA 3: PNEUS EM REFORMA (LISTA COM INPUT DE PROBLEMA)
               ======================================================== */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col max-h-[260px]">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col max-h-[300px]">
             
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-1.5">
@@ -1735,31 +1884,48 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                 tiresInReform.map((item) => (
                   <div
                     key={item.id}
-                    className="p-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/70 dark:bg-stone-800/70 flex items-center justify-between gap-2"
+                    className="p-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/90 dark:bg-stone-800/80 space-y-1.5 transition"
                   >
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="flex items-center space-x-1.5">
-                        <span className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">
-                          {item.fireNumber}
-                        </span>
-                        <span className="text-[10px] text-stone-500 truncate">
-                          • {item.brand} {item.model || ''} {item.size ? `(${item.size})` : ''}
-                        </span>
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">
+                            {item.fireNumber}
+                          </span>
+                          <span className="text-[10px] text-stone-500 truncate">
+                            • {item.brand} {item.model || ''} {item.size ? `(${item.size})` : ''}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-stone-400 truncate">
+                          {item.vehiclePlate ? `Veículo: ${item.vehiclePlate}` : (item.vehicleName || 'Frota')} {item.reformSentDate ? `• Enviado ${formatDateBR(item.reformSentDate)}` : ''}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-stone-400 truncate">
-                        {item.vehiclePlate ? `Veículo: ${item.vehiclePlate}` : (item.vehicleName || 'Frota')} {item.reformSentDate ? `• Enviado ${formatDateBR(item.reformSentDate)}` : ''}
-                      </p>
+
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCancelPendingReform(item.id)}
+                          className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded hover:bg-stone-200/50 dark:hover:bg-stone-700/50 transition cursor-pointer"
+                          title="Remover / devolver ao estoque"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Botão de Destaque "📝 Gerar Pedido de Reforma" substituindo o antigo botão verde "✓ Pronto" */}
-                    <button
-                      type="button"
-                      onClick={handleGerarPedidoReforma}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-2xs transition cursor-pointer shrink-0"
-                      title="Gerar Pedido de Reforma com os pneus acumulados"
-                    >
-                      <span>📝 Gerar Pedido</span>
-                    </button>
+                    {/* Caixa de Texto: Relatar Problema do Pneu (Requisito 1) */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-amber-900 dark:text-amber-300">
+                        Relatar Problema do Pneu
+                      </label>
+                      <input
+                        type="text"
+                        value={item.motivo_reforma || ''}
+                        onChange={(e) => handleUpdateMotivoReforma(item.id, e.target.value)}
+                        placeholder="Ex: Descolou a banda, sulco baixo, etc..."
+                        className="py-1 px-2 text-xs border border-gray-200 dark:border-stone-700 rounded w-full mt-1.5 focus:ring-1 focus:ring-amber-500 focus:outline-none bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400"
+                      />
+                    </div>
                   </div>
                 ))
               )}
@@ -1781,41 +1947,169 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           </div>
 
           {/* ========================================================
-              CAIXA 4: LIXEIRA (DESCARTE / DROP ZONE)
+              CAIXA 4: LIXEIRA / DESCARTE (COM INPUT COMPACTO SLIM)
               ======================================================== */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-              setHoveredDropZone('box_discard');
-            }}
-            onDragLeave={() => {
-              if (hoveredDropZone === 'box_discard') setHoveredDropZone(null);
-            }}
-            onDrop={handleDropOnDiscardBox}
-            className={`rounded-2xl p-3 border-2 border-dashed transition flex items-center justify-between ${
-              hoveredDropZone === 'box_discard'
-                ? 'border-rose-500 bg-rose-100/90 dark:bg-rose-950/80 scale-[1.02] shadow-md ring-2 ring-rose-400'
-                : 'border-rose-300 dark:border-rose-900/80 bg-rose-50/40 dark:bg-rose-950/20 hover:border-rose-400'
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4" />
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col">
+            
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-1.5">
+                <div className="w-6 h-6 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-stone-900 dark:text-stone-100">
+                    Lixeira / Descarte {tiresPendingDiscard.length > 0 ? `(${tiresPendingDiscard.length})` : ''}
+                  </h4>
+                  <p className="text-[10px] text-stone-500">
+                    {tiresPendingDiscard.length > 0 ? 'Aguardando confirmação de baixa definitiva' : 'Arraste aqui para dar baixa definitiva / sucata'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-xs font-black text-rose-950 dark:text-rose-100">
-                  Lixeira / Descarte
-                </h4>
-                <p className="text-[10px] text-rose-800/80 dark:text-rose-300/80">
-                  Arraste aqui para dar baixa definitiva / sucata
-                </p>
-              </div>
+
+              {/* Botão de Destaque no Topo do Card quando houver pneus */}
+              {tiresPendingDiscard.length > 0 && (
+                <button
+                  type="button"
+                  id="btn-consolidar-baixa-topo"
+                  onClick={() => handleConsolidarBaixa()}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-black rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-xs transition cursor-pointer shrink-0"
+                  title="Consolidar baixa definitiva de todos os pneus"
+                >
+                  <span>🗑️ Consolidar Baixa</span>
+                </button>
+              )}
             </div>
 
-            <div className="px-2 py-1 rounded-lg bg-rose-200/80 dark:bg-rose-900/80 text-[10px] font-black text-rose-900 dark:text-rose-200">
-              Descartar
-            </div>
+            {/* Drop Zone: se não houver pneu pendente, mostra a caixa padrão de drop */}
+            {tiresPendingDiscard.length === 0 ? (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setHoveredDropZone('box_discard');
+                }}
+                onDragLeave={() => {
+                  if (hoveredDropZone === 'box_discard') setHoveredDropZone(null);
+                }}
+                onDrop={handleDropOnDiscardBox}
+                className={`rounded-xl p-2.5 border-2 border-dashed transition flex items-center justify-between cursor-pointer ${
+                  hoveredDropZone === 'box_discard'
+                    ? 'border-rose-500 bg-rose-100/90 dark:bg-rose-950/80 scale-[1.01] shadow-md ring-2 ring-rose-400'
+                    : 'border-rose-300 dark:border-rose-900/80 bg-rose-50/40 dark:bg-rose-950/20 hover:border-rose-400'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h5 className="text-[11px] font-black text-rose-950 dark:text-rose-100">
+                      Solte o pneu aqui
+                    </h5>
+                    <p className="text-[10px] text-rose-800/80 dark:text-rose-300/80">
+                      Mova para descarte / sucata
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-2 py-0.5 rounded-md bg-rose-200/80 dark:bg-rose-900/80 text-[10px] font-black text-rose-900 dark:text-rose-200">
+                  Descartar
+                </div>
+              </div>
+            ) : (
+              /* Lista com scroll dos pneus soltos para descarte */
+              <div className="space-y-1.5 overflow-y-auto flex-1 pr-1 max-h-[220px]">
+                {/* Zona de Drop compacta para continuar arrastando outros pneus */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setHoveredDropZone('box_discard');
+                  }}
+                  onDragLeave={() => {
+                    if (hoveredDropZone === 'box_discard') setHoveredDropZone(null);
+                  }}
+                  onDrop={handleDropOnDiscardBox}
+                  className={`rounded-lg py-1 px-2 border border-dashed transition flex items-center justify-center text-[10px] font-bold ${
+                    hoveredDropZone === 'box_discard'
+                      ? 'border-rose-500 bg-rose-100 dark:bg-rose-950 text-rose-700'
+                      : 'border-rose-300 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20 text-rose-600 hover:border-rose-400'
+                  }`}
+                >
+                  <span>+ Arraste mais pneus aqui para descarte</span>
+                </div>
+
+                {tiresPendingDiscard.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-stone-50/90 dark:bg-stone-800/80 space-y-1.5 transition"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">
+                            {item.fireNumber}
+                          </span>
+                          <span className="text-[10px] text-stone-500 truncate">
+                            • {item.brand} {item.model || ''} {item.size ? `(${item.size})` : ''}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-stone-400 truncate">
+                          {item.vehiclePlate ? `Veículo: ${item.vehiclePlate}` : (item.vehicleName || 'Frota')} {item.discardDate ? `• ${formatDateBR(item.discardDate)}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleConsolidarBaixa(item.id)}
+                          className="px-2 py-0.5 text-[10px] font-black rounded-md bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition cursor-pointer"
+                          title="Confirmar baixa deste pneu"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelPendingDiscard(item.id)}
+                          className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded hover:bg-stone-200/50 dark:hover:bg-stone-700/50 transition cursor-pointer"
+                          title="Cancelar / devolver ao estoque"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Caixa de Texto: Motivo do Descarte / Sucata (Requisito 2) */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-rose-900 dark:text-rose-300">
+                        Motivo do Descarte / Sucata
+                      </label>
+                      <input
+                        type="text"
+                        value={item.motivo_descarte || ''}
+                        onChange={(e) => handleUpdateMotivoDescarte(item.id, e.target.value)}
+                        placeholder="Ex: Corte lateral, estouro de carcaça..."
+                        className="py-1 px-2 text-xs border border-gray-200 dark:border-stone-700 rounded w-full mt-1.5 focus:ring-1 focus:ring-rose-500 focus:outline-none bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 placeholder:text-stone-400"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Rodapé com botão consolidado quando houver pneus acumulados */}
+            {tiresPendingDiscard.length > 0 && (
+              <div className="pt-2 border-t border-stone-200 dark:border-stone-800 mt-1">
+                <button
+                  type="button"
+                  id="btn-consolidar-baixa-rodape"
+                  onClick={() => handleConsolidarBaixa()}
+                  className="w-full inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 text-xs font-black rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-xs hover:shadow-md transition cursor-pointer"
+                >
+                  <span>🗑️ Consolidar Baixa Definitiva ({tiresPendingDiscard.length} {tiresPendingDiscard.length === 1 ? 'pneu' : 'pneus'})</span>
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
@@ -1950,12 +2244,12 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                         <span className="text-xs font-black text-stone-900 dark:text-stone-100">
                           {item.fireNumber} • {item.brand} {item.model || ''}
                         </span>
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400">
-                          {item.discardReason || 'Baixa de carcaça'}
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400">
+                          {item.motivo_descarte || item.discardReason || 'Baixa de carcaça'}
                         </span>
                       </div>
                       <p className="text-[11px] text-stone-500">
-                        {item.discardDate ? `Data: ${formatDateBR(item.discardDate)}` : ''} {item.discardNotes ? `• ${item.discardNotes}` : ''}
+                        {item.discardDate ? `Data: ${formatDateBR(item.discardDate)}` : ''} {item.vehiclePlate ? `• Veículo: ${item.vehiclePlate}` : ''} {item.discardNotes && item.discardNotes !== item.motivo_descarte ? `• Obs: ${item.discardNotes}` : ''}
                       </p>
                     </div>
 

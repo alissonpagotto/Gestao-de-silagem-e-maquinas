@@ -288,6 +288,23 @@ export const TireInspectionModal: React.FC<TireInspectionModalProps> = ({
             />
           </div>
 
+          {(tire.motivo_reforma || tire.motivo_descarte) && (
+            <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs space-y-1">
+              {tire.motivo_reforma && (
+                <div className="flex items-start space-x-1.5 text-amber-900 dark:text-amber-200">
+                  <span className="font-bold shrink-0">Problema na Reforma:</span>
+                  <span>{tire.motivo_reforma}</span>
+                </div>
+              )}
+              {tire.motivo_descarte && (
+                <div className="flex items-start space-x-1.5 text-rose-900 dark:text-rose-200">
+                  <span className="font-bold shrink-0">Motivo do Descarte:</span>
+                  <span>{tire.motivo_descarte}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Footer Buttons */}
           <div className="pt-2 flex items-center justify-end space-x-2 border-t border-stone-200 dark:border-stone-800">
             <button

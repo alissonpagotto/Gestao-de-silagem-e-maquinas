@@ -41,6 +41,7 @@ export interface TireReformOrder {
     vehiclePlate?: string;
     vehicleName?: string;
     notes?: string;
+    motivo_reforma?: string;
   }[];
   totalTires: number;
   notes?: string;
@@ -220,7 +221,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
         treadDepthMm: t.treadDepthMm,
         vehiclePlate: t.vehiclePlate,
         vehicleName: t.vehicleName,
-        notes: t.notes,
+        notes: t.motivo_reforma || t.notes,
+        motivo_reforma: t.motivo_reforma,
       })),
       totalTires: pendingTires.length,
       notes: orderNotes.trim() || undefined,
@@ -441,7 +443,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
               <th style="width: 110px;">Medida</th>
               <th style="width: 100px;">Veículo Origem</th>
               <th style="width: 75px; text-align: center;">Sulco</th>
-              <th>Observação do Pneu</th>
+              <th>Problema Relatado / Observação</th>
             </tr>
           </thead>
           <tbody>
@@ -453,7 +455,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <td style="font-family: monospace; font-weight: bold;">${t.size || '295/80 R 22.5'}</td>
                 <td>${t.vehiclePlate || t.vehicleName || 'Frota Geral'}</td>
                 <td style="text-align: center; font-weight: bold;">${t.treadDepthMm ? `${t.treadDepthMm.toFixed(1)} mm` : '-'}</td>
-                <td style="font-size: 8pt; color: #4b5563;">${t.notes || 'Reforma / Recape'}</td>
+                <td style="font-size: 8.5pt; color: #1e293b; font-weight: 600;">${t.motivo_reforma || t.notes || 'Reforma / Recape'}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -681,13 +683,14 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       <th className="py-2.5 px-3">Medida (Fixa)</th>
                       <th className="py-2.5 px-3">Veículo / Placa</th>
                       <th className="py-2.5 px-3 text-center">Sulco</th>
+                      <th className="py-2.5 px-3">Problema / Motivo Relatado</th>
                       <th className="py-2.5 px-3 text-right">Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                     {pendingTires.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-6 text-center text-xs text-stone-400 font-medium">
+                        <td colSpan={9} className="py-6 text-center text-xs text-stone-400 font-medium">
                           Nenhum pneu acumulado. Retorne à Gestão de Frotas e arraste os pneus para a caixa de Reforma.
                         </td>
                       </tr>
@@ -714,6 +717,15 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                           </td>
                           <td className="py-2 px-3 text-center font-bold text-stone-600 dark:text-stone-400">
                             {t.treadDepthMm ? `${t.treadDepthMm.toFixed(1)} mm` : '-'}
+                          </td>
+                          <td className="py-2 px-3 text-xs text-amber-800 dark:text-amber-300 font-medium">
+                            {t.motivo_reforma ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold text-amber-950 dark:text-amber-200">
+                                ⚠️ {t.motivo_reforma}
+                              </span>
+                            ) : (
+                              <span className="text-stone-400 text-[11px] italic">Não informado</span>
+                            )}
                           </td>
                           <td className="py-2 px-3 text-right">
                             <button
@@ -782,6 +794,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       treadDepthMm: t.treadDepthMm,
                       vehiclePlate: t.vehiclePlate,
                       vehicleName: t.vehicleName,
+                      notes: t.motivo_reforma || t.notes,
+                      motivo_reforma: t.motivo_reforma,
                     })),
                     totalTires: pendingTires.length,
                     notes: orderNotes,

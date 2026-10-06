@@ -1656,11 +1656,13 @@ export interface TireItem {
   reformWorkshop?: string;
   reformSentDate?: string;
   reformCost?: number;
+  motivo_reforma?: string; // Relato do problema ao enviar para reforma
   // Informações de Descarte / Baixa
   discardReason?: string;
   discardDate?: string;
   discardNotes?: string;
   discardedBy?: string;
+  motivo_descarte?: string; // Motivo do descarte / sucata
 }
 
 export type RotationPatternType = 
