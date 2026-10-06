@@ -1019,24 +1019,44 @@ export const CANONICAL_STOCK_SERVICES: CanonicalStockServiceDefinition[] = [
 
 export const DEFAULT_STOCK_SERVICES: string[] = CANONICAL_STOCK_SERVICES.map(s => s.name);
 
-export function normalizeStockServiceName(serviceName?: string): string {
+export function normalizeStockServiceName(serviceName?: any): string {
   if (!serviceName) return DEFAULT_STOCK_SERVICES[0];
+  if (typeof serviceName !== 'string') {
+    if (typeof serviceName === 'object') {
+      const extracted = serviceName.nome_comercial || serviceName.name || serviceName.nome || serviceName.description || '';
+      if (typeof extracted === 'string' && extracted.trim()) {
+        return normalizeStockServiceName(extracted);
+      }
+    }
+    return DEFAULT_STOCK_SERVICES[0];
+  }
   const s = serviceName.trim().toUpperCase();
 
   // Mapeamento estrito de legados (sem prefixo SERVIÇO) para a nomenclatura padronizada
-  if (s === 'RECAPAGEM DE PNEU') return 'SERVIÇO DE RECAPAGEM DE PNEU';
-  if (s === 'RECAUCHUTAGEM DE PNEU') return 'SERVIÇO DE RECAUCHUTAGEM DE PNEU';
+  if (s === 'RECAPAGEM DE PNEU' || s === 'RECAPAGEM') return 'SERVIÇO DE RECAPAGEM DE PNEU';
+  if (s === 'RECAUCHUTAGEM DE PNEU' || s === 'RECAUCHUTAGEM') return 'SERVIÇO DE RECAUCHUTAGEM DE PNEU';
   if (s === 'REMOLDAGEM DE PNEU (REMOLD)' || s === 'REMOLDAGEM DE PNEU' || s === 'REMOLD') return 'SERVIÇO DE REMOLDAGEM DE PNEU (REMOLD)';
-  if (s === 'VULCANIZAÇÃO DE PNEU' || s === 'VULCANIZACAO DE PNEU') return 'SERVIÇO DE VULCANIZAÇÃO DE PNEU';
-  if (s === 'GROOVING (FRISAGEM / SULCAMENTO DE PNEU)' || s === 'GROOVING') return 'SERVIÇO DE GROOVING (FRISAGEM / SULCAMENTO DE PNEU)';
-  if (s === 'CONSERTO DE CÂMARA DE AR' || s === 'CONSERTO DE CAMARA DE AR') return 'SERVIÇO DE CONSERTO DE CÂMARA DE AR';
-  if (s === 'TROCA DE VÁLVULA / COMPLEMENTO' || s === 'TROCA DE VALVULA / COMPLEMENTO') return 'SERVIÇO DE TROCA DE VÁLVULA / COMPLEMENTO';
+  if (s === 'VULCANIZAÇÃO DE PNEU' || s === 'VULCANIZACAO DE PNEU' || s === 'VULCANIZAÇÃO' || s === 'VULCANIZACAO') return 'SERVIÇO DE VULCANIZAÇÃO DE PNEU';
+  if (s === 'GROOVING (FRISAGEM / SULCAMENTO DE PNEU)' || s === 'GROOVING' || s === 'FRISAGEM' || s === 'SULCAMENTO') return 'SERVIÇO DE GROOVING (FRISAGEM / SULCAMENTO DE PNEU)';
+  if (s === 'CONSERTO DE CÂMARA DE AR' || s === 'CONSERTO DE CAMARA DE AR' || s === 'CONSERTO DE CÂMARA') return 'SERVIÇO DE CONSERTO DE CÂMARA DE AR';
+  if (s === 'TROCA DE VÁLVULA / COMPLEMENTO' || s === 'TROCA DE VALVULA / COMPLEMENTO' || s === 'TROCA DE VÁLVULA') return 'SERVIÇO DE TROCA DE VÁLVULA / COMPLEMENTO';
+
+  if (s === 'MÃO DE OBRA MECÂNICO' || s === 'MAO DE OBRA MECANICO' || s === 'MECÂNICO' || s === 'MECANICO') return 'SERVIÇO DE MÃO DE OBRA MECÂNICO';
+  if (s === 'MÃO DE OBRA ELETRICISTA (AUTOMOTIVO)' || s === 'MAO DE OBRA ELETRICISTA (AUTOMOTIVO)' || s === 'ELETRICISTA AUTOMOTIVO' || s === 'ELETRICISTA AUTO') return 'SERVIÇO DE MÃO DE OBRA ELETRICISTA (AUTOMOTIVO)';
+  if (s === 'MÃO DE OBRA FUNILEIRO / LANTERNAGEM' || s === 'MAO DE OBRA FUNILEIRO / LANTERNAGEM' || s === 'FUNILARIA' || s === 'LANTERNAGEM' || s === 'FUNILEIRO') return 'SERVIÇO DE MÃO DE OBRA FUNILEIRO / LANTERNAGEM';
+  if (s === 'MÃO DE OBRA ESTOFARIA / INTERIOR' || s === 'MAO DE OBRA ESTOFARIA / INTERIOR' || s === 'ESTOFARIA' || s === 'INTERIOR') return 'SERVIÇO DE MÃO DE OBRA ESTOFARIA / INTERIOR';
+  if (s === 'MÃO DE OBRA CIVIL (REFORMA TIPO PEDREIRO)' || s === 'MAO DE OBRA CIVIL (REFORMA TIPO PEDREIRO)' || s === 'PEDREIRO' || s === 'REFORMA CIVIL' || s === 'CIVIL') return 'SERVIÇO DE MÃO DE OBRA CIVIL (REFORMA TIPO PEDREIRO)';
+  if (s === 'MÃO DE OBRA ELETRICISTA PREDIAL E RESIDENCIAL' || s === 'MAO DE OBRA ELETRICISTA PREDIAL E RESIDENCIAL' || s === 'ELETRICISTA PREDIAL' || s === 'PREDIAL') return 'SERVIÇO DE MÃO DE OBRA ELETRICISTA PREDIAL E RESIDENCIAL';
 
   return s;
 }
 
+/**
+ * Injeta em lote os 13 serviços oficiais no estoque caso ainda não constem,
+ * garantindo tipo_item: 'SERVIÇO', categoria: 'SERVIÇO' e nomes padronizados em CAIXA ALTA.
+ */
 export function ensureServicesInInventory(currentList: InventoryItem[]): InventoryItem[] {
-  const result = [...currentList];
+  const result = Array.isArray(currentList) ? [...currentList] : [];
 
   for (const def of CANONICAL_STOCK_SERVICES) {
     const matchIdx = result.findIndex(item => {
@@ -1102,6 +1122,95 @@ export function ensureServicesInInventory(currentList: InventoryItem[]): Invento
   }
 
   return result;
+}
+
+/**
+ * Inicialização em lote de serviços e mãos de obra no Estoque Global:
+ * Verifica 'colaca_silagem_estoque_produtos' no LocalStorage e garante que
+ * todos os 13 serviços obrigatórios estejam cadastrados com tipo_item: 'SERVIÇO'
+ * e categoria: 'SERVIÇO' em caixa alta.
+ */
+export function ensureStockServicesInitialized(): string[] {
+  try {
+    let list: InventoryItem[] = [];
+    const raw = localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      } catch (_) {}
+    }
+    if (list.length === 0) {
+      list = INITIAL_INVENTORY;
+    }
+
+    const withDiesel = ensureDieselProductsInInventory(list);
+    const finalized = ensureServicesInInventory(withDiesel);
+
+    try {
+      localStorage.setItem(STOCK_PRODUCTS_STORAGE_KEY, JSON.stringify(finalized));
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(finalized));
+    } catch (_) {}
+
+    const serviceNames = finalized
+      .filter(i => (
+        i.tipo_item === 'SERVIÇO' || 
+        i.category === 'SERVIÇO' || 
+        i.categoria === 'SERVIÇO' ||
+        String(i.tipo_item || '').toUpperCase() === 'SERVIÇO'
+      ))
+      .map(i => (i.nome_comercial || i.name || i.nome || '').trim().toUpperCase())
+      .filter(Boolean);
+
+    const uniqueServices = Array.from(new Set(serviceNames.length > 0 ? serviceNames : DEFAULT_STOCK_SERVICES));
+
+    try {
+      localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(uniqueServices));
+      localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(uniqueServices));
+    } catch (_) {}
+
+    return uniqueServices;
+  } catch (e) {
+    console.warn('Erro ao inicializar serviços no estoque:', e);
+    return DEFAULT_STOCK_SERVICES;
+  }
+}
+
+/**
+ * Lê reativamente a lista de serviços cadastrados no estoque do LocalStorage,
+ * filtrando diretamente os itens onde tipo_item === 'SERVIÇO' da chave 'colaca_silagem_estoque_produtos'.
+ */
+export function getServicesFromStockLocalStorage(): string[] {
+  try {
+    const raw = localStorage.getItem(STOCK_PRODUCTS_STORAGE_KEY) || localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const services = parsed
+          .filter((item: any) => 
+            item && (
+              item.tipo_item === 'SERVIÇO' || 
+              item.categoria === 'SERVIÇO' || 
+              item.category === 'SERVIÇO' ||
+              String(item.tipo_item || '').toUpperCase() === 'SERVIÇO' ||
+              String(item.categoria || '').toUpperCase() === 'SERVIÇO' ||
+              String(item.category || '').toUpperCase() === 'SERVIÇO'
+            )
+          )
+          .map((item: any) => normalizeStockServiceName(item.nome_comercial || item.name || item.nome || ''))
+          .filter(Boolean);
+
+        if (services.length > 0) {
+          return Array.from(new Set(services));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao ler serviços do estoque no LocalStorage:', err);
+  }
+  return ensureStockServicesInitialized();
 }
 
 export function getStoredInventory(): InventoryItem[] {
@@ -1610,50 +1719,7 @@ export const saveStoredInventoryCategories = (list: string[]) => saveStoredList(
 // ========================================================
 
 export function getStoredStockServices(): string[] {
-  try {
-    // 1. Busca os serviços cadastrados diretamente na tabela de produtos do estoque (LocalStorage)
-    const inventory = getStoredInventory();
-    const serviceItemsFromStock = inventory
-      .filter(item => (
-        item.tipo_item === 'SERVIÇO' || 
-        item.category === 'SERVIÇO' || 
-        item.categoria === 'SERVIÇO' ||
-        (item.category || '').toLowerCase().includes('servi') ||
-        (item.categoria || '').toLowerCase().includes('servi')
-      ))
-      .map(item => normalizeStockServiceName((item.nome_comercial || item.name || item.nome || '').trim().toUpperCase()))
-      .filter(Boolean);
-
-    // 2. Busca também do armazenamento complementar se existir
-    const raw = localStorage.getItem(STOCK_SERVICES_STORAGE_KEY) || localStorage.getItem('colaca_silagem_servicos_padrao_reforma');
-    let rawList: string[] = [];
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        rawList = parsed.map((item: any) => {
-          if (typeof item === 'string') return normalizeStockServiceName(item);
-          if (item && typeof item === 'object') return normalizeStockServiceName(item.name || item.nome || item.descricao || '');
-          return '';
-        }).filter(Boolean);
-      }
-    }
-
-    const consolidated = Array.from(new Set([
-      ...DEFAULT_STOCK_SERVICES,
-      ...serviceItemsFromStock,
-      ...rawList
-    ])).map(s => s.trim().toUpperCase());
-
-    try {
-      localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(consolidated));
-      localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(consolidated));
-    } catch (_) {}
-
-    return consolidated;
-  } catch (e) {
-    console.warn('Erro ao carregar serviços de estoque:', e);
-    return DEFAULT_STOCK_SERVICES;
-  }
+  return getServicesFromStockLocalStorage();
 }
 
 export function saveStoredStockServices(services: string[]): void {
@@ -1715,10 +1781,10 @@ export function saveStoredStockServices(services: string[]): void {
   }
 }
 
-// Auto-inicialização no LocalStorage para garantir a disponibilidade imediata
+// Auto-inicialização em lote no LocalStorage para garantir a disponibilidade imediata
 try {
   if (typeof window !== 'undefined' && window.localStorage) {
-    getStoredStockServices();
+    ensureStockServicesInitialized();
   }
 } catch (_) {}
 

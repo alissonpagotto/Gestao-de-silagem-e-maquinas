@@ -49,6 +49,8 @@ import {
   saveStoredSuppliers,
   getStoredInventory,
   saveStoredInventory,
+  ensureStockServicesInitialized,
+  ensureServicesInInventory,
   getStoredServices,
   saveStoredServices,
   getStoredFuelLogs,
@@ -365,6 +367,9 @@ export default function App() {
     let isMounted = true;
     isInitialLoadDone.current = false;
 
+    // Carga inicial mandatória dos 13 serviços oficiais no estoque (LocalStorage: 'colaca_silagem_estoque_produtos')
+    ensureStockServicesInitialized();
+
     const loadCloudData = async () => {
       try {
         // 0. Carrega perfil fiscal e cadastral da nuvem
@@ -387,8 +392,9 @@ export default function App() {
             setSuppliers(cloudData.fornecedores);
           }
           if (cloudData.estoque && cloudData.estoque.length > 0) {
-            lastSyncedState.current.rel_inventory = JSON.stringify(cloudData.estoque);
-            setInventory(cloudData.estoque);
+            const estoqueWithServices = ensureServicesInInventory(cloudData.estoque);
+            lastSyncedState.current.rel_inventory = JSON.stringify(estoqueWithServices);
+            setInventory(estoqueWithServices);
           }
           if (cloudData.rh_funcionarios !== undefined && Array.isArray(cloudData.rh_funcionarios) && cloudData.rh_funcionarios.length > 0) {
             const validTenantUuid = toValidUUID(activeTenantId);

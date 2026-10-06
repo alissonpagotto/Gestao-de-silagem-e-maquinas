@@ -25,10 +25,12 @@ import {
   formatCurrencyBRL, 
   getStoredCompanyProfile,
   getStoredStockServices,
+  getServicesFromStockLocalStorage,
   saveStoredStockServices,
   normalizeStockServiceName,
   DEFAULT_STOCK_SERVICES,
-  STOCK_SERVICES_STORAGE_KEY
+  STOCK_SERVICES_STORAGE_KEY,
+  STOCK_PRODUCTS_STORAGE_KEY
 } from '../../lib/storage';
 
 export interface TireReformOrder {
@@ -177,7 +179,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     }));
   });
-  const [standardServices, setStandardServices] = useState<string[]>(() => getStoredStockServices());
+  const [standardServices, setStandardServices] = useState<string[]>(() => getServicesFromStockLocalStorage());
   const [driverName, setDriverName] = useState<string>('');
   const [expectedReturnDate, setExpectedReturnDate] = useState<string>('');
   const [orderNotes, setOrderNotes] = useState<string>('');
@@ -206,18 +208,37 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       setIsCreatingNewOrder(true);
     };
 
-    const handleServicesSync = (e: any) => {
+    const handleServicesSync = (e?: any) => {
       if (e?.detail && Array.isArray(e.detail)) {
-        setStandardServices(e.detail.map((s: string) => normalizeStockServiceName(s)));
-      } else {
-        setStandardServices(getStoredStockServices());
+        const fromDetail = e.detail
+          .filter((item: any) => {
+            if (typeof item === 'string') return true;
+            return item && (
+              item.tipo_item === 'SERVIÇO' || 
+              item.categoria === 'SERVIÇO' || 
+              item.category === 'SERVIÇO' ||
+              String(item.tipo_item || '').toUpperCase() === 'SERVIÇO'
+            );
+          })
+          .map((item: any) => {
+            if (typeof item === 'string') return normalizeStockServiceName(item);
+            return normalizeStockServiceName(item.nome_comercial || item.name || item.nome || '');
+          })
+          .filter(Boolean);
+
+        if (fromDetail.length > 0) {
+          setStandardServices(Array.from(new Set(fromDetail)));
+          return;
+        }
       }
+
+      setStandardServices(getServicesFromStockLocalStorage());
     };
 
-    const handleStorage = () => {
+    const handleStorage = (event?: StorageEvent) => {
       setOrders(getStoredReformOrders());
       setSuppliers(getStoredReformSuppliers());
-      setStandardServices(getStoredStockServices());
+      setStandardServices(getServicesFromStockLocalStorage());
       const pTires = getStoredPendingReformTires();
       if (pTires.length > 0) {
         setPendingTires(pTires.map(t => ({
@@ -1002,14 +1023,19 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                           </td>
                           <td className="py-2 px-3 w-64 min-w-[220px] max-w-[280px]">
                             <select
-                              value={normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0])}
+                              value={normalizeStockServiceName(t.servico_reforma || standardServices[0] || DEFAULT_STOCK_SERVICES[0])}
                               onChange={(e) => handleUpdateTireService(t.id, e.target.value)}
-                              title={normalizeStockServiceName(t.servico_reforma || DEFAULT_STOCK_SERVICES[0])}
+                              title={normalizeStockServiceName(t.servico_reforma || standardServices[0] || DEFAULT_STOCK_SERVICES[0])}
                               className="w-full px-2 py-1 text-xs font-bold border border-amber-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase cursor-pointer truncate"
                             >
                               {standardServices.map((srv) => (
                                 <option key={srv} value={srv} className="py-1 text-xs">{srv}</option>
                               ))}
+                              {t.servico_reforma && !standardServices.includes(normalizeStockServiceName(t.servico_reforma)) && (
+                                <option value={normalizeStockServiceName(t.servico_reforma)} className="py-1 text-xs">
+                                  {normalizeStockServiceName(t.servico_reforma)}
+                                </option>
+                              )}
                             </select>
                           </td>
                           <td className="py-2 px-3 text-right">

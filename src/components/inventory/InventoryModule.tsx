@@ -31,6 +31,7 @@ import {
   getStoredMaintenanceLogs, 
   getStoredFuelLogs,
   ensureDieselProductsInInventory,
+  ensureServicesInInventory,
   saveStoredInventory
 } from '../../lib/storage';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -215,9 +216,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
     return movements;
   }, [viewingItem, maintenanceLogs, fuelLogs]);
 
-  // Garante que Diesel S10 e Diesel S500 apareçam normalmente na tela de Estoque
+  // Garante que Combustíveis e os 13 Serviços Oficiais apareçam no Estoque Global
   const allItems = useMemo(() => {
-    return ensureDieselProductsInInventory(localInventory);
+    return ensureServicesInInventory(ensureDieselProductsInInventory(localInventory));
   }, [localInventory]);
 
   const filteredItems = useMemo(() => {
@@ -367,6 +368,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       case 'Inoculante & Biológico': return <Sprout className="w-4 h-4 text-emerald-500" />;
       case 'pecas':
       case 'Peças & Manutenção': return <Wrench className="w-4 h-4 text-rose-500" />;
+      case 'SERVIÇO':
+      case 'servico': return <Wrench className="w-4 h-4 text-indigo-500" />;
       default: return <Package className="w-4 h-4 text-sky-500" />;
     }
   };
