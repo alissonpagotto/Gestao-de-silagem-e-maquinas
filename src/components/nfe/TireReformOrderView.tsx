@@ -20,7 +20,15 @@ import {
   Pencil
 } from 'lucide-react';
 import { TireItem, Supplier, CompanyProfile } from '../../types';
-import { formatDateBR, formatCurrencyBRL, getStoredCompanyProfile } from '../../lib/storage';
+import { 
+  formatDateBR, 
+  formatCurrencyBRL, 
+  getStoredCompanyProfile,
+  getStoredStockServices,
+  saveStoredStockServices,
+  DEFAULT_STOCK_SERVICES,
+  STOCK_SERVICES_STORAGE_KEY
+} from '../../lib/storage';
 
 export interface TireReformOrder {
   id: string;
@@ -52,34 +60,20 @@ export interface TireReformOrder {
   notes?: string;
 }
 
-export const DEFAULT_TIRE_REFORM_SERVICES = [
-  'SERVIÇO DE VULCANIZAÇÃO',
-  'RECAPAGEM / REPROMISSÃO DE BANDA',
-  'CONSERTO DE CÂMARA DE AR',
-  'TROCA DE VÁLVULA / COMPLEMENTO',
-];
+export { 
+  DEFAULT_STOCK_SERVICES,
+  STOCK_SERVICES_STORAGE_KEY
+};
 
-export const TIRE_REFORM_SERVICES_STORAGE_KEY = 'colaca_silagem_servicos_padrao_reforma';
+export const DEFAULT_TIRE_REFORM_SERVICES = DEFAULT_STOCK_SERVICES;
+export const TIRE_REFORM_SERVICES_STORAGE_KEY = STOCK_SERVICES_STORAGE_KEY;
 
 export function getStoredReformServices(): string[] {
-  try {
-    const raw = localStorage.getItem(TIRE_REFORM_SERVICES_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (e) {
-    console.warn('Erro ao carregar serviços padrão de reforma:', e);
-  }
-  return DEFAULT_TIRE_REFORM_SERVICES;
+  return getStoredStockServices();
 }
 
 export function saveStoredReformServices(services: string[]): void {
-  try {
-    localStorage.setItem(TIRE_REFORM_SERVICES_STORAGE_KEY, JSON.stringify(services));
-  } catch (e) {
-    console.warn('Erro ao salvar serviços padrão de reforma:', e);
-  }
+  saveStoredStockServices(services);
 }
 
 export function formatCurrencyPtBr(value: number): string {
@@ -178,11 +172,11 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const rawTires = getStoredPendingReformTires();
     return rawTires.map(t => ({
       ...t,
-      servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
       valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     }));
   });
-  const [standardServices, setStandardServices] = useState<string[]>(() => getStoredReformServices());
+  const [standardServices, setStandardServices] = useState<string[]>(() => getStoredStockServices());
   const [driverName, setDriverName] = useState<string>('');
   const [expectedReturnDate, setExpectedReturnDate] = useState<string>('');
   const [orderNotes, setOrderNotes] = useState<string>('');
@@ -197,38 +191,48 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     return pendingTires.reduce((acc, t) => acc + (t.valor_reforma || t.reformCost || 0), 0);
   }, [pendingTires]);
 
-  // Sincroniza quando houver gatilho de novo pedido vindo da frota
+  // Sincroniza quando houver gatilho de novo pedido vindo da frota ou atualização de serviços
   useEffect(() => {
     const handleTrigger = (e: any) => {
       const tires: TireItem[] = e?.detail?.tires || getStoredPendingReformTires();
       if (tires && tires.length > 0) {
         setPendingTires(tires.map(t => ({
           ...t,
-          servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+          servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
           valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
         })));
       }
       setIsCreatingNewOrder(true);
     };
 
+    const handleServicesSync = (e: any) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setStandardServices(e.detail);
+      } else {
+        setStandardServices(getStoredStockServices());
+      }
+    };
+
     const handleStorage = () => {
       setOrders(getStoredReformOrders());
       setSuppliers(getStoredReformSuppliers());
-      setStandardServices(getStoredReformServices());
+      setStandardServices(getStoredStockServices());
       const pTires = getStoredPendingReformTires();
       if (pTires.length > 0) {
         setPendingTires(pTires.map(t => ({
           ...t,
-          servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+          servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
           valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
         })));
       }
     };
 
     window.addEventListener('colaca_silagem_abrir_pedido_reforma', handleTrigger);
+    window.addEventListener('colaca_silagem_servicos_estoque_updated', handleServicesSync);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('colaca_silagem_abrir_pedido_reforma', handleTrigger);
+      window.removeEventListener('colaca_silagem_servicos_estoque_updated', handleServicesSync);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -293,7 +297,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       vehicleName: t.vehicleName,
       notes: t.notes || t.motivo_reforma || '',
       motivo_reforma: t.motivo_reforma || t.notes || '',
-      servico_reforma: (t.servico || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      servico_reforma: (t.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
       valor_reforma: t.valorUnitario !== undefined ? t.valorUnitario : 0,
       reformCost: t.valorUnitario !== undefined ? t.valorUnitario : 0,
     }));
@@ -316,12 +320,12 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
     const rawTires = getStoredPendingReformTires();
     setPendingTires(rawTires.map(t => ({
       ...t,
-      servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
       valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     })));
   };
 
-  // Atualiza o serviço selecionado para um pneu específico
+  // Atualiza o serviço selecionado para um pneu específico e move o foco para o Valor Unitário (R$)
   const handleUpdateTireService = (tireId: string, servico: string) => {
     const upperServico = servico.toUpperCase();
     const updated = pendingTires.map(t => t.id === tireId ? { ...t, servico_reforma: upperServico } : t);
@@ -331,6 +335,15 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
         localStorage.setItem(PENDING_REFORM_TIRES_KEY, JSON.stringify(updated));
       } catch {}
     }
+
+    // Foco automático e seleção do campo de valor unitário
+    setTimeout(() => {
+      const valorInput = document.getElementById(`valor-unitario-${tireId}`) as HTMLInputElement | null;
+      if (valorInput) {
+        valorInput.focus();
+        valorInput.select();
+      }
+    }, 40);
   };
 
   // Atualiza o valor unitário digitado para um pneu específico
@@ -398,7 +411,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
       vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
       notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
       motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
-      servico: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+      servico: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
       valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
     }));
 
@@ -684,7 +697,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                 <td style="font-family: monospace; font-weight: bold;">${t.size || '295/80 R 22.5'}</td>
                 <td>${t.vehiclePlate || t.vehicleName || 'Frota Geral'}</td>
                 <td style="font-size: 8pt; color: #1e293b; font-weight: 600;">${(t.motivo_reforma || t.notes || 'REFORMA').toUpperCase()}</td>
-                <td style="font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: uppercase;">${(t.servico || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase()}</td>
+                <td style="font-size: 8pt; color: #0f172a; font-weight: 800; text-transform: uppercase;">${(t.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase()}</td>
                 <td style="text-align: right; font-family: monospace; font-weight: 900; font-size: 9pt; white-space: nowrap;">
                   ${t.valorUnitario !== undefined && t.valorUnitario !== null && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
                 </td>
@@ -923,7 +936,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       if (e.target.value) handleApplyBatchService(e.target.value);
                     }}
                     defaultValue=""
-                    className="text-[10px] font-bold py-1 px-2 rounded-lg border border-amber-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none uppercase cursor-pointer"
+                    className="text-[10px] font-bold py-1 px-2 max-w-[240px] truncate rounded-lg border border-amber-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200 outline-none uppercase cursor-pointer"
                   >
                     <option value="" disabled>SELECIONAR EM LOTE...</option>
                     {standardServices.map((s) => (
@@ -944,8 +957,8 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       <th className="py-2.5 px-3">Marca / Modelo</th>
                       <th className="py-2.5 px-3 w-28">Medida</th>
                       <th className="py-2.5 px-3 w-28">Veículo / Placa</th>
-                      <th className="py-2.5 px-3">Problema / Observação</th>
-                      <th className="py-2.5 px-3 w-56">Serviço a Fazer</th>
+                      <th className="py-2.5 px-3 min-w-[140px]">Problema / Observação</th>
+                      <th className="py-2.5 px-3 w-56 min-w-[200px] max-w-[250px]">Serviço a Fazer</th>
                       <th className="py-2.5 px-3 w-36 text-right">Valor Unitário (R$)</th>
                       <th className="py-2.5 px-3 w-12 text-right">Ação</th>
                     </tr>
@@ -984,14 +997,14 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                               className="w-full px-2 py-1 text-xs border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase"
                             />
                           </td>
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 w-56 min-w-[200px] max-w-[250px]">
                             <select
-                              value={t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1]}
+                              value={t.servico_reforma || DEFAULT_STOCK_SERVICES[0]}
                               onChange={(e) => handleUpdateTireService(t.id, e.target.value)}
-                              className="w-full px-2 py-1 text-xs font-bold border border-amber-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase cursor-pointer"
+                              className="w-full px-2 py-1 text-xs font-bold border border-amber-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 outline-none focus:ring-1 focus:ring-amber-500 uppercase cursor-pointer truncate"
                             >
                               {standardServices.map((srv) => (
-                                <option key={srv} value={srv}>{srv}</option>
+                                <option key={srv} value={srv} className="py-1 text-xs">{srv}</option>
                               ))}
                             </select>
                           </td>
@@ -1001,6 +1014,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                                 R$
                               </span>
                               <input
+                                id={`valor-unitario-${t.id}`}
                                 type="text"
                                 inputMode="numeric"
                                 value={t.valor_reforma !== undefined && t.valor_reforma !== null && t.valor_reforma > 0 ? formatCurrencyPtBr(t.valor_reforma) : (t.reformCost ? formatCurrencyPtBr(t.reformCost) : '')}
@@ -1095,7 +1109,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                       vehicleName: t.vehicleName ? t.vehicleName.toUpperCase() : undefined,
                       notes: (t.motivo_reforma || t.notes || '').toUpperCase(),
                       motivo_reforma: t.motivo_reforma ? t.motivo_reforma.toUpperCase() : undefined,
-                      servico: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+                      servico: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
                       valorUnitario: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
                     })),
                     totalTires: pendingTires.length,
@@ -1168,7 +1182,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                   const rawTires = getStoredPendingReformTires();
                   setPendingTires(rawTires.map(t => ({
                     ...t,
-                    servico_reforma: (t.servico_reforma || DEFAULT_TIRE_REFORM_SERVICES[1] || 'RECAPAGEM / REPROMISSÃO DE BANDA').toUpperCase(),
+                    servico_reforma: (t.servico_reforma || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase(),
                     valor_reforma: t.valor_reforma !== undefined ? t.valor_reforma : (t.reformCost || 0),
                   })));
                   setIsCreatingNewOrder(true);
@@ -1383,7 +1397,7 @@ export const TireReformOrderView: React.FC<TireReformOrderViewProps> = ({
                         <td className="py-2 px-2.5 font-mono text-amber-700 dark:text-amber-400 font-bold">{t.size || '295/80 R 22.5'}</td>
                         <td className="py-2 px-2.5 text-stone-600 dark:text-stone-400">{t.vehiclePlate || t.vehicleName || 'Frota'}</td>
                         <td className="py-2 px-2.5 text-stone-700 dark:text-stone-300 font-medium">{(t.motivo_reforma || t.notes || '-').toUpperCase()}</td>
-                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">{(t.servico || DEFAULT_TIRE_REFORM_SERVICES[1]).toUpperCase()}</td>
+                        <td className="py-2 px-2.5 font-bold text-stone-900 dark:text-stone-100 text-[11px] uppercase">{(t.servico || DEFAULT_STOCK_SERVICES[0] || 'RECAPAGEM DE PNEU').toUpperCase()}</td>
                         <td className="py-2 px-2.5 text-right font-mono font-black text-stone-900 dark:text-stone-100">
                           {t.valorUnitario !== undefined && t.valorUnitario > 0 ? `R$ ${formatCurrencyPtBr(t.valorUnitario)}` : 'R$ 0,00'}
                         </td>

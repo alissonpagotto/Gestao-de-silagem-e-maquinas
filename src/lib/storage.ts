@@ -118,6 +118,7 @@ const STORAGE_KEYS = {
   FINANCEIRO_CHEQUES: 'silagem_facil_clean_v1_financeiro_cheques',
   CLIENTE_CREDITOS: 'silagem_facil_clean_v1_cliente_creditos',
   DRAFT_NOTA_ATIVA: 'colaca_silagem_rascunho_nota_ativa',
+  STOCK_SERVICES: 'colaca_silagem_servicos_estoque',
 };
 
 export const CANONICAL_TANK_UUIDS = {
@@ -1454,6 +1455,79 @@ export const getStoredInventoryCategories = () => {
   return list;
 };
 export const saveStoredInventoryCategories = (list: string[]) => saveStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, list);
+
+// ========================================================
+// SERVIÇOS E MÃOS DE OBRA NO ESTOQUE (MANDATÓRIO EM CAIXA ALTA)
+// Chave LocalStorage solicitada: 'colaca_silagem_servicos_estoque'
+// ========================================================
+
+export const STOCK_SERVICES_STORAGE_KEY = 'colaca_silagem_servicos_estoque';
+
+export const DEFAULT_STOCK_SERVICES: string[] = [
+  // GRUPO DE MANUTENÇÃO DE PNEUS:
+  'RECAPAGEM DE PNEU',
+  'RECAUCHUTAGEM DE PNEU',
+  'REMOLDAGEM DE PNEU (REMOLD)',
+  'VULCANIZAÇÃO DE PNEU',
+  'GROOVING (FRISAGEM / SULCAMENTO DE PNEU)',
+  'CONSERTO DE CÂMARA DE AR',
+  'TROCA DE VÁLVULA / COMPLEMENTO',
+
+  // GRUPO DE MÃO DE OBRA E MANUTENÇÃO OPERACIONAL:
+  'SERVIÇO DE MÃO DE OBRA MECÂNICO',
+  'SERVIÇO DE MÃO DE OBRA ELETRICISTA (AUTOMOTIVO)',
+  'SERVIÇO DE MÃO DE OBRA FUNILEIRO / LANTERNAGEM',
+  'SERVIÇO DE MÃO DE OBRA ESTOFARIA / INTERIOR',
+
+  // GRUPO DE MANUTENÇÃO DE INFRAESTRUTURA E PREDIAL:
+  'SERVIÇO DE MÃO DE OBRA CIVIL (REFORMA TIPO PEDREIRO)',
+  'SERVIÇO DE MÃO DE OBRA ELETRICISTA PREDIAL E RESIDENCIAL',
+];
+
+export function getStoredStockServices(): string[] {
+  try {
+    const raw = localStorage.getItem(STOCK_SERVICES_STORAGE_KEY) || localStorage.getItem('colaca_silagem_servicos_padrao_reforma');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const stringList = parsed.map((item: any) => {
+          if (typeof item === 'string') return item.trim().toUpperCase();
+          if (item && typeof item === 'object') return (item.name || item.nome || item.descricao || '').trim().toUpperCase();
+          return '';
+        }).filter(Boolean);
+
+        const merged = Array.from(new Set([...DEFAULT_STOCK_SERVICES, ...stringList]));
+        return merged;
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar serviços de estoque:', e);
+  }
+
+  try {
+    localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(DEFAULT_STOCK_SERVICES));
+    localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(DEFAULT_STOCK_SERVICES));
+  } catch (_) {}
+  return DEFAULT_STOCK_SERVICES;
+}
+
+export function saveStoredStockServices(services: string[]): void {
+  try {
+    const upperList = Array.from(new Set(services.map(s => s.trim().toUpperCase()).filter(Boolean)));
+    localStorage.setItem(STOCK_SERVICES_STORAGE_KEY, JSON.stringify(upperList));
+    localStorage.setItem('colaca_silagem_servicos_padrao_reforma', JSON.stringify(upperList));
+    window.dispatchEvent(new CustomEvent('colaca_silagem_servicos_estoque_updated', { detail: upperList }));
+  } catch (e) {
+    console.warn('Erro ao salvar serviços de estoque:', e);
+  }
+}
+
+// Auto-inicialização no LocalStorage para garantir a disponibilidade imediata
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    getStoredStockServices();
+  }
+} catch (_) {}
 
 export const getStoredServiceTypes = () => getStoredList(STORAGE_KEYS.SERVICE_TYPES, DEFAULT_SERVICE_TYPES);
 export const saveStoredServiceTypes = (list: string[]) => saveStoredList(STORAGE_KEYS.SERVICE_TYPES, list);
