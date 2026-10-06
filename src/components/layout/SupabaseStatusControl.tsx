@@ -9,10 +9,12 @@ import { useAuth } from '../../context/AuthContext';
 
 interface SupabaseStatusControlProps {
   dropdownPosition?: 'up' | 'down';
+  variant?: 'titlebar' | 'sidebar';
 }
 
 export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
-  dropdownPosition = 'down'
+  dropdownPosition = 'down',
+  variant = 'titlebar'
 }) => {
   const { 
     currentUser, 
@@ -35,23 +37,23 @@ export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
   };
 
   return (
-    <div className="relative">
+    <div className="relative inline-flex items-center">
       <button
         type="button"
-        id="btn-sidebar-supabase"
+        id="btn-header-supabase"
         onClick={() => setIsOpenMenu(prev => !prev)}
-        className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-800/80 hover:bg-sky-100 dark:hover:bg-sky-900/60 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 shadow-2xs transition cursor-pointer text-xs font-bold"
+        className="inline-flex items-center space-x-1.5 px-1.5 py-0.5 rounded text-xs font-semibold text-slate-700 dark:text-stone-300 hover:bg-slate-300/60 dark:hover:bg-stone-700/60 hover:text-slate-900 dark:hover:text-stone-100 transition cursor-pointer select-none"
         title="Status da Conexão Supabase PostgreSQL"
       >
-        <Database className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-        <span className="font-bold text-[11px] text-sky-900 dark:text-sky-200">
+        <Database className="w-3.5 h-3.5 text-slate-600 dark:text-stone-400 shrink-0" />
+        <span className="text-xs font-semibold text-slate-800 dark:text-stone-200">
           Supabase
         </span>
         <span 
-          className={`w-2 h-2 rounded-full ${
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
             isConnectedToSupabase || isConfigured 
-              ? 'bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-950 animate-pulse' 
-              : 'bg-amber-400 ring-2 ring-amber-200'
+              ? 'bg-emerald-500 ring-1 ring-emerald-300 dark:ring-emerald-900 animate-pulse' 
+              : 'bg-amber-400 ring-1 ring-amber-200'
           }`} 
         />
       </button>
@@ -66,7 +68,7 @@ export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
           <div className={`absolute z-50 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-xl p-3 text-xs space-y-2.5 ${
             dropdownPosition === 'up'
               ? 'bottom-full mb-2 left-0'
-              : 'left-[-60px] sm:left-[-70px] top-full mt-1.5'
+              : 'right-0 top-full mt-1.5'
           }`}>
           <div className="border-b border-stone-100 dark:border-stone-800 pb-2 flex items-center justify-between">
             <div>

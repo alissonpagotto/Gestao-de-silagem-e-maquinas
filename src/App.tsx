@@ -103,6 +103,7 @@ import { useConfirm } from './context/ConfirmContext';
 
 
 import { Sidebar } from './components/layout/Sidebar';
+import { SupabaseStatusControl } from './components/layout/SupabaseStatusControl';
 import { MainDashboard } from './components/dashboard/MainDashboard';
 
 import { PlusCircle, Sparkles, ArrowLeft, Shield, Menu } from 'lucide-react';
@@ -2951,10 +2952,10 @@ export default function App() {
         {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
         <header
           id="desktop-window-titlebar"
-          className="h-8 min-h-[32px] max-h-[32px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 px-2 sm:px-3 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2"
+          className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 px-2 sm:px-2.5 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2 overflow-hidden"
         >
-          {/* Lado Esquerdo: Ícone + Título e Versão em Caixa Alta com Data Padrão BR */}
-          <div className="flex items-center space-x-2 text-[10.5px] sm:text-[11px] font-bold tracking-wider truncate shrink-0">
+          {/* Lado Esquerdo: Ícone + Título, Versão, Build e Status de Assinatura contínuos da Esquerda para a Direita */}
+          <div className="flex items-center space-x-1.5 min-w-0 font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">
             {/* Botão de menu mobile */}
             <button
               type="button"
@@ -2967,45 +2968,49 @@ export default function App() {
             <div className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-[8px] font-black text-white shrink-0 shadow-2xs">
               C
             </div>
-            <span className="font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">
+            
+            {/* Título & Versão & Build */}
+            <span className="truncate">
               SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 1.0.3 - BUILD: 06/10/2026
             </span>
-          </div>
 
-          {/* Miolo Central: Badges Minimalistas de Status da Assinatura com Alerta Dinâmico */}
-          <div className="hidden md:flex items-center space-x-2 shrink-0">
-            {/* Badge 1: Controle de Status de Assinatura */}
+            {/* Separador */}
+            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
+
+            {/* Status da Assinatura (Mesmo tamanho de fonte, mesma cor cinza discreta; se ≤ 6 dias, apenas o texto fica vermelho) */}
             {isSubscriptionExpiringSoon ? (
               <span 
-                className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white border border-red-700 animate-pulse flex items-center gap-1 shadow-xs whitespace-nowrap cursor-pointer"
-                title={`Atenção: Assinatura a vencer em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'}. Renove para evitar bloqueio do sistema.`}
+                className="text-red-600 dark:text-red-400 font-extrabold animate-pulse whitespace-nowrap shrink-0"
+                title={`Atenção: Assinatura a vencer em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'}.`}
               >
-                <span className="text-[7px]">●</span>
-                {`ASSINATURA A VENCER (${daysUntilDue} ${daysUntilDue === 1 ? 'DIA' : 'DIAS'}) - ${subscriptionPlanDisplayName}`}
+                ● ASSINATURA A VENCER ({daysUntilDue} {daysUntilDue === 1 ? 'DIA' : 'DIAS'}) - {subscriptionPlanDisplayName}
               </span>
             ) : (
-              <span 
-                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-800/60 flex items-center gap-1 shadow-2xs whitespace-nowrap"
-                title="Assinatura ativa e regularizada"
-              >
-                <span className="text-[7px] text-emerald-600 dark:text-emerald-400">●</span>
-                {`ASSINATURA ATIVA - ${subscriptionPlanDisplayName}`}
+              <span className="text-slate-700 dark:text-stone-300 whitespace-nowrap shrink-0">
+                ● ASSINATURA ATIVA - {subscriptionPlanDisplayName}
               </span>
             )}
 
-            {/* Badge 2: Texto dourado/laranja discreto */}
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1 shadow-2xs whitespace-nowrap">
-              <span className="text-[10px]">⚡</span>
-              SILAGEM FÁCIL PRO • MODO COMPLETO
+            {/* Separador */}
+            <span className="text-slate-400 dark:text-stone-500 shrink-0 select-none">-</span>
+
+            {/* Modalidade / Versão do Sistema */}
+            <span className="text-slate-700 dark:text-stone-300 whitespace-nowrap shrink-0">
+              ⚡ SILAGEM FÁCIL PRO • MODO COMPLETO
             </span>
           </div>
 
-          {/* Lado Direito: Perfil do Usuário Slim + Trio Clássico de Botões de Controle Reativos */}
-          <div className="flex items-center space-x-2 shrink-0">
+          {/* Lado Direito: Botão Supabase + Perfil do Usuário Slim + Trio de Controle da Janela */}
+          <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+            {/* Botão [ Supabase ] Slim Minimalista */}
+            <SupabaseStatusControl dropdownPosition="down" variant="titlebar" />
+
+            <span className="text-slate-300 dark:text-stone-700 text-xs select-none">|</span>
+
             {/* Bloco de Perfil do Usuário Slim Horizontal */}
-            <div className="flex items-center space-x-1.5 bg-slate-200/60 dark:bg-stone-800/60 px-1.5 py-0.5 rounded-md border border-slate-300/70 dark:border-stone-700/60 shadow-2xs">
-              {/* Foto / Avatar redondo (w-7 h-7 rounded-full) */}
-              <div className="relative w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
+            <div className="flex items-center space-x-1.5 px-0.5 py-0.5 rounded text-xs font-semibold text-slate-800 dark:text-stone-200">
+              {/* Foto / Avatar redondo (compacto w-5 h-5 sm:w-5.5 sm:h-5.5) */}
+              <div className="relative w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
                 {activeSession?.photoUrl ? (
                   <img 
                     src={activeSession.photoUrl} 
@@ -3014,37 +3019,37 @@ export default function App() {
                   />
                 ) : activeSession?.type === 'admin' ? (
                   <div className="w-full h-full bg-slate-800 text-white flex items-center justify-center">
-                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    <Shield className="w-3 h-3 text-emerald-400" />
                   </div>
                 ) : (
-                  <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">
+                  <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-black">
                     {activeSession?.name?.charAt(0) || 'U'}
                   </div>
                 )}
                 <span className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full border border-white dark:border-stone-800 ${activeSession?.type === 'admin' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
               </div>
 
-              {/* Nome em text-xs font-semibold */}
+              {/* Nome: ADMINISTRADOR GERAL - text-xs font-semibold */}
               <span className="text-xs font-semibold text-slate-800 dark:text-stone-200 tracking-tight whitespace-nowrap hidden sm:inline">
                 {activeSession?.type === 'admin' ? 'ADMINISTRADOR GERAL' : (activeSession?.cargoNome || activeSession?.name || 'ADMINISTRADOR GERAL').toUpperCase()}
               </span>
 
-              {/* Botão Trocar */}
+              {/* Botão Trocar - text-xs font-semibold */}
               <button
                 type="button"
                 onClick={() => setIsSessionModalOpen(true)}
-                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline transition cursor-pointer px-1 py-0.5"
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline transition cursor-pointer px-1 py-0.5"
                 title="Simular outro Cargo ou Usuário"
               >
                 Trocar
               </button>
 
-              {/* Separador e Botão Sair ao lado do Administrador */}
-              <span className="text-slate-400 dark:text-stone-600 text-[10px] select-none">•</span>
+              {/* Separador e Botão Sair - text-xs font-semibold */}
+              <span className="text-slate-400 dark:text-stone-600 text-xs select-none">•</span>
               <button
                 type="button"
                 onClick={handleCloseWindowLogout}
-                className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline transition cursor-pointer px-1 py-0.5"
+                className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline transition cursor-pointer px-1 py-0.5"
                 title="Encerrar Sessão e Sair do Sistema"
               >
                 Sair
@@ -3052,7 +3057,7 @@ export default function App() {
             </div>
 
             {/* Separador sutil */}
-            <div className="h-4 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
+            <div className="h-3.5 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
 
             {/* Trio Clássico de Mini-Botões de Controle da Janela Desktop */}
             <div className="flex items-center space-x-0.5 shrink-0 -mr-1">
@@ -3060,7 +3065,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsWindowMinimized(prev => !prev)}
-                className={`w-6 h-5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
+                className={`w-5.5 h-4.5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
                   isWindowMinimized
                     ? 'bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200'
                     : 'text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700'
@@ -3068,14 +3073,14 @@ export default function App() {
                 title={isWindowMinimized ? "Restaurar Janela" : "Minimizar Janela"}
                 aria-label="Minimizar Janela"
               >
-                <span className="leading-none pb-1 font-bold text-[12px]">—</span>
+                <span className="leading-none pb-1 font-bold text-[11px]">—</span>
               </button>
 
               {/* Maximizar [ ▢ ] */}
               <button
                 type="button"
                 onClick={() => setIsWindowMaximized(prev => !prev)}
-                className={`w-6 h-5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
+                className={`w-5.5 h-4.5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
                   isWindowMaximized
                     ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
                     : 'text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700'
@@ -3084,12 +3089,12 @@ export default function App() {
                 aria-label="Maximizar Janela"
               >
                 {isWindowMaximized ? (
-                  <span className="relative w-2.5 h-2.5 inline-block">
-                    <span className="absolute -top-0.5 -right-0.5 border border-slate-600 dark:border-stone-400 w-2 h-2 rounded-[1px] inline-block"></span>
-                    <span className="absolute bottom-0 left-0 border border-slate-600 dark:border-stone-400 w-2 h-2 bg-slate-100 dark:bg-stone-850 rounded-[1px] inline-block"></span>
+                  <span className="relative w-2 h-2 inline-block">
+                    <span className="absolute -top-0.5 -right-0.5 border border-slate-600 dark:border-stone-400 w-1.5 h-1.5 rounded-[1px] inline-block"></span>
+                    <span className="absolute bottom-0 left-0 border border-slate-600 dark:border-stone-400 w-1.5 h-1.5 bg-slate-100 dark:bg-stone-850 rounded-[1px] inline-block"></span>
                   </span>
                 ) : (
-                  <span className="border border-slate-600 dark:border-stone-400 w-2.5 h-2.5 rounded-[1px] inline-block"></span>
+                  <span className="border border-slate-600 dark:border-stone-400 w-2 h-2 rounded-[1px] inline-block"></span>
                 )}
               </button>
 
@@ -3097,11 +3102,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleCloseWindowLogout}
-                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-600 hover:text-white rounded text-xs transition cursor-pointer font-bold"
+                className="w-5.5 h-4.5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-600 hover:text-white rounded text-xs transition cursor-pointer font-bold"
                 title="Fechar e Encerrar Sessão"
                 aria-label="Fechar Janela e Sair"
               >
-                <span className="leading-none font-bold text-[11px]">✕</span>
+                <span className="leading-none font-bold text-[10px]">✕</span>
               </button>
             </div>
           </div>

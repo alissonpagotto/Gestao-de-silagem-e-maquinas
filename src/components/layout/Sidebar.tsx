@@ -13,7 +13,6 @@ import {
   DEFAULT_MENU_ORDER, 
   MenuItemDef 
 } from './ReorderMenuModal';
-import { SupabaseStatusControl } from './SupabaseStatusControl';
 import { 
   getActiveUserSession, 
   ModulePermissionKey 
@@ -392,11 +391,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </button>
           )}
-
-          {/* Linha do Controle do Supabase no Canto Inferior Esquerdo */}
-          <div className="flex items-center justify-start pt-1.5 border-t border-zinc-300/70 dark:border-stone-800/80">
-            <SupabaseStatusControl dropdownPosition="up" />
-          </div>
         </div>
 
       </aside>
