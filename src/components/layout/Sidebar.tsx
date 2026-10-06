@@ -224,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside 
         id="main-sidebar"
         className={`
-          no-print fixed inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r border-zinc-300 dark:border-stone-800 flex flex-col transition-transform duration-300 ease-in-out h-screen max-h-screen overflow-hidden
+          no-print absolute inset-y-0 left-0 z-40 w-64 bg-zinc-200 dark:bg-stone-900 border-r border-zinc-300 dark:border-stone-800 flex flex-col transition-transform duration-300 ease-in-out h-full max-h-full overflow-hidden
           ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >

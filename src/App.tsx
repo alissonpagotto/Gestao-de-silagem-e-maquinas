@@ -2865,84 +2865,139 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50/50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900">
-      
-      {/* Barra Fixa Amarela de Personificação (Impersonate) no topo do ERP */}
-      {isAdminImpersonating && (
-        <div className="sticky top-0 z-50 w-full bg-amber-400 text-stone-950 font-bold px-4 py-2.5 flex items-center justify-between shadow-md border-b border-amber-500">
-          <div className="flex items-center gap-2.5 text-xs sm:text-sm">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-700 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-800"></span>
-            </span>
-            <span>
-              Você está visualizando o sistema como{' '}
-              <strong className="font-black text-stone-950 underline decoration-stone-950 underline-offset-2">
-                {impersonatedSubscriber?.name || 'Assinante'}
-              </strong>{' '}
-              <span className="hidden sm:inline text-stone-800 font-mono text-xs">
-                ({impersonatedSubscriber?.email || ''})
-              </span>
+    <div 
+      id="desktop-outer-frame-container"
+      className="h-screen w-screen overflow-hidden bg-[#eef2f6] dark:bg-[#0c0d0e] p-2.5 sm:p-3 lg:p-3.5 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100"
+    >
+      {/* Moldura da Janela Desktop (Container Principal de Software) */}
+      <div 
+        id="desktop-window-mother-frame"
+        className="flex-1 w-full h-full min-h-0 flex flex-col rounded-lg border-2 border-slate-300 dark:border-stone-700 bg-zinc-100 dark:bg-stone-950 shadow-2xl overflow-hidden relative"
+      >
+        {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
+        <header
+          id="desktop-window-titlebar"
+          className="h-7 min-h-[28px] max-h-[28px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 px-2.5 sm:px-3 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200"
+        >
+          {/* Lado Esquerdo: Ícone + Título e Versão em Caixa Alta */}
+          <div className="flex items-center space-x-2 text-[10.5px] sm:text-[11px] font-bold tracking-wider truncate">
+            <div className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-[8px] font-black text-white shrink-0 shadow-2xs">
+              C
+            </div>
+            <span className="font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">
+              SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 5.5.1.0 - BUILD: 2026.10.06
             </span>
           </div>
-          <button
-            type="button"
-            onClick={handleExitImpersonation}
-            className="px-3.5 py-1.5 bg-stone-950 hover:bg-stone-800 text-amber-300 hover:text-amber-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer shrink-0"
+
+          {/* Lado Direito: Trio Clássico de Mini-Botões de Controle Simulados */}
+          <div className="flex items-center space-x-1 shrink-0 -mr-1">
+            {/* Minimizar */}
+            <button
+              type="button"
+              tabIndex={-1}
+              className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
+              title="Minimizar Janela"
+            >
+              <span className="leading-none pb-1 font-bold text-[12px]">—</span>
+            </button>
+            {/* Maximizar */}
+            <button
+              type="button"
+              tabIndex={-1}
+              className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
+              title="Maximizar Janela"
+            >
+              <span className="border border-slate-600 dark:border-stone-400 w-2.5 h-2.5 rounded-[1px] inline-block"></span>
+            </button>
+            {/* Fechar */}
+            <button
+              type="button"
+              tabIndex={-1}
+              className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-500 hover:text-white rounded text-xs transition cursor-default"
+              title="Fechar Janela"
+            >
+              <span className="leading-none font-bold text-[11px]">✕</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Barra Fixa Amarela de Personificação (Impersonate) no topo do ERP */}
+        {isAdminImpersonating && (
+          <div className="shrink-0 w-full bg-amber-400 text-stone-950 font-bold px-4 py-2 flex items-center justify-between shadow-xs border-b border-amber-500 z-40">
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-700 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-800"></span>
+              </span>
+              <span>
+                Você está visualizando o sistema como{' '}
+                <strong className="font-black text-stone-950 underline decoration-stone-950 underline-offset-2">
+                  {impersonatedSubscriber?.name || 'Assinante'}
+                </strong>{' '}
+                <span className="hidden sm:inline text-stone-800 font-mono text-xs">
+                  ({impersonatedSubscriber?.email || ''})
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleExitImpersonation}
+              className="px-3.5 py-1.5 bg-stone-950 hover:bg-stone-800 text-amber-300 hover:text-amber-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm cursor-pointer shrink-0"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Voltar ao Painel Master</span>
+            </button>
+          </div>
+        )}
+
+        {/* Workspace Interno da Janela (Sidebar + Conteúdo Principal) */}
+        <div className="flex-1 w-full min-h-0 relative flex flex-row overflow-hidden bg-zinc-100 dark:bg-stone-950">
+          {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isOpenMobile={isMobileSidebarOpen}
+            onCloseMobile={() => setIsMobileSidebarOpen(false)}
+            companyProfile={companyProfile}
+            menuOrder={menuOrder}
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            onLogout={handleLogout}
+          />
+
+          {/* Backdrop for mobile sidebar */}
+          {isMobileSidebarOpen && (
+            <div
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="absolute inset-0 z-30 bg-black/50 lg:hidden backdrop-blur-xs"
+            />
+          )}
+
+          {/* Main Body Area with left padding for desktop sidebar */}
+          <div 
+            className="lg:pl-64 flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden bg-zinc-100 dark:bg-stone-950"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Voltar ao Painel Master</span>
-          </button>
-        </div>
-      )}
+            {/* Top Bar with Trial Notice and Horizontal Pill Carousel */}
+            <TopBar
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              isDarkMode={isDarkMode}
+              setIsDarkMode={setIsDarkMode}
+              onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+              onOpenQuickMemo={() => setIsQuickMemoOpen(true)}
+              onOpenTrialInfo={() => setIsTrialInfoOpen(true)}
+              selectedShortcuts={selectedShortcuts}
+              onOpenCustomizeShortcuts={() => setIsCustomizeShortcutsOpen(true)}
+              trialDaysRemaining={subscriptionCheck.daysRemaining}
+              subscriptionStatus={subscriptionCheck.status}
+              subscriptionPlanName={subscriptionCheck.planName || companyProfile?.planName}
+            />
 
-      {/* Left Fixed Sidebar - Limpa, sem links da Landing Page ou Admin Mestre */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isOpenMobile={isMobileSidebarOpen}
-        onCloseMobile={() => setIsMobileSidebarOpen(false)}
-        companyProfile={companyProfile}
-        menuOrder={menuOrder}
-        isDarkMode={isDarkMode}
-        setIsDarkMode={setIsDarkMode}
-        onLogout={handleLogout}
-      />
-
-      {/* Backdrop for mobile sidebar */}
-      {isMobileSidebarOpen && (
-        <div
-          onClick={() => setIsMobileSidebarOpen(false)}
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden backdrop-blur-xs"
-        />
-      )}
-
-      {/* Main Body Area with left padding for desktop sidebar */}
-      <div 
-        className="lg:pl-64 flex flex-col flex-1 min-h-screen bg-zinc-100 dark:bg-stone-950"
-      >
-        
-        {/* Top Bar with Trial Notice and Horizontal Pill Carousel */}
-        <TopBar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-          onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
-          onOpenQuickMemo={() => setIsQuickMemoOpen(true)}
-          onOpenTrialInfo={() => setIsTrialInfoOpen(true)}
-          selectedShortcuts={selectedShortcuts}
-          onOpenCustomizeShortcuts={() => setIsCustomizeShortcutsOpen(true)}
-          trialDaysRemaining={subscriptionCheck.daysRemaining}
-          subscriptionStatus={subscriptionCheck.status}
-          subscriptionPlanName={subscriptionCheck.planName || companyProfile?.planName}
-        />
-
-        {/* Dynamic Page Content (100% Full Width across all modules) */}
-        <main 
-          id="crm-main-content"
-          className={`flex-1 p-2 sm:p-2.5 lg:p-3 ${activeTab === 'configuracoes' ? 'pb-2 lg:pb-2 overflow-hidden' : 'pb-20 lg:pb-3.5'} w-full max-w-none bg-zinc-100 dark:bg-stone-950`}
-        >
+            {/* Dynamic Page Content (100% Full Width across all modules) */}
+            <main 
+              id="crm-main-content"
+              className={`flex-1 min-h-0 overflow-y-auto p-2 sm:p-2.5 lg:p-3 ${activeTab === 'configuracoes' ? 'pb-2 lg:pb-2 overflow-hidden' : 'pb-20 lg:pb-3.5'} w-full max-w-none bg-zinc-100 dark:bg-stone-950`}
+            >
           {/* TRAVA DE SEGURANÇA: INTERCEPÇÃO VISUAL DE ACESSO RESTRITO POR PERMISSÃO DE CARGO */}
           {(isCurrentTabDenied || activeTab.startsWith('acesso_restrito_')) ? (
             <AccessDeniedView
@@ -3367,6 +3422,9 @@ export default function App() {
           setIsExpenseModalOpen(true);
         }}
       />
+
+        </div>
+      </div>
 
       {/* Global Modals */}
       
