@@ -194,6 +194,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   });
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
+  // Escuta atualizações reativas das categorias no LocalStorage
+  useEffect(() => {
+    const handleCategoriesUpdate = (e: any) => {
+      const updatedCats = e.detail || getStoredInventoryCategories();
+      setCategories(updatedCats);
+    };
+    window.addEventListener('colaca_silagem_categorias_estoque_updated', handleCategoriesUpdate);
+    return () => {
+      window.removeEventListener('colaca_silagem_categorias_estoque_updated', handleCategoriesUpdate);
+    };
+  }, []);
+
   // COLUNA 1: IDENTIFICAÇÃO
   const [nome, setNome] = useState('');
   const [codigoInterno, setCodigoInterno] = useState('');
@@ -383,16 +395,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
       const rawCat = (initialData?.category || initialData?.categoria || '').trim();
       let normalizedCat = rawCat;
-      const c = rawCat.toLowerCase();
-      if (c.includes('pneu')) normalizedCat = 'Pneus';
-      else if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) normalizedCat = 'Combustível & Arla';
-      else if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) normalizedCat = 'Lona & Embalagem';
-      else if (c.includes('inocul') || c.includes('biol')) normalizedCat = 'Inoculante & Biológico';
-      else if (c.includes('sement') || c.includes('milho') || c.includes('sorgo') || c.includes('soja')) normalizedCat = 'Sementes';
-      else if (c.includes('adubo') || c.includes('fertiliz') || c.includes('ureia') || c.includes('npk')) normalizedCat = 'Adubo & Fertilizante';
-      else if (c.includes('peca') || c.includes('peça') || c.includes('manuten') || c.includes('filtro') || c.includes('faca') || c.includes('oleo') || c.includes('óleo')) normalizedCat = 'Peças & Manutenção';
-      else if (c.includes('servi') || initialData?.tipo_item === 'SERVIÇO') normalizedCat = 'SERVIÇO';
-      else if (c.includes('outro')) normalizedCat = 'Outros Insumos';
+      const exactMatch = storedCats.find(cat => cat.toUpperCase() === rawCat.toUpperCase());
+      if (exactMatch) {
+        normalizedCat = exactMatch;
+      } else {
+        const c = rawCat.toLowerCase();
+        if (c.includes('pneu')) normalizedCat = 'Pneus';
+        else if (c.includes('combust') || c.includes('diesel') || c.includes('arla')) normalizedCat = 'Combustível & Arla';
+        else if (c.includes('lona') || c.includes('embalag') || c.includes('filme')) normalizedCat = 'Lona & Embalagem';
+        else if (c.includes('inocul') || c.includes('biol')) normalizedCat = 'Inoculante & Biológico';
+        else if (c.includes('sement') || c.includes('milho') || c.includes('sorgo') || c.includes('soja')) normalizedCat = 'Sementes';
+        else if (c.includes('adubo') || c.includes('fertiliz') || c.includes('ureia') || c.includes('npk')) normalizedCat = 'Adubo & Fertilizante';
+        else if (c.includes('peca') || c.includes('peça') || c.includes('manuten') || c.includes('filtro') || c.includes('faca') || c.includes('oleo') || c.includes('óleo')) normalizedCat = 'Peças & Manutenção';
+        else if (c.includes('servi') || initialData?.tipo_item === 'SERVIÇO') normalizedCat = 'SERVIÇO';
+        else if (c.includes('outro')) normalizedCat = 'Outros Insumos';
+      }
 
       const matchedCat = storedCats.find(cat => cat.toLowerCase() === (normalizedCat || '').toLowerCase());
       const initialCat = matchedCat || (normalizedCat && storedCats.includes(normalizedCat) ? normalizedCat : (storedCats[0] || 'Outros Insumos'));
@@ -753,7 +770,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         nome_comercial: cleanNome,
         category: categoria || 'outro',
         categoria: categoria || 'outro',
-        tipo_item: (categoria === 'SERVIÇO' || (categoria || '').toUpperCase() === 'SERVIÇO') ? 'SERVIÇO' : (initialData?.tipo_item || 'PRODUTO'),
+        tipo_item: (categoria === 'SERVIÇO' || (categoria || '').toUpperCase().startsWith('SERVIÇO') || (categoria || '').toUpperCase().includes('MÃO DE OBRA')) ? 'SERVIÇO' : (initialData?.tipo_item || 'PRODUTO'),
         unit: unidadeMedida.trim() || 'UN',
         unidade_medida: unidadeMedida.trim() || 'UN',
         brand: marca.trim() || undefined,
@@ -974,7 +991,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }}
       >
         <div 
-          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-7xl w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100 flex flex-col max-h-[90vh]"
+          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-7xl w-full shadow-2xl overflow-hidden overflow-y-hidden animate-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100 flex flex-col max-h-[90vh]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Top Header Compacto */}
@@ -1020,7 +1037,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Formulário em 3 Colunas Horizontais Paralelas - Slim Design sem Rolagem */}
-          <form onSubmit={handleSubmit} className="p-2.5 sm:p-3 space-y-1.5 overflow-hidden flex flex-col justify-between flex-1 min-h-0">
+          <form onSubmit={handleSubmit} className="p-2.5 sm:p-3 space-y-1.5 overflow-hidden overflow-y-hidden flex flex-col justify-between flex-1 min-h-0">
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-stretch flex-1 min-h-0">
               
@@ -1094,6 +1111,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           }}
                           className="flex-1 h-7.5 px-2 py-1 text-xs font-semibold rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:ring-2 focus:ring-sky-500 focus:outline-none transition cursor-pointer"
                         >
+                          {!categories.includes(categoria) && categoria && (
+                            <option value={categoria}>{categoria}</option>
+                          )}
                           {categories.map((cat) => (
                             <option key={cat} value={cat}>{cat}</option>
                           ))}
@@ -2059,10 +2079,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           defaultItems={DEFAULT_INVENTORY_CATEGORIES}
           items={categories}
           onSaveItems={(newCategories) => {
-            setCategories(newCategories);
             saveStoredInventoryCategories(newCategories);
-            if (!newCategories.includes(categoria)) {
-              setCategoria(newCategories[0] || 'Outros Insumos');
+            const fresh = getStoredInventoryCategories();
+            setCategories(fresh);
+            if (!fresh.includes(categoria)) {
+              setCategoria(fresh[0] || 'Outros Insumos');
             }
           }}
           zIndexClass="z-[9999]"

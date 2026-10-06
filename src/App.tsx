@@ -50,6 +50,7 @@ import {
   getStoredInventory,
   saveStoredInventory,
   ensureStockServicesInitialized,
+  ensureStockCategoriesInitialized,
   ensureServicesInInventory,
   getStoredServices,
   saveStoredServices,
@@ -369,6 +370,8 @@ export default function App() {
 
     // Carga inicial mandatória dos 13 serviços oficiais no estoque (LocalStorage: 'colaca_silagem_estoque_produtos')
     ensureStockServicesInitialized();
+    // Carga inicial mandatória das categorias de estoque e serviços de mão de obra (LocalStorage: 'colaca_silagem_categorias_estoque')
+    ensureStockCategoriesInitialized();
 
     const loadCloudData = async () => {
       try {

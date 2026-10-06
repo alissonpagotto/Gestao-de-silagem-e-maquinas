@@ -359,6 +359,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
   };
 
   const getCategoryIcon = (cat: InventoryItem['category']) => {
+    const cUpper = String(cat || '').toUpperCase();
+    if (cUpper.startsWith('SERVIÇO') || cUpper.startsWith('SERVICO') || cUpper.includes('MÃO DE OBRA')) {
+      return <Wrench className="w-4 h-4 text-indigo-500" />;
+    }
     switch (cat) {
       case 'combustivel':
       case 'Combustível & Arla': return <Fuel className="w-4 h-4 text-amber-500" />;
@@ -368,8 +372,6 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({
       case 'Inoculante & Biológico': return <Sprout className="w-4 h-4 text-emerald-500" />;
       case 'pecas':
       case 'Peças & Manutenção': return <Wrench className="w-4 h-4 text-rose-500" />;
-      case 'SERVIÇO':
-      case 'servico': return <Wrench className="w-4 h-4 text-indigo-500" />;
       default: return <Package className="w-4 h-4 text-sky-500" />;
     }
   };

@@ -86,7 +86,8 @@ const STORAGE_KEYS = {
   MAINTENANCE_LOGS: 'silagem_facil_clean_v1_maintenance_logs',
   SETTINGS: 'silagem_facil_clean_v1_settings',
   SUPPLIER_CATEGORIES: 'silagem_facil_clean_v1_supplier_categories',
-  INVENTORY_CATEGORIES: 'silagem_facil_clean_v1_inventory_categories',
+  INVENTORY_CATEGORIES: 'colaca_silagem_categorias_estoque',
+  STOCK_CATEGORIES: 'colaca_silagem_categorias_estoque',
   SERVICE_TYPES: 'silagem_facil_clean_v1_service_types',
   SILAGE_PRODUCT_TYPES: 'silagem_facil_clean_v1_silage_product_types',
   CATTLE_TYPES: 'silagem_facil_clean_v1_cattle_types',
@@ -1620,6 +1621,15 @@ export const DEFAULT_SUPPLIER_CATEGORIES = [
   'Outros Fornecedores'
 ];
 
+export const STOCK_CATEGORIES_STORAGE_KEY = 'colaca_silagem_categorias_estoque';
+
+export const MANDATORY_SERVICE_SUBCATEGORIES = [
+  'SERVIÇOS MÃO DE OBRA MECÂNICA',
+  'SERVIÇOS MÃO DE OBRA ELÉTRICA VEÍCULOS',
+  'SERVIÇOS MÃO DE OBRA ELÉTRICA PREDIAL',
+  'SERVIÇOS MÃO DE OBRA BORRACHARIA'
+] as const;
+
 export const DEFAULT_INVENTORY_CATEGORIES = [
   'Combustível & Arla',
   'Lona & Embalagem',
@@ -1629,8 +1639,40 @@ export const DEFAULT_INVENTORY_CATEGORIES = [
   'Peças & Manutenção',
   'Pneus',
   'SERVIÇO',
+  'SERVIÇOS MÃO DE OBRA MECÂNICA',
+  'SERVIÇOS MÃO DE OBRA ELÉTRICA VEÍCULOS',
+  'SERVIÇOS MÃO DE OBRA ELÉTRICA PREDIAL',
+  'SERVIÇOS MÃO DE OBRA BORRACHARIA',
   'Outros Insumos'
 ];
+
+export function orderInventoryCategoriesWithServices(cats: string[]): string[] {
+  const newSubcats = [
+    'SERVIÇOS MÃO DE OBRA MECÂNICA',
+    'SERVIÇOS MÃO DE OBRA ELÉTRICA VEÍCULOS',
+    'SERVIÇOS MÃO DE OBRA ELÉTRICA PREDIAL',
+    'SERVIÇOS MÃO DE OBRA BORRACHARIA'
+  ];
+
+  // Remove as 4 subcategorias temporariamente para ordená-las logo abaixo de serviços
+  const filtered = cats.filter(c => !newSubcats.includes(c.trim().toUpperCase()));
+
+  // Localiza a categoria master 'serviços' (ou 'serviço' / 'SERVIÇOS' / 'SERVIÇO')
+  let masterIndex = filtered.findIndex(c => {
+    const upper = c.trim().toUpperCase();
+    return upper === 'SERVIÇOS' || upper === 'SERVICOS' || upper === 'SERVIÇO' || upper === 'SERVICO';
+  });
+
+  if (masterIndex === -1) {
+    filtered.push('SERVIÇOS');
+    masterIndex = filtered.length - 1;
+  }
+
+  // Insere as 4 subcategorias estritamente em CAIXA ALTA logo abaixo da categoria master
+  filtered.splice(masterIndex + 1, 0, ...newSubcats);
+
+  return Array.from(new Set(filtered));
+}
 
 export const DEFAULT_SERVICE_TYPES = [
   'Ensilagem',
@@ -1705,14 +1747,58 @@ function saveStoredList<T = any>(key: string, list: T[]): void {
 export const getStoredSupplierCategories = () => getStoredList(STORAGE_KEYS.SUPPLIER_CATEGORIES, DEFAULT_SUPPLIER_CATEGORIES);
 export const saveStoredSupplierCategories = (list: string[]) => saveStoredList(STORAGE_KEYS.SUPPLIER_CATEGORIES, list);
 
-export const getStoredInventoryCategories = () => {
-  const list = getStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, DEFAULT_INVENTORY_CATEGORIES);
-  if (!list.some(c => c.toLowerCase() === 'pneus' || c.toLowerCase() === 'pneu')) {
-    return ['Pneus', ...list];
+export const getStoredInventoryCategories = (): string[] => {
+  let list: string[] = [];
+  try {
+    const raw = localStorage.getItem(STOCK_CATEGORIES_STORAGE_KEY) || 
+                localStorage.getItem(STORAGE_KEYS.INVENTORY_CATEGORIES) ||
+                localStorage.getItem('silagem_facil_clean_v1_inventory_categories');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        list = parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao ler categorias de estoque:', e);
   }
-  return list;
+
+  if (list.length === 0) {
+    list = [...DEFAULT_INVENTORY_CATEGORIES];
+  }
+
+  if (!list.some(c => c.toLowerCase() === 'pneus' || c.toLowerCase() === 'pneu')) {
+    list = ['Pneus', ...list];
+  }
+
+  // Ordenação e injeção limpa das novas categorias de serviços logo abaixo de serviços
+  const ordered = orderInventoryCategoriesWithServices(list);
+
+  try {
+    localStorage.setItem(STOCK_CATEGORIES_STORAGE_KEY, JSON.stringify(ordered));
+    localStorage.setItem(STORAGE_KEYS.INVENTORY_CATEGORIES, JSON.stringify(ordered));
+    localStorage.setItem('silagem_facil_clean_v1_inventory_categories', JSON.stringify(ordered));
+  } catch (e) {
+    // ignore
+  }
+
+  return ordered;
 };
-export const saveStoredInventoryCategories = (list: string[]) => saveStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, list);
+
+export const saveStoredInventoryCategories = (list: string[]): void => {
+  const ordered = orderInventoryCategoriesWithServices(list);
+  saveStoredList(STOCK_CATEGORIES_STORAGE_KEY, ordered);
+  saveStoredList(STORAGE_KEYS.INVENTORY_CATEGORIES, ordered);
+  saveStoredList('silagem_facil_clean_v1_inventory_categories', ordered);
+  try {
+    window.dispatchEvent(new CustomEvent('colaca_silagem_categorias_estoque_updated', { detail: ordered }));
+    window.dispatchEvent(new Event('storage'));
+  } catch (e) {}
+};
+
+export function ensureStockCategoriesInitialized(): string[] {
+  return getStoredInventoryCategories();
+}
 
 // ========================================================
 // SERVIÇOS E MÃOS DE OBRA NO ESTOQUE (MANDATÓRIO EM CAIXA ALTA)
@@ -1785,6 +1871,7 @@ export function saveStoredStockServices(services: string[]): void {
 try {
   if (typeof window !== 'undefined' && window.localStorage) {
     ensureStockServicesInitialized();
+    ensureStockCategoriesInitialized();
   }
 } catch (_) {}
 
