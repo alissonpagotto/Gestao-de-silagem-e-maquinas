@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LogOut,
   Sprout,
   Bell,
   Sun,
@@ -394,29 +393,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {/* Linha de Logout e Controle do Supabase */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-300/70 dark:border-stone-800/80">
-            <button
-              id="btn-sidebar-logout"
-              type="button"
-              onClick={() => {
-                if (onLogout) {
-                  onLogout();
-                } else {
-                  setActiveTab('dashboard');
-                }
-              }}
-              className="flex items-center space-x-2.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-100/70 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 transition cursor-pointer"
-            >
-              <LogOut 
-                className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" 
-              />
-              <span>Sair</span>
-            </button>
-
-            <div className="shrink-0">
-              <SupabaseStatusControl dropdownPosition="up" />
-            </div>
+          {/* Linha do Controle do Supabase no Canto Inferior Esquerdo */}
+          <div className="flex items-center justify-start pt-1.5 border-t border-zinc-300/70 dark:border-stone-800/80">
+            <SupabaseStatusControl dropdownPosition="up" />
           </div>
         </div>
 

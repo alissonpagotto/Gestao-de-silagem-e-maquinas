@@ -38,13 +38,14 @@ export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
     <div className="relative">
       <button
         type="button"
+        id="btn-sidebar-supabase"
         onClick={() => setIsOpenMenu(prev => !prev)}
-        className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-stone-700 hover:bg-zinc-100 dark:hover:bg-stone-800 bg-white dark:bg-stone-800 text-zinc-800 dark:text-stone-100 shadow-2xs transition cursor-pointer text-xs font-semibold"
+        className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-800/80 hover:bg-sky-100 dark:hover:bg-sky-900/60 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200 shadow-2xs transition cursor-pointer text-xs font-bold"
         title="Status da Conexão Supabase PostgreSQL"
       >
-        <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-        <span className="font-bold text-[11px] text-zinc-800 dark:text-stone-200">
-          {isConfigured ? 'Supabase' : 'DB Local'}
+        <Database className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+        <span className="font-bold text-[11px] text-sky-900 dark:text-sky-200">
+          Supabase
         </span>
         <span 
           className={`w-2 h-2 rounded-full ${
@@ -64,7 +65,7 @@ export const SupabaseStatusControl: React.FC<SupabaseStatusControlProps> = ({
           />
           <div className={`absolute z-50 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl shadow-xl p-3 text-xs space-y-2.5 ${
             dropdownPosition === 'up'
-              ? 'bottom-full mb-2 right-0'
+              ? 'bottom-full mb-2 left-0'
               : 'left-[-60px] sm:left-[-70px] top-full mt-1.5'
           }`}>
           <div className="border-b border-stone-100 dark:border-stone-800 pb-2 flex items-center justify-between">

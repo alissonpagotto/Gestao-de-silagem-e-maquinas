@@ -1476,6 +1476,10 @@ export default function App() {
   const [activeSession, setActiveSession] = useState<SimulatedUserSession>(() => getActiveUserSession());
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
+  // Controle de Janela Desktop (Maximizar tela cheia e Minimizar painel)
+  const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+  const [isWindowMinimized, setIsWindowMinimized] = useState(false);
+
   useEffect(() => {
     const handleSessionSync = (e: any) => {
       if (e?.detail) {
@@ -2452,6 +2456,23 @@ export default function App() {
     setCurrentRoute('landing');
   };
 
+  const handleCloseWindowLogout = async () => {
+    try {
+      const confirmed = await confirm({
+        title: 'Encerrar Sessão',
+        message: 'Deseja realmente sair e fechar o Sistema Colaca Silagem?',
+        confirmLabel: 'Sair e Fechar',
+        cancelLabel: 'Continuar no Sistema',
+        variant: 'danger'
+      });
+      if (confirmed) {
+        handleLogout();
+      }
+    } catch {
+      handleLogout();
+    }
+  };
+
   // Estado de Personificação (Impersonate) pelo Admin Mestre
   const [isAdminImpersonating, setIsAdminImpersonating] = useState<boolean>(() => {
     return typeof localStorage !== 'undefined' && (
@@ -2754,6 +2775,58 @@ export default function App() {
     };
   }, []);
 
+  // Mapeamento dinâmico de dias de vencimento da assinatura (Painel Master / Supabase / LocalStorage)
+  const activeSubscriber = useMemo(() => {
+    if (isAdminImpersonating && impersonatedSubscriber) {
+      return impersonatedSubscriber;
+    }
+    try {
+      const subs = getStoredSubscribers();
+      const activeSubId = typeof localStorage !== 'undefined' ? localStorage.getItem('silagem_active_subscriber_id') : null;
+      const activeEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem('silagem_active_user_email') || localStorage.getItem('silagem_client_email') : '') || currentUser?.email || companyProfile?.email;
+      if (activeSubId) {
+        const found = subs.find(s => s.id === activeSubId);
+        if (found) return found;
+      }
+      if (activeEmail) {
+        const found = subs.find(s => s.responsibleEmail?.toLowerCase() === activeEmail.toLowerCase());
+        if (found) return found;
+      }
+      if (subs.length > 0) return subs[0];
+    } catch (e) {}
+    return null;
+  }, [isAdminImpersonating, impersonatedSubscriber, currentUser?.email, companyProfile?.email]);
+
+  const daysUntilDue = useMemo(() => {
+    if (isAdminImpersonating && impersonatedSubscriber) {
+      try {
+        const subs = getStoredSubscribers();
+        const match = subs.find(s => s.id === impersonatedSubscriber.id || s.responsibleEmail === impersonatedSubscriber.email);
+        if (match?.trialUntil) {
+          const diff = new Date(match.trialUntil + 'T23:59:59').getTime() - Date.now();
+          return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+        }
+      } catch (e) {}
+    }
+    if (subscriptionCheck?.daysRemaining !== undefined && subscriptionCheck.daysRemaining !== null) {
+      return subscriptionCheck.daysRemaining;
+    }
+    if (activeSubscriber && 'trialUntil' in activeSubscriber && (activeSubscriber as any).trialUntil) {
+      try {
+        const diff = new Date((activeSubscriber as any).trialUntil + 'T23:59:59').getTime() - Date.now();
+        return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      } catch (e) {}
+    }
+    return 30; // Prazo longo padrão
+  }, [isAdminImpersonating, impersonatedSubscriber, subscriptionCheck?.daysRemaining, activeSubscriber]);
+
+  const isSubscriptionExpiringSoon = daysUntilDue <= 6;
+  const subscriptionPlanDisplayName = useMemo(() => {
+    const p = subscriptionCheck?.planName || companyProfile?.planName || activeSubscriber?.planName;
+    if (!p || p.trim() === '') return 'PRODUTOR ESSENCIAL';
+    return p.toUpperCase();
+  }, [subscriptionCheck?.planName, companyProfile?.planName, activeSubscriber?.planName]);
+
   // 1. Rota Isolada: Admin Mestre (Acesso seguro em /master-admin com autenticação de Super Admin)
   if (currentRoute === 'master-admin') {
     return (
@@ -2868,19 +2941,19 @@ export default function App() {
   return (
     <div 
       id="desktop-outer-frame-container"
-      className="h-screen w-screen overflow-hidden bg-[#eef2f6] dark:bg-[#0c0d0e] p-2.5 sm:p-3 lg:p-3.5 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100"
+      className={`h-screen w-screen overflow-hidden bg-[#eef2f6] dark:bg-[#0c0d0e] ${isWindowMaximized ? 'p-0' : 'p-2.5 sm:p-3 lg:p-3.5'} flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-blue-200 selection:text-blue-900 box-border text-stone-900 dark:text-stone-100 transition-all duration-150`}
     >
       {/* Moldura da Janela Desktop (Container Principal de Software) */}
       <div 
         id="desktop-window-mother-frame"
-        className="flex-1 w-full h-full min-h-0 flex flex-col rounded-lg border-2 border-slate-300 dark:border-stone-700 bg-zinc-100 dark:bg-stone-950 shadow-2xl overflow-hidden relative"
+        className={`flex-1 w-full h-full min-h-0 flex flex-col ${isWindowMaximized ? 'rounded-none border-0 shadow-none' : 'rounded-lg border-2 border-slate-300 dark:border-stone-700 shadow-2xl'} bg-zinc-100 dark:bg-stone-950 overflow-hidden relative transition-all duration-150 ${isWindowMinimized ? 'max-h-[64px] flex-none' : ''}`}
       >
         {/* Barra de Título Superior Simulada (Windows Desktop Titlebar) */}
         <header
           id="desktop-window-titlebar"
           className="h-8 min-h-[32px] max-h-[32px] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-stone-850 dark:via-stone-800 dark:to-stone-850 border-b border-slate-300 dark:border-stone-700 px-2 sm:px-3 flex items-center justify-between select-none shrink-0 z-50 text-slate-800 dark:text-stone-200 gap-2"
         >
-          {/* Lado Esquerdo: Ícone + Título e Versão em Caixa Alta */}
+          {/* Lado Esquerdo: Ícone + Título e Versão em Caixa Alta com Data Padrão BR */}
           <div className="flex items-center space-x-2 text-[10.5px] sm:text-[11px] font-bold tracking-wider truncate shrink-0">
             {/* Botão de menu mobile */}
             <button
@@ -2895,17 +2968,31 @@ export default function App() {
               C
             </div>
             <span className="font-mono uppercase text-[10px] sm:text-[10.5px] truncate font-bold text-slate-700 dark:text-stone-300">
-              SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 1.0.3 - BUILD: 2026.10.06
+              SISTEMA COLACA SILAGEM RETAGUARDA - VERSÃO: 1.0.3 - BUILD: 06/10/2026
             </span>
           </div>
 
-          {/* Miolo Central: Badges Minimalistas de Status da Assinatura */}
+          {/* Miolo Central: Badges Minimalistas de Status da Assinatura com Alerta Dinâmico */}
           <div className="hidden md:flex items-center space-x-2 shrink-0">
-            {/* Badge 1: Fundo verde micro com texto verde escuro */}
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-800/60 flex items-center gap-1 shadow-2xs whitespace-nowrap">
-              <span className="text-[7px] text-emerald-600 dark:text-emerald-400">●</span>
-              ASSINATURA ATIVA - PRODUTOR ESSENCIAL
-            </span>
+            {/* Badge 1: Controle de Status de Assinatura */}
+            {isSubscriptionExpiringSoon ? (
+              <span 
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white border border-red-700 animate-pulse flex items-center gap-1 shadow-xs whitespace-nowrap cursor-pointer"
+                title={`Atenção: Assinatura a vencer em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'}. Renove para evitar bloqueio do sistema.`}
+              >
+                <span className="text-[7px]">●</span>
+                {`ASSINATURA A VENCER (${daysUntilDue} ${daysUntilDue === 1 ? 'DIA' : 'DIAS'}) - ${subscriptionPlanDisplayName}`}
+              </span>
+            ) : (
+              <span 
+                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-800/60 flex items-center gap-1 shadow-2xs whitespace-nowrap"
+                title="Assinatura ativa e regularizada"
+              >
+                <span className="text-[7px] text-emerald-600 dark:text-emerald-400">●</span>
+                {`ASSINATURA ATIVA - ${subscriptionPlanDisplayName}`}
+              </span>
+            )}
+
             {/* Badge 2: Texto dourado/laranja discreto */}
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1 shadow-2xs whitespace-nowrap">
               <span className="text-[10px]">⚡</span>
@@ -2913,12 +3000,12 @@ export default function App() {
             </span>
           </div>
 
-          {/* Lado Direito: Perfil do Usuário Slim + Trio Clássico de Botões de Controle */}
+          {/* Lado Direito: Perfil do Usuário Slim + Trio Clássico de Botões de Controle Reativos */}
           <div className="flex items-center space-x-2 shrink-0">
             {/* Bloco de Perfil do Usuário Slim Horizontal */}
             <div className="flex items-center space-x-1.5 bg-slate-200/60 dark:bg-stone-800/60 px-1.5 py-0.5 rounded-md border border-slate-300/70 dark:border-stone-700/60 shadow-2xs">
               {/* Foto / Avatar redondo (w-7 h-7 rounded-full) */}
-              <div className="relative w-7 h-7 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
+              <div className="relative w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden shrink-0 border border-slate-300 dark:border-stone-600 bg-slate-100 dark:bg-stone-700 flex items-center justify-center">
                 {activeSession?.photoUrl ? (
                   <img 
                     src={activeSession.photoUrl} 
@@ -2951,37 +3038,68 @@ export default function App() {
               >
                 Trocar
               </button>
+
+              {/* Separador e Botão Sair ao lado do Administrador */}
+              <span className="text-slate-400 dark:text-stone-600 text-[10px] select-none">•</span>
+              <button
+                type="button"
+                onClick={handleCloseWindowLogout}
+                className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline transition cursor-pointer px-1 py-0.5"
+                title="Encerrar Sessão e Sair do Sistema"
+              >
+                Sair
+              </button>
             </div>
 
             {/* Separador sutil */}
             <div className="h-4 w-px bg-slate-300 dark:bg-stone-700 shrink-0" />
 
-            {/* Trio Clássico de Mini-Botões de Controle Simulados */}
+            {/* Trio Clássico de Mini-Botões de Controle da Janela Desktop */}
             <div className="flex items-center space-x-0.5 shrink-0 -mr-1">
-              {/* Minimizar */}
+              {/* Minimizar [ _ ] */}
               <button
                 type="button"
-                tabIndex={-1}
-                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
-                title="Minimizar Janela"
+                onClick={() => setIsWindowMinimized(prev => !prev)}
+                className={`w-6 h-5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
+                  isWindowMinimized
+                    ? 'bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200'
+                    : 'text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700'
+                }`}
+                title={isWindowMinimized ? "Restaurar Janela" : "Minimizar Janela"}
+                aria-label="Minimizar Janela"
               >
                 <span className="leading-none pb-1 font-bold text-[12px]">—</span>
               </button>
-              {/* Maximizar */}
+
+              {/* Maximizar [ ▢ ] */}
               <button
                 type="button"
-                tabIndex={-1}
-                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700 rounded text-xs transition cursor-default"
-                title="Maximizar Janela"
+                onClick={() => setIsWindowMaximized(prev => !prev)}
+                className={`w-6 h-5 flex items-center justify-center rounded text-xs transition cursor-pointer ${
+                  isWindowMaximized
+                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                    : 'text-slate-600 dark:text-stone-400 hover:bg-slate-300/80 dark:hover:bg-stone-700'
+                }`}
+                title={isWindowMaximized ? "Restaurar Tamanho da Janela" : "Maximizar Janela (Tela Cheia)"}
+                aria-label="Maximizar Janela"
               >
-                <span className="border border-slate-600 dark:border-stone-400 w-2.5 h-2.5 rounded-[1px] inline-block"></span>
+                {isWindowMaximized ? (
+                  <span className="relative w-2.5 h-2.5 inline-block">
+                    <span className="absolute -top-0.5 -right-0.5 border border-slate-600 dark:border-stone-400 w-2 h-2 rounded-[1px] inline-block"></span>
+                    <span className="absolute bottom-0 left-0 border border-slate-600 dark:border-stone-400 w-2 h-2 bg-slate-100 dark:bg-stone-850 rounded-[1px] inline-block"></span>
+                  </span>
+                ) : (
+                  <span className="border border-slate-600 dark:border-stone-400 w-2.5 h-2.5 rounded-[1px] inline-block"></span>
+                )}
               </button>
-              {/* Fechar */}
+
+              {/* Fechar [ X ] -> Encerra a Sessão Local e Desloga */}
               <button
                 type="button"
-                tabIndex={-1}
-                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-500 hover:text-white rounded text-xs transition cursor-default"
-                title="Fechar Janela"
+                onClick={handleCloseWindowLogout}
+                className="w-6 h-5 flex items-center justify-center text-slate-600 dark:text-stone-400 hover:bg-red-600 hover:text-white rounded text-xs transition cursor-pointer font-bold"
+                title="Fechar e Encerrar Sessão"
+                aria-label="Fechar Janela e Sair"
               >
                 <span className="leading-none font-bold text-[11px]">✕</span>
               </button>
@@ -2989,7 +3107,29 @@ export default function App() {
           </div>
         </header>
 
-        {/* Barra Fixa Amarela de Personificação (Impersonate) no topo do ERP */}
+        {/* Barra de Restauração quando Minimizado */}
+        {isWindowMinimized && (
+          <div 
+            onClick={() => setIsWindowMinimized(false)}
+            className="px-3 py-1.5 bg-slate-200/90 dark:bg-stone-850 border-t border-slate-300 dark:border-stone-700 text-slate-700 dark:text-stone-300 text-xs font-semibold flex items-center justify-between cursor-pointer select-none hover:bg-slate-300/70 dark:hover:bg-stone-800 transition"
+          >
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              <span>Painel minimizado • Clique aqui ou no botão acima para restaurar a janela</span>
+            </div>
+            <button 
+              type="button" 
+              className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded bg-white dark:bg-stone-900 border border-slate-300 dark:border-stone-700 shadow-2xs cursor-pointer"
+            >
+              Restaurar Janela ▢
+            </button>
+          </div>
+        )}
+
+        {/* Conteúdo Principal do Painel (Ocultado quando Minimizado) */}
+        {!isWindowMinimized && (
+          <>
+            {/* Barra Fixa Amarela de Personificação (Impersonate) no topo do ERP */}
         {isAdminImpersonating && (
           <div className="shrink-0 w-full bg-amber-400 text-stone-950 font-bold px-4 py-2 flex items-center justify-between shadow-xs border-b border-amber-500 z-40">
             <div className="flex items-center gap-2.5 text-xs sm:text-sm">
@@ -3475,7 +3615,9 @@ export default function App() {
         }}
       />
 
-        </div>
+          </div>
+        </>
+      )}
       </div>
 
       {/* Global Modals */}
