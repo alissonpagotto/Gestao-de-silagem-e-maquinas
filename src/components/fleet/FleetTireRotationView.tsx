@@ -660,7 +660,18 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
   // ESTADO DE GESTÃO DE ESTOQUE, REFORMA E DESCARTE
   // ----------------------------------------------------
   const [tireInventory, setTireInventory] = useState<TireItem[]>(() => getStoredTireInventory());
-  const [tiresInReform, setTiresInReform] = useState<TireItem[]>(() => getStoredTiresInReform());
+  const [tiresInReform, setTiresInReform] = useState<TireItem[]>(() => {
+    try {
+      const rawPending = localStorage.getItem('colaca_silagem_pneus_aguardando_pedido');
+      if (rawPending) {
+        const parsed = JSON.parse(rawPending);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Erro ao ler pneus aguardando pedido:', e);
+    }
+    return getStoredTiresInReform();
+  });
   const [tiresDiscarded, setTiresDiscarded] = useState<TireItem[]>(() => getStoredTiresDiscarded());
 
   // Salvar alterações nos arrays de suporte
@@ -687,6 +698,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
 
   useEffect(() => {
     saveStoredTiresInReform(tiresInReform);
+    try {
+      localStorage.setItem('colaca_silagem_pneus_aguardando_pedido', JSON.stringify(tiresInReform));
+    } catch {}
   }, [tiresInReform]);
 
   useEffect(() => {
@@ -968,11 +982,47 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
       status: 'reforma',
       reformSentDate: new Date().toISOString().split('T')[0],
       reformWorkshop: 'Recapadora Credenciada',
-      reformCost: 850,
+      reformCost: 0,
+      vehicleId: selectedVehicle?.id,
+      vehiclePlate: selectedVehicle?.licensePlateOrSerial,
+      vehicleName: selectedVehicle?.name,
     };
 
-    setTiresInReform((prev) => [reformTire, ...prev.filter((t) => t.id !== tire.id)]);
+    setTiresInReform((prev) => {
+      const updated = [reformTire, ...prev.filter((t) => t.id !== tire.id)];
+      try {
+        localStorage.setItem('colaca_silagem_pneus_aguardando_pedido', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     setDraggedItem(null);
+  };
+
+  // 3.1 GERAÇÃO DE PEDIDO DE REFORMA NO MÓDULO NOTAS E ENTRADAS
+  const handleGerarPedidoReforma = () => {
+    if (tiresInReform.length === 0) return;
+
+    // 1. Salva a array acumulada na chave 'colaca_silagem_pneus_aguardando_pedido'
+    try {
+      localStorage.setItem('colaca_silagem_pneus_aguardando_pedido', JSON.stringify(tiresInReform));
+      localStorage.setItem('colaca_silagem_abrir_pedido_reforma', 'true');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('colaca_silagem_abrir_pedido_reforma', {
+          detail: { tires: tiresInReform }
+        }));
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar pneus para pedido de reforma:', e);
+    }
+
+    // 2. Mude a aba ativa do sistema para o módulo "Notas e Entradas" (fiscal)
+    if (onNavigate) {
+      onNavigate('fiscal');
+    } else if (onNavigateToFiscal) {
+      onNavigateToFiscal();
+    } else {
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: 'fiscal' }));
+    }
   };
 
   // 4. SOLTAR PNEU NA CAIXA 4 (LIXEIRA / DESCARTE)
@@ -1642,9 +1692,9 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
           </div>
 
           {/* ========================================================
-              CAIXA 3: PNEUS EM REFORMA (LISTA COM BOTÃO "PRONTO")
+              CAIXA 3: PNEUS EM REFORMA (LISTA COM BOTÃO "GERAR PEDIDO DE REFORMA")
               ======================================================== */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col max-h-[220px]">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl p-3 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col max-h-[260px]">
             
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-1.5">
@@ -1656,17 +1706,30 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                     Pneus em Reforma ({tiresInReform.length})
                   </h4>
                   <p className="text-[10px] text-stone-500">
-                    Aguardando retorno da recapagem
+                    Aguardando envio / retorno de recapagem
                   </p>
                 </div>
               </div>
+
+              {/* Botão de Destaque no Topo do Card (Print 1) */}
+              {tiresInReform.length > 0 && (
+                <button
+                  type="button"
+                  id="btn-gerar-pedido-reforma-topo"
+                  onClick={handleGerarPedidoReforma}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-black rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-xs transition cursor-pointer shrink-0"
+                  title="Gerar Pedido de Reforma no módulo Notas e Entradas"
+                >
+                  <span>📝 Gerar Pedido</span>
+                </button>
+              )}
             </div>
 
             {/* Lista com scroll de pneus em reforma */}
             <div className="space-y-1.5 overflow-y-auto flex-1 pr-1 min-h-[80px]">
               {tiresInReform.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center p-3 text-[11px] text-stone-400 font-medium">
-                  Nenhum pneu em reforma no momento.
+                  Nenhum pneu em reforma no momento. Arraste pneus para a caixa acima.
                 </div>
               ) : (
                 tiresInReform.map((item) => (
@@ -1680,27 +1743,41 @@ export const FleetTireRotationView: React.FC<FleetTireRotationViewProps> = ({
                           {item.fireNumber}
                         </span>
                         <span className="text-[10px] text-stone-500 truncate">
-                          • {item.brand} {item.model || ''}
+                          • {item.brand} {item.model || ''} {item.size ? `(${item.size})` : ''}
                         </span>
                       </div>
                       <p className="text-[10px] text-stone-400 truncate">
-                        {item.reformWorkshop || 'Recapadora'} {item.reformSentDate ? `• Enviado ${formatDateBR(item.reformSentDate)}` : ''}
+                        {item.vehiclePlate ? `Veículo: ${item.vehiclePlate}` : (item.vehicleName || 'Frota')} {item.reformSentDate ? `• Enviado ${formatDateBR(item.reformSentDate)}` : ''}
                       </p>
                     </div>
 
-                    {/* Botão "Pronto" */}
+                    {/* Botão de Destaque "📝 Gerar Pedido de Reforma" substituindo o antigo botão verde "✓ Pronto" */}
                     <button
                       type="button"
-                      onClick={() => setReturnReformTire(item)}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition cursor-pointer shrink-0"
+                      onClick={handleGerarPedidoReforma}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-2xs transition cursor-pointer shrink-0"
+                      title="Gerar Pedido de Reforma com os pneus acumulados"
                     >
-                      <Check className="w-3 h-3" />
-                      <span>Pronto</span>
+                      <span>📝 Gerar Pedido</span>
                     </button>
                   </div>
                 ))
               )}
             </div>
+
+            {/* Rodapé com botão consolidado quando houver pneus acumulados */}
+            {tiresInReform.length > 0 && (
+              <div className="pt-2 border-t border-stone-200 dark:border-stone-800 mt-1">
+                <button
+                  type="button"
+                  id="btn-gerar-pedido-reforma-rodape"
+                  onClick={handleGerarPedidoReforma}
+                  className="w-full inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 text-xs font-black rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-xs hover:shadow-md transition cursor-pointer"
+                >
+                  <span>📝 Gerar Pedido de Reforma ({tiresInReform.length} {tiresInReform.length === 1 ? 'pneu' : 'pneus'})</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ========================================================

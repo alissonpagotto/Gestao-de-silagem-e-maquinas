@@ -38,7 +38,9 @@ import {
   Settings,
   Save,
   Eye,
-  Printer
+  Printer,
+  ArrowDownLeft,
+  Wrench
 } from 'lucide-react';
 import { 
   Expense, 
@@ -116,6 +118,8 @@ import {
   subscribeToCloudTable,
   notifyDocumentosEntradaSync
 } from '../../lib/supabaseService';
+import { TireReformOrderView, getStoredReformOrders, getStoredPendingReformTires } from './TireReformOrderView';
+import { DevolucaoNotasView, getStoredNotasDevolucao } from './DevolucaoNotasView';
 
 interface ParsedNfeItem {
   code: string;
@@ -1030,6 +1034,52 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
   categories,
   onNavigate,
 }) => {
+  // -------------------------------------------------------------------------
+  // ABAS PRINCIPAIS DO CABEÇALHO: NOTAS E ENTRADAS | PEDIDOS DE REFORMA | NOTAS DE DEVOLUÇÃO (Requisito 3)
+  // -------------------------------------------------------------------------
+  const [activeFiscalSubTab, setActiveFiscalSubTab] = useState<'notas' | 'pedidos_reforma' | 'devolucao'>('notas');
+  const [reformOrdersCount, setReformOrdersCount] = useState<number>(() => getStoredReformOrders().length);
+  const [pendingReformCount, setPendingReformCount] = useState<number>(() => getStoredPendingReformTires().length);
+  const [devolucaoCount, setDevolucaoCount] = useState<number>(() => getStoredNotasDevolucao().length);
+
+  // Escuta gatilho vindo da Gestão de Frotas ('colaca_silagem_abrir_pedido_reforma')
+  useEffect(() => {
+    const checkTrigger = () => {
+      try {
+        const flag = localStorage.getItem('colaca_silagem_abrir_pedido_reforma');
+        if (flag === 'true') {
+          setActiveFiscalSubTab('pedidos_reforma');
+        }
+      } catch {}
+    };
+    checkTrigger();
+    window.addEventListener('colaca_silagem_abrir_pedido_reforma', checkTrigger);
+    window.addEventListener('storage', checkTrigger);
+    return () => {
+      window.removeEventListener('colaca_silagem_abrir_pedido_reforma', checkTrigger);
+      window.removeEventListener('storage', checkTrigger);
+    };
+  }, []);
+
+  // Sincronização reativa dos contadores das abas
+  useEffect(() => {
+    const handleCountUpdate = () => {
+      setReformOrdersCount(getStoredReformOrders().length);
+      setPendingReformCount(getStoredPendingReformTires().length);
+      setDevolucaoCount(getStoredNotasDevolucao().length);
+    };
+    window.addEventListener('storage', handleCountUpdate);
+    window.addEventListener('colaca_silagem_pedidos_reforma_updated', handleCountUpdate);
+    window.addEventListener('colaca_silagem_abrir_pedido_reforma', handleCountUpdate);
+    window.addEventListener('colaca_silagem_notas_devolucao_updated', handleCountUpdate);
+    return () => {
+      window.removeEventListener('storage', handleCountUpdate);
+      window.removeEventListener('colaca_silagem_pedidos_reforma_updated', handleCountUpdate);
+      window.removeEventListener('colaca_silagem_abrir_pedido_reforma', handleCountUpdate);
+      window.removeEventListener('colaca_silagem_notas_devolucao_updated', handleCountUpdate);
+    };
+  }, []);
+
   // Estado dedicado reativo para Notas Fiscais Lançadas (NF-e) - Unicidade estrita de 1 linha por NF
   const [notasLancadas, setNotasLancadas] = useState<Expense[]>(() => {
     const list = (expenses && expenses.length > 0) ? expenses : getStoredExpenses();
@@ -4977,6 +5027,76 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
         </div>
       </div>
 
+      {/* 2. Barra de Navegação Superior com Abas Adicionais (Requisito 3 - Print 2) */}
+      <div className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-850 rounded-xl border border-stone-200 dark:border-stone-800">
+        <button
+          type="button"
+          id="tab-fiscal-notas-entradas"
+          onClick={() => setActiveFiscalSubTab('notas')}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+            activeFiscalSubTab === 'notas'
+              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs ring-1 ring-stone-300 dark:ring-stone-600'
+              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+          <span>Notas e Entradas</span>
+          <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-600 text-[10px] font-bold">
+            {unifiedEntries.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          id="tab-fiscal-pedidos-reforma"
+          onClick={() => setActiveFiscalSubTab('pedidos_reforma')}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+            activeFiscalSubTab === 'pedidos_reforma'
+              ? 'bg-white dark:bg-stone-700 text-amber-700 dark:text-amber-300 shadow-xs ring-1 ring-amber-400/60'
+              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+          }`}
+        >
+          <Wrench className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span>Pedidos de Reforma</span>
+          {pendingReformCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 text-[10px] font-black animate-pulse">
+              {pendingReformCount} novo(s)
+            </span>
+          )}
+          <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-600 text-[10px] font-bold">
+            {reformOrdersCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          id="tab-fiscal-notas-devolucao"
+          onClick={() => setActiveFiscalSubTab('devolucao')}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer select-none ${
+            activeFiscalSubTab === 'devolucao'
+              ? 'bg-white dark:bg-stone-700 text-rose-700 dark:text-rose-300 shadow-xs ring-1 ring-rose-400/60'
+              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+          }`}
+        >
+          <ArrowDownLeft className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+          <span>Notas de Devolução</span>
+          <span className="px-1.5 py-0.2 rounded-md bg-stone-200 dark:bg-stone-600 text-[10px] font-bold">
+            {devolucaoCount}
+          </span>
+        </button>
+      </div>
+
+      {/* Renderização Condicional das Sub-Abas do Módulo */}
+      {activeFiscalSubTab === 'pedidos_reforma' ? (
+        <TireReformOrderView 
+          companyProfile={companyProfile}
+          initialCreateMode={localStorage.getItem('colaca_silagem_abrir_pedido_reforma') === 'true' || pendingReformCount > 0}
+        />
+      ) : activeFiscalSubTab === 'devolucao' ? (
+        <DevolucaoNotasView companyProfile={companyProfile} />
+      ) : (
+        /* Conteúdo padrão de Notas e Entradas */
+        <>
       {successMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center space-x-2.5 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-semibold animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -7806,6 +7926,9 @@ export const NfeModule: React.FC<NfeModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      </>
       )}
 
       {/* ========================================================================= */}
